@@ -1,0 +1,17 @@
+[package]
+name = "node"
+version = "0.1.0"
+edition = "2021"
+authors = ["miden contributors"]
+keywords = ["miden", "node", "program"]
+rust-version = "1.67"
+
+[dependencies]
+prost = { version = "0.11" }
+tonic = { version = "0.9" }
+
+[build-dependencies]
+tonic-build = { version = "0.9" }
+protox = { version = "0.4" }
+prost = { version = "0.11" }
+miette = { version = "5.9", features = ["fancy"] }

@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+import "trees.proto";
+
+// The account type.
+//
+// Every account has a designed type that can be inferred from the account id.
+enum AccountType {
+    RegularAccountImmutableCode = 0;
+    RegularAccountUpdatableCode = 1;
+    FungibleFaucet = 2;
+    NonFungibleFaucet = 3;
+}
+
+// A Miden account.
+message AccountId {
+    // A miden account is defined with a little bit of proof-of-work, the id itself
+    // is defined as the first word of a hash digest. For this reason account ids
+    // can be considered as random values, because of that the encoding bellow uses
+    // fixed 64 bits, instead of zig-zag encoding.
+    fixed64 id = 1;
+
+    // This enum exists to decouple the internal representation of the account id
+    // from its type, and to make handling of the account type a bit easier (i.e.
+    // no need for bitmasking).
+    AccountType type = 2;
+}
+
+// A MASM procedure
+message Procedure {
+    int32 num_locals = 1; 
+    bytes code = 2;
+}
+
+message AccountCode {
+    repeated Procedure procedures = 1;
+}
+
+message Account {
+    AccountId account_id = 1;
+    int64 nonce = 2;
+
+    // The account vault store all its assets
+    MerkleMap vault = 3;
+
+    // Account data, these entries correspond to the leaves of the merkle trees.
+    MerkleTree storage = 4;
+
+    AccountCode code = 5;
+}

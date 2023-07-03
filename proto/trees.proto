@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+import "hash.proto";
+
+// A key value pair used to define leaves of sparse merkle tree.
+message Item {
+    // When assigning this data structure into a Sparse Merkle Tree, only the
+    // first 64bits are used as a key.
+    Digest key = 1;
+    Digest value = 2;
+}
+
+// The data of a merkle mapping, to be materialzied as a sparse merkle tree.
+//
+// Note: this representation does not support partial view.
+message MerkleMap {
+    repeated Item items = 1;
+}
+
+// The data of a merkle tree, to be materialzied as a simple merkle tree.
+//
+// Note: this representation does not support partial view.
+message MerkleTree {
+    repeated Digest leaves = 1;
+}
