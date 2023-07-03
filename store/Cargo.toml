@@ -1,0 +1,37 @@
+[package]
+name = "miden-node-store"
+version = "0.1.0"
+authors = ["miden contributors"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/0xPolygonMiden/miden-node"
+keywords = ["miden", "node", "program", "store"]
+edition = "2021"
+rust-version = "1.67"
+
+[[bin]]
+name = "miden-store"
+path = "src/main.rs"
+bench = false
+doctest = false
+
+[dependencies]
+anyhow = { version = "1.0" }
+clap = { version = "4.3" , features = ["derive"] }
+directories = { version = "5.0" }
+figment = { version = "0.10", features = ["toml", "env"] }
+miden-node-proto = { path = "../proto" }
+miden-node-utils = { path = "../utils" }
+prost = { version = "0.11" }
+serde = { version = "1.0" , features = ["derive"] }
+tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
+toml = { version = "0.7" }
+tonic = { version = "0.9" }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3" , features = ["fmt"] }
+
+[build-dependencies]
+miette = { version = "5.9", features = ["fancy"] }
+prost = { version = "0.11" }
+protox = { version = "0.4" }
+tonic-build = { version = "0.9" }

@@ -1,0 +1,20 @@
+// Specification of the database RPC.
+//
+// This provided access to the rollup data to the other nodes.
+syntax = "proto3";
+package store;
+
+import "digest.proto";
+
+message CheckNullifiersRequest {
+    digest.Digest nullifier = 1;
+}
+
+message CheckNullifiersResponse {
+    bool result = 1;
+}
+
+service Api {
+    // Query for nullifiers.
+    rpc CheckNullifiers(stream CheckNullifiersRequest) returns (stream CheckNullifiersResponse) {}
+}
