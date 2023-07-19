@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "proto",
+    "rpc",
+    "store",
+    "utils",
+]
+resolver = "2"

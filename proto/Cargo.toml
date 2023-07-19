@@ -1,0 +1,20 @@
+[package]
+name = "miden-node-proto"
+version = "0.1.0"
+authors = ["miden contributors"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/0xPolygonMiden/miden-node"
+keywords = ["miden", "node", "program", "proto"]
+edition = "2021"
+rust-version = "1.67"
+
+[dependencies]
+prost = { version = "0.11" }
+tonic = { version = "0.9" }
+
+[build-dependencies]
+miette = { version = "5.9", features = ["fancy"] }
+prost = { version = "0.11" }
+protox = { version = "0.4" }
+tonic-build = { version = "0.9" }
