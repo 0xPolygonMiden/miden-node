@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-figment = { version = "0.10", features = ["toml", "env"] }
+anyhow = { version = "1.0" }
 directories = { version = "5.0" }
+figment = { version = "0.10", features = ["toml", "env"] }
+serde = { version = "1.0" , features = ["derive"] }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" , features = ["fmt"] }
-anyhow = { version = "1.0" }
-serde = { version = "1.0" , features = ["derive"] }

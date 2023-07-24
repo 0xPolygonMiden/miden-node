@@ -9,6 +9,9 @@ pub struct Cli {
     #[arg(short, long, value_name = "FILE", default_value = config::CONFIG_FILENAME)]
     pub config: Option<PathBuf>,
 
+    #[arg(short, long, value_name = "SQLITE_FILE")]
+    pub sqlite: Option<PathBuf>,
+
     #[command(subcommand)]
     pub command: Command,
 }
