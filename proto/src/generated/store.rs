@@ -1,14 +1,18 @@
+#[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersRequest {
-    #[prost(message, optional, tag = "1")]
-    pub nullifier: ::core::option::Option<super::digest::Digest>,
+    #[prost(message, repeated, tag = "1")]
+    pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
+#[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersResponse {
-    #[prost(bool, tag = "1")]
-    pub result: bool,
+    /// Each requested nullifier has its corresponding nullifier proof at the
+    /// same position.
+    #[prost(message, repeated, tag = "1")]
+    pub proofs: ::prost::alloc::vec::Vec<super::tsmt::NullifierProof>,
 }
 /// Generated client implementations.
 pub mod api_client {
@@ -95,14 +99,11 @@ pub mod api_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
-        /// Query for nullifiers.
         pub async fn check_nullifiers(
             &mut self,
-            request: impl tonic::IntoStreamingRequest<
-                Message = super::CheckNullifiersRequest,
-            >,
+            request: impl tonic::IntoRequest<super::CheckNullifiersRequest>,
         ) -> std::result::Result<
-            tonic::Response<tonic::codec::Streaming<super::CheckNullifiersResponse>>,
+            tonic::Response<super::CheckNullifiersResponse>,
             tonic::Status,
         > {
             self.inner
@@ -118,9 +119,9 @@ pub mod api_client {
             let path = http::uri::PathAndQuery::from_static(
                 "/store.Api/CheckNullifiers",
             );
-            let mut req = request.into_streaming_request();
+            let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "CheckNullifiers"));
-            self.inner.streaming(req, path, codec).await
+            self.inner.unary(req, path, codec).await
         }
     }
 }
@@ -131,18 +132,11 @@ pub mod api_server {
     /// Generated trait containing gRPC methods that should be implemented for use with ApiServer.
     #[async_trait]
     pub trait Api: Send + Sync + 'static {
-        /// Server streaming response type for the CheckNullifiers method.
-        type CheckNullifiersStream: futures_core::Stream<
-                Item = std::result::Result<super::CheckNullifiersResponse, tonic::Status>,
-            >
-            + Send
-            + 'static;
-        /// Query for nullifiers.
         async fn check_nullifiers(
             &self,
-            request: tonic::Request<tonic::Streaming<super::CheckNullifiersRequest>>,
+            request: tonic::Request<super::CheckNullifiersRequest>,
         ) -> std::result::Result<
-            tonic::Response<Self::CheckNullifiersStream>,
+            tonic::Response<super::CheckNullifiersResponse>,
             tonic::Status,
         >;
     }
@@ -230,19 +224,16 @@ pub mod api_server {
                     struct CheckNullifiersSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
-                    > tonic::server::StreamingService<super::CheckNullifiersRequest>
+                    > tonic::server::UnaryService<super::CheckNullifiersRequest>
                     for CheckNullifiersSvc<T> {
                         type Response = super::CheckNullifiersResponse;
-                        type ResponseStream = T::CheckNullifiersStream;
                         type Future = BoxFuture<
-                            tonic::Response<Self::ResponseStream>,
+                            tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                tonic::Streaming<super::CheckNullifiersRequest>,
-                            >,
+                            request: tonic::Request<super::CheckNullifiersRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -269,7 +260,7 @@ pub mod api_server {
                                 max_decoding_message_size,
                                 max_encoding_message_size,
                             );
-                        let res = grpc.streaming(method, req).await;
+                        let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

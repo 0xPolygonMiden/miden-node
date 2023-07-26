@@ -1,20 +1,22 @@
-// Specification of the database RPC.
+// Specification of the store RPC.
 //
 // This provided access to the rollup data to the other nodes.
 syntax = "proto3";
 package store;
 
 import "digest.proto";
+import "tsmt.proto";
 
 message CheckNullifiersRequest {
-    digest.Digest nullifier = 1;
+    repeated digest.Digest nullifiers = 1;
 }
 
 message CheckNullifiersResponse {
-    bool result = 1;
+    // Each requested nullifier has its corresponding nullifier proof at the
+    // same position.
+    repeated tsmt.NullifierProof proofs = 1;
 }
 
 service Api {
-    // Query for nullifiers.
-    rpc CheckNullifiers(stream CheckNullifiersRequest) returns (stream CheckNullifiersResponse) {}
+    rpc CheckNullifiers(CheckNullifiersRequest) returns (CheckNullifiersResponse) {}
 }

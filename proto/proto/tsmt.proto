@@ -1,0 +1,41 @@
+// Message definitions related to Tiered Sparse Merkle Trees (TSMT).
+//
+// Notes about TSMT:
+// - The tree is a key value store, both are digest values.
+// - The key's most significant element is used to deterministically assign the
+//   pair to one of the tree's entries.
+// - The tree is denominated tiered because entries are only possible at
+//   specific tiers, each tier corresponding to a depth (16/32/48/64).
+// - The key's most significant quibbles (16 bits), are used to determine the
+//   pair's entry at a given tier.
+// - Depths 16/32/48 contain at most one value. Pair collision on these tiers
+//   causes them to to be pushed to lower tiers.
+// - The depth 64 may store a list of entries. The entries are stored in sorted
+//   order, determined by their keys.
+// - The tree supports non-inclusion proofs. Achieved with a merkle path and
+//   the absenced of the key in the opened leaf.
+// - The tree is initialized with null word [0,0,0,0] for the leaves.
+syntax = "proto3";
+package tsmt;
+
+import "digest.proto";
+
+message NullifierLeaf {
+    digest.Digest key = 1;
+    uint64 value = 2;
+}
+
+// A Nullifier proof is a special case of a TSMT proof, where the leaf is a u32.
+//
+// This proof supports both inclusion and non-inclusion proofs. This is an
+// inclusion proof if target key is in the `leaves` list, non-inclusion
+// otherwise.
+message NullifierProof {
+    // For depth 64 this may have multiple entries. The list is empty if there
+    // is no leaf. If the list is non empty, a check for the target value has
+    // to be done to determine if it is a inclusion or non-inclusion proof.
+    repeated NullifierLeaf leaves = 1;
+
+    // The merkle path authenticating the leaf values.
+    repeated digest.Digest merkle_path = 2;
+}

@@ -21,7 +21,7 @@ clap = { version = "4.3" , features = ["derive"] }
 deadpool-sqlite = { version = "0.5", features = ["rt_tokio_1"]}
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-crypto = { version = "0.6.0" }
+miden-crypto = { git = "https://github.com/0xPolygonMiden/crypto", branch = "next" }
 miden-node-proto = { path = "../proto" }
 miden-node-utils = { path = "../utils" }
 once_cell = { version = "1.18.0" }

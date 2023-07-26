@@ -4,6 +4,16 @@ use hex::{FromHex, ToHex};
 
 pub const DIGEST_DATA_SIZE: usize = 32;
 
+impl ToHex for &Digest {
+    fn encode_hex<T: std::iter::FromIterator<char>>(&self) -> T {
+        (*self).encode_hex()
+    }
+
+    fn encode_hex_upper<T: std::iter::FromIterator<char>>(&self) -> T {
+        (*self).encode_hex_upper()
+    }
+}
+
 impl ToHex for Digest {
     fn encode_hex<T: std::iter::FromIterator<char>>(&self) -> T {
         let mut data: Vec<char> = Vec::with_capacity(DIGEST_DATA_SIZE);
