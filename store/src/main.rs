@@ -1,25 +1,27 @@
-pub mod cli;
-pub mod config;
-pub mod server;
-use miden_node_utils::Config;
-
+mod cli;
+mod config;
+mod db;
+mod migrations;
+mod server;
+mod types;
+use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Command};
-use server::api;
 use config::StoreConfig;
-use anyhow::Result;
+use miden_node_utils::Config;
+use db::Db;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     miden_node_utils::logging::setup_logging()?;
 
     let cli = Cli::parse();
-
-    let config = StoreConfig::load_config(cli.config.as_deref()).extract()?;
+    let config: StoreConfig = StoreConfig::load_config(cli.config.as_deref()).extract()?;
+    let db = Db::get_conn(config.clone()).await?;
 
     match cli.command {
         Command::Serve { .. } => {
-            api::serve(config).await?;
+            server::api::serve(config, db).await?;
         }
     }
 
