@@ -23,10 +23,7 @@ impl Db {
 
         let conn = pool.get().await?;
 
-        info!(
-            sqlite = format!("{}", config.sqlite.display()),
-            "Connected to the DB",
-        );
+        info!(sqlite = format!("{}", config.sqlite.display()), "Connected to the DB");
 
         conn.interact(|conn| migrations::MIGRATIONS.to_latest(conn))
             .await
@@ -49,7 +46,7 @@ impl Db {
                             let mut reader = SliceReader::new(data);
                             RpoDigest::read_from(&mut reader)
                                 .map_err(|_| anyhow!("Decoding nullifier from DB failed"))?
-                        }
+                        },
                         _ => unreachable!(),
                     };
                     let block_number = row.get(1)?;

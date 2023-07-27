@@ -8,8 +8,8 @@ use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Command};
 use config::StoreConfig;
-use miden_node_utils::Config;
 use db::Db;
+use miden_node_utils::Config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::Serve { .. } => {
             server::api::serve(config, db).await?;
-        }
+        },
     }
 
     Ok(())

@@ -30,36 +30,28 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifiers = db.get_nullifiers().await?;
     let len = nullifiers.len();
     let leaves = nullifiers.into_iter().map(|(nullifier, block)| {
-        (
-            nullifier,
-            [Felt::new(block), Felt::ZERO, Felt::ZERO, Felt::ZERO],
-        )
+        (nullifier, [Felt::new(block), Felt::ZERO, Felt::ZERO, Felt::ZERO])
     });
 
     let now = Instant::now();
     let nullifier_tree = TieredSmt::with_leaves(leaves)?;
     let elapsed = now.elapsed().as_secs();
 
-    info!(
-        num_of_leaves = len,
-        tree_construction = elapsed,
-        "Loaded nullifier tree"
-    );
+    info!(num_of_leaves = len, tree_construction = elapsed, "Loaded nullifier tree");
     Ok(nullifier_tree)
 }
 
-pub async fn serve(config: StoreConfig, mut db: Db) -> Result<()> {
+pub async fn serve(
+    config: StoreConfig,
+    mut db: Db,
+) -> Result<()> {
     let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
     let nullifier_tree = load_nullifier_tree(&mut db).await?;
     let db = store::api_server::ApiServer::new(StoreApi { db, nullifier_tree });
 
-    info!(
-        host = config.endpoint.host,
-        port = config.endpoint.port,
-        "Server initialized",
-    );
+    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
     Server::builder().add_service(db).serve(addrs[0]).await?;
 
     Ok(())
