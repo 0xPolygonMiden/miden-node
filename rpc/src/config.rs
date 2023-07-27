@@ -35,7 +35,10 @@ impl Default for Endpoint {
 }
 
 impl Display for Endpoint {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{}:{}", self.host, self.port)
     }
 }

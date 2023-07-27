@@ -25,9 +25,7 @@ pub trait Config: Default + Serialize {
     }
 
     fn load_local_config(config: Option<&Path>) -> Figment {
-        Figment::from(Toml::file(
-            config.unwrap_or(Path::new(Self::CONFIG_FILENAME)),
-        ))
+        Figment::from(Toml::file(config.unwrap_or(Path::new(Self::CONFIG_FILENAME))))
     }
 
     fn load_env_config() -> Figment {

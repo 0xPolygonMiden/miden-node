@@ -3,11 +3,11 @@ pub mod config;
 pub mod server;
 use miden_node_utils::Config;
 
+use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Command};
-use server::api;
 use config::RpcConfig;
-use anyhow::Result;
+use server::api;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::Serve { .. } => {
             api::serve(config).await?;
-        }
+        },
     }
 
     Ok(())
