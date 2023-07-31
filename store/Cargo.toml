@@ -10,7 +10,7 @@ edition = "2021"
 rust-version = "1.67"
 
 [[bin]]
-name = "miden-store"
+name = "miden-node-store"
 path = "src/main.rs"
 bench = false
 doctest = false
