@@ -22,7 +22,7 @@ fn main() -> miette::Result<()> {
     tonic_build::configure()
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
-        .out_dir("src")
+        .out_dir("src/generated")
         .compile(protos, includes)
         .into_diagnostic()?;
 
