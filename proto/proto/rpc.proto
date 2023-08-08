@@ -1,19 +1,20 @@
 // Specification of the user facing gRPC API.
-//
-// This server is a thin layer over the other services, it will mostly forward
-// requests downstream.
 syntax = "proto3";
 package rpc;
 
 import "digest.proto";
+import "tsmt.proto";
 
-// Server response. The format of the data depends on the endpoint, it is the
-// responsability of the client to decode the data form its original format.
-message ResponseBytes {
-    bytes data = 1;
+message CheckNullifiersRequest {
+    repeated digest.Digest nullifiers = 1;
+}
+
+message CheckNullifiersResponse {
+    // Each requested nullifier has its corresponding nullifier proof at the
+    // same position.
+    repeated tsmt.NullifierProof proofs = 1;
 }
 
 service Api {
-    // Query for nullifiers.
-    rpc CheckNullifiers(stream digest.Digest) returns (stream ResponseBytes) {}
+    rpc CheckNullifiers(CheckNullifiersRequest) returns (CheckNullifiersResponse) {}
 }

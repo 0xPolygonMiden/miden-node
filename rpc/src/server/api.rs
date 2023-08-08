@@ -1,36 +1,56 @@
 use crate::config::RpcConfig;
 use anyhow::Result;
-use miden_node_proto::{digest, rpc, store::api_client};
-use std::{net::ToSocketAddrs, sync::Arc};
+use miden_crypto::hash::rpo::RpoDigest;
+use miden_node_proto::{
+    rpc::{self, CheckNullifiersRequest, CheckNullifiersResponse},
+    store::{self, api_client},
+};
+use std::net::ToSocketAddrs;
 use tonic::{
     transport::{Channel, Error, Server},
-    Request, Response, Status, Streaming,
+    Request, Response, Status,
 };
 use tracing::info;
 
 pub struct RpcApi {
-    store: Arc<api_client::ApiClient<Channel>>,
+    store: api_client::ApiClient<Channel>,
 }
 
 impl RpcApi {
     async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
         let client = api_client::ApiClient::connect(config.store.clone()).await?;
         info!(store = config.store, "Store client initialized",);
-        Ok(Self {
-            store: Arc::new(client),
-        })
+        Ok(Self { store: client })
     }
 }
 
 #[tonic::async_trait]
 impl rpc::api_server::Api for RpcApi {
-    type CheckNullifiersStream = Streaming<rpc::ResponseBytes>;
-
     async fn check_nullifiers(
         &self,
-        _request: Request<Streaming<digest::Digest>>,
-    ) -> Result<Response<Self::CheckNullifiersStream>, Status> {
-        todo!()
+        request: Request<CheckNullifiersRequest>,
+    ) -> Result<Response<CheckNullifiersResponse>, Status> {
+        let user_request = request.into_inner();
+
+        // validate all the nullifiers from the user request
+        for nullifier in user_request.nullifiers.iter() {
+            let _: RpoDigest = nullifier
+                .try_into()
+                .or(Err(Status::invalid_argument("Digest field is not in the modulos range")))?;
+        }
+
+        let store_response = self
+            .store
+            .clone()
+            .check_nullifiers(Request::new(store::CheckNullifiersRequest {
+                nullifiers: user_request.nullifiers,
+            }))
+            .await?
+            .into_inner();
+
+        Ok(Response::new(rpc::CheckNullifiersResponse {
+            proofs: store_response.proofs,
+        }))
     }
 }
 
@@ -41,7 +61,7 @@ pub async fn serve(config: RpcConfig) -> Result<()> {
     let api = RpcApi::from_config(&config).await?;
     let rpc = rpc::api_server::ApiServer::new(api);
 
-    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
+    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized");
 
     Server::builder().add_service(rpc).serve(addrs[0]).await?;
 

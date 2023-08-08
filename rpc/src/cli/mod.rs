@@ -2,4 +2,4 @@ mod cli;
 
 // RE-EXPORTS
 // ------------------------------------------------------------------------------------------------
-pub use cli::{Cli, Command};
+pub use cli::{Cli, Command, Request};

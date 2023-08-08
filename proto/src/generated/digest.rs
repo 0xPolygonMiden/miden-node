@@ -1,4 +1,5 @@
 /// A hash digest, the result of a hash function.
+#[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Digest {

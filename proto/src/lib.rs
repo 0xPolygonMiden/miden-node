@@ -1,3 +1,4 @@
+mod conversion;
 pub mod error;
 mod generated;
 pub mod hex;
@@ -7,3 +8,4 @@ pub mod hex;
 pub use generated::digest;
 pub use generated::rpc;
 pub use generated::store;
+pub use generated::tsmt;
