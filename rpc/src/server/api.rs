@@ -2,7 +2,10 @@ use crate::config::RpcConfig;
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
-    rpc::{self, CheckNullifiersRequest, CheckNullifiersResponse},
+    rpc::{
+        api_server, CheckNullifiersRequest, CheckNullifiersResponse,
+        FetchBlockHeaderByNumberRequest, FetchBlockHeaderByNumberResponse,
+    },
     store::{self, api_client},
 };
 use std::net::ToSocketAddrs;
@@ -25,7 +28,7 @@ impl RpcApi {
 }
 
 #[tonic::async_trait]
-impl rpc::api_server::Api for RpcApi {
+impl api_server::Api for RpcApi {
     async fn check_nullifiers(
         &self,
         request: Request<CheckNullifiersRequest>,
@@ -48,8 +51,28 @@ impl rpc::api_server::Api for RpcApi {
             .await?
             .into_inner();
 
-        Ok(Response::new(rpc::CheckNullifiersResponse {
+        Ok(Response::new(CheckNullifiersResponse {
             proofs: store_response.proofs,
+        }))
+    }
+
+    async fn fetch_block_header_by_number(
+        &self,
+        request: Request<FetchBlockHeaderByNumberRequest>,
+    ) -> Result<Response<FetchBlockHeaderByNumberResponse>, Status> {
+        let user_request = request.into_inner();
+
+        let store_response = self
+            .store
+            .clone()
+            .fetch_block_header_by_number(Request::new(store::FetchBlockHeaderByNumberRequest {
+                block_num: user_request.block_num,
+            }))
+            .await?
+            .into_inner();
+
+        Ok(Response::new(FetchBlockHeaderByNumberResponse {
+            block_header: store_response.block_header,
         }))
     }
 }
@@ -59,7 +82,7 @@ pub async fn serve(config: RpcConfig) -> Result<()> {
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
     let api = RpcApi::from_config(&config).await?;
-    let rpc = rpc::api_server::ApiServer::new(api);
+    let rpc = api_server::ApiServer::new(api);
 
     info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized");
 
