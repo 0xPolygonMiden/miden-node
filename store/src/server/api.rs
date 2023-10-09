@@ -1,11 +1,13 @@
 use crate::config::StoreConfig;
 use crate::db::Db;
 use anyhow::Result;
-use miden_crypto::StarkField;
-use miden_crypto::{hash::rpo::RpoDigest, merkle::TieredSmt, Felt, FieldElement};
-use miden_node_proto::digest::Digest;
+use miden_crypto::{hash::rpo::RpoDigest, merkle::TieredSmt, Felt, FieldElement, StarkField};
 use miden_node_proto::{
-    store::{self, CheckNullifiersResponse},
+    digest::Digest,
+    store::{
+        api_server, CheckNullifiersRequest, CheckNullifiersResponse,
+        FetchBlockHeaderByNumberRequest, FetchBlockHeaderByNumberResponse,
+    },
     tsmt::{self, NullifierLeaf},
 };
 use std::{net::ToSocketAddrs, sync::Arc};
@@ -19,10 +21,10 @@ pub struct StoreApi {
 }
 
 #[tonic::async_trait]
-impl store::api_server::Api for StoreApi {
+impl api_server::Api for StoreApi {
     async fn check_nullifiers(
         &self,
-        request: tonic::Request<store::CheckNullifiersRequest>,
+        request: tonic::Request<CheckNullifiersRequest>,
     ) -> Result<Response<CheckNullifiersResponse>, Status> {
         // Validate the nullifiers and convert them to RpoDigest values. Stop on first error.
         let nullifiers = request
@@ -63,6 +65,20 @@ impl store::api_server::Api for StoreApi {
 
         Ok(Response::new(CheckNullifiersResponse { proofs }))
     }
+
+    async fn fetch_block_header_by_number(
+        &self,
+        request: tonic::Request<FetchBlockHeaderByNumberRequest>,
+    ) -> Result<Response<FetchBlockHeaderByNumberResponse>, Status> {
+        let request = request.into_inner();
+        let block_header = self
+            .db
+            .get_block_header(request.block_num)
+            .await
+            .map_err(|err| Status::internal(format!("{:?}", err)))?;
+
+        Ok(Response::new(FetchBlockHeaderByNumberResponse { block_header }))
+    }
 }
 
 #[instrument(skip(db))]
@@ -74,7 +90,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     });
 
     let now = Instant::now();
-    let nullifier_tree = TieredSmt::with_leaves(leaves)?;
+    let nullifier_tree = TieredSmt::with_entries(leaves)?;
     let elapsed = now.elapsed().as_secs();
 
     info!(num_of_leaves = len, tree_construction = elapsed, "Loaded nullifier tree");
@@ -90,7 +106,7 @@ pub async fn serve(
 
     let tree_data = load_nullifier_tree(&mut db).await?;
     let tree_lock = Arc::new(RwLock::new(tree_data));
-    let db = store::api_server::ApiServer::new(StoreApi {
+    let db = api_server::ApiServer::new(StoreApi {
         db,
         nullifier_tree: tree_lock,
     });

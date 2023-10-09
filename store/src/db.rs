@@ -5,6 +5,8 @@ use miden_crypto::{
     hash::rpo::RpoDigest,
     utils::{Deserializable, SliceReader},
 };
+use miden_node_proto::block_header::BlockHeader;
+use prost::Message;
 use std::fs::create_dir_all;
 use tracing::info;
 
@@ -32,7 +34,7 @@ impl Db {
         Ok(Db { pool })
     }
 
-    pub async fn get_nullifiers(&mut self) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
+    pub async fn get_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
         self.pool
             .get()
             .await?
@@ -57,5 +59,37 @@ impl Db {
             })
             .await
             .map_err(|_| anyhow!("Get nullifiers task failed with a panic"))?
+    }
+
+    pub async fn get_block_header(
+        &self,
+        block_number: Option<u64>,
+    ) -> Result<Option<BlockHeader>, anyhow::Error> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| {
+                let mut stmt;
+                let mut rows = match block_number {
+                    Some(block_number) => {
+                        stmt = conn.prepare("SELECT block_header FROM block_header WHERE block_number = ?1")?;
+                        stmt.query([block_number])?
+                    },
+                    None => {
+                        stmt = conn.prepare("SELECT block_header FROM block_header ORDER BY block_number DESC LIMIT 1")?;
+                        stmt.query([])?
+                    },
+                };
+
+                match rows.next()? {
+                    Some(row) =>  {
+                        let data = row.get_ref_unwrap(0).as_blob()?;
+                        Ok(Some(BlockHeader::decode(data)?))
+                    },
+                    None => Ok(None),
+                }
+            })
+            .await
+            .map_err(|_| anyhow!("Get block header task failed with a panic"))?
     }
 }

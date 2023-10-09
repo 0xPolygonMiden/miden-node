@@ -5,6 +5,7 @@ pub mod hex;
 
 // RE-EXPORTS
 // ------------------------------------------------------------------------------------------------
+pub use generated::block_header;
 pub use generated::digest;
 pub use generated::rpc;
 pub use generated::store;
