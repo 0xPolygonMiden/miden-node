@@ -61,6 +61,7 @@ impl<H: BatcherTaskHandle> BatcherTask<H> {
     }
 
     async fn on_notify_send_batch(&mut self) {
+        println!("NOTIFICATION");
         let batch: TxBatch = self.txs.drain(..).collect();
         self.handle.send_batch(batch).await.expect("Failed to send batch");
     }

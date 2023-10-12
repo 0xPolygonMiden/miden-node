@@ -2,7 +2,9 @@ use miden_air::{ExecutionProof, HashFunction};
 use miden_mock::constants::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN;
 use miden_objects::{accounts::AccountId, Digest};
 use tokio::time::sleep;
-use winterfell::{math::fields::f64::BaseElement, Prover, StarkProof, TraceTable};
+use winterfell::StarkProof;
+
+use crate::test_utils::dummy_stark_proof;
 
 use super::*;
 use std::{
@@ -27,13 +29,10 @@ struct MockTimerBatcherTaskHandle {
 
 impl Default for MockTimerBatcherTaskHandle {
     fn default() -> Self {
-        let prover = dummy_stark_proof::DummyProver::new();
-        let stark_proof = prover.prove(TraceTable::new(2, 8)).unwrap();
-
         Self {
             sent_batch: Default::default(),
             received_txs: Default::default(),
-            stark_proof,
+            stark_proof: dummy_stark_proof(),
         }
     }
 }
@@ -68,10 +67,12 @@ impl BatcherTaskHandle for MockTimerBatcherTaskHandle {
     async fn receive_tx(&self) -> Result<ProvenTransaction, Self::ReceiveError> {
         let num_txs_received = *self.received_txs.read().unwrap();
         if num_txs_received >= NUM_RECEIVE_TXS {
+            println!("SLEEPING FOREVER");
             // We already sent all our txs, so wait "forever"
             sleep(Duration::from_secs(60)).await;
             panic!("Sent all txs and waited for 1 minute");
         } else {
+            println!("SLEEPING INTERVAL");
             *self.received_txs.write().unwrap() += 1;
 
             sleep(Duration::from_millis(RECEIVE_INTERVAL_MS)).await;
@@ -87,92 +88,6 @@ impl BatcherTaskHandle for MockTimerBatcherTaskHandle {
         *self.sent_batch.write().unwrap() = txs;
 
         Ok(())
-    }
-}
-
-/// Adapted from `fib_small` example in winterfell
-mod dummy_stark_proof {
-    use super::BaseElement;
-    use winterfell::{
-        crypto::{hashers::Blake3_192, DefaultRandomCoin},
-        math::FieldElement,
-        Air, AirContext, Assertion, EvaluationFrame, FieldExtension, ProofOptions, Prover, Trace,
-        TraceInfo, TraceTable, TransitionConstraintDegree,
-    };
-
-    pub struct DummyAir {
-        context: AirContext<BaseElement>,
-    }
-
-    impl Air for DummyAir {
-        type BaseField = BaseElement;
-        type PublicInputs = BaseElement;
-
-        // CONSTRUCTOR
-        // --------------------------------------------------------------------------------------------
-        fn new(
-            trace_info: TraceInfo,
-            _pub_inputs: Self::BaseField,
-            options: ProofOptions,
-        ) -> Self {
-            let degrees =
-                vec![TransitionConstraintDegree::new(1), TransitionConstraintDegree::new(1)];
-            DummyAir {
-                context: AirContext::new(trace_info, degrees, 3, options),
-            }
-        }
-
-        fn context(&self) -> &AirContext<Self::BaseField> {
-            &self.context
-        }
-
-        fn evaluate_transition<E: FieldElement + From<Self::BaseField>>(
-            &self,
-            _frame: &EvaluationFrame<E>,
-            _periodic_values: &[E],
-            result: &mut [E],
-        ) {
-            // always accept
-            result[0] = E::ZERO;
-            result[1] = E::ZERO;
-        }
-
-        fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
-            // nothing
-            Vec::new()
-        }
-    }
-
-    pub struct DummyProver {
-        options: ProofOptions,
-    }
-
-    impl DummyProver {
-        pub fn new() -> Self {
-            Self {
-                options: ProofOptions::new(1, 2, 1, FieldExtension::None, 2, 127),
-            }
-        }
-    }
-
-    impl Prover for DummyProver {
-        type BaseField = BaseElement;
-        type Air = DummyAir;
-        type Trace = TraceTable<BaseElement>;
-        type HashFn = Blake3_192<BaseElement>;
-        type RandomCoin = DefaultRandomCoin<Self::HashFn>;
-
-        fn get_pub_inputs(
-            &self,
-            trace: &Self::Trace,
-        ) -> BaseElement {
-            let last_step = trace.length() - 1;
-            trace.get(1, last_step)
-        }
-
-        fn options(&self) -> &ProofOptions {
-            &self.options
-        }
     }
 }
 
