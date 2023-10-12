@@ -49,19 +49,20 @@ impl<H: BatcherTaskHandle> BatcherTask<H> {
     }
 
     pub async fn run(&mut self) {
-        tokio::select! {
-            _ = self.handle.wait_for_send_batch_notification() => {
-                self.on_notify_send_batch().await
-            }
-            proven_tx = self.handle.receive_tx() => {
-                let proven_tx = proven_tx.expect("Failed to receive tx");
-                self.on_receive_tx(proven_tx).await
+        loop {
+            tokio::select! {
+                _ = self.handle.wait_for_send_batch_notification() => {
+                    self.on_notify_send_batch().await
+                }
+                proven_tx = self.handle.receive_tx() => {
+                    let proven_tx = proven_tx.expect("Failed to receive tx");
+                    self.on_receive_tx(proven_tx).await
+                }
             }
         }
     }
 
     async fn on_notify_send_batch(&mut self) {
-        println!("NOTIFICATION");
         let batch: TxBatch = self.txs.drain(..).collect();
         self.handle.send_batch(batch).await.expect("Failed to send batch");
     }

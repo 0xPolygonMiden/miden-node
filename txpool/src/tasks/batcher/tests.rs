@@ -67,12 +67,10 @@ impl BatcherTaskHandle for MockTimerBatcherTaskHandle {
     async fn receive_tx(&self) -> Result<ProvenTransaction, Self::ReceiveError> {
         let num_txs_received = *self.received_txs.read().unwrap();
         if num_txs_received >= NUM_RECEIVE_TXS {
-            println!("SLEEPING FOREVER");
             // We already sent all our txs, so wait "forever"
             sleep(Duration::from_secs(60)).await;
             panic!("Sent all txs and waited for 1 minute");
         } else {
-            println!("SLEEPING INTERVAL");
             *self.received_txs.write().unwrap() += 1;
 
             sleep(Duration::from_millis(RECEIVE_INTERVAL_MS)).await;
