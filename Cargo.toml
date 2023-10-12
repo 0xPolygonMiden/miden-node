@@ -3,6 +3,7 @@ members = [
     "proto",
     "rpc",
     "store",
+    "txpool",
     "utils",
 ]
 resolver = "2"
