@@ -1,16 +1,27 @@
 use async_trait::async_trait;
 use core::fmt::Debug;
 use core::time::Duration;
+use miden_objects::BlockHeader;
 use tokio::time;
 
-use crate::TxBatch;
+use crate::{Block, BlockData, TxBatch};
+
+#[derive(Debug)]
+pub enum Error {}
 
 #[async_trait]
 pub trait BlockProducerTaskHandle {
     type RecvError: Debug;
+    type ApplyBlockError: Debug;
 
     /// Receive a new transaction batch
     async fn receive_tx_batch(&self) -> Result<TxBatch, Self::RecvError>;
+
+    /// Output the produced block
+    async fn apply_block(
+        &self,
+        block: Block,
+    ) -> Result<(), Self::ApplyBlockError>;
 }
 
 pub struct BlockProducerTaskOptions {
@@ -20,23 +31,30 @@ pub struct BlockProducerTaskOptions {
 
 pub async fn block_producer_task<H: BlockProducerTaskHandle>(
     handle: H,
+    prev_header: BlockHeader,
     options: BlockProducerTaskOptions,
 ) {
-    let mut task = BlockProducerTask::new(handle, options);
+    let mut task = BlockProducerTask::new(handle, prev_header, options);
     task.run().await
 }
 
 struct BlockProducerTask<H: BlockProducerTaskHandle> {
     handle: H,
+    prev_header: BlockHeader,
     options: BlockProducerTaskOptions,
 }
 
 impl<H: BlockProducerTaskHandle> BlockProducerTask<H> {
     pub fn new(
         handle: H,
+        prev_header: BlockHeader,
         options: BlockProducerTaskOptions,
     ) -> Self {
-        Self { handle, options }
+        Self {
+            handle,
+            prev_header,
+            options,
+        }
     }
 
     pub async fn run(&mut self) {
@@ -51,14 +69,25 @@ impl<H: BlockProducerTaskHandle> BlockProducerTask<H> {
                 .await
                 .expect("Failed to receive transaction batch");
 
-            self.produce_block(tx_batch).await;
+            let block = self.produce_block(tx_batch).await.expect("Error while producing block");
+
+            self.handle.apply_block(block).await.expect("Error while applying block");
         }
     }
 
     async fn produce_block(
         &self,
-        _tx_batch: TxBatch,
-    ) {
+        tx_batch: TxBatch,
+    ) -> Result<Block, Error> {
+        let updated_account_state_hashes: Vec<_> = tx_batch
+            .into_iter()
+            .map(|tx| (tx.account_id(), tx.final_account_hash()))
+            .collect();
+
+        let _block_body = BlockData {
+            updated_account_state_hashes,
+        };
+
         todo!()
     }
 }
