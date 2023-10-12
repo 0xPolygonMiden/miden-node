@@ -3,7 +3,12 @@ name = "txpool"
 version = "0.1.0"
 edition = "2021"
 
+[dev-dependencies]
+miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
+miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", default-features = false }
+winterfell = "0.6"
+
 [dependencies]
 async-trait = "0.1"
 miden_objects = { workspace = true }
-tokio = { version = "1.29", features = ["macros"] }
+tokio = { version = "1.29", features = ["rt-multi-thread", "macros", "time"] }
