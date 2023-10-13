@@ -1,7 +1,13 @@
 [package]
-name = "txpool"
+name = "miden-txpool"
 version = "0.1.0"
+authors = ["miden contributors"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/0xPolygonMiden/miden-node"
+keywords = ["miden", "node", "program", "store"]
 edition = "2021"
+rust-version = "1.67"
 
 [dev-dependencies]
 miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
