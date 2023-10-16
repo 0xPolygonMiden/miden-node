@@ -41,7 +41,7 @@ pub async fn tx_queue<HandleIn, HandleOut>(
     HandleIn: TxQueueHandleIn,
     HandleOut: TxQueueHandleOut,
 {
-    let mut queue_task = TxQueue::new(handle_in, handle_out, options);
+    let queue_task = TxQueue::new(handle_in, handle_out, options);
     queue_task.run().await
 }
 
@@ -74,16 +74,16 @@ where
         }
     }
 
-    pub async fn run(&self) {
+    pub async fn run(self) {
+        let tx_queue = Arc::new(self);
         loop {
             select! {
                 // Handle new transaction coming in
-                proven_tx = self.handle_in.read_transaction() => {
+                proven_tx = tx_queue.handle_in.read_transaction() => {
                     let proven_tx = proven_tx.expect("Failed to read transaction");
-                    let handle_out = self.handle_out.clone();
-                    let ready_queue = self.ready_queue.clone();
+                    let tx_queue = tx_queue.clone();
                     tokio::spawn(async move {
-                        on_read_transaction(handle_out, ready_queue, proven_tx).await
+                        on_read_transaction(tx_queue, proven_tx).await
                     });
                 }
             }
@@ -91,16 +91,17 @@ where
     }
 }
 
-async fn on_read_transaction<HandleOut>(
-    handle_out: Arc<HandleOut>,
-    ready_queue: Arc<Mutex<Vec<Arc<ProvenTransaction>>>>,
+async fn on_read_transaction<HandleIn, HandleOut>(
+    tx_queue: Arc<TxQueue<HandleIn, HandleOut>>,
     proven_tx: ProvenTransaction,
 ) where
+    HandleIn: TxQueueHandleIn,
     HandleOut: TxQueueHandleOut,
 {
     let proven_tx = Arc::new(proven_tx);
 
-    let verification_passed = handle_out
+    let verification_passed = tx_queue
+        .handle_out
         .verify_transaction(proven_tx.clone())
         .await
         .expect("Failed to verify transaction");
@@ -112,5 +113,6 @@ async fn on_read_transaction<HandleOut>(
     }
 
     // Transaction verification succeeded. It is safe to add transaction to queue.
-    ready_queue.lock().await.push(proven_tx);
+    let mut ready_queue = tx_queue.ready_queue.lock().await;
+    ready_queue.push(proven_tx);
 }
