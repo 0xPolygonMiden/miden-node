@@ -1,0 +1,20 @@
+[package]
+name = "miden-tx-pipeline"
+version = "0.1.0"
+authors = ["miden contributors"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/0xPolygonMiden/miden-node"
+keywords = ["miden", "node", "program", "store"]
+edition = "2021"
+rust-version = "1.67"
+
+[dev-dependencies]
+miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
+miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", default-features = false }
+winterfell = "0.6"
+
+[dependencies]
+async-trait = "0.1"
+miden_objects = { workspace = true }
+tokio = { version = "1.29", features = ["rt-multi-thread", "macros", "time"] }
