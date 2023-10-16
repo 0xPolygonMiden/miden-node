@@ -1,25 +1,27 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::fmt::Debug;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use concurrent_queue::ConcurrentQueue;
 use miden_objects::transaction::ProvenTransaction;
+use tokio::{select, sync::Mutex};
 
 #[async_trait]
-pub trait TxQueueHandleIn {
-    type ReadTxError;
+pub trait TxQueueHandleIn: Send + Sync + 'static {
+    type ReadTxError: Debug;
 
-    async fn read_transaction(&mut self) -> Result<ProvenTransaction, Self::ReadTxError>;
+    async fn read_transaction(&self) -> Result<ProvenTransaction, Self::ReadTxError>;
 }
 
 #[async_trait]
-pub trait TxQueueHandleOut {
-    type VerifyTxError;
-    type ProduceBatchError;
+pub trait TxQueueHandleOut: Send + Sync + 'static {
+    type VerifyTxError: Debug;
+    type TxVerificationFailureReason: Debug + Send;
+    type ProduceBatchError: Debug;
 
     async fn verify_transaction(
         &self,
         tx: Arc<ProvenTransaction>,
-    ) -> Result<(), Self::VerifyTxError>;
+    ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError>;
 
     async fn produce_batch(
         &self,
@@ -48,9 +50,9 @@ where
     HandleIn: TxQueueHandleIn,
     HandleOut: TxQueueHandleOut,
 {
-    queue: ConcurrentQueue<Arc<ProvenTransaction>>,
-    handle_in: HandleIn,
-    handle_out: HandleOut,
+    ready_queue: Arc<Mutex<Vec<Arc<ProvenTransaction>>>>,
+    handle_in: Arc<HandleIn>,
+    handle_out: Arc<HandleOut>,
     options: TxQueueOptions,
 }
 
@@ -65,14 +67,50 @@ where
         options: TxQueueOptions,
     ) -> Self {
         Self {
-            queue: ConcurrentQueue::unbounded(),
-            handle_in,
-            handle_out,
+            ready_queue: Arc::new(Mutex::new(Vec::new())),
+            handle_in: Arc::new(handle_in),
+            handle_out: Arc::new(handle_out),
             options,
         }
     }
 
-    pub async fn run(&mut self) {
-        todo!()
+    pub async fn run(&self) {
+        loop {
+            select! {
+                // Handle new transaction coming in
+                proven_tx = self.handle_in.read_transaction() => {
+                    let proven_tx = proven_tx.expect("Failed to read transaction");
+                    let handle_out = self.handle_out.clone();
+                    let ready_queue = self.ready_queue.clone();
+                    tokio::spawn(async move {
+                        on_read_transaction(handle_out, ready_queue, proven_tx).await
+                    });
+                }
+            }
+        }
     }
+}
+
+async fn on_read_transaction<HandleOut>(
+    handle_out: Arc<HandleOut>,
+    ready_queue: Arc<Mutex<Vec<Arc<ProvenTransaction>>>>,
+    proven_tx: ProvenTransaction,
+) where
+    HandleOut: TxQueueHandleOut,
+{
+    let proven_tx = Arc::new(proven_tx);
+
+    let verification_passed = handle_out
+        .verify_transaction(proven_tx.clone())
+        .await
+        .expect("Failed to verify transaction");
+
+    if let Err(failure_reason) = verification_passed {
+        // TODO: Log failure properly
+        println!("Transaction verification failed with reason: {failure_reason:?}");
+        return;
+    }
+
+    // Transaction verification succeeded. It is safe to add transaction to queue.
+    ready_queue.lock().await.push(proven_tx);
 }
