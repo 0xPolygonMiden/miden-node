@@ -27,14 +27,19 @@ pub trait TxQueueHandleOut {
     ) -> Result<(), Self::ProduceBatchError>;
 }
 
+pub struct TxQueueOptions {
+    pub batch_size: usize,
+}
+
 pub async fn tx_queue<HandleIn, HandleOut>(
     handle_in: HandleIn,
     handle_out: HandleOut,
+    options: TxQueueOptions,
 ) where
     HandleIn: TxQueueHandleIn,
     HandleOut: TxQueueHandleOut,
 {
-    let mut queue_task = TxQueue::new(handle_in, handle_out);
+    let mut queue_task = TxQueue::new(handle_in, handle_out, options);
     queue_task.run().await
 }
 
@@ -46,6 +51,7 @@ where
     queue: ConcurrentQueue<Arc<ProvenTransaction>>,
     handle_in: HandleIn,
     handle_out: HandleOut,
+    options: TxQueueOptions,
 }
 
 impl<HandleIn, HandleOut> TxQueue<HandleIn, HandleOut>
@@ -56,11 +62,13 @@ where
     pub fn new(
         handle_in: HandleIn,
         handle_out: HandleOut,
+        options: TxQueueOptions,
     ) -> Self {
         Self {
             queue: ConcurrentQueue::unbounded(),
             handle_in,
             handle_out,
+            options,
         }
     }
 
