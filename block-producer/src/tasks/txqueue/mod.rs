@@ -53,6 +53,8 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
         tx: Arc<ProvenTransaction>,
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError>;
 
+    // FIXME: Change type to encode the ordering
+    /// Send a batch, where the first index contains the first transaction. 
     async fn send_batch(
         &self,
         txs: Vec<Arc<ProvenTransaction>>,
@@ -168,6 +170,10 @@ where
         locked_ready_queue.push(proven_tx);
 
         if locked_ready_queue.len() >= self.options.batch_size {
+            // FIXME: Dropping the ready queue here means that 2 tasks could
+            // send a batch, where the first batch will contain `batch_size`
+            // transactions, and the second would contain only 1 transaction.
+            // This is low-risk and has little-to-no impact if it occurs.
             drop(locked_ready_queue);
 
             // We are sending a batch, so reset the timer
@@ -177,8 +183,6 @@ where
             let handle_out = self.handle_out.clone();
 
             tokio::spawn(send_batch(ready_queue, handle_out, self.options.batch_size));
-
-            // FIXME: think: What if 2 tasks get to this point before the queue is emptied?
         }
     }
 }
@@ -297,8 +301,6 @@ async fn send_batch<HandleOut: TxQueueHandleOut>(
         // drain `batch_size` txs from the queue and release the lock.
         let mut locked_ready_queue = ready_queue.lock().await;
 
-        // FIXME: IS THIS THE RIGHT ORDER? i.e. is it correct to take the
-        // *first* `batch_size` elements?
         let num_to_drain = min(batch_size, locked_ready_queue.len());
         locked_ready_queue.drain(..num_to_drain).collect()
     };
