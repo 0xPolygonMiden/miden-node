@@ -1,9 +1,11 @@
 // TODO: to test
 // 0. if tx validation fails, it is not added to the queue
 // 1. if batch size not full, timer procs and sends batch
-// 2. when batch size is full (before timer), batch is sent
 // 3. timer is reset when batch is sent from timer
 // 4. timer is reset when batch is sent from batch
+// 5. timer starts after *first* transaction enters queue
+// 6. Confirm that if batch size is 5, and 6 txs in queue, only 5 are removed from queue
+mod batch_sent;
 
 use super::*;
 use crate::test_utils::DummyProvenTxGenerator;
@@ -54,6 +56,7 @@ impl TxQueueHandleIn for HandleInInterval {
 }
 
 /// All transactions verify successfully. Records all sent batches.
+#[derive(Clone)]
 pub struct HandleOutDefault {
     // TODO: Simplify type
     pub batches: Arc<RwLock<Vec<Vec<Arc<ProvenTransaction>>>>>,
@@ -91,6 +94,7 @@ impl TxQueueHandleOut for HandleOutDefault {
 }
 
 /// All transactions fail verification. Records all sent batches.
+#[derive(Clone)]
 pub struct HandleOutFailVerification {
     // TODO: Simplify type
     pub batches: Arc<RwLock<Vec<Vec<Arc<ProvenTransaction>>>>>,

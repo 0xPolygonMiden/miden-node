@@ -46,7 +46,7 @@ pub struct TxQueueOptions {
     pub tx_max_time_in_queue: Duration,
 }
 
-pub async fn tx_queue<HandleIn, HandleOut>(
+pub async fn tx_queue_task<HandleIn, HandleOut>(
     handle_in: HandleIn,
     handle_out: HandleOut,
     options: TxQueueOptions,
