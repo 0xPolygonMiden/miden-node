@@ -12,7 +12,7 @@ async fn test_batch_full_sent() {
     let handle_in = {
         let num_txs_to_send = batch_size;
 
-        HandleInInterval::new(interval_duration, num_txs_to_send)
+        HandleInFixedInterval::new(interval_duration, num_txs_to_send)
     };
     let handle_out = HandleOutDefault::new();
 
@@ -45,7 +45,7 @@ async fn test_tx_verification_failure() {
     let handle_in = {
         let num_txs_to_send = batch_size;
 
-        HandleInInterval::new(interval_duration, num_txs_to_send)
+        HandleInFixedInterval::new(interval_duration, num_txs_to_send)
     };
     let handle_out = HandleOutFailVerification::new();
 
@@ -68,20 +68,16 @@ async fn test_tx_verification_failure() {
 /// due to the timer (which starts after the first transaction enters the
 /// queue).
 ///
-/// We set a batch size of 3, and send 2 transactions with 10ms interval delay.
-/// Transaction timer is set to 30ms. After 35ms delay, we confirm that the
-/// batch was sent. Checking after 35ms delay also ensures that the timer
-/// started after the first transaction (as opposed to possibly the second one).
+/// We set a batch size of 3, and send 2 transactions: after 0, and 20ms.
+/// Transaction timer is set to 30ms. After 40ms delay, we confirm that the
+/// batch was sent. This setup also ensures that the timer started after the
+/// first transaction (as opposed to possibly the second one).
 #[tokio::test]
 async fn test_timer_send_batch() {
-    let interval_duration: Duration = Duration::from_millis(10);
     let batch_size: usize = 3;
 
-    let handle_in = {
-        let num_txs_to_send = batch_size - 1;
-
-        HandleInInterval::new(interval_duration, num_txs_to_send)
-    };
+    let handle_in =
+        HandleInVariableInterval::new(vec![Duration::from_millis(0), Duration::from_millis(20)]);
     let handle_out = HandleOutDefault::new();
 
     tokio::spawn(tx_queue_task(
@@ -89,11 +85,11 @@ async fn test_timer_send_batch() {
         handle_out.clone(),
         TxQueueOptions {
             batch_size,
-            tx_max_time_in_queue: interval_duration * 3,
+            tx_max_time_in_queue: Duration::from_millis(30),
         },
     ));
 
-    time::sleep(batch_size as u32 * interval_duration + (interval_duration / 2)).await;
+    time::sleep(Duration::from_millis(40)).await;
 
     // Ensure that the batch was sent
     assert_eq!(handle_out.batches.read().await.len(), 1);
