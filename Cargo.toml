@@ -1,9 +1,9 @@
 [workspace]
 members = [
+    "block-producer",
     "proto",
     "rpc",
     "store",
-    "tx_pipeline",
     "utils",
 ]
 resolver = "2"

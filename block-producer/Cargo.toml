@@ -1,5 +1,5 @@
 [package]
-name = "miden-tx-pipeline"
+name = "miden-block-producer"
 version = "0.1.0"
 authors = ["miden contributors"]
 readme = "README.md"
