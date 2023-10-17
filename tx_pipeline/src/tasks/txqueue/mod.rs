@@ -86,18 +86,30 @@ where
 
     pub async fn run(self) {
         let tx_queue = Arc::new(self);
+        let timer_task_handle = start_timer_task(
+            tx_queue.ready_queue.clone(),
+            tx_queue.handle_out.clone(),
+            tx_queue.options.tx_max_time_in_queue,
+            tx_queue.options.batch_size,
+        );
+
         loop {
             // Handle new transaction coming in
             let proven_tx =
                 tx_queue.handle_in.read_transaction().await.expect("Failed to read transaction");
             let tx_queue = tx_queue.clone();
-            tokio::spawn(async move { tx_queue.on_read_transaction(proven_tx).await });
+            let timer_task_handle = timer_task_handle.clone();
+
+            tokio::spawn(async move {
+                tx_queue.on_read_transaction(proven_tx, timer_task_handle).await
+            });
         }
     }
 
     async fn on_read_transaction(
         self: Arc<TxQueue<HandleIn, HandleOut>>,
         proven_tx: ProvenTransaction,
+        timer_task_handle: TimerTaskHandle,
     ) {
         let proven_tx = Arc::new(proven_tx);
 
@@ -114,23 +126,31 @@ where
         }
 
         // Transaction verification succeeded. It is safe to add transaction to queue.
-        let mut ready_queue = self.ready_queue.lock().await;
+        let mut locked_ready_queue = self.ready_queue.lock().await;
 
-        if ready_queue.is_empty() {
-            // TODO: start sleep timer if empty
+        if locked_ready_queue.is_empty() {
+            timer_task_handle.start_timer();
         }
 
-        ready_queue.push(proven_tx);
+        locked_ready_queue.push(proven_tx);
 
-        if ready_queue.len() >= self.options.batch_size {
-            // TODO: call `produce_batch()` if full
-            // TODO: Also cancel timer
-            // FIXME: What if 2 tasks get to this point before the queue is emptied?
+        if locked_ready_queue.len() >= self.options.batch_size {
+            drop(locked_ready_queue);
+
+            // We are sending a batch, so reset the timer
+            timer_task_handle.stop_timer();
+
+            let ready_queue = self.ready_queue.clone();
+            let handle_out = self.handle_out.clone();
+
+            tokio::spawn(send_batch(ready_queue, handle_out, self.options.batch_size));
+
+            // FIXME: think: What if 2 tasks get to this point before the queue is emptied?
         }
     }
 }
 
-async fn start_timer_task<HandleOut: TxQueueHandleOut>(
+fn start_timer_task<HandleOut: TxQueueHandleOut>(
     ready_queue: ReadyQueue,
     handle_out: Arc<HandleOut>,
     tx_max_time_in_queue: Duration,
@@ -144,6 +164,8 @@ async fn start_timer_task<HandleOut: TxQueueHandleOut>(
     handle
 }
 
+// TODO: Find better names to indicate that this will also call `send_batch` at some point
+#[derive(Clone)]
 struct TimerTaskHandle {
     sender: UnboundedSender<TimerMessage>,
 }
@@ -203,13 +225,9 @@ where
         let mut sleep_duration = Duration::MAX;
 
         loop {
-            let timer: Sleep = sleep(sleep_duration);
+            let send_batch_timer: Sleep = sleep(sleep_duration);
 
             select! {
-                () = timer => {
-                    tokio::spawn(Self::send_batch(self.ready_queue.clone(), self.handle_out.clone(), self.batch_size));
-                    sleep_duration = Duration::MAX;
-                }
                 maybe_msg = self.receiver.recv() => {
                     let msg = maybe_msg.expect("Failed to receive on timer channel");
                     match msg {
@@ -217,27 +235,37 @@ where
                         TimerMessage::StopTimer => sleep_duration = Duration::MAX,
                     }
                 }
+                () = send_batch_timer => {
+                    tokio::spawn(send_batch(self.ready_queue.clone(), self.handle_out.clone(), self.batch_size));
+                    sleep_duration = Duration::MAX;
+                }
             }
         }
     }
+}
 
-    /// Drains the queue and sends the batch. This task is responsible for
-    /// ensuring that the batch is successfully sent, whether this requires
-    /// retries, or any other strategy.
-    async fn send_batch(
-        ready_queue: ReadyQueue,
-        handle_out: Arc<HandleOut>,
-        batch_size: usize,
-    ) {
-        let txs_in_batch: Vec<Arc<ProvenTransaction>> = {
-            // drain `batch_size` txs from the queue and release the lock.
-            let mut locked_ready_queue = ready_queue.lock().await;
+/// Drains the queue and sends the batch. This task is responsible for
+/// ensuring that the batch is successfully sent, whether this requires
+/// retries, or any other strategy.
+async fn send_batch<HandleOut: TxQueueHandleOut>(
+    ready_queue: ReadyQueue,
+    handle_out: Arc<HandleOut>,
+    batch_size: usize,
+) {
+    let txs_in_batch: Vec<Arc<ProvenTransaction>> = {
+        // drain `batch_size` txs from the queue and release the lock.
+        let mut locked_ready_queue = ready_queue.lock().await;
 
-            locked_ready_queue.drain(..batch_size).collect()
-        };
+        // FIXME: IS THIS THE RIGHT ORDER? i.e. is it correct to take the
+        // *first* `batch_size` elements?
+        locked_ready_queue.drain(..batch_size).collect()
+    };
 
-        // Panic for now if the send fails. In the future, we might want a more
-        // sophisticated strategy, such as retrying, or something else.
-        handle_out.send_batch(txs_in_batch).await.expect("Failed to send batch");
+    if txs_in_batch.is_empty() {
+        return;
     }
+
+    // Panic for now if the send fails. In the future, we might want a more
+    // sophisticated strategy, such as retrying, or something else.
+    handle_out.send_batch(txs_in_batch).await.expect("Failed to send batch");
 }
