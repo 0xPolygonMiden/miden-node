@@ -5,9 +5,8 @@
 // 3. timer is reset when batch is sent from timer
 // 4. timer is reset when batch is sent from batch
 
-use crate::test_utils::DummyProvenTxGenerator;
-
 use super::*;
+use crate::test_utils::DummyProvenTxGenerator;
 use std::{convert::Infallible, time::Duration};
 use tokio::{sync::RwLock, time};
 
@@ -51,5 +50,79 @@ impl TxQueueHandleIn for HandleInInterval {
         time::sleep(self.interval_duration).await;
 
         Ok(self.proven_tx_gen.dummy_proven_tx())
+    }
+}
+
+/// All transactions verify successfully. Records all sent batches.
+pub struct HandleOutDefault {
+    // TODO: Simplify type
+    pub batches: Arc<RwLock<Vec<Vec<Arc<ProvenTransaction>>>>>,
+}
+
+impl HandleOutDefault {
+    pub fn new() -> Self {
+        Self {
+            batches: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+}
+
+#[async_trait]
+impl TxQueueHandleOut for HandleOutDefault {
+    type VerifyTxError = Infallible;
+    type TxVerificationFailureReason = ();
+    type ProduceBatchError = Infallible;
+
+    async fn verify_transaction(
+        &self,
+        _tx: Arc<ProvenTransaction>,
+    ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError> {
+        Ok(Ok(()))
+    }
+
+    async fn send_batch(
+        &self,
+        txs: Vec<Arc<ProvenTransaction>>,
+    ) -> Result<(), Self::ProduceBatchError> {
+        self.batches.write().await.push(txs);
+
+        Ok(())
+    }
+}
+
+/// All transactions fail verification. Records all sent batches.
+pub struct HandleOutFailVerification {
+    // TODO: Simplify type
+    pub batches: Arc<RwLock<Vec<Vec<Arc<ProvenTransaction>>>>>,
+}
+
+impl HandleOutFailVerification {
+    pub fn new() -> Self {
+        Self {
+            batches: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+}
+
+#[async_trait]
+impl TxQueueHandleOut for HandleOutFailVerification {
+    type VerifyTxError = ();
+    type TxVerificationFailureReason = ();
+    type ProduceBatchError = Infallible;
+
+    async fn verify_transaction(
+        &self,
+        _tx: Arc<ProvenTransaction>,
+    ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError> {
+        Ok(Err(()))
+    }
+
+    async fn send_batch(
+        &self,
+        txs: Vec<Arc<ProvenTransaction>>,
+    ) -> Result<(), Self::ProduceBatchError> {
+        self.batches.write().await.push(txs);
+
+        Ok(())
     }
 }
