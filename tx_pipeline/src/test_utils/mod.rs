@@ -13,6 +13,7 @@ use winterfell::{
 /// We need to generate a new `ProvenTransaction` every time because it doesn't
 /// derive `Clone`. Doing it this way allows us to compute the `StarkProof`
 /// once, and clone it for each new `ProvenTransaction`.
+#[derive(Clone)]
 pub struct DummyProvenTxGenerator {
     stark_proof: StarkProof,
 }

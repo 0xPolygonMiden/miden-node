@@ -16,21 +16,27 @@ async fn test_batch_full_sent() {
     };
     let handle_out = HandleOutDefault::new();
 
-    tokio::spawn(tx_queue_task(
+    let tx_queue = TxQueue::new(
         handle_in,
-        handle_out.clone(),
+        handle_out,
         TxQueueOptions {
             batch_size,
             tx_max_time_in_queue: Duration::MAX,
         },
-    ));
+    );
+    {
+        let tx_queue = tx_queue.clone();
+        tokio::spawn(tx_queue.run());
+    }
 
     time::sleep(batch_size as u32 * interval_duration + interval_duration).await;
 
     // Ensure that the batch was sent
-    assert_eq!(handle_out.batches.read().await.len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 1);
     // Ensure that the batch contains all the transactions
-    assert_eq!(handle_out.batches.read().await[0].len(), batch_size);
+    assert_eq!(tx_queue.handle_out.batches.read().await[0].len(), batch_size);
+    // Ensure that the queue is empty
+    assert!(tx_queue.ready_queue.lock().await.is_empty());
 }
 
 /// Tests that when a transaction's verification fails, it is not added to the queue.
@@ -96,3 +102,7 @@ async fn test_timer_send_batch() {
     // Ensure that the batch contains all the transactions
     assert_eq!(handle_out.batches.read().await[0].len(), batch_size - 1);
 }
+
+/// Tests that the interval transaction timer is reset after a full batch is sent.
+#[tokio::test]
+async fn test_timer_reset_full_batch() {}

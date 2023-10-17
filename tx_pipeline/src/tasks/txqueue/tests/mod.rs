@@ -10,6 +10,7 @@ use std::{convert::Infallible, time::Duration};
 use tokio::{sync::RwLock, time};
 
 /// calls `read_transaction()` a given number of times at a fixed interval
+#[derive(Clone)]
 pub struct HandleInFixedInterval {
     interval_duration: Duration,
     num_txs_to_send: usize,

@@ -38,6 +38,7 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
     ) -> Result<(), Self::ProduceBatchError>;
 }
 
+#[derive(Clone, Debug)]
 pub struct TxQueueOptions {
     /// The size of a batch. When the internal queue reaches this value, the
     /// queued transactions will be sent to be batched.
@@ -59,6 +60,7 @@ pub async fn tx_queue_task<HandleIn, HandleOut>(
     queue_task.run().await
 }
 
+#[derive(Clone)]
 struct TxQueue<HandleIn, HandleOut>
 where
     HandleIn: TxQueueHandleIn,
