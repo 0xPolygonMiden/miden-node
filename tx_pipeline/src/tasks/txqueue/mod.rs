@@ -1,9 +1,9 @@
-use std::fmt::Debug;
 use std::sync::Arc;
+use std::{fmt::Debug, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
-use tokio::{select, sync::Mutex};
+use tokio::sync::Mutex;
 
 #[async_trait]
 pub trait TxQueueHandleIn: Send + Sync + 'static {
@@ -23,14 +23,19 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
         tx: Arc<ProvenTransaction>,
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError>;
 
-    async fn produce_batch(
+    async fn send_batch(
         &self,
         txs: Vec<ProvenTransaction>,
     ) -> Result<(), Self::ProduceBatchError>;
 }
 
 pub struct TxQueueOptions {
+    /// The size of a batch. When the internal queue reaches this value, the
+    /// queued transactions will be sent to be batched.
     pub batch_size: usize,
+    /// The maximum time a transaction should sit in the transaction queue
+    /// before being batched
+    pub tx_max_time_in_queue: Duration,
 }
 
 pub async fn tx_queue<HandleIn, HandleOut>(
@@ -77,16 +82,11 @@ where
     pub async fn run(self) {
         let tx_queue = Arc::new(self);
         loop {
-            select! {
-                // Handle new transaction coming in
-                proven_tx = tx_queue.handle_in.read_transaction() => {
-                    let proven_tx = proven_tx.expect("Failed to read transaction");
-                    let tx_queue = tx_queue.clone();
-                    tokio::spawn(async move {
-                        on_read_transaction(tx_queue, proven_tx).await
-                    });
-                }
-            }
+            // Handle new transaction coming in
+            let proven_tx =
+                tx_queue.handle_in.read_transaction().await.expect("Failed to read transaction");
+            let tx_queue = tx_queue.clone();
+            tokio::spawn(async move { on_read_transaction(tx_queue, proven_tx).await });
         }
     }
 }
@@ -100,13 +100,13 @@ async fn on_read_transaction<HandleIn, HandleOut>(
 {
     let proven_tx = Arc::new(proven_tx);
 
-    let verification_passed = tx_queue
+    let verification_result = tx_queue
         .handle_out
         .verify_transaction(proven_tx.clone())
         .await
         .expect("Failed to verify transaction");
 
-    if let Err(failure_reason) = verification_passed {
+    if let Err(failure_reason) = verification_result {
         // TODO: Log failure properly
         println!("Transaction verification failed with reason: {failure_reason:?}");
         return;
@@ -114,5 +114,15 @@ async fn on_read_transaction<HandleIn, HandleOut>(
 
     // Transaction verification succeeded. It is safe to add transaction to queue.
     let mut ready_queue = tx_queue.ready_queue.lock().await;
+
+    if ready_queue.is_empty() {
+        // TODO: start sleep timer if empty
+    }
+
     ready_queue.push(proven_tx);
+
+    if ready_queue.len() >= tx_queue.options.batch_size {
+        // TODO: call `produce_batch()` if full
+        // CAREFUL: What if 2 tasks get to this point before the queue is emptied?
+    }
 }
