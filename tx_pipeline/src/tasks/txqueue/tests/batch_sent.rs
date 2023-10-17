@@ -41,6 +41,53 @@ async fn test_batch_full_sent() {
     assert!(tx_queue.ready_queue.lock().await.is_empty());
 }
 
+/// Tests that if `num_txs_in_queue > batch_size`, we still send a batch of
+/// `batch_size`.
+/// 
+/// Note: in the future, this test *could* fail if when starting the queue, we
+/// immediately check if a batch is ready.
+#[tokio::test]
+async fn test_proper_batch_size_sent() {
+    let batch_size: usize = 3;
+
+    let handle_in = HandleInVariableInterval::new(vec![Duration::from_millis(30)]);
+    let handle_out = HandleOutDefault::new();
+
+    let tx_queue = TxQueue::new(
+        handle_in,
+        handle_out,
+        TxQueueOptions {
+            batch_size,
+            tx_max_time_in_queue: Duration::MAX,
+        },
+    );
+
+    // Fill queue so that `queue_size == batch_size`
+    {
+        let proven_tx_generator = DummyProvenTxGenerator::new();
+        let mut locked_queue = tx_queue.ready_queue.lock().await;
+
+        locked_queue.push(Arc::new(proven_tx_generator.dummy_proven_tx()));
+        locked_queue.push(Arc::new(proven_tx_generator.dummy_proven_tx()));
+        locked_queue.push(Arc::new(proven_tx_generator.dummy_proven_tx()));
+    }
+
+    // Spawn tx_queue task
+    {
+        let tx_queue = tx_queue.clone();
+        tokio::spawn(tx_queue.run());
+    }
+
+    time::sleep(Duration::from_millis(50)).await;
+
+    // Ensure that the batch was sent
+    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 1);
+    // Ensure that the batch contains `batch_size` elements
+    assert_eq!(tx_queue.handle_out.batches.read().await[0].len(), batch_size);
+    // Ensure that the queue contains 1 transaction
+    assert_eq!(tx_queue.ready_queue.lock().await.len(), 1);
+}
+
 /// Tests that when a transaction's verification fails, it is not added to the queue.
 ///
 /// We set a batch size of 3, and send 3 transactions with 10ms interval delay.
@@ -192,8 +239,8 @@ async fn test_tx_timer_resets_after_full_batch_sent() {
 /// so that it is sent in batch. We then send another transaction, and confirm
 /// that it is still in the queue after 60ms (it wouldn't be if we forgot to
 /// reset the timeout).
-/// 
-/// 
+///
+///
 ///                                                           confirm tx2
 ///                                                           in queue
 ///  tx1                                tx2
@@ -210,10 +257,8 @@ async fn test_tx_timer_resets_after_full_batch_sent() {
 async fn test_tx_timer_resets_timeout() {
     let batch_size: usize = 2;
 
-    let handle_in = HandleInVariableInterval::new(vec![
-        Duration::from_millis(0),
-        Duration::from_millis(45),
-    ]);
+    let handle_in =
+        HandleInVariableInterval::new(vec![Duration::from_millis(0), Duration::from_millis(45)]);
     let handle_out = HandleOutDefault::new();
 
     let tx_queue = TxQueue::new(

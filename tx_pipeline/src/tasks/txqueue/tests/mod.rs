@@ -1,5 +1,3 @@
-// TODO: to test
-// 6. Confirm that if batch size is 5, and 6 txs in queue, only 5 are removed from queue
 mod batch_sent;
 
 use super::*;
