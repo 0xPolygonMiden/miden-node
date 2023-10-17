@@ -86,43 +86,40 @@ where
             let proven_tx =
                 tx_queue.handle_in.read_transaction().await.expect("Failed to read transaction");
             let tx_queue = tx_queue.clone();
-            tokio::spawn(async move { on_read_transaction(tx_queue, proven_tx).await });
+            tokio::spawn(async move { tx_queue.on_read_transaction(proven_tx).await });
         }
     }
-}
 
-async fn on_read_transaction<HandleIn, HandleOut>(
-    tx_queue: Arc<TxQueue<HandleIn, HandleOut>>,
-    proven_tx: ProvenTransaction,
-) where
-    HandleIn: TxQueueHandleIn,
-    HandleOut: TxQueueHandleOut,
-{
-    let proven_tx = Arc::new(proven_tx);
+    async fn on_read_transaction(
+        self: Arc<TxQueue<HandleIn, HandleOut>>,
+        proven_tx: ProvenTransaction,
+    ) {
+        let proven_tx = Arc::new(proven_tx);
 
-    let verification_result = tx_queue
-        .handle_out
-        .verify_transaction(proven_tx.clone())
-        .await
-        .expect("Failed to verify transaction");
+        let verification_result = self
+            .handle_out
+            .verify_transaction(proven_tx.clone())
+            .await
+            .expect("Failed to verify transaction");
 
-    if let Err(failure_reason) = verification_result {
-        // TODO: Log failure properly
-        println!("Transaction verification failed with reason: {failure_reason:?}");
-        return;
-    }
+        if let Err(failure_reason) = verification_result {
+            // TODO: Log failure properly
+            println!("Transaction verification failed with reason: {failure_reason:?}");
+            return;
+        }
 
-    // Transaction verification succeeded. It is safe to add transaction to queue.
-    let mut ready_queue = tx_queue.ready_queue.lock().await;
+        // Transaction verification succeeded. It is safe to add transaction to queue.
+        let mut ready_queue = self.ready_queue.lock().await;
 
-    if ready_queue.is_empty() {
-        // TODO: start sleep timer if empty
-    }
+        if ready_queue.is_empty() {
+            // TODO: start sleep timer if empty
+        }
 
-    ready_queue.push(proven_tx);
+        ready_queue.push(proven_tx);
 
-    if ready_queue.len() >= tx_queue.options.batch_size {
-        // TODO: call `produce_batch()` if full
-        // CAREFUL: What if 2 tasks get to this point before the queue is emptied?
+        if ready_queue.len() >= self.options.batch_size {
+            // TODO: call `produce_batch()` if full
+            // CAREFUL: What if 2 tasks get to this point before the queue is emptied?
+        }
     }
 }
