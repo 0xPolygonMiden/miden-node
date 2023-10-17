@@ -3,7 +3,12 @@ use std::{fmt::Debug, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
+use tokio::select;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
+use tokio::time::{sleep, Sleep};
+
+type ReadyQueue = Arc<Mutex<Vec<Arc<ProvenTransaction>>>>;
 
 #[async_trait]
 pub trait TxQueueHandleIn: Send + Sync + 'static {
@@ -25,7 +30,7 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
 
     async fn send_batch(
         &self,
-        txs: Vec<ProvenTransaction>,
+        txs: Vec<Arc<ProvenTransaction>>,
     ) -> Result<(), Self::ProduceBatchError>;
 }
 
@@ -55,7 +60,7 @@ where
     HandleIn: TxQueueHandleIn,
     HandleOut: TxQueueHandleOut,
 {
-    ready_queue: Arc<Mutex<Vec<Arc<ProvenTransaction>>>>,
+    ready_queue: ReadyQueue,
     handle_in: Arc<HandleIn>,
     handle_out: Arc<HandleOut>,
     options: TxQueueOptions,
@@ -119,7 +124,109 @@ where
 
         if ready_queue.len() >= self.options.batch_size {
             // TODO: call `produce_batch()` if full
-            // CAREFUL: What if 2 tasks get to this point before the queue is emptied?
+            // TODO: Also cancel timer
+            // FIXME: What if 2 tasks get to this point before the queue is emptied?
         }
+    }
+}
+
+async fn start_timer_task<HandleOut: TxQueueHandleOut>(
+    ready_queue: ReadyQueue,
+    handle_out: Arc<HandleOut>,
+    tx_max_time_in_queue: Duration,
+    batch_size: usize,
+) {
+    let mut timer_task = TimerTask::new(ready_queue, handle_out, tx_max_time_in_queue, batch_size);
+    timer_task.run().await
+}
+
+enum TimerMessage {
+    StartTimer,
+    StopTimer,
+}
+
+struct TimerTask<HandleOut: TxQueueHandleOut> {
+    ready_queue: ReadyQueue,
+    sender: UnboundedSender<TimerMessage>,
+    receiver: UnboundedReceiver<TimerMessage>,
+    handle_out: Arc<HandleOut>,
+    tx_max_time_in_queue: Duration,
+    batch_size: usize,
+}
+
+impl<HandleOut> TimerTask<HandleOut>
+where
+    HandleOut: TxQueueHandleOut,
+{
+    pub fn new(
+        ready_queue: ReadyQueue,
+        handle_out: Arc<HandleOut>,
+        tx_max_time_in_queue: Duration,
+        batch_size: usize,
+    ) -> Self {
+        let (sender, receiver) = unbounded_channel();
+
+        Self {
+            ready_queue,
+            sender,
+            receiver,
+            handle_out,
+            tx_max_time_in_queue,
+            batch_size,
+        }
+    }
+
+    pub fn start_timer(&self) {
+        self.sender
+            .send(TimerMessage::StartTimer)
+            .expect("failed to send on timer channel");
+    }
+
+    pub fn stop_timer(&self) {
+        self.sender
+            .send(TimerMessage::StopTimer)
+            .expect("failed to send on timer channel");
+    }
+
+    async fn run(&mut self) {
+        let mut sleep_duration = Duration::MAX;
+
+        loop {
+            let timer: Sleep = sleep(sleep_duration);
+
+            select! {
+                () = timer => {
+                    tokio::spawn(Self::send_batch(self.ready_queue.clone(), self.handle_out.clone(), self.batch_size));
+                    sleep_duration = Duration::MAX;
+                }
+                maybe_msg = self.receiver.recv() => {
+                    let msg = maybe_msg.expect("Failed to receive on timer channel");
+                    match msg {
+                        TimerMessage::StartTimer => sleep_duration = self.tx_max_time_in_queue,
+                        TimerMessage::StopTimer => sleep_duration = Duration::MAX,
+                    }
+                }
+            }
+        }
+    }
+
+    /// Drains the queue and sends the batch. This task is responsible for
+    /// ensuring that the batch is successfully sent, whether this requires
+    /// retries, or any other strategy.
+    async fn send_batch(
+        ready_queue: ReadyQueue,
+        handle_out: Arc<HandleOut>,
+        batch_size: usize,
+    ) {
+        let txs_in_batch: Vec<Arc<ProvenTransaction>> = {
+            // drain `batch_size` txs from the queue and release the lock.
+            let mut locked_ready_queue = ready_queue.lock().await;
+
+            locked_ready_queue.drain(..batch_size).collect()
+        };
+
+        // Panic for now if the send fails. In the future, we might want a more
+        // sophisticated strategy, such as retrying, or something else.
+        handle_out.send_batch(txs_in_batch).await.expect("Failed to send batch");
     }
 }
