@@ -24,6 +24,8 @@ async fn test_batch_full_sent() {
             tx_max_time_in_queue: Duration::MAX,
         },
     );
+
+    // Spawn tx_queue task
     {
         let tx_queue = tx_queue.clone();
         tokio::spawn(tx_queue.run());
@@ -55,19 +57,27 @@ async fn test_tx_verification_failure() {
     };
     let handle_out = HandleOutFailVerification::new();
 
-    tokio::spawn(tx_queue_task(
+    let tx_queue = TxQueue::new(
         handle_in,
-        handle_out.clone(),
+        handle_out,
         TxQueueOptions {
             batch_size,
-            tx_max_time_in_queue: interval_duration,
+            tx_max_time_in_queue: Duration::MAX,
         },
-    ));
+    );
+
+    // Spawn tx_queue task
+    {
+        let tx_queue = tx_queue.clone();
+        tokio::spawn(tx_queue.run());
+    }
 
     time::sleep(batch_size as u32 * interval_duration + interval_duration).await;
 
     // Ensure that no batch was sent
-    assert!(handle_out.batches.read().await.is_empty());
+    assert!(tx_queue.handle_out.batches.read().await.is_empty());
+    // Ensure that the queue is empty
+    assert!(tx_queue.ready_queue.lock().await.is_empty());
 }
 
 /// Tests that if a batch is not full, then the batch will be sent regardless
@@ -86,23 +96,27 @@ async fn test_timer_send_batch() {
         HandleInVariableInterval::new(vec![Duration::from_millis(0), Duration::from_millis(20)]);
     let handle_out = HandleOutDefault::new();
 
-    tokio::spawn(tx_queue_task(
+    let tx_queue = TxQueue::new(
         handle_in,
-        handle_out.clone(),
+        handle_out,
         TxQueueOptions {
             batch_size,
             tx_max_time_in_queue: Duration::from_millis(30),
         },
-    ));
+    );
+
+    // Spawn tx_queue task
+    {
+        let tx_queue = tx_queue.clone();
+        tokio::spawn(tx_queue.run());
+    }
 
     time::sleep(Duration::from_millis(40)).await;
 
     // Ensure that the batch was sent
-    assert_eq!(handle_out.batches.read().await.len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 1);
     // Ensure that the batch contains all the transactions
-    assert_eq!(handle_out.batches.read().await[0].len(), batch_size - 1);
+    assert_eq!(tx_queue.handle_out.batches.read().await[0].len(), batch_size - 1);
+    // Ensure that the queue is empty
+    assert!(tx_queue.ready_queue.lock().await.is_empty());
 }
-
-/// Tests that the interval transaction timer is reset after a full batch is sent.
-#[tokio::test]
-async fn test_timer_reset_full_batch() {}
