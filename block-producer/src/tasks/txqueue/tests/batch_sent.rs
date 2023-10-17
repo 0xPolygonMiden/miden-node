@@ -43,7 +43,7 @@ async fn test_batch_full_sent() {
 
 /// Tests that if `num_txs_in_queue > batch_size`, we still send a batch of
 /// `batch_size`.
-/// 
+///
 /// Note: in the future, this test *could* fail if when starting the queue, we
 /// immediately check if a batch is ready.
 #[tokio::test]

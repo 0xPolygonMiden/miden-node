@@ -1,7 +1,7 @@
 //! The transaction queue takes transactions coming in, validates them, and
 //! eventually sends them out in a batch. We say "sending a batch" to represent
 //! handing over a set of transactions to the batch builder.
-//! 
+//!
 //! Specifically, the requirements are:
 //! - A transaction that fails validation is dropped
 //! - There are 2 conditions for a batch to be sent:
@@ -23,8 +23,15 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Sleep};
 
+// TYPE ALIASES
+// ================================================================================================
+
 type ReadyQueue = Arc<Mutex<Vec<Arc<ProvenTransaction>>>>;
 
+// PUBLIC INTERFACE
+// ================================================================================================
+
+/// Contains all the methods for the transaction queue to fetch incoming data.
 #[async_trait]
 pub trait TxQueueHandleIn: Send + Sync + 'static {
     type ReadTxError: Debug;
@@ -32,6 +39,7 @@ pub trait TxQueueHandleIn: Send + Sync + 'static {
     async fn read_transaction(&self) -> Result<ProvenTransaction, Self::ReadTxError>;
 }
 
+/// Contains all the methods for the transaction queue to send messages out.
 #[async_trait]
 pub trait TxQueueHandleOut: Send + Sync + 'static {
     type VerifyTxError: Debug;
@@ -49,6 +57,7 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
     ) -> Result<(), Self::ProduceBatchError>;
 }
 
+/// Configuration parameters for the transaction queue
 #[derive(Clone, Debug)]
 pub struct TxQueueOptions {
     /// The size of a batch. When the internal queue reaches this value, the
@@ -59,7 +68,8 @@ pub struct TxQueueOptions {
     pub tx_max_time_in_queue: Duration,
 }
 
-pub async fn tx_queue_task<HandleIn, HandleOut>(
+/// Creates and runs the transaction queue task
+pub async fn run_tx_queue_task<HandleIn, HandleOut>(
     handle_in: HandleIn,
     handle_out: HandleOut,
     options: TxQueueOptions,
@@ -71,6 +81,7 @@ pub async fn tx_queue_task<HandleIn, HandleOut>(
     queue_task.run().await
 }
 
+/// The transaction queue task
 #[derive(Clone)]
 struct TxQueue<HandleIn, HandleOut>
 where
@@ -101,6 +112,7 @@ where
         }
     }
 
+    /// Start the task
     pub async fn run(self) {
         let tx_queue = Arc::new(self);
         let timer_task_handle = start_timer_task(
@@ -122,6 +134,9 @@ where
             });
         }
     }
+
+    // HELPERS
+    // --------------------------------------------------------------------------------------------
 
     async fn on_read_transaction(
         self: Arc<TxQueue<HandleIn, HandleOut>>,
@@ -166,6 +181,9 @@ where
     }
 }
 
+// HELPERS
+// ================================================================================================
+
 fn start_timer_task<HandleOut: TxQueueHandleOut>(
     ready_queue: ReadyQueue,
     handle_out: Arc<HandleOut>,
@@ -180,7 +198,7 @@ fn start_timer_task<HandleOut: TxQueueHandleOut>(
     handle
 }
 
-// TODO: Find better names to indicate that this will also call `send_batch` at some point
+/// Represents a channel of communication with the timer task.
 #[derive(Clone)]
 struct TimerTaskHandle {
     sender: UnboundedSender<TimerMessage>,
@@ -200,11 +218,16 @@ impl TimerTaskHandle {
     }
 }
 
+/// Encapsulates all messages that can be sent to the timer task
 enum TimerMessage {
     StartTimer,
     StopTimer,
 }
 
+/// Manages the transaction timer, which ensures that no transaction sits in the
+/// queue for longer than [`TxQueueOptions::tx_max_time_in_queue`]. Is
+/// responsible for sending the batch when the timer expires.
+///
 struct TimerTask<HandleOut: TxQueueHandleOut> {
     ready_queue: ReadyQueue,
     receiver: UnboundedReceiver<TimerMessage>,
