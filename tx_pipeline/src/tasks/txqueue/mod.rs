@@ -135,9 +135,31 @@ async fn start_timer_task<HandleOut: TxQueueHandleOut>(
     handle_out: Arc<HandleOut>,
     tx_max_time_in_queue: Duration,
     batch_size: usize,
-) {
-    let mut timer_task = TimerTask::new(ready_queue, handle_out, tx_max_time_in_queue, batch_size);
-    timer_task.run().await
+) -> TimerTaskHandle {
+    let (timer_task, handle) =
+        TimerTask::new(ready_queue, handle_out, tx_max_time_in_queue, batch_size);
+
+    tokio::spawn(timer_task.run());
+
+    handle
+}
+
+struct TimerTaskHandle {
+    sender: UnboundedSender<TimerMessage>,
+}
+
+impl TimerTaskHandle {
+    pub fn start_timer(&self) {
+        self.sender
+            .send(TimerMessage::StartTimer)
+            .expect("failed to send on timer channel");
+    }
+
+    pub fn stop_timer(&self) {
+        self.sender
+            .send(TimerMessage::StopTimer)
+            .expect("failed to send on timer channel");
+    }
 }
 
 enum TimerMessage {
@@ -147,7 +169,6 @@ enum TimerMessage {
 
 struct TimerTask<HandleOut: TxQueueHandleOut> {
     ready_queue: ReadyQueue,
-    sender: UnboundedSender<TimerMessage>,
     receiver: UnboundedReceiver<TimerMessage>,
     handle_out: Arc<HandleOut>,
     tx_max_time_in_queue: Duration,
@@ -163,32 +184,22 @@ where
         handle_out: Arc<HandleOut>,
         tx_max_time_in_queue: Duration,
         batch_size: usize,
-    ) -> Self {
+    ) -> (Self, TimerTaskHandle) {
         let (sender, receiver) = unbounded_channel();
 
-        Self {
-            ready_queue,
-            sender,
-            receiver,
-            handle_out,
-            tx_max_time_in_queue,
-            batch_size,
-        }
+        (
+            Self {
+                ready_queue,
+                receiver,
+                handle_out,
+                tx_max_time_in_queue,
+                batch_size,
+            },
+            TimerTaskHandle { sender },
+        )
     }
 
-    pub fn start_timer(&self) {
-        self.sender
-            .send(TimerMessage::StartTimer)
-            .expect("failed to send on timer channel");
-    }
-
-    pub fn stop_timer(&self) {
-        self.sender
-            .send(TimerMessage::StopTimer)
-            .expect("failed to send on timer channel");
-    }
-
-    async fn run(&mut self) {
+    async fn run(mut self) {
         let mut sleep_duration = Duration::MAX;
 
         loop {
