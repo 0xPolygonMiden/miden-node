@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use std::cmp::min;
 use std::sync::Arc;
 use std::{fmt::Debug, time::Duration};
 
@@ -261,7 +262,8 @@ async fn send_batch<HandleOut: TxQueueHandleOut>(
 
         // FIXME: IS THIS THE RIGHT ORDER? i.e. is it correct to take the
         // *first* `batch_size` elements?
-        locked_ready_queue.drain(..batch_size).collect()
+        let num_to_drain = min(batch_size, locked_ready_queue.len());
+        locked_ready_queue.drain(..num_to_drain).collect()
     };
 
     if txs_in_batch.is_empty() {
