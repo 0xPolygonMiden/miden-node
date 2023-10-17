@@ -34,9 +34,9 @@ async fn test_batch_full_sent() {
     time::sleep(Duration::from_millis(50)).await;
 
     // Ensure that the batch was sent
-    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.lock().await.len(), 1);
     // Ensure that the batch contains all the transactions
-    assert_eq!(tx_queue.handle_out.batches.read().await[0].len(), batch_size);
+    assert_eq!(tx_queue.handle_out.batches.lock().await[0].len(), batch_size);
     // Ensure that the queue is empty
     assert!(tx_queue.ready_queue.lock().await.is_empty());
 }
@@ -81,9 +81,9 @@ async fn test_proper_batch_size_sent() {
     time::sleep(Duration::from_millis(50)).await;
 
     // Ensure that the batch was sent
-    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.lock().await.len(), 1);
     // Ensure that the batch contains `batch_size` elements
-    assert_eq!(tx_queue.handle_out.batches.read().await[0].len(), batch_size);
+    assert_eq!(tx_queue.handle_out.batches.lock().await[0].len(), batch_size);
     // Ensure that the queue contains 1 transaction
     assert_eq!(tx_queue.ready_queue.lock().await.len(), 1);
 }
@@ -122,7 +122,7 @@ async fn test_tx_verification_failure() {
     time::sleep(Duration::from_millis(50)).await;
 
     // Ensure that no batch was sent
-    assert!(tx_queue.handle_out.batches.read().await.is_empty());
+    assert!(tx_queue.handle_out.batches.lock().await.is_empty());
     // Ensure that the queue is empty
     assert!(tx_queue.ready_queue.lock().await.is_empty());
 }
@@ -161,9 +161,9 @@ async fn test_timer_send_batch() {
     time::sleep(Duration::from_millis(40)).await;
 
     // Ensure that the batch was sent
-    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.lock().await.len(), 1);
     // Ensure that the batch contains all the transactions
-    assert_eq!(tx_queue.handle_out.batches.read().await[0].len(), batch_size - 1);
+    assert_eq!(tx_queue.handle_out.batches.lock().await[0].len(), batch_size - 1);
     // Ensure that the queue is empty
     assert!(tx_queue.ready_queue.lock().await.is_empty());
 }
@@ -215,18 +215,18 @@ async fn test_tx_timer_resets_after_full_batch_sent() {
     time::sleep(Duration::from_millis(55)).await;
 
     // Ensure that 1 batch was sent
-    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.lock().await.len(), 1);
     // Ensure that the queue holds 1 transaction
     assert_eq!(tx_queue.ready_queue.lock().await.len(), 1);
 
     time::sleep(Duration::from_millis(35)).await;
 
     // Ensure that 2 batches were sent
-    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 2);
+    assert_eq!(tx_queue.handle_out.batches.lock().await.len(), 2);
     // Ensure that first batch received is length 2
-    assert_eq!(tx_queue.handle_out.batches.read().await[0].len(), 2);
+    assert_eq!(tx_queue.handle_out.batches.lock().await[0].len(), 2);
     // Ensure that second batch received is length 1
-    assert_eq!(tx_queue.handle_out.batches.read().await[1].len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.lock().await[1].len(), 1);
     // Ensure that the queue is empty
     assert!(tx_queue.ready_queue.lock().await.is_empty());
 }
@@ -279,18 +279,18 @@ async fn test_tx_timer_resets_timeout() {
     time::sleep(Duration::from_millis(75)).await;
 
     // Ensure that 1 batch was sent
-    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.lock().await.len(), 1);
     // Ensure that the queue holds 1 transaction
     assert_eq!(tx_queue.ready_queue.lock().await.len(), 1);
 
     time::sleep(Duration::from_millis(35)).await;
 
     // Ensure that 2 batches were sent
-    assert_eq!(tx_queue.handle_out.batches.read().await.len(), 2);
+    assert_eq!(tx_queue.handle_out.batches.lock().await.len(), 2);
     // Ensure that first batch received is length 1
-    assert_eq!(tx_queue.handle_out.batches.read().await[0].len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.lock().await[0].len(), 1);
     // Ensure that second batch received is length 1
-    assert_eq!(tx_queue.handle_out.batches.read().await[1].len(), 1);
+    assert_eq!(tx_queue.handle_out.batches.lock().await[1].len(), 1);
     // Ensure that the queue is empty
     assert!(tx_queue.ready_queue.lock().await.is_empty());
 }

@@ -26,7 +26,9 @@ use tokio::time::{sleep, Sleep};
 // TYPE ALIASES
 // ================================================================================================
 
-type ReadyQueue = Arc<Mutex<Vec<Arc<ProvenTransaction>>>>;
+type SharedProvenTx = Arc<ProvenTransaction>;
+type SharedVec<T> = Arc<Mutex<Vec<T>>>;
+type ReadyQueue = SharedVec<SharedProvenTx>;
 
 // PUBLIC INTERFACE
 // ================================================================================================

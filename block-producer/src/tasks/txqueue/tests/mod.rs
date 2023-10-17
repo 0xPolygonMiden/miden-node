@@ -95,14 +95,13 @@ impl TxQueueHandleIn for HandleInVariableInterval {
 /// All transactions verify successfully. Records all sent batches.
 #[derive(Clone)]
 pub struct HandleOutDefault {
-    // TODO: Simplify type
-    pub batches: Arc<RwLock<Vec<Vec<Arc<ProvenTransaction>>>>>,
+    pub batches: SharedVec<Vec<SharedProvenTx>>,
 }
 
 impl HandleOutDefault {
     pub fn new() -> Self {
         Self {
-            batches: Arc::new(RwLock::new(Vec::new())),
+            batches: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -124,7 +123,7 @@ impl TxQueueHandleOut for HandleOutDefault {
         &self,
         txs: Vec<Arc<ProvenTransaction>>,
     ) -> Result<(), Self::ProduceBatchError> {
-        self.batches.write().await.push(txs);
+        self.batches.lock().await.push(txs);
 
         Ok(())
     }
@@ -133,14 +132,13 @@ impl TxQueueHandleOut for HandleOutDefault {
 /// All transactions fail verification. Records all sent batches.
 #[derive(Clone)]
 pub struct HandleOutFailVerification {
-    // TODO: Simplify type
-    pub batches: Arc<RwLock<Vec<Vec<Arc<ProvenTransaction>>>>>,
+    pub batches: SharedVec<Vec<SharedProvenTx>>,
 }
 
 impl HandleOutFailVerification {
     pub fn new() -> Self {
         Self {
-            batches: Arc::new(RwLock::new(Vec::new())),
+            batches: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -162,7 +160,7 @@ impl TxQueueHandleOut for HandleOutFailVerification {
         &self,
         txs: Vec<Arc<ProvenTransaction>>,
     ) -> Result<(), Self::ProduceBatchError> {
-        self.batches.write().await.push(txs);
+        self.batches.lock().await.push(txs);
 
         Ok(())
     }
