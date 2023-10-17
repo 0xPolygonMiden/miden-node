@@ -125,9 +125,8 @@ where
             .await
             .expect("Failed to verify transaction");
 
-        if let Err(failure_reason) = verification_result {
+        if let Err(_failure_reason) = verification_result {
             // TODO: Log failure properly
-            println!("Transaction verification failed with reason: {failure_reason:?}");
             return;
         }
 
