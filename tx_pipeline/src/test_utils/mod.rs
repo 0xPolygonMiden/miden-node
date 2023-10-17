@@ -1,3 +1,6 @@
+use miden_air::{ExecutionProof, HashFunction};
+use miden_mock::constants::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN;
+use miden_objects::{transaction::ProvenTransaction, accounts::AccountId, Digest};
 ///! FibSmall taken from the `fib_small` example in `winterfell`
 use winterfell::{
     crypto::{hashers::Blake3_192, DefaultRandomCoin},
@@ -6,6 +9,34 @@ use winterfell::{
     Air, AirContext, Assertion, EvaluationFrame, FieldExtension, ProofOptions, Prover, StarkProof,
     Trace, TraceInfo, TraceTable, TransitionConstraintDegree,
 };
+
+/// We need to generate a new `ProvenTransaction` every time because it doesn't
+/// derive `Clone`. Doing it this way allows us to compute the `StarkProof`
+/// once, and clone it for each new `ProvenTransaction`.
+pub struct DummyProvenTxGenerator {
+    stark_proof: StarkProof,
+}
+
+impl DummyProvenTxGenerator {
+    pub fn new() -> Self {
+        let prover = DummyProver::new();
+        let stark_proof = prover.prove(prover.build_trace(16)).unwrap();
+        Self { stark_proof }
+    }
+
+    pub fn dummy_proven_tx(&self) -> ProvenTransaction {
+        ProvenTransaction::new(
+            AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN).unwrap(),
+            Digest::default(),
+            Digest::default(),
+            Vec::new(),
+            Vec::new(),
+            None,
+            Digest::default(),
+            ExecutionProof::new(self.stark_proof.clone(), HashFunction::Blake3_192),
+        )
+    }
+}
 
 const TRACE_WIDTH: usize = 2;
 
@@ -128,9 +159,4 @@ impl Prover for DummyProver {
     fn options(&self) -> &ProofOptions {
         &self.options
     }
-}
-
-pub fn dummy_stark_proof() -> StarkProof {
-    let prover = DummyProver::new();
-    prover.prove(prover.build_trace(16)).unwrap()
 }
