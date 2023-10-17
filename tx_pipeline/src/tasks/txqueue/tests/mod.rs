@@ -1,5 +1,4 @@
 // TODO: to test
-// 0. if tx validation fails, it is not added to the queue
 // 1. if batch size not full, timer procs and sends batch
 // 3. timer is reset when batch is sent from timer
 // 4. timer is reset when batch is sent from batch

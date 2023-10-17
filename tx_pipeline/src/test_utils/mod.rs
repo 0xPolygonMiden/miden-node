@@ -1,6 +1,6 @@
 use miden_air::{ExecutionProof, HashFunction};
 use miden_mock::constants::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN;
-use miden_objects::{transaction::ProvenTransaction, accounts::AccountId, Digest};
+use miden_objects::{accounts::AccountId, transaction::ProvenTransaction, Digest};
 ///! FibSmall taken from the `fib_small` example in `winterfell`
 use winterfell::{
     crypto::{hashers::Blake3_192, DefaultRandomCoin},
