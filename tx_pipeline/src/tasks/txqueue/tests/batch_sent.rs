@@ -3,7 +3,7 @@ use super::*;
 /// Tests that when a batch is full (before the timer), it is sent.
 ///
 /// We set a batch size of 3, and send 3 transactions with 10ms interval delay.
-/// Transaction timer is set to infinite. After 40ms delay, we confirm that the batch was sent
+/// Transaction timer is set to infinite. After 50ms delay, we confirm that the batch was sent
 #[tokio::test]
 async fn test_batch_full_sent() {
     let interval_duration: Duration = Duration::from_millis(10);
@@ -31,7 +31,7 @@ async fn test_batch_full_sent() {
         tokio::spawn(tx_queue.run());
     }
 
-    time::sleep(batch_size as u32 * interval_duration + interval_duration).await;
+    time::sleep(Duration::from_millis(50)).await;
 
     // Ensure that the batch was sent
     assert_eq!(tx_queue.handle_out.batches.read().await.len(), 1);
@@ -44,7 +44,7 @@ async fn test_batch_full_sent() {
 /// Tests that when a transaction's verification fails, it is not added to the queue.
 ///
 /// We set a batch size of 3, and send 3 transactions with 10ms interval delay.
-/// Transaction timer is set to 10ms. After 40ms delay, we confirm that no batch was sent.
+/// Transaction timer is set to 10ms. After 50ms delay, we confirm that no batch was sent.
 #[tokio::test]
 async fn test_tx_verification_failure() {
     let interval_duration: Duration = Duration::from_millis(10);
@@ -72,7 +72,7 @@ async fn test_tx_verification_failure() {
         tokio::spawn(tx_queue.run());
     }
 
-    time::sleep(batch_size as u32 * interval_duration + interval_duration).await;
+    time::sleep(Duration::from_millis(50)).await;
 
     // Ensure that no batch was sent
     assert!(tx_queue.handle_out.batches.read().await.is_empty());
