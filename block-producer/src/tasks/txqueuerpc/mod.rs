@@ -12,7 +12,7 @@ use tokio::{
 };
 
 use crate::{
-    rpc::{Rpc, RpcClient},
+    rpc::{Rpc, RpcClient, RpcServer},
     SharedProvenTx,
 };
 
@@ -27,6 +27,25 @@ pub enum SendTxsError {}
 
 type SharedMutVec<T> = Arc<Mutex<Vec<T>>>;
 type ReadyQueue = SharedMutVec<SharedProvenTx>;
+type ReadTxRpcServer = RpcServer<ProvenTransaction, (), ReadTxRpc>;
+
+// TX QUEUE
+// ================================================================================================
+
+/// The transaction queue task
+pub struct TxQueue {
+    read_tx_rpc_server: ReadTxRpcServer,
+}
+
+impl TxQueue {
+    pub fn new(read_tx_rpc_server: ReadTxRpcServer) -> Self {
+        Self { read_tx_rpc_server }
+    }
+
+    pub async fn run(self) {
+        self.read_tx_rpc_server.serve().await.expect("read_tx_rpc_server crashed");
+    }
+}
 
 /// Configuration parameters for the transaction queue
 #[derive(Clone, Debug)]
@@ -37,6 +56,7 @@ pub struct TxQueueOptions {
     /// The maximum time a transaction should sit in the transaction queue before being batched
     pub tx_max_time_in_queue: Duration,
 }
+
 
 // READ TX SERVER
 // ================================================================================================
