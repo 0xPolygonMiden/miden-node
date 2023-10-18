@@ -2,7 +2,14 @@ use std::{cmp::min, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
-use tokio::sync::{mpsc::UnboundedSender, Mutex};
+use tokio::{
+    select,
+    sync::{
+        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+        Mutex,
+    },
+    time::{sleep, Sleep},
+};
 
 use crate::{
     rpc::{Rpc, RpcClient},
@@ -83,6 +90,20 @@ impl Rpc<ProvenTransaction, ()> for ReadTxRpc {
 // TIMER TASK
 // ================================================================================================
 
+fn start_timer_task(
+    ready_queue: ReadyQueue,
+    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+    tx_max_time_in_queue: Duration,
+    batch_size: usize,
+) -> TimerTaskHandle {
+    let (timer_task, handle) =
+        TimerTask::new(ready_queue, send_txs_client, tx_max_time_in_queue, batch_size);
+
+    tokio::spawn(timer_task.run());
+
+    handle
+}
+
 /// Represents a channel of communication with the timer task.
 #[derive(Clone)]
 struct TimerTaskHandle {
@@ -107,6 +128,64 @@ impl TimerTaskHandle {
 enum TimerMessage {
     StartTimer,
     StopTimer,
+}
+
+/// Manages the transaction timer, which ensures that no transaction sits in the queue for longer
+/// than [`TxQueueOptions::tx_max_time_in_queue`]. Is responsible for sending the batch when the
+/// timer expires.
+///
+struct TimerTask {
+    ready_queue: ReadyQueue,
+    receiver: UnboundedReceiver<TimerMessage>,
+    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+    tx_max_time_in_queue: Duration,
+    batch_size: usize,
+}
+
+impl TimerTask {
+    pub fn new(
+        ready_queue: ReadyQueue,
+        send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+        tx_max_time_in_queue: Duration,
+        batch_size: usize,
+    ) -> (Self, TimerTaskHandle) {
+        let (sender, receiver) = unbounded_channel();
+
+        (
+            Self {
+                ready_queue,
+                receiver,
+                send_txs_client,
+                tx_max_time_in_queue,
+                batch_size,
+            },
+            TimerTaskHandle { sender },
+        )
+    }
+
+    async fn run(mut self) {
+        let mut sleep_duration = Duration::MAX;
+
+        loop {
+            let send_batch_timer: Sleep = sleep(sleep_duration);
+
+            select! {
+                maybe_msg = self.receiver.recv() => {
+                    let msg = maybe_msg.expect("Failed to receive on timer channel");
+                    match msg {
+                        TimerMessage::StartTimer => sleep_duration = self.tx_max_time_in_queue,
+                        TimerMessage::StopTimer => sleep_duration = Duration::MAX,
+                    }
+                }
+                () = send_batch_timer => {
+                    let mut locked_ready_queue = self.ready_queue.lock().await;
+                    let txs_in_batch = drain_queue(&mut locked_ready_queue, self.batch_size);
+                    tokio::spawn(send_batch(txs_in_batch, self.send_txs_client.clone()));
+                    sleep_duration = Duration::MAX;
+                }
+            }
+        }
+    }
 }
 
 // HELPERS
