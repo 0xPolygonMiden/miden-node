@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use std::{cmp::min, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
