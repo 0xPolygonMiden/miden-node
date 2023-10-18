@@ -1,6 +1,6 @@
-//! The transaction queue takes transactions coming in, validates them, and
-//! eventually sends them out in a batch. We say "sending a batch" to represent
-//! handing over a set of transactions to the batch builder.
+//! The transaction queue takes transactions coming in, validates them, and eventually sends them
+//! out in a batch. We say "sending a batch" to represent handing over a set of transactions to the
+//! batch builder.
 //!
 //! Specifically, the requirements are:
 //! - A transaction that fails validation is dropped
@@ -64,11 +64,10 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
 /// Configuration parameters for the transaction queue
 #[derive(Clone, Debug)]
 pub struct TxQueueOptions {
-    /// The size of a batch. When the internal queue reaches this value, the
-    /// queued transactions will be sent to be batched.
+    /// The size of a batch. When the internal queue reaches this value, the queued transactions
+    /// will be sent to be batched.
     pub batch_size: usize,
-    /// The maximum time a transaction should sit in the transaction queue
-    /// before being batched
+    /// The maximum time a transaction should sit in the transaction queue before being batched
     pub tx_max_time_in_queue: Duration,
 }
 
@@ -170,10 +169,9 @@ where
         locked_ready_queue.push(proven_tx);
 
         if locked_ready_queue.len() >= self.options.batch_size {
-            // FIXME: Dropping the ready queue here means that 2 tasks could
-            // send a batch, where the first batch will contain `batch_size`
-            // transactions, and the second would contain only 1 transaction.
-            // This is low-risk and has little-to-no impact if it occurs.
+            // FIXME: Dropping the ready queue here means that 2 tasks could send a batch, where the
+            // first batch will contain `batch_size` transactions, and the second would contain only
+            // 1 transaction. This is low-risk and has little-to-no impact if it occurs.
             drop(locked_ready_queue);
 
             // We are sending a batch, so reset the timer
@@ -230,9 +228,9 @@ enum TimerMessage {
     StopTimer,
 }
 
-/// Manages the transaction timer, which ensures that no transaction sits in the
-/// queue for longer than [`TxQueueOptions::tx_max_time_in_queue`]. Is
-/// responsible for sending the batch when the timer expires.
+/// Manages the transaction timer, which ensures that no transaction sits in the queue for longer
+/// than [`TxQueueOptions::tx_max_time_in_queue`]. Is responsible for sending the batch when the
+/// timer expires.
 ///
 struct TimerTask<HandleOut: TxQueueHandleOut> {
     ready_queue: ReadyQueue,
@@ -289,9 +287,8 @@ where
     }
 }
 
-/// Drains the queue and sends the batch. This task is responsible for
-/// ensuring that the batch is successfully sent, whether this requires
-/// retries, or any other strategy.
+/// Drains the queue and sends the batch. This task is responsible for ensuring that the batch is
+/// successfully sent, whether this requires retries, or any other strategy.
 async fn send_batch<HandleOut: TxQueueHandleOut>(
     ready_queue: ReadyQueue,
     handle_out: Arc<HandleOut>,
@@ -309,7 +306,7 @@ async fn send_batch<HandleOut: TxQueueHandleOut>(
         return;
     }
 
-    // Panic for now if the send fails. In the future, we might want a more
-    // sophisticated strategy, such as retrying, or something else.
+    // Panic for now if the send fails. In the future, we might want a more sophisticated strategy,
+    // such as retrying, or something else.
     handle_out.send_batch(txs_in_batch).await.expect("Failed to send batch");
 }

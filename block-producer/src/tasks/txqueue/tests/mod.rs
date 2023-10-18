@@ -52,8 +52,8 @@ impl TxQueueHandleIn for HandleInFixedInterval {
 /// calls `read_transaction()` a given number of times at a variable interval
 #[derive(Clone)]
 pub struct HandleInVariableInterval {
-    /// Encodes how long to wait before sending the ith transaction.
-    /// Thus, we send `interval_durations.len()` transactions.
+    /// Encodes how long to wait before sending the ith transaction. Thus, we send
+    /// `interval_durations.len()` transactions.
     interval_durations: Vec<Duration>,
     txs_sent_count: Arc<RwLock<usize>>,
     proven_tx_gen: DummyProvenTxGenerator,
