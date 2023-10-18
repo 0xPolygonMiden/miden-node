@@ -44,8 +44,12 @@ pub trait TxQueueHandleIn: Send + Sync + 'static {
 /// Contains all the methods for the transaction queue to send messages out.
 #[async_trait]
 pub trait TxQueueHandleOut: Send + Sync + 'static {
+    /// Represents all unexpected errors, i.e. the verification did not take place.
     type VerifyTxError: Debug;
+    /// Represents all expected errors; that is, the verification took place, and the transaction
+    /// failed that verification
     type TxVerificationFailureReason: Debug + Send;
+    /// Error when sending a batch
     type ProduceBatchError: Debug;
 
     async fn verify_transaction(
