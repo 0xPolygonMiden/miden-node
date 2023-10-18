@@ -23,10 +23,11 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Sleep};
 
+use crate::SharedProvenTx;
+
 // TYPE ALIASES
 // ================================================================================================
 
-type SharedProvenTx = Arc<ProvenTransaction>;
 type SharedMutVec<T> = Arc<Mutex<Vec<T>>>;
 type ReadyQueue = SharedMutVec<SharedProvenTx>;
 
