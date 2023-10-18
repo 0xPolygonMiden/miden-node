@@ -36,8 +36,8 @@ pub struct TxQueueOptions {
 
 /// Server which receives transactions, verifies, and adds them to an internal queue
 pub struct ReadTxRpc {
-    verify_tx_client: Arc<Mutex<RpcClient<SharedProvenTx, Result<(), VerifyTxError>>>>,
-    send_txs_client: Arc<Mutex<RpcClient<Vec<SharedProvenTx>, ()>>>,
+    verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
+    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
     ready_queue: ReadyQueue,
     timer_task_handle: TimerTaskHandle,
     options: TxQueueOptions,
@@ -49,26 +49,12 @@ impl Rpc<ProvenTransaction, ()> for ReadTxRpc {
         self: Arc<Self>,
         proven_tx: ProvenTransaction,
     ) {
-        tokio::spawn(self.on_transaction(proven_tx));
-    }
-}
-
-impl ReadTxRpc {
-    async fn on_transaction(
-        self: Arc<Self>,
-        proven_tx: ProvenTransaction,
-    ) {
         let proven_tx = Arc::new(proven_tx);
 
-        let verification_result = self
-            .verify_tx_client
-            .lock()
-            .await
-            .call(proven_tx.clone())
-            .await
-            .expect("verify_tx_client");
+        let verification_result =
+            self.verify_tx_client.call(proven_tx.clone()).expect("verify_tx_client");
 
-        if let Err(_failure_reason) = verification_result {
+        if let Err(_failure_reason) = verification_result.await {
             // TODO: Log failure properly
             return;
         }
@@ -139,7 +125,7 @@ fn drain_queue(
 /// retries, or any other strategy.
 async fn send_batch(
     txs_in_batch: Vec<SharedProvenTx>,
-    send_txs_client: Arc<Mutex<RpcClient<Vec<SharedProvenTx>, ()>>>,
+    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
 ) {
     if txs_in_batch.is_empty() {
         return;
@@ -148,9 +134,8 @@ async fn send_batch(
     // Panic for now if the send fails. In the future, we might want a more sophisticated strategy,
     // such as retrying, or something else.
     send_txs_client
-        .lock()
-        .await
         .call(txs_in_batch)
+        .expect("send batch expected to succeed")
         .await
-        .expect("rpc: Failed to send batch");
+        .expect("send batch expected to succeed");
 }

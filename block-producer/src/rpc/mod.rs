@@ -1,28 +1,28 @@
-use std::sync::Arc;
+use std::{sync::Arc, future::Future};
 
 use async_trait::async_trait;
-use tokio::sync::mpsc::{error::SendError, unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::{mpsc::{error::SendError, unbounded_channel, UnboundedReceiver, UnboundedSender}, oneshot};
 
 /// Creates a client/server pair that communicate locally using tokio channels
-pub fn create_client_server_pair<Request, Response, RpcImpl>(
-    rpc_impl: RpcImpl
-) -> (RpcClient<Request, Response>, RpcServer<Request, Response, RpcImpl>)
+pub fn create_client_server_response_pair<Request, Response, RpcImpl>(
+    rpc_impl: RpcImpl,
+) -> (
+    RpcClient<Request, Response>,
+    RpcServer<Request, Response, RpcImpl>,
+)
 where
     Request: Send + 'static,
     Response: Send + 'static,
     RpcImpl: Rpc<Request, Response>,
 {
-    let (client_send, server_recv) = unbounded_channel::<Request>();
-    let (server_send, client_recv) = unbounded_channel::<Response>();
+    let (sender, recv) = unbounded_channel::<(Request, oneshot::Sender<Response>)>();
 
     let client = RpcClient {
-        send: client_send,
-        recv: client_recv,
+        send_requests: sender,
     };
 
     let server = RpcServer {
-        send: server_send,
-        recv: server_recv,
+        recv_requests: recv,
         rpc_impl: Arc::new(rpc_impl),
     };
 
@@ -45,10 +45,7 @@ impl<T> From<SendError<T>> for RpcError {
 
 #[async_trait]
 pub trait Rpc<Request, Response>: Send + Sync + 'static {
-    async fn handle_request(
-        self: Arc<Self>,
-        x: Request,
-    ) -> Response;
+    async fn handle_request(self: Arc<Self>, x: Request) -> Response;
 }
 
 // RPC SERVER
@@ -60,8 +57,7 @@ where
     Response: Send + 'static,
     S: Rpc<Request, Response>,
 {
-    send: UnboundedSender<Response>,
-    recv: UnboundedReceiver<Request>,
+    recv_requests: UnboundedReceiver<(Request, oneshot::Sender<Response>)>,
     rpc_impl: Arc<S>,
 }
 
@@ -73,10 +69,14 @@ where
 {
     pub async fn serve(mut self) -> Result<(), RpcError> {
         loop {
-            let request = self.recv.recv().await.ok_or(RpcError::RecvError)?;
+            let (request, response_channel) =
+                self.recv_requests.recv().await.ok_or(RpcError::RecvError)?;
 
-            let response = self.rpc_impl.clone().handle_request(request).await;
-            self.send.send(response)?;
+            let rpc_impl = self.rpc_impl.clone();
+            tokio::spawn(async move {
+                let response = rpc_impl.handle_request(request).await;
+                let _ = response_channel.send(response);
+            });
         }
     }
 }
@@ -84,13 +84,13 @@ where
 // RPC CLIENT
 // --------------------------------------------------------------------------------------
 
+#[derive(Clone)]
 pub struct RpcClient<Request, Response>
 where
     Request: Send + 'static,
     Response: Send + 'static,
 {
-    send: UnboundedSender<Request>,
-    recv: UnboundedReceiver<Response>,
+    send_requests: UnboundedSender<(Request, oneshot::Sender<Response>)>,
 }
 
 impl<Request, Response> RpcClient<Request, Response>
@@ -98,14 +98,16 @@ where
     Request: Send + 'static,
     Response: Send + 'static,
 {
-    // TODO: IMPROVEMENT
-    // This interface currently forces all calls to the same client to be serialized.
-    // We should think about the best way to allow parallelization of requests.
-    pub async fn call(
-        &mut self,
-        x: Request,
-    ) -> Result<Response, RpcError> {
-        self.send.send(x)?;
-        self.recv.recv().await.ok_or(RpcError::RecvError)
+    pub fn call(
+        &self,
+        req: Request,
+    ) -> Result<impl Future<Output = Result<Response, RpcError>>, RpcError> {
+        let (sender, rx) = oneshot::channel();
+        self.send_requests.send((req, sender))?;
+
+        Ok(async move {
+            let response = rx.await.map_err(|_| RpcError::RecvError)?;
+            Ok(response)
+        })
     }
 }
