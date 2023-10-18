@@ -97,3 +97,17 @@ impl Rpc<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailure {
         Err(VerifyTxError::Dummy)
     }
 }
+
+pub struct SendTxsRpcDefault {
+    pub batches: SharedMutVec<Vec<SharedProvenTx>>,
+}
+
+#[async_trait]
+impl Rpc<Vec<SharedProvenTx>, ()> for SendTxsRpcDefault {
+    async fn handle_request(
+        self: Arc<Self>,
+        proven_txs: Vec<SharedProvenTx>,
+    ) {
+        self.batches.lock().await.push(proven_txs);
+    }
+}
