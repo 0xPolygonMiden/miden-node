@@ -53,7 +53,7 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
     /// Error when sending a batch
     type ProduceBatchError: Debug;
 
-    async fn verify_transaction(
+    async fn verify_tx(
         &self,
         tx: SharedProvenTx,
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError>;
@@ -155,7 +155,7 @@ where
 
         let verification_result = self
             .handle_out
-            .verify_transaction(proven_tx.clone())
+            .verify_tx(proven_tx.clone())
             .await
             .expect("Failed to verify transaction");
 

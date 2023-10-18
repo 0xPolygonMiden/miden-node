@@ -112,7 +112,7 @@ impl TxQueueHandleOut for HandleOutDefault {
     type TxVerificationFailureReason = ();
     type ProduceBatchError = Infallible;
 
-    async fn verify_transaction(
+    async fn verify_tx(
         &self,
         _tx: SharedProvenTx,
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError> {
@@ -149,7 +149,7 @@ impl TxQueueHandleOut for HandleOutFailVerification {
     type TxVerificationFailureReason = ();
     type ProduceBatchError = Infallible;
 
-    async fn verify_transaction(
+    async fn verify_tx(
         &self,
         _tx: SharedProvenTx,
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError> {
