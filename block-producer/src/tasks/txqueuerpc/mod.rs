@@ -79,7 +79,10 @@ impl TxQueue {
     }
 
     // Start the task
-    pub async fn run(self, read_tx_rpc_server: ReadTxRpcServer) {
+    pub async fn run(
+        self,
+        read_tx_rpc_server: ReadTxRpcServer,
+    ) {
         read_tx_rpc_server.serve().await.expect("read_tx_rpc_server closed")
     }
 }

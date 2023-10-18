@@ -1,15 +1,15 @@
-use std::{sync::Arc, future::Future};
+use std::{future::Future, sync::Arc};
 
 use async_trait::async_trait;
-use tokio::sync::{mpsc::{error::SendError, unbounded_channel, UnboundedReceiver, UnboundedSender}, oneshot};
+use tokio::sync::{
+    mpsc::{error::SendError, unbounded_channel, UnboundedReceiver, UnboundedSender},
+    oneshot,
+};
 
 /// Creates a client/server pair that communicate locally using tokio channels
 pub fn create_client_server_response_pair<Request, Response, RpcImpl>(
-    rpc_impl: RpcImpl,
-) -> (
-    RpcClient<Request, Response>,
-    RpcServer<Request, Response, RpcImpl>,
-)
+    rpc_impl: RpcImpl
+) -> (RpcClient<Request, Response>, RpcServer<Request, Response, RpcImpl>)
 where
     Request: Send + 'static,
     Response: Send + 'static,
@@ -45,7 +45,10 @@ impl<T> From<SendError<T>> for RpcError {
 
 #[async_trait]
 pub trait Rpc<Request, Response>: Send + Sync + 'static {
-    async fn handle_request(self: Arc<Self>, x: Request) -> Response;
+    async fn handle_request(
+        self: Arc<Self>,
+        x: Request,
+    ) -> Response;
 }
 
 // RPC SERVER
