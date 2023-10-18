@@ -32,7 +32,7 @@ impl HandleInFixedInterval {
 impl TxQueueHandleIn for HandleInFixedInterval {
     type ReadTxError = Infallible;
 
-    async fn read_transaction(&self) -> Result<ProvenTransaction, Self::ReadTxError> {
+    async fn read_tx(&self) -> Result<ProvenTransaction, Self::ReadTxError> {
         // if we already sent the right amount of txs, sleep forever
         if *self.txs_sent_count.read().await >= self.num_txs_to_send {
             // sleep forever
@@ -73,7 +73,7 @@ impl HandleInVariableInterval {
 impl TxQueueHandleIn for HandleInVariableInterval {
     type ReadTxError = Infallible;
 
-    async fn read_transaction(&self) -> Result<ProvenTransaction, Self::ReadTxError> {
+    async fn read_tx(&self) -> Result<ProvenTransaction, Self::ReadTxError> {
         let txs_sent_count = *self.txs_sent_count.read().await;
 
         // if we already sent the right amount of txs, sleep forever
@@ -119,7 +119,7 @@ impl TxQueueHandleOut for HandleOutDefault {
         Ok(Ok(()))
     }
 
-    async fn send_batch(
+    async fn send_txs(
         &self,
         txs: Vec<Arc<ProvenTransaction>>,
     ) -> Result<(), Self::ProduceBatchError> {
@@ -156,7 +156,7 @@ impl TxQueueHandleOut for HandleOutFailVerification {
         Ok(Err(()))
     }
 
-    async fn send_batch(
+    async fn send_txs(
         &self,
         txs: Vec<Arc<ProvenTransaction>>,
     ) -> Result<(), Self::ProduceBatchError> {

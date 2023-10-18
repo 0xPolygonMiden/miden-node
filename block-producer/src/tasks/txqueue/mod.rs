@@ -39,7 +39,7 @@ type ReadyQueue = SharedMutVec<SharedProvenTx>;
 pub trait TxQueueHandleIn: Send + Sync + 'static {
     type ReadTxError: Debug;
 
-    async fn read_transaction(&self) -> Result<ProvenTransaction, Self::ReadTxError>;
+    async fn read_tx(&self) -> Result<ProvenTransaction, Self::ReadTxError>;
 }
 
 /// Contains all the methods for the transaction queue to send messages out.
@@ -59,8 +59,8 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError>;
 
     // FIXME: Change type to encode the ordering
-    /// Send a batch, where the first index contains the first transaction.
-    async fn send_batch(
+    /// Send a set of transactions be batched. Index 0 contains the first transaction.
+    async fn send_txs(
         &self,
         txs: Vec<Arc<ProvenTransaction>>,
     ) -> Result<(), Self::ProduceBatchError>;
@@ -133,7 +133,7 @@ where
         loop {
             // Handle new transaction coming in
             let proven_tx =
-                tx_queue.handle_in.read_transaction().await.expect("Failed to read transaction");
+                tx_queue.handle_in.read_tx().await.expect("Failed to read transaction");
             let tx_queue = tx_queue.clone();
             let timer_task_handle = timer_task_handle.clone();
 
@@ -313,5 +313,5 @@ async fn send_batch<HandleOut: TxQueueHandleOut>(
 
     // Panic for now if the send fails. In the future, we might want a more sophisticated strategy,
     // such as retrying, or something else.
-    handle_out.send_batch(txs_in_batch).await.expect("Failed to send batch");
+    handle_out.send_txs(txs_in_batch).await.expect("Failed to send batch");
 }
