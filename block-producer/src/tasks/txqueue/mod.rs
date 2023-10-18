@@ -51,7 +51,7 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
     /// failed that verification
     type TxVerificationFailureReason: Debug + Send;
     /// Error when sending a batch
-    type ProduceBatchError: Debug;
+    type SendTxError: Debug;
 
     async fn verify_tx(
         &self,
@@ -63,7 +63,7 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
     async fn send_txs(
         &self,
         txs: Vec<SharedProvenTx>,
-    ) -> Result<(), Self::ProduceBatchError>;
+    ) -> Result<(), Self::SendTxError>;
 }
 
 /// Configuration parameters for the transaction queue
@@ -132,8 +132,7 @@ where
 
         loop {
             // Handle new transaction coming in
-            let proven_tx =
-                tx_queue.handle_in.read_tx().await.expect("Failed to read transaction");
+            let proven_tx = tx_queue.handle_in.read_tx().await.expect("Failed to read transaction");
             let tx_queue = tx_queue.clone();
             let timer_task_handle = timer_task_handle.clone();
 

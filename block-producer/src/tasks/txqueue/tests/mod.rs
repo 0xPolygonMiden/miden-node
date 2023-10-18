@@ -110,7 +110,7 @@ impl HandleOutDefault {
 impl TxQueueHandleOut for HandleOutDefault {
     type VerifyTxError = Infallible;
     type TxVerificationFailureReason = ();
-    type ProduceBatchError = Infallible;
+    type SendTxError = Infallible;
 
     async fn verify_tx(
         &self,
@@ -122,7 +122,7 @@ impl TxQueueHandleOut for HandleOutDefault {
     async fn send_txs(
         &self,
         txs: Vec<SharedProvenTx>,
-    ) -> Result<(), Self::ProduceBatchError> {
+    ) -> Result<(), Self::SendTxError> {
         self.batches.lock().await.push(txs);
 
         Ok(())
@@ -147,7 +147,7 @@ impl HandleOutFailVerification {
 impl TxQueueHandleOut for HandleOutFailVerification {
     type VerifyTxError = ();
     type TxVerificationFailureReason = ();
-    type ProduceBatchError = Infallible;
+    type SendTxError = Infallible;
 
     async fn verify_tx(
         &self,
@@ -159,7 +159,7 @@ impl TxQueueHandleOut for HandleOutFailVerification {
     async fn send_txs(
         &self,
         txs: Vec<SharedProvenTx>,
-    ) -> Result<(), Self::ProduceBatchError> {
+    ) -> Result<(), Self::SendTxError> {
         self.batches.lock().await.push(txs);
 
         Ok(())
