@@ -27,8 +27,8 @@ use tokio::time::{sleep, Sleep};
 // ================================================================================================
 
 type SharedProvenTx = Arc<ProvenTransaction>;
-type SharedVec<T> = Arc<Mutex<Vec<T>>>;
-type ReadyQueue = SharedVec<SharedProvenTx>;
+type SharedMutVec<T> = Arc<Mutex<Vec<T>>>;
+type ReadyQueue = SharedMutVec<SharedProvenTx>;
 
 // PUBLIC INTERFACE
 // ================================================================================================

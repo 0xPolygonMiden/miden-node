@@ -95,7 +95,7 @@ impl TxQueueHandleIn for HandleInVariableInterval {
 /// All transactions verify successfully. Records all sent batches.
 #[derive(Clone)]
 pub struct HandleOutDefault {
-    pub batches: SharedVec<Vec<SharedProvenTx>>,
+    pub batches: SharedMutVec<Vec<SharedProvenTx>>,
 }
 
 impl HandleOutDefault {
@@ -132,7 +132,7 @@ impl TxQueueHandleOut for HandleOutDefault {
 /// All transactions fail verification. Records all sent batches.
 #[derive(Clone)]
 pub struct HandleOutFailVerification {
-    pub batches: SharedVec<Vec<SharedProvenTx>>,
+    pub batches: SharedMutVec<Vec<SharedProvenTx>>,
 }
 
 impl HandleOutFailVerification {
