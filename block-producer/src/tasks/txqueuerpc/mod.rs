@@ -33,10 +33,20 @@ pub enum SendTxsError {}
 
 type SharedMutVec<T> = Arc<Mutex<Vec<T>>>;
 type ReadyQueue = SharedMutVec<SharedProvenTx>;
-type ReadTxRpcServer = RpcServer<ProvenTransaction, (), ReadTxRpc>;
+type ReadTxRpcServer = RpcServer<ProvenTransaction, (), TxQueue>;
 
 // TX QUEUE
 // ================================================================================================
+
+/// Configuration parameters for the transaction queue
+#[derive(Clone, Debug)]
+pub struct TxQueueOptions {
+    /// The size of a batch. When the internal queue reaches this value, the queued transactions
+    /// will be sent to be batched.
+    pub batch_size: usize,
+    /// The maximum time a transaction should sit in the transaction queue before being batched
+    pub tx_max_time_in_queue: Duration,
+}
 
 /// The transaction queue task
 pub struct TxQueue {
@@ -70,16 +80,6 @@ impl TxQueue {
         }
     }
 
-    pub fn get_read_tx_rpc(&self) -> ReadTxRpc {
-        ReadTxRpc {
-            verify_tx_client: self.verify_tx_client.clone(),
-            send_txs_client: self.send_txs_client.clone(),
-            ready_queue: self.ready_queue.clone(),
-            timer_task_handle: self.timer_task_handle.clone(),
-            options: self.options.clone(),
-        }
-    }
-
     // Start the task
     pub async fn run(
         self,
@@ -89,30 +89,8 @@ impl TxQueue {
     }
 }
 
-/// Configuration parameters for the transaction queue
-#[derive(Clone, Debug)]
-pub struct TxQueueOptions {
-    /// The size of a batch. When the internal queue reaches this value, the queued transactions
-    /// will be sent to be batched.
-    pub batch_size: usize,
-    /// The maximum time a transaction should sit in the transaction queue before being batched
-    pub tx_max_time_in_queue: Duration,
-}
-
-// READ TX SERVER
-// ================================================================================================
-
-/// Server which receives transactions, verifies, and adds them to an internal queue
-pub struct ReadTxRpc {
-    verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
-    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
-    ready_queue: ReadyQueue,
-    timer_task_handle: TimerTaskHandle,
-    options: TxQueueOptions,
-}
-
 #[async_trait]
-impl Rpc<ProvenTransaction, ()> for ReadTxRpc {
+impl Rpc<ProvenTransaction, ()> for TxQueue {
     async fn handle_request(
         self: Arc<Self>,
         proven_tx: ProvenTransaction,
