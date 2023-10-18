@@ -185,7 +185,7 @@ where
     }
 }
 
-// HELPERS
+// TIMER TASK
 // ================================================================================================
 
 fn start_timer_task<HandleOut: TxQueueHandleOut>(
@@ -286,6 +286,9 @@ where
         }
     }
 }
+
+// HELPERS
+// ================================================================================================
 
 /// Drains the queue and sends the batch. This task is responsible for ensuring that the batch is
 /// successfully sent, whether this requires retries, or any other strategy.
