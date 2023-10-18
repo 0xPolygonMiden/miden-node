@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use tokio::sync::mpsc::{error::SendError, unbounded_channel, UnboundedReceiver, UnboundedSender};
 
@@ -21,7 +23,7 @@ where
     let server = RpcServer {
         send: server_send,
         recv: server_recv,
-        rpc_impl,
+        rpc_impl: Arc::new(rpc_impl),
     };
 
     (client, server)
@@ -44,7 +46,7 @@ impl<T> From<SendError<T>> for RpcError {
 #[async_trait]
 pub trait Rpc<Request, Response>: Send + Sync + 'static {
     async fn handle_request(
-        &self,
+        self: Arc<Self>,
         x: Request,
     ) -> Response;
 }
@@ -60,7 +62,7 @@ where
 {
     send: UnboundedSender<Response>,
     recv: UnboundedReceiver<Request>,
-    rpc_impl: S,
+    rpc_impl: Arc<S>,
 }
 
 impl<T, U, S> RpcServer<T, U, S>
@@ -72,7 +74,8 @@ where
     pub async fn serve(mut self) -> Result<(), RpcError> {
         loop {
             let request = self.recv.recv().await.ok_or(RpcError::RecvError)?;
-            let response = self.rpc_impl.handle_request(request).await;
+
+            let response = self.rpc_impl.clone().handle_request(request).await;
             self.send.send(response)?;
         }
     }
@@ -95,6 +98,9 @@ where
     Request: Send + 'static,
     Response: Send + 'static,
 {
+    // TODO: IMPROVEMENT
+    // This interface currently forces all calls to the same client to be serialized.
+    // We should think about the best way to allow parallelization of requests.
     pub async fn call(
         &mut self,
         x: Request,
