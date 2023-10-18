@@ -133,7 +133,7 @@ where
             let timer_task_handle = timer_task_handle.clone();
 
             tokio::spawn(async move {
-                tx_queue.on_read_transaction(proven_tx, timer_task_handle).await
+                tx_queue.on_transaction(proven_tx, timer_task_handle).await
             });
         }
     }
@@ -141,7 +141,7 @@ where
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    async fn on_read_transaction(
+    async fn on_transaction(
         self: Arc<TxQueue<HandleIn, HandleOut>>,
         proven_tx: ProvenTransaction,
         timer_task_handle: TimerTaskHandle,
