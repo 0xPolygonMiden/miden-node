@@ -14,12 +14,11 @@ pub enum RpcError {
 }
 
 #[async_trait]
-pub trait Rpc<Request, Response>: Send + Sync
-where
-    Request: Send + 'static,
-    Response: Send + 'static,
-{
-    async fn handle_request(&self, x: Request) -> Response;
+pub trait Rpc<Request, Response>: Send + Sync + 'static {
+    async fn handle_request(
+        &self,
+        x: Request,
+    ) -> Response;
 }
 
 #[async_trait]
@@ -28,10 +27,9 @@ pub trait RpcServer {
 }
 
 #[async_trait]
-pub trait RpcClient<Request, Response>
-where
-    Request: Send + 'static,
-    Response: Send + 'static,
-{
-    async fn call(&mut self, x: Request) -> Result<Response, RpcError>;
+pub trait RpcClient<Request, Response>: Send + Sync + 'static {
+    async fn call(
+        &mut self,
+        x: Request,
+    ) -> Result<Response, RpcError>;
 }
