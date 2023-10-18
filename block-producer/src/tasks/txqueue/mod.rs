@@ -136,9 +136,7 @@ where
             let tx_queue = tx_queue.clone();
             let timer_task_handle = timer_task_handle.clone();
 
-            tokio::spawn(
-                async move { tx_queue.on_transaction(proven_tx, timer_task_handle).await },
-            );
+            tokio::spawn(tx_queue.on_transaction(proven_tx, timer_task_handle));
         }
     }
 
