@@ -58,7 +58,7 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError>;
 
     // FIXME: Change type to encode the ordering
-    /// Send a batch, where the first index contains the first transaction. 
+    /// Send a batch, where the first index contains the first transaction.
     async fn send_batch(
         &self,
         txs: Vec<Arc<ProvenTransaction>>,
@@ -136,9 +136,9 @@ where
             let tx_queue = tx_queue.clone();
             let timer_task_handle = timer_task_handle.clone();
 
-            tokio::spawn(async move {
-                tx_queue.on_transaction(proven_tx, timer_task_handle).await
-            });
+            tokio::spawn(
+                async move { tx_queue.on_transaction(proven_tx, timer_task_handle).await },
+            );
         }
     }
 
@@ -173,18 +173,13 @@ where
         locked_ready_queue.push(proven_tx);
 
         if locked_ready_queue.len() >= self.options.batch_size {
-            // FIXME: Dropping the ready queue here means that 2 tasks could send a batch, where the
-            // first batch will contain `batch_size` transactions, and the second would contain only
-            // 1 transaction. This is low-risk and has little-to-no impact if it occurs.
-            drop(locked_ready_queue);
-
             // We are sending a batch, so reset the timer
             timer_task_handle.stop_timer();
 
-            let ready_queue = self.ready_queue.clone();
             let handle_out = self.handle_out.clone();
+            let txs_in_batch = drain_queue(&mut locked_ready_queue, self.options.batch_size);
 
-            tokio::spawn(send_batch(ready_queue, handle_out, self.options.batch_size));
+            tokio::spawn(send_batch(txs_in_batch, handle_out));
         }
     }
 }
@@ -283,7 +278,9 @@ where
                     }
                 }
                 () = send_batch_timer => {
-                    tokio::spawn(send_batch(self.ready_queue.clone(), self.handle_out.clone(), self.batch_size));
+                    let mut locked_ready_queue = self.ready_queue.lock().await;
+                    let txs_in_batch = drain_queue(&mut locked_ready_queue, self.batch_size);
+                    tokio::spawn(send_batch(txs_in_batch, self.handle_out.clone()));
                     sleep_duration = Duration::MAX;
                 }
             }
@@ -294,21 +291,21 @@ where
 // HELPERS
 // ================================================================================================
 
-/// Drains the queue and sends the batch. This task is responsible for ensuring that the batch is
-/// successfully sent, whether this requires retries, or any other strategy.
-async fn send_batch<HandleOut: TxQueueHandleOut>(
-    ready_queue: ReadyQueue,
-    handle_out: Arc<HandleOut>,
+/// Drains at most `batch_size` from the queue
+fn drain_queue(
+    locked_ready_queue: &mut Vec<SharedProvenTx>,
     batch_size: usize,
+) -> Vec<SharedProvenTx> {
+    let num_to_drain = min(batch_size, locked_ready_queue.len());
+    locked_ready_queue.drain(..num_to_drain).collect()
+}
+
+/// This task is responsible for ensuring that the batch is successfully sent, whether this requires
+/// retries, or any other strategy.
+async fn send_batch<HandleOut: TxQueueHandleOut>(
+    txs_in_batch: Vec<SharedProvenTx>,
+    handle_out: Arc<HandleOut>,
 ) {
-    let txs_in_batch: Vec<Arc<ProvenTransaction>> = {
-        // drain `batch_size` txs from the queue and release the lock.
-        let mut locked_ready_queue = ready_queue.lock().await;
-
-        let num_to_drain = min(batch_size, locked_ready_queue.len());
-        locked_ready_queue.drain(..num_to_drain).collect()
-    };
-
     if txs_in_batch.is_empty() {
         return;
     }
