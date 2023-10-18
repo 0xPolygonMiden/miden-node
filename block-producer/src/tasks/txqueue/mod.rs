@@ -55,14 +55,14 @@ pub trait TxQueueHandleOut: Send + Sync + 'static {
 
     async fn verify_transaction(
         &self,
-        tx: Arc<ProvenTransaction>,
+        tx: SharedProvenTx,
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError>;
 
     // FIXME: Change type to encode the ordering
     /// Send a set of transactions be batched. Index 0 contains the first transaction.
     async fn send_txs(
         &self,
-        txs: Vec<Arc<ProvenTransaction>>,
+        txs: Vec<SharedProvenTx>,
     ) -> Result<(), Self::ProduceBatchError>;
 }
 

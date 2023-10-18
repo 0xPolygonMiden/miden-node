@@ -114,14 +114,14 @@ impl TxQueueHandleOut for HandleOutDefault {
 
     async fn verify_transaction(
         &self,
-        _tx: Arc<ProvenTransaction>,
+        _tx: SharedProvenTx,
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError> {
         Ok(Ok(()))
     }
 
     async fn send_txs(
         &self,
-        txs: Vec<Arc<ProvenTransaction>>,
+        txs: Vec<SharedProvenTx>,
     ) -> Result<(), Self::ProduceBatchError> {
         self.batches.lock().await.push(txs);
 
@@ -151,14 +151,14 @@ impl TxQueueHandleOut for HandleOutFailVerification {
 
     async fn verify_transaction(
         &self,
-        _tx: Arc<ProvenTransaction>,
+        _tx: SharedProvenTx,
     ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError> {
         Ok(Err(()))
     }
 
     async fn send_txs(
         &self,
-        txs: Vec<Arc<ProvenTransaction>>,
+        txs: Vec<SharedProvenTx>,
     ) -> Result<(), Self::ProduceBatchError> {
         self.batches.lock().await.push(txs);
 
