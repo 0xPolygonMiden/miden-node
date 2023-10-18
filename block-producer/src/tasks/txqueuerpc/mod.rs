@@ -17,9 +17,10 @@ use crate::{
 };
 
 // TODO: Put in right module
+#[derive(Clone, Debug)]
 pub enum VerifyTxError {}
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum SendTxsError {}
 
 // TYPE ALIASES
@@ -34,16 +35,49 @@ type ReadTxRpcServer = RpcServer<ProvenTransaction, (), ReadTxRpc>;
 
 /// The transaction queue task
 pub struct TxQueue {
-    read_tx_rpc_server: ReadTxRpcServer,
+    verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
+    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+    ready_queue: ReadyQueue,
+    timer_task_handle: TimerTaskHandle,
+    options: TxQueueOptions,
 }
 
 impl TxQueue {
-    pub fn new(read_tx_rpc_server: ReadTxRpcServer) -> Self {
-        Self { read_tx_rpc_server }
+    pub fn new(
+        verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
+        send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+        ready_queue: ReadyQueue,
+        options: TxQueueOptions,
+    ) -> Self {
+        let timer_task_handle = start_timer_task(
+            ready_queue.clone(),
+            send_txs_client.clone(),
+            options.tx_max_time_in_queue,
+            options.batch_size,
+        );
+
+        Self {
+            verify_tx_client,
+            send_txs_client,
+            ready_queue,
+            timer_task_handle,
+            options,
+        }
     }
 
-    pub async fn run(self) {
-        self.read_tx_rpc_server.serve().await.expect("read_tx_rpc_server crashed");
+    pub fn get_read_tx_rpc(&self) -> ReadTxRpc {
+        ReadTxRpc {
+            verify_tx_client: self.verify_tx_client.clone(),
+            send_txs_client: self.send_txs_client.clone(),
+            ready_queue: self.ready_queue.clone(),
+            timer_task_handle: self.timer_task_handle.clone(),
+            options: self.options.clone(),
+        }
+    }
+
+    // Start the task
+    pub async fn run(self, read_tx_rpc_server: ReadTxRpcServer) {
+        read_tx_rpc_server.serve().await.expect("read_tx_rpc_server closed")
     }
 }
 
@@ -56,7 +90,6 @@ pub struct TxQueueOptions {
     /// The maximum time a transaction should sit in the transaction queue before being batched
     pub tx_max_time_in_queue: Duration,
 }
-
 
 // READ TX SERVER
 // ================================================================================================
