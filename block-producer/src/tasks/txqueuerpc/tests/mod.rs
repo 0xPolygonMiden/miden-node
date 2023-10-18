@@ -71,3 +71,29 @@ impl ReadTxClientVariableInterval {
         }
     }
 }
+
+/// All transactions succeed verification.
+pub struct VerifyTxRpcSuccess {}
+
+#[async_trait]
+impl Rpc<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSuccess {
+    async fn handle_request(
+        self: Arc<Self>,
+        _proven_tx: SharedProvenTx,
+    ) -> Result<(), VerifyTxError> {
+        Ok(())
+    }
+}
+
+/// All transactions fail verification.
+pub struct VerifyTxRpcFailure {}
+
+#[async_trait]
+impl Rpc<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailure {
+    async fn handle_request(
+        self: Arc<Self>,
+        _proven_tx: SharedProvenTx,
+    ) -> Result<(), VerifyTxError> {
+        Err(VerifyTxError::Dummy)
+    }
+}

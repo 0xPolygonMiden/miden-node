@@ -21,7 +21,9 @@ use crate::{
 
 // TODO: Put in right module
 #[derive(Clone, Debug)]
-pub enum VerifyTxError {}
+pub enum VerifyTxError {
+    Dummy
+}
 
 #[derive(Clone, Debug)]
 pub enum SendTxsError {}
