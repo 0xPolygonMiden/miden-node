@@ -123,10 +123,11 @@ impl ServerImpl<ProvenTransaction, ()> for TxQueue {
     ) {
         let proven_tx = Arc::new(proven_tx);
 
+        // FIXME: graceful shutdown when channels are closed?
         let verification_result =
             self.verify_tx_client.call(proven_tx.clone()).expect("verify_tx_client");
 
-        if let Err(_failure_reason) = verification_result.await {
+        if let Err(_failure_reason) = verification_result.await.expect("verify_tx_client") {
             // TODO: Log failure properly
             return;
         }
