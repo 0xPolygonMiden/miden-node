@@ -66,11 +66,11 @@ where
     server_impl: Arc<S>,
 }
 
-impl<T, U, S> RpcServer<T, U, S>
+impl<Request, Response, S> RpcServer<Request, Response, S>
 where
-    T: Send + 'static,
-    U: Send + 'static,
-    S: ServerImpl<T, U>,
+    Request: Send + 'static,
+    Response: Send + 'static,
+    S: ServerImpl<Request, Response>,
 {
     pub async fn serve(mut self) -> Result<(), RpcError> {
         loop {
