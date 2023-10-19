@@ -199,6 +199,68 @@ async fn test_tx_timer_resets_after_full_batch_sent() {
     assert!(ready_queue.lock().await.is_empty());
 }
 
+/// This tests if the internal transaction timer properly resets after a
+/// timeout. Specifically, we test that we don't mistakenly start creating
+/// batches at fixed interval after a first timeout occurs.
+///
+/// We set the batch size to 2, send 1 transaction and wait for timeout (30ms)
+/// so that it is sent in batch. We then send another transaction, and confirm
+/// that it is still in the queue after 60ms (it wouldn't be if we forgot to
+/// reset the timeout).
+///
+///
+///                                                           confirm tx2
+///                                                           in queue
+///  tx1                                tx2
+///  |       |       |       |       |       |       |       |       |
+///  0ms    10ms    20ms    30ms    40ms   50ms    60ms    70ms     80ms
+///  |---------timer---------|
+///                          |------timer (if bug)---|
+///                                          |---------timer---------|
+///
+/// Specifically, we're ensuring that tx2 is still in the queue at 75ms, which
+/// wouldn't be the case if we forgot to reset the timer after tx1 is sent in a
+/// batch.
+#[tokio::test]
+async fn test_tx_timer_resets_after_timeout() {
+    let batch_size: usize = 2;
+
+    let (read_tx_client, ready_queue, batches) = setup(
+        VerifyTxRpcSuccess,
+        TxQueueOptions {
+            batch_size,
+            tx_max_time_in_queue: Duration::from_millis(30),
+        },
+    );
+
+    // Start client
+    tokio::spawn(
+        ReadTxClientVariableInterval::new(
+            read_tx_client,
+            vec![Duration::from_millis(0), Duration::from_millis(45)],
+        )
+        .run(),
+    );
+
+    time::sleep(Duration::from_millis(75)).await;
+
+    // Ensure that 1 batch was sent
+    assert_eq!(batches.lock().await.len(), 1);
+    // Ensure that the queue holds 1 transaction
+    assert_eq!(ready_queue.lock().await.len(), 1);
+
+    time::sleep(Duration::from_millis(35)).await;
+
+    // Ensure that 2 batches were sent
+    assert_eq!(batches.lock().await.len(), 2);
+    // Ensure that first batch received is length 1
+    assert_eq!(batches.lock().await[0].len(), 1);
+    // Ensure that second batch received is length 1
+    assert_eq!(batches.lock().await[1].len(), 1);
+    // Ensure that the queue is empty
+    assert!(ready_queue.lock().await.is_empty());
+}
+
 // HELPERS
 // ================================================================================================
 
