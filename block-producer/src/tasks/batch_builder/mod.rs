@@ -23,23 +23,34 @@ struct BatchBuilder {
 // Message handlers
 // -------------------------------------------------------------------------------------------------
 
-/// Handler for transaction queue's `send_txs()` message
 #[async_trait]
 impl MessageHandler<Vec<SharedProvenTx>, ()> for BatchBuilder {
+
+    /// Handler for transaction queue's `send_txs()` message
     async fn handle_message(
         self: Arc<Self>,
-        message: Vec<SharedProvenTx>,
+        proven_txs: Vec<SharedProvenTx>,
     ) {
-        todo!()
+        // Note: Normally, we would actually process the message to create the `TxBatch`.
+        // We need to properly define the `TxBatch` type first
+        let batch = TxBatch {
+            proven_txs: proven_txs,
+        };
+
+        self.ready_batches.lock().await.push(batch);
     }
 }
 
-/// Handle for block producer's `get_batches()` message
 #[async_trait]
-impl MessageHandler<(), Vec<TxBatch>> for BatchBuilder {
+impl MessageHandler<usize, Vec<TxBatch>> for BatchBuilder {
+
+    /// Handler for block producer's `get_batches(max_num_txs)` message.
+    /// 
+    /// `max_num_txs` is the maximum number of transactions that must be contained in the sum of all
+    /// batches.
     async fn handle_message(
         self: Arc<Self>,
-        _message: (),
+        max_num_txs: usize,
     ) -> Vec<TxBatch> {
         todo!()
     }
