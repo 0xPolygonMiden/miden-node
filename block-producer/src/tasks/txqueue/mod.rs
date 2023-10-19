@@ -1,3 +1,14 @@
+//! The transaction queue takes transactions coming in, validates them, and
+//! eventually sends them out in a batch. We say "sending a batch" to represent
+//! handing over a set of transactions to the batch builder.
+//!
+//! Specifically, the requirements are:
+//! - A transaction that fails validation is dropped
+//! - There are 2 conditions for a batch to be sent:
+//!   1. The internal queue size reaches [`TxQueueOptions::batch_size`]
+//!   2. A transaction in the internal queue has been sitting for more than
+//!      [`TxQueueOptions::tx_max_time_in_queue`]
+
 #[cfg(test)]
 mod tests;
 
