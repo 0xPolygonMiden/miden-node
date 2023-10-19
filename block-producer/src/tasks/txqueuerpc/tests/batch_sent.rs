@@ -18,7 +18,7 @@ async fn test_batch_full_sent() {
 
     // Start fixed interval client
     tokio::spawn(
-        ReadTxClientFixedInterval::new(read_tx_client, Duration::from_millis(10), 3).run(),
+        ReadTxClientFixedInterval::new(read_tx_client, Duration::from_millis(10), batch_size).run(),
     );
 
     time::sleep(Duration::from_millis(50)).await;
@@ -71,6 +71,35 @@ async fn test_proper_batch_size_sent() {
     assert_eq!(batches.lock().await[0].len(), batch_size);
     // Ensure that the queue contains 1 transaction
     assert_eq!(ready_queue.lock().await.len(), 1);
+}
+
+/// Tests that when a transaction's verification fails, it is not added to the queue.
+///
+/// We set a batch size of 3, and send 3 transactions with 10ms interval delay.
+/// Transaction timer is set to 10ms. After 50ms delay, we confirm that no batch was sent.
+#[tokio::test]
+async fn test_tx_verification_failure() {
+    let batch_size = 3;
+
+    let (read_tx_client, ready_queue, batches) = setup(
+        VerifyTxRpcFailure,
+        TxQueueOptions {
+            batch_size,
+            tx_max_time_in_queue: Duration::MAX,
+        },
+    );
+
+    // Start fixed interval client
+    tokio::spawn(
+        ReadTxClientFixedInterval::new(read_tx_client, Duration::from_millis(10), batch_size).run(),
+    );
+
+    time::sleep(Duration::from_millis(50)).await;
+
+    // Ensure that no batch was sent
+    assert!(batches.lock().await.is_empty());
+    // Ensure that the queue is empty
+    assert!(ready_queue.lock().await.is_empty());
 }
 
 // HELPERS
