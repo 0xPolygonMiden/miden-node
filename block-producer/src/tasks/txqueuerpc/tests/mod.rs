@@ -8,6 +8,7 @@ use crate::test_utils::DummyProvenTxGenerator;
 // CLIENT IMPLS
 // ================================================================================================
 
+/// Sends a transaction to the server at a fixed interval. The first transaction is sent at t=0.
 pub struct ReadTxClientFixedInterval {
     read_tx_client: RpcClient<ProvenTransaction, ()>,
     interval_duration: Duration,

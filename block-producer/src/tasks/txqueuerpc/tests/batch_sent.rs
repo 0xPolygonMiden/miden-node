@@ -102,6 +102,45 @@ async fn test_tx_verification_failure() {
     assert!(ready_queue.lock().await.is_empty());
 }
 
+/// Tests that if a batch is not full, then the batch will be sent regardless
+/// due to the timer (which starts after the first transaction enters the
+/// queue).
+///
+/// We set a batch size of 3, and send 2 transactions: after 0, and 20ms.
+/// Transaction timer is set to 30ms. After 40ms delay, we confirm that the
+/// batch was sent. This setup also ensures that the timer started after the
+/// first transaction (as opposed to possibly the second one).
+#[tokio::test]
+async fn test_timer_send_batch() {
+    let batch_size = 3;
+
+    let (read_tx_client, ready_queue, batches) = setup(
+        VerifyTxRpcSuccess,
+        TxQueueOptions {
+            batch_size,
+            tx_max_time_in_queue: Duration::from_millis(30),
+        },
+    );
+
+    // Start client
+    tokio::spawn(
+        ReadTxClientVariableInterval::new(
+            read_tx_client,
+            vec![Duration::from_millis(0), Duration::from_millis(20)],
+        )
+        .run(),
+    );
+
+    time::sleep(Duration::from_millis(40)).await;
+
+    // Ensure that the batch was sent
+    assert_eq!(batches.lock().await.len(), 1);
+    // Ensure that the batch contains all the transactions
+    assert_eq!(batches.lock().await[0].len(), batch_size - 1);
+    // Ensure that the queue is empty
+    assert!(ready_queue.lock().await.is_empty());
+}
+
 // HELPERS
 // ================================================================================================
 
