@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::{rpc::ServerImpl, SharedMutVec, SharedProvenTx};
+use crate::{msg::MessageHandler, SharedMutVec, SharedProvenTx};
 
 /// A batch of transactions that have been proven with a single recursive proof.
 ///
@@ -25,10 +25,10 @@ struct BatchBuilder {
 
 /// Handler for transaction queue's `send_txs()` message
 #[async_trait]
-impl ServerImpl<Vec<SharedProvenTx>, ()> for BatchBuilder {
-    async fn handle_request(
+impl MessageHandler<Vec<SharedProvenTx>, ()> for BatchBuilder {
+    async fn handle_message(
         self: Arc<Self>,
-        request: Vec<SharedProvenTx>,
+        message: Vec<SharedProvenTx>,
     ) {
         todo!()
     }
@@ -36,10 +36,10 @@ impl ServerImpl<Vec<SharedProvenTx>, ()> for BatchBuilder {
 
 /// Handle for block producer's `get_batches()` message
 #[async_trait]
-impl ServerImpl<(), Vec<TxBatch>> for BatchBuilder {
-    async fn handle_request(
+impl MessageHandler<(), Vec<TxBatch>> for BatchBuilder {
+    async fn handle_message(
         self: Arc<Self>,
-        _request: (),
+        _message: (),
     ) -> Vec<TxBatch> {
         todo!()
     }
