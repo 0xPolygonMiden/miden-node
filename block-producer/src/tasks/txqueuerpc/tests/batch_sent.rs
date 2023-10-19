@@ -8,27 +8,13 @@ use super::*;
 async fn test_batch_full_sent() {
     let batch_size = 3;
 
-    let (verify_tx_client, verify_tx_server) = create_client_server_pair(VerifyTxRpcSuccess);
-
-    let send_txs_server_impl = SendTxsDefaultServerImpl::new();
-    let batches = send_txs_server_impl.batches.clone();
-    let (send_txs_client, send_txs_server) = create_client_server_pair(send_txs_server_impl);
-
-    let tx_queue = TxQueue::new(
-        verify_tx_client,
-        send_txs_client,
+    let (read_tx_client, ready_queue, batches) = setup(
+        VerifyTxRpcSuccess,
         TxQueueOptions {
             batch_size,
             tx_max_time_in_queue: Duration::MAX,
         },
     );
-    let ready_queue = tx_queue.ready_queue.clone();
-    let (read_tx_client, read_tx_server) = create_client_server_pair(tx_queue);
-
-    // Start servers
-    tokio::spawn(verify_tx_server.serve());
-    tokio::spawn(send_txs_server.serve());
-    tokio::spawn(read_tx_server.serve());
 
     // Start fixed interval client
     tokio::spawn(
@@ -43,4 +29,35 @@ async fn test_batch_full_sent() {
     assert_eq!(batches.lock().await[0].len(), batch_size);
     // Ensure that the queue is empty
     assert!(ready_queue.lock().await.is_empty());
+}
+
+// HELPERS
+// ================================================================================================
+
+/// Starts the RPC servers (txqueue's server and servers which txqueue is a client).
+/// Returns handles useful for tests
+fn setup<VerifyTxServerImpl>(
+    verify_tx_server_impl: VerifyTxServerImpl,
+    tx_queue_options: TxQueueOptions,
+) -> (ReadTxRpcClient, ReadyQueue, SharedMutVec<Vec<SharedProvenTx>>)
+where
+    VerifyTxServerImpl: ServerImpl<SharedProvenTx, Result<(), VerifyTxError>>,
+{
+    let (verify_tx_client, verify_tx_server) = create_client_server_pair(verify_tx_server_impl);
+
+    let send_txs_server_impl = SendTxsDefaultServerImpl::new();
+    let batches = send_txs_server_impl.batches.clone();
+    let (send_txs_client, send_txs_server) = create_client_server_pair(send_txs_server_impl);
+
+    let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, tx_queue_options);
+
+    let ready_queue = tx_queue.ready_queue.clone();
+    let (read_tx_client, read_tx_server) = create_client_server_pair(tx_queue);
+
+    // Start servers
+    tokio::spawn(verify_tx_server.serve());
+    tokio::spawn(send_txs_server.serve());
+    tokio::spawn(read_tx_server.serve());
+
+    (read_tx_client, ready_queue, batches)
 }

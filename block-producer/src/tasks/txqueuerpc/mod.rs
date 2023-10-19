@@ -30,6 +30,7 @@ pub enum SendTxsError {}
 
 // TYPE ALIASES
 // ================================================================================================
+pub type ReadTxRpcClient = RpcClient<ProvenTransaction, ()>;
 
 type SharedMutVec<T> = Arc<Mutex<Vec<T>>>;
 type ReadyQueue = SharedMutVec<SharedProvenTx>;
@@ -50,7 +51,7 @@ impl TxQueueTask {
         verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
         send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
         options: TxQueueOptions,
-    ) -> (Self, RpcClient<ProvenTransaction, ()>) {
+    ) -> (Self, ReadTxRpcClient) {
         let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, options);
         let (client, server) = create_client_server_pair(tx_queue);
 
