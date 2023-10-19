@@ -4,8 +4,18 @@ mod tests;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tokio::sync::Mutex;
 
-use crate::{msg::MessageHandler, SharedMutVec, SharedProvenTx};
+use crate::{
+    msg::{create_message_sender_receiver_pair, MessageHandler, MessageReceiver, MessageSender},
+    SharedMutVec, SharedProvenTx,
+};
+
+// TYPE ALIASES
+// ================================================================================================
+
+pub type SendTxsMessageSender = MessageSender<Vec<SharedProvenTx>, ()>;
+pub type GetBatchesMessageSender = MessageSender<usize, Vec<TxBatch>>;
 
 type ReadyBatchQueue = SharedMutVec<TxBatch>;
 
@@ -23,10 +33,29 @@ impl TxBatch {
     }
 }
 
-
 // Batch Builder task
 // ================================================================================================
 pub struct BatchBuilderTask {
+    send_txs_recv: MessageReceiver<Vec<SharedProvenTx>, (), BatchBuilder>,
+    get_batches_recv: MessageReceiver<usize, Vec<TxBatch>, BatchBuilder>,
+}
+
+impl BatchBuilderTask {
+    pub fn new() -> (Self, SendTxsMessageSender, GetBatchesMessageSender) {
+        let batch_builder = BatchBuilder::new();
+        let (send_txs_sender, send_txs_recv) = create_message_sender_receiver_pair(batch_builder);
+        let (get_batches_sender, get_batches_recv) =
+            create_message_sender_receiver_pair(batch_builder);
+
+        (
+            Self {
+                send_txs_recv,
+                get_batches_recv,
+            },
+            send_txs_sender,
+            get_batches_sender,
+        )
+    }
 }
 
 // Batch Builder
@@ -34,6 +63,14 @@ pub struct BatchBuilderTask {
 
 struct BatchBuilder {
     ready_batches: ReadyBatchQueue,
+}
+
+impl BatchBuilder {
+    pub fn new() -> Self {
+        Self {
+            ready_batches: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
 }
 
 // Message handlers
