@@ -49,7 +49,7 @@ impl<T> From<SendError<T>> for RpcError {
 pub trait ServerImpl<Request, Response>: Send + Sync + 'static {
     async fn handle_request(
         self: Arc<Self>,
-        x: Request,
+        request: Request,
     ) -> Response;
 }
 
