@@ -269,7 +269,7 @@ async fn test_tx_timer_resets_after_timeout() {
 fn setup<VerifyTxServerImpl>(
     verify_tx_server_impl: VerifyTxServerImpl,
     tx_queue_options: TxQueueOptions,
-) -> (ReadTxRpcClient, ReadyQueue, SharedMutVec<Vec<SharedProvenTx>>)
+) -> (ReadTxMessageSender, ReadyQueue, SharedMutVec<Vec<SharedProvenTx>>)
 where
     VerifyTxServerImpl: MessageHandler<SharedProvenTx, Result<(), VerifyTxError>>,
 {

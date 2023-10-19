@@ -41,17 +41,17 @@ pub enum SendTxsError {}
 
 // TYPE ALIASES
 // ================================================================================================
-pub type ReadTxRpcClient = MessageSender<ProvenTransaction, ()>;
+pub type ReadTxMessageSender = MessageSender<ProvenTransaction, ()>;
 
 type ReadyQueue = SharedMutVec<SharedProvenTx>;
-type ReadTxRpcServer = MessageReceiver<ProvenTransaction, (), TxQueue>;
+type ReadTxMessageReceiver = MessageReceiver<ProvenTransaction, (), TxQueue>;
 
 // TX QUEUE TASK
 // ================================================================================================
 
 /// The transaction queue task.
 pub struct TxQueueTask {
-    read_tx_rpc_server: ReadTxRpcServer,
+    read_tx_message_receiver: ReadTxMessageReceiver,
 }
 
 impl TxQueueTask {
@@ -61,20 +61,20 @@ impl TxQueueTask {
         verify_tx_client: MessageSender<SharedProvenTx, Result<(), VerifyTxError>>,
         send_txs_client: MessageSender<Vec<SharedProvenTx>, ()>,
         options: TxQueueOptions,
-    ) -> (Self, ReadTxRpcClient) {
+    ) -> (Self, ReadTxMessageSender) {
         let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, options);
         let (client, server) = create_message_sender_receiver_pair(tx_queue);
 
         (
             Self {
-                read_tx_rpc_server: server,
+                read_tx_message_receiver: server,
             },
             client,
         )
     }
 
     pub async fn run(self) {
-        self.read_tx_rpc_server.serve().await.expect("read_tx_rpc_server closed")
+        self.read_tx_message_receiver.serve().await.expect("read_tx_rpc_server closed")
     }
 }
 
