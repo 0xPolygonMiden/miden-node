@@ -42,8 +42,9 @@ pub struct BatchBuilderTask {
 
 impl BatchBuilderTask {
     pub fn new() -> (Self, SendTxsMessageSender, GetBatchesMessageSender) {
-        let batch_builder = BatchBuilder::new();
-        let (send_txs_sender, send_txs_recv) = create_message_sender_receiver_pair(batch_builder);
+        let batch_builder = Arc::new(BatchBuilder::new());
+        let (send_txs_sender, send_txs_recv) =
+            create_message_sender_receiver_pair(batch_builder.clone());
         let (get_batches_sender, get_batches_recv) =
             create_message_sender_receiver_pair(batch_builder);
 
@@ -55,6 +56,17 @@ impl BatchBuilderTask {
             send_txs_sender,
             get_batches_sender,
         )
+    }
+
+    pub async fn run(self) {
+        tokio::spawn(async move {
+            self.send_txs_recv.serve().await.expect("send_txs_recv message receiver failed");
+        });
+
+        self.get_batches_recv
+            .serve()
+            .await
+            .expect("get_batches_recv message receiver failed");
     }
 }
 
