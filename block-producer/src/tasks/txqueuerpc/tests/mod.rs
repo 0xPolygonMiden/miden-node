@@ -1,7 +1,12 @@
+mod batch_sent;
+
 use tokio::time;
 
 use super::*;
 use crate::test_utils::DummyProvenTxGenerator;
+
+// CLIENT IMPLS
+// ================================================================================================
 
 pub struct ReadTxClientFixedInterval {
     read_tx_client: RpcClient<ProvenTransaction, ()>,
@@ -72,8 +77,11 @@ impl ReadTxClientVariableInterval {
     }
 }
 
+// SERVER IMPLS
+// ================================================================================================
+
 /// All transactions succeed verification.
-pub struct VerifyTxRpcSuccess {}
+pub struct VerifyTxRpcSuccess;
 
 #[async_trait]
 impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSuccess {
@@ -86,7 +94,7 @@ impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSucces
 }
 
 /// All transactions fail verification.
-pub struct VerifyTxRpcFailure {}
+pub struct VerifyTxRpcFailure;
 
 #[async_trait]
 impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailure {
@@ -98,12 +106,20 @@ impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailur
     }
 }
 
-pub struct SendTxsRpcDefault {
+pub struct SendTxsDefaultServerImpl {
     pub batches: SharedMutVec<Vec<SharedProvenTx>>,
 }
 
+impl SendTxsDefaultServerImpl {
+    pub fn new() -> Self {
+        Self {
+            batches: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+}
+
 #[async_trait]
-impl ServerImpl<Vec<SharedProvenTx>, ()> for SendTxsRpcDefault {
+impl ServerImpl<Vec<SharedProvenTx>, ()> for SendTxsDefaultServerImpl {
     async fn handle_request(
         self: Arc<Self>,
         proven_txs: Vec<SharedProvenTx>,

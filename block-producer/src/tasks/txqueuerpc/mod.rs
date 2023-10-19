@@ -49,10 +49,9 @@ impl TxQueueTask {
     pub fn new(
         verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
         send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
-        ready_queue: ReadyQueue,
         options: TxQueueOptions,
     ) -> (Self, RpcClient<ProvenTransaction, ()>) {
-        let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, ready_queue, options);
+        let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, options);
         let (client, server) = create_client_server_pair(tx_queue);
 
         (
@@ -94,9 +93,10 @@ impl TxQueue {
     pub fn new(
         verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
         send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
-        ready_queue: ReadyQueue,
         options: TxQueueOptions,
     ) -> Self {
+        let ready_queue = Arc::new(Mutex::new(Vec::new()));
+
         let timer_task_handle = start_timer_task(
             ready_queue.clone(),
             send_txs_client.clone(),
