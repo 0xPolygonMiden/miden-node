@@ -10,7 +10,7 @@ use crate::test_utils::DummyProvenTxGenerator;
 
 /// Sends a transaction to the server at a fixed interval. The first transaction is sent at t=0.
 pub struct ReadTxClientFixedInterval {
-    read_tx_client: MessageSender<ProvenTransaction, ()>,
+    read_tx_sender: MessageSender<ProvenTransaction, ()>,
     interval_duration: Duration,
     num_txs_to_send: usize,
     proven_tx_gen: DummyProvenTxGenerator,
@@ -18,12 +18,12 @@ pub struct ReadTxClientFixedInterval {
 
 impl ReadTxClientFixedInterval {
     pub fn new(
-        read_tx_client: MessageSender<ProvenTransaction, ()>,
+        read_tx_sender: MessageSender<ProvenTransaction, ()>,
         interval_duration: Duration,
         num_txs_to_send: usize,
     ) -> Self {
         Self {
-            read_tx_client,
+            read_tx_sender,
             interval_duration,
             num_txs_to_send,
             proven_tx_gen: DummyProvenTxGenerator::new(),
@@ -34,7 +34,7 @@ impl ReadTxClientFixedInterval {
         let mut interval = time::interval(self.interval_duration);
 
         for _ in 0..self.num_txs_to_send {
-            self.read_tx_client
+            self.read_tx_sender
                 .call(self.proven_tx_gen.dummy_proven_tx())
                 .unwrap()
                 .await
@@ -49,7 +49,7 @@ impl ReadTxClientFixedInterval {
 }
 
 pub struct ReadTxClientVariableInterval {
-    read_tx_client: MessageSender<ProvenTransaction, ()>,
+    read_tx_sender: MessageSender<ProvenTransaction, ()>,
     /// Encodes how long to wait before sending the ith transaction. Thus, we send
     /// `interval_durations.len()` transactions.
     interval_durations: Vec<Duration>,
@@ -58,11 +58,11 @@ pub struct ReadTxClientVariableInterval {
 
 impl ReadTxClientVariableInterval {
     pub fn new(
-        read_tx_client: MessageSender<ProvenTransaction, ()>,
+        read_tx_sender: MessageSender<ProvenTransaction, ()>,
         interval_durations: Vec<Duration>,
     ) -> Self {
         Self {
-            read_tx_client,
+            read_tx_sender,
             interval_durations,
             proven_tx_gen: DummyProvenTxGenerator::new(),
         }
@@ -72,7 +72,7 @@ impl ReadTxClientVariableInterval {
         for duration in self.interval_durations {
             time::sleep(duration).await;
 
-            self.read_tx_client
+            self.read_tx_sender
                 .call(self.proven_tx_gen.dummy_proven_tx())
                 .unwrap()
                 .await
@@ -88,10 +88,10 @@ impl ReadTxClientVariableInterval {
 // ================================================================================================
 
 /// All transactions succeed verification.
-pub struct VerifyTxRpcSuccess;
+pub struct VerifyTxMessageHandlerSuccess;
 
 #[async_trait]
-impl MessageHandler<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSuccess {
+impl MessageHandler<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxMessageHandlerSuccess {
     async fn handle_message(
         self: Arc<Self>,
         _proven_tx: SharedProvenTx,
@@ -101,10 +101,10 @@ impl MessageHandler<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSu
 }
 
 /// All transactions fail verification.
-pub struct VerifyTxRpcFailure;
+pub struct VerifyTxMessageHandlerFailure;
 
 #[async_trait]
-impl MessageHandler<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailure {
+impl MessageHandler<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxMessageHandlerFailure {
     async fn handle_message(
         self: Arc<Self>,
         _proven_tx: SharedProvenTx,
@@ -113,11 +113,11 @@ impl MessageHandler<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFa
     }
 }
 
-pub struct SendTxsDefaultServerImpl {
+pub struct SendTxsDefaultMessageHandler {
     pub batches: SharedMutVec<Vec<SharedProvenTx>>,
 }
 
-impl SendTxsDefaultServerImpl {
+impl SendTxsDefaultMessageHandler {
     pub fn new() -> Self {
         Self {
             batches: Arc::new(Mutex::new(Vec::new())),
@@ -126,7 +126,7 @@ impl SendTxsDefaultServerImpl {
 }
 
 #[async_trait]
-impl MessageHandler<Vec<SharedProvenTx>, ()> for SendTxsDefaultServerImpl {
+impl MessageHandler<Vec<SharedProvenTx>, ()> for SendTxsDefaultMessageHandler {
     async fn handle_message(
         self: Arc<Self>,
         proven_txs: Vec<SharedProvenTx>,
