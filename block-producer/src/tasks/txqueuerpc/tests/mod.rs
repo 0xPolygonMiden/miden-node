@@ -42,6 +42,9 @@ impl ReadTxClientFixedInterval {
 
             interval.tick().await;
         }
+
+        // Hang forever
+        sleep(Duration::MAX).await;
     }
 }
 
@@ -75,6 +78,9 @@ impl ReadTxClientVariableInterval {
                 .await
                 .unwrap();
         }
+
+        // Hang forever
+        sleep(Duration::MAX).await;
     }
 }
 

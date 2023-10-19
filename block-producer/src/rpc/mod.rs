@@ -75,7 +75,7 @@ where
     pub async fn serve(mut self) -> Result<(), RpcError> {
         loop {
             let (request, response_channel) =
-                self.recv_requests.recv().await.ok_or(RpcError::RecvError)?;
+                self.recv_requests.recv().await.ok_or(RpcError::RecvError).expect("rpc server");
 
             let server_impl = self.server_impl.clone();
             tokio::spawn(async move {

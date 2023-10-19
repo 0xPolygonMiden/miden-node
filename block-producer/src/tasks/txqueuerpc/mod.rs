@@ -123,7 +123,6 @@ impl ServerImpl<ProvenTransaction, ()> for TxQueue {
     ) {
         let proven_tx = Arc::new(proven_tx);
 
-        // FIXME: graceful shutdown when channels are closed?
         let verification_result =
             self.verify_tx_client.call(proven_tx.clone()).expect("verify_tx_client");
 
@@ -237,13 +236,8 @@ impl TimerTask {
 
             select! {
                 maybe_msg = self.receiver.recv() => {
-                    let msg = match maybe_msg {
-                        Some(msg) => msg,
-                        None => {
-                            // channel closed, so exit gracefully
-                            return;
-                        }
-                    };
+                    let msg = maybe_msg.expect("timer task");
+
                     match msg {
                         TimerMessage::StartTimer => sleep_duration = self.tx_max_time_in_queue,
                         TimerMessage::StopTimer => sleep_duration = Duration::MAX,
