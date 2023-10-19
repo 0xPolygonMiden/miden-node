@@ -15,14 +15,14 @@ use tokio::{
 };
 
 use crate::{
-    rpc::{ServerImpl, RpcClient, RpcServer},
+    rpc::{create_client_server_pair, RpcClient, RpcServer, ServerImpl},
     SharedProvenTx,
 };
 
 // TODO: Put in right module
 #[derive(Clone, Debug)]
 pub enum VerifyTxError {
-    Dummy
+    Dummy,
 }
 
 #[derive(Clone, Debug)]
@@ -34,6 +34,39 @@ pub enum SendTxsError {}
 type SharedMutVec<T> = Arc<Mutex<Vec<T>>>;
 type ReadyQueue = SharedMutVec<SharedProvenTx>;
 type ReadTxRpcServer = RpcServer<ProvenTransaction, (), TxQueue>;
+
+// TX QUEUE TASK
+// ================================================================================================
+
+/// The transaction queue task.
+pub struct TxQueueTask {
+    read_tx_rpc_server: ReadTxRpcServer,
+}
+
+impl TxQueueTask {
+    /// Returns the task to `run()`, as well as a (cloneable) client used to send transactions to
+    /// the transaction queue
+    pub fn new(
+        verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
+        send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+        ready_queue: ReadyQueue,
+        options: TxQueueOptions,
+    ) -> (Self, RpcClient<ProvenTransaction, ()>) {
+        let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, ready_queue, options);
+        let (client, server) = create_client_server_pair(tx_queue);
+
+        (
+            Self {
+                read_tx_rpc_server: server,
+            },
+            client,
+        )
+    }
+
+    pub async fn run(self) {
+        self.read_tx_rpc_server.serve().await.expect("read_tx_rpc_server closed")
+    }
+}
 
 // TX QUEUE
 // ================================================================================================
@@ -48,8 +81,8 @@ pub struct TxQueueOptions {
     pub tx_max_time_in_queue: Duration,
 }
 
-/// The transaction queue task
-pub struct TxQueue {
+/// The transaction queue
+struct TxQueue {
     verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
     send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
     ready_queue: ReadyQueue,
@@ -78,14 +111,6 @@ impl TxQueue {
             timer_task_handle,
             options,
         }
-    }
-
-    // Start the task
-    pub async fn run(
-        self,
-        read_tx_rpc_server: ReadTxRpcServer,
-    ) {
-        read_tx_rpc_server.serve().await.expect("read_tx_rpc_server closed")
     }
 }
 
