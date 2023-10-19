@@ -27,7 +27,7 @@ use tokio::{
 
 use crate::{
     rpc::{create_client_server_pair, RpcClient, RpcServer, ServerImpl},
-    SharedProvenTx,
+    SharedMutVec, SharedProvenTx,
 };
 
 // TODO: Put in right module
@@ -43,7 +43,6 @@ pub enum SendTxsError {}
 // ================================================================================================
 pub type ReadTxRpcClient = RpcClient<ProvenTransaction, ()>;
 
-type SharedMutVec<T> = Arc<Mutex<Vec<T>>>;
 type ReadyQueue = SharedMutVec<SharedProvenTx>;
 type ReadTxRpcServer = RpcServer<ProvenTransaction, (), TxQueue>;
 
