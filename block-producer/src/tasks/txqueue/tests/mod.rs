@@ -10,7 +10,7 @@ use crate::test_utils::DummyProvenTxGenerator;
 
 /// Sends a transaction to the server at a fixed interval. The first transaction is sent at t=0.
 pub struct ReadTxClientFixedInterval {
-    read_tx_client: RpcClient<ProvenTransaction, ()>,
+    read_tx_client: MessageSender<ProvenTransaction, ()>,
     interval_duration: Duration,
     num_txs_to_send: usize,
     proven_tx_gen: DummyProvenTxGenerator,
@@ -18,7 +18,7 @@ pub struct ReadTxClientFixedInterval {
 
 impl ReadTxClientFixedInterval {
     pub fn new(
-        read_tx_client: RpcClient<ProvenTransaction, ()>,
+        read_tx_client: MessageSender<ProvenTransaction, ()>,
         interval_duration: Duration,
         num_txs_to_send: usize,
     ) -> Self {
@@ -49,7 +49,7 @@ impl ReadTxClientFixedInterval {
 }
 
 pub struct ReadTxClientVariableInterval {
-    read_tx_client: RpcClient<ProvenTransaction, ()>,
+    read_tx_client: MessageSender<ProvenTransaction, ()>,
     /// Encodes how long to wait before sending the ith transaction. Thus, we send
     /// `interval_durations.len()` transactions.
     interval_durations: Vec<Duration>,
@@ -58,7 +58,7 @@ pub struct ReadTxClientVariableInterval {
 
 impl ReadTxClientVariableInterval {
     pub fn new(
-        read_tx_client: RpcClient<ProvenTransaction, ()>,
+        read_tx_client: MessageSender<ProvenTransaction, ()>,
         interval_durations: Vec<Duration>,
     ) -> Self {
         Self {
@@ -91,8 +91,8 @@ impl ReadTxClientVariableInterval {
 pub struct VerifyTxRpcSuccess;
 
 #[async_trait]
-impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSuccess {
-    async fn handle_request(
+impl MessageHandler<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSuccess {
+    async fn handle_message(
         self: Arc<Self>,
         _proven_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
@@ -104,8 +104,8 @@ impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSucces
 pub struct VerifyTxRpcFailure;
 
 #[async_trait]
-impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailure {
-    async fn handle_request(
+impl MessageHandler<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailure {
+    async fn handle_message(
         self: Arc<Self>,
         _proven_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
@@ -126,8 +126,8 @@ impl SendTxsDefaultServerImpl {
 }
 
 #[async_trait]
-impl ServerImpl<Vec<SharedProvenTx>, ()> for SendTxsDefaultServerImpl {
-    async fn handle_request(
+impl MessageHandler<Vec<SharedProvenTx>, ()> for SendTxsDefaultServerImpl {
+    async fn handle_message(
         self: Arc<Self>,
         proven_txs: Vec<SharedProvenTx>,
     ) {

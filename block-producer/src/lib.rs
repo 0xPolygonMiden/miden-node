@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 pub mod test_utils;
 
 // TODO: Better name than rpc?
-pub mod rpc;
+pub mod msg;
 pub mod tasks;
 
 type SharedProvenTx = Arc<ProvenTransaction>;

@@ -26,7 +26,7 @@ use tokio::{
 };
 
 use crate::{
-    rpc::{create_client_server_pair, RpcClient, RpcServer, ServerImpl},
+    msg::{create_message_sender_receiver_pair, MessageHandler, MessageReceiver, MessageSender},
     SharedMutVec, SharedProvenTx,
 };
 
@@ -41,10 +41,10 @@ pub enum SendTxsError {}
 
 // TYPE ALIASES
 // ================================================================================================
-pub type ReadTxRpcClient = RpcClient<ProvenTransaction, ()>;
+pub type ReadTxRpcClient = MessageSender<ProvenTransaction, ()>;
 
 type ReadyQueue = SharedMutVec<SharedProvenTx>;
-type ReadTxRpcServer = RpcServer<ProvenTransaction, (), TxQueue>;
+type ReadTxRpcServer = MessageReceiver<ProvenTransaction, (), TxQueue>;
 
 // TX QUEUE TASK
 // ================================================================================================
@@ -58,12 +58,12 @@ impl TxQueueTask {
     /// Returns the task to `run()`, as well as a (cloneable) client used to send transactions to
     /// the transaction queue
     pub fn new(
-        verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
-        send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+        verify_tx_client: MessageSender<SharedProvenTx, Result<(), VerifyTxError>>,
+        send_txs_client: MessageSender<Vec<SharedProvenTx>, ()>,
         options: TxQueueOptions,
     ) -> (Self, ReadTxRpcClient) {
         let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, options);
-        let (client, server) = create_client_server_pair(tx_queue);
+        let (client, server) = create_message_sender_receiver_pair(tx_queue);
 
         (
             Self {
@@ -93,8 +93,8 @@ pub struct TxQueueOptions {
 
 /// The transaction queue
 struct TxQueue {
-    verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
-    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+    verify_tx_client: MessageSender<SharedProvenTx, Result<(), VerifyTxError>>,
+    send_txs_client: MessageSender<Vec<SharedProvenTx>, ()>,
     ready_queue: ReadyQueue,
     timer_task_handle: TimerTaskHandle,
     options: TxQueueOptions,
@@ -102,8 +102,8 @@ struct TxQueue {
 
 impl TxQueue {
     pub fn new(
-        verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
-        send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+        verify_tx_client: MessageSender<SharedProvenTx, Result<(), VerifyTxError>>,
+        send_txs_client: MessageSender<Vec<SharedProvenTx>, ()>,
         options: TxQueueOptions,
     ) -> Self {
         let ready_queue = Arc::new(Mutex::new(Vec::new()));
@@ -126,8 +126,8 @@ impl TxQueue {
 }
 
 #[async_trait]
-impl ServerImpl<ProvenTransaction, ()> for TxQueue {
-    async fn handle_request(
+impl MessageHandler<ProvenTransaction, ()> for TxQueue {
+    async fn handle_message(
         self: Arc<Self>,
         proven_tx: ProvenTransaction,
     ) {
@@ -167,7 +167,7 @@ impl ServerImpl<ProvenTransaction, ()> for TxQueue {
 
 fn start_timer_task(
     ready_queue: ReadyQueue,
-    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+    send_txs_client: MessageSender<Vec<SharedProvenTx>, ()>,
     tx_max_time_in_queue: Duration,
     batch_size: usize,
 ) -> TimerTaskHandle {
@@ -212,7 +212,7 @@ enum TimerMessage {
 struct TimerTask {
     ready_queue: ReadyQueue,
     receiver: UnboundedReceiver<TimerMessage>,
-    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+    send_txs_client: MessageSender<Vec<SharedProvenTx>, ()>,
     tx_max_time_in_queue: Duration,
     batch_size: usize,
 }
@@ -220,7 +220,7 @@ struct TimerTask {
 impl TimerTask {
     pub fn new(
         ready_queue: ReadyQueue,
-        send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+        send_txs_client: MessageSender<Vec<SharedProvenTx>, ()>,
         tx_max_time_in_queue: Duration,
         batch_size: usize,
     ) -> (Self, TimerTaskHandle) {
@@ -280,7 +280,7 @@ fn drain_queue(
 /// retries, or any other strategy.
 async fn send_batch(
     txs_in_batch: Vec<SharedProvenTx>,
-    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+    send_txs_client: MessageSender<Vec<SharedProvenTx>, ()>,
 ) {
     if txs_in_batch.is_empty() {
         return;
