@@ -9,7 +9,7 @@ async fn test_batch_full_sent() {
     let batch_size = 3;
 
     let (read_tx_client, ready_queue, batches) = setup(
-        VerifyTxRpcSuccess,
+        VerifyTxMessageHandlerSuccess,
         TxQueueOptions {
             batch_size,
             tx_max_time_in_queue: Duration::MAX,
@@ -41,7 +41,7 @@ async fn test_proper_batch_size_sent() {
     let batch_size = 3;
 
     let (read_tx_client, ready_queue, batches) = setup(
-        VerifyTxRpcSuccess,
+        VerifyTxMessageHandlerSuccess,
         TxQueueOptions {
             batch_size,
             tx_max_time_in_queue: Duration::MAX,
@@ -82,7 +82,7 @@ async fn test_tx_verification_failure() {
     let batch_size = 3;
 
     let (read_tx_client, ready_queue, batches) = setup(
-        VerifyTxRpcFailure,
+        VerifyTxMessageHandlerFailure,
         TxQueueOptions {
             batch_size,
             tx_max_time_in_queue: Duration::MAX,
@@ -115,7 +115,7 @@ async fn test_timer_send_batch() {
     let batch_size = 3;
 
     let (read_tx_client, ready_queue, batches) = setup(
-        VerifyTxRpcSuccess,
+        VerifyTxMessageHandlerSuccess,
         TxQueueOptions {
             batch_size,
             tx_max_time_in_queue: Duration::from_millis(30),
@@ -164,7 +164,7 @@ async fn test_tx_timer_resets_after_full_batch_sent() {
     let batch_size: usize = 2;
 
     let (read_tx_client, ready_queue, batches) = setup(
-        VerifyTxRpcSuccess,
+        VerifyTxMessageHandlerSuccess,
         TxQueueOptions {
             batch_size,
             tx_max_time_in_queue: Duration::from_millis(40),
@@ -226,7 +226,7 @@ async fn test_tx_timer_resets_after_timeout() {
     let batch_size: usize = 2;
 
     let (read_tx_client, ready_queue, batches) = setup(
-        VerifyTxRpcSuccess,
+        VerifyTxMessageHandlerSuccess,
         TxQueueOptions {
             batch_size,
             tx_max_time_in_queue: Duration::from_millis(30),
@@ -266,30 +266,30 @@ async fn test_tx_timer_resets_after_timeout() {
 
 /// Starts the RPC servers (txqueue's server and servers which txqueue is a client).
 /// Returns handles useful for tests
-fn setup<VerifyTxServerImpl>(
-    verify_tx_server_impl: VerifyTxServerImpl,
+fn setup<VerifyTxMessageHandler>(
+    verify_tx_message_handler: VerifyTxMessageHandler,
     tx_queue_options: TxQueueOptions,
 ) -> (ReadTxMessageSender, ReadyQueue, SharedMutVec<Vec<SharedProvenTx>>)
 where
-    VerifyTxServerImpl: MessageHandler<SharedProvenTx, Result<(), VerifyTxError>>,
+    VerifyTxMessageHandler: MessageHandler<SharedProvenTx, Result<(), VerifyTxError>>,
 {
-    let (verify_tx_client, verify_tx_server) =
-        create_message_sender_receiver_pair(verify_tx_server_impl);
+    let (verify_tx_sender, verify_tx_recv) =
+        create_message_sender_receiver_pair(Arc::new(verify_tx_message_handler));
 
-    let send_txs_server_impl = SendTxsDefaultServerImpl::new();
-    let batches = send_txs_server_impl.batches.clone();
-    let (send_txs_client, send_txs_server) =
-        create_message_sender_receiver_pair(send_txs_server_impl);
+    let send_txs_handler = SendTxsDefaultMessageHandler::new();
+    let batches = send_txs_handler.batches.clone();
+    let (send_txs_sender, send_txs_recv) =
+        create_message_sender_receiver_pair(Arc::new(send_txs_handler));
 
-    let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, tx_queue_options);
+    let tx_queue = TxQueue::new(verify_tx_sender, send_txs_sender, tx_queue_options);
 
     let ready_queue = tx_queue.ready_queue.clone();
-    let (read_tx_client, read_tx_server) = create_message_sender_receiver_pair(tx_queue);
+    let (read_tx_sender, read_tx_recv) = create_message_sender_receiver_pair(Arc::new(tx_queue));
 
     // Start servers
-    tokio::spawn(verify_tx_server.serve());
-    tokio::spawn(send_txs_server.serve());
-    tokio::spawn(read_tx_server.serve());
+    tokio::spawn(verify_tx_recv.serve());
+    tokio::spawn(send_txs_recv.serve());
+    tokio::spawn(read_tx_recv.serve());
 
-    (read_tx_client, ready_queue, batches)
+    (read_tx_sender, ready_queue, batches)
 }

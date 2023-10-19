@@ -8,7 +8,7 @@ use tokio::sync::{
 
 /// Creates a sender/receiver pair that communicate locally using channels
 pub fn create_message_sender_receiver_pair<Message, Response, Handler>(
-    message_handler: Handler
+    message_handler: Arc<Handler>
 ) -> (MessageSender<Message, Response>, MessageReceiver<Message, Response, Handler>)
 where
     Message: Send + 'static,
@@ -23,7 +23,7 @@ where
 
     let server = MessageReceiver {
         recv_messages: recv,
-        server_impl: Arc::new(message_handler),
+        handler: message_handler,
     };
 
     (client, server)
@@ -63,7 +63,7 @@ where
     Handler: MessageHandler<Message, Response>,
 {
     recv_messages: UnboundedReceiver<(Message, oneshot::Sender<Response>)>,
-    server_impl: Arc<Handler>,
+    handler: Arc<Handler>,
 }
 
 impl<Message, Response, Handler> MessageReceiver<Message, Response, Handler>
@@ -81,9 +81,9 @@ where
                 .ok_or(MessageError::RecvError)
                 .expect("rpc server");
 
-            let server_impl = self.server_impl.clone();
+            let message_handler = self.handler.clone();
             tokio::spawn(async move {
-                let response = server_impl.handle_message(message).await;
+                let response = message_handler.handle_message(message).await;
                 let _ = response_channel.send(response);
             });
         }

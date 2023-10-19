@@ -63,7 +63,7 @@ impl TxQueueTask {
         options: TxQueueOptions,
     ) -> (Self, ReadTxMessageSender) {
         let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, options);
-        let (client, server) = create_message_sender_receiver_pair(tx_queue);
+        let (client, server) = create_message_sender_receiver_pair(Arc::new(tx_queue));
 
         (
             Self {
