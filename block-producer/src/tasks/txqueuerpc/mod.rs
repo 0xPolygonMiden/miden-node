@@ -235,7 +235,13 @@ impl TimerTask {
 
             select! {
                 maybe_msg = self.receiver.recv() => {
-                    let msg = maybe_msg.expect("Failed to receive on timer channel");
+                    let msg = match maybe_msg {
+                        Some(msg) => msg,
+                        None => {
+                            // channel closed, so exit gracefully
+                            return;
+                        }
+                    };
                     match msg {
                         TimerMessage::StartTimer => sleep_duration = self.tx_max_time_in_queue,
                         TimerMessage::StopTimer => sleep_duration = Duration::MAX,
