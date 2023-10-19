@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -18,6 +21,12 @@ impl TxBatch {
     pub fn num_txs(&self) -> usize {
         self.proven_txs.len()
     }
+}
+
+
+// Batch Builder task
+// ================================================================================================
+pub struct BatchBuilderTask {
 }
 
 // Batch Builder
