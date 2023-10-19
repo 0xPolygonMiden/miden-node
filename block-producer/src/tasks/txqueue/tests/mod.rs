@@ -1,104 +1,123 @@
 mod batch_sent;
 
+use tokio::time;
+
 use super::*;
 use crate::test_utils::DummyProvenTxGenerator;
-use std::{convert::Infallible, time::Duration};
-use tokio::{sync::RwLock, time};
 
-/// calls `read_transaction()` a given number of times at a fixed interval
-#[derive(Clone)]
-pub struct HandleInFixedInterval {
+// CLIENT IMPLS
+// ================================================================================================
+
+/// Sends a transaction to the server at a fixed interval. The first transaction is sent at t=0.
+pub struct ReadTxClientFixedInterval {
+    read_tx_client: RpcClient<ProvenTransaction, ()>,
     interval_duration: Duration,
     num_txs_to_send: usize,
-    txs_sent_count: Arc<RwLock<usize>>,
     proven_tx_gen: DummyProvenTxGenerator,
 }
 
-impl HandleInFixedInterval {
+impl ReadTxClientFixedInterval {
     pub fn new(
+        read_tx_client: RpcClient<ProvenTransaction, ()>,
         interval_duration: Duration,
         num_txs_to_send: usize,
     ) -> Self {
         Self {
+            read_tx_client,
             interval_duration,
             num_txs_to_send,
-            txs_sent_count: Arc::new(RwLock::new(0)),
             proven_tx_gen: DummyProvenTxGenerator::new(),
         }
     }
-}
 
-#[async_trait]
-impl TxQueueHandleIn for HandleInFixedInterval {
-    type ReadTxError = Infallible;
+    pub async fn run(self) {
+        let mut interval = time::interval(self.interval_duration);
 
-    async fn read_tx(&self) -> Result<ProvenTransaction, Self::ReadTxError> {
-        // if we already sent the right amount of txs, sleep forever
-        if *self.txs_sent_count.read().await >= self.num_txs_to_send {
-            // sleep forever
-            time::sleep(Duration::MAX).await;
-            panic!("woke up from forever sleep?");
+        for _ in 0..self.num_txs_to_send {
+            self.read_tx_client
+                .call(self.proven_tx_gen.dummy_proven_tx())
+                .unwrap()
+                .await
+                .unwrap();
+
+            interval.tick().await;
         }
 
-        *self.txs_sent_count.write().await += 1;
-
-        // sleep for the pre-determined time
-        time::sleep(self.interval_duration).await;
-
-        Ok(self.proven_tx_gen.dummy_proven_tx())
+        // Hang forever
+        sleep(Duration::MAX).await;
     }
 }
 
-/// calls `read_transaction()` a given number of times at a variable interval
-#[derive(Clone)]
-pub struct HandleInVariableInterval {
+pub struct ReadTxClientVariableInterval {
+    read_tx_client: RpcClient<ProvenTransaction, ()>,
     /// Encodes how long to wait before sending the ith transaction. Thus, we send
     /// `interval_durations.len()` transactions.
     interval_durations: Vec<Duration>,
-    txs_sent_count: Arc<RwLock<usize>>,
     proven_tx_gen: DummyProvenTxGenerator,
 }
 
-impl HandleInVariableInterval {
-    pub fn new(interval_durations: Vec<Duration>) -> Self {
+impl ReadTxClientVariableInterval {
+    pub fn new(
+        read_tx_client: RpcClient<ProvenTransaction, ()>,
+        interval_durations: Vec<Duration>,
+    ) -> Self {
         Self {
+            read_tx_client,
             interval_durations,
-            txs_sent_count: Arc::new(RwLock::new(0)),
             proven_tx_gen: DummyProvenTxGenerator::new(),
         }
     }
-}
 
-#[async_trait]
-impl TxQueueHandleIn for HandleInVariableInterval {
-    type ReadTxError = Infallible;
+    pub async fn run(self) {
+        for duration in self.interval_durations {
+            time::sleep(duration).await;
 
-    async fn read_tx(&self) -> Result<ProvenTransaction, Self::ReadTxError> {
-        let txs_sent_count = *self.txs_sent_count.read().await;
-
-        // if we already sent the right amount of txs, sleep forever
-        if txs_sent_count >= self.interval_durations.len() {
-            // sleep forever
-            time::sleep(Duration::MAX).await;
-            panic!("woke up from forever sleep?");
+            self.read_tx_client
+                .call(self.proven_tx_gen.dummy_proven_tx())
+                .unwrap()
+                .await
+                .unwrap();
         }
 
-        // sleep for the pre-determined time
-        time::sleep(self.interval_durations[txs_sent_count]).await;
-
-        *self.txs_sent_count.write().await += 1;
-
-        Ok(self.proven_tx_gen.dummy_proven_tx())
+        // Hang forever
+        sleep(Duration::MAX).await;
     }
 }
 
-/// All transactions verify successfully. Records all sent batches.
-#[derive(Clone)]
-pub struct HandleOutDefault {
+// SERVER IMPLS
+// ================================================================================================
+
+/// All transactions succeed verification.
+pub struct VerifyTxRpcSuccess;
+
+#[async_trait]
+impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSuccess {
+    async fn handle_request(
+        self: Arc<Self>,
+        _proven_tx: SharedProvenTx,
+    ) -> Result<(), VerifyTxError> {
+        Ok(())
+    }
+}
+
+/// All transactions fail verification.
+pub struct VerifyTxRpcFailure;
+
+#[async_trait]
+impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailure {
+    async fn handle_request(
+        self: Arc<Self>,
+        _proven_tx: SharedProvenTx,
+    ) -> Result<(), VerifyTxError> {
+        Err(VerifyTxError::Dummy)
+    }
+}
+
+pub struct SendTxsDefaultServerImpl {
     pub batches: SharedMutVec<Vec<SharedProvenTx>>,
 }
 
-impl HandleOutDefault {
+impl SendTxsDefaultServerImpl {
     pub fn new() -> Self {
         Self {
             batches: Arc::new(Mutex::new(Vec::new())),
@@ -107,61 +126,11 @@ impl HandleOutDefault {
 }
 
 #[async_trait]
-impl TxQueueHandleOut for HandleOutDefault {
-    type VerifyTxError = Infallible;
-    type TxVerificationFailureReason = ();
-    type SendTxError = Infallible;
-
-    async fn verify_tx(
-        &self,
-        _tx: SharedProvenTx,
-    ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError> {
-        Ok(Ok(()))
-    }
-
-    async fn send_txs(
-        &self,
-        txs: Vec<SharedProvenTx>,
-    ) -> Result<(), Self::SendTxError> {
-        self.batches.lock().await.push(txs);
-
-        Ok(())
-    }
-}
-
-/// All transactions fail verification. Records all sent batches.
-#[derive(Clone)]
-pub struct HandleOutFailVerification {
-    pub batches: SharedMutVec<Vec<SharedProvenTx>>,
-}
-
-impl HandleOutFailVerification {
-    pub fn new() -> Self {
-        Self {
-            batches: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-}
-
-#[async_trait]
-impl TxQueueHandleOut for HandleOutFailVerification {
-    type VerifyTxError = ();
-    type TxVerificationFailureReason = ();
-    type SendTxError = Infallible;
-
-    async fn verify_tx(
-        &self,
-        _tx: SharedProvenTx,
-    ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError> {
-        Ok(Err(()))
-    }
-
-    async fn send_txs(
-        &self,
-        txs: Vec<SharedProvenTx>,
-    ) -> Result<(), Self::SendTxError> {
-        self.batches.lock().await.push(txs);
-
-        Ok(())
+impl ServerImpl<Vec<SharedProvenTx>, ()> for SendTxsDefaultServerImpl {
+    async fn handle_request(
+        self: Arc<Self>,
+        proven_txs: Vec<SharedProvenTx>,
+    ) {
+        self.batches.lock().await.push(proven_txs);
     }
 }

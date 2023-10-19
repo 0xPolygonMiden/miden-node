@@ -1,70 +1,75 @@
-//! The transaction queue takes transactions coming in, validates them, and eventually sends them
-//! out in a batch. We say "sending a batch" to represent handing over a set of transactions to the
-//! batch builder.
-//!
-//! Specifically, the requirements are:
-//! - A transaction that fails validation is dropped
-//! - There are 2 conditions for a batch to be sent:
-//!   1. The internal queue size reaches [`TxQueueOptions::batch_size`]
-//!   2. A transaction in the internal queue has been sitting for more than
-//!      [`TxQueueOptions::tx_max_time_in_queue`]
-
 #[cfg(test)]
 mod tests;
 
-use std::cmp::min;
-use std::sync::Arc;
-use std::{fmt::Debug, time::Duration};
+use std::{cmp::min, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
-use tokio::select;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::sync::Mutex;
-use tokio::time::{sleep, Sleep};
+use tokio::{
+    select,
+    sync::{
+        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+        Mutex,
+    },
+    time::{sleep, Sleep},
+};
 
-use crate::SharedProvenTx;
+use crate::{
+    rpc::{create_client_server_pair, RpcClient, RpcServer, ServerImpl},
+    SharedProvenTx,
+};
+
+// TODO: Put in right module
+#[derive(Clone, Debug)]
+pub enum VerifyTxError {
+    Dummy,
+}
+
+#[derive(Clone, Debug)]
+pub enum SendTxsError {}
 
 // TYPE ALIASES
 // ================================================================================================
+pub type ReadTxRpcClient = RpcClient<ProvenTransaction, ()>;
 
 type SharedMutVec<T> = Arc<Mutex<Vec<T>>>;
 type ReadyQueue = SharedMutVec<SharedProvenTx>;
+type ReadTxRpcServer = RpcServer<ProvenTransaction, (), TxQueue>;
 
-// PUBLIC INTERFACE
+// TX QUEUE TASK
 // ================================================================================================
 
-/// Contains all the methods for the transaction queue to fetch incoming data.
-#[async_trait]
-pub trait TxQueueHandleIn: Send + Sync + 'static {
-    type ReadTxError: Debug;
-
-    async fn read_tx(&self) -> Result<ProvenTransaction, Self::ReadTxError>;
+/// The transaction queue task.
+pub struct TxQueueTask {
+    read_tx_rpc_server: ReadTxRpcServer,
 }
 
-/// Contains all the methods for the transaction queue to send messages out.
-#[async_trait]
-pub trait TxQueueHandleOut: Send + Sync + 'static {
-    /// Represents all unexpected errors, i.e. the verification did not take place.
-    type VerifyTxError: Debug;
-    /// Represents all expected errors; that is, the verification took place, and the transaction
-    /// failed that verification
-    type TxVerificationFailureReason: Debug + Send;
-    /// Error when sending a batch
-    type SendTxError: Debug;
+impl TxQueueTask {
+    /// Returns the task to `run()`, as well as a (cloneable) client used to send transactions to
+    /// the transaction queue
+    pub fn new(
+        verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
+        send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
+        options: TxQueueOptions,
+    ) -> (Self, ReadTxRpcClient) {
+        let tx_queue = TxQueue::new(verify_tx_client, send_txs_client, options);
+        let (client, server) = create_client_server_pair(tx_queue);
 
-    async fn verify_tx(
-        &self,
-        tx: SharedProvenTx,
-    ) -> Result<Result<(), Self::TxVerificationFailureReason>, Self::VerifyTxError>;
+        (
+            Self {
+                read_tx_rpc_server: server,
+            },
+            client,
+        )
+    }
 
-    // FIXME: Change type to encode the ordering
-    /// Send a set of transactions be batched. Index 0 contains the first transaction.
-    async fn send_txs(
-        &self,
-        txs: Vec<SharedProvenTx>,
-    ) -> Result<(), Self::SendTxError>;
+    pub async fn run(self) {
+        self.read_tx_rpc_server.serve().await.expect("read_tx_rpc_server closed")
+    }
 }
+
+// TX QUEUE
+// ================================================================================================
 
 /// Configuration parameters for the transaction queue
 #[derive(Clone, Debug)]
@@ -76,87 +81,52 @@ pub struct TxQueueOptions {
     pub tx_max_time_in_queue: Duration,
 }
 
-/// Creates and runs the transaction queue task
-pub async fn run_tx_queue_task<HandleIn, HandleOut>(
-    handle_in: HandleIn,
-    handle_out: HandleOut,
-    options: TxQueueOptions,
-) where
-    HandleIn: TxQueueHandleIn,
-    HandleOut: TxQueueHandleOut,
-{
-    let queue_task = TxQueue::new(handle_in, handle_out, options);
-    queue_task.run().await
-}
-
-/// The transaction queue task
-#[derive(Clone)]
-struct TxQueue<HandleIn, HandleOut>
-where
-    HandleIn: TxQueueHandleIn,
-    HandleOut: TxQueueHandleOut,
-{
+/// The transaction queue
+struct TxQueue {
+    verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
+    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
     ready_queue: ReadyQueue,
-    handle_in: Arc<HandleIn>,
-    handle_out: Arc<HandleOut>,
+    timer_task_handle: TimerTaskHandle,
     options: TxQueueOptions,
 }
 
-impl<HandleIn, HandleOut> TxQueue<HandleIn, HandleOut>
-where
-    HandleIn: TxQueueHandleIn,
-    HandleOut: TxQueueHandleOut,
-{
+impl TxQueue {
     pub fn new(
-        handle_in: HandleIn,
-        handle_out: HandleOut,
+        verify_tx_client: RpcClient<SharedProvenTx, Result<(), VerifyTxError>>,
+        send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
         options: TxQueueOptions,
     ) -> Self {
+        let ready_queue = Arc::new(Mutex::new(Vec::new()));
+
+        let timer_task_handle = start_timer_task(
+            ready_queue.clone(),
+            send_txs_client.clone(),
+            options.tx_max_time_in_queue,
+            options.batch_size,
+        );
+
         Self {
-            ready_queue: Arc::new(Mutex::new(Vec::new())),
-            handle_in: Arc::new(handle_in),
-            handle_out: Arc::new(handle_out),
+            verify_tx_client,
+            send_txs_client,
+            ready_queue,
+            timer_task_handle,
             options,
         }
     }
+}
 
-    /// Start the task
-    pub async fn run(self) {
-        let tx_queue = Arc::new(self);
-        let timer_task_handle = start_timer_task(
-            tx_queue.ready_queue.clone(),
-            tx_queue.handle_out.clone(),
-            tx_queue.options.tx_max_time_in_queue,
-            tx_queue.options.batch_size,
-        );
-
-        loop {
-            // Handle new transaction coming in
-            let proven_tx = tx_queue.handle_in.read_tx().await.expect("Failed to read transaction");
-            let tx_queue = tx_queue.clone();
-            let timer_task_handle = timer_task_handle.clone();
-
-            tokio::spawn(tx_queue.on_transaction(proven_tx, timer_task_handle));
-        }
-    }
-
-    // HELPERS
-    // --------------------------------------------------------------------------------------------
-
-    async fn on_transaction(
-        self: Arc<TxQueue<HandleIn, HandleOut>>,
+#[async_trait]
+impl ServerImpl<ProvenTransaction, ()> for TxQueue {
+    async fn handle_request(
+        self: Arc<Self>,
         proven_tx: ProvenTransaction,
-        timer_task_handle: TimerTaskHandle,
     ) {
         let proven_tx = Arc::new(proven_tx);
 
-        let verification_result = self
-            .handle_out
-            .verify_tx(proven_tx.clone())
-            .await
-            .expect("Failed to verify transaction");
+        let verification_result =
+            self.verify_tx_client.call(proven_tx.clone()).expect("verify_tx_client");
 
-        if let Err(_failure_reason) = verification_result {
+        if let Err(_failure_reason) = verification_result.await.expect("verify_tx_client") {
             // TODO: Log failure properly
             return;
         }
@@ -165,19 +135,19 @@ where
         let mut locked_ready_queue = self.ready_queue.lock().await;
 
         if locked_ready_queue.is_empty() {
-            timer_task_handle.start_timer();
+            self.timer_task_handle.start_timer();
         }
 
         locked_ready_queue.push(proven_tx);
 
         if locked_ready_queue.len() >= self.options.batch_size {
             // We are sending a batch, so reset the timer
-            timer_task_handle.stop_timer();
+            self.timer_task_handle.stop_timer();
 
-            let handle_out = self.handle_out.clone();
+            let send_txs_client = self.send_txs_client.clone();
             let txs_in_batch = drain_queue(&mut locked_ready_queue, self.options.batch_size);
 
-            tokio::spawn(send_batch(txs_in_batch, handle_out));
+            tokio::spawn(send_batch(txs_in_batch, send_txs_client));
         }
     }
 }
@@ -185,14 +155,14 @@ where
 // TIMER TASK
 // ================================================================================================
 
-fn start_timer_task<HandleOut: TxQueueHandleOut>(
+fn start_timer_task(
     ready_queue: ReadyQueue,
-    handle_out: Arc<HandleOut>,
+    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
     tx_max_time_in_queue: Duration,
     batch_size: usize,
 ) -> TimerTaskHandle {
     let (timer_task, handle) =
-        TimerTask::new(ready_queue, handle_out, tx_max_time_in_queue, batch_size);
+        TimerTask::new(ready_queue, send_txs_client, tx_max_time_in_queue, batch_size);
 
     tokio::spawn(timer_task.run());
 
@@ -229,21 +199,18 @@ enum TimerMessage {
 /// than [`TxQueueOptions::tx_max_time_in_queue`]. Is responsible for sending the batch when the
 /// timer expires.
 ///
-struct TimerTask<HandleOut: TxQueueHandleOut> {
+struct TimerTask {
     ready_queue: ReadyQueue,
     receiver: UnboundedReceiver<TimerMessage>,
-    handle_out: Arc<HandleOut>,
+    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
     tx_max_time_in_queue: Duration,
     batch_size: usize,
 }
 
-impl<HandleOut> TimerTask<HandleOut>
-where
-    HandleOut: TxQueueHandleOut,
-{
+impl TimerTask {
     pub fn new(
         ready_queue: ReadyQueue,
-        handle_out: Arc<HandleOut>,
+        send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
         tx_max_time_in_queue: Duration,
         batch_size: usize,
     ) -> (Self, TimerTaskHandle) {
@@ -253,7 +220,7 @@ where
             Self {
                 ready_queue,
                 receiver,
-                handle_out,
+                send_txs_client,
                 tx_max_time_in_queue,
                 batch_size,
             },
@@ -269,7 +236,8 @@ where
 
             select! {
                 maybe_msg = self.receiver.recv() => {
-                    let msg = maybe_msg.expect("Failed to receive on timer channel");
+                    let msg = maybe_msg.expect("timer task");
+
                     match msg {
                         TimerMessage::StartTimer => sleep_duration = self.tx_max_time_in_queue,
                         TimerMessage::StopTimer => sleep_duration = Duration::MAX,
@@ -278,7 +246,7 @@ where
                 () = send_batch_timer => {
                     let mut locked_ready_queue = self.ready_queue.lock().await;
                     let txs_in_batch = drain_queue(&mut locked_ready_queue, self.batch_size);
-                    tokio::spawn(send_batch(txs_in_batch, self.handle_out.clone()));
+                    tokio::spawn(send_batch(txs_in_batch, self.send_txs_client.clone()));
                     sleep_duration = Duration::MAX;
                 }
             }
@@ -300,9 +268,9 @@ fn drain_queue(
 
 /// This task is responsible for ensuring that the batch is successfully sent, whether this requires
 /// retries, or any other strategy.
-async fn send_batch<HandleOut: TxQueueHandleOut>(
+async fn send_batch(
     txs_in_batch: Vec<SharedProvenTx>,
-    handle_out: Arc<HandleOut>,
+    send_txs_client: RpcClient<Vec<SharedProvenTx>, ()>,
 ) {
     if txs_in_batch.is_empty() {
         return;
@@ -310,5 +278,9 @@ async fn send_batch<HandleOut: TxQueueHandleOut>(
 
     // Panic for now if the send fails. In the future, we might want a more sophisticated strategy,
     // such as retrying, or something else.
-    handle_out.send_txs(txs_in_batch).await.expect("Failed to send batch");
+    send_txs_client
+        .call(txs_in_batch)
+        .expect("send batch expected to succeed")
+        .await
+        .expect("send batch expected to succeed");
 }
