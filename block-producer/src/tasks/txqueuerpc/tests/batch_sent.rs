@@ -31,6 +31,48 @@ async fn test_batch_full_sent() {
     assert!(ready_queue.lock().await.is_empty());
 }
 
+/// Tests that if `num_txs_in_queue > batch_size`, we still send a batch of
+/// `batch_size`.
+///
+/// Note: in the future, this test *could* fail if when starting the queue, we
+/// immediately check if a batch is ready.
+#[tokio::test]
+async fn test_proper_batch_size_sent() {
+    let batch_size = 3;
+
+    let (read_tx_client, ready_queue, batches) = setup(
+        VerifyTxRpcSuccess,
+        TxQueueOptions {
+            batch_size,
+            tx_max_time_in_queue: Duration::MAX,
+        },
+    );
+
+    // Fill queue so that `queue_size == batch_size`
+    {
+        let proven_tx_generator = DummyProvenTxGenerator::new();
+        let mut locked_queue = ready_queue.lock().await;
+
+        locked_queue.push(Arc::new(proven_tx_generator.dummy_proven_tx()));
+        locked_queue.push(Arc::new(proven_tx_generator.dummy_proven_tx()));
+        locked_queue.push(Arc::new(proven_tx_generator.dummy_proven_tx()));
+    }
+
+    // Start client that sends 1 transaction after 10ms
+    tokio::spawn(
+        ReadTxClientVariableInterval::new(read_tx_client, vec![Duration::from_millis(10)]).run(),
+    );
+
+    time::sleep(Duration::from_millis(50)).await;
+
+    // Ensure that the batch was sent
+    assert_eq!(batches.lock().await.len(), 1);
+    // Ensure that the batch contains `batch_size` elements
+    assert_eq!(batches.lock().await[0].len(), batch_size);
+    // Ensure that the queue contains 1 transaction
+    assert_eq!(ready_queue.lock().await.len(), 1);
+}
+
 // HELPERS
 // ================================================================================================
 
