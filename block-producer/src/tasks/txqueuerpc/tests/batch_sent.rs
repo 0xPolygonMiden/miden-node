@@ -141,6 +141,64 @@ async fn test_timer_send_batch() {
     assert!(ready_queue.lock().await.is_empty());
 }
 
+/// This tests if the internal transaction timer properly resets after a full
+/// batch is sent.
+///
+/// We set the batch size to 2, send 3 transactions (see diagram), and confirm
+/// that 2 were properly sent initially. The tx timer is set to 40ms. After
+/// 55ms, we confirm that we have only 1 batch sent (it would be 2 if the first
+/// timer was not reset). After 80ms, ensure that both batches were sent.
+///
+///        timer                             confirm sent         confirm sent
+///        reset                             1 batch               2 batches
+///  tx1    tx2             tx3             
+///  |       |       |       |       |       |       |       |       |
+///  0ms    10ms    20ms    30ms    40ms   50ms    60ms    70ms     80ms
+///  |-------timer (cancelled)-------|
+///                          |--------------timer------------|
+///
+/// Specifically, we're ensuring that tx3 is not sent early (at 50ms), which
+/// would happen if the initial timer was not properly cancelled
+#[tokio::test]
+async fn test_tx_timer_resets_after_full_batch_sent() {
+    let batch_size: usize = 2;
+
+    let (read_tx_client, ready_queue, batches) = setup(
+        VerifyTxRpcSuccess,
+        TxQueueOptions {
+            batch_size,
+            tx_max_time_in_queue: Duration::from_millis(40),
+        },
+    );
+
+    // Start client
+    tokio::spawn(
+        ReadTxClientVariableInterval::new(
+            read_tx_client,
+            vec![Duration::from_millis(0), Duration::from_millis(10), Duration::from_millis(20)],
+        )
+        .run(),
+    );
+
+    time::sleep(Duration::from_millis(55)).await;
+
+    // Ensure that 1 batch was sent
+    assert_eq!(batches.lock().await.len(), 1);
+    // Ensure that the queue holds 1 transaction
+    assert_eq!(ready_queue.lock().await.len(), 1);
+
+    time::sleep(Duration::from_millis(35)).await;
+
+    // Ensure that 2 batches were sent
+    assert_eq!(batches.lock().await.len(), 2);
+    // Ensure that first batch received is length 2
+    assert_eq!(batches.lock().await[0].len(), 2);
+    // Ensure that second batch received is length 1
+    assert_eq!(batches.lock().await[1].len(), 1);
+    // Ensure that the queue is empty
+    assert!(ready_queue.lock().await.is_empty());
+}
+
 // HELPERS
 // ================================================================================================
 
