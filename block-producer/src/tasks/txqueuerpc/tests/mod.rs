@@ -76,7 +76,7 @@ impl ReadTxClientVariableInterval {
 pub struct VerifyTxRpcSuccess {}
 
 #[async_trait]
-impl Rpc<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSuccess {
+impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSuccess {
     async fn handle_request(
         self: Arc<Self>,
         _proven_tx: SharedProvenTx,
@@ -89,7 +89,7 @@ impl Rpc<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcSuccess {
 pub struct VerifyTxRpcFailure {}
 
 #[async_trait]
-impl Rpc<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailure {
+impl ServerImpl<SharedProvenTx, Result<(), VerifyTxError>> for VerifyTxRpcFailure {
     async fn handle_request(
         self: Arc<Self>,
         _proven_tx: SharedProvenTx,
@@ -103,7 +103,7 @@ pub struct SendTxsRpcDefault {
 }
 
 #[async_trait]
-impl Rpc<Vec<SharedProvenTx>, ()> for SendTxsRpcDefault {
+impl ServerImpl<Vec<SharedProvenTx>, ()> for SendTxsRpcDefault {
     async fn handle_request(
         self: Arc<Self>,
         proven_txs: Vec<SharedProvenTx>,

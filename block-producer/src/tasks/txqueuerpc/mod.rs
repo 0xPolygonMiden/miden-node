@@ -15,7 +15,7 @@ use tokio::{
 };
 
 use crate::{
-    rpc::{Rpc, RpcClient, RpcServer},
+    rpc::{ServerImpl, RpcClient, RpcServer},
     SharedProvenTx,
 };
 
@@ -90,7 +90,7 @@ impl TxQueue {
 }
 
 #[async_trait]
-impl Rpc<ProvenTransaction, ()> for TxQueue {
+impl ServerImpl<ProvenTransaction, ()> for TxQueue {
     async fn handle_request(
         self: Arc<Self>,
         proven_tx: ProvenTransaction,

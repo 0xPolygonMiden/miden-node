@@ -6,14 +6,14 @@ use tokio::sync::{
     oneshot,
 };
 
-/// Creates a client/server pair that communicate locally using tokio channels
-pub fn create_client_server_response_pair<Request, Response, RpcImpl>(
-    rpc_impl: RpcImpl
-) -> (RpcClient<Request, Response>, RpcServer<Request, Response, RpcImpl>)
+/// Creates a client/server pair that communicate locally using channels
+pub fn create_client_server_pair<Request, Response, S>(
+    server_impl: S
+) -> (RpcClient<Request, Response>, RpcServer<Request, Response, S>)
 where
     Request: Send + 'static,
     Response: Send + 'static,
-    RpcImpl: Rpc<Request, Response>,
+    S: ServerImpl<Request, Response>,
 {
     let (sender, recv) = unbounded_channel::<(Request, oneshot::Sender<Response>)>();
 
@@ -23,7 +23,7 @@ where
 
     let server = RpcServer {
         recv_requests: recv,
-        rpc_impl: Arc::new(rpc_impl),
+        server_impl: Arc::new(server_impl),
     };
 
     (client, server)
@@ -43,8 +43,10 @@ impl<T> From<SendError<T>> for RpcError {
     }
 }
 
+/// Implements the processing of an RPC request on the server.
+/// Every request is processed in a new task.
 #[async_trait]
-pub trait Rpc<Request, Response>: Send + Sync + 'static {
+pub trait ServerImpl<Request, Response>: Send + Sync + 'static {
     async fn handle_request(
         self: Arc<Self>,
         x: Request,
@@ -58,26 +60,26 @@ pub struct RpcServer<Request, Response, S>
 where
     Request: Send + 'static,
     Response: Send + 'static,
-    S: Rpc<Request, Response>,
+    S: ServerImpl<Request, Response>,
 {
     recv_requests: UnboundedReceiver<(Request, oneshot::Sender<Response>)>,
-    rpc_impl: Arc<S>,
+    server_impl: Arc<S>,
 }
 
 impl<T, U, S> RpcServer<T, U, S>
 where
     T: Send + 'static,
     U: Send + 'static,
-    S: Rpc<T, U>,
+    S: ServerImpl<T, U>,
 {
     pub async fn serve(mut self) -> Result<(), RpcError> {
         loop {
             let (request, response_channel) =
                 self.recv_requests.recv().await.ok_or(RpcError::RecvError)?;
 
-            let rpc_impl = self.rpc_impl.clone();
+            let server_impl = self.server_impl.clone();
             tokio::spawn(async move {
-                let response = rpc_impl.handle_request(request).await;
+                let response = server_impl.handle_request(request).await;
                 let _ = response_channel.send(response);
             });
         }
