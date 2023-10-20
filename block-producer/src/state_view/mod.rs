@@ -6,5 +6,8 @@ use std::{fmt::Debug, sync::Arc};
 pub trait StateViewTrait: Send + Sync + 'static {
     type VerifyTxError: Debug;
 
-    async fn verify_tx(&self, tx: Arc<ProvenTransaction>) -> Result<(), Self::VerifyTxError>;
+    async fn verify_tx(
+        &self,
+        tx: Arc<ProvenTransaction>,
+    ) -> Result<(), Self::VerifyTxError>;
 }
