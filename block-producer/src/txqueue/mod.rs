@@ -14,8 +14,6 @@ pub trait TransactionQueue: Send + Sync + 'static {
         &self,
         tx: Arc<ProvenTransaction>,
     ) -> Result<(), Self::AddTransactionError>;
-
-    async fn get_transactions(&self) -> Vec<Arc<ProvenTransaction>>;
 }
 
 pub enum AddTransactionError {
@@ -58,11 +56,5 @@ where
         self.ready_queue.write().await.push(tx);
 
         Ok(())
-    }
-
-    async fn get_transactions(&self) -> Vec<Arc<ProvenTransaction>> {
-        let mut locked_ready_queue = self.ready_queue.write().await;
-
-        locked_ready_queue.drain(..).collect()
     }
 }

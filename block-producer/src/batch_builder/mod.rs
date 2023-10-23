@@ -51,17 +51,6 @@ where
         let mut interval = time::interval(self.options.get_transactions_frequency);
 
         loop {
-            let txs = self.tx_queue.get_transactions().await;
-
-            let mut batches: Vec<TransactionBatch> = txs
-                .chunks(self.options.batch_size)
-                .map(|txs| TransactionBatch {
-                    batch: txs.to_vec(),
-                })
-                .collect();
-
-            self.batches.write().await.append(&mut batches);
-
             interval.tick().await;
         }
     }
