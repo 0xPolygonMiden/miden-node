@@ -5,6 +5,9 @@ use tokio::{sync::RwLock, time};
 
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec};
 
+// TRANSACTION BATCH
+// ================================================================================================
+
 pub struct TransactionBatch {
     txs: Vec<SharedProvenTx>,
 }
@@ -14,6 +17,9 @@ impl TransactionBatch {
         Self { txs }
     }
 }
+
+// BATCH BUILDER
+// ================================================================================================
 
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {

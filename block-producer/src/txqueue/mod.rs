@@ -1,13 +1,9 @@
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_objects::transaction::ProvenTransaction;
 use tokio::{sync::RwLock, time};
 
-use crate::{
-    batch_builder::{BatchBuilder, TransactionBatch},
-    SharedProvenTx, SharedRwVec,
-};
+use crate::{batch_builder::BatchBuilder, SharedProvenTx, SharedRwVec};
 
 // TRANSACTION QUEUE
 // ================================================================================================
