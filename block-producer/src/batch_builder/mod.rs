@@ -1,6 +1,7 @@
 use std::{cmp::min, fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use miden_objects::{accounts::AccountId, Digest};
 use tokio::{sync::RwLock, time};
 
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec};
@@ -8,6 +9,10 @@ use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec};
 // TRANSACTION BATCH
 // ================================================================================================
 
+/// A batch of transactions that share a common proof. For any given account, at most 1 transaction
+/// in the batch must be addressing that account.
+///
+/// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
 pub struct TransactionBatch {
     txs: Vec<SharedProvenTx>,
 }
@@ -15,6 +20,12 @@ pub struct TransactionBatch {
 impl TransactionBatch {
     pub fn new(txs: Vec<SharedProvenTx>) -> Self {
         Self { txs }
+    }
+
+    /// Returns an iterator over account ids that were modified in the transaction batch, and their
+    /// corresponding new hash
+    pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
+        self.txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash()))
     }
 }
 
