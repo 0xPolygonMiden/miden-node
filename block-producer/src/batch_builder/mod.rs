@@ -29,7 +29,8 @@ impl TransactionBatch {
         self.txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash()))
     }
 
-    pub fn consumed_notes_script_roots(&self) -> impl Iterator<Item = Digest> {
+    /// Returns the script root of all consumed notes
+    pub fn consumed_notes_script_roots(&self) -> impl Iterator<Item = Digest> + '_ {
         let mut script_roots: Vec<Digest> = self
             .txs
             .iter()
