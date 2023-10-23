@@ -7,7 +7,13 @@ use tokio::{sync::RwLock, time};
 use crate::txqueue::TransactionQueue;
 
 pub struct TransactionBatch {
-    batch: Vec<Arc<ProvenTransaction>>,
+    txs: Vec<Arc<ProvenTransaction>>,
+}
+
+impl TransactionBatch {
+    pub fn new(txs: Vec<Arc<ProvenTransaction>>) -> Self {
+        Self { txs }
+    }
 }
 
 #[async_trait]

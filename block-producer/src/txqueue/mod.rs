@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
 use tokio::{sync::RwLock, time};
 
-use crate::state_view::TransactionVerifier;
+use crate::{batch_builder::TransactionBatch, state_view::TransactionVerifier};
 
 // TRANSACTION QUEUE
 // ================================================================================================
@@ -27,7 +27,11 @@ pub enum AddTransactionError {
 // ================================================================================================
 
 pub struct DefaultTransactionQueueOptions {
+    /// The frequency at which send try batches to
     pub send_batches_frequency: Duration,
+
+    /// The size of a batch
+    pub batch_size: usize,
 }
 
 pub struct DefaultTransactionQueue<TV: TransactionVerifier> {
@@ -56,7 +60,22 @@ where
 
         loop {
             interval.tick().await;
+
+            self.send_batches().await
         }
+    }
+
+    async fn send_batches(&self) {
+        let locked_ready_queue = self.ready_queue.write().await;
+
+        if locked_ready_queue.is_empty() {
+            return;
+        }
+
+        let batches: Vec<TransactionBatch> = locked_ready_queue
+            .chunks(self.options.batch_size)
+            .map(|txs| TransactionBatch::new(txs.to_vec()))
+            .collect();
     }
 }
 
