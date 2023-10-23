@@ -85,12 +85,12 @@ where
             return;
         }
 
-        let batches: Vec<TransactionBatch> = locked_ready_queue
+        let tx_groups: Vec<Vec<Arc<ProvenTransaction>>> = locked_ready_queue
             .chunks(self.options.batch_size)
-            .map(|txs| TransactionBatch::new(txs.to_vec()))
+            .map(|txs| txs.to_vec())
             .collect();
 
-        match self.batch_builder.add_batches(batches).await {
+        match self.batch_builder.add_tx_groups(tx_groups).await {
             Ok(_) => {
                 // batches we successfully sent, so drain the queue
                 locked_ready_queue.truncate(0);
