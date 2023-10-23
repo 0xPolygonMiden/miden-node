@@ -108,17 +108,24 @@ where
     }
 }
 
+#[derive(Debug)]
+pub enum DefaultAddBatchesError {
+    AccountAccessedByMultipleTxs(AccountId),
+}
+
 #[async_trait]
 impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
 {
-    type AddBatchesError = ();
+    type AddBatchesError = DefaultAddBatchesError;
 
     async fn add_tx_groups(
         &self,
         tx_groups: Vec<Vec<SharedProvenTx>>,
     ) -> Result<(), Self::AddBatchesError> {
+        confirm_at_most_one_tx_per_account(&tx_groups)?;
+
         let ready_batches = self.ready_batches.clone();
 
         tokio::spawn(async move {
@@ -129,6 +136,34 @@ where
 
         Ok(())
     }
+}
+
+/// Confirms that for any given account, at most one transaction in the the transaction group
+/// addresses that account.
+fn confirm_at_most_one_tx_per_account(
+    tx_groups: &[Vec<SharedProvenTx>]
+) -> Result<(), DefaultAddBatchesError> {
+    let account_ids: Vec<AccountId> =
+        tx_groups.iter().flatten().map(|tx| tx.account_id()).collect();
+
+    // We do a dumb O(n^2) search because `AccountId` doesn't derive `Hash` at the moment, which is
+    // necessary for faster algorithms (notably, using `Itertools::all_unique()`)
+    for (runner_1_index, runner_1_acc_id) in account_ids.iter().enumerate() {
+        for (runner_2_index, runner_2_acc_id) in account_ids.iter().enumerate() {
+            if runner_1_index == runner_2_index {
+                // We're looking at the same item - skip
+                continue;
+            }
+
+            if runner_1_acc_id == runner_2_acc_id {
+                return Err(DefaultAddBatchesError::AccountAccessedByMultipleTxs(
+                    runner_1_acc_id.clone(),
+                ));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Transforms the transaction groups to transaction batches
