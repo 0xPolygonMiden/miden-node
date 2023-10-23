@@ -18,3 +18,4 @@ winterfell = "0.6"
 async-trait = "0.1"
 miden_objects = { workspace = true }
 tokio = { version = "1.29", features = ["rt-multi-thread", "macros", "sync", "time"] }
+itertools = "0.11"

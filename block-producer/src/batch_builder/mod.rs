@@ -1,6 +1,7 @@
 use std::{cmp::min, fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use itertools::Itertools;
 use miden_objects::{accounts::AccountId, Digest};
 use tokio::{sync::RwLock, time};
 
@@ -26,6 +27,20 @@ impl TransactionBatch {
     /// corresponding new hash
     pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
         self.txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash()))
+    }
+
+    pub fn consumed_notes_script_roots(&self) -> impl Iterator<Item = Digest> {
+        let mut script_roots: Vec<Digest> = self
+            .txs
+            .iter()
+            .flat_map(|tx| tx.consumed_notes())
+            .map(|consumed_note| consumed_note.script_root())
+            .collect();
+
+        script_roots.sort();
+
+        // Removes duplicates in consecutive items
+        script_roots.into_iter().dedup()
     }
 }
 
