@@ -67,12 +67,10 @@ where
         }
     }
 
+    /// Note that we call `add_batches()` regardless of whether the `ready_batches` queue is empty.
+    /// A call to an empty `add_batches()` indicates that an empty block should be created.
     async fn try_send_batches(&self) {
         let mut locked_ready_batches = self.ready_batches.write().await;
-
-        if locked_ready_batches.is_empty() {
-            return;
-        }
 
         match self.block_builder.add_batches(locked_ready_batches.clone()) {
             Ok(_) => {
