@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
@@ -12,7 +12,13 @@ pub struct TransactionBatch {
 
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {
-    async fn get_batches(&self) -> Vec<TransactionBatch>;
+    // TODO: Make concrete `AddBatches` Error?
+    type AddBatchesError: Debug;
+
+    async fn add_batches(
+        &self,
+        batches: Vec<TransactionBatch>,
+    ) -> Result<(), Self::AddBatchesError>;
 }
 
 pub struct BatchBuilderOptions {
@@ -61,7 +67,12 @@ impl<TQ> BatchBuilder for DefaultBatchBuilder<TQ>
 where
     TQ: TransactionQueue,
 {
-    async fn get_batches(&self) -> Vec<TransactionBatch> {
-        self.batches.write().await.drain(..).collect()
+    type AddBatchesError = ();
+
+    async fn add_batches(
+        &self,
+        batches: Vec<TransactionBatch>,
+    ) -> Result<(), Self::AddBatchesError> {
+        todo!()
     }
 }

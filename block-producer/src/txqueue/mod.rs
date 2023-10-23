@@ -1,10 +1,13 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, time};
 
 use crate::state_view::TransactionVerifier;
+
+// TRANSACTION QUEUE
+// ================================================================================================
 
 #[async_trait]
 pub trait TransactionQueue: Send + Sync + 'static {
@@ -20,19 +23,39 @@ pub enum AddTransactionError {
     VerificationFailed,
 }
 
+// DEFAULT TRANSACTION QUEUE
+// ================================================================================================
+
+pub struct DefaultTransactionQueueOptions {
+    pub send_batches_frequency: Duration,
+}
+
 pub struct DefaultTransactionQueue<StateView: TransactionVerifier> {
     ready_queue: Arc<RwLock<Vec<Arc<ProvenTransaction>>>>,
     state_view: Arc<StateView>,
+    options: DefaultTransactionQueueOptions,
 }
 
 impl<StateView> DefaultTransactionQueue<StateView>
 where
     StateView: TransactionVerifier,
 {
-    pub fn new(state_view: Arc<StateView>) -> Self {
+    pub fn new(
+        state_view: Arc<StateView>,
+        options: DefaultTransactionQueueOptions,
+    ) -> Self {
         Self {
             ready_queue: Arc::new(RwLock::new(Vec::new())),
             state_view,
+            options,
+        }
+    }
+
+    pub async fn run(self) {
+        let mut interval = time::interval(self.options.send_batches_frequency);
+
+        loop {
+            interval.tick().await;
         }
     }
 }
