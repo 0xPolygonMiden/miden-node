@@ -43,6 +43,14 @@ impl TransactionBatch {
         // Removes duplicates in consecutive items
         script_roots.into_iter().dedup()
     }
+
+    /// Returns the hash of created notes
+    pub fn created_notes_hashes(&self) -> impl Iterator<Item = Digest> + '_ {
+        self.txs
+            .iter()
+            .flat_map(|tx| tx.created_notes())
+            .map(|note_envelope| note_envelope.note_hash())
+    }
 }
 
 // BATCH BUILDER
