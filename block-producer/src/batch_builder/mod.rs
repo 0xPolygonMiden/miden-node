@@ -44,6 +44,14 @@ impl TransactionBatch {
         script_roots.into_iter().dedup()
     }
 
+    /// Returns the nullifier of all consumed notes
+    pub fn consumed_notes_nullifiers(&self) -> impl Iterator<Item = Digest> + '_ {
+        self.txs
+            .iter()
+            .flat_map(|tx| tx.consumed_notes())
+            .map(|consumed_note| consumed_note.nullifier())
+    }
+
     /// Returns the hash of created notes
     pub fn created_notes_hashes(&self) -> impl Iterator<Item = Digest> + '_ {
         self.txs
