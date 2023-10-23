@@ -29,7 +29,7 @@ pub struct BatchBuilderOptions {}
 
 pub struct DefaultBatchBuilder {
     /// Batches ready to be included in a block
-    ready_batches: Arc<RwLock<Vec<TransactionBatch>>>,
+    ready_batches: Arc<RwLock<Vec<Arc<TransactionBatch>>>>,
 
     options: BatchBuilderOptions,
 }
@@ -64,7 +64,9 @@ impl BatchBuilder for DefaultBatchBuilder {
 }
 
 /// Transforms the transaction groups to transaction batches
-async fn groups_to_batches(tx_groups: Vec<Vec<Arc<ProvenTransaction>>>) -> Vec<TransactionBatch> {
+async fn groups_to_batches(
+    tx_groups: Vec<Vec<Arc<ProvenTransaction>>>
+) -> Vec<Arc<TransactionBatch>> {
     // Note: in the future, this will send jobs to a cluster to transform groups into batches
-    tx_groups.into_iter().map(|txs| TransactionBatch::new(txs)).collect()
+    tx_groups.into_iter().map(|txs| Arc::new(TransactionBatch::new(txs))).collect()
 }
