@@ -30,18 +30,18 @@ pub struct DefaultTransactionQueueOptions {
     pub send_batches_frequency: Duration,
 }
 
-pub struct DefaultTransactionQueue<StateView: TransactionVerifier> {
+pub struct DefaultTransactionQueue<TV: TransactionVerifier> {
     ready_queue: Arc<RwLock<Vec<Arc<ProvenTransaction>>>>,
-    state_view: Arc<StateView>,
+    state_view: Arc<TV>,
     options: DefaultTransactionQueueOptions,
 }
 
-impl<StateView> DefaultTransactionQueue<StateView>
+impl<TV> DefaultTransactionQueue<TV>
 where
-    StateView: TransactionVerifier,
+    TV: TransactionVerifier,
 {
     pub fn new(
-        state_view: Arc<StateView>,
+        state_view: Arc<TV>,
         options: DefaultTransactionQueueOptions,
     ) -> Self {
         Self {
@@ -61,9 +61,9 @@ where
 }
 
 #[async_trait]
-impl<StateView> TransactionQueue for DefaultTransactionQueue<StateView>
+impl<TV> TransactionQueue for DefaultTransactionQueue<TV>
 where
-    StateView: TransactionVerifier,
+    TV: TransactionVerifier,
 {
     type AddTransactionError = AddTransactionError;
 
