@@ -85,7 +85,7 @@ where
 
         match self.batch_builder.add_batches(batches).await {
             Ok(_) => {
-                // batches we successfully sent, so remove them from the queue
+                // batches we successfully sent, so drain the queue
                 locked_ready_queue.truncate(0);
             },
             Err(_) => {

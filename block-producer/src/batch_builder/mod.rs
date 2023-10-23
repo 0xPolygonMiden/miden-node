@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
 use tokio::{sync::RwLock, time};
 
-use crate::txqueue::TransactionQueue;
 
 pub struct TransactionBatch {
     txs: Vec<Arc<ProvenTransaction>>,
@@ -27,58 +26,32 @@ pub trait BatchBuilder: Send + Sync + 'static {
     ) -> Result<(), Self::AddBatchesError>;
 }
 
-pub struct BatchBuilderOptions {
-    /// The frequency at which we fetch transactions from the transaction queue
-    pub get_transactions_frequency: Duration,
+pub struct BatchBuilderOptions {}
 
-    /// The size of a batch
-    pub batch_size: usize,
-}
-
-pub struct DefaultBatchBuilder<TQ>
-where
-    TQ: TransactionQueue,
-{
+pub struct DefaultBatchBuilder {
     batches: Arc<RwLock<Vec<TransactionBatch>>>,
-    tx_queue: Arc<TQ>,
     options: BatchBuilderOptions,
 }
 
-impl<TQ> DefaultBatchBuilder<TQ>
-where
-    TQ: TransactionQueue,
-{
-    pub fn new(
-        tx_queue: Arc<TQ>,
-        options: BatchBuilderOptions,
-    ) -> Self {
+impl DefaultBatchBuilder {
+    pub fn new(options: BatchBuilderOptions) -> Self {
         Self {
             batches: Arc::new(RwLock::new(Vec::new())),
-            tx_queue,
             options,
-        }
-    }
-
-    pub async fn run(&self) {
-        let mut interval = time::interval(self.options.get_transactions_frequency);
-
-        loop {
-            interval.tick().await;
         }
     }
 }
 
 #[async_trait]
-impl<TQ> BatchBuilder for DefaultBatchBuilder<TQ>
-where
-    TQ: TransactionQueue,
-{
+impl BatchBuilder for DefaultBatchBuilder {
     type AddBatchesError = ();
 
     async fn add_batches(
         &self,
-        batches: Vec<TransactionBatch>,
+        mut txs: Vec<TransactionBatch>,
     ) -> Result<(), Self::AddBatchesError> {
-        todo!()
+        self.batches.write().await.append(&mut txs);
+
+        Ok(())
     }
 }
