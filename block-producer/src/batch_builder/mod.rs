@@ -11,7 +11,7 @@ pub struct TransactionBatch {
 }
 
 #[async_trait]
-pub trait BatchBuilderTrait: Send + Sync + 'static {
+pub trait BatchBuilder: Send + Sync + 'static {
     async fn get_batches(&self) -> Vec<TransactionBatch>;
 }
 
@@ -23,7 +23,7 @@ pub struct BatchBuilderOptions {
     pub batch_size: usize,
 }
 
-pub struct BatchBuilder<TQ>
+pub struct DefaultBatchBuilder<TQ>
 where
     TQ: TransactionQueue,
 {
@@ -32,7 +32,7 @@ where
     options: BatchBuilderOptions,
 }
 
-impl<TQ> BatchBuilder<TQ>
+impl<TQ> DefaultBatchBuilder<TQ>
 where
     TQ: TransactionQueue,
 {
@@ -68,7 +68,7 @@ where
 }
 
 #[async_trait]
-impl<TQ> BatchBuilderTrait for BatchBuilder<TQ>
+impl<TQ> BatchBuilder for DefaultBatchBuilder<TQ>
 where
     TQ: TransactionQueue,
 {
