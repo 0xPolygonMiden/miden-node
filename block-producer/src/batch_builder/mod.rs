@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::Arc, time::Duration};
+use std::{cmp::min, fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use tokio::{sync::RwLock, time};
@@ -26,9 +26,12 @@ pub trait BatchBuilder: Send + Sync + 'static {
     ) -> Result<(), Self::AddBatchesError>;
 }
 
-pub struct BatchBuilderOptions {
+pub struct DefaultBatchBuilderOptions {
     /// The frequency at which blocks are created
     pub block_frequency: Duration,
+
+    /// Maximum number of batches in any given block
+    pub max_batches_per_block: usize,
 }
 
 pub struct DefaultBatchBuilder<BB>
@@ -40,7 +43,7 @@ where
 
     block_builder: Arc<BB>,
 
-    options: BatchBuilderOptions,
+    options: DefaultBatchBuilderOptions,
 }
 
 impl<BB> DefaultBatchBuilder<BB>
@@ -49,7 +52,7 @@ where
 {
     pub fn new(
         block_builder: Arc<BB>,
-        options: BatchBuilderOptions,
+        options: DefaultBatchBuilderOptions,
     ) -> Self {
         Self {
             ready_batches: Arc::new(RwLock::new(Vec::new())),
@@ -72,10 +75,14 @@ where
     async fn try_send_batches(&self) {
         let mut locked_ready_batches = self.ready_batches.write().await;
 
-        match self.block_builder.add_batches(locked_ready_batches.clone()) {
+        let num_batches_to_send =
+            min(self.options.max_batches_per_block, locked_ready_batches.len());
+        let batches_to_send = locked_ready_batches[..num_batches_to_send].to_vec();
+
+        match self.block_builder.add_batches(batches_to_send) {
             Ok(_) => {
-                // transaction groups were successfully sent, so drain the queue
-                locked_ready_batches.truncate(0);
+                // transaction groups were successfully sent; remove the batches that we sent
+                *locked_ready_batches = locked_ready_batches[num_batches_to_send..].to_vec();
             },
             Err(_) => {
                 // Batches were not sent, and remain in the queue. Do nothing.
