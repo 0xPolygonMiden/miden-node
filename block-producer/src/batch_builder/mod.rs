@@ -1,17 +1,16 @@
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_objects::transaction::ProvenTransaction;
 use tokio::{sync::RwLock, time};
 
-use crate::block_builder::BlockBuilder;
+use crate::{block_builder::BlockBuilder, SharedProvenTx};
 
 pub struct TransactionBatch {
-    txs: Vec<Arc<ProvenTransaction>>,
+    txs: Vec<SharedProvenTx>,
 }
 
 impl TransactionBatch {
-    pub fn new(txs: Vec<Arc<ProvenTransaction>>) -> Self {
+    pub fn new(txs: Vec<SharedProvenTx>) -> Self {
         Self { txs }
     }
 }
@@ -23,7 +22,7 @@ pub trait BatchBuilder: Send + Sync + 'static {
 
     async fn add_tx_groups(
         &self,
-        tx_groups: Vec<Vec<Arc<ProvenTransaction>>>,
+        tx_groups: Vec<Vec<SharedProvenTx>>,
     ) -> Result<(), Self::AddBatchesError>;
 }
 
@@ -96,7 +95,7 @@ where
 
     async fn add_tx_groups(
         &self,
-        tx_groups: Vec<Vec<Arc<ProvenTransaction>>>,
+        tx_groups: Vec<Vec<SharedProvenTx>>,
     ) -> Result<(), Self::AddBatchesError> {
         let ready_batches = self.ready_batches.clone();
 
@@ -112,7 +111,7 @@ where
 
 /// Transforms the transaction groups to transaction batches
 async fn groups_to_batches(
-    tx_groups: Vec<Vec<Arc<ProvenTransaction>>>
+    tx_groups: Vec<Vec<SharedProvenTx>>
 ) -> Vec<Arc<TransactionBatch>> {
     // Note: in the future, this will send jobs to a cluster to transform groups into batches
     tx_groups.into_iter().map(|txs| Arc::new(TransactionBatch::new(txs))).collect()

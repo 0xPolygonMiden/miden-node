@@ -4,7 +4,10 @@ use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
 use tokio::{sync::RwLock, time};
 
-use crate::batch_builder::{BatchBuilder, TransactionBatch};
+use crate::{
+    batch_builder::{BatchBuilder, TransactionBatch},
+    SharedProvenTx,
+};
 
 // TRANSACTION QUEUE
 // ================================================================================================
@@ -15,7 +18,7 @@ pub trait TransactionVerifier: Send + Sync + 'static {
 
     async fn verify_tx(
         &self,
-        tx: Arc<ProvenTransaction>,
+        tx: SharedProvenTx,
     ) -> Result<(), Self::VerifyTxError>;
 }
 
@@ -25,7 +28,7 @@ pub trait TransactionQueue: Send + Sync + 'static {
 
     async fn add_transaction(
         &self,
-        tx: Arc<ProvenTransaction>,
+        tx: SharedProvenTx,
     ) -> Result<(), Self::AddTransactionError>;
 }
 
@@ -45,7 +48,7 @@ pub struct DefaultTransactionQueueOptions {
 }
 
 pub struct DefaultTransactionQueue<BB: BatchBuilder, TV: TransactionVerifier> {
-    ready_queue: Arc<RwLock<Vec<Arc<ProvenTransaction>>>>,
+    ready_queue: Arc<RwLock<Vec<SharedProvenTx>>>,
     tx_verifier: Arc<TV>,
     batch_builder: Arc<BB>,
     options: DefaultTransactionQueueOptions,
@@ -85,7 +88,7 @@ where
             return;
         }
 
-        let tx_groups: Vec<Vec<Arc<ProvenTransaction>>> = locked_ready_queue
+        let tx_groups: Vec<Vec<SharedProvenTx>> = locked_ready_queue
             .chunks(self.options.batch_size)
             .map(|txs| txs.to_vec())
             .collect();
@@ -112,7 +115,7 @@ where
 
     async fn add_transaction(
         &self,
-        tx: Arc<ProvenTransaction>,
+        tx: SharedProvenTx,
     ) -> Result<(), Self::AddTransactionError> {
         self.tx_verifier
             .verify_tx(tx.clone())
