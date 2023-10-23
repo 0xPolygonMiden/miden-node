@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use miden_objects::transaction::ProvenTransaction;
+use tokio::sync::RwLock;
 
 #[cfg(test)]
 pub mod test_utils;
@@ -11,3 +12,4 @@ pub mod txqueue;
 
 /// A proven transaction that can be shared across threads
 pub(crate) type SharedProvenTx = Arc<ProvenTransaction>;
+pub(crate) type SharedRwVec<T> = Arc<RwLock<Vec<T>>>;

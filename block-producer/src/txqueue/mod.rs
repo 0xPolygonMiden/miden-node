@@ -6,7 +6,7 @@ use tokio::{sync::RwLock, time};
 
 use crate::{
     batch_builder::{BatchBuilder, TransactionBatch},
-    SharedProvenTx,
+    SharedProvenTx, SharedRwVec,
 };
 
 // TRANSACTION QUEUE
@@ -48,7 +48,7 @@ pub struct DefaultTransactionQueueOptions {
 }
 
 pub struct DefaultTransactionQueue<BB: BatchBuilder, TV: TransactionVerifier> {
-    ready_queue: Arc<RwLock<Vec<SharedProvenTx>>>,
+    ready_queue: SharedRwVec<SharedProvenTx>,
     tx_verifier: Arc<TV>,
     batch_builder: Arc<BB>,
     options: DefaultTransactionQueueOptions,

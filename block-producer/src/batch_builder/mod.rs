@@ -3,7 +3,7 @@ use std::{fmt::Debug, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use tokio::{sync::RwLock, time};
 
-use crate::{block_builder::BlockBuilder, SharedProvenTx};
+use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec};
 
 pub struct TransactionBatch {
     txs: Vec<SharedProvenTx>,
@@ -36,7 +36,7 @@ where
     BB: BlockBuilder,
 {
     /// Batches ready to be included in a block
-    ready_batches: Arc<RwLock<Vec<Arc<TransactionBatch>>>>,
+    ready_batches: SharedRwVec<Arc<TransactionBatch>>,
 
     block_builder: Arc<BB>,
 
@@ -110,9 +110,7 @@ where
 }
 
 /// Transforms the transaction groups to transaction batches
-async fn groups_to_batches(
-    tx_groups: Vec<Vec<SharedProvenTx>>
-) -> Vec<Arc<TransactionBatch>> {
+async fn groups_to_batches(tx_groups: Vec<Vec<SharedProvenTx>>) -> Vec<Arc<TransactionBatch>> {
     // Note: in the future, this will send jobs to a cluster to transform groups into batches
     tx_groups.into_iter().map(|txs| Arc::new(TransactionBatch::new(txs))).collect()
 }
