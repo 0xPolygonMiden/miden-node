@@ -37,8 +37,8 @@ pub enum AddTransactionError {
 // ================================================================================================
 
 pub struct DefaultTransactionQueueOptions {
-    /// The frequency at which send try batches to
-    pub send_batches_frequency: Duration,
+    /// The frequency at which we try to send transaction groups
+    pub send_tx_groups_frequency: Duration,
 
     /// The size of a batch
     pub batch_size: usize,
@@ -70,15 +70,15 @@ where
     }
 
     pub async fn run(self) {
-        let mut interval = time::interval(self.options.send_batches_frequency);
+        let mut interval = time::interval(self.options.send_tx_groups_frequency);
 
         loop {
             interval.tick().await;
-            self.try_send_batches().await;
+            self.try_send_tx_groups().await;
         }
     }
 
-    async fn try_send_batches(&self) {
+    async fn try_send_tx_groups(&self) {
         let mut locked_ready_queue = self.ready_queue.write().await;
 
         if locked_ready_queue.is_empty() {
@@ -92,11 +92,11 @@ where
 
         match self.batch_builder.add_tx_groups(tx_groups).await {
             Ok(_) => {
-                // batches we successfully sent, so drain the queue
+                // Transaction groups were successfully sent, so drain the queue
                 locked_ready_queue.truncate(0);
             },
             Err(_) => {
-                // Batches were not sent, and remain in the queue. Do nothing.
+                // Transaction groups were not sent, and remain in the queue. Do nothing.
             },
         }
     }

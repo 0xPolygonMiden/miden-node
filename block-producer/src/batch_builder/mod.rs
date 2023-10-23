@@ -4,6 +4,8 @@ use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
 use tokio::{sync::RwLock, time};
 
+use crate::block_builder::BlockBuilder;
+
 pub struct TransactionBatch {
     txs: Vec<Arc<ProvenTransaction>>,
 }
@@ -25,26 +27,71 @@ pub trait BatchBuilder: Send + Sync + 'static {
     ) -> Result<(), Self::AddBatchesError>;
 }
 
-pub struct BatchBuilderOptions {}
+pub struct BatchBuilderOptions {
+    /// The frequency at which blocks are created
+    pub block_frequency: Duration,
+}
 
-pub struct DefaultBatchBuilder {
+pub struct DefaultBatchBuilder<BB>
+where
+    BB: BlockBuilder,
+{
     /// Batches ready to be included in a block
     ready_batches: Arc<RwLock<Vec<Arc<TransactionBatch>>>>,
+
+    block_builder: Arc<BB>,
 
     options: BatchBuilderOptions,
 }
 
-impl DefaultBatchBuilder {
-    pub fn new(options: BatchBuilderOptions) -> Self {
+impl<BB> DefaultBatchBuilder<BB>
+where
+    BB: BlockBuilder,
+{
+    pub fn new(
+        block_builder: Arc<BB>,
+        options: BatchBuilderOptions,
+    ) -> Self {
         Self {
             ready_batches: Arc::new(RwLock::new(Vec::new())),
+            block_builder,
             options,
+        }
+    }
+
+    pub async fn run(self) {
+        let mut interval = time::interval(self.options.block_frequency);
+
+        loop {
+            interval.tick().await;
+            self.try_send_batches().await;
+        }
+    }
+
+    async fn try_send_batches(&self) {
+        let mut locked_ready_batches = self.ready_batches.write().await;
+
+        if locked_ready_batches.is_empty() {
+            return;
+        }
+
+        match self.block_builder.add_batches(locked_ready_batches.clone()) {
+            Ok(_) => {
+                // transaction groups were successfully sent, so drain the queue
+                locked_ready_batches.truncate(0);
+            },
+            Err(_) => {
+                // Batches were not sent, and remain in the queue. Do nothing.
+            },
         }
     }
 }
 
 #[async_trait]
-impl BatchBuilder for DefaultBatchBuilder {
+impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
+where
+    BB: BlockBuilder,
+{
     type AddBatchesError = ();
 
     async fn add_tx_groups(

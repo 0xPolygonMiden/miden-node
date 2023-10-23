@@ -5,8 +5,11 @@ use async_trait::async_trait;
 use crate::batch_builder::TransactionBatch;
 
 #[async_trait]
-pub trait BlockBuilder {
+pub trait BlockBuilder: Send + Sync + 'static {
     type AddBatchesError: Debug;
 
-    fn add_batches(batches: Vec<Arc<TransactionBatch>>) -> Result<(), Self::AddBatchesError>;
+    fn add_batches(
+        &self,
+        batches: Vec<Arc<TransactionBatch>>,
+    ) -> Result<(), Self::AddBatchesError>;
 }
