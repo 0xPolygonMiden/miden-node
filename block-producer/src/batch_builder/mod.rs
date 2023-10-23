@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
 use tokio::{sync::RwLock, time};
 
-use crate::txqueue::TransactionQueueTrait;
+use crate::txqueue::TransactionQueue;
 
 pub struct TransactionBatch {
     batch: Vec<Arc<ProvenTransaction>>,
@@ -23,21 +23,21 @@ pub struct BatchBuilderOptions {
     pub batch_size: usize,
 }
 
-pub struct BatchBuilder<TransactionQueue>
+pub struct BatchBuilder<TQ>
 where
-    TransactionQueue: TransactionQueueTrait,
+    TQ: TransactionQueue,
 {
     batches: Arc<RwLock<Vec<TransactionBatch>>>,
-    tx_queue: Arc<TransactionQueue>,
+    tx_queue: Arc<TQ>,
     options: BatchBuilderOptions,
 }
 
-impl<TransactionQueue> BatchBuilder<TransactionQueue>
+impl<TQ> BatchBuilder<TQ>
 where
-    TransactionQueue: TransactionQueueTrait,
+    TQ: TransactionQueue,
 {
     pub fn new(
-        tx_queue: Arc<TransactionQueue>,
+        tx_queue: Arc<TQ>,
         options: BatchBuilderOptions,
     ) -> Self {
         Self {
@@ -68,9 +68,9 @@ where
 }
 
 #[async_trait]
-impl<TransactionQueue> BatchBuilderTrait for BatchBuilder<TransactionQueue>
+impl<TQ> BatchBuilderTrait for BatchBuilder<TQ>
 where
-    TransactionQueue: TransactionQueueTrait,
+    TQ: TransactionQueue,
 {
     async fn get_batches(&self) -> Vec<TransactionBatch> {
         self.batches.write().await.drain(..).collect()

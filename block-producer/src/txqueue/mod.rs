@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 use crate::state_view::StateViewTrait;
 
 #[async_trait]
-pub trait TransactionQueueTrait: Send + Sync + 'static {
+pub trait TransactionQueue: Send + Sync + 'static {
     type AddTransactionError;
 
     async fn add_transaction(
@@ -22,12 +22,12 @@ pub enum AddTransactionError {
     VerificationFailed,
 }
 
-pub struct TransactionQueue<StateView: StateViewTrait> {
+pub struct DefaultTransactionQueue<StateView: StateViewTrait> {
     ready_queue: Arc<RwLock<Vec<Arc<ProvenTransaction>>>>,
     state_view: Arc<StateView>,
 }
 
-impl<StateView> TransactionQueue<StateView>
+impl<StateView> DefaultTransactionQueue<StateView>
 where
     StateView: StateViewTrait,
 {
@@ -40,7 +40,7 @@ where
 }
 
 #[async_trait]
-impl<StateView> TransactionQueueTrait for TransactionQueue<StateView>
+impl<StateView> TransactionQueue for DefaultTransactionQueue<StateView>
 where
     StateView: StateViewTrait,
 {
