@@ -3,7 +3,7 @@ use miden_objects::transaction::ProvenTransaction;
 use std::{fmt::Debug, sync::Arc};
 
 #[async_trait]
-pub trait StateViewTrait: Send + Sync + 'static {
+pub trait TransactionVerifier: Send + Sync + 'static {
     type VerifyTxError: Debug;
 
     async fn verify_tx(

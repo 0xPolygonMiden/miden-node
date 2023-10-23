@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
 use tokio::sync::RwLock;
 
-use crate::state_view::StateViewTrait;
+use crate::state_view::TransactionVerifier;
 
 #[async_trait]
 pub trait TransactionQueue: Send + Sync + 'static {
@@ -22,14 +22,14 @@ pub enum AddTransactionError {
     VerificationFailed,
 }
 
-pub struct DefaultTransactionQueue<StateView: StateViewTrait> {
+pub struct DefaultTransactionQueue<StateView: TransactionVerifier> {
     ready_queue: Arc<RwLock<Vec<Arc<ProvenTransaction>>>>,
     state_view: Arc<StateView>,
 }
 
 impl<StateView> DefaultTransactionQueue<StateView>
 where
-    StateView: StateViewTrait,
+    StateView: TransactionVerifier,
 {
     pub fn new(state_view: Arc<StateView>) -> Self {
         Self {
@@ -42,7 +42,7 @@ where
 #[async_trait]
 impl<StateView> TransactionQueue for DefaultTransactionQueue<StateView>
 where
-    StateView: StateViewTrait,
+    StateView: TransactionVerifier,
 {
     type AddTransactionError = AddTransactionError;
 
