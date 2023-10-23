@@ -4,7 +4,10 @@ use async_trait::async_trait;
 use miden_objects::transaction::ProvenTransaction;
 use tokio::{sync::RwLock, time};
 
-use crate::{batch_builder::TransactionBatch, state_view::TransactionVerifier};
+use crate::{
+    batch_builder::{BatchBuilder, TransactionBatch},
+    state_view::TransactionVerifier,
+};
 
 // TRANSACTION QUEUE
 // ================================================================================================
@@ -34,23 +37,27 @@ pub struct DefaultTransactionQueueOptions {
     pub batch_size: usize,
 }
 
-pub struct DefaultTransactionQueue<TV: TransactionVerifier> {
+pub struct DefaultTransactionQueue<BB: BatchBuilder, TV: TransactionVerifier> {
     ready_queue: Arc<RwLock<Vec<Arc<ProvenTransaction>>>>,
-    state_view: Arc<TV>,
+    tx_verifier: Arc<TV>,
+    batch_builder: Arc<BB>,
     options: DefaultTransactionQueueOptions,
 }
 
-impl<TV> DefaultTransactionQueue<TV>
+impl<BB, TV> DefaultTransactionQueue<BB, TV>
 where
     TV: TransactionVerifier,
+    BB: BatchBuilder,
 {
     pub fn new(
-        state_view: Arc<TV>,
+        tx_verifier: Arc<TV>,
+        batch_builder: Arc<BB>,
         options: DefaultTransactionQueueOptions,
     ) -> Self {
         Self {
             ready_queue: Arc::new(RwLock::new(Vec::new())),
-            state_view,
+            tx_verifier,
+            batch_builder,
             options,
         }
     }
@@ -60,13 +67,12 @@ where
 
         loop {
             interval.tick().await;
-
-            self.send_batches().await
+            self.try_send_batches().await;
         }
     }
 
-    async fn send_batches(&self) {
-        let locked_ready_queue = self.ready_queue.write().await;
+    async fn try_send_batches(&self) {
+        let mut locked_ready_queue = self.ready_queue.write().await;
 
         if locked_ready_queue.is_empty() {
             return;
@@ -76,13 +82,24 @@ where
             .chunks(self.options.batch_size)
             .map(|txs| TransactionBatch::new(txs.to_vec()))
             .collect();
+
+        match self.batch_builder.add_batches(batches).await {
+            Ok(_) => {
+                // batches we successfully sent, so remove them from the queue
+                locked_ready_queue.truncate(0);
+            },
+            Err(_) => {
+                // Batches were not sent, and remain in the queue. Do nothing.
+            },
+        }
     }
 }
 
 #[async_trait]
-impl<TV> TransactionQueue for DefaultTransactionQueue<TV>
+impl<BB, TV> TransactionQueue for DefaultTransactionQueue<BB, TV>
 where
     TV: TransactionVerifier,
+    BB: BatchBuilder,
 {
     type AddTransactionError = AddTransactionError;
 
@@ -90,7 +107,7 @@ where
         &self,
         tx: Arc<ProvenTransaction>,
     ) -> Result<(), Self::AddTransactionError> {
-        self.state_view
+        self.tx_verifier
             .verify_tx(tx.clone())
             .await
             .map_err(|_| AddTransactionError::VerificationFailed)?;
