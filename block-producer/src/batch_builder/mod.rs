@@ -65,16 +65,14 @@ impl TransactionBatch {
 // ================================================================================================
 
 #[derive(Debug)]
-pub enum AddBatchesError {
-    AccountAccessedByMultipleTxs(AccountId),
-}
+pub enum BuildBatchError {}
 
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {
-    async fn add_tx_groups(
+    async fn build_batch(
         &self,
         tx_groups: Vec<Vec<SharedProvenTx>>,
-    ) -> Result<(), AddBatchesError>;
+    ) -> Result<(), BuildBatchError>;
 }
 
 pub struct DefaultBatchBuilderOptions {
@@ -147,12 +145,10 @@ impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
 {
-    async fn add_tx_groups(
+    async fn build_batch(
         &self,
         tx_groups: Vec<Vec<SharedProvenTx>>,
-    ) -> Result<(), AddBatchesError> {
-        confirm_at_most_one_tx_per_account(&tx_groups)?;
-
+    ) -> Result<(), BuildBatchError> {
         let ready_batches = self.ready_batches.clone();
 
         tokio::spawn(async move {
@@ -163,32 +159,6 @@ where
 
         Ok(())
     }
-}
-
-/// Confirms that for any given account, at most one transaction in the the transaction group
-/// addresses that account.
-fn confirm_at_most_one_tx_per_account(
-    tx_groups: &[Vec<SharedProvenTx>]
-) -> Result<(), AddBatchesError> {
-    let account_ids: Vec<AccountId> =
-        tx_groups.iter().flatten().map(|tx| tx.account_id()).collect();
-
-    // We do a dumb O(n^2) search because `AccountId` doesn't derive `Hash` at the moment, which is
-    // necessary for faster algorithms (notably, using `Itertools::all_unique()`)
-    for (runner_1_index, runner_1_acc_id) in account_ids.iter().enumerate() {
-        for (runner_2_index, runner_2_acc_id) in account_ids.iter().enumerate() {
-            if runner_1_index == runner_2_index {
-                // We're looking at the same item - skip
-                continue;
-            }
-
-            if runner_1_acc_id == runner_2_acc_id {
-                return Err(AddBatchesError::AccountAccessedByMultipleTxs(runner_1_acc_id.clone()));
-            }
-        }
-    }
-
-    Ok(())
 }
 
 /// Transforms the transaction groups to transaction batches

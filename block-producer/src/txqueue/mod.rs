@@ -89,7 +89,7 @@ where
             .map(|txs| txs.to_vec())
             .collect();
 
-        match self.batch_builder.add_tx_groups(tx_groups).await {
+        match self.batch_builder.build_batch(tx_groups).await {
             Ok(_) => {
                 // Transaction groups were successfully sent, so drain the queue
                 locked_ready_queue.truncate(0);
