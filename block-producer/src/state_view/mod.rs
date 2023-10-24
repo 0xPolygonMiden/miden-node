@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 
 use crate::{
     block::Block,
+    store::GetTxInputs,
     txqueue::{TransactionVerifier, VerifyTxError},
     SharedProvenTx,
 };
@@ -11,13 +14,24 @@ pub enum ApplyBlockError {}
 
 #[async_trait]
 pub trait ApplyBlock {
-    async fn apply_block(&self, block: Block) -> Result<(), ApplyBlockError>;
+    async fn apply_block(
+        &self,
+        block: Block,
+    ) -> Result<(), ApplyBlockError>;
 }
 
-pub struct DefaulStateView {}
+pub struct DefaulStateView<TI>
+where
+    TI: GetTxInputs,
+{
+    get_tx_inputs: Arc<TI>,
+}
 
 #[async_trait]
-impl TransactionVerifier for DefaulStateView {
+impl<TI> TransactionVerifier for DefaulStateView<TI>
+where
+    TI: GetTxInputs,
+{
     async fn verify_tx(
         &self,
         tx: SharedProvenTx,
@@ -27,8 +41,14 @@ impl TransactionVerifier for DefaulStateView {
 }
 
 #[async_trait]
-impl ApplyBlock for DefaulStateView {
-    async fn apply_block(&self, block: Block) -> Result<(), ApplyBlockError> {
+impl<TI> ApplyBlock for DefaulStateView<TI>
+where
+    TI: GetTxInputs,
+{
+    async fn apply_block(
+        &self,
+        block: Block,
+    ) -> Result<(), ApplyBlockError> {
         todo!()
     }
 }
