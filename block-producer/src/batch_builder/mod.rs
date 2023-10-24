@@ -115,26 +115,28 @@ where
 
         loop {
             interval.tick().await;
-            self.try_send_batches().await;
+            self.try_build_block().await;
         }
     }
 
-    /// Note that we call `add_batches()` regardless of whether the `ready_batches` queue is empty.
-    /// A call to an empty `add_batches()` indicates that an empty block should be created.
-    async fn try_send_batches(&self) {
-        let mut locked_ready_batches = self.ready_batches.write().await;
+    /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
+    /// A call to an empty `build_block()` indicates that an empty block should be created.
+    async fn try_build_block(&self) {
+        let mut batches_in_block: Vec<Arc<TransactionBatch>> = {
+            let mut locked_ready_batches = self.ready_batches.write().await;
 
-        let num_batches_to_send =
-            min(self.options.max_batches_per_block, locked_ready_batches.len());
-        let batches_to_send = locked_ready_batches[..num_batches_to_send].to_vec();
+            let num_batches_in_block =
+                min(self.options.max_batches_per_block, locked_ready_batches.len());
+            locked_ready_batches.drain(..num_batches_in_block).collect()
+        };
 
-        match self.block_builder.build_block(batches_to_send).await {
+        match self.block_builder.build_block(batches_in_block.clone()).await {
             Ok(_) => {
-                // transaction groups were successfully sent; remove the batches that we sent
-                *locked_ready_batches = locked_ready_batches[num_batches_to_send..].to_vec();
+                // block successfully built, do nothing
             },
             Err(_) => {
-                // Batches were not sent, and remain in the queue. Do nothing.
+                // Block building failed; add back the batches at the end of he queue
+                self.ready_batches.write().await.append(&mut batches_in_block);
             },
         }
     }
