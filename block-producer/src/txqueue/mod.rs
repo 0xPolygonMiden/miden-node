@@ -36,8 +36,8 @@ pub trait TransactionQueue: Send + Sync + 'static {
 // ================================================================================================
 
 pub struct DefaultTransactionQueueOptions {
-    /// The frequency at which we try to send transaction groups
-    pub send_tx_groups_frequency: Duration,
+    /// The frequency at which we try to build batches from transactions in the queue
+    pub build_batch_frequency: Duration,
 
     /// The size of a batch
     pub batch_size: usize,
@@ -69,16 +69,16 @@ where
     }
 
     pub async fn run(self) {
-        let mut interval = time::interval(self.options.send_tx_groups_frequency);
+        let mut interval = time::interval(self.options.build_batch_frequency);
 
         loop {
             interval.tick().await;
-            self.try_send_tx_groups().await;
+            self.try_build_batches().await;
         }
     }
 
     /// Divides the queue in groups to be batched; those that failed are appended back on the queue
-    async fn try_send_tx_groups(&self) {
+    async fn try_build_batches(&self) {
         let txs: Vec<SharedProvenTx> = {
             let mut locked_ready_queue = self.ready_queue.write().await;
 
