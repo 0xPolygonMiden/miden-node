@@ -8,28 +8,28 @@ use crate::{batch_builder::BatchBuilder, SharedProvenTx, SharedRwVec};
 // TRANSACTION QUEUE
 // ================================================================================================
 
+#[derive(Debug)]
+pub enum VerifyTxError {}
+
 #[async_trait]
 pub trait TransactionVerifier: Send + Sync + 'static {
-    type VerifyTxError: Debug;
-
     async fn verify_tx(
         &self,
         tx: SharedProvenTx,
-    ) -> Result<(), Self::VerifyTxError>;
+    ) -> Result<(), VerifyTxError>;
+}
+
+#[derive(Debug)]
+pub enum AddTransactionError {
+    VerificationFailed(VerifyTxError),
 }
 
 #[async_trait]
 pub trait TransactionQueue: Send + Sync + 'static {
-    type AddTransactionError;
-
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,
-    ) -> Result<(), Self::AddTransactionError>;
-}
-
-pub enum AddTransactionError {
-    VerificationFailed,
+    ) -> Result<(), AddTransactionError>;
 }
 
 // DEFAULT TRANSACTION QUEUE
@@ -107,16 +107,14 @@ where
     TV: TransactionVerifier,
     BB: BatchBuilder,
 {
-    type AddTransactionError = AddTransactionError;
-
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,
-    ) -> Result<(), Self::AddTransactionError> {
+    ) -> Result<(), AddTransactionError> {
         self.tx_verifier
             .verify_tx(tx.clone())
             .await
-            .map_err(|_| AddTransactionError::VerificationFailed)?;
+            .map_err(|err| AddTransactionError::VerificationFailed(err))?;
 
         self.ready_queue.write().await.push(tx);
 

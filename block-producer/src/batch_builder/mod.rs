@@ -64,15 +64,17 @@ impl TransactionBatch {
 // BATCH BUILDER
 // ================================================================================================
 
+#[derive(Debug)]
+pub enum AddBatchesError {
+    AccountAccessedByMultipleTxs(AccountId),
+}
+
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {
-    // TODO: Make concrete `AddBatches` Error?
-    type AddBatchesError: Debug;
-
     async fn add_tx_groups(
         &self,
         tx_groups: Vec<Vec<SharedProvenTx>>,
-    ) -> Result<(), Self::AddBatchesError>;
+    ) -> Result<(), AddBatchesError>;
 }
 
 pub struct DefaultBatchBuilderOptions {
@@ -128,7 +130,7 @@ where
             min(self.options.max_batches_per_block, locked_ready_batches.len());
         let batches_to_send = locked_ready_batches[..num_batches_to_send].to_vec();
 
-        match self.block_builder.add_batches(batches_to_send) {
+        match self.block_builder.add_batches(batches_to_send).await {
             Ok(_) => {
                 // transaction groups were successfully sent; remove the batches that we sent
                 *locked_ready_batches = locked_ready_batches[num_batches_to_send..].to_vec();
@@ -140,22 +142,15 @@ where
     }
 }
 
-#[derive(Debug)]
-pub enum DefaultAddBatchesError {
-    AccountAccessedByMultipleTxs(AccountId),
-}
-
 #[async_trait]
 impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
 {
-    type AddBatchesError = DefaultAddBatchesError;
-
     async fn add_tx_groups(
         &self,
         tx_groups: Vec<Vec<SharedProvenTx>>,
-    ) -> Result<(), Self::AddBatchesError> {
+    ) -> Result<(), AddBatchesError> {
         confirm_at_most_one_tx_per_account(&tx_groups)?;
 
         let ready_batches = self.ready_batches.clone();
@@ -174,7 +169,7 @@ where
 /// addresses that account.
 fn confirm_at_most_one_tx_per_account(
     tx_groups: &[Vec<SharedProvenTx>]
-) -> Result<(), DefaultAddBatchesError> {
+) -> Result<(), AddBatchesError> {
     let account_ids: Vec<AccountId> =
         tx_groups.iter().flatten().map(|tx| tx.account_id()).collect();
 
@@ -188,9 +183,7 @@ fn confirm_at_most_one_tx_per_account(
             }
 
             if runner_1_acc_id == runner_2_acc_id {
-                return Err(DefaultAddBatchesError::AccountAccessedByMultipleTxs(
-                    runner_1_acc_id.clone(),
-                ));
+                return Err(AddBatchesError::AccountAccessedByMultipleTxs(runner_1_acc_id.clone()));
             }
         }
     }
