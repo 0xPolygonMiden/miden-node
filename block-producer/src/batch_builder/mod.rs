@@ -128,7 +128,7 @@ where
             min(self.options.max_batches_per_block, locked_ready_batches.len());
         let batches_to_send = locked_ready_batches[..num_batches_to_send].to_vec();
 
-        match self.block_builder.add_batches(batches_to_send).await {
+        match self.block_builder.build_block(batches_to_send).await {
             Ok(_) => {
                 // transaction groups were successfully sent; remove the batches that we sent
                 *locked_ready_batches = locked_ready_batches[num_batches_to_send..].to_vec();
