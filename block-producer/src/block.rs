@@ -5,7 +5,6 @@ pub struct Block {
     pub header: BlockHeader,
     pub state_commitments: StateCommitments,
     pub state_updates: StateUpdates,
-
     // TODO:
     // - full states for updated public accounts
     // - full states for created public notes
