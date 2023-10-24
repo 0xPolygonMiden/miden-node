@@ -71,7 +71,7 @@ pub enum BuildBatchError {}
 pub trait BatchBuilder: Send + Sync + 'static {
     async fn build_batch(
         &self,
-        tx_groups: Vec<Vec<SharedProvenTx>>,
+        txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError>;
 }
 
@@ -147,22 +147,11 @@ where
 {
     async fn build_batch(
         &self,
-        tx_groups: Vec<Vec<SharedProvenTx>>,
+        txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
-        let ready_batches = self.ready_batches.clone();
-
-        tokio::spawn(async move {
-            let mut batches = groups_to_batches(tx_groups).await;
-
-            ready_batches.write().await.append(&mut batches);
-        });
+        let batch = Arc::new(TransactionBatch::new(txs));
+        self.ready_batches.write().await.push(batch);
 
         Ok(())
     }
-}
-
-/// Transforms the transaction groups to transaction batches
-async fn groups_to_batches(tx_groups: Vec<Vec<SharedProvenTx>>) -> Vec<Arc<TransactionBatch>> {
-    // Note: in the future, this will send jobs to a cluster to transform groups into batches
-    tx_groups.into_iter().map(|txs| Arc::new(TransactionBatch::new(txs))).collect()
 }

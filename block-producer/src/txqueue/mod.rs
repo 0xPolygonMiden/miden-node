@@ -77,26 +77,35 @@ where
         }
     }
 
+    /// Divides the queue in groups to be batched; those that failed are appended back on the queue
     async fn try_send_tx_groups(&self) {
-        let mut locked_ready_queue = self.ready_queue.write().await;
+        let txs: Vec<SharedProvenTx> = {
+            let mut locked_ready_queue = self.ready_queue.write().await;
 
-        if locked_ready_queue.is_empty() {
-            return;
-        }
+            if locked_ready_queue.is_empty() {
+                return;
+            }
 
-        let tx_groups: Vec<Vec<SharedProvenTx>> = locked_ready_queue
-            .chunks(self.options.batch_size)
-            .map(|txs| txs.to_vec())
-            .collect();
+            locked_ready_queue.drain(..).collect()
+        };
 
-        match self.batch_builder.build_batch(tx_groups).await {
-            Ok(_) => {
-                // Transaction groups were successfully sent, so drain the queue
-                locked_ready_queue.truncate(0);
-            },
-            Err(_) => {
-                // Transaction groups were not sent, and remain in the queue. Do nothing.
-            },
+        let tx_groups = txs.chunks(self.options.batch_size).map(|txs| txs.to_vec());
+
+        for mut txs in tx_groups {
+            let ready_queue = self.ready_queue.clone();
+            let batch_builder = self.batch_builder.clone();
+
+            tokio::spawn(async move {
+                match batch_builder.build_batch(txs.clone()).await {
+                    Ok(_) => {
+                        // batch was successfully built, do nothing
+                    },
+                    Err(_) => {
+                        // batch building failed, add txs back at the end of the queue
+                        ready_queue.write().await.append(&mut txs);
+                    },
+                }
+            });
         }
     }
 }
