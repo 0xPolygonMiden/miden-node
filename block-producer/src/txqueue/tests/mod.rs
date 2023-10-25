@@ -18,6 +18,19 @@ impl TransactionVerifier for TransactionVerifierSuccess {
     }
 }
 
+/// All transactions fail to verify
+struct TransactionVerifierFailure;
+
+#[async_trait]
+impl TransactionVerifier for TransactionVerifierFailure {
+    async fn verify_tx(
+        &self,
+        _tx: SharedProvenTx,
+    ) -> Result<(), VerifyTxError> {
+        Err(VerifyTxError::AccountAlreadyModifiedByOtherTx)
+    }
+}
+
 /// Records all batches built in `ready_batches`
 #[derive(Default)]
 struct MockBatchBuilder {
@@ -72,4 +85,42 @@ async fn test_build_batch_success() {
     time::sleep(build_batch_frequency * 2).await;
 
     assert_eq!(batch_builder.ready_batches.read().await.len(), 3);
+}
+
+/// Tests that when transactions fail to verify, they are not added to the queue
+#[tokio::test]
+async fn test_tx_verify_failure() {
+    let build_batch_frequency = Duration::from_millis(5);
+    let batch_size = 3;
+
+    let batch_builder = Arc::new(MockBatchBuilder::default());
+
+    let tx_queue = DefaultTransactionQueue::new(
+        Arc::new(TransactionVerifierFailure),
+        batch_builder.clone(),
+        DefaultTransactionQueueOptions {
+            build_batch_frequency,
+            batch_size,
+        },
+    );
+
+    let internal_ready_queue = tx_queue.ready_queue.clone();
+
+    let proven_tx_generator = DummyProvenTxGenerator::new();
+
+    // Add a bunch of transactions that will all fail tx verification
+    for _i in 0..(3 * batch_size) {
+        let r = tx_queue.add_transaction(Arc::new(proven_tx_generator.dummy_proven_tx())).await;
+
+        assert!(matches!(r, Err(AddTransactionError::VerificationFailed(_))));
+    }
+
+    // Start the queue
+    tokio::spawn(tx_queue.run());
+
+    // Wait for tx queue to build batches
+    time::sleep(build_batch_frequency * 2).await;
+
+    assert!(internal_ready_queue.read().await.is_empty());
+    assert_eq!(batch_builder.ready_batches.read().await.len(), 0);
 }

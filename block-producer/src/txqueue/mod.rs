@@ -12,7 +12,11 @@ mod tests;
 // ================================================================================================
 
 #[derive(Debug)]
-pub enum VerifyTxError {}
+pub enum VerifyTxError {
+    /// The account that the transaction modifies has already been modified and isn't yet committed
+    /// to a block
+    AccountAlreadyModifiedByOtherTx,
+}
 
 #[async_trait]
 pub trait TransactionVerifier: Send + Sync + 'static {
