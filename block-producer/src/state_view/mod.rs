@@ -119,7 +119,30 @@ where
         &self,
         block: Arc<Block>,
     ) -> Result<(), ApplyBlockError> {
-        todo!()
+        self.store.apply_block(block.clone()).await?;
+
+        let mut locked_accounts_in_flight = self.accounts_in_flight.write().await;
+        let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
+
+        // 1. Remove account ids of transactions in block
+        let account_ids_in_block = block
+            .state_updates
+            .updated_account_state_hashes
+            .iter()
+            .map(|(account_id, _final_account_hash)| account_id);
+
+        for account_id in account_ids_in_block {
+            let was_in_flight = locked_accounts_in_flight.remove(account_id);
+            debug_assert!(was_in_flight);
+        }
+
+        // 2. Remove new nullifiers of transactions in block
+        for nullifier in block.state_updates.new_nullifiers.iter() {
+            let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
+            debug_assert!(was_in_flight);
+        }
+
+        Ok(())
     }
 }
 
