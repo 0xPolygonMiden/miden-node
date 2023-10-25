@@ -6,7 +6,7 @@ use miden_objects::Digest;
 use crate::SharedProvenTx;
 
 #[derive(Debug)]
-pub enum Error {}
+pub enum TxInputsError {}
 
 /// Information needed from the store to verify a transaction
 pub struct TxInputs {
@@ -22,5 +22,5 @@ pub trait GetTxInputs: Send + Sync + 'static {
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
-    ) -> Result<TxInputs, Error>;
+    ) -> Result<TxInputs, TxInputsError>;
 }

@@ -1,14 +1,15 @@
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use miden_objects::Digest;
 use tokio::{sync::RwLock, time};
 
-use crate::{batch_builder::BatchBuilder, SharedProvenTx, SharedRwVec};
+use crate::{batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec};
 
 #[cfg(test)]
 mod tests;
 
-// TRANSACTION QUEUE
+// TRANSACTION VERIFIER
 // ================================================================================================
 
 #[derive(Debug)]
@@ -16,6 +17,27 @@ pub enum VerifyTxError {
     /// The account that the transaction modifies has already been modified and isn't yet committed
     /// to a block
     AccountAlreadyModifiedByOtherTx,
+
+    /// Another transaction already consumed the notes with given nullifiers
+    ConsumedNotesAlreadyConsumed(Vec<Digest>),
+
+    /// The account's initial hash did not match the current account's hash
+    IncorrectAccountInitialHash {
+        tx_initial_account_hash: Digest,
+        store_account_hash: Option<Digest>,
+    },
+
+    /// Failed to retrieve transaction inputs from the store
+    ///
+    /// TODO: Make this an "internal error". Q: Should we have a single `InternalError` enum for all
+    /// internal errors that can occur across the system?
+    StoreConnectionFailed(TxInputsError),
+}
+
+impl From<TxInputsError> for VerifyTxError {
+    fn from(err: TxInputsError) -> Self {
+        Self::StoreConnectionFailed(err)
+    }
 }
 
 #[async_trait]
@@ -30,6 +52,9 @@ pub trait TransactionVerifier: Send + Sync + 'static {
 pub enum AddTransactionError {
     VerificationFailed(VerifyTxError),
 }
+
+// TRANSACTION QUEUE
+// ================================================================================================
 
 #[async_trait]
 pub trait TransactionQueue: Send + Sync + 'static {
