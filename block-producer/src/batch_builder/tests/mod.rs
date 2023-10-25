@@ -90,6 +90,33 @@ async fn test_block_size_doesnt_exceed_limit() {
     }
 }
 
+/// Tests that `BlockBuilder::build_block()` is still called when there are no transactions
+#[tokio::test]
+async fn test_build_block_called_when_no_batches() {
+    let block_frequency = Duration::from_millis(20);
+    let max_batches_per_block = 2;
+
+    let block_builder = Arc::new(BlockBuilderSuccess::default());
+
+    let batch_builder = DefaultBatchBuilder::new(
+        block_builder.clone(),
+        DefaultBatchBuilderOptions {
+            block_frequency,
+            max_batches_per_block,
+        },
+    );
+
+    // start batch builder
+    tokio::spawn(batch_builder.run());
+
+    // Wait for at least 1 block to be produced
+    time::sleep(block_frequency * 2).await;
+
+    // Ensure the block builder received at least 1 empty batch Note: we check `> 0` instead of an
+    // exact number to make the test flaky in case timings change in the implementation
+    assert!(*block_builder.num_empty_batches_received.read().await > 0);
+}
+
 // HELPERS
 // ================================================================================================
 
