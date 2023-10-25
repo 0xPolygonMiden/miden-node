@@ -14,16 +14,13 @@ struct BlockBuilderSuccess {
 impl BlockBuilder for BlockBuilderSuccess {
     async fn build_block(
         &self,
-        batches: Option<Vec<SharedTxBatch>>,
+        batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
-        match batches {
-            Some(batches) => {
-                self.batch_groups.write().await.push(batches);
-            },
-            None => {
-                *self.num_empty_batches_received.write().await += 1;
-            },
-        };
+        if batches.is_empty() {
+            *self.num_empty_batches_received.write().await += 1;
+        } else {
+            self.batch_groups.write().await.push(batches);
+        }
 
         Ok(())
     }
@@ -36,7 +33,7 @@ struct BlockBuilderFailure;
 impl BlockBuilder for BlockBuilderFailure {
     async fn build_block(
         &self,
-        _batches: Option<Vec<SharedTxBatch>>,
+        _batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
         Err(BuildBlockError::Dummy)
     }
