@@ -7,6 +7,9 @@ use tokio::{sync::RwLock, time};
 
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec};
 
+#[cfg(test)]
+mod tests;
+
 // TRANSACTION BATCH
 // ================================================================================================
 
@@ -137,7 +140,7 @@ where
                 // block successfully built, do nothing
             },
             Err(_) => {
-                // Block building failed; add back the batches at the end of he queue
+                // Block building failed; add back the batches at the end of the queue
                 self.ready_batches.write().await.append(&mut batches_in_block);
             },
         }
