@@ -5,7 +5,10 @@ use itertools::Itertools;
 use miden_objects::{accounts::AccountId, Digest};
 use tokio::{sync::RwLock, time};
 
-use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec};
+use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
+
+#[cfg(test)]
+mod tests;
 
 // TRANSACTION BATCH
 // ================================================================================================
@@ -65,7 +68,9 @@ impl TransactionBatch {
 // ================================================================================================
 
 #[derive(Debug)]
-pub enum BuildBatchError {}
+pub enum BuildBatchError {
+    Dummy,
+}
 
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {
@@ -88,7 +93,7 @@ where
     BB: BlockBuilder,
 {
     /// Batches ready to be included in a block
-    ready_batches: SharedRwVec<Arc<TransactionBatch>>,
+    ready_batches: SharedRwVec<SharedTxBatch>,
 
     block_builder: Arc<BB>,
 
@@ -122,11 +127,12 @@ where
     /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
     /// A call to an empty `build_block()` indicates that an empty block should be created.
     async fn try_build_block(&self) {
-        let mut batches_in_block: Vec<Arc<TransactionBatch>> = {
+        let mut batches_in_block: Vec<SharedTxBatch> = {
             let mut locked_ready_batches = self.ready_batches.write().await;
 
             let num_batches_in_block =
                 min(self.options.max_batches_per_block, locked_ready_batches.len());
+
             locked_ready_batches.drain(..num_batches_in_block).collect()
         };
 
@@ -135,7 +141,7 @@ where
                 // block successfully built, do nothing
             },
             Err(_) => {
-                // Block building failed; add back the batches at the end of he queue
+                // Block building failed; add back the batches at the end of the queue
                 self.ready_batches.write().await.append(&mut batches_in_block);
             },
         }
