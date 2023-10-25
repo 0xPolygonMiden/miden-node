@@ -15,18 +15,21 @@ use crate::{
 pub enum ApplyBlockError {}
 
 #[async_trait]
-pub trait ApplyBlock {
+pub trait ApplyBlock: Send + Sync + 'static {
     async fn apply_block(
         &self,
         block: Arc<Block>,
     ) -> Result<(), ApplyBlockError>;
 }
 
-pub struct DefaulStateView<TI>
+pub struct DefaulStateView<TI, Store>
 where
     TI: GetTxInputs,
+    Store: ApplyBlock,
 {
     get_tx_inputs: Arc<TI>,
+
+    store: Arc<Store>,
 
     /// The account ID of accounts being modified by transactions currently in the block production
     /// pipeline. We currently ensure that only 1 tx/block modifies any given account.
@@ -36,13 +39,18 @@ where
     nullifiers_in_flight: Arc<RwLock<BTreeSet<Digest>>>,
 }
 
-impl<TI> DefaulStateView<TI>
+impl<TI, Store> DefaulStateView<TI, Store>
 where
     TI: GetTxInputs,
+    Store: ApplyBlock,
 {
-    pub fn new(get_tx_inputs: Arc<TI>) -> Self {
+    pub fn new(
+        get_tx_inputs: Arc<TI>,
+        store: Arc<Store>,
+    ) -> Self {
         Self {
             get_tx_inputs,
+            store,
             accounts_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
             nullifiers_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
         }
@@ -50,9 +58,10 @@ where
 }
 
 #[async_trait]
-impl<TI> TransactionVerifier for DefaulStateView<TI>
+impl<TI, Store> TransactionVerifier for DefaulStateView<TI, Store>
 where
     TI: GetTxInputs,
+    Store: ApplyBlock,
 {
     // TODO: Verify proof as well
     async fn verify_tx(
@@ -101,9 +110,10 @@ where
 }
 
 #[async_trait]
-impl<TI> ApplyBlock for DefaulStateView<TI>
+impl<TI, Store> ApplyBlock for DefaulStateView<TI, Store>
 where
     TI: GetTxInputs,
+    Store: ApplyBlock,
 {
     async fn apply_block(
         &self,
