@@ -66,7 +66,7 @@ impl TransactionBatch {
 
 #[derive(Debug)]
 pub enum BuildBatchError {
-    Dummy
+    Dummy,
 }
 
 #[async_trait]

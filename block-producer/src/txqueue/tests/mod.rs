@@ -6,7 +6,7 @@ use crate::{
 use tokio::time;
 
 // STRUCTS
-// ================================================================================================ 
+// ================================================================================================
 
 /// All transactions verify successfully
 struct TransactionVerifierSuccess;
@@ -68,7 +68,7 @@ impl BatchBuilder for BatchBuilderFailure {
 }
 
 // TESTS
-// ================================================================================================ 
+// ================================================================================================
 
 /// Tests that when the internal "build batch timer" hits, all transactions in the queue are sent to
 /// be built in some batch
