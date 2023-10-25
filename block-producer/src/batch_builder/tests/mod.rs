@@ -11,15 +11,23 @@ type BatchGroup = Vec<Arc<TransactionBatch>>;
 #[derive(Default)]
 struct BlockBuilderSuccess {
     batch_groups: SharedRwVec<BatchGroup>,
+    num_empty_batches_received: Arc<RwLock<usize>>,
 }
 
 #[async_trait]
 impl BlockBuilder for BlockBuilderSuccess {
     async fn build_block(
         &self,
-        batch: Vec<Arc<TransactionBatch>>,
+        batches: Option<Vec<Arc<TransactionBatch>>>,
     ) -> Result<(), BuildBlockError> {
-        self.batch_groups.write().await.push(batch);
+        match batches {
+            Some(batches) => {
+                self.batch_groups.write().await.push(batches);
+            },
+            None => {
+                *self.num_empty_batches_received.write().await += 1;
+            },
+        };
 
         Ok(())
     }
@@ -32,7 +40,7 @@ struct BlockBuilderFailure;
 impl BlockBuilder for BlockBuilderFailure {
     async fn build_block(
         &self,
-        _batch: Vec<Arc<TransactionBatch>>,
+        _batches: Option<Vec<Arc<TransactionBatch>>>,
     ) -> Result<(), BuildBlockError> {
         Err(BuildBlockError::Dummy)
     }

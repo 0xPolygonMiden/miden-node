@@ -127,21 +127,28 @@ where
     /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
     /// A call to an empty `build_block()` indicates that an empty block should be created.
     async fn try_build_block(&self) {
-        let mut batches_in_block: Vec<Arc<TransactionBatch>> = {
+        let maybe_batches_in_block: Option<Vec<Arc<TransactionBatch>>> = {
             let mut locked_ready_batches = self.ready_batches.write().await;
 
-            let num_batches_in_block =
-                min(self.options.max_batches_per_block, locked_ready_batches.len());
-            locked_ready_batches.drain(..num_batches_in_block).collect()
+            if locked_ready_batches.is_empty() {
+                None
+            } else {
+                let num_batches_in_block =
+                    min(self.options.max_batches_per_block, locked_ready_batches.len());
+
+                Some(locked_ready_batches.drain(..num_batches_in_block).collect())
+            }
         };
 
-        match self.block_builder.build_block(batches_in_block.clone()).await {
+        match self.block_builder.build_block(maybe_batches_in_block.clone()).await {
             Ok(_) => {
                 // block successfully built, do nothing
             },
             Err(_) => {
                 // Block building failed; add back the batches at the end of the queue
-                self.ready_batches.write().await.append(&mut batches_in_block);
+                if let Some(mut batches_in_block) = maybe_batches_in_block {
+                    self.ready_batches.write().await.append(&mut batches_in_block);
+                }
             },
         }
     }
