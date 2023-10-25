@@ -4,13 +4,9 @@ use crate::{block_builder::BuildBlockError, test_utils::DummyProvenTxGenerator, 
 // STRUCTS
 // ================================================================================================
 
-/// Batches that would be used to create a block, except we don't actually build a block in these
-/// tests
-type BatchGroup = Vec<SharedTxBatch>;
-
 #[derive(Default)]
 struct BlockBuilderSuccess {
-    batch_groups: SharedRwVec<BatchGroup>,
+    batch_groups: SharedRwVec<Vec<SharedTxBatch>>,
     num_empty_batches_received: Arc<RwLock<usize>>,
 }
 
