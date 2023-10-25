@@ -65,7 +65,9 @@ impl TransactionBatch {
 // ================================================================================================
 
 #[derive(Debug)]
-pub enum BuildBatchError {}
+pub enum BuildBatchError {
+    Dummy
+}
 
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {

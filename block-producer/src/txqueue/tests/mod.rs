@@ -5,6 +5,9 @@ use crate::{
 };
 use tokio::time;
 
+// STRUCTS
+// ================================================================================================ 
+
 /// All transactions verify successfully
 struct TransactionVerifierSuccess;
 
@@ -33,12 +36,12 @@ impl TransactionVerifier for TransactionVerifierFailure {
 
 /// Records all batches built in `ready_batches`
 #[derive(Default)]
-struct MockBatchBuilder {
+struct BatchBuilderSuccess {
     ready_batches: SharedRwVec<Arc<TransactionBatch>>,
 }
 
 #[async_trait]
-impl BatchBuilder for MockBatchBuilder {
+impl BatchBuilder for BatchBuilderSuccess {
     async fn build_batch(
         &self,
         txs: Vec<SharedProvenTx>,
@@ -50,6 +53,23 @@ impl BatchBuilder for MockBatchBuilder {
     }
 }
 
+/// Always fails to build batch
+#[derive(Default)]
+struct BatchBuilderFailure;
+
+#[async_trait]
+impl BatchBuilder for BatchBuilderFailure {
+    async fn build_batch(
+        &self,
+        _txs: Vec<SharedProvenTx>,
+    ) -> Result<(), BuildBatchError> {
+        Err(BuildBatchError::Dummy)
+    }
+}
+
+// TESTS
+// ================================================================================================ 
+
 /// Tests that when the internal "build batch timer" hits, all transactions in the queue are sent to
 /// be built in some batch
 #[tokio::test]
@@ -57,7 +77,7 @@ async fn test_build_batch_success() {
     let build_batch_frequency = Duration::from_millis(5);
     let batch_size = 3;
 
-    let batch_builder = Arc::new(MockBatchBuilder::default());
+    let batch_builder = Arc::new(BatchBuilderSuccess::default());
 
     let tx_queue = DefaultTransactionQueue::new(
         Arc::new(TransactionVerifierSuccess),
@@ -93,7 +113,7 @@ async fn test_tx_verify_failure() {
     let build_batch_frequency = Duration::from_millis(5);
     let batch_size = 3;
 
-    let batch_builder = Arc::new(MockBatchBuilder::default());
+    let batch_builder = Arc::new(BatchBuilderSuccess::default());
 
     let tx_queue = DefaultTransactionQueue::new(
         Arc::new(TransactionVerifierFailure),
@@ -123,4 +143,42 @@ async fn test_tx_verify_failure() {
 
     assert!(internal_ready_queue.read().await.is_empty());
     assert_eq!(batch_builder.ready_batches.read().await.len(), 0);
+}
+
+/// Tests that when batch building fails, transactions are added back to the ready queue
+#[tokio::test]
+async fn test_build_batch_failure() {
+    let build_batch_frequency = Duration::from_millis(30);
+    let batch_size = 3;
+
+    let batch_builder = Arc::new(BatchBuilderFailure::default());
+
+    let tx_queue = DefaultTransactionQueue::new(
+        Arc::new(TransactionVerifierSuccess),
+        batch_builder.clone(),
+        DefaultTransactionQueueOptions {
+            build_batch_frequency,
+            batch_size,
+        },
+    );
+
+    let internal_ready_queue = tx_queue.ready_queue.clone();
+
+    let proven_tx_generator = DummyProvenTxGenerator::new();
+
+    // Add enough transactions so that we have 1 batch
+    for _i in 0..batch_size {
+        tx_queue
+            .add_transaction(Arc::new(proven_tx_generator.dummy_proven_tx()))
+            .await
+            .unwrap();
+    }
+
+    // Start the queue
+    tokio::spawn(tx_queue.run());
+
+    // Wait for tx queue to fail once to build the batch
+    time::sleep(Duration::from_millis(45)).await;
+
+    assert_eq!(internal_ready_queue.read().await.len(), 3);
 }
