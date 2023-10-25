@@ -63,25 +63,11 @@ where
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
         // to quickly reject clearly infracting transactions before hitting the store (slow).
-        if self.accounts_in_flight.read().await.contains(&tx.account_id()) {
-            return Err(VerifyTxError::AccountAlreadyModifiedByOtherTx);
-        }
-
-        {
-            let nullifiers_in_flight = self.nullifiers_in_flight.read().await;
-
-            let infracting_nullifiers: Vec<Digest> = {
-                let nullifiers_in_tx = tx.consumed_notes().iter().map(|note| note.nullifier());
-
-                nullifiers_in_tx
-                    .filter(|nullifier_in_tx| nullifiers_in_flight.contains(nullifier_in_tx))
-                    .collect()
-            };
-
-            if !infracting_nullifiers.is_empty() {
-                return Err(VerifyTxError::ConsumedNotesAlreadyConsumed(infracting_nullifiers));
-            }
-        }
+        ensure_in_flight_constraints(
+            tx.clone(),
+            &*self.accounts_in_flight.read().await,
+            &*self.nullifiers_in_flight.read().await,
+        )?;
 
         // 2. Fetch the transaction inputs from the store
         let tx_inputs = self.get_tx_inputs.get_tx_inputs(tx.clone()).await?;
@@ -123,23 +109,11 @@ where
             let mut locked_accounts_in_flight = self.accounts_in_flight.write().await;
             let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
 
-            // Check account id hasn't been modified yet
-            if locked_accounts_in_flight.contains(&tx.account_id()) {
-                return Err(VerifyTxError::AccountAlreadyModifiedByOtherTx);
-            }
-
-            // Check no consumed notes were already consumed
-            let infracting_nullifiers: Vec<Digest> = {
-                let nullifiers_in_tx = tx.consumed_notes().iter().map(|note| note.nullifier());
-
-                nullifiers_in_tx
-                    .filter(|nullifier_in_tx| locked_nullifiers_in_flight.contains(nullifier_in_tx))
-                    .collect()
-            };
-
-            if !infracting_nullifiers.is_empty() {
-                return Err(VerifyTxError::ConsumedNotesAlreadyConsumed(infracting_nullifiers));
-            }
+            ensure_in_flight_constraints(
+                tx.clone(),
+                &locked_accounts_in_flight,
+                &locked_nullifiers_in_flight,
+            )?;
 
             // Success! Register transaction as successfully verified
             locked_accounts_in_flight.insert(tx.account_id());
@@ -164,4 +138,37 @@ where
     ) -> Result<(), ApplyBlockError> {
         todo!()
     }
+}
+
+// HELPERS
+// -------------------------------------------------------------------------------------------------
+
+/// Ensures the constraints related to in-flight transactions:
+/// 1. the candidate transaction doesn't modify the same account as an existing in-flight transaction
+/// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained
+/// in `already_consumed_nullifiers`
+fn ensure_in_flight_constraints(
+    candidate_tx: SharedProvenTx,
+    accounts_in_flight: &BTreeSet<AccountId>,
+    already_consumed_nullifiers: &BTreeSet<Digest>,
+) -> Result<(), VerifyTxError> {
+    // 1. Check account id hasn't been modified yet
+    if accounts_in_flight.contains(&candidate_tx.account_id()) {
+        return Err(VerifyTxError::AccountAlreadyModifiedByOtherTx);
+    }
+
+    // 2. Check no consumed notes were already consumed
+    let infracting_nullifiers: Vec<Digest> = {
+        let nullifiers_in_tx = candidate_tx.consumed_notes().iter().map(|note| note.nullifier());
+
+        nullifiers_in_tx
+            .filter(|nullifier_in_tx| already_consumed_nullifiers.contains(nullifier_in_tx))
+            .collect()
+    };
+
+    if !infracting_nullifiers.is_empty() {
+        return Err(VerifyTxError::ConsumedNotesAlreadyConsumed(infracting_nullifiers));
+    }
+
+    Ok(())
 }
