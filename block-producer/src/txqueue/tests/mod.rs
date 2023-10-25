@@ -2,6 +2,7 @@ use super::*;
 use crate::{
     batch_builder::{BuildBatchError, TransactionBatch},
     test_utils::DummyProvenTxGenerator,
+    SharedTxBatch,
 };
 use tokio::time;
 
@@ -37,7 +38,7 @@ impl TransactionVerifier for TransactionVerifierFailure {
 /// Records all batches built in `ready_batches`
 #[derive(Default)]
 struct BatchBuilderSuccess {
-    ready_batches: SharedRwVec<Arc<TransactionBatch>>,
+    ready_batches: SharedRwVec<SharedTxBatch>,
 }
 
 #[async_trait]

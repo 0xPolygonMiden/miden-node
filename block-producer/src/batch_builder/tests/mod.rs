@@ -1,12 +1,12 @@
 use super::*;
-use crate::{block_builder::BuildBlockError, test_utils::DummyProvenTxGenerator};
+use crate::{block_builder::BuildBlockError, test_utils::DummyProvenTxGenerator, SharedTxBatch};
 
 // STRUCTS
 // ================================================================================================
 
 /// Batches that would be used to create a block, except we don't actually build a block in these
 /// tests
-type BatchGroup = Vec<Arc<TransactionBatch>>;
+type BatchGroup = Vec<SharedTxBatch>;
 
 #[derive(Default)]
 struct BlockBuilderSuccess {
@@ -18,7 +18,7 @@ struct BlockBuilderSuccess {
 impl BlockBuilder for BlockBuilderSuccess {
     async fn build_block(
         &self,
-        batches: Option<Vec<Arc<TransactionBatch>>>,
+        batches: Option<Vec<SharedTxBatch>>,
     ) -> Result<(), BuildBlockError> {
         match batches {
             Some(batches) => {
@@ -40,7 +40,7 @@ struct BlockBuilderFailure;
 impl BlockBuilder for BlockBuilderFailure {
     async fn build_block(
         &self,
-        _batches: Option<Vec<Arc<TransactionBatch>>>,
+        _batches: Option<Vec<SharedTxBatch>>,
     ) -> Result<(), BuildBlockError> {
         Err(BuildBlockError::Dummy)
     }
@@ -100,7 +100,7 @@ async fn test_block_size_doesnt_exceed_limit() {
 fn dummy_tx_batch(
     tx_gen: &DummyProvenTxGenerator,
     num_txs_in_batch: usize,
-) -> Arc<TransactionBatch> {
+) -> SharedTxBatch {
     let txs: Vec<_> = (0..num_txs_in_batch)
         .into_iter()
         .map(|_| Arc::new(tx_gen.dummy_proven_tx()))

@@ -5,7 +5,7 @@ use itertools::Itertools;
 use miden_objects::{accounts::AccountId, Digest};
 use tokio::{sync::RwLock, time};
 
-use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec};
+use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
 
 #[cfg(test)]
 mod tests;
@@ -93,7 +93,7 @@ where
     BB: BlockBuilder,
 {
     /// Batches ready to be included in a block
-    ready_batches: SharedRwVec<Arc<TransactionBatch>>,
+    ready_batches: SharedRwVec<SharedTxBatch>,
 
     block_builder: Arc<BB>,
 
@@ -127,7 +127,7 @@ where
     /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
     /// A call to an empty `build_block()` indicates that an empty block should be created.
     async fn try_build_block(&self) {
-        let maybe_batches_in_block: Option<Vec<Arc<TransactionBatch>>> = {
+        let maybe_batches_in_block: Option<Vec<SharedTxBatch>> = {
             let mut locked_ready_batches = self.ready_batches.write().await;
 
             if locked_ready_batches.is_empty() {

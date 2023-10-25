@@ -2,11 +2,11 @@ use std::{fmt::Debug, sync::Arc};
 
 use async_trait::async_trait;
 
-use crate::batch_builder::TransactionBatch;
+use crate::{batch_builder::TransactionBatch, SharedTxBatch};
 
 #[derive(Debug)]
 pub enum BuildBlockError {
-    Dummy
+    Dummy,
 }
 
 #[async_trait]
@@ -18,6 +18,6 @@ pub trait BlockBuilder: Send + Sync + 'static {
     /// block. In other words, if `build_block()` is never called, then no blocks are produced.
     async fn build_block(
         &self,
-        batches: Option<Vec<Arc<TransactionBatch>>>,
+        batches: Option<Vec<SharedTxBatch>>,
     ) -> Result<(), BuildBlockError>;
 }
