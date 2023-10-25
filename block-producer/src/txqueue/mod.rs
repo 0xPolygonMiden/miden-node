@@ -5,6 +5,9 @@ use tokio::{sync::RwLock, time};
 
 use crate::{batch_builder::BatchBuilder, SharedProvenTx, SharedRwVec};
 
+#[cfg(test)]
+mod tests;
+
 // TRANSACTION QUEUE
 // ================================================================================================
 
