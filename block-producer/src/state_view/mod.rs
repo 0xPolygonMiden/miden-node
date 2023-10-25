@@ -18,7 +18,7 @@ pub enum ApplyBlockError {}
 pub trait ApplyBlock {
     async fn apply_block(
         &self,
-        block: Block,
+        block: Arc<Block>,
     ) -> Result<(), ApplyBlockError>;
 }
 
@@ -107,7 +107,7 @@ where
 {
     async fn apply_block(
         &self,
-        block: Block,
+        block: Arc<Block>,
     ) -> Result<(), ApplyBlockError> {
         todo!()
     }
