@@ -117,6 +117,47 @@ async fn test_build_block_called_when_no_batches() {
     assert!(*block_builder.num_empty_batches_received.read().await > 0);
 }
 
+/// Tests that if `BlockBuilder::build_block()` fails, then batches are added back on the queue
+#[tokio::test]
+async fn test_batches_added_back_to_queue_on_block_build_failure() {
+    let block_frequency = Duration::from_millis(20);
+    let max_batches_per_block = 2;
+
+    let block_builder = Arc::new(BlockBuilderFailure::default());
+
+    let batch_builder = DefaultBatchBuilder::new(
+        block_builder.clone(),
+        DefaultBatchBuilderOptions {
+            block_frequency,
+            max_batches_per_block,
+        },
+    );
+
+    let internal_ready_batches = batch_builder.ready_batches.clone();
+
+    // Add 3 batches in internal queue
+    {
+        let tx_gen = DummyProvenTxGenerator::new();
+
+        let mut batch_group = vec![
+            dummy_tx_batch(&tx_gen, 2),
+            dummy_tx_batch(&tx_gen, 2),
+            dummy_tx_batch(&tx_gen, 2),
+        ];
+
+        batch_builder.ready_batches.write().await.append(&mut batch_group);
+    }
+
+    // start batch builder
+    tokio::spawn(batch_builder.run());
+
+    // Wait for 2 blocks to failed to be produced
+    time::sleep(block_frequency * 2 + (block_frequency / 2)).await;
+
+    // Ensure the transaction batches are all still on the queue
+    assert_eq!(internal_ready_batches.read().await.len(), 3);
+}
+
 // HELPERS
 // ================================================================================================
 
