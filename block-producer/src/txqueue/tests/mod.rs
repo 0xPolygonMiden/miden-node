@@ -1,5 +1,9 @@
 use super::*;
-use crate::batch_builder::{BuildBatchError, TransactionBatch};
+use crate::{
+    batch_builder::{BuildBatchError, TransactionBatch},
+    test_utils::DummyProvenTxGenerator,
+};
+use tokio::time;
 
 /// All transactions verify successfully
 struct TransactionVerifierSuccess;
@@ -15,6 +19,7 @@ impl TransactionVerifier for TransactionVerifierSuccess {
 }
 
 /// Records all batches built in `ready_batches`
+#[derive(Default)]
 struct MockBatchBuilder {
     ready_batches: SharedRwVec<Arc<TransactionBatch>>,
 }
@@ -30,4 +35,41 @@ impl BatchBuilder for MockBatchBuilder {
 
         Ok(())
     }
+}
+
+/// Tests that when the internal "build batch timer" hits, all transactions in the queue are sent to
+/// be built in some batch
+#[tokio::test]
+async fn test_build_batch_success() {
+    let build_batch_frequency = Duration::from_millis(5);
+    let batch_size = 3;
+
+    let batch_builder = Arc::new(MockBatchBuilder::default());
+
+    let tx_queue = DefaultTransactionQueue::new(
+        Arc::new(TransactionVerifierSuccess),
+        batch_builder.clone(),
+        DefaultTransactionQueueOptions {
+            build_batch_frequency,
+            batch_size,
+        },
+    );
+
+    let proven_tx_generator = DummyProvenTxGenerator::new();
+
+    // Add enough transactions so that we have 3 batches
+    for _i in 0..(2 * batch_size + 1) {
+        tx_queue
+            .add_transaction(Arc::new(proven_tx_generator.dummy_proven_tx()))
+            .await
+            .unwrap();
+    }
+
+    // Start the queue
+    tokio::spawn(tx_queue.run());
+
+    // Wait for tx queue to build batches
+    time::sleep(build_batch_frequency * 2).await;
+
+    assert_eq!(batch_builder.ready_batches.read().await.len(), 3);
 }
