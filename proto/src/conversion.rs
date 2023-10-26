@@ -1,13 +1,10 @@
-use crate::digest;
-use crate::error;
-use crate::tsmt;
-use miden_crypto::hash::rpo::RpoDigest;
-use miden_crypto::merkle::MerklePath;
-use miden_crypto::merkle::TieredSmtProof;
-use miden_crypto::Felt;
-use miden_crypto::FieldElement;
-use miden_crypto::StarkField;
-use miden_crypto::Word;
+use crate::{account_id, block_header, digest, error, merkle, mmr, note, responses, tsmt};
+use miden_crypto::{
+    hash::rpo::RpoDigest,
+    merkle::{MerklePath, MmrDelta, TieredSmtProof},
+    Felt, FieldElement, StarkField, Word,
+};
+use miden_objects::BlockHeader;
 
 impl From<[u64; 4]> for digest::Digest {
     fn from(value: [u64; 4]) -> Self {
@@ -115,5 +112,89 @@ impl TryFrom<&digest::Digest> for RpoDigest {
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()
+    }
+}
+
+impl TryFrom<block_header::BlockHeader> for BlockHeader {
+    type Error = error::ParseError;
+
+    fn try_from(value: block_header::BlockHeader) -> Result<Self, Self::Error> {
+        Ok(BlockHeader::new(
+            value.prev_hash.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.block_num.into(),
+            value.chain_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.account_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.nullifier_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.note_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.batch_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.proof_hash.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.version.into(),
+            value.timestamp.into(),
+        ))
+    }
+}
+
+impl TryFrom<&block_header::BlockHeader> for BlockHeader {
+    type Error = error::ParseError;
+
+    fn try_from(value: &block_header::BlockHeader) -> Result<Self, Self::Error> {
+        value.clone().try_into()
+    }
+}
+
+impl TryFrom<mmr::MmrDelta> for MmrDelta {
+    type Error = error::ParseError;
+
+    fn try_from(value: mmr::MmrDelta) -> Result<Self, Self::Error> {
+        let data: Result<Vec<RpoDigest>, error::ParseError> =
+            value.data.into_iter().map(|v| v.try_into()).collect();
+
+        Ok(MmrDelta {
+            forest: value.forest as usize,
+            data: data?,
+        })
+    }
+}
+
+impl From<MmrDelta> for mmr::MmrDelta {
+    fn from(value: MmrDelta) -> Self {
+        let data: Vec<digest::Digest> = value.data.into_iter().map(|v| v.into()).collect();
+
+        mmr::MmrDelta {
+            forest: value.forest as u64,
+            data,
+        }
+    }
+}
+
+impl From<MerklePath> for merkle::MerklePath {
+    fn from(value: MerklePath) -> Self {
+        let siblings: Vec<digest::Digest> = value.nodes().iter().map(|v| (*v).into()).collect();
+        merkle::MerklePath { siblings }
+    }
+}
+
+impl From<note::Note> for responses::NoteSyncRecord {
+    fn from(value: note::Note) -> Self {
+        Self {
+            note_index: value.note_index,
+            note_hash: value.note_hash,
+            sender: value.sender,
+            tag: value.tag,
+            num_assets: value.num_assets,
+            merkle_path: value.merkle_path,
+        }
+    }
+}
+
+impl From<account_id::AccountId> for u64 {
+    fn from(value: account_id::AccountId) -> Self {
+        value.id
+    }
+}
+
+impl From<u64> for account_id::AccountId {
+    fn from(value: u64) -> Self {
+        account_id::AccountId { id: value }
     }
 }

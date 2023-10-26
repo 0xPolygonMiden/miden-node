@@ -1,0 +1,29 @@
+syntax = "proto3";
+package requests;
+
+import "account_id.proto";
+import "digest.proto";
+
+message CheckNullifiersRequest {
+    repeated digest.Digest nullifiers = 1;
+}
+
+message FetchBlockHeaderByNumberRequest {
+    // The block number of the target block.
+    //
+    // If not provided, means latest know block.
+    optional uint32 block_num = 1;
+}
+
+// State synchronization request.
+message SyncStateRequest {
+    // Send updates to the client starting at this block.
+    uint32 block_num = 1;
+
+    repeated account_id.AccountId account_ids = 2;
+
+    // Tags and nullifiers are filters, both filters correspond to the high
+    // 16bits of the real values shifted to the right `>> 48`.
+    repeated uint32 note_tags = 3;
+    repeated uint32 nullifiers = 4;
+}

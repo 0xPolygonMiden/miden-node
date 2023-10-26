@@ -2,11 +2,10 @@ use crate::config::RpcConfig;
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
-    rpc::{
-        api_server, CheckNullifiersRequest, CheckNullifiersResponse,
-        FetchBlockHeaderByNumberRequest, FetchBlockHeaderByNumberResponse,
-    },
-    store::{self, api_client},
+    requests::{CheckNullifiersRequest, FetchBlockHeaderByNumberRequest, SyncStateRequest},
+    responses::{CheckNullifiersResponse, FetchBlockHeaderByNumberResponse, SyncStateResponse},
+    rpc::api_server,
+    store::api_client,
 };
 use std::net::ToSocketAddrs;
 use tonic::{
@@ -33,47 +32,28 @@ impl api_server::Api for RpcApi {
         &self,
         request: Request<CheckNullifiersRequest>,
     ) -> Result<Response<CheckNullifiersResponse>, Status> {
-        let user_request = request.into_inner();
-
         // validate all the nullifiers from the user request
-        for nullifier in user_request.nullifiers.iter() {
+        for nullifier in request.get_ref().nullifiers.iter() {
             let _: RpoDigest = nullifier
                 .try_into()
                 .or(Err(Status::invalid_argument("Digest field is not in the modulos range")))?;
         }
 
-        let store_response = self
-            .store
-            .clone()
-            .check_nullifiers(Request::new(store::CheckNullifiersRequest {
-                nullifiers: user_request.nullifiers,
-            }))
-            .await?
-            .into_inner();
-
-        Ok(Response::new(CheckNullifiersResponse {
-            proofs: store_response.proofs,
-        }))
+        self.store.clone().check_nullifiers(request).await
     }
 
     async fn fetch_block_header_by_number(
         &self,
         request: Request<FetchBlockHeaderByNumberRequest>,
     ) -> Result<Response<FetchBlockHeaderByNumberResponse>, Status> {
-        let user_request = request.into_inner();
+        self.store.clone().fetch_block_header_by_number(request).await
+    }
 
-        let store_response = self
-            .store
-            .clone()
-            .fetch_block_header_by_number(Request::new(store::FetchBlockHeaderByNumberRequest {
-                block_num: user_request.block_num,
-            }))
-            .await?
-            .into_inner();
-
-        Ok(Response::new(FetchBlockHeaderByNumberResponse {
-            block_header: store_response.block_header,
-        }))
+    async fn sync_state(
+        &self,
+        request: tonic::Request<SyncStateRequest>,
+    ) -> Result<Response<SyncStateResponse>, Status> {
+        self.store.clone().sync_state(request).await
     }
 }
 

@@ -1,5 +1,11 @@
+pub mod account_id;
 pub mod block_header;
 pub mod digest;
+pub mod merkle;
+pub mod mmr;
+pub mod note;
+pub mod requests;
+pub mod responses;
 pub mod rpc;
 pub mod store;
 pub mod tsmt;
