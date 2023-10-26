@@ -1,9 +1,12 @@
+use super::*;
+
 use std::collections::BTreeMap;
 
 use miden_objects::{accounts::get_account_seed, Hasher};
 
-use super::*;
 use crate::store::TxInputsError;
+
+mod verify_tx;
 
 // MOCK STORES
 // -------------------------------------------------------------------------------------------------
