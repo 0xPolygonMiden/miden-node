@@ -11,6 +11,9 @@ use crate::{
     SharedProvenTx,
 };
 
+#[cfg(test)]
+mod tests;
+
 pub struct DefaulStateView<S>
 where
     S: Store,
