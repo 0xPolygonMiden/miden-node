@@ -36,3 +36,36 @@ async fn test_apply_block_ab1() {
 
     assert_eq!(*store.num_apply_block_called.read().await, 1);
 }
+
+/// Tests requirement AB2
+#[tokio::test]
+async fn test_apply_block_ab2() {
+    let tx_gen = DummyProvenTxGenerator::new();
+    let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
+
+    let store = Arc::new(MockStoreSuccess::new(iter::once(account), BTreeSet::new()));
+
+    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(&tx_gen, 3).unzip();
+
+    let state_view = DefaulStateView::new(store.clone());
+
+    // Verify transactions so it can be tracked in state view
+    for tx in txs {
+        let verify_tx_res = state_view.verify_tx(tx.into()).await;
+        assert!(verify_tx_res.is_ok());
+    }
+
+    // All except the first account will go into the block.
+    let accounts_in_block = accounts.iter().skip(1).cloned().collect();
+
+    let block = Arc::new(get_dummy_block(accounts_in_block, Vec::new()));
+
+    let apply_block_res = state_view.apply_block(block).await;
+    assert!(apply_block_res.is_ok());
+
+    let accounts_still_in_flight = state_view.accounts_in_flight.read().await;
+
+    // Only the first account should still be in flight
+    assert_eq!(accounts_still_in_flight.len(), 1);
+    assert!(accounts_still_in_flight.contains(&accounts[0].id));
+}
