@@ -2,7 +2,7 @@ use super::*;
 
 use std::collections::BTreeMap;
 
-use miden_objects::{accounts::get_account_seed, Hasher};
+use miden_objects::{accounts::get_account_seed, transaction::ConsumedNoteInfo, Hasher};
 
 use crate::store::TxInputsError;
 
@@ -18,6 +18,21 @@ struct MockStoreSuccess {
 
     /// Stores the nullifiers of the notes that were consumed
     consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
+}
+
+impl MockStoreSuccess {
+    fn new(
+        accounts: impl Iterator<Item = MockAccount>,
+        consumed_nullifiers: BTreeSet<Digest>,
+    ) -> Self {
+        let store_accounts: BTreeMap<AccountId, Digest> =
+            accounts.map(|account| (account.id, account.states[0])).collect();
+
+        Self {
+            accounts: Arc::new(RwLock::new(store_accounts)),
+            consumed_nullifiers: Arc::new(RwLock::new(consumed_nullifiers)),
+        }
+    }
 }
 
 #[async_trait]
@@ -88,9 +103,10 @@ impl Store for MockStoreFailure {
     }
 }
 
-// MOCK ACCOUNT
+// HELPERS
 // -------------------------------------------------------------------------------------------------
 
+#[derive(Clone, Copy, Debug)]
 pub struct MockAccount {
     pub id: AccountId,
 
@@ -99,23 +115,9 @@ pub struct MockAccount {
 }
 
 impl MockAccount {
-    pub fn account_1() -> Self {
+    pub fn account_by_index(index: u8) -> Self {
         let mut init_seed: [u8; 32] = [0; 32];
-        init_seed[0] = 42;
-
-        Self::new(init_seed)
-    }
-
-    pub fn account_2() -> Self {
-        let mut init_seed: [u8; 32] = [0; 32];
-        init_seed[0] = 43;
-
-        Self::new(init_seed)
-    }
-
-    pub fn account_3() -> Self {
-        let mut init_seed: [u8; 32] = [0; 32];
-        init_seed[0] = 44;
+        init_seed[0] = index;
 
         Self::new(init_seed)
     }
@@ -139,4 +141,8 @@ impl MockAccount {
             states: [state_0, state_1, state_2],
         }
     }
+}
+
+pub fn consumed_note_by_index(index: u8) -> ConsumedNoteInfo {
+    ConsumedNoteInfo::new(Hasher::hash(&[index]), Hasher::hash(&[index, index]))
 }
