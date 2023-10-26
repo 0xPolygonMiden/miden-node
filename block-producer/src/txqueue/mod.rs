@@ -1,7 +1,7 @@
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_objects::Digest;
+use miden_objects::{accounts::AccountId, Digest};
 use tokio::{sync::RwLock, time};
 
 use crate::{batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec};
@@ -16,7 +16,7 @@ mod tests;
 pub enum VerifyTxError {
     /// The account that the transaction modifies has already been modified and isn't yet committed
     /// to a block
-    AccountAlreadyModifiedByOtherTx,
+    AccountAlreadyModifiedByOtherTx(AccountId),
 
     /// Another transaction already consumed the notes with given nullifiers
     ConsumedNotesAlreadyConsumed(Vec<Digest>),

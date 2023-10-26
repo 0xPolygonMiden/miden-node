@@ -14,8 +14,7 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-pub struct DefaulStateView<S>
-{
+pub struct DefaulStateView<S> {
     store: Arc<S>,
 
     /// The account ID of accounts being modified by transactions currently in the block production
@@ -139,7 +138,7 @@ fn ensure_in_flight_constraints(
 ) -> Result<(), VerifyTxError> {
     // 1. Check account id hasn't been modified yet
     if accounts_in_flight.contains(&candidate_tx.account_id()) {
-        return Err(VerifyTxError::AccountAlreadyModifiedByOtherTx);
+        return Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(candidate_tx.account_id()));
     }
 
     // 2. Check no consumed notes were already consumed

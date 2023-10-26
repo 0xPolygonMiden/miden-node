@@ -186,5 +186,8 @@ async fn test_verify_tx_vt4() {
     assert!(verify_tx1_result.is_ok());
 
     let verify_tx2_result = state_view.verify_tx(tx2.into()).await;
-    assert_eq!(verify_tx2_result, Err(VerifyTxError::AccountAlreadyModifiedByOtherTx));
+    assert_eq!(
+        verify_tx2_result,
+        Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(account.id))
+    );
 }
