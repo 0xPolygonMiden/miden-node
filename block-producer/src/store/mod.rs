@@ -6,10 +6,14 @@ use miden_objects::Digest;
 use crate::{block::Block, SharedProvenTx};
 
 #[derive(Debug)]
-pub enum TxInputsError {}
+pub enum TxInputsError {
+    Dummy,
+}
 
 #[derive(Debug)]
-pub enum ApplyBlockError {}
+pub enum ApplyBlockError {
+    Dummy,
+}
 
 #[async_trait]
 pub trait ApplyBlock: Send + Sync + 'static {

@@ -3,10 +3,8 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::store::TxInputsError;
 
-// MOCK STORE
-// =================================================================================================
-
-struct MockStore {
+#[derive(Default)]
+struct MockStoreSuccess {
     /// Map account id -> account hash
     accounts: Arc<RwLock<BTreeMap<AccountId, Digest>>>,
 
@@ -15,7 +13,7 @@ struct MockStore {
 }
 
 #[async_trait]
-impl ApplyBlock for MockStore {
+impl ApplyBlock for MockStoreSuccess {
     async fn apply_block(
         &self,
         block: Arc<Block>,
@@ -36,7 +34,7 @@ impl ApplyBlock for MockStore {
 }
 
 #[async_trait]
-impl Store for MockStore {
+impl Store for MockStoreSuccess {
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
@@ -56,5 +54,28 @@ impl Store for MockStore {
             account_hash,
             nullifiers,
         })
+    }
+}
+
+#[derive(Default)]
+struct MockStoreFailure;
+
+#[async_trait]
+impl ApplyBlock for MockStoreFailure {
+    async fn apply_block(
+        &self,
+        _block: Arc<Block>,
+    ) -> Result<(), ApplyBlockError> {
+        Err(ApplyBlockError::Dummy)
+    }
+}
+
+#[async_trait]
+impl Store for MockStoreFailure {
+    async fn get_tx_inputs(
+        &self,
+        _proven_tx: SharedProvenTx,
+    ) -> Result<TxInputs, TxInputsError> {
+        Err(TxInputsError::Dummy)
     }
 }
