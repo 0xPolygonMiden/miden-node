@@ -120,3 +120,37 @@ async fn test_verify_tx_vt2() {
         })
     );
 }
+
+/// Verifies requirement VT3
+#[tokio::test]
+async fn test_verify_tx_vt3() {
+    let tx_gen = DummyProvenTxGenerator::new();
+
+    let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
+
+    let consumed_note_in_store = consumed_note_by_index(0);
+
+    // Notice: account is not added to the store
+    let store = Arc::new(MockStoreSuccess::new(
+        iter::once(account),
+        BTreeSet::from_iter(iter::once(consumed_note_in_store.nullifier())),
+    ));
+
+    let tx = tx_gen.dummy_proven_tx_with_params(
+        account.id,
+        account.states[0],
+        account.states[1],
+        vec![consumed_note_in_store],
+    );
+
+    let state_view = DefaulStateView::new(store);
+
+    let verify_tx_result = state_view.verify_tx(tx.into()).await;
+
+    assert_eq!(
+        verify_tx_result,
+        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(vec![
+            consumed_note_in_store.nullifier()
+        ]))
+    );
+}
