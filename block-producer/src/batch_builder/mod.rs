@@ -88,10 +88,7 @@ pub struct DefaultBatchBuilderOptions {
     pub max_batches_per_block: usize,
 }
 
-pub struct DefaultBatchBuilder<BB>
-where
-    BB: BlockBuilder,
-{
+pub struct DefaultBatchBuilder<BB> {
     /// Batches ready to be included in a block
     ready_batches: SharedRwVec<SharedTxBatch>,
 

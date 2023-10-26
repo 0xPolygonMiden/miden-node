@@ -15,8 +15,6 @@ use crate::{
 mod tests;
 
 pub struct DefaulStateView<S>
-where
-    S: Store,
 {
     store: Arc<S>,
 

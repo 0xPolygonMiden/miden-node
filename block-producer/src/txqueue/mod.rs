@@ -75,7 +75,7 @@ pub struct DefaultTransactionQueueOptions {
     pub batch_size: usize,
 }
 
-pub struct DefaultTransactionQueue<BB: BatchBuilder, TV: TransactionVerifier> {
+pub struct DefaultTransactionQueue<BB, TV> {
     ready_queue: SharedRwVec<SharedProvenTx>,
     tx_verifier: Arc<TV>,
     batch_builder: Arc<BB>,
