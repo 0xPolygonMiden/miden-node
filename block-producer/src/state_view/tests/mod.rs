@@ -3,9 +3,7 @@ use super::*;
 use std::collections::BTreeMap;
 
 use miden_objects::{
-    accounts::get_account_seed,
-    transaction::{ConsumedNoteInfo, ProvenTransaction},
-    BlockHeader, Felt, Hasher,
+    accounts::get_account_seed, transaction::ConsumedNoteInfo, BlockHeader, Felt, Hasher,
 };
 
 use crate::{store::TxInputsError, test_utils::DummyProvenTxGenerator};
@@ -176,7 +174,7 @@ pub fn consumed_note_by_index(index: u8) -> ConsumedNoteInfo {
 pub fn get_txs_and_accounts<'a>(
     tx_gen: &'a DummyProvenTxGenerator,
     num: u8,
-) -> impl Iterator<Item = (ProvenTransaction, MockPrivateAccount)> + 'a {
+) -> impl Iterator<Item = (SharedProvenTx, MockPrivateAccount)> + 'a {
     (0..num).map(|index| {
         let account = MockPrivateAccount::from(index);
         let tx = tx_gen.dummy_proven_tx_with_params(
@@ -186,7 +184,7 @@ pub fn get_txs_and_accounts<'a>(
             vec![consumed_note_by_index(index)],
         );
 
-        (tx, account)
+        (Arc::new(tx), account)
     })
 }
 

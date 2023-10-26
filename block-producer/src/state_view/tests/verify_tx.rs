@@ -21,7 +21,7 @@ use super::*;
 #[tokio::test]
 async fn test_verify_tx_happy_path() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
+    let (txs, accounts): (Vec<SharedProvenTx>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
@@ -29,7 +29,7 @@ async fn test_verify_tx_happy_path() {
     let state_view = DefaulStateView::new(store);
 
     for tx in txs {
-        state_view.verify_tx(Arc::new(tx)).await.unwrap();
+        state_view.verify_tx(tx).await.unwrap();
     }
 }
 
@@ -40,7 +40,7 @@ async fn test_verify_tx_happy_path() {
 #[tokio::test]
 async fn test_verify_tx_happy_path_concurrent() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
+    let (txs, accounts): (Vec<SharedProvenTx>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
@@ -51,7 +51,6 @@ async fn test_verify_tx_happy_path_concurrent() {
 
     for tx in txs {
         let state_view = state_view.clone();
-        let tx = Arc::new(tx);
         set.spawn(async move { state_view.verify_tx(tx).await });
     }
 

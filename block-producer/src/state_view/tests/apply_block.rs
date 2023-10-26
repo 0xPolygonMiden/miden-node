@@ -68,3 +68,43 @@ async fn test_apply_block_ab2() {
     assert_eq!(accounts_still_in_flight.len(), 1);
     assert!(accounts_still_in_flight.contains(&accounts[0].id));
 }
+
+/// Tests requirement AB3
+#[tokio::test]
+async fn test_apply_block_ab3() {
+    let tx_gen = DummyProvenTxGenerator::new();
+
+    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(&tx_gen, 3).unzip();
+
+    let store = Arc::new(MockStoreSuccess::new(accounts.clone().into_iter(), BTreeSet::new()));
+
+    let state_view = DefaulStateView::new(store.clone());
+
+    // Verify transactions so it can be tracked in state view
+    for tx in txs.clone() {
+        let verify_tx_res = state_view.verify_tx(tx).await;
+        assert!(verify_tx_res.is_ok());
+    }
+
+    let block = Arc::new(get_dummy_block(accounts.clone(), Vec::new()));
+
+    let apply_block_res = state_view.apply_block(block).await;
+    assert!(apply_block_res.is_ok());
+
+    // Craft a new transaction which tries to consume the same note that was consumed in in the
+    // first tx
+    let tx_new = tx_gen.dummy_proven_tx_with_params(
+        accounts[0].id,
+        accounts[0].states[1],
+        accounts[0].states[2],
+        txs[0].consumed_notes().to_vec(),
+    );
+
+    let verify_tx_res = state_view.verify_tx(tx_new.into()).await;
+    assert_eq!(
+        verify_tx_res,
+        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(
+            txs[0].consumed_notes().into_iter().map(|note| note.nullifier()).collect()
+        ))
+    );
+}
