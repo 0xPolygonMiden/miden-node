@@ -10,6 +10,8 @@
 //! VT5: `verify_tx(tx)` must fail if a previous transaction, not yet in the block, consumed a note
 //!      that `tx` is also consuming
 
+use std::iter;
+
 use tokio::task::JoinSet;
 
 use super::*;
@@ -65,7 +67,7 @@ async fn test_verify_tx_vt1() {
 
     let account = MockPrivateAccount::from(0);
 
-    let store = Arc::new(MockStoreSuccess::new(vec![account].into_iter(), BTreeSet::new()));
+    let store = Arc::new(MockStoreSuccess::new(iter::once(account), BTreeSet::new()));
 
     // The transaction's initial account hash uses `account.states[1]`, where the store expects
     // `account.states[0]`
