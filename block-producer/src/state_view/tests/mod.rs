@@ -1,7 +1,12 @@
 use std::collections::BTreeMap;
 
+use miden_objects::{accounts::get_account_seed, Hasher};
+
 use super::*;
 use crate::store::TxInputsError;
+
+// MOCK STORES
+// -------------------------------------------------------------------------------------------------
 
 #[derive(Default)]
 struct MockStoreSuccess {
@@ -77,5 +82,58 @@ impl Store for MockStoreFailure {
         _proven_tx: SharedProvenTx,
     ) -> Result<TxInputs, TxInputsError> {
         Err(TxInputsError::Dummy)
+    }
+}
+
+// MOCK ACCOUNT
+// -------------------------------------------------------------------------------------------------
+
+pub struct MockAccount {
+    pub id: AccountId,
+
+    // Sequence of 3 states that the account goes into
+    pub states: [Digest; 3],
+}
+
+impl MockAccount {
+    pub fn account_1() -> Self {
+        let mut init_seed: [u8; 32] = [0; 32];
+        init_seed[0] = 42;
+
+        Self::new(init_seed)
+    }
+
+    pub fn account_2() -> Self {
+        let mut init_seed: [u8; 32] = [0; 32];
+        init_seed[0] = 43;
+
+        Self::new(init_seed)
+    }
+
+    pub fn account_3() -> Self {
+        let mut init_seed: [u8; 32] = [0; 32];
+        init_seed[0] = 44;
+
+        Self::new(init_seed)
+    }
+
+    fn new(init_seed: [u8; 32]) -> Self {
+        let account_seed = get_account_seed(
+            init_seed,
+            miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
+            false,
+            Digest::default(),
+            Digest::default(),
+        )
+        .unwrap();
+
+        let state_0 = Hasher::hash(&init_seed);
+        let state_1 = Hasher::hash(&state_0.as_bytes());
+        let state_2 = Hasher::hash(&state_1.as_bytes());
+
+        Self {
+            id: AccountId::new(account_seed, Digest::default(), Digest::default()).unwrap(),
+            states: [state_0, state_1, state_2],
+        }
     }
 }
