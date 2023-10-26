@@ -19,7 +19,7 @@ use super::*;
 #[tokio::test]
 async fn test_verify_tx_happy_path() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockAccount>) =
+    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
@@ -38,7 +38,7 @@ async fn test_verify_tx_happy_path() {
 #[tokio::test]
 async fn test_verify_tx_happy_path_concurrent() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockAccount>) =
+    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
@@ -63,7 +63,7 @@ async fn test_verify_tx_happy_path_concurrent() {
 async fn test_verify_tx_vt1() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account = MockAccount::from(0);
+    let account = MockPrivateAccount::from(0);
 
     let store = Arc::new(MockStoreSuccess::new(vec![account].into_iter(), BTreeSet::new()));
 

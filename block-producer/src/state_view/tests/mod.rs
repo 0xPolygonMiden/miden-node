@@ -28,7 +28,7 @@ impl MockStoreSuccess {
     /// Initializes the known accounts from provided mock accounts, where the account hash in the
     /// store is the first state in `MockAccount.states`.
     fn new(
-        accounts: impl Iterator<Item = MockAccount>,
+        accounts: impl Iterator<Item = MockPrivateAccount>,
         consumed_nullifiers: BTreeSet<Digest>,
     ) -> Self {
         let store_accounts: BTreeMap<AccountId, Digest> =
@@ -112,15 +112,17 @@ impl Store for MockStoreFailure {
 // HELPERS
 // -------------------------------------------------------------------------------------------------
 
+/// A mock representation fo private accounts. An account starts in state `states[0]`, is modified
+/// to state `states[1]`, and so on.
 #[derive(Clone, Copy, Debug)]
-pub struct MockAccount {
+pub struct MockPrivateAccount<const NUM_STATES: usize = 3> {
     pub id: AccountId,
 
-    // Sequence of 3 states that the account goes into
-    pub states: [Digest; 3],
+    // Sequence states that the account goes into.
+    pub states: [Digest; NUM_STATES],
 }
 
-impl MockAccount {
+impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
     fn new(init_seed: [u8; 32]) -> Self {
         let account_seed = get_account_seed(
             init_seed,
@@ -131,18 +133,21 @@ impl MockAccount {
         )
         .unwrap();
 
-        let state_0 = Hasher::hash(&init_seed);
-        let state_1 = Hasher::hash(&state_0.as_bytes());
-        let state_2 = Hasher::hash(&state_1.as_bytes());
+        let mut states = [Digest::default(); NUM_STATES];
+
+        states[0] = Hasher::hash(&init_seed);
+        for idx in 1..NUM_STATES {
+            states[idx] = Hasher::hash(&states[idx - 1].as_bytes());
+        }
 
         Self {
             id: AccountId::new(account_seed, Digest::default(), Digest::default()).unwrap(),
-            states: [state_0, state_1, state_2],
+            states,
         }
     }
 }
 
-impl From<u8> for MockAccount {
+impl<const NUM_STATES: usize> From<u8> for MockPrivateAccount<NUM_STATES> {
     /// Each index gives rise to a different account ID
     fn from(index: u8) -> Self {
         let mut init_seed: [u8; 32] = [0; 32];
@@ -161,9 +166,9 @@ pub fn consumed_note_by_index(index: u8) -> ConsumedNoteInfo {
 pub fn get_txs_and_accounts<'a>(
     tx_gen: &'a DummyProvenTxGenerator,
     num: u8,
-) -> impl Iterator<Item = (ProvenTransaction, MockAccount)> + 'a {
+) -> impl Iterator<Item = (ProvenTransaction, MockPrivateAccount)> + 'a {
     (0..num).map(|index| {
-        let account = MockAccount::from(index);
+        let account = MockPrivateAccount::from(index);
         let tx = tx_gen.dummy_proven_tx_with_params(
             account.id,
             account.states[0],
