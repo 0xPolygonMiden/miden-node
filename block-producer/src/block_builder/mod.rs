@@ -9,8 +9,8 @@ pub enum BuildBlockError {
 
 #[async_trait]
 pub trait BlockBuilder: Send + Sync + 'static {
-    /// Receive batches to be included in a block. `None` indicates that no batches were ready, and
-    /// that an empty block should be created.
+    /// Receive batches to be included in a block. An empty vector indicates that no batches were
+    /// ready, and that an empty block should be created.
     ///
     /// The `BlockBuilder` relies on `build_block()` to be called as a precondition to creating a
     /// block. In other words, if `build_block()` is never called, then no blocks are produced.
