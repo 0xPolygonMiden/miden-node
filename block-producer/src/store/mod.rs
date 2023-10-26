@@ -10,7 +10,7 @@ pub enum TxInputsError {
     Dummy,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ApplyBlockError {
     Dummy,
 }

@@ -67,7 +67,7 @@ impl TransactionBatch {
 // BATCH BUILDER
 // ================================================================================================
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BuildBatchError {
     Dummy,
 }

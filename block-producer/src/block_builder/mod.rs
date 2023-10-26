@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::SharedTxBatch;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BuildBlockError {
     Dummy,
 }
