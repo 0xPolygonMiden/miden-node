@@ -1,12 +1,23 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
 use miden_objects::Digest;
 
-use crate::SharedProvenTx;
+use crate::{block::Block, SharedProvenTx};
 
 #[derive(Debug)]
 pub enum TxInputsError {}
+
+#[derive(Debug)]
+pub enum ApplyBlockError {}
+
+#[async_trait]
+pub trait ApplyBlock: Send + Sync + 'static {
+    async fn apply_block(
+        &self,
+        block: Arc<Block>,
+    ) -> Result<(), ApplyBlockError>;
+}
 
 /// Information needed from the store to verify a transaction
 pub struct TxInputs {
@@ -18,7 +29,7 @@ pub struct TxInputs {
 }
 
 #[async_trait]
-pub trait Store: Send + Sync + 'static {
+pub trait Store: ApplyBlock {
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,

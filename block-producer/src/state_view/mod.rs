@@ -6,29 +6,15 @@ use tokio::sync::RwLock;
 
 use crate::{
     block::Block,
-    store::{Store, TxInputs},
+    store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
     txqueue::{TransactionVerifier, VerifyTxError},
     SharedProvenTx,
 };
 
-#[derive(Debug)]
-pub enum ApplyBlockError {}
-
-#[async_trait]
-pub trait ApplyBlock: Send + Sync + 'static {
-    async fn apply_block(
-        &self,
-        block: Arc<Block>,
-    ) -> Result<(), ApplyBlockError>;
-}
-
-pub struct DefaulStateView<TI, S>
+pub struct DefaulStateView<S>
 where
-    TI: Store,
-    S: ApplyBlock,
+    S: Store,
 {
-    get_tx_inputs: Arc<TI>,
-
     store: Arc<S>,
 
     /// The account ID of accounts being modified by transactions currently in the block production
@@ -39,17 +25,12 @@ where
     nullifiers_in_flight: Arc<RwLock<BTreeSet<Digest>>>,
 }
 
-impl<TI, S> DefaulStateView<TI, S>
+impl<S> DefaulStateView<S>
 where
-    TI: Store,
-    S: ApplyBlock,
+    S: Store,
 {
-    pub fn new(
-        get_tx_inputs: Arc<TI>,
-        store: Arc<S>,
-    ) -> Self {
+    pub fn new(store: Arc<S>) -> Self {
         Self {
-            get_tx_inputs,
             store,
             accounts_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
             nullifiers_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
@@ -58,10 +39,9 @@ where
 }
 
 #[async_trait]
-impl<TI, S> TransactionVerifier for DefaulStateView<TI, S>
+impl<S> TransactionVerifier for DefaulStateView<S>
 where
-    TI: Store,
-    S: ApplyBlock,
+    S: Store,
 {
     // TODO: Verify proof as well
     async fn verify_tx(
@@ -79,7 +59,7 @@ where
         )?;
 
         // 2. Fetch the transaction inputs from the store, and check tx input constraints
-        let tx_inputs = self.get_tx_inputs.get_tx_inputs(candidate_tx.clone()).await?;
+        let tx_inputs = self.store.get_tx_inputs(candidate_tx.clone()).await?;
         ensure_tx_inputs_constraints(candidate_tx.clone(), tx_inputs)?;
 
         // 3. Re-check in-flight transaction constraints, and if verification passes, register
@@ -110,10 +90,9 @@ where
 }
 
 #[async_trait]
-impl<TI, S> ApplyBlock for DefaulStateView<TI, S>
+impl<S> ApplyBlock for DefaulStateView<S>
 where
-    TI: Store,
-    S: ApplyBlock,
+    S: Store,
 {
     async fn apply_block(
         &self,
