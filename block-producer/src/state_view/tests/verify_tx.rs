@@ -191,3 +191,46 @@ async fn test_verify_tx_vt4() {
         Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(account.id))
     );
 }
+
+/// Verifies requirement VT5
+#[tokio::test]
+async fn test_verify_tx_vt5() {
+    let tx_gen = DummyProvenTxGenerator::new();
+
+    let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(0);
+    let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(1);
+    let consumed_note_in_both_txs = consumed_note_by_index(0);
+
+    // Notice: `consumed_note_in_both_txs` is NOT in the store
+    let store =
+        Arc::new(MockStoreSuccess::new(vec![account_1, account_2].into_iter(), BTreeSet::new()));
+
+    let tx1 = tx_gen.dummy_proven_tx_with_params(
+        account_1.id,
+        account_1.states[0],
+        account_1.states[1],
+        vec![consumed_note_in_both_txs],
+    );
+
+    // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
+    // which is currently disallowed
+    let tx2 = tx_gen.dummy_proven_tx_with_params(
+        account_2.id,
+        account_2.states[1],
+        account_2.states[2],
+        vec![consumed_note_in_both_txs],
+    );
+
+    let state_view = DefaulStateView::new(store);
+
+    let verify_tx1_result = state_view.verify_tx(tx1.into()).await;
+    assert!(verify_tx1_result.is_ok());
+
+    let verify_tx2_result = state_view.verify_tx(tx2.into()).await;
+    assert_eq!(
+        verify_tx2_result,
+        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(vec![
+            consumed_note_in_both_txs.nullifier()
+        ]))
+    );
+}
