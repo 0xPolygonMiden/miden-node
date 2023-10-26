@@ -41,11 +41,10 @@ async fn test_apply_block_ab1() {
 #[tokio::test]
 async fn test_apply_block_ab2() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
-
-    let store = Arc::new(MockStoreSuccess::new(iter::once(account), BTreeSet::new()));
 
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(&tx_gen, 3).unzip();
+
+    let store = Arc::new(MockStoreSuccess::new(accounts.clone().into_iter(), BTreeSet::new()));
 
     let state_view = DefaulStateView::new(store.clone());
 
