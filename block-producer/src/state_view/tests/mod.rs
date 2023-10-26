@@ -2,9 +2,13 @@ use super::*;
 
 use std::collections::BTreeMap;
 
-use miden_objects::{accounts::get_account_seed, transaction::ConsumedNoteInfo, Hasher};
+use miden_objects::{
+    accounts::get_account_seed,
+    transaction::{ConsumedNoteInfo, ProvenTransaction},
+    Hasher,
+};
 
-use crate::store::TxInputsError;
+use crate::{store::TxInputsError, test_utils::DummyProvenTxGenerator};
 
 mod verify_tx;
 
@@ -115,13 +119,6 @@ pub struct MockAccount {
 }
 
 impl MockAccount {
-    pub fn account_by_index(index: u8) -> Self {
-        let mut init_seed: [u8; 32] = [0; 32];
-        init_seed[0] = index;
-
-        Self::new(init_seed)
-    }
-
     fn new(init_seed: [u8; 32]) -> Self {
         let account_seed = get_account_seed(
             init_seed,
@@ -143,6 +140,34 @@ impl MockAccount {
     }
 }
 
+impl From<u8> for MockAccount {
+    fn from(index: u8) -> Self {
+        let mut init_seed: [u8; 32] = [0; 32];
+        init_seed[0] = index;
+
+        Self::new(init_seed)
+    }
+}
+
 pub fn consumed_note_by_index(index: u8) -> ConsumedNoteInfo {
     ConsumedNoteInfo::new(Hasher::hash(&[index]), Hasher::hash(&[index, index]))
+}
+
+/// Returns `num` transactions, and the corresponding account they modify.
+/// The transactions each consume a single different note
+pub fn get_txs_and_accounts(num: u8) -> impl Iterator<Item = (ProvenTransaction, MockAccount)> {
+    let tx_gen = DummyProvenTxGenerator::new();
+
+    (0..num)
+        .map(move |index| {
+            let account = MockAccount::from(index);
+            let tx = tx_gen.dummy_proven_tx_with_params(
+                account.id,
+                account.states[0],
+                account.states[1],
+                vec![consumed_note_by_index(index)],
+            );
+
+            (tx, account)
+        })
 }

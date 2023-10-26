@@ -11,37 +11,19 @@
 //!      that `tx` is also consuming
 
 use super::*;
-use crate::test_utils::DummyProvenTxGenerator;
 
 /// Tests the happy path where 3 transactions who modify different accounts and consume different
 /// notes all verify successfully
-#[test]
-fn test_verify_tx_happy_path() {
-    let tx_gen = DummyProvenTxGenerator::new();
+#[tokio::test]
+async fn test_verify_tx_happy_path() {
+    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockAccount>) =
+        get_txs_and_accounts(3).unzip();
 
-    let account1 = MockAccount::account_by_index(1);
-    let tx1 = tx_gen.dummy_proven_tx_with_params(
-        account1.id,
-        account1.states[0],
-        account1.states[1],
-        vec![consumed_note_by_index(1)],
-    );
+    let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
 
-    let account2 = MockAccount::account_by_index(2);
-    let tx2 = tx_gen.dummy_proven_tx_with_params(
-        account2.id,
-        account2.states[0],
-        account2.states[1],
-        vec![consumed_note_by_index(2)],
-    );
+    let state_view = DefaulStateView::new(store);
 
-    let account3 = MockAccount::account_by_index(3);
-    let tx3 = tx_gen.dummy_proven_tx_with_params(
-        account3.id,
-        account3.states[0],
-        account3.states[1],
-        vec![consumed_note_by_index(3)],
-    );
-
-
+    for tx in txs {
+        state_view.verify_tx(Arc::new(tx)).await.unwrap();
+    }
 }
