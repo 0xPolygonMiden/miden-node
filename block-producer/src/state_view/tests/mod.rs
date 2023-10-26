@@ -5,11 +5,12 @@ use std::collections::BTreeMap;
 use miden_objects::{
     accounts::get_account_seed,
     transaction::{ConsumedNoteInfo, ProvenTransaction},
-    Hasher,
+    BlockHeader, Felt, Hasher,
 };
 
 use crate::{store::TxInputsError, test_utils::DummyProvenTxGenerator};
 
+mod apply_block;
 mod verify_tx;
 
 // MOCK STORES
@@ -22,6 +23,9 @@ struct MockStoreSuccess {
 
     /// Stores the nullifiers of the notes that were consumed
     consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
+
+    /// The number of times `apply_block()` was called
+    num_apply_block_called: Arc<RwLock<u32>>,
 }
 
 impl MockStoreSuccess {
@@ -37,6 +41,7 @@ impl MockStoreSuccess {
         Self {
             accounts: Arc::new(RwLock::new(store_accounts)),
             consumed_nullifiers: Arc::new(RwLock::new(consumed_nullifiers)),
+            num_apply_block_called: Arc::new(RwLock::new(0)),
         }
     }
 }
@@ -57,6 +62,8 @@ impl ApplyBlock for MockStoreSuccess {
 
         let mut new_nullifiers: BTreeSet<Digest> = block.new_nullifiers.iter().cloned().collect();
         locked_consumed_nullifiers.append(&mut new_nullifiers);
+
+        *self.num_apply_block_called.write().await += 1;
 
         Ok(())
     }
@@ -109,7 +116,7 @@ impl Store for MockStoreFailure {
     }
 }
 
-// HELPERS
+// MOCK PRIVATE ACCOUNT
 // -------------------------------------------------------------------------------------------------
 
 /// A mock representation fo private accounts. An account starts in state `states[0]`, is modified
@@ -157,6 +164,9 @@ impl<const NUM_STATES: usize> From<u8> for MockPrivateAccount<NUM_STATES> {
     }
 }
 
+// HELPERS
+// -------------------------------------------------------------------------------------------------
+
 pub fn consumed_note_by_index(index: u8) -> ConsumedNoteInfo {
     ConsumedNoteInfo::new(Hasher::hash(&[index]), Hasher::hash(&[index, index]))
 }
@@ -178,4 +188,34 @@ pub fn get_txs_and_accounts<'a>(
 
         (tx, account)
     })
+}
+
+pub fn get_dummy_block(
+    updated_accounts: Vec<MockPrivateAccount>,
+    new_nullifiers: Vec<Digest>,
+) -> Block {
+    let header = BlockHeader::new(
+        Digest::default(),
+        Felt::new(42),
+        Digest::default(),
+        Digest::default(),
+        Digest::default(),
+        Digest::default(),
+        Digest::default(),
+        Digest::default(),
+        Felt::new(0),
+        Felt::new(42),
+    );
+
+    let updated_accounts = updated_accounts
+        .into_iter()
+        .map(|mock_account| (mock_account.id, mock_account.states[1]))
+        .collect();
+
+    Block {
+        header,
+        updated_accounts,
+        created_notes: Vec::new(),
+        new_nullifiers,
+    }
 }
