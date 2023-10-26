@@ -18,8 +18,9 @@ use super::*;
 /// notes all verify successfully
 #[tokio::test]
 async fn test_verify_tx_happy_path() {
+    let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockAccount>) =
-        get_txs_and_accounts(3).unzip();
+        get_txs_and_accounts(tx_gen, 3).unzip();
 
     let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
 
@@ -36,8 +37,9 @@ async fn test_verify_tx_happy_path() {
 /// In this test, all calls to `verify_tx()` are concurrent
 #[tokio::test]
 async fn test_verify_tx_happy_path_concurrent() {
+    let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockAccount>) =
-        get_txs_and_accounts(255).unzip();
+        get_txs_and_accounts(tx_gen, 255).unzip();
 
     let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
 

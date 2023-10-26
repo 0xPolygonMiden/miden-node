@@ -155,19 +155,19 @@ pub fn consumed_note_by_index(index: u8) -> ConsumedNoteInfo {
 
 /// Returns `num` transactions, and the corresponding account they modify.
 /// The transactions each consume a single different note
-pub fn get_txs_and_accounts(num: u8) -> impl Iterator<Item = (ProvenTransaction, MockAccount)> {
-    let tx_gen = DummyProvenTxGenerator::new();
+pub fn get_txs_and_accounts(
+    tx_gen: DummyProvenTxGenerator,
+    num: u8,
+) -> impl Iterator<Item = (ProvenTransaction, MockAccount)> {
+    (0..num).map(move |index| {
+        let account = MockAccount::from(index);
+        let tx = tx_gen.dummy_proven_tx_with_params(
+            account.id,
+            account.states[0],
+            account.states[1],
+            vec![consumed_note_by_index(index)],
+        );
 
-    (0..num)
-        .map(move |index| {
-            let account = MockAccount::from(index);
-            let tx = tx_gen.dummy_proven_tx_with_params(
-                account.id,
-                account.states[0],
-                account.states[1],
-                vec![consumed_note_by_index(index)],
-            );
-
-            (tx, account)
-        })
+        (tx, account)
+    })
 }
