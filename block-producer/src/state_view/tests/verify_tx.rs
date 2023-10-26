@@ -130,7 +130,7 @@ async fn test_verify_tx_vt3() {
 
     let consumed_note_in_store = consumed_note_by_index(0);
 
-    // Notice: account is not added to the store
+    // Notice: `consumed_note_in_store` is added to the store
     let store = Arc::new(MockStoreSuccess::new(
         iter::once(account),
         BTreeSet::from_iter(iter::once(consumed_note_in_store.nullifier())),
@@ -153,4 +153,38 @@ async fn test_verify_tx_vt3() {
             consumed_note_in_store.nullifier()
         ]))
     );
+}
+
+/// Verifies requirement VT4
+#[tokio::test]
+async fn test_verify_tx_vt4() {
+    let tx_gen = DummyProvenTxGenerator::new();
+
+    let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
+
+    let store = Arc::new(MockStoreSuccess::new(iter::once(account), BTreeSet::new()));
+
+    let tx1 = tx_gen.dummy_proven_tx_with_params(
+        account.id,
+        account.states[0],
+        account.states[1],
+        Vec::new(),
+    );
+
+    // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
+    // which is currently disallowed
+    let tx2 = tx_gen.dummy_proven_tx_with_params(
+        account.id,
+        account.states[1],
+        account.states[2],
+        Vec::new(),
+    );
+
+    let state_view = DefaulStateView::new(store);
+
+    let verify_tx1_result = state_view.verify_tx(tx1.into()).await;
+    assert!(verify_tx1_result.is_ok());
+
+    let verify_tx2_result = state_view.verify_tx(tx2.into()).await;
+    assert_eq!(verify_tx2_result, Err(VerifyTxError::AccountAlreadyModifiedByOtherTx));
 }
