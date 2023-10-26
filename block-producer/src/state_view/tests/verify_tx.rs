@@ -10,6 +10,8 @@
 //! VT5: `verify_tx(tx)` must fail if a previous transaction, not yet in the block, consumed a note
 //!      that `tx` is also consuming
 
+use tokio::task::JoinSet;
+
 use super::*;
 
 /// Tests the happy path where 3 transactions who modify different accounts and consume different
@@ -25,5 +27,31 @@ async fn test_verify_tx_happy_path() {
 
     for tx in txs {
         state_view.verify_tx(Arc::new(tx)).await.unwrap();
+    }
+}
+
+/// Tests the happy path where 3 transactions who modify different accounts and consume different
+/// notes all verify successfully.
+///
+/// In this test, all calls to `verify_tx()` are concurrent
+#[tokio::test]
+async fn test_verify_tx_happy_path_concurrent() {
+    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockAccount>) =
+        get_txs_and_accounts(255).unzip();
+
+    let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
+
+    let state_view = Arc::new(DefaulStateView::new(store));
+
+    let mut set = JoinSet::new();
+
+    for tx in txs {
+        let state_view = state_view.clone();
+        let tx = Arc::new(tx);
+        set.spawn(async move { state_view.verify_tx(tx).await });
+    }
+
+    while let Some(res) = set.join_next().await {
+        res.unwrap().unwrap();
     }
 }
