@@ -18,7 +18,7 @@ pub struct TxInputs {
 }
 
 #[async_trait]
-pub trait GetTxInputs: Send + Sync + 'static {
+pub trait Store: Send + Sync + 'static {
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,

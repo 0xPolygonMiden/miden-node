@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     block::Block,
-    store::{GetTxInputs, TxInputs},
+    store::{Store, TxInputs},
     txqueue::{TransactionVerifier, VerifyTxError},
     SharedProvenTx,
 };
@@ -22,14 +22,14 @@ pub trait ApplyBlock: Send + Sync + 'static {
     ) -> Result<(), ApplyBlockError>;
 }
 
-pub struct DefaulStateView<TI, Store>
+pub struct DefaulStateView<TI, S>
 where
-    TI: GetTxInputs,
-    Store: ApplyBlock,
+    TI: Store,
+    S: ApplyBlock,
 {
     get_tx_inputs: Arc<TI>,
 
-    store: Arc<Store>,
+    store: Arc<S>,
 
     /// The account ID of accounts being modified by transactions currently in the block production
     /// pipeline. We currently ensure that only 1 tx/block modifies any given account.
@@ -39,14 +39,14 @@ where
     nullifiers_in_flight: Arc<RwLock<BTreeSet<Digest>>>,
 }
 
-impl<TI, Store> DefaulStateView<TI, Store>
+impl<TI, S> DefaulStateView<TI, S>
 where
-    TI: GetTxInputs,
-    Store: ApplyBlock,
+    TI: Store,
+    S: ApplyBlock,
 {
     pub fn new(
         get_tx_inputs: Arc<TI>,
-        store: Arc<Store>,
+        store: Arc<S>,
     ) -> Self {
         Self {
             get_tx_inputs,
@@ -58,10 +58,10 @@ where
 }
 
 #[async_trait]
-impl<TI, Store> TransactionVerifier for DefaulStateView<TI, Store>
+impl<TI, S> TransactionVerifier for DefaulStateView<TI, S>
 where
-    TI: GetTxInputs,
-    Store: ApplyBlock,
+    TI: Store,
+    S: ApplyBlock,
 {
     // TODO: Verify proof as well
     async fn verify_tx(
@@ -110,10 +110,10 @@ where
 }
 
 #[async_trait]
-impl<TI, Store> ApplyBlock for DefaulStateView<TI, Store>
+impl<TI, S> ApplyBlock for DefaulStateView<TI, S>
 where
-    TI: GetTxInputs,
-    Store: ApplyBlock,
+    TI: Store,
+    S: ApplyBlock,
 {
     async fn apply_block(
         &self,
