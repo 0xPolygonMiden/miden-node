@@ -90,3 +90,33 @@ async fn test_verify_tx_vt1() {
         })
     );
 }
+
+/// Verifies requirement VT2
+#[tokio::test]
+async fn test_verify_tx_vt2() {
+    let tx_gen = DummyProvenTxGenerator::new();
+
+    let account_not_in_store: MockPrivateAccount<3> = MockPrivateAccount::from(0);
+
+    // Notice: account is not added to the store
+    let store = Arc::new(MockStoreSuccess::new(iter::empty(), BTreeSet::new()));
+
+    let tx = tx_gen.dummy_proven_tx_with_params(
+        account_not_in_store.id,
+        account_not_in_store.states[0],
+        account_not_in_store.states[1],
+        vec![consumed_note_by_index(0)],
+    );
+
+    let state_view = DefaulStateView::new(store);
+
+    let verify_tx_result = state_view.verify_tx(tx.into()).await;
+
+    assert_eq!(
+        verify_tx_result,
+        Err(VerifyTxError::IncorrectAccountInitialHash {
+            tx_initial_account_hash: account_not_in_store.states[0],
+            store_account_hash: None
+        })
+    );
+}
