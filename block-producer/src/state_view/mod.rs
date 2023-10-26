@@ -181,10 +181,8 @@ fn ensure_tx_inputs_constraints(
     let infracting_nullifiers: Vec<_> = tx_inputs
         .nullifiers
         .into_iter()
-        .filter_map(|(nullifier_in_tx, is_already_consumed)| {
-            // If already consumed, add to list of infracting nullifiers
-            is_already_consumed.then(|| nullifier_in_tx)
-        })
+        .filter(|&(_nullifier_in_tx, is_already_consumed)| is_already_consumed)
+        .map(|(nullifier_in_tx, _is_already_consumed)| nullifier_in_tx)
         .collect();
 
     if !infracting_nullifiers.is_empty() {
