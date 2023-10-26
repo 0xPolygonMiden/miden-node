@@ -25,6 +25,8 @@ struct MockStoreSuccess {
 }
 
 impl MockStoreSuccess {
+    /// Initializes the known accounts from provided mock accounts, where the account hash in the
+    /// store is the first state in `MockAccount.states`.
     fn new(
         accounts: impl Iterator<Item = MockAccount>,
         consumed_nullifiers: BTreeSet<Digest>,
@@ -141,6 +143,7 @@ impl MockAccount {
 }
 
 impl From<u8> for MockAccount {
+    /// Each index gives rise to a different account ID
     fn from(index: u8) -> Self {
         let mut init_seed: [u8; 32] = [0; 32];
         init_seed[0] = index;
@@ -155,11 +158,11 @@ pub fn consumed_note_by_index(index: u8) -> ConsumedNoteInfo {
 
 /// Returns `num` transactions, and the corresponding account they modify.
 /// The transactions each consume a single different note
-pub fn get_txs_and_accounts(
-    tx_gen: DummyProvenTxGenerator,
+pub fn get_txs_and_accounts<'a>(
+    tx_gen: &'a DummyProvenTxGenerator,
     num: u8,
-) -> impl Iterator<Item = (ProvenTransaction, MockAccount)> {
-    (0..num).map(move |index| {
+) -> impl Iterator<Item = (ProvenTransaction, MockAccount)> + 'a {
+    (0..num).map(|index| {
         let account = MockAccount::from(index);
         let tx = tx_gen.dummy_proven_tx_with_params(
             account.id,

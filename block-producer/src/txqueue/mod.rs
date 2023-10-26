@@ -12,7 +12,7 @@ mod tests;
 // TRANSACTION VERIFIER
 // ================================================================================================
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum VerifyTxError {
     /// The account that the transaction modifies has already been modified and isn't yet committed
     /// to a block

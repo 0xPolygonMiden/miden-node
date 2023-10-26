@@ -5,7 +5,7 @@ use miden_objects::Digest;
 
 use crate::{block::Block, SharedProvenTx};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TxInputsError {
     Dummy,
 }

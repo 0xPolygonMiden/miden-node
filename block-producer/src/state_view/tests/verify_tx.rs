@@ -20,7 +20,7 @@ use super::*;
 async fn test_verify_tx_happy_path() {
     let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockAccount>) =
-        get_txs_and_accounts(tx_gen, 3).unzip();
+        get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
 
@@ -39,7 +39,7 @@ async fn test_verify_tx_happy_path() {
 async fn test_verify_tx_happy_path_concurrent() {
     let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockAccount>) =
-        get_txs_and_accounts(tx_gen, 3).unzip();
+        get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
 
@@ -56,4 +56,35 @@ async fn test_verify_tx_happy_path_concurrent() {
     while let Some(res) = set.join_next().await {
         res.unwrap().unwrap();
     }
+}
+
+/// Verifies requirement VT1
+#[tokio::test]
+async fn test_verify_tx_vt1() {
+    let tx_gen = DummyProvenTxGenerator::new();
+
+    let account = MockAccount::from(0);
+
+    let store = Arc::new(MockStoreSuccess::new(vec![account].into_iter(), BTreeSet::new()));
+
+    // The transaction's initial account hash uses `account.states[1]`, where the store expects
+    // `account.states[0]`
+    let tx = tx_gen.dummy_proven_tx_with_params(
+        account.id,
+        account.states[1],
+        account.states[2],
+        vec![consumed_note_by_index(0)],
+    );
+
+    let state_view = DefaulStateView::new(store);
+
+    let verify_tx_result = state_view.verify_tx(tx.into()).await;
+
+    assert_eq!(
+        verify_tx_result,
+        Err(VerifyTxError::IncorrectAccountInitialHash {
+            tx_initial_account_hash: account.states[1],
+            store_account_hash: Some(account.states[0])
+        })
+    );
 }
