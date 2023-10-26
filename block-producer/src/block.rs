@@ -1,5 +1,6 @@
 use miden_objects::{accounts::AccountId, BlockHeader, Digest};
 
+#[derive(Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
     pub updated_accounts: Vec<(AccountId, Digest)>,
