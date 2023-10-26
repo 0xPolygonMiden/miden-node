@@ -126,8 +126,7 @@ where
 
         // 1. Remove account ids of transactions in block
         let account_ids_in_block = block
-            .state_updates
-            .updated_account_state_hashes
+            .updated_accounts
             .iter()
             .map(|(account_id, _final_account_hash)| account_id);
 
@@ -137,7 +136,7 @@ where
         }
 
         // 2. Remove new nullifiers of transactions in block
-        for nullifier in block.state_updates.new_nullifiers.iter() {
+        for nullifier in block.new_nullifiers.iter() {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
         }
