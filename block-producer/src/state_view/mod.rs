@@ -115,7 +115,7 @@ where
         }
 
         // 2. Remove new nullifiers of transactions in block
-        for nullifier in block.new_nullifiers.iter() {
+        for nullifier in block.produced_nullifiers.iter() {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
         }

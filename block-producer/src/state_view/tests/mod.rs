@@ -58,7 +58,8 @@ impl ApplyBlock for MockStoreSuccess {
             locked_accounts.insert(account_id, account_hash);
         }
 
-        let mut new_nullifiers: BTreeSet<Digest> = block.new_nullifiers.iter().cloned().collect();
+        let mut new_nullifiers: BTreeSet<Digest> =
+            block.produced_nullifiers.iter().cloned().collect();
         locked_consumed_nullifiers.append(&mut new_nullifiers);
 
         *self.num_apply_block_called.write().await += 1;
@@ -214,6 +215,6 @@ pub fn get_dummy_block(
         header,
         updated_accounts,
         created_notes: Vec::new(),
-        new_nullifiers,
+        produced_nullifiers: new_nullifiers,
     }
 }
