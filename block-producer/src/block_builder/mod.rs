@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use miden_objects::{Digest, Felt};
+use miden_objects::{accounts::AccountId, Digest, Felt};
 
 use crate::{store::Store, SharedTxBatch};
 
@@ -21,6 +21,7 @@ pub trait BlockBuilder: Send + Sync + 'static {
     ) -> Result<(), BuildBlockError>;
 }
 
+#[derive(Debug)]
 pub struct DefaultBlockBuilder<S> {
     store: S,
     prev_header_hash: Digest,
@@ -57,6 +58,13 @@ where
         batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
         // TODO: call store.get_block_inputs()
+
+        let updated_accounts: Vec<(AccountId, Digest)> =
+            batches.iter().map(|batch| batch.updated_accounts()).flatten().collect();
+        let created_notes: Vec<Digest> =
+            batches.iter().map(|batch| batch.created_notes()).flatten().collect();
+        let produced_nullifiers: Vec<Digest> =
+            batches.iter().map(|batch| batch.produced_nullifiers()).flatten().collect();
 
         todo!()
     }

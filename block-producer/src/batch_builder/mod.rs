@@ -48,7 +48,7 @@ impl TransactionBatch {
     }
 
     /// Returns the nullifier of all consumed notes
-    pub fn consumed_notes_nullifiers(&self) -> impl Iterator<Item = Digest> + '_ {
+    pub fn produced_nullifiers(&self) -> impl Iterator<Item = Digest> + '_ {
         self.txs
             .iter()
             .flat_map(|tx| tx.consumed_notes())
@@ -56,7 +56,7 @@ impl TransactionBatch {
     }
 
     /// Returns the hash of created notes
-    pub fn created_notes_hashes(&self) -> impl Iterator<Item = Digest> + '_ {
+    pub fn created_notes(&self) -> impl Iterator<Item = Digest> + '_ {
         self.txs
             .iter()
             .flat_map(|tx| tx.created_notes())
