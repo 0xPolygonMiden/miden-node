@@ -1,6 +1,10 @@
 use miden_air::{ExecutionProof, HashFunction};
 use miden_mock::constants::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN;
-use miden_objects::{accounts::AccountId, transaction::ProvenTransaction, Digest};
+use miden_objects::{
+    accounts::AccountId,
+    transaction::{ConsumedNoteInfo, ProvenTransaction},
+    Digest,
+};
 ///! FibSmall taken from the `fib_small` example in `winterfell`
 use winterfell::{
     crypto::{hashers::Blake3_192, DefaultRandomCoin},
@@ -31,6 +35,25 @@ impl DummyProvenTxGenerator {
             Digest::default(),
             Digest::default(),
             Vec::new(),
+            Vec::new(),
+            None,
+            Digest::default(),
+            ExecutionProof::new(self.stark_proof.clone(), HashFunction::Blake3_192),
+        )
+    }
+
+    pub fn dummy_proven_tx_with_params(
+        &self,
+        account_id: AccountId,
+        initial_account_hash: Digest,
+        final_account_hash: Digest,
+        consumed_notes: Vec<ConsumedNoteInfo>,
+    ) -> ProvenTransaction {
+        ProvenTransaction::new(
+            account_id,
+            initial_account_hash,
+            final_account_hash,
+            consumed_notes,
             Vec::new(),
             None,
             Digest::default(),

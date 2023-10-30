@@ -29,9 +29,9 @@ struct TransactionVerifierFailure;
 impl TransactionVerifier for TransactionVerifierFailure {
     async fn verify_tx(
         &self,
-        _tx: SharedProvenTx,
+        tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
-        Err(VerifyTxError::AccountAlreadyModifiedByOtherTx)
+        Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(tx.account_id()))
     }
 }
 
