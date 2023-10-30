@@ -11,3 +11,9 @@ pub struct Block {
     // - full states for created public notes
     // - zk proof
 }
+
+impl Block {
+    pub fn hash(&self) -> Digest {
+        todo!()
+    }
+}
