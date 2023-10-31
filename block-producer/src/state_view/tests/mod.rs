@@ -6,7 +6,10 @@ use miden_objects::{
     accounts::get_account_seed, transaction::ConsumedNoteInfo, BlockHeader, Felt, Hasher,
 };
 
-use crate::{store::TxInputsError, test_utils::DummyProvenTxGenerator};
+use crate::{
+    store::{BlockInputs, BlockInputsError, TxInputsError},
+    test_utils::DummyProvenTxGenerator,
+};
 
 mod apply_block;
 mod verify_tx;
@@ -90,6 +93,14 @@ impl Store for MockStoreSuccess {
             nullifiers,
         })
     }
+
+    async fn get_block_inputs(
+        &self,
+        _modified_account_ids: &[AccountId],
+        _produced_nullifiers: &[Digest],
+    ) -> Result<BlockInputs, BlockInputsError> {
+        unimplemented!()
+    }
 }
 
 #[derive(Default)]
@@ -112,6 +123,14 @@ impl Store for MockStoreFailure {
         _proven_tx: SharedProvenTx,
     ) -> Result<TxInputs, TxInputsError> {
         Err(TxInputsError::Dummy)
+    }
+
+    async fn get_block_inputs(
+        &self,
+        _modified_account_ids: &[AccountId],
+        _produced_nullifiers: &[Digest],
+    ) -> Result<BlockInputs, BlockInputsError> {
+        unimplemented!()
     }
 }
 

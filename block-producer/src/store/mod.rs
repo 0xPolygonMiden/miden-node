@@ -1,12 +1,21 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
-use miden_objects::Digest;
+use miden_objects::{
+    accounts::AccountId,
+    crypto::merkle::{MmrPeaks, PartialMerkleTree},
+    BlockHeader, Digest,
+};
 
 use crate::{block::Block, SharedProvenTx};
 
 #[derive(Debug, PartialEq)]
 pub enum TxInputsError {
+    Dummy,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum BlockInputsError {
     Dummy,
 }
 
@@ -32,10 +41,34 @@ pub struct TxInputs {
     pub nullifiers: BTreeMap<Digest, bool>,
 }
 
+/// Information needed from the store to build a block
+pub struct BlockInputs {
+    /// Previous block header
+    pub block_header: BlockHeader,
+
+    /// MMR peaks for the current chain state
+    pub chain_peaks: MmrPeaks,
+
+    /// latest account state hashes for all requested account IDs
+    pub account_states: Vec<(AccountId, Digest)>,
+
+    /// a partial Merkle Tree with paths to all requested accounts in the account TSMT
+    pub account_proofs: PartialMerkleTree,
+
+    /// a partial Merkle Tree with paths to all requested nullifiers in the account TSMT
+    pub nullifier_proofs: PartialMerkleTree,
+}
+
 #[async_trait]
 pub trait Store: ApplyBlock {
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
     ) -> Result<TxInputs, TxInputsError>;
+
+    async fn get_block_inputs(
+        &self,
+        modified_account_ids: &[AccountId],
+        produced_nullifiers: &[Digest],
+    ) -> Result<BlockInputs, BlockInputsError>;
 }
