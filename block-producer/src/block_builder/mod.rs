@@ -78,6 +78,15 @@ where
         let produced_nullifiers: Vec<Digest> =
             batches.iter().map(|batch| batch.produced_nullifiers()).flatten().collect();
 
+        let block_inputs = self
+            .store
+            .get_block_inputs(
+                updated_accounts.iter().map(|(account_id, _)| account_id),
+                produced_nullifiers.iter(),
+            )
+            .await
+            .unwrap();
+
         let header = {
             let prev_hash = *self.prev_header_hash.read().await;
             let chain_root = Digest::default();

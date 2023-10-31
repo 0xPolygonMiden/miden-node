@@ -68,7 +68,8 @@ pub trait Store: ApplyBlock {
 
     async fn get_block_inputs(
         &self,
-        modified_account_ids: &[AccountId],
-        produced_nullifiers: &[Digest],
+        // updated_accounts: &[AccountId],
+        updated_accounts: impl Iterator<Item = &AccountId> + Send,
+        produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
 }

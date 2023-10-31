@@ -96,8 +96,8 @@ impl Store for MockStoreSuccess {
 
     async fn get_block_inputs(
         &self,
-        _modified_account_ids: &[AccountId],
-        _produced_nullifiers: &[Digest],
+        _updated_accounts: impl Iterator<Item = &AccountId> + Send,
+        _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         unimplemented!()
     }
@@ -127,8 +127,8 @@ impl Store for MockStoreFailure {
 
     async fn get_block_inputs(
         &self,
-        _modified_account_ids: &[AccountId],
-        _produced_nullifiers: &[Digest],
+        _updated_accounts: impl Iterator<Item = &AccountId> + Send,
+        _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         unimplemented!()
     }
