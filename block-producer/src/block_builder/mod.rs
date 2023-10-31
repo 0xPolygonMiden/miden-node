@@ -12,6 +12,8 @@ use crate::{
     SharedTxBatch,
 };
 
+mod vm;
+
 #[derive(Debug, PartialEq)]
 pub enum BuildBlockError {
     Dummy,
