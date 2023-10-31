@@ -9,5 +9,5 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-miden-crypto = { git = "https://github.com/0xPolygonMiden/crypto", branch = "next", default-features = false, features = ["std"] }
+miden-crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto.git", branch = "next", features = ["std"] }
 miden_objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", default-features = false }

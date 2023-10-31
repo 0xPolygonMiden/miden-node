@@ -4,32 +4,11 @@
 syntax = "proto3";
 package store;
 
-import "block_header.proto";
-import "digest.proto";
-import "tsmt.proto";
-
-message CheckNullifiersRequest {
-    repeated digest.Digest nullifiers = 1;
-}
-
-message CheckNullifiersResponse {
-    // Each requested nullifier has its corresponding nullifier proof at the
-    // same position.
-    repeated tsmt.NullifierProof proofs = 1;
-}
-
-message FetchBlockHeaderByNumberRequest {
-    // The block number of the target block.
-    //
-    // If not provided, means latest know block.
-    optional uint64 block_num = 1;
-}
-
-message FetchBlockHeaderByNumberResponse {
-    block_header.BlockHeader block_header = 1;
-}
+import "requests.proto";
+import "responses.proto";
 
 service Api {
-    rpc CheckNullifiers(CheckNullifiersRequest) returns (CheckNullifiersResponse) {}
-    rpc FetchBlockHeaderByNumber(FetchBlockHeaderByNumberRequest) returns (FetchBlockHeaderByNumberResponse) {}
+    rpc CheckNullifiers(requests.CheckNullifiersRequest) returns (responses.CheckNullifiersResponse) {}
+    rpc FetchBlockHeaderByNumber(requests.FetchBlockHeaderByNumberRequest) returns (responses.FetchBlockHeaderByNumberResponse) {}
+    rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
 }

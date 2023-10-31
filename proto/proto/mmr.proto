@@ -1,0 +1,9 @@
+syntax = "proto3";
+package mmr;
+
+import "digest.proto";
+
+message MmrDelta {
+    uint64 forest = 1;
+    repeated digest.Digest data = 2;
+}

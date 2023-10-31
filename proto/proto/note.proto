@@ -1,0 +1,15 @@
+syntax = "proto3";
+package note;
+
+import "digest.proto";
+import "merkle.proto";
+
+message Note {
+    uint32 block_num = 1;
+    uint32 note_index = 2;
+    digest.Digest note_hash = 3;
+    uint64 sender  = 4;
+    uint64 tag = 5;
+    uint32 num_assets = 6;
+    merkle.MerklePath merkle_path = 7;
+}

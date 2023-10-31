@@ -1,0 +1,8 @@
+syntax = "proto3";
+package merkle;
+
+import "digest.proto";
+
+message MerklePath {
+    repeated digest.Digest siblings = 1;
+}

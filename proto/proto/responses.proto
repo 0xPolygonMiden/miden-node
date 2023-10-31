@@ -1,0 +1,62 @@
+syntax = "proto3";
+package responses;
+
+import "account_id.proto";
+import "block_header.proto";
+import "digest.proto";
+import "merkle.proto";
+import "mmr.proto";
+import "tsmt.proto";
+
+message CheckNullifiersResponse {
+    // Each requested nullifier has its corresponding nullifier proof at the
+    // same position.
+    repeated tsmt.NullifierProof proofs = 1;
+}
+
+message FetchBlockHeaderByNumberResponse {
+    block_header.BlockHeader block_header = 1;
+}
+
+message AccountHashUpdate {
+    account_id.AccountId account_id = 1;
+    digest.Digest account_hash = 2;
+    uint32 block_num = 3;
+}
+
+message NullifierUpdate {
+    digest.Digest nullifier = 1;
+    uint32 block_num = 2;
+}
+
+message NoteSyncRecord {
+    uint32 note_index = 2;
+    digest.Digest note_hash = 3;
+    uint64 sender  = 4;
+    uint64 tag = 5;
+    uint32 num_assets = 6;
+    merkle.MerklePath merkle_path = 7;
+}
+
+message SyncStateResponse {
+    // number of the latest block in the chain
+    uint32 chain_tip = 1;
+
+    // block header of the block with the first note matching the specified criteria
+    block_header.BlockHeader block_header = 2;
+
+    // data needed to update the partial MMR from `block_ref` to `block_header.block_num`
+    mmr.MmrDelta mmr_delta = 3;
+
+    // Merkle path in the updated chain MMR to the block at `block_header.block_num`
+    merkle.MerklePath block_path = 4;
+
+    // a list of account hashes updated after `block_ref` but not after `block_header.block_num`
+    repeated AccountHashUpdate accounts = 5;
+
+    // a list of all notes together with the Merkle paths from `block_header.note_root`
+    repeated NoteSyncRecord notes = 6;
+
+    // a list of nullifiers created between `block_ref` and `block_header.block_num`
+    repeated NullifierUpdate nullifiers = 7;
+}
