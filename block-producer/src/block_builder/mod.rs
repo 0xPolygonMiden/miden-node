@@ -54,11 +54,11 @@ where
         batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
         let updated_accounts: Vec<(AccountId, Digest)> =
-            batches.iter().map(|batch| batch.updated_accounts()).flatten().collect();
+            batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
         let created_notes: Vec<Digest> =
-            batches.iter().map(|batch| batch.created_notes()).flatten().collect();
+            batches.iter().flat_map(|batch| batch.created_notes()).collect();
         let produced_nullifiers: Vec<Digest> =
-            batches.iter().map(|batch| batch.produced_nullifiers()).flatten().collect();
+            batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
 
         let BlockInputs {
             block_header: prev_block_header,
