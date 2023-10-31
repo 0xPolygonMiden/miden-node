@@ -5,9 +5,12 @@ use std::{
 
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, BlockHeader, Digest, Felt};
-use tokio::sync::RwLock;
 
-use crate::{block::Block, store::Store, SharedTxBatch};
+use crate::{
+    block::Block,
+    store::{BlockInputs, Store},
+    SharedTxBatch,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum BuildBlockError {
@@ -30,33 +33,14 @@ pub trait BlockBuilder: Send + Sync + 'static {
 #[derive(Debug)]
 pub struct DefaultBlockBuilder<S> {
     store: Arc<S>,
-    protocol_version: Felt,
-    /// The hash of the previous header
-    prev_header_hash: Arc<RwLock<Digest>>,
-    /// The hash of the previous block
-    prev_block_hash: Arc<RwLock<Digest>>,
-    /// The block number of the next block to build
-    next_block_num: Arc<RwLock<Felt>>,
 }
 
 impl<S> DefaultBlockBuilder<S>
 where
     S: Store,
 {
-    pub fn new(
-        store: Arc<S>,
-        protocol_version: Felt,
-        prev_header_hash: Digest,
-        prev_block_hash: Digest,
-        prev_block_num: Felt,
-    ) -> Self {
-        Self {
-            store,
-            protocol_version,
-            prev_header_hash: Arc::new(RwLock::new(prev_header_hash)),
-            prev_block_hash: Arc::new(RwLock::new(prev_block_hash)),
-            next_block_num: Arc::new(RwLock::new(prev_block_num + 1u32.into())),
-        }
+    pub fn new(store: Arc<S>) -> Self {
+        Self { store }
     }
 }
 
@@ -69,8 +53,6 @@ where
         &self,
         batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
-        let current_block_num = *self.next_block_num.read().await;
-
         let updated_accounts: Vec<(AccountId, Digest)> =
             batches.iter().map(|batch| batch.updated_accounts()).flatten().collect();
         let created_notes: Vec<Digest> =
@@ -78,7 +60,13 @@ where
         let produced_nullifiers: Vec<Digest> =
             batches.iter().map(|batch| batch.produced_nullifiers()).flatten().collect();
 
-        let block_inputs = self
+        let BlockInputs {
+            block_header: prev_block_header,
+            chain_peaks,
+            account_states: account_states_in_store,
+            account_proofs,
+            nullifier_proofs,
+        } = self
             .store
             .get_block_inputs(
                 updated_accounts.iter().map(|(account_id, _)| account_id),
@@ -87,8 +75,8 @@ where
             .await
             .unwrap();
 
-        let header = {
-            let prev_hash = *self.prev_header_hash.read().await;
+        let new_block_header = {
+            let prev_hash = prev_block_header.prev_hash();
             let chain_root = Digest::default();
             let account_root = Digest::default();
             let nullifier_root = Digest::default();
@@ -103,20 +91,20 @@ where
 
             BlockHeader::new(
                 prev_hash,
-                current_block_num,
+                prev_block_header.block_num(),
                 chain_root,
                 account_root,
                 nullifier_root,
                 note_root,
                 batch_root,
                 proof_hash,
-                self.protocol_version,
+                prev_block_header.version(),
                 timestamp,
             )
         };
 
         let block = Arc::new(Block {
-            header,
+            header: new_block_header,
             updated_accounts,
             created_notes,
             produced_nullifiers,
@@ -124,11 +112,6 @@ where
 
         // TODO: properly handle
         self.store.apply_block(block.clone()).await.expect("apply block failed");
-
-        // update fields
-        *self.prev_header_hash.write().await = block.header.hash();
-        *self.prev_block_hash.write().await = block.hash();
-        *self.next_block_num.write().await = current_block_num + 1u32.into();
 
         Ok(())
     }
