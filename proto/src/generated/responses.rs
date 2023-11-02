@@ -10,7 +10,7 @@ pub struct CheckNullifiersResponse {
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FetchBlockHeaderByNumberResponse {
+pub struct GetBlockHeaderByNumberResponse {
     #[prost(message, optional, tag = "1")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
 }
@@ -76,4 +76,41 @@ pub struct SyncStateResponse {
     /// a list of nullifiers created between `block_ref` and `block_header.block_num`
     #[prost(message, repeated, tag = "7")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountInputRecord {
+    #[prost(message, optional, tag = "1")]
+    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    #[prost(message, optional, tag = "2")]
+    pub account_hash: ::core::option::Option<super::digest::Digest>,
+    #[prost(message, optional, tag = "3")]
+    pub proof: ::core::option::Option<super::merkle::MerklePath>,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NullifierInputRecord {
+    #[prost(message, optional, tag = "1")]
+    pub nullifier: ::core::option::Option<super::digest::Digest>,
+    #[prost(message, optional, tag = "3")]
+    pub proof: ::core::option::Option<super::merkle::MerklePath>,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBlockInputsResponse {
+    /// The latest block header
+    #[prost(message, optional, tag = "1")]
+    pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
+    /// Peaks of the above block's mmr, The `forest` value is equal to the block number.
+    #[prost(message, repeated, tag = "2")]
+    pub mmr_peaks: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    /// The hashes of the requested accouts and their authentication paths
+    #[prost(message, repeated, tag = "3")]
+    pub account_states: ::prost::alloc::vec::Vec<AccountInputRecord>,
+    /// The requested nullifiers and their authentication paths
+    #[prost(message, repeated, tag = "4")]
+    pub nullifiers: ::prost::alloc::vec::Vec<NullifierInputRecord>,
 }

@@ -9,6 +9,7 @@ import "responses.proto";
 
 service Api {
     rpc CheckNullifiers(requests.CheckNullifiersRequest) returns (responses.CheckNullifiersResponse) {}
-    rpc FetchBlockHeaderByNumber(requests.FetchBlockHeaderByNumberRequest) returns (responses.FetchBlockHeaderByNumberResponse) {}
+    rpc GetBlockHeaderByNumber(requests.GetBlockHeaderByNumberRequest) returns (responses.GetBlockHeaderByNumberResponse) {}
+    rpc GetBlockInputs(requests.GetBlockInputsRequest) returns (responses.GetBlockInputsResponse) {}
     rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
 }

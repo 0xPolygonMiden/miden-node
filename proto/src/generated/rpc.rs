@@ -107,13 +107,13 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "CheckNullifiers"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn fetch_block_header_by_number(
+        pub async fn get_block_header_by_number(
             &mut self,
             request: impl tonic::IntoRequest<
-                super::super::requests::FetchBlockHeaderByNumberRequest,
+                super::super::requests::GetBlockHeaderByNumberRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::FetchBlockHeaderByNumberResponse>,
+            tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
         > {
             self.inner
@@ -127,11 +127,11 @@ pub mod api_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/rpc.Api/FetchBlockHeaderByNumber",
+                "/rpc.Api/GetBlockHeaderByNumber",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("rpc.Api", "FetchBlockHeaderByNumber"));
+                .insert(GrpcMethod::new("rpc.Api", "GetBlockHeaderByNumber"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn sync_state(
@@ -172,13 +172,13 @@ pub mod api_server {
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
             tonic::Status,
         >;
-        async fn fetch_block_header_by_number(
+        async fn get_block_header_by_number(
             &self,
             request: tonic::Request<
-                super::super::requests::FetchBlockHeaderByNumberRequest,
+                super::super::requests::GetBlockHeaderByNumberRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::FetchBlockHeaderByNumberResponse>,
+            tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
         >;
         async fn sync_state(
@@ -317,15 +317,15 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/rpc.Api/FetchBlockHeaderByNumber" => {
+                "/rpc.Api/GetBlockHeaderByNumber" => {
                     #[allow(non_camel_case_types)]
-                    struct FetchBlockHeaderByNumberSvc<T: Api>(pub Arc<T>);
+                    struct GetBlockHeaderByNumberSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::FetchBlockHeaderByNumberRequest,
-                    > for FetchBlockHeaderByNumberSvc<T> {
-                        type Response = super::super::responses::FetchBlockHeaderByNumberResponse;
+                        super::super::requests::GetBlockHeaderByNumberRequest,
+                    > for GetBlockHeaderByNumberSvc<T> {
+                        type Response = super::super::responses::GetBlockHeaderByNumberResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -333,12 +333,12 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::FetchBlockHeaderByNumberRequest,
+                                super::super::requests::GetBlockHeaderByNumberRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::fetch_block_header_by_number(&inner, request)
+                                <T as Api>::get_block_header_by_number(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -351,7 +351,7 @@ pub mod api_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = FetchBlockHeaderByNumberSvc(inner);
+                        let method = GetBlockHeaderByNumberSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

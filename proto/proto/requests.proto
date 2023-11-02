@@ -8,7 +8,7 @@ message CheckNullifiersRequest {
     repeated digest.Digest nullifiers = 1;
 }
 
-message FetchBlockHeaderByNumberRequest {
+message GetBlockHeaderByNumberRequest {
     // The block number of the target block.
     //
     // If not provided, means latest know block.
@@ -26,4 +26,9 @@ message SyncStateRequest {
     // 16bits of the real values shifted to the right `>> 48`.
     repeated uint32 note_tags = 3;
     repeated uint32 nullifiers = 4;
+}
+
+message GetBlockInputsRequest {
+    repeated account_id.AccountId account_ids = 1;
+    repeated digest.Digest nullifiers = 2;
 }

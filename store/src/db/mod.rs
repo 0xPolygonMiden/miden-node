@@ -407,6 +407,7 @@ impl Db {
         Ok(num_rows)
     }
 
+    // Returns the account hash of the ones that have changed in the range `(block_start, block_end]`.
     pub async fn get_account_hash_by_block_range(
         &self,
         block_start: BlockNumber,
@@ -457,6 +458,30 @@ impl Db {
             })
             .await
             .map_err(|_| anyhow!("Get account hash by block number task failed with a panic"))?
+    }
+
+    /// Loads all the account hashes from the DB.
+    pub async fn get_account_hashes(&self) -> Result<Vec<(AccountId, Digest)>, anyhow::Error> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| {
+                let mut stmt = conn.prepare("SELECT account_id, account_hash FROM accounts")?;
+                let mut rows = stmt.query([])?;
+
+                let mut result = Vec::new();
+                while let Some(row) = rows.next()? {
+                    let account_id: u64 = row.get(0)?;
+                    let account_hash_data = row.get_ref(1)?.as_blob()?;
+                    let account_hash = Digest::decode(account_hash_data)?;
+
+                    result.push((account_id, account_hash));
+                }
+
+                Ok(result)
+            })
+            .await
+            .map_err(|_| anyhow!("Get account hashes task failed with a panic"))?
     }
 
     pub async fn get_state_sync(
