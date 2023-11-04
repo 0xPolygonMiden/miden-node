@@ -10,8 +10,11 @@ use winterfell::{
     crypto::{hashers::Blake3_192, DefaultRandomCoin},
     math::fields::f64::BaseElement,
     math::FieldElement,
-    Air, AirContext, Assertion, EvaluationFrame, FieldExtension, ProofOptions, Prover, StarkProof,
-    Trace, TraceInfo, TraceTable, TransitionConstraintDegree,
+    matrix::ColMatrix,
+    Air, AirContext, Assertion, AuxTraceRandElements, ConstraintCompositionCoefficients,
+    DefaultConstraintEvaluator, DefaultTraceLde, EvaluationFrame, FieldExtension, ProofOptions,
+    Prover, StarkDomain, StarkProof, Trace, TraceInfo, TracePolyTable, TraceTable,
+    TransitionConstraintDegree,
 };
 
 /// We need to generate a new `ProvenTransaction` every time because it doesn't
@@ -171,6 +174,10 @@ impl Prover for DummyProver {
     type Trace = TraceTable<BaseElement>;
     type HashFn = Blake3_192<BaseElement>;
     type RandomCoin = DefaultRandomCoin<Self::HashFn>;
+    type TraceLde<E: FieldElement<BaseField = BaseElement>> =
+        DefaultTraceLde<E, Blake3_192<BaseElement>>;
+    type ConstraintEvaluator<'a, E: FieldElement<BaseField = BaseElement>> =
+        DefaultConstraintEvaluator<'a, FibSmall, E>;
 
     fn get_pub_inputs(
         &self,
@@ -182,5 +189,23 @@ impl Prover for DummyProver {
 
     fn options(&self) -> &ProofOptions {
         &self.options
+    }
+
+    fn new_trace_lde<E: FieldElement<BaseField = BaseElement>>(
+        &self,
+        trace_info: &TraceInfo,
+        main_trace: &ColMatrix<BaseElement>,
+        domain: &StarkDomain<BaseElement>,
+    ) -> (Self::TraceLde<E>, TracePolyTable<E>) {
+        DefaultTraceLde::new(trace_info, main_trace, domain)
+    }
+
+    fn new_evaluator<'a, E: FieldElement<BaseField = BaseElement>>(
+        &self,
+        air: &'a FibSmall,
+        aux_rand_elements: AuxTraceRandElements<E>,
+        composition_coefficients: ConstraintCompositionCoefficients<E>,
+    ) -> Self::ConstraintEvaluator<'a, E> {
+        DefaultConstraintEvaluator::new(air, aux_rand_elements, composition_coefficients)
     }
 }
