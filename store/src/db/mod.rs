@@ -492,7 +492,7 @@ impl Db {
         nullifiers_prefix: &[u32],
     ) -> Result<StateSyncUpdate, anyhow::Error> {
         let notes = self
-            .get_notes_since_block_by_tag_and_sender(&note_tag_prefixes, &account_ids, block_num)
+            .get_notes_since_block_by_tag_and_sender(note_tag_prefixes, account_ids, block_num)
             .await?;
 
         let (block_header, chain_tip) = if !notes.is_empty() {
@@ -512,11 +512,11 @@ impl Db {
         };
 
         let account_updates = self
-            .get_account_hash_by_block_range(block_num, block_header.block_num, &account_ids)
+            .get_account_hash_by_block_range(block_num, block_header.block_num, account_ids)
             .await?;
 
         let nullifiers = self
-            .get_nullifiers_by_block_range(block_num, block_header.block_num, &nullifiers_prefix)
+            .get_nullifiers_by_block_range(block_num, block_header.block_num, nullifiers_prefix)
             .await?;
 
         Ok(StateSyncUpdate {
@@ -560,6 +560,7 @@ fn u32_to_value(v: u32) -> Value {
 }
 
 /// Returns the high bits of the `u64` value used during searches.
+#[cfg(test)]
 fn u64_to_prefix(v: u64) -> u32 {
     (v >> 48) as u32
 }

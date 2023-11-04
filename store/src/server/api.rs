@@ -1,12 +1,10 @@
-use crate::config::StoreConfig;
-use crate::db::Db;
+use crate::{config::StoreConfig, db::Db};
 use anyhow::Result;
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    merkle::{Mmr, NodeIndex, SimpleSmt, TieredSmt},
+    merkle::{Mmr, SimpleSmt, TieredSmt},
     Felt, FieldElement, StarkField, Word,
 };
-use miden_node_proto::responses::AccountInputRecord;
 use miden_node_proto::{
     digest::Digest,
     error::ParseError,
@@ -17,8 +15,8 @@ use miden_node_proto::{
         SyncStateRequest,
     },
     responses::{
-        CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-        SyncStateResponse,
+        AccountInputRecord, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
+        GetBlockInputsResponse, SyncStateResponse,
     },
     store::api_server,
     tsmt::{self, NullifierLeaf},
@@ -29,7 +27,42 @@ use tokio::{sync::RwLock, time::Instant};
 use tonic::{transport::Server, Response, Status};
 use tracing::{info, instrument};
 
+// CONSTANTS
+// ================================================================================================
+
 const ACCOUNT_DB_DEPTH: u8 = 64;
+
+// STORE INITIALIZER
+// ================================================================================================
+
+pub async fn serve(
+    config: StoreConfig,
+    mut db: Db,
+) -> Result<()> {
+    let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
+    let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
+
+    let nullifier_data = load_nullifier_tree(&mut db).await?;
+    let nullifier_lock = Arc::new(RwLock::new(nullifier_data));
+    let mmr_data = load_mmr(&mut db).await?;
+    let mmr_lock = Arc::new(RwLock::new(mmr_data));
+    let accounts_data = load_accounts(&mut db).await?;
+    let accounts_lock = Arc::new(RwLock::new(accounts_data));
+    let db = api_server::ApiServer::new(StoreApi {
+        db,
+        nullifier_tree: nullifier_lock,
+        chain_mmr: mmr_lock,
+        account_tree: accounts_lock,
+    });
+
+    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
+    Server::builder().add_service(db).serve(addrs[0]).await?;
+
+    Ok(())
+}
+
+// STORE API
+// ================================================================================================
 
 pub struct StoreApi {
     db: Db,
@@ -40,6 +73,27 @@ pub struct StoreApi {
 
 #[tonic::async_trait]
 impl api_server::Api for StoreApi {
+    // CLIENT ENDPOINTS
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns block header for the specified block number.
+    ///
+    /// If the block number is not provided, block header for the latest block is returned.
+    async fn get_block_header_by_number(
+        &self,
+        request: tonic::Request<GetBlockHeaderByNumberRequest>,
+    ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
+        let request = request.into_inner();
+        let block_header =
+            self.db.get_block_header(request.block_num).await.map_err(internal_error)?;
+
+        Ok(Response::new(GetBlockHeaderByNumberResponse { block_header }))
+    }
+
+    /// Returns info on whether the specified nullifiers have been consumed.
+    ///
+    /// This endpoint also returns Merkle authentication path for each requested nullifier which can
+    /// be verified against the latest root of the nullifier database.
     async fn check_nullifiers(
         &self,
         request: tonic::Request<CheckNullifiersRequest>,
@@ -51,7 +105,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|v| {
                 v.try_into()
-                    .or(Err(Status::invalid_argument("Digest field is not in the modulos range")))
+                    .or(Err(Status::invalid_argument("Digest field is not in the modulus range")))
             })
             .collect::<Result<Vec<RpoDigest>, Status>>()?;
 
@@ -84,17 +138,8 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(CheckNullifiersResponse { proofs }))
     }
 
-    async fn get_block_header_by_number(
-        &self,
-        request: tonic::Request<GetBlockHeaderByNumberRequest>,
-    ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
-        let request = request.into_inner();
-        let block_header =
-            self.db.get_block_header(request.block_num).await.map_err(internal_error)?;
-
-        Ok(Response::new(GetBlockHeaderByNumberResponse { block_header }))
-    }
-
+    /// Returns info which can be used by the client to sync up to the latest state of the chain
+    /// for the objects the client is interested in.
     async fn sync_state(
         &self,
         request: tonic::Request<SyncStateRequest>,
@@ -145,6 +190,10 @@ impl api_server::Api for StoreApi {
         }))
     }
 
+    // BLOCK PRODUCER ENDPOINTS
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns data needed by the block producer to construct and prove the next block.
     async fn get_block_inputs(
         &self,
         request: tonic::Request<GetBlockInputsRequest>,
@@ -188,32 +237,6 @@ impl api_server::Api for StoreApi {
             nullifiers: vec![],
         }))
     }
-}
-
-pub async fn serve(
-    config: StoreConfig,
-    mut db: Db,
-) -> Result<()> {
-    let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
-    let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
-
-    let nullifier_data = load_nullifier_tree(&mut db).await?;
-    let nullifier_lock = Arc::new(RwLock::new(nullifier_data));
-    let mmr_data = load_mmr(&mut db).await?;
-    let mmr_lock = Arc::new(RwLock::new(mmr_data));
-    let accounts_data = load_accounts(&mut db).await?;
-    let accounts_lock = Arc::new(RwLock::new(accounts_data));
-    let db = api_server::ApiServer::new(StoreApi {
-        db,
-        nullifier_tree: nullifier_lock,
-        chain_mmr: mmr_lock,
-        account_tree: accounts_lock,
-    });
-
-    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
-    Server::builder().add_service(db).serve(addrs[0]).await?;
-
-    Ok(())
 }
 
 // UTILITIES
