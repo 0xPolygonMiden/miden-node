@@ -109,13 +109,13 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "CheckNullifiers"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn fetch_block_header_by_number(
+        pub async fn get_block_header_by_number(
             &mut self,
             request: impl tonic::IntoRequest<
-                super::super::requests::FetchBlockHeaderByNumberRequest,
+                super::super::requests::GetBlockHeaderByNumberRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::FetchBlockHeaderByNumberResponse>,
+            tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
         > {
             self.inner
@@ -129,11 +129,35 @@ pub mod api_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/store.Api/FetchBlockHeaderByNumber",
+                "/store.Api/GetBlockHeaderByNumber",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("store.Api", "FetchBlockHeaderByNumber"));
+                .insert(GrpcMethod::new("store.Api", "GetBlockHeaderByNumber"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_block_inputs(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetBlockInputsRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetBlockInputsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/store.Api/GetBlockInputs");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("store.Api", "GetBlockInputs"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn sync_state(
@@ -174,13 +198,20 @@ pub mod api_server {
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
             tonic::Status,
         >;
-        async fn fetch_block_header_by_number(
+        async fn get_block_header_by_number(
             &self,
             request: tonic::Request<
-                super::super::requests::FetchBlockHeaderByNumberRequest,
+                super::super::requests::GetBlockHeaderByNumberRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::FetchBlockHeaderByNumberResponse>,
+            tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
+            tonic::Status,
+        >;
+        async fn get_block_inputs(
+            &self,
+            request: tonic::Request<super::super::requests::GetBlockInputsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetBlockInputsResponse>,
             tonic::Status,
         >;
         async fn sync_state(
@@ -319,15 +350,15 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/store.Api/FetchBlockHeaderByNumber" => {
+                "/store.Api/GetBlockHeaderByNumber" => {
                     #[allow(non_camel_case_types)]
-                    struct FetchBlockHeaderByNumberSvc<T: Api>(pub Arc<T>);
+                    struct GetBlockHeaderByNumberSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::FetchBlockHeaderByNumberRequest,
-                    > for FetchBlockHeaderByNumberSvc<T> {
-                        type Response = super::super::responses::FetchBlockHeaderByNumberResponse;
+                        super::super::requests::GetBlockHeaderByNumberRequest,
+                    > for GetBlockHeaderByNumberSvc<T> {
+                        type Response = super::super::responses::GetBlockHeaderByNumberResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -335,12 +366,12 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::FetchBlockHeaderByNumberRequest,
+                                super::super::requests::GetBlockHeaderByNumberRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::fetch_block_header_by_number(&inner, request)
+                                <T as Api>::get_block_header_by_number(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -353,7 +384,56 @@ pub mod api_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = FetchBlockHeaderByNumberSvc(inner);
+                        let method = GetBlockHeaderByNumberSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/store.Api/GetBlockInputs" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetBlockInputsSvc<T: Api>(pub Arc<T>);
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::GetBlockInputsRequest,
+                    > for GetBlockInputsSvc<T> {
+                        type Response = super::super::responses::GetBlockInputsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::requests::GetBlockInputsRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Api>::get_block_inputs(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetBlockInputsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

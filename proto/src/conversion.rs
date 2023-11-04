@@ -17,6 +17,12 @@ impl From<[u64; 4]> for digest::Digest {
     }
 }
 
+impl From<&[u64; 4]> for digest::Digest {
+    fn from(value: &[u64; 4]) -> Self {
+        (*value).into()
+    }
+}
+
 impl From<[Felt; 4]> for digest::Digest {
     fn from(value: [Felt; 4]) -> Self {
         Self {
@@ -28,6 +34,12 @@ impl From<[Felt; 4]> for digest::Digest {
     }
 }
 
+impl From<&[Felt; 4]> for digest::Digest {
+    fn from(value: &[Felt; 4]) -> Self {
+        (*value).into()
+    }
+}
+
 impl From<RpoDigest> for digest::Digest {
     fn from(value: RpoDigest) -> Self {
         Self {
@@ -36,6 +48,12 @@ impl From<RpoDigest> for digest::Digest {
             d2: value[2].as_int(),
             d3: value[3].as_int(),
         }
+    }
+}
+
+impl From<&RpoDigest> for digest::Digest {
+    fn from(value: &RpoDigest) -> Self {
+        (*value).into()
     }
 }
 

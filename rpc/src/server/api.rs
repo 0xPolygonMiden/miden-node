@@ -2,8 +2,8 @@ use crate::config::RpcConfig;
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
-    requests::{CheckNullifiersRequest, FetchBlockHeaderByNumberRequest, SyncStateRequest},
-    responses::{CheckNullifiersResponse, FetchBlockHeaderByNumberResponse, SyncStateResponse},
+    requests::{CheckNullifiersRequest, GetBlockHeaderByNumberRequest, SyncStateRequest},
+    responses::{CheckNullifiersResponse, GetBlockHeaderByNumberResponse, SyncStateResponse},
     rpc::api_server,
     store::api_client,
 };
@@ -42,11 +42,11 @@ impl api_server::Api for RpcApi {
         self.store.clone().check_nullifiers(request).await
     }
 
-    async fn fetch_block_header_by_number(
+    async fn get_block_header_by_number(
         &self,
-        request: Request<FetchBlockHeaderByNumberRequest>,
-    ) -> Result<Response<FetchBlockHeaderByNumberResponse>, Status> {
-        self.store.clone().fetch_block_header_by_number(request).await
+        request: Request<GetBlockHeaderByNumberRequest>,
+    ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
+        self.store.clone().get_block_header_by_number(request).await
     }
 
     async fn sync_state(

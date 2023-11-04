@@ -8,7 +8,7 @@ pub struct CheckNullifiersRequest {
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FetchBlockHeaderByNumberRequest {
+pub struct GetBlockHeaderByNumberRequest {
     /// The block number of the target block.
     ///
     /// If not provided, means latest know block.
@@ -31,4 +31,13 @@ pub struct SyncStateRequest {
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
     #[prost(uint32, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBlockInputsRequest {
+    #[prost(message, repeated, tag = "1")]
+    pub account_ids: ::prost::alloc::vec::Vec<super::account_id::AccountId>,
+    #[prost(message, repeated, tag = "2")]
+    pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }

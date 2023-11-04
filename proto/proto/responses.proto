@@ -14,7 +14,7 @@ message CheckNullifiersResponse {
     repeated tsmt.NullifierProof proofs = 1;
 }
 
-message FetchBlockHeaderByNumberResponse {
+message GetBlockHeaderByNumberResponse {
     block_header.BlockHeader block_header = 1;
 }
 
@@ -59,4 +59,29 @@ message SyncStateResponse {
 
     // a list of nullifiers created between `block_ref` and `block_header.block_num`
     repeated NullifierUpdate nullifiers = 7;
+}
+
+message AccountInputRecord {
+    account_id.AccountId account_id = 1;
+    digest.Digest account_hash = 2;
+    merkle.MerklePath proof = 3;
+}
+
+message NullifierInputRecord {
+    digest.Digest nullifier = 1;
+    merkle.MerklePath proof = 3;
+}
+
+message GetBlockInputsResponse {
+    // The latest block header
+    block_header.BlockHeader block_header = 1;
+
+    // Peaks of the above block's mmr, The `forest` value is equal to the block number.
+    repeated digest.Digest mmr_peaks = 2;
+
+    // The hashes of the requested accouts and their authentication paths
+    repeated AccountInputRecord account_states = 3;
+
+    // The requested nullifiers and their authentication paths
+    repeated NullifierInputRecord nullifiers = 4;
 }
