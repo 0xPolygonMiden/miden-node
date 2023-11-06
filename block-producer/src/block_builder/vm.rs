@@ -1,13 +1,15 @@
+use miden_air::ExecutionOptions;
 use miden_objects::{
+    accounts::AccountId,
     assembly::Assembler,
     crypto::merkle::{MerklePath, MerkleStore, PartialMerkleTree},
     Digest, Felt, FieldElement,
 };
 use miden_stdlib::StdLibrary;
-use miden_vm::{AdviceInputs, DefaultHost, MemAdviceProvider};
+use miden_vm::{execute, AdviceInputs, DefaultHost, MemAdviceProvider, StackInputs};
 
-/// Stack inputs: 
-/// [num_accounts_updated, 
+/// Stack inputs:
+/// [num_accounts_updated,
 ///  ACCOUNT_ROOT,
 ///  NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
 const ACCOUNT_UPDATE_ROOT_MASM: &'static str = "
@@ -34,6 +36,9 @@ begin
         movup.4 sub.1 dup neq.0
         # => [0 or 1, counter-1, ROOT_{i+1}, ...]
     end
+
+    drop
+    # => [ROOT_{n-1}]
 end
 ";
 
@@ -42,6 +47,7 @@ end
 pub fn compute_new_account_root(
     current_account_states: impl Iterator<Item = (AccountId, Digest, MerklePath)>,
     account_updates: impl Iterator<Item = (AccountId, Digest)>,
+    initial_account_root: Digest,
 ) -> Digest {
     let account_program = {
         let assembler = Assembler::default()
@@ -57,9 +63,9 @@ pub fn compute_new_account_root(
         let advice_inputs = {
             let merkle_store =
                 MerkleStore::default()
-                    .add_merkle_paths(current_account_states.map(|(account_id, node_hash, path)| {
-                        (u64::from(account_id), node_hash, path)
-                    }))
+                    .add_merkle_paths(current_account_states.map(
+                        |(account_id, node_hash, path)| (u64::from(account_id), node_hash, path),
+                    ))
                     .expect("Account SMT has depth 64; all keys are valid");
 
             AdviceInputs::default().with_merkle_store(merkle_store)
@@ -70,7 +76,44 @@ pub fn compute_new_account_root(
         DefaultHost::new(advice_provider)
     };
 
-    // TODO: Stack inputs
+    let stack_inputs = {
+        // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
+        // from the bottom to the top
+        let mut stack_inputs = Vec::new();
 
-    todo!()
+        // append all insert key/values
+        let mut num_accounts_updated: u32 = 0;
+        for (idx, (account_id, new_account_hash)) in account_updates.enumerate() {
+            stack_inputs.push(account_id.into());
+            stack_inputs.append(new_account_hash.as_elements());
+
+            num_accounts_updated = idx + 1;
+        }
+
+        // append initial account root
+        stack_inputs.append(initial_account_root.as_elements());
+
+        // append number of accounts updated
+        stack_inputs.push(num_accounts_updated.into());
+
+        StackInputs::new(stack_inputs)
+    };
+
+    let execution_output =
+        execute(&account_program, stack_inputs, host, ExecutionOptions::default())
+            .expect("execution error in account update program");
+
+    let new_account_root = {
+        let stack_output = execution_output.stack_outputs().stack_truncated(4);
+
+        stack_output
+            .into_iter()
+            .map(|num| Felt::try_from(num).expect("account update program returned invalid Felt"))
+            // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
+            .rev()
+            .try_into()
+            .expect("account update program didn't return a proper RpoDigest")
+    };
+
+    new_account_root
 }
