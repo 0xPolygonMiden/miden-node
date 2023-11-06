@@ -77,10 +77,11 @@ pub struct SyncStateResponse {
     #[prost(message, repeated, tag = "7")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
+/// An account returned as a response to the GetBlockInputs
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AccountInputRecord {
+pub struct AccountBlockInputRecord {
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account_id::AccountId>,
     #[prost(message, optional, tag = "2")]
@@ -88,10 +89,11 @@ pub struct AccountInputRecord {
     #[prost(message, optional, tag = "3")]
     pub proof: ::core::option::Option<super::merkle::MerklePath>,
 }
+/// A nullifier returned as a response to the GetBlockInputs
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct NullifierInputRecord {
+pub struct NullifierBlockInputRecord {
     #[prost(message, optional, tag = "1")]
     pub nullifier: ::core::option::Option<super::digest::Digest>,
     #[prost(message, optional, tag = "3")]
@@ -109,8 +111,39 @@ pub struct GetBlockInputsResponse {
     pub mmr_peaks: ::prost::alloc::vec::Vec<super::digest::Digest>,
     /// The hashes of the requested accouts and their authentication paths
     #[prost(message, repeated, tag = "3")]
-    pub account_states: ::prost::alloc::vec::Vec<AccountInputRecord>,
+    pub account_states: ::prost::alloc::vec::Vec<AccountBlockInputRecord>,
     /// The requested nullifiers and their authentication paths
     #[prost(message, repeated, tag = "4")]
-    pub nullifiers: ::prost::alloc::vec::Vec<NullifierInputRecord>,
+    pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
+}
+/// An account returned as a response to the GetTransactionInputs
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountTransactionInputRecord {
+    #[prost(message, optional, tag = "1")]
+    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    /// The latest account hash, zero hash if the account doesn't exist.
+    #[prost(message, optional, tag = "2")]
+    pub account_hash: ::core::option::Option<super::digest::Digest>,
+}
+/// A nullifier returned as a response to the GetTransactionInputs
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NullifierTransactionInputRecord {
+    #[prost(message, optional, tag = "1")]
+    pub nullifier: ::core::option::Option<super::digest::Digest>,
+    /// The block at which the nullifier has been consumed, zero if not consumed.
+    #[prost(uint32, tag = "3")]
+    pub block_num: u32,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetTransactionInputsResponse {
+    #[prost(message, repeated, tag = "3")]
+    pub account_states: ::prost::alloc::vec::Vec<AccountTransactionInputRecord>,
+    #[prost(message, repeated, tag = "4")]
+    pub nullifiers: ::prost::alloc::vec::Vec<NullifierTransactionInputRecord>,
 }

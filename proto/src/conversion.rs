@@ -79,7 +79,7 @@ impl TryFrom<tsmt::NullifierProof> for TieredSmtProof {
             .into_iter()
             .map(|leaf| {
                 let key = leaf.key.ok_or(error::ParseError::MissingLeafKey)?.try_into()?;
-                let value = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(leaf.value)];
+                let value = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::from(leaf.block_num)];
                 let result = (key, value);
 
                 Ok(result)
