@@ -12,7 +12,7 @@ use crate::{
     SharedTxBatch,
 };
 
-mod vm;
+mod account;
 
 #[derive(Debug, PartialEq)]
 pub enum BuildBlockError {
