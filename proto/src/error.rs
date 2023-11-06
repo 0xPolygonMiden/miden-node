@@ -6,6 +6,7 @@ pub enum ParseError {
     MissingLeafKey,
     NotAValidFelt,
     InvalidProof,
+    ProtobufMissingData,
 }
 
 impl std::error::Error for ParseError {}
@@ -32,6 +33,7 @@ impl std::fmt::Display for ParseError {
             ParseError::InvalidProof => {
                 write!(f, "Received TSMT proof is invalid")
             },
+            ParseError::ProtobufMissingData => write!(f, "Protobuf message missing data"),
         }
     }
 }

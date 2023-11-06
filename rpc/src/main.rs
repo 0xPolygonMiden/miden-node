@@ -3,10 +3,7 @@ pub mod config;
 pub mod server;
 use hex::ToHex;
 use miden_crypto::merkle::{path_to_text, TieredSmtProof};
-use miden_node_proto::{
-    rpc::{api_client, CheckNullifiersRequest},
-    tsmt::NullifierProof,
-};
+use miden_node_proto::{requests::CheckNullifiersRequest, rpc::api_client, tsmt::NullifierProof};
 use miden_node_utils::Config;
 
 use anyhow::Result;

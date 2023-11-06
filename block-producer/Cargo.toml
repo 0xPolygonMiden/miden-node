@@ -7,12 +7,12 @@ license = "MIT"
 repository = "https://github.com/0xPolygonMiden/miden-node"
 keywords = ["miden", "node", "program", "store"]
 edition = "2021"
-rust-version = "1.67"
+rust-version = "1.73"
 
 [dev-dependencies]
 miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", default-features = false }
-winterfell = "0.6"
+winterfell = "0.7"
 
 [dependencies]
 async-trait = "0.1"

@@ -5,24 +5,59 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
     Migrations::new(vec![M::up(
         "
         CREATE TABLE
-            block_header
+            block_headers
         (
             block_num INTEGER NOT NULL,
             block_header BLOB NOT NULL,
 
             PRIMARY KEY (block_num),
-            CONSTRAINT block_header_block_num_positive CHECK (block_num >= 0)
+            CONSTRAINT block_header_block_num_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296)
+        ) STRICT, WITHOUT ROWID;
+
+        CREATE TABLE
+            notes
+        (
+            block_num INTEGER NOT NULL,
+            note_index INTEGER NOT NULL,
+            note_hash BLOB NOT NULL,
+            sender INTEGER NOT NULL,
+            tag INTEGER NOT NULL,
+            num_assets INTEGER NOT NULL,
+            merkle_path BLOB NOT NULL,
+
+            PRIMARY KEY (block_num, note_index),
+            CONSTRAINT notes_block_number_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296),
+            CONSTRAINT notes_note_index_is_u32 CHECK (note_index >= 0 AND note_index < 4294967296),
+            CONSTRAINT notes_sender_is_felt CHECK (sender >= 0 AND sender <= 18446744069414584321),
+            CONSTRAINT notes_tag_is_felt CHECK (tag >= 0 AND tag <= 18446744069414584321),
+            CONSTRAINT notes_num_assets_is_u8 CHECK (tag >= 0 AND tag < 256),
+            FOREIGN KEY (block_num) REFERENCES block_header (block_num)
+        ) STRICT, WITHOUT ROWID;
+
+        CREATE TABLE
+            accounts
+        (
+            account_id INTEGER NOT NULL,
+            account_hash BLOB NOT NULL,
+            block_num INTEGER NOT NULL,
+
+            PRIMARY KEY (account_id),
+            CONSTRAINT accounts_block_account_id_is_felt CHECK (account_id >= 0 AND account_id < 18446744069414584321),
+            CONSTRAINT accounts_block_num_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296),
+            FOREIGN KEY (block_num) REFERENCES block_header (block_num)
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE
             nullifiers
         (
             nullifier BLOB NOT NULL,
+            nullifier_prefix INTEGER NOT NULL,
             block_number INTEGER NOT NULL,
 
             PRIMARY KEY (nullifier),
-            CONSTRAINT nullifiers_nullifier_valid_digest CHECK (length(nullifier) = 32),
-            CONSTRAINT nullifiers_block_number_positive CHECK (block_number >= 0),
+            CONSTRAINT nullifiers_nullifier_is_digest CHECK (length(nullifier) = 32),
+            CONSTRAINT nullifiers_nullifier_prefix_is_u16 CHECK (nullifier_prefix >= 0 AND nullifier_prefix < 65536),
+            CONSTRAINT nullifiers_block_number_is_u32 CHECK (block_number >= 0 AND block_number < 4294967296),
             FOREIGN KEY (block_number) REFERENCES block_header (block_num)
         ) STRICT, WITHOUT ROWID;
         ",
