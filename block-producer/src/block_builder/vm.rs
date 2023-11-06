@@ -1,38 +1,41 @@
 use miden_objects::{
     assembly::Assembler,
-    crypto::merkle::{MerkleStore, PartialMerkleTree},
+    crypto::merkle::{MerklePath, MerkleStore, PartialMerkleTree},
     Digest, Felt, FieldElement,
 };
 use miden_stdlib::StdLibrary;
 use miden_vm::{AdviceInputs, DefaultHost, MemAdviceProvider};
 
-const NULLIFIER_PROGRAM_SOURCE: &'static str = "
+const ACCOUNT_PROGRAM_SOURCE: &'static str = "
     begin
 
     end
 ";
 
-/// This method assumes that all the notes associated with the nullifier have *not* been consumed.
-pub fn compute_new_nullifier_root(
-    pmt: &PartialMerkleTree,
-    nullifiers: impl Iterator<Item = [u8; 32]>,
+/// Takes an iterator of (account id, node hash, Merkle path)
+pub fn compute_new_account_root(
+    accounts: impl Iterator<(AccountId, Digest, MerklePath)>
 ) -> Digest {
-    let nullifier_program = {
+    let account_program = {
         let assembler = Assembler::default()
             .with_library(&StdLibrary::default())
             .expect("failed to load std-lib");
 
         assembler
-            .compile(NULLIFIER_PROGRAM_SOURCE)
+            .compile(ACCOUNT_PROGRAM_SOURCE)
             .expect("failed to load account update program")
     };
 
     let host = {
         let advice_inputs = {
-            let merkle_store: MerkleStore = pmt.into();
-            let map = nullifiers.map(|nullifier| (nullifier, vec![Felt::ZERO; 4]));
+            let merkle_store =
+                MerkleStore::default()
+                    .add_merkle_paths(accounts.map(|(account_id, node_hash, path)| {
+                        (u64::from(account_id), node_hash, path)
+                    }))
+                    .expect("Account SMT has depth 64; all keys are valid");
 
-            AdviceInputs::default().with_merkle_store(merkle_store).with_map(map)
+            AdviceInputs::default().with_merkle_store(merkle_store)
         };
 
         let advice_provider = MemAdviceProvider::from(advice_inputs);
