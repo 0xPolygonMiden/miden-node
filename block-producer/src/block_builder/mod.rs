@@ -16,6 +16,9 @@ use self::account::AccountRootProgram;
 
 mod account;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, PartialEq)]
 pub enum BuildBlockError {
     Dummy,
