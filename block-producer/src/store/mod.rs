@@ -1,11 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
-use miden_objects::{
-    accounts::AccountId,
-    crypto::merkle::MmrPeaks,
-    BlockHeader, Digest,
-};
+use miden_objects::{accounts::AccountId, crypto::merkle::MmrPeaks, BlockHeader, Digest};
 use miden_vm::crypto::MerklePath;
 
 use crate::{block::Block, SharedProvenTx};
