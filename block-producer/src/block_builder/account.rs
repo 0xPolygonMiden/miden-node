@@ -42,6 +42,7 @@ begin
 end
 ";
 
+// TODO: COMPILE ONLY ONCE
 /// `current_account_states`: iterator of (account id, node hash, Merkle path)
 /// `account_updates`: iterator of (account id, new account hash)
 pub fn compute_new_account_root(
