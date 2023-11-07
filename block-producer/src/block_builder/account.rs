@@ -6,7 +6,7 @@ use miden_objects::{
     Digest, Felt,
 };
 use miden_stdlib::StdLibrary;
-use miden_vm::{execute, AdviceInputs, DefaultHost, MemAdviceProvider, StackInputs};
+use miden_vm::{execute, AdviceInputs, DefaultHost, MemAdviceProvider, Program, StackInputs};
 
 /// Stack inputs:
 /// [num_accounts_updated,
@@ -42,27 +42,38 @@ begin
 end
 ";
 
-// TODO: COMPILE ONLY ONCE
-/// `current_account_states`: iterator of (account id, node hash, Merkle path)
-/// `account_updates`: iterator of (account id, new account hash)
-pub fn compute_new_account_root(
-    current_account_states: impl Iterator<Item = (AccountId, Digest, MerklePath)>,
-    account_updates: impl Iterator<Item = (AccountId, Digest)>,
-    initial_account_root: Digest,
-) -> Digest {
-    let account_program = {
-        let assembler = Assembler::default()
-            .with_library(&StdLibrary::default())
-            .expect("failed to load std-lib");
+#[derive(Debug)]
+pub struct AccountRootProgram {
+    program: Program,
+}
 
-        assembler
-            .compile(ACCOUNT_UPDATE_ROOT_MASM)
-            .expect("failed to load account update program")
-    };
+impl AccountRootProgram {
+    pub fn new() -> Self {
+        let account_program = {
+            let assembler = Assembler::default()
+                .with_library(&StdLibrary::default())
+                .expect("failed to load std-lib");
 
-    let host = {
-        let advice_inputs =
-            {
+            assembler
+                .compile(ACCOUNT_UPDATE_ROOT_MASM)
+                .expect("failed to load account update program")
+        };
+
+        Self {
+            program: account_program,
+        }
+    }
+
+    /// `current_account_states`: iterator of (account id, node hash, Merkle path)
+    /// `account_updates`: iterator of (account id, new account hash)
+    pub fn compute_new_account_root(
+        &self,
+        current_account_states: impl Iterator<Item = (AccountId, Digest, MerklePath)>,
+        account_updates: impl Iterator<Item = (AccountId, Digest)>,
+        initial_account_root: Digest,
+    ) -> Digest {
+        let host = {
+            let advice_inputs = {
                 let mut merkle_store = MerkleStore::default();
                 merkle_store
                     .add_merkle_paths(current_account_states.map(
@@ -73,45 +84,45 @@ pub fn compute_new_account_root(
                 AdviceInputs::default().with_merkle_store(merkle_store)
             };
 
-        let advice_provider = MemAdviceProvider::from(advice_inputs);
+            let advice_provider = MemAdviceProvider::from(advice_inputs);
 
-        DefaultHost::new(advice_provider)
-    };
+            DefaultHost::new(advice_provider)
+        };
 
-    let stack_inputs = {
-        // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
-        // from the bottom to the top
-        let mut stack_inputs = Vec::new();
+        let stack_inputs = {
+            // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
+            // from the bottom to the top
+            let mut stack_inputs = Vec::new();
 
-        // append all insert key/values
-        let mut num_accounts_updated: u64 = 0;
-        for (idx, (account_id, new_account_hash)) in account_updates.enumerate() {
-            let new_account_hash: [Felt; 4] = new_account_hash.into();
-            stack_inputs.push(account_id.into());
-            stack_inputs.extend(new_account_hash);
+            // append all insert key/values
+            let mut num_accounts_updated: u64 = 0;
+            for (idx, (account_id, new_account_hash)) in account_updates.enumerate() {
+                let new_account_hash: [Felt; 4] = new_account_hash.into();
+                stack_inputs.push(account_id.into());
+                stack_inputs.extend(new_account_hash);
 
-            let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
-            num_accounts_updated = idx + 1;
-        }
+                let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
+                num_accounts_updated = idx + 1;
+            }
 
-        // append initial account root
-        let initial_account_root: [Felt; 4] = initial_account_root.into();
-        stack_inputs.extend(initial_account_root);
+            // append initial account root
+            let initial_account_root: [Felt; 4] = initial_account_root.into();
+            stack_inputs.extend(initial_account_root);
 
-        // append number of accounts updated
-        stack_inputs.push(num_accounts_updated.into());
+            // append number of accounts updated
+            stack_inputs.push(num_accounts_updated.into());
 
-        StackInputs::new(stack_inputs)
-    };
+            StackInputs::new(stack_inputs)
+        };
 
-    let execution_output =
-        execute(&account_program, stack_inputs, host, ExecutionOptions::default())
-            .expect("execution error in account update program");
+        let execution_output =
+            execute(&self.program, stack_inputs, host, ExecutionOptions::default())
+                .expect("execution error in account update program");
 
-    let new_account_root = {
-        let stack_output = execution_output.stack_outputs().stack_truncated(4);
+        let new_account_root = {
+            let stack_output = execution_output.stack_outputs().stack_truncated(4);
 
-        let digest_elements: [Felt; 4] = stack_output
+            let digest_elements: [Felt; 4] = stack_output
             .iter()
             .map(|num| Felt::try_from(*num).expect("account update program returned invalid Felt"))
             // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
@@ -120,8 +131,9 @@ pub fn compute_new_account_root(
             .try_into()
             .expect("account update program didn't return a proper RpoDigest");
 
-        digest_elements.into()
-    };
+            digest_elements.into()
+        };
 
-    new_account_root
+        new_account_root
+    }
 }

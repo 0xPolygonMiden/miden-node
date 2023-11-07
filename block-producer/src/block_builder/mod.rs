@@ -12,7 +12,7 @@ use crate::{
     SharedTxBatch,
 };
 
-use self::account::compute_new_account_root;
+use self::account::AccountRootProgram;
 
 mod account;
 
@@ -37,6 +37,7 @@ pub trait BlockBuilder: Send + Sync + 'static {
 #[derive(Debug)]
 pub struct DefaultBlockBuilder<S> {
     store: Arc<S>,
+    account_root_program: AccountRootProgram,
 }
 
 impl<S> DefaultBlockBuilder<S>
@@ -44,7 +45,10 @@ where
     S: Store,
 {
     pub fn new(store: Arc<S>) -> Self {
-        Self { store }
+        Self {
+            store,
+            account_root_program: AccountRootProgram::new(),
+        }
     }
 }
 
@@ -81,7 +85,7 @@ where
         let new_block_header = {
             let prev_hash = prev_block_header.prev_hash();
             let chain_root = Digest::default();
-            let account_root = compute_new_account_root(
+            let account_root = self.account_root_program.compute_new_account_root(
                 account_states_in_store
                     .into_iter()
                     .map(|record| (record.account_id, record.account_hash, record.proof)),
