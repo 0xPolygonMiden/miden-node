@@ -6,7 +6,16 @@ use miden_objects::{
     Digest, Felt,
 };
 use miden_stdlib::StdLibrary;
-use miden_vm::{execute, AdviceInputs, DefaultHost, MemAdviceProvider, Program, StackInputs};
+use miden_vm::{
+    execute, AdviceInputs, DefaultHost, ExecutionError, MemAdviceProvider, Program, StackInputs,
+};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum AccountRootUpdateError {
+    #[error("account root update program execution failed")]
+    ProgramExecutionError(ExecutionError),
+}
 
 /// Stack inputs:
 /// [num_accounts_updated,
@@ -71,7 +80,7 @@ impl AccountRootProgram {
         current_account_states: impl Iterator<Item = (AccountId, Digest, MerklePath)>,
         account_updates: impl Iterator<Item = (AccountId, Digest)>,
         initial_account_root: Digest,
-    ) -> Digest {
+    ) -> Result<Digest, AccountRootUpdateError> {
         let host = {
             let advice_inputs = {
                 let mut merkle_store = MerkleStore::default();
@@ -115,7 +124,7 @@ impl AccountRootProgram {
 
         let execution_output =
             execute(&self.program, stack_inputs, host, ExecutionOptions::default())
-                .expect("execution error in account update program");
+                .map_err(AccountRootUpdateError::ProgramExecutionError)?;
 
         let new_account_root = {
             let stack_output = execution_output.stack_outputs().stack_truncated(4);
@@ -132,6 +141,6 @@ impl AccountRootProgram {
             digest_elements.into()
         };
 
-        new_account_root
+        Ok(new_account_root)
     }
 }

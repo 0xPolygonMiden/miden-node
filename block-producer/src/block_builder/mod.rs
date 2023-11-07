@@ -5,6 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, BlockHeader, Digest, Felt};
+use thiserror::Error;
 
 use crate::{
     block::Block,
@@ -12,16 +13,24 @@ use crate::{
     SharedTxBatch,
 };
 
-use self::account::AccountRootProgram;
-
 mod account;
+use self::account::{AccountRootProgram, AccountRootUpdateError};
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error)]
 pub enum BuildBlockError {
+    #[error("failed to update account root")]
+    AccountRootUpdateFailed(AccountRootUpdateError),
+    #[error("dummy")]
     Dummy,
+}
+
+impl From<AccountRootUpdateError> for BuildBlockError {
+    fn from(err: AccountRootUpdateError) -> Self {
+        Self::AccountRootUpdateFailed(err)
+    }
 }
 
 #[async_trait]
@@ -94,7 +103,7 @@ where
                     .map(|record| (record.account_id, record.account_hash, record.proof)),
                 updated_accounts.iter().cloned(),
                 prev_block_header.account_root(),
-            );
+            )?;
             let nullifier_root = Digest::default();
             let note_root = Digest::default();
             let batch_root = Digest::default();

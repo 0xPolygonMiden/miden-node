@@ -20,4 +20,5 @@ miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/mi
 miden_objects = { workspace = true }
 miden_stdlib = { package = "miden-stdlib", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 miden_vm = { package = "miden-vm", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
+thiserror = { workspace = true }
 tokio = { version = "1.29", features = ["rt-multi-thread", "macros", "sync", "time"] }
