@@ -12,6 +12,8 @@ use crate::{
     SharedTxBatch,
 };
 
+use self::account::compute_new_account_root;
+
 mod account;
 
 #[derive(Debug, PartialEq)]
@@ -64,9 +66,9 @@ where
 
         let BlockInputs {
             block_header: prev_block_header,
-            chain_peaks,
+            chain_peaks: _,
             account_states: account_states_in_store,
-            nullifiers,
+            nullifiers: _,
         } = self
             .store
             .get_block_inputs(
@@ -79,7 +81,13 @@ where
         let new_block_header = {
             let prev_hash = prev_block_header.prev_hash();
             let chain_root = Digest::default();
-            let account_root = Digest::default();
+            let account_root = compute_new_account_root(
+                account_states_in_store
+                    .into_iter()
+                    .map(|record| (record.account_id, record.account_hash, record.proof)),
+                updated_accounts.iter().cloned(),
+                prev_block_header.account_root(),
+            );
             let nullifier_root = Digest::default();
             let note_root = Digest::default();
             let batch_root = Digest::default();
