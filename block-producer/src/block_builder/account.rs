@@ -97,7 +97,6 @@ impl AccountRootProgram {
             // append all insert key/values
             let mut num_accounts_updated: u64 = 0;
             for (idx, (account_id, new_account_hash)) in account_updates.enumerate() {
-                let new_account_hash: [Felt; 4] = new_account_hash.into();
                 stack_inputs.push(account_id.into());
                 stack_inputs.extend(new_account_hash);
 
@@ -106,7 +105,6 @@ impl AccountRootProgram {
             }
 
             // append initial account root
-            let initial_account_root: [Felt; 4] = initial_account_root.into();
             stack_inputs.extend(initial_account_root);
 
             // append number of accounts updated
