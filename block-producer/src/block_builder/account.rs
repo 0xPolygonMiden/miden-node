@@ -2,8 +2,8 @@ use miden_air::ExecutionOptions;
 use miden_objects::{
     accounts::AccountId,
     assembly::Assembler,
-    crypto::merkle::{MerklePath, MerkleStore, PartialMerkleTree},
-    Digest, Felt, FieldElement,
+    crypto::merkle::{MerklePath, MerkleStore},
+    Digest, Felt,
 };
 use miden_stdlib::StdLibrary;
 use miden_vm::{execute, AdviceInputs, DefaultHost, MemAdviceProvider, StackInputs};
@@ -60,16 +60,17 @@ pub fn compute_new_account_root(
     };
 
     let host = {
-        let advice_inputs = {
-            let merkle_store =
-                MerkleStore::default()
+        let advice_inputs =
+            {
+                let mut merkle_store = MerkleStore::default();
+                merkle_store
                     .add_merkle_paths(current_account_states.map(
                         |(account_id, node_hash, path)| (u64::from(account_id), node_hash, path),
                     ))
                     .expect("Account SMT has depth 64; all keys are valid");
 
-            AdviceInputs::default().with_merkle_store(merkle_store)
-        };
+                AdviceInputs::default().with_merkle_store(merkle_store)
+            };
 
         let advice_provider = MemAdviceProvider::from(advice_inputs);
 
@@ -82,16 +83,19 @@ pub fn compute_new_account_root(
         let mut stack_inputs = Vec::new();
 
         // append all insert key/values
-        let mut num_accounts_updated: u32 = 0;
+        let mut num_accounts_updated: u64 = 0;
         for (idx, (account_id, new_account_hash)) in account_updates.enumerate() {
+            let new_account_hash: [Felt; 4] = new_account_hash.into();
             stack_inputs.push(account_id.into());
-            stack_inputs.append(new_account_hash.as_elements());
+            stack_inputs.extend(new_account_hash);
 
+            let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
             num_accounts_updated = idx + 1;
         }
 
         // append initial account root
-        stack_inputs.append(initial_account_root.as_elements());
+        let initial_account_root: [Felt; 4] = initial_account_root.into();
+        stack_inputs.extend(initial_account_root);
 
         // append number of accounts updated
         stack_inputs.push(num_accounts_updated.into());
@@ -106,13 +110,16 @@ pub fn compute_new_account_root(
     let new_account_root = {
         let stack_output = execution_output.stack_outputs().stack_truncated(4);
 
-        stack_output
+        let digest_elements: [Felt; 4] = stack_output
             .into_iter()
-            .map(|num| Felt::try_from(num).expect("account update program returned invalid Felt"))
+            .map(|num| Felt::try_from(*num).expect("account update program returned invalid Felt"))
             // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
             .rev()
+            .collect::<Vec<_>>()
             .try_into()
-            .expect("account update program didn't return a proper RpoDigest")
+            .expect("account update program didn't return a proper RpoDigest");
+
+        digest_elements.into()
     };
 
     new_account_root

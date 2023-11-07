@@ -10,13 +10,13 @@ edition = "2021"
 rust-version = "1.73"
 
 [dev-dependencies]
-miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", default-features = false }
 winterfell = "0.7"
 
 [dependencies]
 async-trait = "0.1"
 itertools = "0.11"
+miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 miden_objects = { workspace = true }
 miden_stdlib = { package = "miden-stdlib", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 miden_vm = { package = "miden-vm", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
