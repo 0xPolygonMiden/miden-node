@@ -12,7 +12,7 @@ use miden_vm::{execute, AdviceInputs, DefaultHost, MemAdviceProvider, StackInput
 /// [num_accounts_updated,
 ///  ACCOUNT_ROOT,
 ///  NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
-const ACCOUNT_UPDATE_ROOT_MASM: &'static str = "
+const ACCOUNT_UPDATE_ROOT_MASM: &str = "
 use.std::collections::smt64
 
 begin
@@ -111,7 +111,7 @@ pub fn compute_new_account_root(
         let stack_output = execution_output.stack_outputs().stack_truncated(4);
 
         let digest_elements: [Felt; 4] = stack_output
-            .into_iter()
+            .iter()
             .map(|num| Felt::try_from(*num).expect("account update program returned invalid Felt"))
             // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
             .rev()
