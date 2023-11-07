@@ -7,14 +7,19 @@ use miden_objects::{
 };
 use miden_stdlib::StdLibrary;
 use miden_vm::{
-    execute, AdviceInputs, DefaultHost, ExecutionError, MemAdviceProvider, Program, StackInputs,
+    crypto::MerkleError, execute, AdviceInputs, DefaultHost, ExecutionError, MemAdviceProvider,
+    Program, StackInputs,
 };
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AccountRootUpdateError {
-    #[error("account root update program execution failed")]
-    ProgramExecutionError(ExecutionError),
+    #[error("Received invalid merkle path")]
+    InvalidMerklePaths(MerkleError),
+    #[error("program execution failed")]
+    ProgramExecutionFailed(ExecutionError),
+    #[error("invalid return value on stack (not a hash)")]
+    InvalidRootReturned,
 }
 
 /// Stack inputs:
@@ -88,7 +93,7 @@ impl AccountRootProgram {
                     .add_merkle_paths(current_account_states.map(
                         |(account_id, node_hash, path)| (u64::from(account_id), node_hash, path),
                     ))
-                    .expect("Account SMT has depth 64; all keys are valid");
+                    .map_err(AccountRootUpdateError::InvalidMerklePaths)?;
 
                 AdviceInputs::default().with_merkle_store(merkle_store)
             };
@@ -124,19 +129,21 @@ impl AccountRootProgram {
 
         let execution_output =
             execute(&self.program, stack_inputs, host, ExecutionOptions::default())
-                .map_err(AccountRootUpdateError::ProgramExecutionError)?;
+                .map_err(AccountRootUpdateError::ProgramExecutionFailed)?;
 
         let new_account_root = {
             let stack_output = execution_output.stack_outputs().stack_truncated(4);
 
-            let digest_elements: [Felt; 4] = stack_output
+            let digest_elements: Vec<Felt> = stack_output
             .iter()
-            .map(|num| Felt::try_from(*num).expect("account update program returned invalid Felt"))
+            .map(|&num| Felt::try_from(num).map_err(|_|AccountRootUpdateError::InvalidRootReturned))
             // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
             .rev()
-            .collect::<Vec<_>>()
-            .try_into()
-            .expect("account update program didn't return a proper RpoDigest");
+            .collect::<Result<_, AccountRootUpdateError>>()?;
+
+            let digest_elements: [Felt; 4] = digest_elements
+                .try_into()
+                .map_err(|_| AccountRootUpdateError::InvalidRootReturned)?;
 
             digest_elements.into()
         };
