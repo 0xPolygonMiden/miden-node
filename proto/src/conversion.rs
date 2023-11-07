@@ -1,8 +1,8 @@
 use crate::{account_id, block_header, digest, error, merkle, mmr, note, responses, tsmt};
-use miden_block_producer::store::{AccountInputRecord, NullifierInputRecord};
+use miden_block_producer::store::{AccountInputRecord, BlockInputs, NullifierInputRecord};
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    merkle::{MerklePath, MmrDelta, TieredSmtProof},
+    merkle::{MerklePath, MmrDelta, MmrPeaks, TieredSmtProof},
     Felt, FieldElement, StarkField, Word,
 };
 use miden_objects::{accounts::AccountId, BlockHeader};
@@ -270,6 +270,45 @@ impl TryFrom<responses::NullifierInputRecord> for NullifierInputRecord {
                 .proof
                 .ok_or(error::ParseError::ProtobufMissingData)?
                 .try_into()?,
+        })
+    }
+}
+
+impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
+    type Error = error::ParseError;
+
+    fn try_from(get_block_inputs: responses::GetBlockInputsResponse) -> Result<Self, Self::Error> {
+        let block_header: BlockHeader = get_block_inputs
+            .block_header
+            .ok_or(error::ParseError::ProtobufMissingData)?
+            .try_into()?;
+
+        let chain_peaks = {
+            let num_leaves: u64 = block_header.block_num().into();
+            MmrPeaks::new(
+                num_leaves.try_into().map_err(|_| error::ParseError::TooManyMmrPeaks)?,
+                get_block_inputs
+                    .mmr_peaks
+                    .into_iter()
+                    .map(|peak| peak.try_into())
+                    .collect::<Result<_, Self::Error>>()?,
+            )
+            .map_err(|x| error::ParseError::MmrPeaksError(x))?
+        };
+
+        Ok(Self {
+            block_header,
+            chain_peaks,
+            account_states: get_block_inputs
+                .account_states
+                .into_iter()
+                .map(|record| record.try_into())
+                .collect::<Result<_, error::ParseError>>()?,
+            nullifiers: get_block_inputs
+                .nullifiers
+                .into_iter()
+                .map(|record| record.try_into())
+                .collect::<Result<_, error::ParseError>>()?,
         })
     }
 }
