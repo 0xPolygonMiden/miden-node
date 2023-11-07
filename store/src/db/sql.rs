@@ -54,17 +54,18 @@ pub fn get_nullifiers(
 }
 
 /// Returns nullifiers created in the `(block_start, block_end]` range which also match the
-/// `nullifiers` filter.
+/// `nullifier_prefixes` filter.
 ///
-/// Each value of the `nullifiers` is only the 16 most significat bits of the nullifier of
+/// Each value of the `nullifier_prefixes` is only the 16 most significat bits of the nullifier of
 /// interest to the client. This hides the details of the specific nullifier being requested.
 pub fn get_nullifiers_by_block_range(
     conn: &mut Connection,
     block_start: BlockNumber,
     block_end: BlockNumber,
-    nullifiers: &[u32],
+    nullifier_prefixes: &[u32],
 ) -> Result<Vec<NullifierUpdate>, anyhow::Error> {
-    let nullifiers: Vec<Value> = nullifiers.iter().copied().map(u32_to_value).collect();
+    let nullifier_prefixes: Vec<Value> =
+        nullifier_prefixes.iter().copied().map(u32_to_value).collect();
 
     let mut stmt = conn.prepare(
         "
@@ -80,7 +81,7 @@ pub fn get_nullifiers_by_block_range(
     ",
     )?;
 
-    let mut rows = stmt.query(params![block_start, block_end, Rc::new(nullifiers)])?;
+    let mut rows = stmt.query(params![block_start, block_end, Rc::new(nullifier_prefixes)])?;
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
@@ -356,7 +357,7 @@ pub fn get_state_sync(
     block_num: BlockNumber,
     account_ids: &[AccountId],
     note_tag_prefixes: &[u32],
-    nullifiers_prefix: &[u32],
+    nullifier_prefixes: &[u32],
 ) -> Result<StateSyncUpdate, anyhow::Error> {
     let notes =
         get_notes_since_block_by_tag_and_sender(conn, note_tag_prefixes, account_ids, block_num)?;
@@ -378,7 +379,7 @@ pub fn get_state_sync(
         get_account_hash_by_block_range(conn, block_num, block_header.block_num, account_ids)?;
 
     let nullifiers =
-        get_nullifiers_by_block_range(conn, block_num, block_header.block_num, nullifiers_prefix)?;
+        get_nullifiers_by_block_range(conn, block_num, block_header.block_num, nullifier_prefixes)?;
 
     Ok(StateSyncUpdate {
         notes,

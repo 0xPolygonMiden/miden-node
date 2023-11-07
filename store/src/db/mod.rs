@@ -109,11 +109,11 @@ impl Db {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tag_prefixes: &[u32],
-        nullifiers_prefix: &[u32],
+        nullifier_prefixes: &[u32],
     ) -> Result<StateSyncUpdate, anyhow::Error> {
         let account_ids = account_ids.to_vec();
         let note_tag_prefixes = note_tag_prefixes.to_vec();
-        let nullifiers_prefix = nullifiers_prefix.to_vec();
+        let nullifier_prefixes = nullifier_prefixes.to_vec();
 
         self.pool
             .get()
@@ -124,7 +124,7 @@ impl Db {
                     block_num,
                     &account_ids,
                     &note_tag_prefixes,
-                    &nullifiers_prefix,
+                    &nullifier_prefixes,
                 )
             })
             .await

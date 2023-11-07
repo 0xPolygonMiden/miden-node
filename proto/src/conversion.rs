@@ -63,17 +63,32 @@ impl From<digest::Digest> for [u64; 4] {
     }
 }
 
+impl From<TieredSmtProof> for tsmt::NullifierProof {
+    fn from(value: TieredSmtProof) -> Self {
+        let (path, entries) = value.into_parts();
+
+        tsmt::NullifierProof {
+            merkle_path: convert(path),
+            leaves: convert(entries),
+        }
+    }
+}
+
+impl From<(RpoDigest, Word)> for tsmt::NullifierLeaf {
+    fn from(value: (RpoDigest, Word)) -> Self {
+        let (key, value) = value;
+        Self {
+            key: Some(key.into()),
+            block_num: nullifier_value_to_blocknum(value),
+        }
+    }
+}
+
 impl TryFrom<tsmt::NullifierProof> for TieredSmtProof {
     type Error = error::ParseError;
 
     fn try_from(value: tsmt::NullifierProof) -> Result<Self, Self::Error> {
-        let path = MerklePath::new(
-            value
-                .merkle_path
-                .into_iter()
-                .map(|v| v.try_into())
-                .collect::<Result<_, Self::Error>>()?,
-        );
+        let path = MerklePath::new(try_convert(value.merkle_path)?);
         let entries = value
             .leaves
             .into_iter()
@@ -215,4 +230,31 @@ impl From<u64> for account_id::AccountId {
     fn from(value: u64) -> Self {
         account_id::AccountId { id: value }
     }
+}
+
+// UTILITIES
+// ================================================================================================
+
+pub fn convert<T, From, To>(from: T) -> Vec<To>
+where
+    T: IntoIterator<Item = From>,
+    From: Into<To>,
+{
+    from.into_iter().map(|e| e.into()).collect()
+}
+
+pub fn try_convert<T, E, From, To>(from: T) -> Result<Vec<To>, E>
+where
+    T: IntoIterator<Item = From>,
+    From: TryInto<To, Error = E>,
+{
+    from.into_iter().map(|e| e.try_into()).collect()
+}
+
+/// Given the leaf value of the nullifier TSMT, returns the nullifier's block number.
+///
+/// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
+/// of a value.
+pub fn nullifier_value_to_blocknum(value: Word) -> u32 {
+    value[3].as_int().try_into().expect("invalid block number found in store")
 }
