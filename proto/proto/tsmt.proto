@@ -22,7 +22,7 @@ import "digest.proto";
 
 message NullifierLeaf {
     digest.Digest key = 1;
-    uint64 value = 2;
+    uint32 block_num = 2;
 }
 
 // A Nullifier proof is a special case of a TSMT proof, where the leaf is a u32.

@@ -12,11 +12,12 @@ use miden_node_proto::{
     mmr::MmrDelta,
     requests::{
         CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
-        SyncStateRequest,
+        GetTransactionInputsRequest, SyncStateRequest,
     },
     responses::{
-        AccountInputRecord, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
-        GetBlockInputsResponse, SyncStateResponse,
+        AccountBlockInputRecord, AccountTransactionInputRecord, CheckNullifiersResponse,
+        GetBlockHeaderByNumberResponse, GetBlockInputsResponse, GetTransactionInputsResponse,
+        NullifierTransactionInputRecord, SyncStateResponse,
     },
     store::api_server,
     tsmt::{self, NullifierLeaf},
@@ -122,18 +123,21 @@ impl api_server::Api for StoreApi {
 
                 let leaves: Vec<NullifierLeaf> = entries
                     .into_iter()
-                    .map(|(key, value)| NullifierLeaf {
-                        key: Some(key.into()),
-                        value: value[3].as_int(),
+                    .map(|(key, value)| {
+                        Ok(NullifierLeaf {
+                            key: Some(key.into()),
+                            block_num: nullifier_value_to_blocknum(value),
+                        })
                     })
-                    .collect();
+                    .collect::<Result<Vec<NullifierLeaf>>>()?;
 
-                tsmt::NullifierProof {
+                Ok(tsmt::NullifierProof {
                     merkle_path,
                     leaves,
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<tsmt::NullifierProof>>>()
+            .map_err(internal_error)?;
 
         Ok(Response::new(CheckNullifiersResponse { proofs }))
     }
@@ -214,6 +218,11 @@ impl api_server::Api for StoreApi {
         };
         let mmr_peaks = accumulator.peaks().iter().map(|d| d.into()).collect();
 
+        // FIXME: race condition
+        // 1. latest query above runs
+        // 2. a concurrent apply_block request is executed, updating the state
+        // 3. the load below happens, using state updated by 2, which doesn't match the block from 1
+
         // scope to read from the accounts
         let mut account_states = Vec::with_capacity(request.account_ids.len());
         {
@@ -221,7 +230,7 @@ impl api_server::Api for StoreApi {
             for account_id in request.account_ids {
                 let account_hash = accounts.get_leaf(account_id.id).map_err(internal_error)?;
                 let proof = accounts.get_leaf_path(account_id.id).map_err(internal_error)?;
-                account_states.push(AccountInputRecord {
+                account_states.push(AccountBlockInputRecord {
                     account_id: Some(account_id),
                     account_hash: Some(account_hash.into()),
                     proof: Some(proof.into()),
@@ -237,10 +246,64 @@ impl api_server::Api for StoreApi {
             nullifiers: vec![],
         }))
     }
+
+    async fn get_transaction_inputs(
+        &self,
+        request: tonic::Request<GetTransactionInputsRequest>,
+    ) -> Result<Response<GetTransactionInputsResponse>, Status> {
+        let request = request.into_inner();
+
+        // scope to read from the accounts
+        let mut account_states = Vec::with_capacity(request.account_ids.len());
+        {
+            let accounts = self.account_tree.read().await;
+            for account_id in request.account_ids {
+                let account_hash = accounts.get_leaf(account_id.id).map_err(internal_error)?;
+                account_states.push(AccountTransactionInputRecord {
+                    account_id: Some(account_id),
+                    account_hash: Some(account_hash.into()),
+                });
+            }
+        }
+
+        // FIXME: race condition
+        // 1. account hashes is loaded above
+        // 2. a concurrent apply_block request is executed, updating the state
+        // 3. the load below happens, using state updated by 2, which doesn't match the block from 1
+
+        // scope to read from the nullifiers
+        let mut nullifiers = Vec::with_capacity(request.nullifiers.len());
+        {
+            let nullifier_tree = self.nullifier_tree.read().await;
+            for nullifier in request.nullifiers {
+                let value = nullifier_tree
+                    .get_value(nullifier.clone().try_into().map_err(invalid_argument)?);
+                let block_num = nullifier_value_to_blocknum(value);
+
+                nullifiers.push(NullifierTransactionInputRecord {
+                    nullifier: Some(nullifier),
+                    block_num,
+                });
+            }
+        }
+
+        Ok(Response::new(GetTransactionInputsResponse {
+            account_states,
+            nullifiers,
+        }))
+    }
 }
 
 // UTILITIES
 // ================================================================================================
+
+/// Given the leaf value of the nullifier TSMT, returns the nullifier's block number.
+///
+/// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
+/// of a value.
+fn nullifier_value_to_blocknum(value: Word) -> u32 {
+    value[3].as_int().try_into().expect("invalid block number found in store")
+}
 
 #[instrument(skip(db))]
 async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
@@ -288,4 +351,8 @@ async fn load_accounts(db: &mut Db) -> Result<SimpleSmt> {
 /// Formats an error
 fn internal_error<E: core::fmt::Debug>(err: E) -> Status {
     Status::internal(format!("{:?}", err))
+}
+
+fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
+    Status::invalid_argument(format!("{:?}", err))
 }
