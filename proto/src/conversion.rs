@@ -1,5 +1,5 @@
 use crate::{account_id, block_header, digest, error, merkle, mmr, note, responses, tsmt};
-use miden_block_producer::store::AccountInputRecord;
+use miden_block_producer::store::{AccountInputRecord, NullifierInputRecord};
 use miden_crypto::{
     hash::rpo::RpoDigest,
     merkle::{MerklePath, MmrDelta, TieredSmtProof},
@@ -248,6 +248,25 @@ impl TryFrom<responses::AccountInputRecord> for AccountInputRecord {
                 .ok_or(error::ParseError::ProtobufMissingData)?
                 .try_into()?,
             proof: account_input_record
+                .proof
+                .ok_or(error::ParseError::ProtobufMissingData)?
+                .try_into()?,
+        })
+    }
+}
+
+impl TryFrom<responses::NullifierInputRecord> for NullifierInputRecord {
+    type Error = error::ParseError;
+
+    fn try_from(
+        nullifier_input_record: responses::NullifierInputRecord
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            nullifier: nullifier_input_record
+                .nullifier
+                .ok_or(error::ParseError::ProtobufMissingData)?
+                .try_into()?,
+            proof: nullifier_input_record
                 .proof
                 .ok_or(error::ParseError::ProtobufMissingData)?
                 .try_into()?,
