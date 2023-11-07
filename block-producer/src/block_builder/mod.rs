@@ -66,8 +66,7 @@ where
             block_header: prev_block_header,
             chain_peaks,
             account_states: account_states_in_store,
-            account_proofs,
-            nullifier_proofs,
+            nullifiers,
         } = self
             .store
             .get_block_inputs(

@@ -3,9 +3,10 @@ use std::{collections::BTreeMap, sync::Arc};
 use async_trait::async_trait;
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::{MmrPeaks, PartialMerkleTree},
+    crypto::merkle::MmrPeaks,
     BlockHeader, Digest,
 };
+use miden_vm::crypto::MerklePath;
 
 use crate::{block::Block, SharedProvenTx};
 
@@ -41,6 +42,17 @@ pub struct TxInputs {
     pub nullifiers: BTreeMap<Digest, bool>,
 }
 
+pub struct AccountInputRecord {
+    pub account_id: AccountId,
+    pub account_hash: Digest,
+    pub proof: MerklePath,
+}
+
+pub struct NullifierInputRecord {
+    pub nullifier: Digest,
+    pub proof: MerklePath,
+}
+
 /// Information needed from the store to build a block
 pub struct BlockInputs {
     /// Previous block header
@@ -49,14 +61,11 @@ pub struct BlockInputs {
     /// MMR peaks for the current chain state
     pub chain_peaks: MmrPeaks,
 
-    /// latest account state hashes for all requested account IDs
-    pub account_states: Vec<(AccountId, Digest)>,
+    /// The hashes of the requested accounts and their authentication paths
+    pub account_states: Vec<AccountInputRecord>,
 
-    /// a partial Merkle Tree with paths to all requested accounts in the account TSMT
-    pub account_proofs: PartialMerkleTree,
-
-    /// a partial Merkle Tree with paths to all requested nullifiers in the account TSMT
-    pub nullifier_proofs: PartialMerkleTree,
+    /// The requested nullifiers and their authentication paths
+    pub nullifiers: Vec<NullifierInputRecord>,
 }
 
 #[async_trait]

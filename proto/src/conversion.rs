@@ -1,10 +1,11 @@
 use crate::{account_id, block_header, digest, error, merkle, mmr, note, responses, tsmt};
+use miden_block_producer::store::AccountInputRecord;
 use miden_crypto::{
     hash::rpo::RpoDigest,
     merkle::{MerklePath, MmrDelta, TieredSmtProof},
     Felt, FieldElement, StarkField, Word,
 };
-use miden_objects::BlockHeader;
+use miden_objects::{accounts::AccountId, BlockHeader};
 
 impl From<[u64; 4]> for digest::Digest {
     fn from(value: [u64; 4]) -> Self {
@@ -192,6 +193,14 @@ impl From<MerklePath> for merkle::MerklePath {
     }
 }
 
+impl TryFrom<merkle::MerklePath> for MerklePath {
+    type Error = error::ParseError;
+
+    fn try_from(merkle_path: merkle::MerklePath) -> Result<Self, Self::Error> {
+        merkle_path.siblings.into_iter().map(|v| v.try_into()).collect()
+    }
+}
+
 impl From<note::Note> for responses::NoteSyncRecord {
     fn from(value: note::Note) -> Self {
         Self {
@@ -214,5 +223,34 @@ impl From<account_id::AccountId> for u64 {
 impl From<u64> for account_id::AccountId {
     fn from(value: u64) -> Self {
         account_id::AccountId { id: value }
+    }
+}
+
+impl TryFrom<account_id::AccountId> for AccountId {
+    type Error = error::ParseError;
+
+    fn try_from(account_id: account_id::AccountId) -> Result<Self, Self::Error> {
+        account_id.id.try_into().map_err(|_| error::ParseError::NotAValidFelt)
+    }
+}
+
+impl TryFrom<responses::AccountInputRecord> for AccountInputRecord {
+    type Error = error::ParseError;
+
+    fn try_from(account_input_record: responses::AccountInputRecord) -> Result<Self, Self::Error> {
+        Ok(Self {
+            account_id: account_input_record
+                .account_id
+                .ok_or(error::ParseError::ProtobufMissingData)?
+                .try_into()?,
+            account_hash: account_input_record
+                .account_hash
+                .ok_or(error::ParseError::ProtobufMissingData)?
+                .try_into()?,
+            proof: account_input_record
+                .proof
+                .ok_or(error::ParseError::ProtobufMissingData)?
+                .try_into()?,
+        })
     }
 }
