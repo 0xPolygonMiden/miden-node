@@ -61,13 +61,15 @@ message SyncStateResponse {
     repeated NullifierUpdate nullifiers = 7;
 }
 
-message AccountInputRecord {
+// An account returned as a response to the GetBlockInputs
+message AccountBlockInputRecord {
     account_id.AccountId account_id = 1;
     digest.Digest account_hash = 2;
     merkle.MerklePath proof = 3;
 }
 
-message NullifierInputRecord {
+// A nullifier returned as a response to the GetBlockInputs
+message NullifierBlockInputRecord {
     digest.Digest nullifier = 1;
     merkle.MerklePath proof = 3;
 }
@@ -80,8 +82,27 @@ message GetBlockInputsResponse {
     repeated digest.Digest mmr_peaks = 2;
 
     // The hashes of the requested accouts and their authentication paths
-    repeated AccountInputRecord account_states = 3;
+    repeated AccountBlockInputRecord account_states = 3;
 
     // The requested nullifiers and their authentication paths
-    repeated NullifierInputRecord nullifiers = 4;
+    repeated NullifierBlockInputRecord nullifiers = 4;
+}
+
+// An account returned as a response to the GetTransactionInputs
+message AccountTransactionInputRecord {
+    account_id.AccountId account_id = 1;
+    // The latest account hash, zero hash if the account doesn't exist.
+    digest.Digest account_hash = 2;
+}
+
+// A nullifier returned as a response to the GetTransactionInputs
+message NullifierTransactionInputRecord {
+    digest.Digest nullifier = 1;
+    // The block at which the nullifier has been consumed, zero if not consumed.
+    uint32 block_num = 3;
+}
+
+message GetTransactionInputsResponse {
+    repeated AccountTransactionInputRecord account_states = 3;
+    repeated NullifierTransactionInputRecord nullifiers = 4;
 }

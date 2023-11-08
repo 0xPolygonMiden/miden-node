@@ -4,8 +4,8 @@
 pub struct NullifierLeaf {
     #[prost(message, optional, tag = "1")]
     pub key: ::core::option::Option<super::digest::Digest>,
-    #[prost(uint64, tag = "2")]
-    pub value: u64,
+    #[prost(uint32, tag = "2")]
+    pub block_num: u32,
 }
 /// A Nullifier proof is a special case of a TSMT proof, where the leaf is a u32.
 ///
