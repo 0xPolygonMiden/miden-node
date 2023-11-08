@@ -1,5 +1,5 @@
+use crate::domain::{AccountInputRecord, BlockInputs, NullifierInputRecord};
 use crate::{account_id, block_header, digest, error, merkle, mmr, note, responses, tsmt};
-use miden_block_producer::store::{AccountInputRecord, BlockInputs, NullifierInputRecord};
 use miden_crypto::{
     hash::rpo::RpoDigest,
     merkle::{MerklePath, MmrDelta, MmrPeaks, TieredSmtProof},
@@ -310,7 +310,7 @@ impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
                     .map(|peak| peak.try_into())
                     .collect::<Result<_, Self::Error>>()?,
             )
-            .map_err(|x| error::ParseError::MmrPeaksError(x))?
+            .map_err(error::ParseError::MmrPeaksError)?
         };
 
         Ok(Self {

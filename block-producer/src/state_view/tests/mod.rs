@@ -2,12 +2,13 @@ use super::*;
 
 use std::collections::BTreeMap;
 
+use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
     accounts::get_account_seed, transaction::ConsumedNoteInfo, BlockHeader, Felt, Hasher,
 };
 
 use crate::{
-    store::{BlockInputs, BlockInputsError, TxInputsError},
+    store::{BlockInputsError, TxInputsError},
     test_utils::DummyProvenTxGenerator,
 };
 

@@ -4,14 +4,11 @@ use std::{
 };
 
 use async_trait::async_trait;
+use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{accounts::AccountId, BlockHeader, Digest, Felt};
 use thiserror::Error;
 
-use crate::{
-    block::Block,
-    store::{AccountInputRecord, BlockInputs, Store},
-    SharedTxBatch,
-};
+use crate::{block::Block, store::Store, SharedTxBatch};
 
 mod account;
 use self::account::{AccountRootProgram, AccountRootUpdateError};

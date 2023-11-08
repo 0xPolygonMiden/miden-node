@@ -1,8 +1,8 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
-use miden_objects::{accounts::AccountId, crypto::merkle::MmrPeaks, BlockHeader, Digest};
-use miden_vm::crypto::MerklePath;
+use miden_node_proto::domain::BlockInputs;
+use miden_objects::{accounts::AccountId, Digest};
 
 use crate::{block::Block, SharedProvenTx};
 
@@ -36,32 +36,6 @@ pub struct TxInputs {
 
     /// Maps each consumed notes' nullifier to whether the note is already consumed
     pub nullifiers: BTreeMap<Digest, bool>,
-}
-
-pub struct AccountInputRecord {
-    pub account_id: AccountId,
-    pub account_hash: Digest,
-    pub proof: MerklePath,
-}
-
-pub struct NullifierInputRecord {
-    pub nullifier: Digest,
-    pub proof: MerklePath,
-}
-
-/// Information needed from the store to build a block
-pub struct BlockInputs {
-    /// Previous block header
-    pub block_header: BlockHeader,
-
-    /// MMR peaks for the current chain state
-    pub chain_peaks: MmrPeaks,
-
-    /// The hashes of the requested accounts and their authentication paths
-    pub account_states: Vec<AccountInputRecord>,
-
-    /// The requested nullifiers and their authentication paths
-    pub nullifiers: Vec<NullifierInputRecord>,
 }
 
 #[async_trait]
