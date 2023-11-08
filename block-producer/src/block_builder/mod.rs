@@ -6,6 +6,7 @@ use std::{
 use async_trait::async_trait;
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{accounts::AccountId, BlockHeader, Digest, Felt};
+use miden_vm::{crypto::MerkleStore, AdviceInputs, StackInputs};
 use thiserror::Error;
 
 use crate::{block::Block, store::Store, SharedTxBatch};
@@ -150,5 +151,88 @@ where
         self.store.apply_block(block.clone()).await.expect("apply block failed");
 
         Ok(())
+    }
+}
+
+// HELPERS
+// =================================================================================================
+
+/// Provides inputs to the `BlockKernel` so that it can generate the new header
+struct BlockHeaderWitness {
+    account_states: Vec<AccountInputRecord>,
+    account_updates: Vec<(AccountId, Digest)>,
+
+    prev_header: BlockHeader,
+}
+
+impl BlockHeaderWitness {
+    fn new(
+        block_inputs: BlockInputs,
+        batches: Vec<SharedTxBatch>,
+        prev_header: BlockHeader,
+    ) -> Result<Self, BuildBlockError> {
+        // TODO: VALIDATE
+        // - initial account states in `BlockInputs` are the same as in batches
+        // - Block height returned for each nullifier is 0.
+
+
+        let account_updates: Vec<(AccountId, Digest)> =
+            batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+
+        Ok(Self {
+            account_states: block_inputs.account_states,
+            account_updates,
+            prev_header,
+        })
+    }
+
+    fn into_parts(self) -> Result<(AdviceInputs, StackInputs), BuildBlockError> {
+        let advice_inputs = {
+            let mut merkle_store = MerkleStore::default();
+            merkle_store
+                .add_merkle_paths(self.account_states.into_iter().map(
+                    |AccountInputRecord {
+                         account_id,
+                         account_hash,
+                         proof,
+                     }| (u64::from(account_id), account_hash, proof),
+                ))
+                .map_err(AccountRootUpdateError::InvalidMerklePaths)?;
+
+            AdviceInputs::default().with_merkle_store(merkle_store)
+        };
+
+        let stack_inputs = {
+            // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
+            // from the bottom to the top
+            let mut stack_inputs = Vec::new();
+
+            // append all insert key/values
+            let mut num_accounts_updated: u64 = 0;
+            for (idx, (account_id, new_account_hash)) in
+                self.account_updates.into_iter().enumerate()
+            {
+                stack_inputs.push(account_id.into());
+                stack_inputs.extend(new_account_hash);
+
+                let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
+                num_accounts_updated = idx + 1;
+            }
+
+            // append initial account root
+            stack_inputs.extend(self.prev_header.account_root());
+
+            // append number of accounts updated
+            stack_inputs.push(num_accounts_updated.into());
+
+            StackInputs::new(stack_inputs)
+        };
+
+        Ok((advice_inputs, stack_inputs))
+    }
+
+    /// Note: this method will no longer be necessary when we will have a full block kernel.
+    fn get_previous_header(&self) -> &BlockHeader {
+        &self.prev_header
     }
 }
