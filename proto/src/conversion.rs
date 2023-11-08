@@ -252,7 +252,9 @@ impl TryFrom<account_id::AccountId> for AccountId {
 impl TryFrom<responses::AccountBlockInputRecord> for AccountInputRecord {
     type Error = error::ParseError;
 
-    fn try_from(account_input_record: responses::AccountBlockInputRecord) -> Result<Self, Self::Error> {
+    fn try_from(
+        account_input_record: responses::AccountBlockInputRecord
+    ) -> Result<Self, Self::Error> {
         Ok(Self {
             account_id: account_input_record
                 .account_id
@@ -314,16 +316,8 @@ impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
         Ok(Self {
             block_header,
             chain_peaks,
-            account_states: get_block_inputs
-                .account_states
-                .into_iter()
-                .map(|record| record.try_into())
-                .collect::<Result<_, error::ParseError>>()?,
-            nullifiers: get_block_inputs
-                .nullifiers
-                .into_iter()
-                .map(|record| record.try_into())
-                .collect::<Result<_, error::ParseError>>()?,
+            account_states: try_convert(get_block_inputs.account_states)?,
+            nullifiers: try_convert(get_block_inputs.nullifiers)?,
         })
     }
 }
