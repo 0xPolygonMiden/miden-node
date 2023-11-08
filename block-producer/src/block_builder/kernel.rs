@@ -1,9 +1,10 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use miden_air::ExecutionOptions;
+use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{
-    accounts::AccountId,
-    assembly::Assembler,
-    crypto::merkle::{MerklePath, MerkleStore},
-    Digest, Felt,
+    accounts::AccountId, assembly::Assembler, crypto::merkle::MerkleStore, BlockHeader, Digest,
+    Felt,
 };
 use miden_stdlib::StdLibrary;
 use miden_vm::{
@@ -12,8 +13,12 @@ use miden_vm::{
 };
 use thiserror::Error;
 
+use crate::SharedTxBatch;
+
+use super::BuildBlockError;
+
 #[derive(Error, Debug)]
-pub enum AccountRootUpdateError {
+pub enum BlockKernelError {
     #[error("Received invalid merkle path")]
     InvalidMerklePaths(MerkleError),
     #[error("program execution failed")]
@@ -22,11 +27,12 @@ pub enum AccountRootUpdateError {
     InvalidRootReturned,
 }
 
-/// Stack inputs:
-/// [num_accounts_updated,
-///  OLD_ACCOUNT_ROOT,
-///  NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
-const ACCOUNT_UPDATE_ROOT_MASM: &str = "
+/// Note: For now, the "block kernel" only computes the account root. Eventually, it will compute
+/// the entire block header.
+///
+/// Stack inputs: [num_accounts_updated, OLD_ACCOUNT_ROOT, NEW_ACCOUNT_HASH_0, account_id_0, ... ,
+/// NEW_ACCOUNT_HASH_n, account_id_n]
+const BLOCK_KERNEL_MASM: &str = "
 use.std::collections::smt64
 
 begin
@@ -57,7 +63,7 @@ end
 ";
 
 #[derive(Debug)]
-pub struct BlockKernel {
+pub(super) struct BlockKernel {
     program: Program,
 }
 
@@ -69,7 +75,7 @@ impl BlockKernel {
                 .expect("failed to load std-lib");
 
             assembler
-                .compile(ACCOUNT_UPDATE_ROOT_MASM)
+                .compile(BLOCK_KERNEL_MASM)
                 .expect("failed to load account update program")
         };
 
@@ -78,29 +84,120 @@ impl BlockKernel {
         }
     }
 
+    // Note: this will eventually all be done in the VM
+    pub fn compute_block_header(
+        &self,
+        witness: BlockHeaderWitness,
+    ) -> Result<BlockHeader, BuildBlockError> {
+        let prev_hash = witness.prev_header.prev_hash();
+        let block_num = witness.prev_header.block_num();
+        let version = witness.prev_header.version();
+
+        let chain_root = Digest::default();
+        let account_root = self.compute_new_account_root(witness)?;
+        let nullifier_root = Digest::default();
+        let note_root = Digest::default();
+        let batch_root = Digest::default();
+        let proof_hash = Digest::default();
+        let timestamp: Felt = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("today is expected to be before 1970")
+            .as_millis()
+            .into();
+
+        Ok(BlockHeader::new(
+            prev_hash,
+            block_num,
+            chain_root,
+            account_root,
+            nullifier_root,
+            note_root,
+            batch_root,
+            proof_hash,
+            version,
+            timestamp,
+        ))
+    }
+
     /// `current_account_states`: iterator of (account id, node hash, Merkle path)
     /// `account_updates`: iterator of (account id, new account hash)
-    pub fn compute_new_account_root(
+    fn compute_new_account_root(
         &self,
-        current_account_states: impl Iterator<Item = (AccountId, Digest, MerklePath)>,
-        account_updates: impl Iterator<Item = (AccountId, Digest)>,
-        initial_account_root: Digest,
-    ) -> Result<Digest, AccountRootUpdateError> {
+        witness: BlockHeaderWitness,
+    ) -> Result<Digest, BlockKernelError> {
+        let (advice_inputs, stack_inputs) = witness.into_parts()?;
         let host = {
-            let advice_inputs = {
-                let mut merkle_store = MerkleStore::default();
-                merkle_store
-                    .add_merkle_paths(current_account_states.map(
-                        |(account_id, node_hash, path)| (u64::from(account_id), node_hash, path),
-                    ))
-                    .map_err(AccountRootUpdateError::InvalidMerklePaths)?;
-
-                AdviceInputs::default().with_merkle_store(merkle_store)
-            };
-
             let advice_provider = MemAdviceProvider::from(advice_inputs);
 
             DefaultHost::new(advice_provider)
+        };
+
+        let execution_output =
+            execute(&self.program, stack_inputs, host, ExecutionOptions::default())
+                .map_err(BlockKernelError::ProgramExecutionFailed)?;
+
+        let new_account_root = {
+            let stack_output = execution_output.stack_outputs().stack_truncated(4);
+
+            let digest_elements: Vec<Felt> = stack_output
+            .iter()
+            .map(|&num| Felt::try_from(num).map_err(|_|BlockKernelError::InvalidRootReturned))
+            // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
+            .rev()
+            .collect::<Result<_, BlockKernelError>>()?;
+
+            let digest_elements: [Felt; 4] =
+                digest_elements.try_into().map_err(|_| BlockKernelError::InvalidRootReturned)?;
+
+            digest_elements.into()
+        };
+
+        Ok(new_account_root)
+    }
+}
+
+/// Provides inputs to the `BlockKernel` so that it can generate the new header
+pub(super) struct BlockHeaderWitness {
+    account_states: Vec<AccountInputRecord>,
+    account_updates: Vec<(AccountId, Digest)>,
+
+    /// Note: this field will no longer be necessary when we have a full block kernel.
+    prev_header: BlockHeader,
+}
+
+impl BlockHeaderWitness {
+    pub(super) fn new(
+        block_inputs: BlockInputs,
+        batches: Vec<SharedTxBatch>,
+    ) -> Result<Self, BuildBlockError> {
+        // TODO: VALIDATE
+        // - initial account states in `BlockInputs` are the same as in batches
+        // - Block height returned for each nullifier is 0.
+
+        let account_updates: Vec<(AccountId, Digest)> =
+            batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+
+        Ok(Self {
+            account_states: block_inputs.account_states,
+            account_updates,
+            prev_header: block_inputs.block_header,
+        })
+    }
+
+    fn into_parts(self) -> Result<(AdviceInputs, StackInputs), BlockKernelError> {
+        let advice_inputs = {
+            let mut merkle_store = MerkleStore::default();
+            merkle_store
+                .add_merkle_paths(self.account_states.into_iter().map(
+                    |AccountInputRecord {
+                         account_id,
+                         account_hash,
+                         proof,
+                     }| (u64::from(account_id), account_hash, proof),
+                ))
+                .map_err(BlockKernelError::InvalidMerklePaths)?;
+
+            AdviceInputs::default().with_merkle_store(merkle_store)
         };
 
         let stack_inputs = {
@@ -110,7 +207,9 @@ impl BlockKernel {
 
             // append all insert key/values
             let mut num_accounts_updated: u64 = 0;
-            for (idx, (account_id, new_account_hash)) in account_updates.enumerate() {
+            for (idx, (account_id, new_account_hash)) in
+                self.account_updates.into_iter().enumerate()
+            {
                 stack_inputs.push(account_id.into());
                 stack_inputs.extend(new_account_hash);
 
@@ -119,7 +218,7 @@ impl BlockKernel {
             }
 
             // append initial account root
-            stack_inputs.extend(initial_account_root);
+            stack_inputs.extend(self.prev_header.account_root());
 
             // append number of accounts updated
             stack_inputs.push(num_accounts_updated.into());
@@ -127,27 +226,6 @@ impl BlockKernel {
             StackInputs::new(stack_inputs)
         };
 
-        let execution_output =
-            execute(&self.program, stack_inputs, host, ExecutionOptions::default())
-                .map_err(AccountRootUpdateError::ProgramExecutionFailed)?;
-
-        let new_account_root = {
-            let stack_output = execution_output.stack_outputs().stack_truncated(4);
-
-            let digest_elements: Vec<Felt> = stack_output
-            .iter()
-            .map(|&num| Felt::try_from(num).map_err(|_|AccountRootUpdateError::InvalidRootReturned))
-            // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
-            .rev()
-            .collect::<Result<_, AccountRootUpdateError>>()?;
-
-            let digest_elements: [Felt; 4] = digest_elements
-                .try_into()
-                .map_err(|_| AccountRootUpdateError::InvalidRootReturned)?;
-
-            digest_elements.into()
-        };
-
-        Ok(new_account_root)
+        Ok((advice_inputs, stack_inputs))
     }
 }
