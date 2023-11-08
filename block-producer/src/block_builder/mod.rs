@@ -11,8 +11,8 @@ use thiserror::Error;
 
 use crate::{block::Block, store::Store, SharedTxBatch};
 
-mod account;
-use self::account::{AccountRootProgram, AccountRootUpdateError};
+mod kernel;
+use self::kernel::{BlockKernel, AccountRootUpdateError};
 
 #[cfg(test)]
 mod tests;
@@ -50,7 +50,7 @@ pub trait BlockBuilder: Send + Sync + 'static {
 #[derive(Debug)]
 pub struct DefaultBlockBuilder<S> {
     store: Arc<S>,
-    account_root_program: AccountRootProgram,
+    account_root_program: BlockKernel,
 }
 
 impl<S> DefaultBlockBuilder<S>
@@ -60,7 +60,7 @@ where
     pub fn new(store: Arc<S>) -> Self {
         Self {
             store,
-            account_root_program: AccountRootProgram::new(),
+            account_root_program: BlockKernel::new(),
         }
     }
 

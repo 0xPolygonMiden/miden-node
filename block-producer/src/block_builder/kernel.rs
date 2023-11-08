@@ -57,11 +57,11 @@ end
 ";
 
 #[derive(Debug)]
-pub struct AccountRootProgram {
+pub struct BlockKernel {
     program: Program,
 }
 
-impl AccountRootProgram {
+impl BlockKernel {
     pub fn new() -> Self {
         let account_program = {
             let assembler = Assembler::default()
