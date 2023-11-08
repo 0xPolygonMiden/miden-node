@@ -13,7 +13,6 @@ pub enum ParseError {
     },
     MissingLeafKey,
     MmrPeaksError(MmrError),
-    ///
     TooManyMmrPeaks,
     NotAValidFelt,
     InvalidProof,
