@@ -19,6 +19,9 @@ use self::account::{AccountRootProgram, AccountRootUpdateError};
 #[cfg(test)]
 mod tests;
 
+// BLOCK BUILDER
+// =================================================================================================
+
 #[derive(Debug, Error)]
 pub enum BuildBlockError {
     #[error("failed to update account root")]
