@@ -1,4 +1,4 @@
-mod conversion;
+pub mod conversion;
 pub mod error;
 mod generated;
 pub mod hex;

@@ -1,5 +1,5 @@
-use super::{u64_to_prefix, Db};
-use crate::config::{Endpoint, StoreConfig};
+use super::sql;
+use crate::migrations;
 use miden_crypto::{hash::rpo::RpoDigest, merkle::NodeIndex, StarkField};
 use miden_node_proto::{
     block_header::BlockHeader as ProtobufBlockHeader,
@@ -9,39 +9,42 @@ use miden_node_proto::{
     responses::{AccountHashUpdate, NullifierUpdate},
 };
 use miden_objects::{crypto::merkle::SimpleSmt, notes::NOTE_LEAF_DEPTH, Felt, FieldElement};
+use rusqlite::{vtab::array, Connection};
 
-#[tokio::test]
-async fn test_db_nullifiers() {
-    let db = Db::get_conn(StoreConfig {
-        endpoint: Endpoint {
-            host: "0.0.0.0".to_string(),
-            port: 8080,
-        },
-        sqlite: ":memory:".into(),
-    })
-    .await
-    .unwrap();
+fn create_db() -> Connection {
+    let mut conn = Connection::open_in_memory().unwrap();
+    array::load_module(&conn).unwrap();
+    migrations::MIGRATIONS.to_latest(&mut conn).unwrap();
+    conn
+}
+
+#[test]
+fn test_db_nullifiers() {
+    let mut conn = create_db();
 
     // test querying empty table
-    let nullifiers = db.get_nullifiers().await.unwrap();
+    let nullifiers = sql::get_nullifiers(&mut conn).unwrap();
     assert!(nullifiers.is_empty());
 
-    let nullifiers = db.get_nullifiers_by_block_range(0, u32::MAX, &[]).await.unwrap();
+    let nullifiers = sql::get_nullifiers_by_block_range(&mut conn, 0, u32::MAX, &[]).unwrap();
     assert!(nullifiers.is_empty());
 
     // test inserion
     let nullifier1 = num_to_rpo_digest(1 << 48);
     let block_number1 = 1;
-    db.add_nullifier(nullifier1, block_number1).await.unwrap();
+    sql::add_nullifier(&mut conn, nullifier1, block_number1).unwrap();
 
     // test load
-    let nullifiers = db.get_nullifiers().await.unwrap();
+    let nullifiers = sql::get_nullifiers(&mut conn).unwrap();
     assert_eq!(nullifiers, vec![(nullifier1, block_number1)]);
 
-    let nullifiers = db
-        .get_nullifiers_by_block_range(0, u32::MAX, &[u64_to_prefix(nullifier1[0].as_int())])
-        .await
-        .unwrap();
+    let nullifiers = sql::get_nullifiers_by_block_range(
+        &mut conn,
+        0,
+        u32::MAX,
+        &[sql::u64_to_prefix(nullifier1[0].as_int())],
+    )
+    .unwrap();
     assert_eq!(
         nullifiers,
         vec![NullifierUpdate {
@@ -53,16 +56,19 @@ async fn test_db_nullifiers() {
     // test additional element
     let nullifier2 = num_to_rpo_digest(2 << 48);
     let block_number2 = 2;
-    db.add_nullifier(nullifier2, block_number2).await.unwrap();
+    sql::add_nullifier(&mut conn, nullifier2, block_number2).unwrap();
 
-    let nullifiers = db.get_nullifiers().await.unwrap();
+    let nullifiers = sql::get_nullifiers(&mut conn).unwrap();
     assert_eq!(nullifiers, vec![(nullifier1, block_number1), (nullifier2, block_number2)]);
 
     // only the nullifiers matching the prefix are included
-    let nullifiers = db
-        .get_nullifiers_by_block_range(0, u32::MAX, &[u64_to_prefix(nullifier1[0].as_int())])
-        .await
-        .unwrap();
+    let nullifiers = sql::get_nullifiers_by_block_range(
+        &mut conn,
+        0,
+        u32::MAX,
+        &[sql::u64_to_prefix(nullifier1[0].as_int())],
+    )
+    .unwrap();
     assert_eq!(
         nullifiers,
         vec![NullifierUpdate {
@@ -70,10 +76,13 @@ async fn test_db_nullifiers() {
             block_num: block_number1
         }]
     );
-    let nullifiers = db
-        .get_nullifiers_by_block_range(0, u32::MAX, &[u64_to_prefix(nullifier2[0].as_int())])
-        .await
-        .unwrap();
+    let nullifiers = sql::get_nullifiers_by_block_range(
+        &mut conn,
+        0,
+        u32::MAX,
+        &[sql::u64_to_prefix(nullifier2[0].as_int())],
+    )
+    .unwrap();
     assert_eq!(
         nullifiers,
         vec![NullifierUpdate {
@@ -83,14 +92,16 @@ async fn test_db_nullifiers() {
     );
 
     // Nullifiers created at block_end are included
-    let nullifiers = db
-        .get_nullifiers_by_block_range(
-            0,
-            1,
-            &[u64_to_prefix(nullifier1[0].as_int()), u64_to_prefix(nullifier2[0].as_int())],
-        )
-        .await
-        .unwrap();
+    let nullifiers = sql::get_nullifiers_by_block_range(
+        &mut conn,
+        0,
+        1,
+        &[
+            sql::u64_to_prefix(nullifier1[0].as_int()),
+            sql::u64_to_prefix(nullifier2[0].as_int()),
+        ],
+    )
+    .unwrap();
     assert_eq!(
         nullifiers,
         vec![NullifierUpdate {
@@ -100,14 +111,16 @@ async fn test_db_nullifiers() {
     );
 
     // Nullifiers created at block_start are not included
-    let nullifiers = db
-        .get_nullifiers_by_block_range(
-            1,
-            u32::MAX,
-            &[u64_to_prefix(nullifier1[0].as_int()), u64_to_prefix(nullifier2[0].as_int())],
-        )
-        .await
-        .unwrap();
+    let nullifiers = sql::get_nullifiers_by_block_range(
+        &mut conn,
+        1,
+        u32::MAX,
+        &[
+            sql::u64_to_prefix(nullifier1[0].as_int()),
+            sql::u64_to_prefix(nullifier2[0].as_int()),
+        ],
+    )
+    .unwrap();
     assert_eq!(
         nullifiers,
         vec![NullifierUpdate {
@@ -117,27 +130,19 @@ async fn test_db_nullifiers() {
     );
 }
 
-#[tokio::test]
-async fn test_db_block_header() {
-    let db = Db::get_conn(StoreConfig {
-        endpoint: Endpoint {
-            host: "0.0.0.0".to_string(),
-            port: 8080,
-        },
-        sqlite: ":memory:".into(),
-    })
-    .await
-    .unwrap();
+#[test]
+fn test_db_block_header() {
+    let mut conn = create_db();
 
     // test querying empty table
     let block_number = 1;
-    let res = db.get_block_header(Some(block_number)).await.unwrap();
+    let res = sql::get_block_header(&mut conn, Some(block_number)).unwrap();
     assert!(res.is_none());
 
-    let res = db.get_block_header(None).await.unwrap();
+    let res = sql::get_block_header(&mut conn, None).unwrap();
     assert!(res.is_none());
 
-    let res = db.get_block_headers().await.unwrap();
+    let res = sql::get_block_headers(&mut conn).unwrap();
     assert!(res.is_empty());
 
     let block_header = ProtobufBlockHeader {
@@ -154,19 +159,19 @@ async fn test_db_block_header() {
     };
 
     // test insertion
-    db.add_block_header(block_header.clone()).await.unwrap();
+    sql::add_block_header(&mut conn, block_header.clone()).unwrap();
 
     // test fetch unknown block header
     let block_number = 1;
-    let res = db.get_block_header(Some(block_number)).await.unwrap();
+    let res = sql::get_block_header(&mut conn, Some(block_number)).unwrap();
     assert!(res.is_none());
 
     // test fetch block header by block number
-    let res = db.get_block_header(Some(block_header.block_num)).await.unwrap();
+    let res = sql::get_block_header(&mut conn, Some(block_header.block_num)).unwrap();
     assert_eq!(res.unwrap(), block_header);
 
     // test fetch latest block header
-    let res = db.get_block_header(None).await.unwrap();
+    let res = sql::get_block_header(&mut conn, None).unwrap();
     assert_eq!(res.unwrap(), block_header);
 
     let block_header2 = ProtobufBlockHeader {
@@ -181,43 +186,33 @@ async fn test_db_block_header() {
         version: 19,
         timestamp: 20,
     };
-    db.add_block_header(block_header2.clone()).await.unwrap();
-    let res = db.get_block_header(None).await.unwrap();
+    sql::add_block_header(&mut conn, block_header2.clone()).unwrap();
+    let res = sql::get_block_header(&mut conn, None).unwrap();
     assert_eq!(res.unwrap(), block_header2);
 
-    let res = db.get_block_headers().await.unwrap();
+    let res = sql::get_block_headers(&mut conn).unwrap();
     assert_eq!(res, [block_header, block_header2]);
 }
 
-#[tokio::test]
-async fn test_db_account() {
-    let db = Db::get_conn(StoreConfig {
-        endpoint: Endpoint {
-            host: "0.0.0.0".to_string(),
-            port: 8080,
-        },
-        sqlite: ":memory:".into(),
-    })
-    .await
-    .unwrap();
+#[test]
+fn test_db_account() {
+    let mut conn = create_db();
 
     // test empty table
     let account_ids = vec![0, 1, 2, 3, 4, 5];
-    let res = db.get_account_hash_by_block_range(0, u32::MAX, &account_ids).await.unwrap();
+    let res = sql::get_account_hash_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert!(res.is_empty());
 
     // test insertion
     let block_num = 1;
     let account_id = 0;
     let account_hash = num_to_protobuf_digest(0);
-    let row_count = db
-        .update_account_hash(account_id, account_hash.clone(), block_num)
-        .await
-        .unwrap();
+    let row_count =
+        sql::update_account_hash(&mut conn, account_id, account_hash.clone(), block_num).unwrap();
     assert_eq!(row_count, 1);
 
     // test successful query
-    let res = db.get_account_hash_by_block_range(0, u32::MAX, &account_ids).await.unwrap();
+    let res = sql::get_account_hash_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert_eq!(
         res,
         vec![AccountHashUpdate {
@@ -228,37 +223,26 @@ async fn test_db_account() {
     );
 
     // test query for update outside of the block range
-    let res = db
-        .get_account_hash_by_block_range(block_num + 1, u32::MAX, &account_ids)
-        .await
-        .unwrap();
+    let res =
+        sql::get_account_hash_by_block_range(&mut conn, block_num + 1, u32::MAX, &account_ids)
+            .unwrap();
     assert!(res.is_empty());
 
     // test query with unknown accounts
-    let res = db
-        .get_account_hash_by_block_range(block_num + 1, u32::MAX, &[6, 7, 8])
-        .await
+    let res = sql::get_account_hash_by_block_range(&mut conn, block_num + 1, u32::MAX, &[6, 7, 8])
         .unwrap();
     assert!(res.is_empty());
 }
 
-#[tokio::test]
-async fn test_notes() {
-    let db = Db::get_conn(StoreConfig {
-        endpoint: Endpoint {
-            host: "0.0.0.0".to_string(),
-            port: 8080,
-        },
-        sqlite: ":memory:".into(),
-    })
-    .await
-    .unwrap();
+#[test]
+fn test_notes() {
+    let mut conn = create_db();
 
     // test empty table
-    let res = db.get_notes_since_block_by_tag_and_sender(&[], &[], 0).await.unwrap();
+    let res = sql::get_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0).unwrap();
     assert!(res.is_empty());
 
-    let res = db.get_notes_since_block_by_tag_and_sender(&[1, 2, 3], &[], 0).await.unwrap();
+    let res = sql::get_notes_since_block_by_tag_and_sender(&mut conn, &[1, 2, 3], &[], 0).unwrap();
     assert!(res.is_empty());
 
     // test insertion
@@ -285,24 +269,30 @@ async fn test_notes() {
             siblings: merkle_path.clone(),
         }),
     };
-    db.add_note(note.clone()).await.unwrap();
+    sql::add_note(&mut conn, note.clone()).unwrap();
 
     // test empty tags
-    let res = db.get_notes_since_block_by_tag_and_sender(&[], &[], 0).await.unwrap();
+    let res = sql::get_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0).unwrap();
     assert!(res.is_empty());
 
     // test no updates
-    let res = db
-        .get_notes_since_block_by_tag_and_sender(&[(tag >> 48) as u32], &[], block_num)
-        .await
-        .unwrap();
+    let res = sql::get_notes_since_block_by_tag_and_sender(
+        &mut conn,
+        &[(tag >> 48) as u32],
+        &[],
+        block_num,
+    )
+    .unwrap();
     assert!(res.is_empty());
 
     // test match
-    let res = db
-        .get_notes_since_block_by_tag_and_sender(&[(tag >> 48) as u32], &[], block_num - 1)
-        .await
-        .unwrap();
+    let res = sql::get_notes_since_block_by_tag_and_sender(
+        &mut conn,
+        &[(tag >> 48) as u32],
+        &[],
+        block_num - 1,
+    )
+    .unwrap();
     assert_eq!(res, vec![note.clone()]);
 
     // insertion second note with same tag, but on higher block
@@ -317,20 +307,26 @@ async fn test_notes() {
             siblings: merkle_path,
         }),
     };
-    db.add_note(note2.clone()).await.unwrap();
+    sql::add_note(&mut conn, note2.clone()).unwrap();
 
     // only first note is returned
-    let res = db
-        .get_notes_since_block_by_tag_and_sender(&[(tag >> 48) as u32], &[], block_num - 1)
-        .await
-        .unwrap();
+    let res = sql::get_notes_since_block_by_tag_and_sender(
+        &mut conn,
+        &[(tag >> 48) as u32],
+        &[],
+        block_num - 1,
+    )
+    .unwrap();
     assert_eq!(res, vec![note.clone()]);
 
     // only the second note is returned
-    let res = db
-        .get_notes_since_block_by_tag_and_sender(&[(tag >> 48) as u32], &[], block_num)
-        .await
-        .unwrap();
+    let res = sql::get_notes_since_block_by_tag_and_sender(
+        &mut conn,
+        &[(tag >> 48) as u32],
+        &[],
+        block_num,
+    )
+    .unwrap();
     assert_eq!(res, vec![note2.clone()]);
 }
 

@@ -3,6 +3,7 @@ mod config;
 mod db;
 mod migrations;
 mod server;
+mod state;
 mod types;
 use anyhow::Result;
 use clap::Parser;
