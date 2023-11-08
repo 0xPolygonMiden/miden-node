@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::{
     block::Block,
-    store::{BlockInputs, Store},
+    store::{AccountInputRecord, BlockInputs, Store},
     SharedTxBatch,
 };
 
@@ -65,6 +65,45 @@ where
             account_root_program: AccountRootProgram::new(),
         }
     }
+
+    fn compute_block_header(
+        &self,
+        prev_block_header: &BlockHeader,
+        account_states: Vec<AccountInputRecord>,
+        account_updates: impl Iterator<Item = (AccountId, Digest)>,
+    ) -> Result<BlockHeader, BuildBlockError> {
+        let prev_hash = prev_block_header.prev_hash();
+        let chain_root = Digest::default();
+        let account_root = self.account_root_program.compute_new_account_root(
+            account_states
+                .into_iter()
+                .map(|record| (record.account_id, record.account_hash, record.proof)),
+            account_updates,
+            prev_block_header.account_root(),
+        )?;
+        let nullifier_root = Digest::default();
+        let note_root = Digest::default();
+        let batch_root = Digest::default();
+        let proof_hash = Digest::default();
+        let timestamp: Felt = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("today is expected to be before 1970")
+            .as_millis()
+            .into();
+
+        Ok(BlockHeader::new(
+            prev_hash,
+            prev_block_header.block_num(),
+            chain_root,
+            account_root,
+            nullifier_root,
+            note_root,
+            batch_root,
+            proof_hash,
+            prev_block_header.version(),
+            timestamp,
+        ))
+    }
 }
 
 #[async_trait]
@@ -76,7 +115,7 @@ where
         &self,
         batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
-        let updated_accounts: Vec<(AccountId, Digest)> =
+        let account_updates: Vec<(AccountId, Digest)> =
             batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
         let created_notes: Vec<Digest> =
             batches.iter().flat_map(|batch| batch.created_notes()).collect();
@@ -86,54 +125,26 @@ where
         let BlockInputs {
             block_header: prev_block_header,
             chain_peaks: _,
-            account_states: account_states_in_store,
+            account_states,
             nullifiers: _,
         } = self
             .store
             .get_block_inputs(
-                updated_accounts.iter().map(|(account_id, _)| account_id),
+                account_updates.iter().map(|(account_id, _)| account_id),
                 produced_nullifiers.iter(),
             )
             .await
             .unwrap();
 
-        let new_block_header = {
-            let prev_hash = prev_block_header.prev_hash();
-            let chain_root = Digest::default();
-            let account_root = self.account_root_program.compute_new_account_root(
-                account_states_in_store
-                    .into_iter()
-                    .map(|record| (record.account_id, record.account_hash, record.proof)),
-                updated_accounts.iter().cloned(),
-                prev_block_header.account_root(),
-            )?;
-            let nullifier_root = Digest::default();
-            let note_root = Digest::default();
-            let batch_root = Digest::default();
-            let proof_hash = Digest::default();
-            let timestamp: Felt = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("today is expected to be before 1970")
-                .as_millis()
-                .into();
-
-            BlockHeader::new(
-                prev_hash,
-                prev_block_header.block_num(),
-                chain_root,
-                account_root,
-                nullifier_root,
-                note_root,
-                batch_root,
-                proof_hash,
-                prev_block_header.version(),
-                timestamp,
-            )
-        };
+        let new_block_header = self.compute_block_header(
+            &prev_block_header,
+            account_states,
+            account_updates.iter().cloned(),
+        )?;
 
         let block = Arc::new(Block {
             header: new_block_header,
-            updated_accounts,
+            updated_accounts: account_updates,
             created_notes,
             produced_nullifiers,
         });
