@@ -24,7 +24,7 @@ pub enum AccountRootUpdateError {
 
 /// Stack inputs:
 /// [num_accounts_updated,
-///  ACCOUNT_ROOT,
+///  OLD_ACCOUNT_ROOT,
 ///  NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
 const ACCOUNT_UPDATE_ROOT_MASM: &str = "
 use.std::collections::smt64
