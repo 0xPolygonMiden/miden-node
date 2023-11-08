@@ -170,9 +170,7 @@ impl BlockHeaderWitness {
         block_inputs: BlockInputs,
         batches: Vec<SharedTxBatch>,
     ) -> Result<Self, BuildBlockError> {
-        // TODO: VALIDATE
-        // - initial account states in `BlockInputs` are the same as in batches
-        // - Block height returned for each nullifier is 0.
+        Self::validate_inputs(&block_inputs, &batches)?;
 
         let account_updates: Vec<(AccountId, Digest)> =
             batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
@@ -182,6 +180,16 @@ impl BlockHeaderWitness {
             account_updates,
             prev_header: block_inputs.block_header,
         })
+    }
+
+    fn validate_inputs(
+        block_inputs: &BlockInputs,
+        batches: &[SharedTxBatch],
+    ) -> Result<Self, BuildBlockError> {
+        // TODO: VALIDATE
+        // - initial account states in `BlockInputs` are the same as in batches
+        // - Block height returned for each nullifier is 0.
+        todo!()
     }
 
     fn into_parts(self) -> Result<(AdviceInputs, StackInputs), BlockKernelError> {
