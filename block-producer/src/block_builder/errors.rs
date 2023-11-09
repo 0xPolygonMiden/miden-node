@@ -5,7 +5,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum BuildBlockError {
     #[error("failed to update account root")]
-    AccountRootUpdateFailed(BlockKernelError),
+    AccountRootUpdateFailed(BlockProverError),
     #[error("transaction batches and store don't modify the same account IDs. Offending accounts: {0:?}")]
     InconsistentAccountIds(Vec<AccountId>),
     #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
@@ -14,14 +14,14 @@ pub enum BuildBlockError {
     Dummy,
 }
 
-impl From<BlockKernelError> for BuildBlockError {
-    fn from(err: BlockKernelError) -> Self {
+impl From<BlockProverError> for BuildBlockError {
+    fn from(err: BlockProverError) -> Self {
         Self::AccountRootUpdateFailed(err)
     }
 }
 
 #[derive(Error, Debug)]
-pub enum BlockKernelError {
+pub enum BlockProverError {
     #[error("Received invalid merkle path")]
     InvalidMerklePaths(MerkleError),
     #[error("program execution failed")]

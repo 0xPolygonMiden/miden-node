@@ -16,7 +16,7 @@ use miden_vm::{
 
 use crate::SharedTxBatch;
 
-use super::{errors::BlockKernelError, BuildBlockError};
+use super::{errors::BlockProverError, BuildBlockError};
 
 /// Note: For now, the "block kernel" only computes the account root. Eventually, it will compute
 /// the entire block header.
@@ -115,7 +115,7 @@ impl BlockProver {
     fn compute_new_account_root(
         &self,
         witness: BlockWitness,
-    ) -> Result<Digest, BlockKernelError> {
+    ) -> Result<Digest, BlockProverError> {
         let (advice_inputs, stack_inputs) = witness.into_parts()?;
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
@@ -125,20 +125,20 @@ impl BlockProver {
 
         let execution_output =
             execute(&self.kernel, stack_inputs, host, ExecutionOptions::default())
-                .map_err(BlockKernelError::ProgramExecutionFailed)?;
+                .map_err(BlockProverError::ProgramExecutionFailed)?;
 
         let new_account_root = {
             let stack_output = execution_output.stack_outputs().stack_truncated(4);
 
             let digest_elements: Vec<Felt> = stack_output
             .iter()
-            .map(|&num| Felt::try_from(num).map_err(|_|BlockKernelError::InvalidRootReturned))
+            .map(|&num| Felt::try_from(num).map_err(|_|BlockProverError::InvalidRootReturned))
             // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
             .rev()
-            .collect::<Result<_, BlockKernelError>>()?;
+            .collect::<Result<_, BlockProverError>>()?;
 
             let digest_elements: [Felt; 4] =
-                digest_elements.try_into().map_err(|_| BlockKernelError::InvalidRootReturned)?;
+                digest_elements.try_into().map_err(|_| BlockProverError::InvalidRootReturned)?;
 
             digest_elements.into()
         };
@@ -267,7 +267,7 @@ impl BlockWitness {
         }
     }
 
-    fn into_parts(self) -> Result<(AdviceInputs, StackInputs), BlockKernelError> {
+    fn into_parts(self) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
         let stack_inputs = {
             // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
             // from the bottom to the top
@@ -305,7 +305,7 @@ impl BlockWitness {
                         },
                     )| { (u64::from(account_id), initial_state_hash, proof) },
                 ))
-                .map_err(BlockKernelError::InvalidMerklePaths)?;
+                .map_err(BlockProverError::InvalidMerklePaths)?;
 
             AdviceInputs::default().with_merkle_store(merkle_store)
         };
