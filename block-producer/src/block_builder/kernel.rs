@@ -187,7 +187,7 @@ impl BlockWitness {
         block_inputs: &BlockInputs,
         batches: &[SharedTxBatch],
     ) -> Result<(), BuildBlockError> {
-        // TODO: VALIDATE
+        // TODO:
         // - Block height returned for each nullifier is 0.
 
         Self::validate_account_states(block_inputs, batches)?;
