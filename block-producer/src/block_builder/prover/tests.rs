@@ -161,7 +161,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 fn test_compute_account_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    // ACCOUNT STATES
+    // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = vec![
         unsafe { AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)) },
@@ -187,7 +187,7 @@ fn test_compute_account_root_success() {
         [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)],
     ];
 
-    // Store SMT
+    // Set up store's account SMT
     // ---------------------------------------------------------------------------------------------
 
     // store SMT is initialized with all the accounts and their initial state
