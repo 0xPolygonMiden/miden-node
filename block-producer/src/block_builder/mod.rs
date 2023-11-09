@@ -7,10 +7,10 @@ use crate::{block::Block, store::Store, SharedTxBatch};
 
 pub mod errors;
 
-mod kernel;
+mod prover;
 use self::{
     errors::BuildBlockError,
-    kernel::{BlockProver, BlockWitness},
+    prover::{BlockProver, BlockWitness},
 };
 
 #[cfg(test)]
