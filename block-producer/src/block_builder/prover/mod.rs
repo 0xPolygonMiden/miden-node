@@ -18,6 +18,9 @@ use crate::SharedTxBatch;
 
 use super::{errors::BlockProverError, BuildBlockError};
 
+#[cfg(test)]
+mod tests;
+
 /// Note: For now, the "block kernel" only computes the account root. Eventually, it will compute
 /// the entire block header.
 ///
