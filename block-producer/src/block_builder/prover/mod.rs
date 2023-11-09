@@ -43,7 +43,7 @@ begin
         # => [NEW_ACCOUNT_HASH_i, account_id_i, ROOT_i, counter, ...]
 
         # set new value in SMT
-        smt64.set dropw
+        exec.smt64::set dropw
         # => [ROOT_{i+1}, counter, ...]
 
         # loop counter
