@@ -10,25 +10,11 @@ use miden_objects::{
     Felt,
 };
 use miden_stdlib::StdLibrary;
-use miden_vm::{
-    crypto::MerkleError, execute, AdviceInputs, DefaultHost, ExecutionError, MemAdviceProvider,
-    Program, StackInputs,
-};
-use thiserror::Error;
+use miden_vm::{execute, AdviceInputs, DefaultHost, MemAdviceProvider, Program, StackInputs};
 
 use crate::SharedTxBatch;
 
-use super::BuildBlockError;
-
-#[derive(Error, Debug)]
-pub enum BlockKernelError {
-    #[error("Received invalid merkle path")]
-    InvalidMerklePaths(MerkleError),
-    #[error("program execution failed")]
-    ProgramExecutionFailed(ExecutionError),
-    #[error("invalid return value on stack (not a hash)")]
-    InvalidRootReturned,
-}
+use super::{errors::BlockKernelError, BuildBlockError};
 
 /// Note: For now, the "block kernel" only computes the account root. Eventually, it will compute
 /// the entire block header.

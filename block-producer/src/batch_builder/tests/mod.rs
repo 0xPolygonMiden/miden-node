@@ -1,5 +1,7 @@
 use super::*;
-use crate::{block_builder::BuildBlockError, test_utils::DummyProvenTxGenerator, SharedTxBatch};
+use crate::{
+    block_builder::errors::BuildBlockError, test_utils::DummyProvenTxGenerator, SharedTxBatch,
+};
 
 // STRUCTS
 // ================================================================================================

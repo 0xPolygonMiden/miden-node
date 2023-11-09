@@ -2,36 +2,22 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, Digest};
-use thiserror::Error;
 
 use crate::{block::Block, store::Store, SharedTxBatch};
 
+pub mod errors;
+
 mod kernel;
-use self::kernel::{BlockKernel, BlockKernelError, BlockWitness};
+use self::{
+    errors::BuildBlockError,
+    kernel::{BlockKernel, BlockWitness},
+};
 
 #[cfg(test)]
 mod tests;
 
 // BLOCK BUILDER
 // =================================================================================================
-
-#[derive(Debug, Error)]
-pub enum BuildBlockError {
-    #[error("failed to update account root")]
-    AccountRootUpdateFailed(BlockKernelError),
-    #[error("transaction batches and store don't modify the same account IDs. Offending accounts: {0:?}")]
-    InconsistentAccountIds(Vec<AccountId>),
-    #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
-    InconsistentAccountStates(Vec<AccountId>),
-    #[error("dummy")]
-    Dummy,
-}
-
-impl From<BlockKernelError> for BuildBlockError {
-    fn from(err: BlockKernelError) -> Self {
-        Self::AccountRootUpdateFailed(err)
-    }
-}
 
 #[async_trait]
 pub trait BlockBuilder: Send + Sync + 'static {
