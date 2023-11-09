@@ -4,13 +4,15 @@ use std::{
 };
 
 use miden_air::ExecutionOptions;
-use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
+use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
     accounts::AccountId, assembly::Assembler, crypto::merkle::MerkleStore, BlockHeader, Digest,
     Felt,
 };
 use miden_stdlib::StdLibrary;
-use miden_vm::{execute, AdviceInputs, DefaultHost, MemAdviceProvider, Program, StackInputs};
+use miden_vm::{
+    crypto::MerklePath, execute, AdviceInputs, DefaultHost, MemAdviceProvider, Program, StackInputs,
+};
 
 use crate::SharedTxBatch;
 
@@ -147,8 +149,9 @@ impl BlockProver {
 
 /// Provides inputs to the `BlockKernel` so that it can generate the new header
 pub(super) struct BlockWitness {
-    account_states: Vec<AccountInputRecord>,
-    account_updates: Vec<(AccountId, Digest)>,
+    updated_accounts: BTreeMap<AccountId, AccountUpdate>,
+    // account_states: Vec<AccountInputRecord>,
+    // account_updates: Vec<(AccountId, Digest)>,
     prev_header: BlockHeader,
 }
 
@@ -159,12 +162,41 @@ impl BlockWitness {
     ) -> Result<Self, BuildBlockError> {
         Self::validate_inputs(&block_inputs, &batches)?;
 
-        let account_updates: Vec<(AccountId, Digest)> =
-            batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+        let updated_accounts = {
+            let mut account_initial_states: BTreeMap<AccountId, Digest> =
+                batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
+
+            let mut account_merkle_proofs: BTreeMap<AccountId, MerklePath> = block_inputs
+                .account_states
+                .into_iter()
+                .map(|record| (record.account_id, record.proof))
+                .collect();
+
+            batches
+                .iter()
+                .flat_map(|batch| batch.updated_accounts())
+                .map(|(account_id, final_state_hash)| {
+                    let initial_state_hash = account_initial_states
+                        .remove(&account_id)
+                        .expect("already validated that key exists");
+                    let proof = account_merkle_proofs
+                        .remove(&account_id)
+                        .expect("already validated that key exists");
+
+                    (
+                        account_id,
+                        AccountUpdate {
+                            initial_state_hash,
+                            final_state_hash,
+                            proof,
+                        },
+                    )
+                })
+                .collect()
+        };
 
         Ok(Self {
-            account_states: block_inputs.account_states,
-            account_updates,
+            updated_accounts,
             prev_header: block_inputs.block_header,
         })
     }
@@ -236,21 +268,6 @@ impl BlockWitness {
     }
 
     fn into_parts(self) -> Result<(AdviceInputs, StackInputs), BlockKernelError> {
-        let advice_inputs = {
-            let mut merkle_store = MerkleStore::default();
-            merkle_store
-                .add_merkle_paths(self.account_states.into_iter().map(
-                    |AccountInputRecord {
-                         account_id,
-                         account_hash,
-                         proof,
-                     }| (u64::from(account_id), account_hash, proof),
-                ))
-                .map_err(BlockKernelError::InvalidMerklePaths)?;
-
-            AdviceInputs::default().with_merkle_store(merkle_store)
-        };
-
         let stack_inputs = {
             // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
             // from the bottom to the top
@@ -258,11 +275,9 @@ impl BlockWitness {
 
             // append all insert key/values
             let mut num_accounts_updated: u64 = 0;
-            for (idx, (account_id, new_account_hash)) in
-                self.account_updates.into_iter().enumerate()
-            {
+            for (idx, (&account_id, account_update)) in self.updated_accounts.iter().enumerate() {
                 stack_inputs.push(account_id.into());
-                stack_inputs.extend(new_account_hash);
+                stack_inputs.extend(account_update.final_state_hash);
 
                 let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
                 num_accounts_updated = idx + 1;
@@ -277,6 +292,30 @@ impl BlockWitness {
             StackInputs::new(stack_inputs)
         };
 
+        let advice_inputs = {
+            let mut merkle_store = MerkleStore::default();
+            merkle_store
+                .add_merkle_paths(self.updated_accounts.into_iter().map(
+                    |(
+                        account_id,
+                        AccountUpdate {
+                            initial_state_hash,
+                            final_state_hash: _,
+                            proof,
+                        },
+                    )| { (u64::from(account_id), initial_state_hash, proof) },
+                ))
+                .map_err(BlockKernelError::InvalidMerklePaths)?;
+
+            AdviceInputs::default().with_merkle_store(merkle_store)
+        };
+
         Ok((advice_inputs, stack_inputs))
     }
+}
+
+pub(super) struct AccountUpdate {
+    pub initial_state_hash: Digest,
+    pub final_state_hash: Digest,
+    pub proof: MerklePath,
 }
