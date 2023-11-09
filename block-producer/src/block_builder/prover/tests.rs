@@ -1,6 +1,5 @@
 // prover tests
-// 1. account validation works
-// 2. `BlockProver::compute_account_root()` works
+// + `BlockProver::compute_account_root()` works
 //   + make the updates outside the VM, and compare root
 
 use std::sync::Arc;
@@ -81,5 +80,79 @@ fn test_block_witness_validation_inconsistent_account_ids() {
     assert_eq!(
         block_witness_result,
         Err(BuildBlockError::InconsistentAccountIds(vec![account_id_1, account_id_3]))
+    );
+}
+
+/// Tests that `BlockWitness` constructor fails if the store and transaction batches contain a
+/// different at least 1 account who's state hash is different.
+///
+/// Only account 1 will have a different state hash
+#[test]
+fn test_block_witness_validation_inconsistent_account_hashes() {
+    let tx_gen = DummyProvenTxGenerator::new();
+    let account_id_1 = unsafe { AccountId::new_unchecked(Felt::ZERO) };
+    let account_id_2 = unsafe { AccountId::new_unchecked(Felt::ONE) };
+
+    let account_1_hash_store =
+        Digest::new([Felt::from(1u64), Felt::from(2u64), Felt::from(3u64), Felt::from(4u64)]);
+    let account_1_hash_batches =
+        Digest::new([Felt::from(4u64), Felt::from(3u64), Felt::from(2u64), Felt::from(1u64)]);
+
+    let block_inputs_from_store: BlockInputs = {
+        let block_header = mock_block_header(Felt::ZERO, None, None, &[]);
+        let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+
+        let account_states = vec![
+            AccountInputRecord {
+                account_id: account_id_1,
+                account_hash: account_1_hash_store,
+                proof: MerklePath::default(),
+            },
+            AccountInputRecord {
+                account_id: account_id_2,
+                account_hash: Digest::default(),
+                proof: MerklePath::default(),
+            },
+        ];
+
+        BlockInputs {
+            block_header,
+            chain_peaks,
+            account_states,
+            nullifiers: Vec::new(),
+        }
+    };
+
+    let batches: Vec<SharedTxBatch> = {
+        let batch_1 = {
+            let tx = Arc::new(tx_gen.dummy_proven_tx_with_params(
+                account_id_1,
+                account_1_hash_batches,
+                Digest::default(),
+                Vec::new(),
+            ));
+
+            Arc::new(TransactionBatch::new(vec![tx]))
+        };
+
+        let batch_2 = {
+            let tx = Arc::new(tx_gen.dummy_proven_tx_with_params(
+                account_id_2,
+                Digest::default(),
+                Digest::default(),
+                Vec::new(),
+            ));
+
+            Arc::new(TransactionBatch::new(vec![tx]))
+        };
+
+        vec![batch_1, batch_2]
+    };
+
+    let block_witness_result = BlockWitness::new(block_inputs_from_store, batches);
+
+    assert_eq!(
+        block_witness_result,
+        Err(BuildBlockError::InconsistentAccountStates(vec![account_id_1]))
     );
 }
