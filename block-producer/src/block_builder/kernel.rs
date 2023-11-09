@@ -163,8 +163,6 @@ impl BlockKernel {
 pub(super) struct BlockWitness {
     account_states: Vec<AccountInputRecord>,
     account_updates: Vec<(AccountId, Digest)>,
-
-    /// Note: this field will no longer be necessary when we have a full block kernel.
     prev_header: BlockHeader,
 }
 
