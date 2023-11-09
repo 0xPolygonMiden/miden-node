@@ -1,5 +1,5 @@
 use miden_crypto::merkle::{MerklePath, MmrPeaks};
-use miden_objects::{Digest, BlockHeader, accounts::AccountId};
+use miden_objects::{accounts::AccountId, BlockHeader, Digest};
 
 #[derive(Clone, Debug)]
 pub struct AccountInputRecord {
