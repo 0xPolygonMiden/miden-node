@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::{block::Block, store::Store, SharedTxBatch};
 
 mod kernel;
-use self::kernel::{BlockWitness, BlockKernel, BlockKernelError};
+use self::kernel::{BlockKernel, BlockKernelError, BlockWitness};
 
 #[cfg(test)]
 mod tests;
