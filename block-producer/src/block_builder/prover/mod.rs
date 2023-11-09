@@ -151,6 +151,7 @@ impl BlockProver {
 }
 
 /// Provides inputs to the `BlockKernel` so that it can generate the new header
+#[derive(Debug, PartialEq, Eq)]
 pub(super) struct BlockWitness {
     updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     // account_states: Vec<AccountInputRecord>,
@@ -317,6 +318,7 @@ impl BlockWitness {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub(super) struct AccountUpdate {
     pub initial_state_hash: Digest,
     pub final_state_hash: Digest,

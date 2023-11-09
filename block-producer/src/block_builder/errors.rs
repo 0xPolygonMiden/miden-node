@@ -2,7 +2,7 @@ use miden_objects::accounts::AccountId;
 use miden_vm::{crypto::MerkleError, ExecutionError};
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum BuildBlockError {
     #[error("failed to update account root")]
     AccountRootUpdateFailed(BlockProverError),
@@ -20,7 +20,7 @@ impl From<BlockProverError> for BuildBlockError {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum BlockProverError {
     #[error("Received invalid merkle path")]
     InvalidMerklePaths(MerkleError),

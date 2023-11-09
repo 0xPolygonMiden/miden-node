@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use miden_air::FieldElement;
+use miden_mock::mock::block::mock_block_header;
 use miden_node_proto::domain::AccountInputRecord;
 use miden_objects::crypto::merkle::MmrPeaks;
 
@@ -25,19 +26,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
     let account_id_3 = unsafe { AccountId::new_unchecked(Felt::new(42)) };
 
     let block_inputs_from_store: BlockInputs = {
-        // dummy values
-        let block_header = BlockHeader::new(
-            Digest::default(),
-            Felt::ZERO,
-            Digest::default(),
-            Digest::default(),
-            Digest::default(),
-            Digest::default(),
-            Digest::default(),
-            Digest::default(),
-            Felt::ZERO,
-            Felt::ZERO,
-        );
+        let block_header = mock_block_header(Felt::ZERO, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let account_states = vec![
@@ -89,15 +78,8 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 
     let block_witness_result = BlockWitness::new(block_inputs_from_store, batches);
 
-    assert!(matches!(block_witness_result, Err(BuildBlockError::InconsistentAccountIds(_))));
-
-    match block_witness_result {
-        Ok(_) => panic!("incorrect result"),
-        Err(err) => match err {
-            BuildBlockError::InconsistentAccountIds(ids) => {
-                assert_eq!(ids, vec![account_id_1, account_id_3])
-            },
-            _ => panic!("Incorrect error"),
-        },
-    }
+    assert_eq!(
+        block_witness_result,
+        Err(BuildBlockError::InconsistentAccountIds(vec![account_id_1, account_id_3]))
+    );
 }
