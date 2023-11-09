@@ -90,7 +90,7 @@ impl BlockKernel {
     // Note: this will eventually all be done in the VM
     pub fn compute_block_header(
         &self,
-        witness: BlockHeaderWitness,
+        witness: BlockWitness,
     ) -> Result<BlockHeader, BuildBlockError> {
         let prev_hash = witness.prev_header.prev_hash();
         let block_num = witness.prev_header.block_num();
@@ -126,7 +126,7 @@ impl BlockKernel {
     /// `account_updates`: iterator of (account id, new account hash)
     fn compute_new_account_root(
         &self,
-        witness: BlockHeaderWitness,
+        witness: BlockWitness,
     ) -> Result<Digest, BlockKernelError> {
         let (advice_inputs, stack_inputs) = witness.into_parts()?;
         let host = {
@@ -160,7 +160,7 @@ impl BlockKernel {
 }
 
 /// Provides inputs to the `BlockKernel` so that it can generate the new header
-pub(super) struct BlockHeaderWitness {
+pub(super) struct BlockWitness {
     account_states: Vec<AccountInputRecord>,
     account_updates: Vec<(AccountId, Digest)>,
 
@@ -168,7 +168,7 @@ pub(super) struct BlockHeaderWitness {
     prev_header: BlockHeader,
 }
 
-impl BlockHeaderWitness {
+impl BlockWitness {
     pub(super) fn new(
         block_inputs: BlockInputs,
         batches: Vec<SharedTxBatch>,

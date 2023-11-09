@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::{block::Block, store::Store, SharedTxBatch};
 
 mod kernel;
-use self::kernel::{BlockHeaderWitness, BlockKernel, BlockKernelError};
+use self::kernel::{BlockWitness, BlockKernel, BlockKernelError};
 
 #[cfg(test)]
 mod tests;
@@ -89,7 +89,7 @@ where
             .await
             .unwrap();
 
-        let block_header_witness = BlockHeaderWitness::new(block_inputs, batches)?;
+        let block_header_witness = BlockWitness::new(block_inputs, batches)?;
 
         let new_block_header = self.block_kernel.compute_block_header(block_header_witness)?;
 
