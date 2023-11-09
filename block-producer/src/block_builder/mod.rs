@@ -10,7 +10,7 @@ pub mod errors;
 mod kernel;
 use self::{
     errors::BuildBlockError,
-    kernel::{BlockKernel, BlockWitness},
+    kernel::{BlockProver, BlockWitness},
 };
 
 #[cfg(test)]
@@ -35,7 +35,7 @@ pub trait BlockBuilder: Send + Sync + 'static {
 #[derive(Debug)]
 pub struct DefaultBlockBuilder<S> {
     store: Arc<S>,
-    block_kernel: BlockKernel,
+    block_kernel: BlockProver,
 }
 
 impl<S> DefaultBlockBuilder<S>
@@ -45,7 +45,7 @@ where
     pub fn new(store: Arc<S>) -> Self {
         Self {
             store,
-            block_kernel: BlockKernel::new(),
+            block_kernel: BlockProver::new(),
         }
     }
 }
@@ -77,7 +77,7 @@ where
 
         let block_header_witness = BlockWitness::new(block_inputs, batches)?;
 
-        let new_block_header = self.block_kernel.compute_block_header(block_header_witness)?;
+        let new_block_header = self.block_kernel.prove(block_header_witness)?;
 
         let block = Arc::new(Block {
             header: new_block_header,

@@ -52,11 +52,11 @@ end
 ";
 
 #[derive(Debug)]
-pub(super) struct BlockKernel {
-    program: Program,
+pub(super) struct BlockProver {
+    kernel: Program,
 }
 
-impl BlockKernel {
+impl BlockProver {
     pub fn new() -> Self {
         let account_program = {
             let assembler = Assembler::default()
@@ -69,12 +69,12 @@ impl BlockKernel {
         };
 
         Self {
-            program: account_program,
+            kernel: account_program,
         }
     }
 
-    // Note: this will eventually all be done in the VM
-    pub fn compute_block_header(
+    // Note: this will eventually all be done in the VM, and also return an `ExecutionProof`
+    pub fn prove(
         &self,
         witness: BlockWitness,
     ) -> Result<BlockHeader, BuildBlockError> {
@@ -122,7 +122,7 @@ impl BlockKernel {
         };
 
         let execution_output =
-            execute(&self.program, stack_inputs, host, ExecutionOptions::default())
+            execute(&self.kernel, stack_inputs, host, ExecutionOptions::default())
                 .map_err(BlockKernelError::ProgramExecutionFailed)?;
 
         let new_account_root = {
