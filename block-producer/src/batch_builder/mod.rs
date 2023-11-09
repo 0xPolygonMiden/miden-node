@@ -27,6 +27,12 @@ impl TransactionBatch {
     }
 
     /// Returns an iterator over account ids that were modified in the transaction batch, and their
+    /// corresponding initial hash
+    pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
+        self.txs.iter().map(|tx| (tx.account_id(), tx.initial_account_hash()))
+    }
+
+    /// Returns an iterator over account ids that were modified in the transaction batch, and their
     /// corresponding new hash
     pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
         self.txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash()))

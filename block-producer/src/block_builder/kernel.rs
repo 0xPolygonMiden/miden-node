@@ -1,4 +1,7 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use miden_air::ExecutionOptions;
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
@@ -185,11 +188,67 @@ impl BlockHeaderWitness {
     fn validate_inputs(
         block_inputs: &BlockInputs,
         batches: &[SharedTxBatch],
-    ) -> Result<Self, BuildBlockError> {
+    ) -> Result<(), BuildBlockError> {
         // TODO: VALIDATE
-        // - initial account states in `BlockInputs` are the same as in batches
         // - Block height returned for each nullifier is 0.
-        todo!()
+
+        Self::validate_account_states(block_inputs, batches)?;
+
+        Ok(())
+    }
+
+    /// Validate that initial account states coming from the batches are the same as the account
+    /// states returned from the store
+    fn validate_account_states(
+        block_inputs: &BlockInputs,
+        batches: &[SharedTxBatch],
+    ) -> Result<(), BuildBlockError> {
+        let batches_initial_states: BTreeMap<AccountId, Digest> =
+            batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
+
+        let accounts_in_batches: BTreeSet<AccountId> =
+            batches_initial_states.keys().cloned().collect();
+        let accounts_in_store: BTreeSet<AccountId> = block_inputs
+            .account_states
+            .iter()
+            .map(|record| &record.account_id)
+            .cloned()
+            .collect();
+
+        if accounts_in_batches == accounts_in_store {
+            let accounts_with_different_hashes: Vec<AccountId> = block_inputs
+                .account_states
+                .iter()
+                .filter_map(|record| {
+                    let hash_in_store = record.account_hash;
+                    let hash_in_batches = batches_initial_states
+                        .get(&record.account_id)
+                        .expect("we already verified that account id is contained in batches");
+
+                    if hash_in_store == *hash_in_batches {
+                        None
+                    } else {
+                        Some(record.account_id)
+                    }
+                })
+                .collect();
+
+            if accounts_with_different_hashes.is_empty() {
+                Ok(())
+            } else {
+                Err(BuildBlockError::InconsistentAccountStates(accounts_with_different_hashes))
+            }
+        } else {
+            // The batches and store don't modify the same set of accounts
+            let union: BTreeSet<AccountId> =
+                accounts_in_batches.union(&accounts_in_store).cloned().collect();
+            let intersection: BTreeSet<AccountId> =
+                accounts_in_batches.intersection(&accounts_in_store).cloned().collect();
+
+            let difference: Vec<AccountId> = union.difference(&intersection).cloned().collect();
+
+            Err(BuildBlockError::InconsistentAccountIds(difference))
+        }
     }
 
     fn into_parts(self) -> Result<(AdviceInputs, StackInputs), BlockKernelError> {

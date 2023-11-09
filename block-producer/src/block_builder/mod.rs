@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::{block::Block, store::Store, SharedTxBatch};
 
 mod kernel;
-use self::kernel::{BlockKernelError, BlockHeaderWitness, BlockKernel};
+use self::kernel::{BlockHeaderWitness, BlockKernel, BlockKernelError};
 
 #[cfg(test)]
 mod tests;
@@ -19,6 +19,10 @@ mod tests;
 pub enum BuildBlockError {
     #[error("failed to update account root")]
     AccountRootUpdateFailed(BlockKernelError),
+    #[error("transaction batches and store don't modify the same account IDs. Offending accounts: {0:?}")]
+    InconsistentAccountIds(Vec<AccountId>),
+    #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
+    InconsistentAccountStates(Vec<AccountId>),
     #[error("dummy")]
     Dummy,
 }
