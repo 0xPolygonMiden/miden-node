@@ -85,8 +85,7 @@ where
             produced_nullifiers,
         });
 
-        // TODO: properly handle
-        self.store.apply_block(block.clone()).await.expect("apply block failed");
+        self.store.apply_block(block.clone()).await?;
 
         Ok(())
     }

@@ -18,8 +18,9 @@ pub enum BlockInputsError {
     Dummy,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum ApplyBlockError {
+    #[error("dummy")]
     Dummy,
 }
 
