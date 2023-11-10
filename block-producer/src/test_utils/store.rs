@@ -25,11 +25,10 @@ impl MockStoreSuccess {
     /// Initializes the known accounts from provided mock accounts, where the account hash in the
     /// store is the first state in `MockAccount.states`.
     pub fn new(
-        accounts: impl Iterator<Item = MockPrivateAccount>,
+        accounts: impl Iterator<Item = (AccountId, Digest)>,
         consumed_nullifiers: BTreeSet<Digest>,
     ) -> Self {
-        let store_accounts: BTreeMap<AccountId, Digest> =
-            accounts.map(|account| (account.id, account.states[0])).collect();
+        let store_accounts: BTreeMap<AccountId, Digest> = accounts.collect();
 
         Self {
             accounts: Arc::new(RwLock::new(store_accounts)),
@@ -122,6 +121,6 @@ impl Store for MockStoreFailure {
         _updated_accounts: impl Iterator<Item = &AccountId> + Send,
         _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
-        unimplemented!()
+        Err(BlockInputsError::Dummy)
     }
 }
