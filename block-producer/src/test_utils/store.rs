@@ -1,8 +1,7 @@
 use async_trait::async_trait;
-use miden_air::Felt;
-use miden_mock::mock::block::mock_block_header;
+use miden_air::{Felt, FieldElement};
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
-use miden_objects::{crypto::merkle::MmrPeaks, EMPTY_WORD};
+use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader, EMPTY_WORD};
 use miden_vm::crypto::SimpleSmt;
 
 use crate::{
@@ -124,7 +123,29 @@ impl Store for MockStoreSuccess {
         updated_accounts: impl Iterator<Item = &AccountId> + Send,
         _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
-        let block_header = mock_block_header(Felt::from(0u64), None, None, &[]);
+        let block_header = {
+            let prev_hash: Digest = Digest::default();
+            let chain_root: Digest = Digest::default();
+            let acct_root: Digest = self.account_root().await;
+            let nullifier_root: Digest = Digest::default();
+            let note_root: Digest = Digest::default();
+            let batch_root: Digest = Digest::default();
+            let proof_hash: Digest = Digest::default();
+
+            BlockHeader::new(
+                prev_hash,
+                Felt::ZERO,
+                chain_root,
+                acct_root,
+                nullifier_root,
+                note_root,
+                batch_root,
+                proof_hash,
+                Felt::ZERO,
+                Felt::ONE,
+            )
+        };
+
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let account_states = {

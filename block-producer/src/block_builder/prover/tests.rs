@@ -284,7 +284,7 @@ async fn test_compute_account_root_empty_batches() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
+        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
 
     let batches = Vec::new();
     let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
