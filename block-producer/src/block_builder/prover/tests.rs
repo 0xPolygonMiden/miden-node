@@ -4,9 +4,12 @@ use miden_air::FieldElement;
 use miden_mock::mock::block::mock_block_header;
 use miden_node_proto::domain::AccountInputRecord;
 use miden_objects::crypto::merkle::MmrPeaks;
-use miden_vm::crypto::SimpleSmt;
 
-use crate::{batch_builder::TransactionBatch, test_utils::DummyProvenTxGenerator};
+use crate::{
+    batch_builder::TransactionBatch,
+    store::Store,
+    test_utils::{DummyProvenTxGenerator, MockStoreSuccess},
+};
 
 use super::*;
 
@@ -157,8 +160,8 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 /// Tests that the `BlockProver` computes the proper account root.
 ///
 /// We assume an initial store with 5 accounts, and all will be updated.
-#[test]
-fn test_compute_account_root_success() {
+#[tokio::test]
+async fn test_compute_account_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
 
     // Set up account states
@@ -190,41 +193,19 @@ fn test_compute_account_root_success() {
     // Set up store's account SMT
     // ---------------------------------------------------------------------------------------------
 
-    // store SMT is initialized with all the accounts and their initial state
-    let mut store_smt = SimpleSmt::with_leaves(
-        64,
+    let store = MockStoreSuccess::new(
         account_ids
             .iter()
             .zip(account_initial_states.iter())
-            .map(|(&account_id, &account_hash)| (account_id.into(), account_hash)),
-    )
-    .unwrap();
-
+            .map(|(&account_id, &account_hash)| (account_id.into(), account_hash.into())),
+        BTreeSet::new(),
+    );
     // Block prover
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs = {
-        let block_header = mock_block_header(Felt::ZERO, None, None, &[]);
-        let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
-
-        let account_states = account_ids
-            .iter()
-            .zip(account_initial_states.iter())
-            .map(|(&account_id, account_hash)| AccountInputRecord {
-                account_id,
-                account_hash: Digest::from(account_hash),
-                proof: store_smt.get_leaf_path(account_id.into()).unwrap(),
-            })
-            .collect();
-
-        BlockInputs {
-            block_header,
-            chain_peaks,
-            account_states,
-            nullifiers: Vec::new(),
-        }
-    };
+    let block_inputs_from_store: BlockInputs =
+        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
 
     let batches: Vec<SharedTxBatch> = {
         let txs: Vec<_> = account_ids
@@ -253,11 +234,16 @@ fn test_compute_account_root_success() {
 
     // Update SMT by hand to get new root
     // ---------------------------------------------------------------------------------------------
-    for (idx, &account_id) in account_ids.iter().enumerate() {
-        store_smt.update_leaf(account_id.into(), account_final_states[idx]).unwrap();
-    }
+    store
+        .update_accounts(
+            account_ids
+                .iter()
+                .zip(account_final_states.iter())
+                .map(|(&account_id, &account_hash)| (account_id.into(), account_hash.into())),
+        )
+        .await;
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    assert_eq!(block_header.account_root(), store_smt.root());
+    assert_eq!(block_header.account_root(), store.account_root().await);
 }

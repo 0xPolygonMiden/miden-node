@@ -44,7 +44,7 @@ impl MockStoreSuccess {
         }
     }
 
-    /// Update some accounts in the store 
+    /// Update some accounts in the store
     pub async fn update_accounts(
         &self,
         updated_accounts: impl Iterator<Item = (AccountId, Digest)>,
@@ -55,6 +55,12 @@ impl MockStoreSuccess {
                 .update_leaf(account_id.into(), new_account_state.into())
                 .unwrap();
         }
+    }
+
+    pub async fn account_root(&self) -> Digest {
+        let locked_accounts = self.accounts.read().await;
+
+        locked_accounts.root()
     }
 }
 
