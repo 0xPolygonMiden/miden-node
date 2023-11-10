@@ -30,7 +30,10 @@ const BLOCK_KERNEL_MASM: &str = "
 use.std::collections::smt64
 
 begin
-    push.1
+    dup neq.0 
+    # => [0 or 1, num_accounts_updated, OLD_ACCOUNT_ROOT, 
+    #     NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
+
     while.true
         # stack: [counter, ROOT_0, ..., NEW_ACCOUNT_HASH_i, account_id_i , ...]
 
