@@ -43,6 +43,19 @@ impl MockStoreSuccess {
             num_apply_block_called: Arc::new(RwLock::new(0)),
         }
     }
+
+    /// Update some accounts in the store 
+    pub async fn update_accounts(
+        &self,
+        updated_accounts: impl Iterator<Item = (AccountId, Digest)>,
+    ) {
+        let mut locked_accounts = self.accounts.write().await;
+        for (account_id, new_account_state) in updated_accounts {
+            locked_accounts
+                .update_leaf(account_id.into(), new_account_state.into())
+                .unwrap();
+        }
+    }
 }
 
 #[async_trait]
