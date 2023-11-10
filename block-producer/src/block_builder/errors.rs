@@ -5,19 +5,13 @@ use thiserror::Error;
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum BuildBlockError {
     #[error("failed to update account root")]
-    AccountRootUpdateFailed(BlockProverError),
+    AccountRootUpdateFailed(#[from] BlockProverError),
     #[error("transaction batches and store don't modify the same account IDs. Offending accounts: {0:?}")]
     InconsistentAccountIds(Vec<AccountId>),
     #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
     InconsistentAccountStates(Vec<AccountId>),
     #[error("dummy")]
     Dummy,
-}
-
-impl From<BlockProverError> for BuildBlockError {
-    fn from(err: BlockProverError) -> Self {
-        Self::AccountRootUpdateFailed(err)
-    }
 }
 
 #[derive(Error, Debug, PartialEq, Eq)]
