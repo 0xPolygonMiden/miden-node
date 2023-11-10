@@ -1,6 +1,8 @@
 use async_trait::async_trait;
-use miden_node_proto::domain::BlockInputs;
-use miden_objects::EMPTY_WORD;
+use miden_air::Felt;
+use miden_mock::mock::block::mock_block_header;
+use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
+use miden_objects::{crypto::merkle::MmrPeaks, EMPTY_WORD};
 use miden_vm::crypto::SimpleSmt;
 
 use crate::{
@@ -100,10 +102,36 @@ impl Store for MockStoreSuccess {
 
     async fn get_block_inputs(
         &self,
-        _updated_accounts: impl Iterator<Item = &AccountId> + Send,
+        updated_accounts: impl Iterator<Item = &AccountId> + Send,
         _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
-        unimplemented!()
+        let block_header = mock_block_header(Felt::from(0u64), None, None, &[]);
+        let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+
+        let account_states = {
+            let locked_accounts = self.accounts.read().await;
+
+            updated_accounts
+                .map(|&account_id| {
+                    let account_hash = locked_accounts.get_leaf(account_id.into()).unwrap();
+                    let proof = locked_accounts.get_leaf_path(account_id.into()).unwrap();
+
+                    AccountInputRecord {
+                        account_id,
+                        account_hash: account_hash.into(),
+                        proof,
+                    }
+                })
+                .collect()
+        };
+
+        Ok(BlockInputs {
+            block_header,
+            chain_peaks,
+            account_states,
+            // TODO: return a proper nullifiers iterator
+            nullifiers: Vec::new(),
+        })
     }
 }
 
