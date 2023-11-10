@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 use miden_node_proto::domain::BlockInputs;
+use miden_objects::EMPTY_WORD;
+use miden_vm::crypto::SimpleSmt;
 
 use crate::{
     block::Block,
@@ -9,10 +11,9 @@ use crate::{
 
 use super::*;
 
-#[derive(Default)]
 pub struct MockStoreSuccess {
     /// Map account id -> account hash
-    accounts: Arc<RwLock<BTreeMap<AccountId, Digest>>>,
+    accounts: Arc<RwLock<SimpleSmt>>,
 
     /// Stores the nullifiers of the notes that were consumed
     consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
@@ -28,7 +29,11 @@ impl MockStoreSuccess {
         accounts: impl Iterator<Item = (AccountId, Digest)>,
         consumed_nullifiers: BTreeSet<Digest>,
     ) -> Self {
-        let store_accounts: BTreeMap<AccountId, Digest> = accounts.collect();
+        let accounts: Vec<_> = accounts
+            .into_iter()
+            .map(|(account_id, hash)| (account_id.into(), hash.into()))
+            .collect();
+        let store_accounts = SimpleSmt::with_leaves(64, accounts).unwrap();
 
         Self {
             accounts: Arc::new(RwLock::new(store_accounts)),
@@ -49,7 +54,7 @@ impl ApplyBlock for MockStoreSuccess {
         let mut locked_consumed_nullifiers = self.consumed_nullifiers.write().await;
 
         for &(account_id, account_hash) in block.updated_accounts.iter() {
-            locked_accounts.insert(account_id, account_hash);
+            locked_accounts.update_leaf(account_id.into(), account_hash.into()).unwrap();
         }
 
         let mut new_nullifiers: BTreeSet<Digest> =
@@ -71,7 +76,15 @@ impl Store for MockStoreSuccess {
         let locked_accounts = self.accounts.read().await;
         let locked_consumed_nullifiers = self.consumed_nullifiers.read().await;
 
-        let account_hash = locked_accounts.get(&proven_tx.account_id()).cloned();
+        let account_hash = {
+            let account_hash = locked_accounts.get_leaf(proven_tx.account_id().into()).unwrap();
+
+            if account_hash == EMPTY_WORD {
+                None
+            } else {
+                Some(account_hash.into())
+            }
+        };
 
         let nullifiers = proven_tx
             .consumed_notes()
