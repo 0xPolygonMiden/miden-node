@@ -72,8 +72,7 @@ where
                 account_updates.iter().map(|(account_id, _)| account_id),
                 produced_nullifiers.iter(),
             )
-            .await
-            .unwrap();
+            .await?;
 
         let block_header_witness = BlockWitness::new(block_inputs, batches)?;
 
