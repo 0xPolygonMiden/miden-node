@@ -158,8 +158,6 @@ impl BlockProver {
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct BlockWitness {
     updated_accounts: BTreeMap<AccountId, AccountUpdate>,
-    // account_states: Vec<AccountInputRecord>,
-    // account_updates: Vec<(AccountId, Digest)>,
     prev_header: BlockHeader,
 }
 
