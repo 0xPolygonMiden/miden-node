@@ -138,10 +138,11 @@ impl BlockProver {
 
             let digest_elements: Vec<Felt> = stack_output
             .iter()
-            .map(|&num| Felt::try_from(num).map_err(|_|BlockProverError::InvalidRootReturned))
+            .cloned()
+            .map(Felt::from)
             // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
             .rev()
-            .collect::<Result<_, BlockProverError>>()?;
+            .collect();
 
             let digest_elements: [Felt; 4] =
                 digest_elements.try_into().map_err(|_| BlockProverError::InvalidRootReturned)?;
