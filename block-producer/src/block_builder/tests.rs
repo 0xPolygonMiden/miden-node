@@ -34,7 +34,7 @@ async fn test_apply_block_called_nonempty_batches() {
                 Vec::new(),
             ));
 
-            Arc::new(TransactionBatch::new(vec![tx]))
+            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
         };
 
         vec![batch_1]

@@ -58,7 +58,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
                 Vec::new(),
             ));
 
-            Arc::new(TransactionBatch::new(vec![tx]))
+            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
         };
 
         let batch_2 = {
@@ -69,7 +69,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
                 Vec::new(),
             ));
 
-            Arc::new(TransactionBatch::new(vec![tx]))
+            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
         };
 
         vec![batch_1, batch_2]
@@ -132,7 +132,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 Vec::new(),
             ));
 
-            Arc::new(TransactionBatch::new(vec![tx]))
+            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
         };
 
         let batch_2 = {
@@ -143,7 +143,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 Vec::new(),
             ));
 
-            Arc::new(TransactionBatch::new(vec![tx]))
+            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
         };
 
         vec![batch_1, batch_2]
@@ -221,8 +221,8 @@ async fn test_compute_account_root_success() {
             })
             .collect();
 
-        let batch_1 = Arc::new(TransactionBatch::new(txs[..2].to_vec()));
-        let batch_2 = Arc::new(TransactionBatch::new(txs[2..].to_vec()));
+        let batch_1 = Arc::new(TransactionBatch::new(txs[..2].to_vec()).unwrap());
+        let batch_2 = Arc::new(TransactionBatch::new(txs[2..].to_vec()).unwrap());
 
         vec![batch_1, batch_2]
     };

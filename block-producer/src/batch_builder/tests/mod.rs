@@ -169,5 +169,5 @@ fn dummy_tx_batch(
         .map(|_| Arc::new(tx_gen.dummy_proven_tx()))
         .collect();
 
-    Arc::new(TransactionBatch::new(txs))
+    Arc::new(TransactionBatch::new(txs).unwrap())
 }

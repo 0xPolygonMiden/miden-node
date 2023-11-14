@@ -47,7 +47,7 @@ impl BatchBuilder for BatchBuilderSuccess {
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
-        let batch = Arc::new(TransactionBatch::new(txs));
+        let batch = Arc::new(TransactionBatch::new(txs).unwrap());
         self.ready_batches.write().await.push(batch);
 
         Ok(())

@@ -15,6 +15,7 @@ pub mod errors;
 mod tests;
 
 const CREATED_NOTES_SMT_DEPTH: u8 = 12;
+const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2usize.pow(CREATED_NOTES_SMT_DEPTH as u32);
 
 // TRANSACTION BATCH
 // ================================================================================================
@@ -32,7 +33,7 @@ pub struct TransactionBatch {
 }
 
 impl TransactionBatch {
-    pub fn new(txs: Vec<SharedProvenTx>) -> Self {
+    pub fn new(txs: Vec<SharedProvenTx>) -> Result<Self, BuildBatchError> {
         let account_initial_states =
             txs.iter().map(|tx| (tx.account_id(), tx.initial_account_hash())).collect();
         let updated_accounts =
@@ -63,22 +64,29 @@ impl TransactionBatch {
                 .map(|note_envelope| note_envelope.note_hash())
                 .collect();
 
+            if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
+                return Err(BuildBatchError::TooManyNotes(created_notes.len()));
+            }
+
             SimpleSmt::with_leaves(
                 CREATED_NOTES_SMT_DEPTH,
                 created_notes.into_iter().enumerate().map(|(idx, note_hash)| {
-                    (idx.try_into().expect("TODO: very large index?"), note_hash.into())
+                    (
+                        idx.try_into().expect("already checked not for too many notes"),
+                        note_hash.into(),
+                    )
                 }),
             )
             .expect("TODO: on failure?")
         };
 
-        Self {
+        Ok(Self {
             account_initial_states,
             updated_accounts,
             consumed_notes_script_roots,
             produced_nullifiers,
             created_notes_smt,
-        }
+        })
     }
 
     /// Returns an iterator over account ids that were modified in the transaction batch, and their
@@ -199,7 +207,7 @@ where
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
-        let batch = Arc::new(TransactionBatch::new(txs));
+        let batch = Arc::new(TransactionBatch::new(txs).unwrap());
         self.ready_batches.write().await.push(batch);
 
         Ok(())

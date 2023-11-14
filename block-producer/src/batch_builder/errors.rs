@@ -1,8 +1,6 @@
 use thiserror::Error;
 
-use super::CREATED_NOTES_SMT_DEPTH;
-
-const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2usize.pow(CREATED_NOTES_SMT_DEPTH as u32);
+use super::MAX_NUM_CREATED_NOTES_PER_BATCH;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum BuildBatchError {
