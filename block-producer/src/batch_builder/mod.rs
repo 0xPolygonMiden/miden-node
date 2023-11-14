@@ -1,4 +1,4 @@
-use std::{cmp::min, fmt::Debug, sync::Arc, time::Duration};
+use std::{cmp::min, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use itertools::Itertools;
@@ -8,6 +8,9 @@ use tokio::{sync::RwLock, time};
 
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
 
+use self::errors::BuildBatchError;
+
+pub mod errors;
 #[cfg(test)]
 mod tests;
 
@@ -113,11 +116,6 @@ impl TransactionBatch {
 
 // BATCH BUILDER
 // ================================================================================================
-
-#[derive(Debug, PartialEq)]
-pub enum BuildBatchError {
-    Dummy,
-}
 
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {

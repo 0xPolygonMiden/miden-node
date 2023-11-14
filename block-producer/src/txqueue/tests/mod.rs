@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    batch_builder::{BuildBatchError, TransactionBatch},
+    batch_builder::{errors::BuildBatchError, TransactionBatch},
     test_utils::DummyProvenTxGenerator,
     SharedTxBatch,
 };
