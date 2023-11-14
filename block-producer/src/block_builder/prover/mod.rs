@@ -6,8 +6,10 @@ use std::{
 use miden_air::ExecutionOptions;
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
-    accounts::AccountId, assembly::Assembler, crypto::merkle::MerkleStore, BlockHeader, Digest,
-    Felt,
+    accounts::AccountId,
+    assembly::Assembler,
+    crypto::merkle::{EmptySubtreeRoots, MerkleStore},
+    BlockHeader, Digest, Felt,
 };
 use miden_stdlib::StdLibrary;
 use miden_vm::{
@@ -255,6 +257,8 @@ impl BlockProver {
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct BlockWitness {
     updated_accounts: BTreeMap<AccountId, AccountUpdate>,
+    /// collection of all batches' created notes SMT roots
+    batch_created_notes_roots: Vec<Digest>,
     prev_header: BlockHeader,
 }
 
@@ -298,8 +302,12 @@ impl BlockWitness {
                 .collect()
         };
 
+        let batch_created_notes_roots =
+            batches.iter().map(|batch| batch.created_notes_root()).collect();
+
         Ok(Self {
             updated_accounts,
+            batch_created_notes_roots,
             prev_header: block_inputs.block_header,
         })
     }
@@ -376,7 +384,19 @@ impl BlockWitness {
             // from the bottom to the top
             let mut stack_inputs = Vec::new();
 
-            // append all insert key/values
+            // Notes stack inputs
+            {
+                let num_created_notes_roots = self.batch_created_notes_roots.len();
+                for batch_created_notes_root in self.batch_created_notes_roots {
+                    let root_eles: [Felt; 4] = batch_created_notes_root.into();
+                    stack_inputs.extend(root_eles);
+                }
+                let empty_root_depth_8 = EmptySubtreeRoots::entry(8, 0);
+                stack_inputs.extend(*empty_root_depth_8);
+                stack_inputs.push(Felt::from(num_created_notes_roots as u64));
+            }
+
+            // Account stack inputs
             let mut num_accounts_updated: u64 = 0;
             for (idx, (&account_id, account_update)) in self.updated_accounts.iter().enumerate() {
                 stack_inputs.push(account_id.into());
