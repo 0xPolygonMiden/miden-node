@@ -3,7 +3,11 @@ use std::sync::Arc;
 use miden_air::FieldElement;
 use miden_mock::mock::block::mock_block_header;
 use miden_node_proto::domain::AccountInputRecord;
-use miden_objects::crypto::merkle::MmrPeaks;
+use miden_objects::{
+    crypto::merkle::MmrPeaks,
+    notes::{NoteEnvelope, NoteMetadata},
+};
+use miden_vm::crypto::SimpleSmt;
 
 use crate::{
     batch_builder::TransactionBatch,
@@ -12,6 +16,9 @@ use crate::{
 };
 
 use super::*;
+
+// BLOCK WITNESS TESTS
+// =================================================================================================
 
 /// Tests that `BlockWitness` constructor fails if the store and transaction batches contain a
 /// different set of account ids.
@@ -157,6 +164,9 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
     );
 }
 
+// ACCOUNT ROOT TESTS
+// =================================================================================================
+
 /// Tests that the `BlockProver` computes the proper account root.
 ///
 /// We assume an initial store with 5 accounts, and all will be updated.
@@ -295,4 +305,76 @@ async fn test_compute_account_root_empty_batches() {
     // Compare roots
     // ---------------------------------------------------------------------------------------------
     assert_eq!(block_header.account_root(), store.account_root().await);
+}
+
+// NOTE ROOT TESTS
+// =================================================================================================
+
+#[tokio::test]
+async fn test_compute_note_root_success() {
+    let tx_gen = DummyProvenTxGenerator::new();
+
+    let dummy_account_id = unsafe { AccountId::new_unchecked(Felt::from(0u64)) };
+
+    let notes_created: Vec<NoteEnvelope> = vec![
+        Digest::from([Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)]),
+        Digest::from([Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)]),
+        Digest::from([Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)]),
+    ]
+    .into_iter()
+    .map(|note_digest| {
+        NoteEnvelope::new(
+            note_digest,
+            NoteMetadata::new(dummy_account_id, Felt::from(1u64), Felt::from(0u64)),
+        )
+    })
+    .collect();
+
+    // Set up store
+    // ---------------------------------------------------------------------------------------------
+
+    let store = MockStoreSuccess::new(std::iter::empty(), BTreeSet::new());
+
+    // Block prover
+    // ---------------------------------------------------------------------------------------------
+
+    // Block inputs is initialized with all the accounts and their initial state
+    let block_inputs_from_store: BlockInputs =
+        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+
+    let batches: Vec<SharedTxBatch> = {
+        let txs: Vec<_> = notes_created
+            .iter()
+            .map(|note| {
+                Arc::new(tx_gen.dummy_proven_tx_with_params(
+                    dummy_account_id,
+                    Digest::default(),
+                    Digest::default(),
+                    Vec::new(),
+                ))
+            })
+            .collect();
+
+        let batch_1 = Arc::new(TransactionBatch::new(txs[..2].to_vec()).unwrap());
+        let batch_2 = Arc::new(TransactionBatch::new(txs[2..].to_vec()).unwrap());
+
+        vec![batch_1, batch_2]
+    };
+
+    let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
+
+    let block_prover = BlockProver::new();
+    let block_header = block_prover.prove(block_witness).unwrap();
+
+    // Create SMT by hand to get new root
+    // ---------------------------------------------------------------------------------------------
+    let notes_smt = SimpleSmt::with_leaves(
+        8,
+        notes_created.into_iter().enumerate().map(|(idx, note)| (idx as u64, note.note_hash().into())),
+    )
+    .unwrap();
+
+    // Compare roots
+    // ---------------------------------------------------------------------------------------------
+    assert_eq!(block_header.note_root(), notes_smt.root());
 }
