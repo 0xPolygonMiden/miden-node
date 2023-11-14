@@ -3,12 +3,15 @@ use std::{cmp::min, fmt::Debug, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use itertools::Itertools;
 use miden_objects::{accounts::AccountId, Digest};
+use miden_vm::crypto::SimpleSmt;
 use tokio::{sync::RwLock, time};
 
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
 
 #[cfg(test)]
 mod tests;
+
+const CREATED_NOTES_SMT_DEPTH: u8 = 12;
 
 // TRANSACTION BATCH
 // ================================================================================================
@@ -22,7 +25,7 @@ pub struct TransactionBatch {
     updated_accounts: Vec<(AccountId, Digest)>,
     consumed_notes_script_roots: Vec<Digest>,
     produced_nullifiers: Vec<Digest>,
-    created_notes: Vec<Digest>,
+    created_notes_smt: SimpleSmt,
 }
 
 impl TransactionBatch {
@@ -50,18 +53,28 @@ impl TransactionBatch {
             .map(|consumed_note| consumed_note.nullifier())
             .collect();
 
-        let created_notes = txs
-            .iter()
-            .flat_map(|tx| tx.created_notes())
-            .map(|note_envelope| note_envelope.note_hash())
-            .collect();
+        let created_notes_smt = {
+            let created_notes: Vec<_> = txs
+                .iter()
+                .flat_map(|tx| tx.created_notes())
+                .map(|note_envelope| note_envelope.note_hash())
+                .collect();
+
+            SimpleSmt::with_leaves(
+                CREATED_NOTES_SMT_DEPTH,
+                created_notes.into_iter().enumerate().map(|(idx, note_hash)| {
+                    (idx.try_into().expect("TODO: very large index?"), note_hash.into())
+                }),
+            )
+            .expect("TODO: on failure?")
+        };
 
         Self {
             account_initial_states,
             updated_accounts,
             consumed_notes_script_roots,
             produced_nullifiers,
-            created_notes,
+            created_notes_smt,
         }
     }
 
@@ -89,7 +102,12 @@ impl TransactionBatch {
 
     /// Returns the hash of created notes
     pub fn created_notes(&self) -> impl Iterator<Item = Digest> + '_ {
-        self.created_notes.iter().cloned()
+        self.created_notes_smt.leaves().map(|(_key, leaf)| leaf.into())
+    }
+
+    /// Returns the root of the created notes SMT
+    pub fn created_notes_root(&self) -> Digest {
+        self.created_notes_smt.root()
     }
 }
 
