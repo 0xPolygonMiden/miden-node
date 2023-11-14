@@ -13,5 +13,5 @@ pub enum BuildBatchError {
     )]
     TooManyNotes(usize),
     #[error("failed to create notes SMT: {0}")]
-    NotesSmtError(#[from] MerkleError)
+    NotesSmtError(#[from] MerkleError),
 }

@@ -27,6 +27,7 @@ pub fn get_txs_and_accounts<'a>(
             account.states[0],
             account.states[1],
             vec![consumed_note_by_index(index)],
+            Vec::new(),
         );
 
         (Arc::new(tx), account)

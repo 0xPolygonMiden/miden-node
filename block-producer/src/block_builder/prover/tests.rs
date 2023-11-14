@@ -63,6 +63,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
                 Digest::default(),
                 Digest::default(),
                 Vec::new(),
+                Vec::new(),
             ));
 
             Arc::new(TransactionBatch::new(vec![tx]).unwrap())
@@ -73,6 +74,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
                 account_id_3,
                 Digest::default(),
                 Digest::default(),
+                Vec::new(),
                 Vec::new(),
             ));
 
@@ -137,6 +139,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 account_1_hash_batches,
                 Digest::default(),
                 Vec::new(),
+                Vec::new(),
             ));
 
             Arc::new(TransactionBatch::new(vec![tx]).unwrap())
@@ -147,6 +150,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 account_id_2,
                 Digest::default(),
                 Digest::default(),
+                Vec::new(),
                 Vec::new(),
             ));
 
@@ -226,6 +230,7 @@ async fn test_compute_account_root_success() {
                     account_id,
                     account_initial_states[idx].into(),
                     account_final_states[idx].into(),
+                    Vec::new(),
                     Vec::new(),
                 ))
             })
@@ -314,7 +319,11 @@ async fn test_compute_account_root_empty_batches() {
 async fn test_compute_note_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let dummy_account_id = unsafe { AccountId::new_unchecked(Felt::from(0u64)) };
+    let account_ids = vec![
+        unsafe { AccountId::new_unchecked(Felt::from(0u64)) },
+        unsafe { AccountId::new_unchecked(Felt::from(1u64)) },
+        unsafe { AccountId::new_unchecked(Felt::from(2u64)) },
+    ];
 
     let notes_created: Vec<NoteEnvelope> = vec![
         Digest::from([Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)]),
@@ -322,10 +331,11 @@ async fn test_compute_note_root_success() {
         Digest::from([Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)]),
     ]
     .into_iter()
-    .map(|note_digest| {
+    .zip(account_ids.iter())
+    .map(|(note_digest, &account_id)| {
         NoteEnvelope::new(
             note_digest,
-            NoteMetadata::new(dummy_account_id, Felt::from(1u64), Felt::from(0u64)),
+            NoteMetadata::new(account_id, Felt::from(1u64), Felt::from(0u64)),
         )
     })
     .collect();
@@ -340,17 +350,19 @@ async fn test_compute_note_root_success() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
 
     let batches: Vec<SharedTxBatch> = {
         let txs: Vec<_> = notes_created
             .iter()
-            .map(|note| {
+            .zip(account_ids.iter())
+            .map(|(note, &account_id)| {
                 Arc::new(tx_gen.dummy_proven_tx_with_params(
-                    dummy_account_id,
+                    account_id,
                     Digest::default(),
                     Digest::default(),
                     Vec::new(),
+                    vec![note.clone()],
                 ))
             })
             .collect();
@@ -370,7 +382,10 @@ async fn test_compute_note_root_success() {
     // ---------------------------------------------------------------------------------------------
     let notes_smt = SimpleSmt::with_leaves(
         8,
-        notes_created.into_iter().enumerate().map(|(idx, note)| (idx as u64, note.note_hash().into())),
+        notes_created
+            .into_iter()
+            .enumerate()
+            .map(|(idx, note)| (idx as u64, note.note_hash().into())),
     )
     .unwrap();
 

@@ -32,6 +32,7 @@ async fn test_apply_block_called_nonempty_batches() {
                 account_initial_hash,
                 [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)].into(),
                 Vec::new(),
+                Vec::new(),
             ));
 
             Arc::new(TransactionBatch::new(vec![tx]).unwrap())

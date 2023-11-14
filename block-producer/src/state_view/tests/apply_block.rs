@@ -26,6 +26,7 @@ async fn test_apply_block_ab1() {
         account.states[0],
         account.states[1],
         Vec::new(),
+        Vec::new(),
     );
 
     let state_view = DefaulStateView::new(store.clone());
@@ -115,6 +116,7 @@ async fn test_apply_block_ab3() {
         accounts[0].states[1],
         accounts[0].states[2],
         txs[0].consumed_notes().to_vec(),
+        Vec::new(),
     );
 
     let verify_tx_res = state_view.verify_tx(tx_new.into()).await;
