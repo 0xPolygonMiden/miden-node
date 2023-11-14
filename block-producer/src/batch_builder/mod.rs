@@ -76,8 +76,7 @@ impl TransactionBatch {
                         note_hash.into(),
                     )
                 }),
-            )
-            .expect("TODO: on failure?")
+            )?
         };
 
         Ok(Self {

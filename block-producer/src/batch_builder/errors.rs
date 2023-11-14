@@ -1,3 +1,4 @@
+use miden_vm::crypto::MerkleError;
 use thiserror::Error;
 
 use super::MAX_NUM_CREATED_NOTES_PER_BATCH;
@@ -11,4 +12,6 @@ pub enum BuildBatchError {
         MAX_NUM_CREATED_NOTES_PER_BATCH
     )]
     TooManyNotes(usize),
+    #[error("failed to create notes SMT: {0}")]
+    NotesSmtError(#[from] MerkleError)
 }
