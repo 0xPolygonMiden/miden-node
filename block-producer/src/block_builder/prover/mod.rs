@@ -74,7 +74,7 @@ end
 #!
 #! Outputs:
 #!   Operand stack: [OLD_VALUE, NEW_ROOT, ...]
-export.mtree_8_set
+proc.mtree_8_set
     # prepare the stack for mtree_set operation
     movup.4 movdn.8 swapw movup.8 push.8
     # => [8, key, ROOT, VALUE, ...]
@@ -169,10 +169,10 @@ impl BlockProver {
         let block_num = witness.prev_header.block_num();
         let version = witness.prev_header.version();
 
+        let (account_root, note_root) = self.compute_roots(witness)?;
+
         let chain_root = Digest::default();
-        let account_root = self.compute_new_account_root(witness)?;
         let nullifier_root = Digest::default();
-        let note_root = Digest::default();
         let batch_root = Digest::default();
         let proof_hash = Digest::default();
         let timestamp: Felt = SystemTime::now()
@@ -195,12 +195,10 @@ impl BlockProver {
         ))
     }
 
-    /// `current_account_states`: iterator of (account id, node hash, Merkle path)
-    /// `account_updates`: iterator of (account id, new account hash)
-    fn compute_new_account_root(
+    fn compute_roots(
         &self,
         witness: BlockWitness,
-    ) -> Result<Digest, BlockProverError> {
+    ) -> Result<(Digest, Digest), BlockProverError> {
         let (advice_inputs, stack_inputs) = witness.into_parts()?;
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
@@ -212,10 +210,15 @@ impl BlockProver {
             execute(&self.kernel, stack_inputs, host, ExecutionOptions::default())
                 .map_err(BlockProverError::ProgramExecutionFailed)?;
 
-        let new_account_root = {
-            let stack_output = execution_output.stack_outputs().stack_truncated(4);
+        // TODO: Use `StackOutputs::pop_digest()` once merged
+        let (account_root_output, note_root_output) = {
+            let root_outputs: Vec<_> = execution_output.stack_outputs().stack().chunks(4).collect();
 
-            let digest_elements: Vec<Felt> = stack_output
+            (root_outputs[0], root_outputs[1])
+        };
+
+        let new_account_root = {
+            let digest_elements: Vec<Felt> = account_root_output
             .iter()
             .cloned()
             .map(Felt::from)
@@ -229,7 +232,22 @@ impl BlockProver {
             digest_elements.into()
         };
 
-        Ok(new_account_root)
+        let new_note_root = {
+            let digest_elements: Vec<Felt> = note_root_output
+            .iter()
+            .cloned()
+            .map(Felt::from)
+            // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
+            .rev()
+            .collect();
+
+            let digest_elements: [Felt; 4] =
+                digest_elements.try_into().map_err(|_| BlockProverError::InvalidRootReturned)?;
+
+            digest_elements.into()
+        };
+
+        Ok((new_account_root, new_note_root))
     }
 }
 
