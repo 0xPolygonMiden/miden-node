@@ -63,8 +63,15 @@ proc.compute_account_root
     # => [ROOT_{n-1}]
 end
 
+proc.main.1
+    exec.compute_account_root loc_storew.0 dropw
+
+    # Load output on stack
+    loc_loadw.0
+end
+
 begin
-    exec.compute_account_root
+    exec.main
 end
 ";
 
