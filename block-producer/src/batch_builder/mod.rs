@@ -18,55 +18,78 @@ mod tests;
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
 pub struct TransactionBatch {
-    txs: Vec<SharedProvenTx>,
+    account_initial_states: Vec<(AccountId, Digest)>,
+    updated_accounts: Vec<(AccountId, Digest)>,
+    consumed_notes_script_roots: Vec<Digest>,
+    produced_nullifiers: Vec<Digest>,
+    created_notes: Vec<Digest>,
 }
 
 impl TransactionBatch {
     pub fn new(txs: Vec<SharedProvenTx>) -> Self {
-        Self { txs }
+        let account_initial_states =
+            txs.iter().map(|tx| (tx.account_id(), tx.initial_account_hash())).collect();
+        let updated_accounts =
+            txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash())).collect();
+
+        let consumed_notes_script_roots = {
+            let mut script_roots: Vec<Digest> = txs
+                .iter()
+                .flat_map(|tx| tx.consumed_notes())
+                .map(|consumed_note| consumed_note.script_root())
+                .collect();
+
+            script_roots.sort();
+
+            // Removes duplicates in consecutive items
+            script_roots.into_iter().dedup().collect()
+        };
+        let produced_nullifiers = txs
+            .iter()
+            .flat_map(|tx| tx.consumed_notes())
+            .map(|consumed_note| consumed_note.nullifier())
+            .collect();
+
+        let created_notes = txs
+            .iter()
+            .flat_map(|tx| tx.created_notes())
+            .map(|note_envelope| note_envelope.note_hash())
+            .collect();
+
+        Self {
+            account_initial_states,
+            updated_accounts,
+            consumed_notes_script_roots,
+            produced_nullifiers,
+            created_notes,
+        }
     }
 
     /// Returns an iterator over account ids that were modified in the transaction batch, and their
     /// corresponding initial hash
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
-        self.txs.iter().map(|tx| (tx.account_id(), tx.initial_account_hash()))
+        self.account_initial_states.iter().cloned()
     }
 
     /// Returns an iterator over account ids that were modified in the transaction batch, and their
     /// corresponding new hash
     pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
-        self.txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash()))
+        self.updated_accounts.iter().cloned()
     }
 
     /// Returns the script root of all consumed notes
     pub fn consumed_notes_script_roots(&self) -> impl Iterator<Item = Digest> + '_ {
-        let mut script_roots: Vec<Digest> = self
-            .txs
-            .iter()
-            .flat_map(|tx| tx.consumed_notes())
-            .map(|consumed_note| consumed_note.script_root())
-            .collect();
-
-        script_roots.sort();
-
-        // Removes duplicates in consecutive items
-        script_roots.into_iter().dedup()
+        self.consumed_notes_script_roots.iter().cloned()
     }
 
     /// Returns the nullifier of all consumed notes
     pub fn produced_nullifiers(&self) -> impl Iterator<Item = Digest> + '_ {
-        self.txs
-            .iter()
-            .flat_map(|tx| tx.consumed_notes())
-            .map(|consumed_note| consumed_note.nullifier())
+        self.produced_nullifiers.iter().cloned()
     }
 
     /// Returns the hash of created notes
     pub fn created_notes(&self) -> impl Iterator<Item = Digest> + '_ {
-        self.txs
-            .iter()
-            .flat_map(|tx| tx.created_notes())
-            .map(|note_envelope| note_envelope.note_hash())
+        self.created_notes.iter().cloned()
     }
 }
 
