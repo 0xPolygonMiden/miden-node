@@ -29,7 +29,12 @@ mod tests;
 const BLOCK_KERNEL_MASM: &str = "
 use.std::collections::smt64
 
-begin
+#! Compute the account root
+#! 
+#! Stack: [num_accounts_updated, OLD_ACCOUNT_ROOT, 
+#!         NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
+#! Output: [NEW_ACCOUNT_ROOT]
+proc.compute_account_root
     dup neq.0 
     # => [0 or 1, num_accounts_updated, OLD_ACCOUNT_ROOT, 
     #     NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
@@ -56,6 +61,10 @@ begin
 
     drop
     # => [ROOT_{n-1}]
+end
+
+begin
+    exec.compute_account_root
 end
 ";
 
