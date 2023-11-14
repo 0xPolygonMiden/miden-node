@@ -6,10 +6,10 @@ use crate::store::{ApplyBlockError, BlockInputsError};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum BuildBlockError {
-    #[error("failed to update account root: {0}")]
-    AccountRootUpdateFailed(#[from] BlockProverError),
     #[error("failed to apply block: {0}")]
     ApplyBlockFailed(#[from] ApplyBlockError),
+    #[error("failed to compute new block header: {0}")]
+    ComputeBlockHeaderFailed(#[from] BlockProverError),
     #[error("failed to get block inputs from store: {0}")]
     GetBlockInputsFailed(#[from] BlockInputsError),
     #[error("transaction batches and store don't modify the same account IDs. Offending accounts: {0:?}")]
