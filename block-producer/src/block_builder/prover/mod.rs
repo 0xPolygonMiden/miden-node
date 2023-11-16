@@ -21,10 +21,10 @@ use crate::{batch_builder, SharedTxBatch};
 use super::{errors::BlockProverError, BuildBlockError};
 
 /// The depth at which we insert roots from the batches.
-pub const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
+pub(crate) const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
 
 /// The depth of the created notes tree in the block.
-pub const CREATED_NOTES_TREE_DEPTH: u8 =
+pub(crate) const CREATED_NOTES_TREE_DEPTH: u8 =
     CREATED_NOTES_TREE_INSERTION_DEPTH + batch_builder::CREATED_NOTES_SMT_DEPTH;
 
 #[cfg(test)]
@@ -401,7 +401,7 @@ impl BlockWitness {
                     stack_inputs.extend(root_eles);
                 }
 
-                let empty_root_depth_8 = EmptySubtreeRoots::entry(8, 0);
+                let empty_root_depth_8 = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
                 stack_inputs.extend(*empty_root_depth_8);
                 stack_inputs.push(Felt::from(num_created_notes_roots as u64));
             }

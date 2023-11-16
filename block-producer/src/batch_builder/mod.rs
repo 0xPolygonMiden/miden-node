@@ -14,7 +14,7 @@ pub mod errors;
 #[cfg(test)]
 mod tests;
 
-pub const CREATED_NOTES_SMT_DEPTH: u8 = 12;
+pub(crate) const CREATED_NOTES_SMT_DEPTH: u8 = 12;
 const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2usize.pow(CREATED_NOTES_SMT_DEPTH as u32);
 
 // TRANSACTION BATCH
