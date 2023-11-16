@@ -302,6 +302,7 @@ impl BlockWitness {
                 .collect()
         };
 
+        // TODO: Validate that there are less than 2^8 roots (and in StateView)
         let batch_created_notes_roots =
             batches.iter().map(|batch| batch.created_notes_root()).collect();
 
@@ -391,8 +392,9 @@ impl BlockWitness {
                     let root_eles: [Felt; 4] = batch_created_notes_root.into();
                     stack_inputs.extend(root_eles);
                 }
-                let empty_root_depth_8 = EmptySubtreeRoots::entry(8, 0);
-                stack_inputs.extend(*empty_root_depth_8);
+                
+                let empty_root_depth_20 = EmptySubtreeRoots::entry(20, 0);
+                stack_inputs.extend(*empty_root_depth_20);
                 stack_inputs.push(Felt::from(num_created_notes_roots as u64));
             }
 
