@@ -315,6 +315,40 @@ async fn test_compute_account_root_empty_batches() {
 // NOTE ROOT TESTS
 // =================================================================================================
 
+/// Tests that the block kernel returns the empty tree if no notes were created
+#[tokio::test]
+async fn test_compute_note_root_empty_notes_success() {
+    // Set up store
+    // ---------------------------------------------------------------------------------------------
+
+    let store = MockStoreSuccess::new(std::iter::empty(), BTreeSet::new());
+
+    // Block prover
+    // ---------------------------------------------------------------------------------------------
+
+    // Block inputs is initialized with all the accounts and their initial state
+    let block_inputs_from_store: BlockInputs =
+        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+
+    let batches: Vec<SharedTxBatch> = {
+        let batch = Arc::new(TransactionBatch::new(Vec::new()).unwrap());
+        vec![batch]
+    };
+
+    let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
+
+    let block_prover = BlockProver::new();
+    let block_header = block_prover.prove(block_witness).unwrap();
+
+    // Create SMT by hand to get empty root
+    // ---------------------------------------------------------------------------------------------
+    let notes_smt = SimpleSmt::new(8).unwrap();
+
+    // Compare roots
+    // ---------------------------------------------------------------------------------------------
+    assert_eq!(block_header.note_root(), notes_smt.root());
+}
+
 #[tokio::test]
 async fn test_compute_note_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
