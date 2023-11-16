@@ -301,7 +301,6 @@ impl BlockWitness {
                 .collect()
         };
 
-        // TODO: Validate that there are less than 2^8 roots (and in StateView)
         let batch_created_notes_roots = batches
             .iter()
             .enumerate()
@@ -327,6 +326,11 @@ impl BlockWitness {
     ) -> Result<(), BuildBlockError> {
         // TODO:
         // - Block height returned for each nullifier is 0.
+
+        // Validate that there aren't too many batches in the block.
+        if batches.len() > 2usize.pow(CREATED_NOTES_TREE_INSERTION_DEPTH.into()) {
+            return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
+        }
 
         Self::validate_account_states(block_inputs, batches)?;
 

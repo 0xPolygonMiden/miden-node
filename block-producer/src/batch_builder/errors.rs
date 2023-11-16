@@ -11,7 +11,7 @@ pub enum BuildBatchError {
         "Too many notes in the batch. Got: {0}, max: {}",
         MAX_NUM_CREATED_NOTES_PER_BATCH
     )]
-    TooManyNotes(usize),
+    TooManyNotesCreated(usize),
     #[error("failed to create notes SMT: {0}")]
     NotesSmtError(#[from] MerkleError),
 }

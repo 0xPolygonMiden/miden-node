@@ -65,7 +65,7 @@ impl TransactionBatch {
                 .collect();
 
             if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
-                return Err(BuildBatchError::TooManyNotes(created_notes.len()));
+                return Err(BuildBatchError::TooManyNotesCreated(created_notes.len()));
             }
 
             SimpleSmt::with_leaves(
