@@ -260,12 +260,15 @@ impl BlockProver {
     }
 }
 
+// BLOCK WITNESS
+// =================================================================================================
+
 /// Provides inputs to the `BlockKernel` so that it can generate the new header
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct BlockWitness {
     updated_accounts: BTreeMap<AccountId, AccountUpdate>,
-    /// collection of all batches' created notes SMT roots
-    batch_created_notes_roots: Vec<Digest>,
+    /// (batch_index, created_notes_root) for batches that contain notes
+    batch_created_notes_roots: Vec<(usize, Digest)>,
     prev_header: BlockHeader,
 }
 
@@ -310,8 +313,17 @@ impl BlockWitness {
         };
 
         // TODO: Validate that there are less than 2^8 roots (and in StateView)
-        let batch_created_notes_roots =
-            batches.iter().map(|batch| batch.created_notes_root()).collect();
+        let batch_created_notes_roots = batches
+            .iter()
+            .enumerate()
+            .filter_map(|(batch_index, batch)| {
+                if batch.created_notes().next().is_none() {
+                    None
+                } else {
+                    Some((batch_index, batch.created_notes_root()))
+                }
+            })
+            .collect();
 
         Ok(Self {
             updated_accounts,
@@ -395,14 +407,16 @@ impl BlockWitness {
             // Notes stack inputs
             {
                 let num_created_notes_roots = self.batch_created_notes_roots.len();
-                for batch_created_notes_root in self.batch_created_notes_roots {
-                    let root_eles: [Felt; 4] = batch_created_notes_root.into();
-                    println!("Adding batch root: {:?}", root_eles);
-                    stack_inputs.extend(root_eles);
+                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots {
+                    let batch_index = u64::try_from(batch_index)
+                        .expect("can't be more than 2^64 - 1 notes created");
+                    stack_inputs.push(Felt::from(batch_index));
+
+                    stack_inputs.extend(batch_created_notes_root);
                 }
 
-                let empty_root_depth_8 = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
-                stack_inputs.extend(*empty_root_depth_8);
+                let empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
+                stack_inputs.extend(*empty_root);
                 stack_inputs.push(Felt::from(num_created_notes_roots as u64));
             }
 
