@@ -16,9 +16,16 @@ use miden_vm::{
     crypto::MerklePath, execute, AdviceInputs, DefaultHost, MemAdviceProvider, Program, StackInputs,
 };
 
-use crate::SharedTxBatch;
+use crate::{batch_builder, SharedTxBatch};
 
 use super::{errors::BlockProverError, BuildBlockError};
+
+/// The depth at which we insert roots from the batches.
+pub const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
+
+/// The depth of the created notes tree in the block.
+pub const CREATED_NOTES_TREE_DEPTH: u8 =
+    CREATED_NOTES_TREE_INSERTION_DEPTH + batch_builder::CREATED_NOTES_SMT_DEPTH;
 
 #[cfg(test)]
 mod tests;
@@ -390,6 +397,7 @@ impl BlockWitness {
                 let num_created_notes_roots = self.batch_created_notes_roots.len();
                 for batch_created_notes_root in self.batch_created_notes_roots {
                     let root_eles: [Felt; 4] = batch_created_notes_root.into();
+                    println!("Adding batch root: {:?}", root_eles);
                     stack_inputs.extend(root_eles);
                 }
 

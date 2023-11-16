@@ -339,7 +339,7 @@ async fn test_compute_note_root_empty_batches_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let empty_root_depth_8 = EmptySubtreeRoots::entry(8, 0);
+    let empty_root_depth_8 = EmptySubtreeRoots::entry(20, 0);
     assert_eq!(block_header.note_root(), *empty_root_depth_8);
 }
 
@@ -374,11 +374,20 @@ async fn test_compute_note_root_empty_notes_success() {
     let notes_smt = {
         // Since there's 1 batch (no notes created), the SMT contains 1 leaf with an empty root
         let batch_notes_empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_SMT_DEPTH, 0);
+        {
+            let empty: [Felt; 4] = batch_notes_empty_root.into();
+            println!("empty 12: {empty:?}");
+        }
         SimpleSmt::with_leaves(8, std::iter::once((0, batch_notes_empty_root.into()))).unwrap()
     };
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
+    let batch_notes_empty_root = EmptySubtreeRoots::entry(8, 0);
+    {
+        let empty: [Felt; 4] = batch_notes_empty_root.into();
+        println!("empty 8: {empty:?}");
+    }
     assert_eq!(block_header.note_root(), notes_smt.root());
 }
 
