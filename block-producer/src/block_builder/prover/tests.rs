@@ -443,18 +443,23 @@ async fn test_compute_note_root_success() {
 
     // Create SMT by hand to get new root
     // ---------------------------------------------------------------------------------------------
+
+    // The current logic is hardcoded to a depth of 20
+    assert_eq!(CREATED_NOTES_TREE_DEPTH, 20);
+
+    // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
+    // the second subtree of depth 12
     let notes_smt = SimpleSmt::with_leaves(
-        8,
-        notes_created
-            .into_iter()
-            .enumerate()
-            .map(|(idx, note)| (idx as u64, note.note_hash().into())),
+        CREATED_NOTES_TREE_DEPTH,
+        vec![
+            (0u64, notes_created[0].note_hash().into()),
+            (1u64, notes_created[1].note_hash().into()),
+            (2u64.pow(12), notes_created[2].note_hash().into()),
+        ],
     )
     .unwrap();
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
     assert_eq!(block_header.note_root(), notes_smt.root());
-
-    panic!("Rework test. We need to be able to create a SimpleSmt of depth 20 where we insert at depth 8.");
 }
