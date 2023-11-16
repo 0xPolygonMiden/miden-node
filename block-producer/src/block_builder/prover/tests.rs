@@ -315,7 +315,35 @@ async fn test_compute_account_root_empty_batches() {
 // NOTE ROOT TESTS
 // =================================================================================================
 
-/// Tests that the block kernel returns the empty tree if no notes were created
+/// Tests that the block kernel returns the empty tree (depth 8) if no notes were created, but which contains at least 1 batch.
+#[tokio::test]
+async fn test_compute_note_root_empty_batches_success() {
+    // Set up store
+    // ---------------------------------------------------------------------------------------------
+
+    let store = MockStoreSuccess::new(std::iter::empty(), BTreeSet::new());
+
+    // Block prover
+    // ---------------------------------------------------------------------------------------------
+
+    // Block inputs is initialized with all the accounts and their initial state
+    let block_inputs_from_store: BlockInputs =
+        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+
+    let batches: Vec<SharedTxBatch> = Vec::new();
+
+    let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
+
+    let block_prover = BlockProver::new();
+    let block_header = block_prover.prove(block_witness).unwrap();
+
+    // Compare roots
+    // ---------------------------------------------------------------------------------------------
+    let empty_root_depth_8 = EmptySubtreeRoots::entry(8, 0);
+    assert_eq!(block_header.note_root(), *empty_root_depth_8);
+}
+
+/// Tests that the block kernel returns the proper tree if no notes were created, but which contains at least 1 batch.
 #[tokio::test]
 async fn test_compute_note_root_empty_notes_success() {
     // Set up store
@@ -342,7 +370,7 @@ async fn test_compute_note_root_empty_notes_success() {
 
     // Create SMT by hand to get empty root
     // ---------------------------------------------------------------------------------------------
-    let notes_smt = SimpleSmt::new(8).unwrap();
+    let notes_smt = SimpleSmt::new(20).unwrap();
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
