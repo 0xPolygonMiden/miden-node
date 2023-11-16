@@ -397,11 +397,11 @@ impl BlockWitness {
             {
                 let num_created_notes_roots = self.batch_created_notes_roots.len();
                 for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots {
+                    stack_inputs.extend(batch_created_notes_root);
+
                     let batch_index = u64::try_from(batch_index)
                         .expect("can't be more than 2^64 - 1 notes created");
                     stack_inputs.push(Felt::from(batch_index));
-
-                    stack_inputs.extend(batch_created_notes_root);
                 }
 
                 let empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
