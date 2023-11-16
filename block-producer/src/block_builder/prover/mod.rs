@@ -72,21 +72,18 @@ proc.compute_account_root
     # => [ROOT_{n-1}]
 end
 
-#! TODO: put a version of this in stdlib?
-#!
 #! Inserts the specified value under the specified key in a Sparse Merkle Tree of depth 8 defined by the
 #! specified root. If the insert is successful, the old value located under the specified key
 #! is returned via the stack.
 #!
 #! Inputs:
-#!   Operand stack: [VALUE, key, ROOT, ...]
+#!   Operand stack: [ROOT, key, VALUE, ...]
 #!
 #! Outputs:
 #!   Operand stack: [OLD_VALUE, NEW_ROOT, ...]
 proc.mtree_8_set
-    # prepare the stack for mtree_set operation
-    movup.4 movdn.8 swapw movup.8 push.8
-    # => [8, key, ROOT, VALUE, ...]
+    movup.4 push.8
+    # => [depth=8, key, ROOT, VALUE, ...]
 
     mtree_set
     # => [OLD_VALUE, NEW_ROOT, ...]
@@ -94,38 +91,30 @@ end
 
 #! Compute the note root
 #! 
-#! Stack: [num_notes_updated, SMT_EMPTY_ROOT_DEPTH_8, NOTE_HASH_0, ... , NOTE_HASH_{n-1}]
+#! Stack: [num_notes_updated, SMT_EMPTY_ROOT, note_key_0, NOTE_HASH_0, ... , note_key_{n-1}, NOTE_HASH_{n-1}]
 #! Output: [NOTES_ROOT]
 proc.compute_note_root
     # assess if we should loop
-    push.0 dup.1 dup.1 neq
-    #=> [should_loop, loop_counter=0, num_notes_updated, SMT_EMPTY_ROOT_DEPTH_8, NOTE_HASH_0, ... , NOTE_HASH_{n-1}]
+    dup neq.0 
+    #=> [0 or 1, num_notes_updated, SMT_EMPTY_ROOT, ... ]
 
     while.true
-        #=> [loop_counter, num_notes_updated, ROOT_i, NOTE_HASH_i, ... ]
+        #=> [notes_left_to_update, ROOT_i, note_key_i, NOTE_HASH_i, ... ]
 
-        # Move loop_counter and `num_notes_updated` down for next iteration
-        # Keep a copy of `loop_counter`; we use it as the insert key for the ith note hash
-        dup movdn.10 swap movdn.10
-        #=> [loop_counter, ROOT_i, NOTE_HASH_i, loop_counter, num_notes_updated, ... ]
-
-        # Prepare stack for mtree_8_set
-        movdn.4
-        #=> [ROOT_i, loop_counter, NOTE_HASH_i, loop_counter, num_notes_updated, ... ]
+        # Move `notes_left_to_update` down for next iteration
+        movdn.9 
+        #=> [ROOT_i, note_key_i, NOTE_HASH_i, notes_left_to_update, ... ]
 
         exec.mtree_8_set dropw 
-        #=> [ROOT_{i+1}, loop_counter, num_notes_updated, ... ]
+        #=> [ROOT_{i+1}, notes_left_to_update, ... ]
 
-        # Prepare stack for loop counter check
-        movdn.5 movdn.5 movdn.5 movdn.5
-        #=> [loop_counter, num_notes_updated, ROOT_{i+1}, ... ]
 
         # loop counter
-        add.1 dup.1 dup.1 neq
-        #=> [should_loop, loop_counter + 1, num_notes_updated, ROOT_{i+1}, ... ]
+        movup.4 sub.1 dup neq.0
+        #=> [0 or 1, notes_left_to_update - 1, ROOT_{i+1}, ... ]
     end
 
-    drop drop
+    drop
     # => [ROOT_{n-1}]
 end
 
