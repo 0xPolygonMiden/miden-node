@@ -10,7 +10,7 @@ use miden_objects::{
 use miden_vm::crypto::SimpleSmt;
 
 use crate::{
-    batch_builder::TransactionBatch,
+    batch_builder::{TransactionBatch, CREATED_NOTES_SMT_DEPTH},
     store::Store,
     test_utils::{DummyProvenTxGenerator, MockStoreSuccess},
 };
@@ -370,7 +370,12 @@ async fn test_compute_note_root_empty_notes_success() {
 
     // Create SMT by hand to get empty root
     // ---------------------------------------------------------------------------------------------
-    let notes_smt = SimpleSmt::new(20).unwrap();
+
+    let notes_smt = {
+        // Since there's 1 batch (no notes created), the SMT contains 1 leaf with an empty root
+        let batch_notes_empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_SMT_DEPTH, 0);
+        SimpleSmt::with_leaves(8, std::iter::once((0, batch_notes_empty_root.into()))).unwrap()
+    };
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
