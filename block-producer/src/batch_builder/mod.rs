@@ -206,7 +206,7 @@ where
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
-        let batch = Arc::new(TransactionBatch::new(txs).unwrap());
+        let batch = Arc::new(TransactionBatch::new(txs)?);
         self.ready_batches.write().await.push(batch);
 
         Ok(())
