@@ -1,4 +1,4 @@
-use std::{cmp::min, sync::Arc, time::Duration};
+use std::{cmp::min, collections::BTreeMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, Digest};
@@ -24,18 +24,25 @@ const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2usize.pow(CREATED_NOTES_SMT_DEPT
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
 pub struct TransactionBatch {
-    account_initial_states: Vec<(AccountId, Digest)>,
-    updated_accounts: Vec<(AccountId, Digest)>,
+    updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Digest>,
     created_notes_smt: SimpleSmt,
 }
 
 impl TransactionBatch {
     pub fn new(txs: Vec<SharedProvenTx>) -> Result<Self, BuildBatchError> {
-        let account_initial_states =
-            txs.iter().map(|tx| (tx.account_id(), tx.initial_account_hash())).collect();
-        let updated_accounts =
-            txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash())).collect();
+        let updated_accounts = txs
+            .iter()
+            .map(|tx| {
+                (
+                    tx.account_id(),
+                    AccountStates {
+                        initial_state: tx.initial_account_hash(),
+                        final_state: tx.final_account_hash(),
+                    },
+                )
+            })
+            .collect();
 
         let produced_nullifiers = txs
             .iter()
@@ -66,7 +73,6 @@ impl TransactionBatch {
         };
 
         Ok(Self {
-            account_initial_states,
             updated_accounts,
             produced_nullifiers,
             created_notes_smt,
@@ -76,13 +82,17 @@ impl TransactionBatch {
     /// Returns an iterator over account ids that were modified in the transaction batch, and their
     /// corresponding initial hash
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
-        self.account_initial_states.iter().cloned()
+        self.updated_accounts
+            .iter()
+            .map(|(account_id, account_states)| (*account_id, account_states.initial_state))
     }
 
     /// Returns an iterator over account ids that were modified in the transaction batch, and their
     /// corresponding new hash
     pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
-        self.updated_accounts.iter().cloned()
+        self.updated_accounts
+            .iter()
+            .map(|(account_id, account_states)| (*account_id, account_states.final_state))
     }
 
     /// Returns the nullifier of all consumed notes
@@ -99,6 +109,13 @@ impl TransactionBatch {
     pub fn created_notes_root(&self) -> Digest {
         self.created_notes_smt.root()
     }
+}
+
+/// Stores the initial state (before the transaction) and final state (after the transaction) of an
+/// account
+struct AccountStates {
+    initial_state: Digest,
+    final_state: Digest,
 }
 
 // BATCH BUILDER
