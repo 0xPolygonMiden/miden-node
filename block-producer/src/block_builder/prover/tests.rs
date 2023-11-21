@@ -27,9 +27,9 @@ use super::*;
 #[test]
 fn test_block_witness_validation_inconsistent_account_ids() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let account_id_1 = unsafe { AccountId::new_unchecked(Felt::ZERO) };
-    let account_id_2 = unsafe { AccountId::new_unchecked(Felt::ONE) };
-    let account_id_3 = unsafe { AccountId::new_unchecked(Felt::new(42)) };
+    let account_id_1 = AccountId::new_unchecked(Felt::ZERO);
+    let account_id_2 = AccountId::new_unchecked(Felt::ONE);
+    let account_id_3 = AccountId::new_unchecked(Felt::new(42));
 
     let block_inputs_from_store: BlockInputs = {
         let block_header = mock_block_header(Felt::ZERO, None, None, &[]);
@@ -99,8 +99,8 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 #[test]
 fn test_block_witness_validation_inconsistent_account_hashes() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let account_id_1 = unsafe { AccountId::new_unchecked(Felt::ZERO) };
-    let account_id_2 = unsafe { AccountId::new_unchecked(Felt::ONE) };
+    let account_id_1 = AccountId::new_unchecked(Felt::ZERO);
+    let account_id_2 = AccountId::new_unchecked(Felt::ONE);
 
     let account_1_hash_store =
         Digest::new([Felt::from(1u64), Felt::from(2u64), Felt::from(3u64), Felt::from(4u64)]);
@@ -181,11 +181,11 @@ async fn test_compute_account_root_success() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = vec![
-        unsafe { AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(0b1111_0000_0000_0000u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(0b1111_1111_0000_0000u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(0b1111_1111_1111_0000u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(0b1111_1111_1111_1111u64)) },
+        AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_1111_0000_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_1111u64)),
     ];
 
     let account_initial_states = vec![
@@ -269,11 +269,11 @@ async fn test_compute_account_root_empty_batches() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = vec![
-        unsafe { AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(0b1111_0000_0000_0000u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(0b1111_1111_0000_0000u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(0b1111_1111_1111_0000u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(0b1111_1111_1111_1111u64)) },
+        AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_1111_0000_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_1111u64)),
     ];
 
     let account_initial_states = vec![
@@ -383,9 +383,9 @@ async fn test_compute_note_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
 
     let account_ids = vec![
-        unsafe { AccountId::new_unchecked(Felt::from(0u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(1u64)) },
-        unsafe { AccountId::new_unchecked(Felt::from(2u64)) },
+        AccountId::new_unchecked(Felt::from(0u64)),
+        AccountId::new_unchecked(Felt::from(1u64)),
+        AccountId::new_unchecked(Felt::from(2u64)),
     ];
 
     let notes_created: Vec<NoteEnvelope> = vec![
