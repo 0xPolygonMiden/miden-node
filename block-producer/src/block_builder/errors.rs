@@ -19,7 +19,7 @@ pub enum BuildBlockError {
     #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
     InconsistentAccountStates(Vec<AccountId>),
     #[error(
-        "Too many batches in block. Got: {0}, max: 2^{}",
+        "too many batches in block. Got: {0}, max: 2^{}",
         CREATED_NOTES_TREE_INSERTION_DEPTH
     )]
     TooManyBatchesInBlock(usize),
