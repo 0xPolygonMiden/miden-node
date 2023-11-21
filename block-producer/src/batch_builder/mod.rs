@@ -1,7 +1,6 @@
 use std::{cmp::min, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use itertools::Itertools;
 use miden_objects::{accounts::AccountId, Digest};
 use miden_vm::crypto::SimpleSmt;
 use tokio::{sync::RwLock, time};
@@ -27,7 +26,6 @@ const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2usize.pow(CREATED_NOTES_SMT_DEPT
 pub struct TransactionBatch {
     account_initial_states: Vec<(AccountId, Digest)>,
     updated_accounts: Vec<(AccountId, Digest)>,
-    consumed_notes_script_roots: Vec<Digest>,
     produced_nullifiers: Vec<Digest>,
     created_notes_smt: SimpleSmt,
 }
@@ -39,18 +37,6 @@ impl TransactionBatch {
         let updated_accounts =
             txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash())).collect();
 
-        let consumed_notes_script_roots = {
-            let mut script_roots: Vec<Digest> = txs
-                .iter()
-                .flat_map(|tx| tx.consumed_notes())
-                .map(|consumed_note| consumed_note.script_root())
-                .collect();
-
-            script_roots.sort();
-
-            // Removes duplicates in consecutive items
-            script_roots.into_iter().dedup().collect()
-        };
         let produced_nullifiers = txs
             .iter()
             .flat_map(|tx| tx.consumed_notes())
@@ -82,7 +68,6 @@ impl TransactionBatch {
         Ok(Self {
             account_initial_states,
             updated_accounts,
-            consumed_notes_script_roots,
             produced_nullifiers,
             created_notes_smt,
         })
@@ -98,11 +83,6 @@ impl TransactionBatch {
     /// corresponding new hash
     pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
         self.updated_accounts.iter().cloned()
-    }
-
-    /// Returns the script root of all consumed notes
-    pub fn consumed_notes_script_roots(&self) -> impl Iterator<Item = Digest> + '_ {
-        self.consumed_notes_script_roots.iter().cloned()
     }
 
     /// Returns the nullifier of all consumed notes
