@@ -23,22 +23,25 @@ fn test_db_nullifiers() {
     let mut conn = create_db();
 
     // test querying empty table
-    let nullifiers = sql::get_nullifiers(&mut conn).unwrap();
+    let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
     assert!(nullifiers.is_empty());
 
-    let nullifiers = sql::get_nullifiers_by_block_range(&mut conn, 0, u32::MAX, &[]).unwrap();
+    let nullifiers = sql::select_nullifiers_by_block_range(&mut conn, 0, u32::MAX, &[]).unwrap();
     assert!(nullifiers.is_empty());
 
     // test inserion
     let nullifier1 = num_to_rpo_digest(1 << 48);
     let block_number1 = 1;
-    sql::add_nullifier(&mut conn, nullifier1, block_number1).unwrap();
+
+    let transaction = conn.transaction().unwrap();
+    sql::insert_nullifiers_for_block(&transaction, &[nullifier1], block_number1).unwrap();
+    transaction.commit().unwrap();
 
     // test load
-    let nullifiers = sql::get_nullifiers(&mut conn).unwrap();
+    let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
     assert_eq!(nullifiers, vec![(nullifier1, block_number1)]);
 
-    let nullifiers = sql::get_nullifiers_by_block_range(
+    let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
         0,
         u32::MAX,
@@ -56,13 +59,16 @@ fn test_db_nullifiers() {
     // test additional element
     let nullifier2 = num_to_rpo_digest(2 << 48);
     let block_number2 = 2;
-    sql::add_nullifier(&mut conn, nullifier2, block_number2).unwrap();
 
-    let nullifiers = sql::get_nullifiers(&mut conn).unwrap();
+    let transaction = conn.transaction().unwrap();
+    sql::insert_nullifiers_for_block(&transaction, &[nullifier2], block_number2).unwrap();
+    transaction.commit().unwrap();
+
+    let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
     assert_eq!(nullifiers, vec![(nullifier1, block_number1), (nullifier2, block_number2)]);
 
     // only the nullifiers matching the prefix are included
-    let nullifiers = sql::get_nullifiers_by_block_range(
+    let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
         0,
         u32::MAX,
@@ -76,7 +82,7 @@ fn test_db_nullifiers() {
             block_num: block_number1
         }]
     );
-    let nullifiers = sql::get_nullifiers_by_block_range(
+    let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
         0,
         u32::MAX,
@@ -92,7 +98,7 @@ fn test_db_nullifiers() {
     );
 
     // Nullifiers created at block_end are included
-    let nullifiers = sql::get_nullifiers_by_block_range(
+    let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
         0,
         1,
@@ -111,7 +117,7 @@ fn test_db_nullifiers() {
     );
 
     // Nullifiers created at block_start are not included
-    let nullifiers = sql::get_nullifiers_by_block_range(
+    let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
         1,
         u32::MAX,
@@ -136,13 +142,13 @@ fn test_db_block_header() {
 
     // test querying empty table
     let block_number = 1;
-    let res = sql::get_block_header(&mut conn, Some(block_number)).unwrap();
+    let res = sql::select_block_header_by_block_num(&mut conn, Some(block_number)).unwrap();
     assert!(res.is_none());
 
-    let res = sql::get_block_header(&mut conn, None).unwrap();
+    let res = sql::select_block_header_by_block_num(&mut conn, None).unwrap();
     assert!(res.is_none());
 
-    let res = sql::get_block_headers(&mut conn).unwrap();
+    let res = sql::select_block_headers(&mut conn).unwrap();
     assert!(res.is_empty());
 
     let block_header = ProtobufBlockHeader {
@@ -159,19 +165,22 @@ fn test_db_block_header() {
     };
 
     // test insertion
-    sql::add_block_header(&mut conn, block_header.clone()).unwrap();
+    let transaction = conn.transaction().unwrap();
+    sql::insert_block_header(&transaction, &block_header).unwrap();
+    transaction.commit().unwrap();
 
     // test fetch unknown block header
     let block_number = 1;
-    let res = sql::get_block_header(&mut conn, Some(block_number)).unwrap();
+    let res = sql::select_block_header_by_block_num(&mut conn, Some(block_number)).unwrap();
     assert!(res.is_none());
 
     // test fetch block header by block number
-    let res = sql::get_block_header(&mut conn, Some(block_header.block_num)).unwrap();
+    let res =
+        sql::select_block_header_by_block_num(&mut conn, Some(block_header.block_num)).unwrap();
     assert_eq!(res.unwrap(), block_header);
 
     // test fetch latest block header
-    let res = sql::get_block_header(&mut conn, None).unwrap();
+    let res = sql::select_block_header_by_block_num(&mut conn, None).unwrap();
     assert_eq!(res.unwrap(), block_header);
 
     let block_header2 = ProtobufBlockHeader {
@@ -186,11 +195,15 @@ fn test_db_block_header() {
         version: 19,
         timestamp: 20,
     };
-    sql::add_block_header(&mut conn, block_header2.clone()).unwrap();
-    let res = sql::get_block_header(&mut conn, None).unwrap();
+
+    let transaction = conn.transaction().unwrap();
+    sql::insert_block_header(&transaction, &block_header2).unwrap();
+    transaction.commit().unwrap();
+
+    let res = sql::select_block_header_by_block_num(&mut conn, None).unwrap();
     assert_eq!(res.unwrap(), block_header2);
 
-    let res = sql::get_block_headers(&mut conn).unwrap();
+    let res = sql::select_block_headers(&mut conn).unwrap();
     assert_eq!(res, [block_header, block_header2]);
 }
 
@@ -200,19 +213,27 @@ fn test_db_account() {
 
     // test empty table
     let account_ids = vec![0, 1, 2, 3, 4, 5];
-    let res = sql::get_account_hash_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
+    let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert!(res.is_empty());
 
     // test insertion
     let block_num = 1;
     let account_id = 0;
     let account_hash = num_to_protobuf_digest(0);
-    let row_count =
-        sql::update_account_hash(&mut conn, account_id, account_hash.clone(), block_num).unwrap();
+
+    let transaction = conn.transaction().unwrap();
+    let row_count = sql::upsert_accounts_with_blocknum(
+        &transaction,
+        &[(account_id, account_hash.clone())],
+        block_num,
+    )
+    .unwrap();
+    transaction.commit().unwrap();
+
     assert_eq!(row_count, 1);
 
     // test successful query
-    let res = sql::get_account_hash_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
+    let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert_eq!(
         res,
         vec![AccountHashUpdate {
@@ -223,13 +244,12 @@ fn test_db_account() {
     );
 
     // test query for update outside of the block range
-    let res =
-        sql::get_account_hash_by_block_range(&mut conn, block_num + 1, u32::MAX, &account_ids)
-            .unwrap();
+    let res = sql::select_accounts_by_block_range(&mut conn, block_num + 1, u32::MAX, &account_ids)
+        .unwrap();
     assert!(res.is_empty());
 
     // test query with unknown accounts
-    let res = sql::get_account_hash_by_block_range(&mut conn, block_num + 1, u32::MAX, &[6, 7, 8])
+    let res = sql::select_accounts_by_block_range(&mut conn, block_num + 1, u32::MAX, &[6, 7, 8])
         .unwrap();
     assert!(res.is_empty());
 }
@@ -239,10 +259,11 @@ fn test_notes() {
     let mut conn = create_db();
 
     // test empty table
-    let res = sql::get_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0).unwrap();
+    let res = sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0).unwrap();
     assert!(res.is_empty());
 
-    let res = sql::get_notes_since_block_by_tag_and_sender(&mut conn, &[1, 2, 3], &[], 0).unwrap();
+    let res =
+        sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[1, 2, 3], &[], 0).unwrap();
     assert!(res.is_empty());
 
     // test insertion
@@ -269,14 +290,17 @@ fn test_notes() {
             siblings: merkle_path.clone(),
         }),
     };
-    sql::add_note(&mut conn, note.clone()).unwrap();
+
+    let transaction = conn.transaction().unwrap();
+    sql::insert_notes(&transaction, &[note.clone()]).unwrap();
+    transaction.commit().unwrap();
 
     // test empty tags
-    let res = sql::get_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0).unwrap();
+    let res = sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0).unwrap();
     assert!(res.is_empty());
 
     // test no updates
-    let res = sql::get_notes_since_block_by_tag_and_sender(
+    let res = sql::select_notes_since_block_by_tag_and_sender(
         &mut conn,
         &[(tag >> 48) as u32],
         &[],
@@ -286,7 +310,7 @@ fn test_notes() {
     assert!(res.is_empty());
 
     // test match
-    let res = sql::get_notes_since_block_by_tag_and_sender(
+    let res = sql::select_notes_since_block_by_tag_and_sender(
         &mut conn,
         &[(tag >> 48) as u32],
         &[],
@@ -307,10 +331,13 @@ fn test_notes() {
             siblings: merkle_path,
         }),
     };
-    sql::add_note(&mut conn, note2.clone()).unwrap();
+
+    let transaction = conn.transaction().unwrap();
+    sql::insert_notes(&transaction, &[note2.clone()]).unwrap();
+    transaction.commit().unwrap();
 
     // only first note is returned
-    let res = sql::get_notes_since_block_by_tag_and_sender(
+    let res = sql::select_notes_since_block_by_tag_and_sender(
         &mut conn,
         &[(tag >> 48) as u32],
         &[],
@@ -320,7 +347,7 @@ fn test_notes() {
     assert_eq!(res, vec![note.clone()]);
 
     // only the second note is returned
-    let res = sql::get_notes_since_block_by_tag_and_sender(
+    let res = sql::select_notes_since_block_by_tag_and_sender(
         &mut conn,
         &[(tag >> 48) as u32],
         &[],

@@ -8,6 +8,8 @@ import "merkle.proto";
 import "mmr.proto";
 import "tsmt.proto";
 
+message ApplyBlockResponse {}
+
 message CheckNullifiersResponse {
     // Each requested nullifier has its corresponding nullifier proof at the
     // same position.
@@ -30,12 +32,12 @@ message NullifierUpdate {
 }
 
 message NoteSyncRecord {
-    uint32 note_index = 2;
-    digest.Digest note_hash = 3;
-    uint64 sender  = 4;
-    uint64 tag = 5;
-    uint32 num_assets = 6;
-    merkle.MerklePath merkle_path = 7;
+    uint32 note_index = 1;
+    digest.Digest note_hash = 2;
+    uint64 sender  = 3;
+    uint64 tag = 4;
+    uint32 num_assets = 5;
+    merkle.MerklePath merkle_path = 6;
 }
 
 message SyncStateResponse {
@@ -71,7 +73,7 @@ message AccountBlockInputRecord {
 // A nullifier returned as a response to the GetBlockInputs
 message NullifierBlockInputRecord {
     digest.Digest nullifier = 1;
-    merkle.MerklePath proof = 3;
+    merkle.MerklePath proof = 2;
 }
 
 message GetBlockInputsResponse {
@@ -99,10 +101,10 @@ message AccountTransactionInputRecord {
 message NullifierTransactionInputRecord {
     digest.Digest nullifier = 1;
     // The block at which the nullifier has been consumed, zero if not consumed.
-    uint32 block_num = 3;
+    uint32 block_num = 2;
 }
 
 message GetTransactionInputsResponse {
-    repeated AccountTransactionInputRecord account_states = 3;
-    repeated NullifierTransactionInputRecord nullifiers = 4;
+    repeated AccountTransactionInputRecord account_states = 1;
+    repeated NullifierTransactionInputRecord nullifiers = 2;
 }

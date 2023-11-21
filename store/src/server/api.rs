@@ -6,12 +6,12 @@ use miden_node_proto::{
     digest::Digest,
     error::ParseError,
     requests::{
-        CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
-        GetTransactionInputsRequest, SyncStateRequest,
+        ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
+        GetBlockInputsRequest, GetTransactionInputsRequest, SyncStateRequest,
     },
     responses::{
-        CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-        GetTransactionInputsResponse, SyncStateResponse,
+        ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
+        GetBlockInputsResponse, GetTransactionInputsResponse, SyncStateResponse,
     },
     store::api_server,
 };
@@ -114,6 +114,39 @@ impl api_server::Api for StoreApi {
     // BLOCK PRODUCER ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
+    /// Updates the local DB by inserting a new block header and the related data.
+    async fn apply_block(
+        &self,
+        request: tonic::Request<ApplyBlockRequest>,
+    ) -> Result<tonic::Response<ApplyBlockResponse>, tonic::Status> {
+        let request = request.into_inner();
+
+        let nullifiers = validate_nullifiers(&request.nullifiers)?;
+        let accounts = request
+            .accounts
+            .iter()
+            .map(|account_update| {
+                let account_id = account_update
+                    .account_id
+                    .clone()
+                    .ok_or(invalid_argument("Account update missing account id"))?;
+                let account_hash = account_update
+                    .account_hash
+                    .clone()
+                    .ok_or(invalid_argument("Account update missing account hash"))?;
+                Ok((account_id.id, account_hash))
+            })
+            .collect::<Result<Vec<_>, Status>>()?;
+
+        let block = request.block.ok_or(invalid_argument("Apply block missing block header"))?;
+
+        let notes = request.notes;
+
+        let _ = self.state.apply_block(block, &nullifiers, &accounts, &notes).await;
+
+        Ok(Response::new(ApplyBlockResponse {}))
+    }
+
     /// Returns data needed by the block producer to construct and prove the next block.
     async fn get_block_inputs(
         &self,
@@ -175,7 +208,7 @@ fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
 
 fn validate_nullifiers(nullifiers: &[Digest]) -> Result<Vec<RpoDigest>, Status> {
     nullifiers
-        .into_iter()
+        .iter()
         .map(|v| v.try_into())
         .collect::<Result<Vec<RpoDigest>, ParseError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
