@@ -91,7 +91,6 @@ proc.compute_note_root
         mtree_set dropw 
         #=> [ROOT_{i+1}, notes_left_to_update, ... ]
 
-
         # loop counter
         movup.4 sub.1 dup neq.0
         #=> [0 or 1, notes_left_to_update - 1, ROOT_{i+1}, ... ]
