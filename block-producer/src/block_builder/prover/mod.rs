@@ -72,23 +72,6 @@ proc.compute_account_root
     # => [ROOT_{n-1}]
 end
 
-#! Inserts the specified value under the specified key in a Sparse Merkle Tree of depth 8 defined by the
-#! specified root. If the insert is successful, the old value located under the specified key
-#! is returned via the stack.
-#!
-#! Inputs:
-#!   Operand stack: [ROOT, key, VALUE, ...]
-#!
-#! Outputs:
-#!   Operand stack: [OLD_VALUE, NEW_ROOT, ...]
-proc.mtree_8_set
-    movup.4 push.8
-    # => [depth=8, key, ROOT, VALUE, ...]
-
-    mtree_set
-    # => [OLD_VALUE, NEW_ROOT, ...]
-end
-
 #! Compute the note root
 #! 
 #! Stack: [num_notes_updated, SMT_EMPTY_ROOT, note_key_0, NOTE_HASH_0, ... , note_key_{n-1}, NOTE_HASH_{n-1}]
@@ -101,11 +84,11 @@ proc.compute_note_root
     while.true
         #=> [notes_left_to_update, ROOT_i, note_key_i, NOTE_HASH_i, ... ]
 
-        # Move `notes_left_to_update` down for next iteration
-        movdn.9 
-        #=> [ROOT_i, note_key_i, NOTE_HASH_i, notes_left_to_update, ... ]
+        # Prepare stack for mtree_set
+        movdn.9 movup.4 push.8
+        #=> [depth=8, note_key_i, ROOT_i, NOTE_HASH_i, notes_left_to_update, ... ]
 
-        exec.mtree_8_set dropw 
+        mtree_set dropw 
         #=> [ROOT_{i+1}, notes_left_to_update, ... ]
 
 
