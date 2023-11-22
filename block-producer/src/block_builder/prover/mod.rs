@@ -37,6 +37,9 @@ mod tests;
 /// NEW_ACCOUNT_HASH_n, account_id_n]
 const BLOCK_KERNEL_MASM: &str = "
 use.std::collections::smt64
+use.std::collections::mmr
+
+const.CHAIN_MMR_PTR=1000
 
 #! Compute the account root
 #! 
@@ -98,6 +101,48 @@ proc.compute_note_root
 
     drop
     # => [ROOT_{n-1}]
+end
+
+#! Compute the chain MMR root
+#! 
+#! Stack: [NUM_LEAVES, num_peaks, PEAK_0, ..., PEAK_{n-1}, PREV_BLOCK_HASH_TO_INSERT]
+#! Output: [CHAIN_MMR_ROOT]
+proc.compute_chain_mmr_root
+    # initialize memory: num leaves
+    push.CHAIN_MMR_PTR mem_storew dropw
+    # => [num_peaks, PEAK_0, ..., PEAK_{n-1}, PREV_BLOCK_HASH_TO_INSERT]
+
+    # prepare stack for loop that stores peaks
+    push.CHAIN_MMR_PTR add.1 dup add
+    # => [write_ptr, write_ptr_end, PEAK_0, ..., PEAK_{n-1}, PREV_BLOCK_HASH_TO_INSERT]
+
+    dup.1 dup.1 neq
+    while.true
+        # => [write_ptr, write_ptr_end, PEAK_i, ..., PEAK_{n-1}, PREV_BLOCK_HASH_TO_INSERT]
+
+        movup.5 movup.5 movup.5 movup.5 dup.4
+        # => [write_ptr, PEAK_i, write_ptr, write_ptr_end, PEAK_{i+1}, ..., PEAK_{n-1}, PREV_BLOCK_HASH_TO_INSERT]
+
+        mem_storew dropw
+        # => [write_ptr, write_ptr_end, PEAK_{i+1}, ..., PEAK_{n-1}, PREV_BLOCK_HASH_TO_INSERT]
+
+        # check if done looping
+        dup.1 dup.1 neq
+        # => [0 or 1, write_ptr, write_ptr_end, PEAK_{i+1}, ..., PEAK_{n-1}, PREV_BLOCK_HASH_TO_INSERT]
+    end
+    # => [ PREV_BLOCK_HASH_TO_INSERT ]
+
+    # prepare stack to add new peak
+    push.CHAIN_MMR_PTR movdn.4
+    # => [ PREV_BLOCK_HASH_TO_INSERT, chain_mmr_ptr ]
+
+    # add new peak
+    exec.mmr::add
+    # => [ ]
+
+    # Compute new MMR root
+    push.CHAIN_MMR_PTR exec.mmr::pack
+    # => [ CHAIN_MMR_ROOT ]
 end
 
 # Stack: [<account root inputs>, <note root inputs>]
