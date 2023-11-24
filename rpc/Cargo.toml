@@ -19,6 +19,7 @@ miden-crypto = { workspace = true }
 miden-node-proto = { path = "../proto" }
 miden-node-store = { path = "../store" }
 miden-node-utils = { path = "../utils" }
+miden-node-block-producer = { path = "../block-producer" }
 prost = { version = "0.12" }
 serde = { version = "1.0" , features = ["derive"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }

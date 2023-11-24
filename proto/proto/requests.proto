@@ -51,3 +51,5 @@ message GetTransactionInputsRequest {
     repeated account_id.AccountId account_ids = 1;
     repeated digest.Digest nullifiers = 2;
 }
+
+message SubmitProvenTransactionRequest {}

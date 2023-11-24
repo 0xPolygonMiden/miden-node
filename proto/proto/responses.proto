@@ -108,3 +108,5 @@ message GetTransactionInputsResponse {
     repeated AccountTransactionInputRecord account_states = 1;
     repeated NullifierTransactionInputRecord nullifiers = 2;
 }
+
+message SubmitProvenTransactionResponse {}
