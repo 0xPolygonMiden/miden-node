@@ -78,7 +78,14 @@ proc.compute_account_root
     # => [ROOT_{n-1}]
 end
 
-#! Compute the note root
+#! Compute the note root.
+#!
+#! Each batch contains a tree of depth 12 for its created notes. The block's created notes tree is created
+#! by aggregating up to 2^8 tree roots coming from the batches contained in the block.
+#! 
+#! `SMT_EMPTY_ROOT` must be `E20`, the root of the empty tree of depth 20. If less than 2^8 batches are
+#! contained in the block, `E12` is used as the padding value; this is derived from the fact that
+#! `SMT_EMPTY_ROOT` is `E20`, and that our tree has depth 8.
 #! 
 #! Stack: [num_notes_updated, SMT_EMPTY_ROOT, note_key_0, NOTE_HASH_0, ... , note_key_{n-1}, NOTE_HASH_{n-1}]
 #! Output: [NOTES_ROOT]
