@@ -1,9 +1,13 @@
-#[derive(Copy, Clone, Debug, PartialEq)]
+use miden_crypto::merkle::MmrError;
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum ParseError {
     HexError(hex::FromHexError),
     TooMuchData { expected: usize, got: usize },
     InsufficientData { expected: usize, got: usize },
     MissingLeafKey,
+    MmrPeaksError(MmrError),
+    TooManyMmrPeaks,
     NotAValidFelt,
     InvalidProof,
     ProtobufMissingData,
@@ -34,6 +38,8 @@ impl std::fmt::Display for ParseError {
                 write!(f, "Received TSMT proof is invalid")
             },
             ParseError::ProtobufMissingData => write!(f, "Protobuf message missing data"),
+            ParseError::MmrPeaksError(err) => write!(f, "MmrPeaks error: {err}"),
+            ParseError::TooManyMmrPeaks => write!(f, "Number of MmrPeaks doesn't fit into memory"),
         }
     }
 }

@@ -27,6 +27,12 @@ impl TransactionBatch {
     }
 
     /// Returns an iterator over account ids that were modified in the transaction batch, and their
+    /// corresponding initial hash
+    pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
+        self.txs.iter().map(|tx| (tx.account_id(), tx.initial_account_hash()))
+    }
+
+    /// Returns an iterator over account ids that were modified in the transaction batch, and their
     /// corresponding new hash
     pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
         self.txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash()))
@@ -48,7 +54,7 @@ impl TransactionBatch {
     }
 
     /// Returns the nullifier of all consumed notes
-    pub fn consumed_notes_nullifiers(&self) -> impl Iterator<Item = Digest> + '_ {
+    pub fn produced_nullifiers(&self) -> impl Iterator<Item = Digest> + '_ {
         self.txs
             .iter()
             .flat_map(|tx| tx.consumed_notes())
@@ -56,7 +62,7 @@ impl TransactionBatch {
     }
 
     /// Returns the hash of created notes
-    pub fn created_notes_hashes(&self) -> impl Iterator<Item = Digest> + '_ {
+    pub fn created_notes(&self) -> impl Iterator<Item = Digest> + '_ {
         self.txs
             .iter()
             .flat_map(|tx| tx.created_notes())

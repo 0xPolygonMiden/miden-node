@@ -14,6 +14,8 @@ use std::iter;
 
 use tokio::task::JoinSet;
 
+use crate::test_utils::MockStoreSuccess;
+
 use super::*;
 
 /// Tests the happy path where 3 transactions who modify different accounts and consume different
@@ -24,7 +26,12 @@ async fn test_verify_tx_happy_path() {
     let (txs, accounts): (Vec<SharedProvenTx>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
-    let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
+    let store = Arc::new(MockStoreSuccess::new(
+        accounts
+            .into_iter()
+            .map(|mock_account| (mock_account.id, mock_account.states[0])),
+        BTreeSet::new(),
+    ));
 
     let state_view = DefaulStateView::new(store);
 
@@ -43,7 +50,12 @@ async fn test_verify_tx_happy_path_concurrent() {
     let (txs, accounts): (Vec<SharedProvenTx>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
-    let store = Arc::new(MockStoreSuccess::new(accounts.into_iter(), BTreeSet::new()));
+    let store = Arc::new(MockStoreSuccess::new(
+        accounts
+            .into_iter()
+            .map(|mock_account| (mock_account.id, mock_account.states[0])),
+        BTreeSet::new(),
+    ));
 
     let state_view = Arc::new(DefaulStateView::new(store));
 
@@ -64,9 +76,12 @@ async fn test_verify_tx_happy_path_concurrent() {
 async fn test_verify_tx_vt1() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account = MockPrivateAccount::from(0);
+    let account = MockPrivateAccount::<3>::from(0);
 
-    let store = Arc::new(MockStoreSuccess::new(iter::once(account), BTreeSet::new()));
+    let store = Arc::new(MockStoreSuccess::new(
+        iter::once((account.id, account.states[0])),
+        BTreeSet::new(),
+    ));
 
     // The transaction's initial account hash uses `account.states[1]`, where the store expects
     // `account.states[0]`
@@ -131,7 +146,7 @@ async fn test_verify_tx_vt3() {
 
     // Notice: `consumed_note_in_store` is added to the store
     let store = Arc::new(MockStoreSuccess::new(
-        iter::once(account),
+        iter::once((account.id, account.states[0])),
         BTreeSet::from_iter(iter::once(consumed_note_in_store.nullifier())),
     ));
 
@@ -161,7 +176,10 @@ async fn test_verify_tx_vt4() {
 
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
-    let store = Arc::new(MockStoreSuccess::new(iter::once(account), BTreeSet::new()));
+    let store = Arc::new(MockStoreSuccess::new(
+        iter::once((account.id, account.states[0])),
+        BTreeSet::new(),
+    ));
 
     let tx1 = tx_gen.dummy_proven_tx_with_params(
         account.id,
@@ -201,8 +219,12 @@ async fn test_verify_tx_vt5() {
     let consumed_note_in_both_txs = consumed_note_by_index(0);
 
     // Notice: `consumed_note_in_both_txs` is NOT in the store
-    let store =
-        Arc::new(MockStoreSuccess::new(vec![account_1, account_2].into_iter(), BTreeSet::new()));
+    let store = Arc::new(MockStoreSuccess::new(
+        vec![account_1, account_2]
+            .into_iter()
+            .map(|account| (account.id, account.states[0])),
+        BTreeSet::new(),
+    ));
 
     let tx1 = tx_gen.dummy_proven_tx_with_params(
         account_1.id,
