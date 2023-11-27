@@ -20,6 +20,12 @@ use crate::{batch_builder, SharedTxBatch};
 
 use super::{errors::BlockProverError, BuildBlockError};
 
+/// The index of the word at which the account root is stored on the output stack.
+pub const ACCOUNT_ROOT_WORD_IDX: usize = 0;
+
+/// The index of the word at which the note root is stored on the output stack.
+pub const NOTE_ROOT_WORD_IDX: usize = 4;
+
 /// The depth at which we insert roots from the batches.
 pub(crate) const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
 
@@ -190,44 +196,17 @@ impl BlockProver {
             execute(&self.kernel, stack_inputs, host, ExecutionOptions::default())
                 .map_err(BlockProverError::ProgramExecutionFailed)?;
 
-        // TODO: Use `StackOutputs::pop_digest()` once merged
-        let (account_root_output, note_root_output) = {
-            let root_outputs: Vec<_> = execution_output.stack_outputs().stack().chunks(4).collect();
+        let new_account_root = execution_output
+            .stack_outputs()
+            .get_stack_word(ACCOUNT_ROOT_WORD_IDX)
+            .ok_or(BlockProverError::InvalidRootOutput("account".to_string()))?;
 
-            (root_outputs[0], root_outputs[1])
-        };
+        let new_note_root = execution_output
+            .stack_outputs()
+            .get_stack_word(NOTE_ROOT_WORD_IDX)
+            .ok_or(BlockProverError::InvalidRootOutput("note".to_string()))?;
 
-        let new_account_root = {
-            let digest_elements: Vec<Felt> = account_root_output
-            .iter()
-            .cloned()
-            .map(Felt::from)
-            // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
-            .rev()
-            .collect();
-
-            let digest_elements: [Felt; 4] =
-                digest_elements.try_into().map_err(|_| BlockProverError::InvalidRootReturned)?;
-
-            digest_elements.into()
-        };
-
-        let new_note_root = {
-            let digest_elements: Vec<Felt> = note_root_output
-            .iter()
-            .cloned()
-            .map(Felt::from)
-            // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
-            .rev()
-            .collect();
-
-            let digest_elements: [Felt; 4] =
-                digest_elements.try_into().map_err(|_| BlockProverError::InvalidRootReturned)?;
-
-            digest_elements.into()
-        };
-
-        Ok((new_account_root, new_note_root))
+        Ok((new_account_root.into(), new_note_root.into()))
     }
 }
 
