@@ -3,14 +3,8 @@ use miden_crypto::merkle::MmrError;
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParseError {
     HexError(hex::FromHexError),
-    TooMuchData {
-        expected: usize,
-        got: usize,
-    },
-    InsufficientData {
-        expected: usize,
-        got: usize,
-    },
+    TooMuchData { expected: usize, got: usize },
+    InsufficientData { expected: usize, got: usize },
     MissingLeafKey,
     MmrPeaksError(MmrError),
     TooManyMmrPeaks,
