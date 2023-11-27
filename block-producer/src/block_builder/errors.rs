@@ -32,6 +32,6 @@ pub enum BlockProverError {
     InvalidMerklePaths(MerkleError),
     #[error("program execution failed")]
     ProgramExecutionFailed(ExecutionError),
-    #[error("invalid return value on stack (not a hash)")]
-    InvalidRootReturned,
+    #[error("failed to retrieve {0} root from stack outputs")]
+    InvalidRootOutput(String),
 }
