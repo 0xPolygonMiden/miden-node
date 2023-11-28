@@ -122,7 +122,7 @@ end
 #! Compute the chain MMR root
 #! 
 #! Stack: [ PREV_CHAIN_MMR_HASH, PREV_BLOCK_HASH_TO_INSERT ]
-#! Advice map: PREV_CHAIN_MMR_HASH -> num_leaves || peak_0 || .. || peak_{n-1}
+#! Advice map: PREV_CHAIN_MMR_HASH -> NUM_LEAVES || peak_0 || .. || peak_{n-1} || <maybe padding>
 #!
 #! Output: [ CHAIN_MMR_ROOT ]
 proc.compute_chain_mmr_root
