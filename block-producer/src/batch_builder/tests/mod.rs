@@ -122,7 +122,7 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
     let block_frequency = Duration::from_millis(20);
     let max_batches_per_block = 2;
 
-    let block_builder = Arc::new(BlockBuilderFailure::default());
+    let block_builder = Arc::new(BlockBuilderFailure);
 
     let batch_builder = DefaultBatchBuilder::new(
         block_builder.clone(),
@@ -164,10 +164,7 @@ fn dummy_tx_batch(
     tx_gen: &DummyProvenTxGenerator,
     num_txs_in_batch: usize,
 ) -> SharedTxBatch {
-    let txs: Vec<_> = (0..num_txs_in_batch)
-        .into_iter()
-        .map(|_| Arc::new(tx_gen.dummy_proven_tx()))
-        .collect();
+    let txs: Vec<_> = (0..num_txs_in_batch).map(|_| Arc::new(tx_gen.dummy_proven_tx())).collect();
 
     Arc::new(TransactionBatch::new(txs).unwrap())
 }

@@ -68,7 +68,7 @@ async fn test_apply_block_called_empty_batches() {
 /// Tests that `build_block()` fails when `get_block_inputs()` fails
 #[tokio::test]
 async fn test_build_block_failure() {
-    let store = Arc::new(MockStoreFailure::default());
+    let store = Arc::new(MockStoreFailure);
 
     let block_builder = DefaultBlockBuilder::new(store.clone());
 
