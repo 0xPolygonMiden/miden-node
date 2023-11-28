@@ -378,7 +378,10 @@ impl BlockWitness {
 
                 let empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
                 stack_inputs.extend(*empty_root);
-                stack_inputs.push(Felt::from(num_created_notes_roots as u64));
+                stack_inputs.push(Felt::from(
+                    u64::try_from(num_created_notes_roots)
+                        .expect("can't be more than 2^64 - 1 notes created"),
+                ));
             }
 
             // Account stack inputs
