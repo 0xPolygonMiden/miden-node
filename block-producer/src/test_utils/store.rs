@@ -30,10 +30,8 @@ impl MockStoreSuccess {
         accounts: impl Iterator<Item = (AccountId, Digest)>,
         consumed_nullifiers: BTreeSet<Digest>,
     ) -> Self {
-        let accounts: Vec<_> = accounts
-            .into_iter()
-            .map(|(account_id, hash)| (account_id.into(), hash.into()))
-            .collect();
+        let accounts =
+            accounts.into_iter().map(|(account_id, hash)| (account_id.into(), hash.into()));
         let store_accounts = SimpleSmt::with_leaves(64, accounts).unwrap();
 
         Self {

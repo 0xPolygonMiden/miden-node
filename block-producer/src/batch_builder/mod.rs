@@ -64,12 +64,9 @@ impl TransactionBatch {
 
             SimpleSmt::with_contiguous_leaves(
                 CREATED_NOTES_SMT_DEPTH,
-                created_notes
-                    .into_iter()
-                    .flat_map(|note_envelope| {
-                        [note_envelope.note_hash().into(), note_envelope.metadata().into()]
-                    })
-                    .collect::<Vec<_>>(),
+                created_notes.into_iter().flat_map(|note_envelope| {
+                    [note_envelope.note_hash().into(), note_envelope.metadata().into()]
+                }),
             )?
         };
 
