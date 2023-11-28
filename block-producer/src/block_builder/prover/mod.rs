@@ -461,7 +461,12 @@ impl BlockWitness {
                 ))
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 
-            AdviceInputs::default().with_merkle_store(merkle_store)
+            let mut map_data: Vec<Felt> = Vec::new();
+            map_data.extend([Felt::from(self.chain_peaks.num_leaves() as u64)]);
+
+            AdviceInputs::default()
+                .with_merkle_store(merkle_store)
+                .with_map([(Digest::from(self.chain_peaks.hash_peaks()).into(), map_data)])
         };
 
         Ok((advice_inputs, stack_inputs))
