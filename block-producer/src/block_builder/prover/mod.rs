@@ -1,4 +1,5 @@
 use std::{
+    cmp::min,
     collections::{BTreeMap, BTreeSet},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -9,7 +10,7 @@ use miden_objects::{
     accounts::AccountId,
     assembly::Assembler,
     crypto::merkle::{EmptySubtreeRoots, MerkleStore, MmrPeaks},
-    BlockHeader, Digest, Felt,
+    BlockHeader, Digest, Felt, ZERO,
 };
 use miden_stdlib::StdLibrary;
 use miden_vm::{
@@ -32,6 +33,8 @@ pub(crate) const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
 /// The depth of the created notes tree in the block.
 pub(crate) const CREATED_NOTES_TREE_DEPTH: u8 =
     CREATED_NOTES_TREE_INSERTION_DEPTH + batch_builder::CREATED_NOTES_SMT_DEPTH;
+
+pub(crate) const MMR_MIN_NUM_PEAKS: usize = 16;
 
 #[cfg(test)]
 mod tests;
@@ -461,8 +464,28 @@ impl BlockWitness {
                 ))
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 
-            let mut map_data: Vec<Felt> = Vec::new();
-            map_data.extend([Felt::from(self.chain_peaks.num_leaves() as u64)]);
+            // advice map data is expected to be:
+            // [ NUM_LEAVES, peak_0, ..., peak{n-1}, <padding until 16 peaks> ]
+            let map_data = {
+                // num leaves
+                let num_leaves =
+                    [Felt::from(self.chain_peaks.num_leaves() as u64), ZERO, ZERO, ZERO];
+
+                // peaks
+                let num_peaks = self.chain_peaks.peaks().len();
+                let num_padding_peaks = MMR_MIN_NUM_PEAKS - num_peaks;
+                let padding_peaks = vec![Digest::default(); min(num_padding_peaks, 0)];
+
+                let all_peaks_including_padding =
+                    self.chain_peaks.peaks().iter().chain(padding_peaks.iter());
+
+                // fill out map data
+                let mut map_data: Vec<Felt> = Vec::new();
+                map_data.extend(num_leaves);
+                map_data.extend(all_peaks_including_padding.flat_map(|peak| peak.iter()));
+
+                map_data
+            };
 
             AdviceInputs::default()
                 .with_merkle_store(merkle_store)
