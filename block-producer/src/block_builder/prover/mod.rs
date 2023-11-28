@@ -8,7 +8,7 @@ use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
     assembly::Assembler,
-    crypto::merkle::{EmptySubtreeRoots, MerkleStore},
+    crypto::merkle::{EmptySubtreeRoots, MerkleStore, MmrPeaks},
     BlockHeader, Digest, Felt,
 };
 use miden_stdlib::StdLibrary;
@@ -256,11 +256,12 @@ impl BlockProver {
 // =================================================================================================
 
 /// Provides inputs to the `BlockKernel` so that it can generate the new header
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub(super) struct BlockWitness {
     updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     /// (batch_index, created_notes_root) for batches that contain notes
     batch_created_notes_roots: Vec<(usize, Digest)>,
+    chain_peaks: MmrPeaks,
     prev_header: BlockHeader,
 }
 
@@ -319,6 +320,7 @@ impl BlockWitness {
         Ok(Self {
             updated_accounts,
             batch_created_notes_roots,
+            chain_peaks: block_inputs.chain_peaks,
             prev_header: block_inputs.block_header,
         })
     }
@@ -399,6 +401,12 @@ impl BlockWitness {
             // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
             // from the bottom to the top
             let mut stack_inputs = Vec::new();
+
+            // Chain MMR stack inputs
+            {
+                stack_inputs.extend(self.prev_header.hash());
+                stack_inputs.extend(self.chain_peaks.hash_peaks());
+            }
 
             // Notes stack inputs
             {
