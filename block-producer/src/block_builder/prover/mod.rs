@@ -489,7 +489,7 @@ impl BlockWitness {
 
             AdviceInputs::default()
                 .with_merkle_store(merkle_store)
-                .with_map([(Digest::from(self.chain_peaks.hash_peaks()).into(), map_data)])
+                .with_map([(self.chain_peaks.hash_peaks().into(), map_data)])
         };
 
         Ok((advice_inputs, stack_inputs))
