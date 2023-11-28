@@ -180,7 +180,7 @@ async fn test_compute_account_root_success() {
 
     // Set up account states
     // ---------------------------------------------------------------------------------------------
-    let account_ids = vec![
+    let account_ids = [
         AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)),
         AccountId::new_unchecked(Felt::from(0b1111_0000_0000_0000u64)),
         AccountId::new_unchecked(Felt::from(0b1111_1111_0000_0000u64)),
@@ -188,7 +188,7 @@ async fn test_compute_account_root_success() {
         AccountId::new_unchecked(Felt::from(0b1111_1111_1111_1111u64)),
     ];
 
-    let account_initial_states = vec![
+    let account_initial_states = [
         [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)],
         [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)],
         [Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)],
@@ -196,7 +196,7 @@ async fn test_compute_account_root_success() {
         [Felt::from(5u64), Felt::from(5u64), Felt::from(5u64), Felt::from(5u64)],
     ];
 
-    let account_final_states = vec![
+    let account_final_states = [
         [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)],
         [Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)],
         [Felt::from(4u64), Felt::from(4u64), Felt::from(4u64), Felt::from(4u64)],
@@ -211,7 +211,7 @@ async fn test_compute_account_root_success() {
         account_ids
             .iter()
             .zip(account_initial_states.iter())
-            .map(|(&account_id, &account_hash)| (account_id.into(), account_hash.into())),
+            .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
         BTreeSet::new(),
     );
     // Block prover
@@ -254,7 +254,7 @@ async fn test_compute_account_root_success() {
             account_ids
                 .iter()
                 .zip(account_final_states.iter())
-                .map(|(&account_id, &account_hash)| (account_id.into(), account_hash.into())),
+                .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
         )
         .await;
 
@@ -268,7 +268,7 @@ async fn test_compute_account_root_success() {
 async fn test_compute_account_root_empty_batches() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
-    let account_ids = vec![
+    let account_ids = [
         AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)),
         AccountId::new_unchecked(Felt::from(0b1111_0000_0000_0000u64)),
         AccountId::new_unchecked(Felt::from(0b1111_1111_0000_0000u64)),
@@ -276,7 +276,7 @@ async fn test_compute_account_root_empty_batches() {
         AccountId::new_unchecked(Felt::from(0b1111_1111_1111_1111u64)),
     ];
 
-    let account_initial_states = vec![
+    let account_initial_states = [
         [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)],
         [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)],
         [Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)],
@@ -291,7 +291,7 @@ async fn test_compute_account_root_empty_batches() {
         account_ids
             .iter()
             .zip(account_initial_states.iter())
-            .map(|(&account_id, &account_hash)| (account_id.into(), account_hash.into())),
+            .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
         BTreeSet::new(),
     );
     // Block prover
@@ -382,13 +382,13 @@ async fn test_compute_note_root_empty_notes_success() {
 async fn test_compute_note_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account_ids = vec![
+    let account_ids = [
         AccountId::new_unchecked(Felt::from(0u64)),
         AccountId::new_unchecked(Felt::from(1u64)),
         AccountId::new_unchecked(Felt::from(2u64)),
     ];
 
-    let notes_created: Vec<NoteEnvelope> = vec![
+    let notes_created: Vec<NoteEnvelope> = [
         Digest::from([Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)]),
         Digest::from([Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)]),
         Digest::from([Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)]),
@@ -425,7 +425,7 @@ async fn test_compute_note_root_success() {
                     Digest::default(),
                     Digest::default(),
                     Vec::new(),
-                    vec![note.clone()],
+                    vec![*note],
                 ))
             })
             .collect();
@@ -444,8 +444,10 @@ async fn test_compute_note_root_success() {
     // Create SMT by hand to get new root
     // ---------------------------------------------------------------------------------------------
 
-    // The current logic is hardcoded to a depth of 20
-    assert_eq!(CREATED_NOTES_TREE_DEPTH, 20);
+    // The current logic is hardcoded to a depth of 21
+    // Specifically, we assume the block has up to 2^8 batches, and each batch up to 2^12 created notes,
+    // where each note is stored at depth 13 in the batch as 2 contiguous nodes: note hash, then metadata.
+    assert_eq!(CREATED_NOTES_TREE_DEPTH, 21);
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
     // the second subtree of depth 12
@@ -453,8 +455,11 @@ async fn test_compute_note_root_success() {
         CREATED_NOTES_TREE_DEPTH,
         vec![
             (0u64, notes_created[0].note_hash().into()),
-            (1u64, notes_created[1].note_hash().into()),
-            (2u64.pow(12), notes_created[2].note_hash().into()),
+            (1u64, notes_created[0].metadata().into()),
+            (2u64, notes_created[1].note_hash().into()),
+            (3u64, notes_created[1].metadata().into()),
+            (2u64.pow(13), notes_created[2].note_hash().into()),
+            (2u64.pow(13) + 1, notes_created[2].metadata().into()),
         ],
     )
     .unwrap();

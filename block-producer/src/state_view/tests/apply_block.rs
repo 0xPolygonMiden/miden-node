@@ -62,7 +62,7 @@ async fn test_apply_block_ab2() {
 
     // Verify transactions so it can be tracked in state view
     for tx in txs {
-        let verify_tx_res = state_view.verify_tx(tx.into()).await;
+        let verify_tx_res = state_view.verify_tx(tx).await;
         assert!(verify_tx_res.is_ok());
     }
 
@@ -123,7 +123,7 @@ async fn test_apply_block_ab3() {
     assert_eq!(
         verify_tx_res,
         Err(VerifyTxError::ConsumedNotesAlreadyConsumed(
-            txs[0].consumed_notes().into_iter().map(|note| note.nullifier()).collect()
+            txs[0].consumed_notes().iter().map(|note| note.nullifier()).collect()
         ))
     );
 }

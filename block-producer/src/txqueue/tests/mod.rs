@@ -152,7 +152,7 @@ async fn test_build_batch_failure() {
     let build_batch_frequency = Duration::from_millis(30);
     let batch_size = 3;
 
-    let batch_builder = Arc::new(BatchBuilderFailure::default());
+    let batch_builder = Arc::new(BatchBuilderFailure);
 
     let tx_queue = DefaultTransactionQueue::new(
         Arc::new(TransactionVerifierSuccess),
