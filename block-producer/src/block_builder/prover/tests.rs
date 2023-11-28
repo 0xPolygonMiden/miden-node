@@ -444,8 +444,10 @@ async fn test_compute_note_root_success() {
     // Create SMT by hand to get new root
     // ---------------------------------------------------------------------------------------------
 
-    // The current logic is hardcoded to a depth of 20
-    assert_eq!(CREATED_NOTES_TREE_DEPTH, 20);
+    // The current logic is hardcoded to a depth of 21
+    // Specifically, we assume the block has up to 2^8 batches, and each batch up to 2^12 created notes,
+    // where each note is stored at depth 13 in the batch as 2 contiguous nodes: note hash, then metadata.
+    assert_eq!(CREATED_NOTES_TREE_DEPTH, 21);
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
     // the second subtree of depth 12
@@ -453,8 +455,11 @@ async fn test_compute_note_root_success() {
         CREATED_NOTES_TREE_DEPTH,
         vec![
             (0u64, notes_created[0].note_hash().into()),
-            (1u64, notes_created[1].note_hash().into()),
-            (2u64.pow(12), notes_created[2].note_hash().into()),
+            (1u64, notes_created[0].metadata().into()),
+            (2u64, notes_created[1].note_hash().into()),
+            (3u64, notes_created[1].metadata().into()),
+            (2u64.pow(13), notes_created[2].note_hash().into()),
+            (2u64.pow(13) + 1, notes_created[2].metadata().into()),
         ],
     )
     .unwrap();
