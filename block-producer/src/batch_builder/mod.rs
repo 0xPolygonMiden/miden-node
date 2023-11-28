@@ -1,7 +1,7 @@
 use std::{cmp::min, collections::BTreeMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_objects::{accounts::AccountId, Digest};
+use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
 use miden_vm::crypto::SimpleSmt;
 use tokio::{sync::RwLock, time};
 
@@ -13,8 +13,12 @@ pub mod errors;
 #[cfg(test)]
 mod tests;
 
-pub(crate) const CREATED_NOTES_SMT_DEPTH: u8 = 12;
-const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2usize.pow(CREATED_NOTES_SMT_DEPTH as u32);
+pub(crate) const CREATED_NOTES_SMT_DEPTH: u8 = 13;
+
+/// The created notes tree uses an extra depth to store the 2 components of `NoteEnvelope`.
+/// That is, conceptually, notes sit at depth 12; where in reality, depth 12 contains the
+/// hash of level 13, where both the `note_hash()` and metadata are stored (one per node).
+const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2usize.pow((CREATED_NOTES_SMT_DEPTH - 1) as u32);
 
 // TRANSACTION BATCH
 // ================================================================================================
@@ -51,24 +55,21 @@ impl TransactionBatch {
             .collect();
 
         let created_notes_smt = {
-            let created_notes: Vec<_> = txs
-                .iter()
-                .flat_map(|tx| tx.created_notes())
-                .map(|note_envelope| note_envelope.note_hash())
-                .collect();
+            let created_notes: Vec<&NoteEnvelope> =
+                txs.iter().flat_map(|tx| tx.created_notes()).collect();
 
             if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
                 return Err(BuildBatchError::TooManyNotesCreated(created_notes.len()));
             }
 
-            SimpleSmt::with_leaves(
+            SimpleSmt::with_contiguous_leaves(
                 CREATED_NOTES_SMT_DEPTH,
-                created_notes.into_iter().enumerate().map(|(idx, note_hash)| {
-                    (
-                        idx.try_into().expect("already checked not for too many notes"),
-                        note_hash.into(),
-                    )
-                }),
+                created_notes
+                    .into_iter()
+                    .flat_map(|note_envelope| {
+                        [note_envelope.note_hash().into(), note_envelope.metadata().into()]
+                    })
+                    .collect::<Vec<_>>(),
             )?
         };
 
