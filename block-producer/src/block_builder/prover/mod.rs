@@ -80,14 +80,17 @@ end
 
 #! Compute the note root.
 #!
-#! Each batch contains a tree of depth 12 for its created notes. The block's created notes tree is created
+#! Each batch contains a tree of depth 13 for its created notes. The block's created notes tree is created
 #! by aggregating up to 2^8 tree roots coming from the batches contained in the block.
 #! 
-#! `SMT_EMPTY_ROOT` must be `E20`, the root of the empty tree of depth 20. If less than 2^8 batches are
-#! contained in the block, `E12` is used as the padding value; this is derived from the fact that
-#! `SMT_EMPTY_ROOT` is `E20`, and that our tree has depth 8.
+#! `SMT_EMPTY_ROOT` must be `E21`, the root of the empty tree of depth 21. If less than 2^8 batches are
+#! contained in the block, `E13` is used as the padding value; this is derived from the fact that
+#! `SMT_EMPTY_ROOT` is `E21`, and that our tree has depth 8.
 #! 
-#! Stack: [num_notes_updated, SMT_EMPTY_ROOT, note_key_0, NOTE_HASH_0, ... , note_key_{n-1}, NOTE_HASH_{n-1}]
+#! Stack: [num_notes_updated, SMT_EMPTY_ROOT, 
+#!         batch_note_root_idx_0, BATCH_NOTE_TREE_ROOT_0, 
+#!         ... , 
+#!         batch_note_root_idx_{n-1}, BATCH_NOTE_TREE_ROOT_{n-1}]
 #! Output: [NOTES_ROOT]
 proc.compute_note_root
     # assess if we should loop
@@ -95,18 +98,18 @@ proc.compute_note_root
     #=> [0 or 1, num_notes_updated, SMT_EMPTY_ROOT, ... ]
 
     while.true
-        #=> [notes_left_to_update, ROOT_i, note_key_i, NOTE_HASH_i, ... ]
+        #=> [note_roots_left_to_update, ROOT_i, batch_note_root_idx_i, BATCH_NOTE_TREE_ROOT_i, ... ]
 
         # Prepare stack for mtree_set
         movdn.9 movup.4 push.8
-        #=> [depth=8, note_key_i, ROOT_i, NOTE_HASH_i, notes_left_to_update, ... ]
+        #=> [depth=8, batch_note_root_idx_i, ROOT_i, BATCH_NOTE_TREE_ROOT_i, note_roots_left_to_update, ... ]
 
         mtree_set dropw 
-        #=> [ROOT_{i+1}, notes_left_to_update, ... ]
+        #=> [ROOT_{i+1}, note_roots_left_to_update, ... ]
 
         # loop counter
         movup.4 sub.1 dup neq.0
-        #=> [0 or 1, notes_left_to_update - 1, ROOT_{i+1}, ... ]
+        #=> [0 or 1, note_roots_left_to_update - 1, ROOT_{i+1}, ... ]
     end
 
     drop
