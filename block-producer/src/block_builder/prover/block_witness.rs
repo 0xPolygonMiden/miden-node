@@ -1,5 +1,5 @@
 use std::{
-    cmp::min,
+    cmp::max,
     collections::{BTreeMap, BTreeSet},
 };
 
@@ -242,7 +242,7 @@ impl BlockWitness {
                 // peaks
                 let num_peaks = self.chain_peaks.peaks().len();
                 let num_padding_peaks = MMR_MIN_NUM_PEAKS - num_peaks;
-                let padding_peaks = vec![Digest::default(); min(num_padding_peaks, 0)];
+                let padding_peaks = vec![Digest::default(); max(num_padding_peaks, 0)];
 
                 let all_peaks_including_padding =
                     self.chain_peaks.peaks().iter().chain(padding_peaks.iter());
