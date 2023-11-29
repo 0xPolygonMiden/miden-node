@@ -240,9 +240,11 @@ impl BlockWitness {
                     [Felt::from(self.chain_peaks.num_leaves() as u64), ZERO, ZERO, ZERO];
 
                 // peaks
-                let num_peaks = self.chain_peaks.peaks().len();
-                let num_padding_peaks = MMR_MIN_NUM_PEAKS - num_peaks;
-                let padding_peaks = vec![Digest::default(); max(num_padding_peaks, 0)];
+                let padding_peaks = {
+                    let num_padding_peaks = max(MMR_MIN_NUM_PEAKS, self.chain_peaks.peaks().len());
+
+                    vec![Digest::default(); num_padding_peaks]
+                };
 
                 let all_peaks_including_padding =
                     self.chain_peaks.peaks().iter().chain(padding_peaks.iter());
