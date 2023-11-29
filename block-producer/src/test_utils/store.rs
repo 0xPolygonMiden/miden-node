@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 use miden_air::{Felt, FieldElement};
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
-use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader, EMPTY_WORD};
+use miden_objects::{
+    crypto::merkle::{Mmr, MmrPeaks},
+    BlockHeader, EMPTY_WORD,
+};
 use miden_vm::crypto::SimpleSmt;
 
 use crate::{
@@ -19,6 +22,7 @@ const ACCOUNT_SMT_DEPTH: u8 = 64;
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt>,
     consumed_nullifiers: Option<BTreeSet<Digest>>,
+    chain_mmr: Option<Mmr>,
 }
 
 impl MockStoreSuccessBuilder {
@@ -51,6 +55,12 @@ impl MockStoreSuccessBuilder {
         self
     }
 
+    pub fn initial_chain_mmr(mut self, chain_mmr: Mmr) -> Self {
+        self.chain_mmr = Some(chain_mmr);
+
+        self
+    }
+
     pub fn build(self) -> MockStoreSuccess {
         MockStoreSuccess {
             accounts: Arc::new(RwLock::new(
@@ -59,6 +69,7 @@ impl MockStoreSuccessBuilder {
             consumed_nullifiers: Arc::new(RwLock::new(
                 self.consumed_nullifiers.unwrap_or_default(),
             )),
+            chain_mmr: Arc::new(RwLock::new(Mmr::default())),
             num_apply_block_called: Arc::new(RwLock::new(0)),
         }
     }
@@ -70,6 +81,8 @@ pub struct MockStoreSuccess {
 
     /// Stores the nullifiers of the notes that were consumed
     consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
+
+    chain_mmr: Arc<RwLock<Mmr>>,
 
     /// The number of times `apply_block()` was called
     pub num_apply_block_called: Arc<RwLock<u32>>,
@@ -106,14 +119,24 @@ impl ApplyBlock for MockStoreSuccess {
         let mut locked_accounts = self.accounts.write().await;
         let mut locked_consumed_nullifiers = self.consumed_nullifiers.write().await;
 
+        // update accounts
         for &(account_id, account_hash) in block.updated_accounts.iter() {
             locked_accounts.update_leaf(account_id.into(), account_hash.into()).unwrap();
         }
 
+        // update nullifiers
         let mut new_nullifiers: BTreeSet<Digest> =
             block.produced_nullifiers.iter().cloned().collect();
         locked_consumed_nullifiers.append(&mut new_nullifiers);
 
+        // update chain mmr with new block header hash
+        {
+            let mut chain_mmr = self.chain_mmr.write().await;
+
+            chain_mmr.add(block.header.hash());
+        }
+
+        // update num_apply_block_called
         *self.num_apply_block_called.write().await += 1;
 
         Ok(())
@@ -158,8 +181,12 @@ impl Store for MockStoreSuccess {
     ) -> Result<BlockInputs, BlockInputsError> {
         let block_header = {
             let prev_hash: Digest = Digest::default();
-            let chain_root: Digest = Digest::default();
-            let acct_root: Digest = self.account_root().await;
+            let chain_root = {
+                let chain_mmr = self.chain_mmr.read().await;
+
+                chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks()
+            };
+            let account_root: Digest = self.account_root().await;
             let nullifier_root: Digest = Digest::default();
             let note_root: Digest = Digest::default();
             let batch_root: Digest = Digest::default();
@@ -169,7 +196,7 @@ impl Store for MockStoreSuccess {
                 prev_hash,
                 Felt::ZERO,
                 chain_root,
-                acct_root,
+                account_root,
                 nullifier_root,
                 note_root,
                 batch_root,
