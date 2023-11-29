@@ -149,23 +149,19 @@ proc.compute_chain_mmr_root
 end
 
 # Stack: [<account root inputs>, <note root inputs>, <chain mmr root inputs>]
-proc.main.3
-    exec.compute_account_root loc_storew.0 dropw
+begin
+    exec.compute_account_root mem_storew.0 dropw
     # => [<note root inputs>, <chain mmr root inputs>]
 
-    exec.compute_note_root loc_storew.1 dropw
+    exec.compute_note_root mem_storew.1 dropw
     # => [ <chain mmr root inputs> ]
 
-    exec.compute_chain_mmr_root loc_storew.2 dropw
+    exec.compute_chain_mmr_root
     # => [ ]
 
     # Load output on stack
-    loc_loadw.2 padw loc_loadw.1 padw loc_loadw.0
+    padw mem_loadw.1 padw mem_loadw.0
     #=> [ ACCOUNT_ROOT, NOTE_ROOT, CHAIN_MMR_ROOT ]
-end
-
-begin
-    exec.main
 end
 ";
 
