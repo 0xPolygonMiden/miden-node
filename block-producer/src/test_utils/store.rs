@@ -12,6 +12,58 @@ use crate::{
 
 use super::*;
 
+const ACCOUNT_SMT_DEPTH: u8 = 64;
+
+/// Builds a [`MockStoreSuccess`]
+#[derive(Debug, Default)]
+pub struct MockStoreSuccessBuilder {
+    accounts: Option<SimpleSmt>,
+    consumed_nullifiers: Option<BTreeSet<Digest>>,
+}
+
+impl MockStoreSuccessBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn initial_accounts(
+        mut self,
+        accounts: impl Iterator<Item = (AccountId, Digest)>,
+    ) -> Self {
+        let accounts_smt = {
+            let accounts =
+                accounts.into_iter().map(|(account_id, hash)| (account_id.into(), hash.into()));
+
+            SimpleSmt::with_leaves(ACCOUNT_SMT_DEPTH, accounts).unwrap()
+        };
+
+        self.accounts = Some(accounts_smt);
+
+        self
+    }
+
+    pub fn initial_nullifiers(
+        mut self,
+        consumed_nullifiers: BTreeSet<Digest>,
+    ) -> Self {
+        self.consumed_nullifiers = Some(consumed_nullifiers);
+
+        self
+    }
+
+    pub fn build(self) -> MockStoreSuccess {
+        MockStoreSuccess {
+            accounts: Arc::new(RwLock::new(
+                self.accounts.unwrap_or(SimpleSmt::new(ACCOUNT_SMT_DEPTH).unwrap()),
+            )),
+            consumed_nullifiers: Arc::new(RwLock::new(
+                self.consumed_nullifiers.unwrap_or_default(),
+            )),
+            num_apply_block_called: Arc::new(RwLock::new(0)),
+        }
+    }
+}
+
 pub struct MockStoreSuccess {
     /// Map account id -> account hash
     accounts: Arc<RwLock<SimpleSmt>>,
