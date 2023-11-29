@@ -471,3 +471,10 @@ async fn test_compute_note_root_success() {
     // ---------------------------------------------------------------------------------------------
     assert_eq!(block_header.note_root(), notes_smt.root());
 }
+
+// CHAIN MMR ROOT TESTS
+// =================================================================================================
+
+// - add header to empty MMR, and check that we get the expected commitment
+// - add header to non-empty MMR (1 peak), and check that we get the expected commitment
+// - add header to MMR with 17 peaks
