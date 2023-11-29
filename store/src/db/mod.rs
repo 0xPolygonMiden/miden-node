@@ -14,7 +14,8 @@ use miden_node_proto::{
 };
 use rusqlite::vtab::array;
 use std::fs::create_dir_all;
-use tracing::info;
+use tokio::sync::oneshot;
+use tracing::{info, span, Level};
 
 mod sql;
 
@@ -60,11 +61,11 @@ impl Db {
     }
 
     /// Loads all the nullifiers from the DB.
-    pub async fn get_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
+    pub async fn select_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
         self.pool
             .get()
             .await?
-            .interact(sql::get_nullifiers)
+            .interact(sql::select_nullifiers)
             .await
             .map_err(|_| anyhow!("Get nullifiers task failed with a panic"))?
     }
@@ -72,34 +73,34 @@ impl Db {
     /// Search for a [BlockHeader] from the DB by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
-    pub async fn get_block_header(
+    pub async fn select_block_header_by_block_num(
         &self,
         block_number: Option<BlockNumber>,
     ) -> Result<Option<BlockHeader>, anyhow::Error> {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::get_block_header(conn, block_number))
+            .interact(move |conn| sql::select_block_header_by_block_num(conn, block_number))
             .await
             .map_err(|_| anyhow!("Get block header task failed with a panic"))?
     }
 
     /// Loads all the block headers from the DB.
-    pub async fn get_block_headers(&self) -> Result<Vec<BlockHeader>, anyhow::Error> {
+    pub async fn select_block_headers(&self) -> Result<Vec<BlockHeader>, anyhow::Error> {
         self.pool
             .get()
             .await?
-            .interact(sql::get_block_headers)
+            .interact(sql::select_block_headers)
             .await
             .map_err(|_| anyhow!("Get block headers task failed with a panic"))?
     }
 
     /// Loads all the account hashes from the DB.
-    pub async fn get_account_hashes(&self) -> Result<Vec<(AccountId, Digest)>, anyhow::Error> {
+    pub async fn select_account_hashes(&self) -> Result<Vec<(AccountId, Digest)>, anyhow::Error> {
         self.pool
             .get()
             .await?
-            .interact(sql::get_account_hashes)
+            .interact(sql::select_account_hashes)
             .await
             .map_err(|_| anyhow!("Get account hashes task failed with a panic"))?
     }
@@ -129,5 +130,46 @@ impl Db {
             })
             .await
             .map_err(|_| anyhow!("Get account hashes task failed with a panic"))?
+    }
+
+    /// Inserts the data of a new block into the DB.
+    ///
+    /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
+    /// the in-memory trees. Further detais available on [State::apply_block].
+    pub async fn apply_block(
+        &self,
+        allow_acquire: oneshot::Sender<()>,
+        acquire_done: oneshot::Receiver<()>,
+        block_header: BlockHeader,
+        notes: &[Note],
+        nullifiers: &[RpoDigest],
+        accounts: &[(AccountId, Digest)],
+    ) -> Result<(), anyhow::Error> {
+        let notes = notes.to_vec();
+        let nullifiers = nullifiers.to_vec();
+        let accounts = accounts.to_vec();
+
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| -> anyhow::Result<()> {
+                let span = span!(Level::INFO, "writing new block data to DB");
+                let guard = span.enter();
+
+                let transaction = conn.transaction()?;
+                sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
+
+                let _ = allow_acquire.send(());
+                acquire_done.blocking_recv()?;
+
+                transaction.commit()?;
+
+                drop(guard);
+                Ok(())
+            })
+            .await
+            .map_err(|_| anyhow!("Apply block task failed with a panic"))??;
+
+        Ok(())
     }
 }

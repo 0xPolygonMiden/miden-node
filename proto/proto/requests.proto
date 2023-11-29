@@ -2,7 +2,21 @@ syntax = "proto3";
 package requests;
 
 import "account_id.proto";
+import "block_header.proto";
 import "digest.proto";
+import "note.proto";
+
+message AccountUpdate {
+    account_id.AccountId account_id = 1;
+    digest.Digest account_hash = 2;
+}
+
+message ApplyBlockRequest {
+    block_header.BlockHeader block = 1;
+    repeated AccountUpdate accounts = 2;
+    repeated digest.Digest nullifiers = 3;
+    repeated note.Note notes = 4;
+}
 
 message CheckNullifiersRequest {
     repeated digest.Digest nullifiers = 1;

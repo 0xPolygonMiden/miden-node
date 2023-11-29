@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod db;
+mod errors;
 mod migrations;
 mod server;
 mod state;

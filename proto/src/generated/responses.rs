@@ -1,6 +1,10 @@
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ApplyBlockResponse {}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersResponse {
     /// Each requested nullifier has its corresponding nullifier proof at the
     /// same position.
@@ -38,17 +42,17 @@ pub struct NullifierUpdate {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NoteSyncRecord {
-    #[prost(uint32, tag = "2")]
+    #[prost(uint32, tag = "1")]
     pub note_index: u32,
-    #[prost(message, optional, tag = "3")]
+    #[prost(message, optional, tag = "2")]
     pub note_hash: ::core::option::Option<super::digest::Digest>,
-    #[prost(uint64, tag = "4")]
+    #[prost(uint64, tag = "3")]
     pub sender: u64,
-    #[prost(uint64, tag = "5")]
+    #[prost(uint64, tag = "4")]
     pub tag: u64,
-    #[prost(uint32, tag = "6")]
+    #[prost(uint32, tag = "5")]
     pub num_assets: u32,
-    #[prost(message, optional, tag = "7")]
+    #[prost(message, optional, tag = "6")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
@@ -96,7 +100,7 @@ pub struct AccountBlockInputRecord {
 pub struct NullifierBlockInputRecord {
     #[prost(message, optional, tag = "1")]
     pub nullifier: ::core::option::Option<super::digest::Digest>,
-    #[prost(message, optional, tag = "3")]
+    #[prost(message, optional, tag = "2")]
     pub proof: ::core::option::Option<super::merkle::MerklePath>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
@@ -135,15 +139,15 @@ pub struct NullifierTransactionInputRecord {
     #[prost(message, optional, tag = "1")]
     pub nullifier: ::core::option::Option<super::digest::Digest>,
     /// The block at which the nullifier has been consumed, zero if not consumed.
-    #[prost(uint32, tag = "3")]
+    #[prost(uint32, tag = "2")]
     pub block_num: u32,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetTransactionInputsResponse {
-    #[prost(message, repeated, tag = "3")]
+    #[prost(message, repeated, tag = "1")]
     pub account_states: ::prost::alloc::vec::Vec<AccountTransactionInputRecord>,
-    #[prost(message, repeated, tag = "4")]
+    #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierTransactionInputRecord>,
 }
