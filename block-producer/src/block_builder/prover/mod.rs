@@ -15,6 +15,9 @@ pub const ACCOUNT_ROOT_WORD_IDX: usize = 0;
 /// The index of the word at which the note root is stored on the output stack.
 pub const NOTE_ROOT_WORD_IDX: usize = 4;
 
+/// The index of the word at which the note root is stored on the output stack.
+pub const CHAIN_MMR_ROOT_WORD_IDX: usize = 8;
+
 pub mod block_witness;
 
 #[cfg(test)]
@@ -177,9 +180,8 @@ impl BlockProver {
         let block_num = witness.prev_header.block_num();
         let version = witness.prev_header.version();
 
-        let (account_root, note_root) = self.compute_roots(witness)?;
+        let (account_root, note_root, chain_root) = self.compute_roots(witness)?;
 
-        let chain_root = Digest::default();
         let nullifier_root = Digest::default();
         let batch_root = Digest::default();
         let proof_hash = Digest::default();
@@ -206,7 +208,7 @@ impl BlockProver {
     fn compute_roots(
         &self,
         witness: BlockWitness,
-    ) -> Result<(Digest, Digest), BlockProverError> {
+    ) -> Result<(Digest, Digest, Digest), BlockProverError> {
         let (advice_inputs, stack_inputs) = witness.into_parts()?;
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
@@ -228,6 +230,11 @@ impl BlockProver {
             .get_stack_word(NOTE_ROOT_WORD_IDX)
             .ok_or(BlockProverError::InvalidRootOutput("note".to_string()))?;
 
-        Ok((new_account_root.into(), new_note_root.into()))
+        let new_chain_mmr_root = execution_output
+            .stack_outputs()
+            .get_stack_word(CHAIN_MMR_ROOT_WORD_IDX)
+            .ok_or(BlockProverError::InvalidRootOutput("chain mmr".to_string()))?;
+
+        Ok((new_account_root.into(), new_note_root.into(), new_chain_mmr_root.into()))
     }
 }
