@@ -8,7 +8,7 @@ mod proven_tx;
 pub use proven_tx::DummyProvenTxGenerator;
 
 mod store;
-pub use store::{MockStoreFailure, MockStoreSuccess};
+pub use store::{MockStoreFailure, MockStoreSuccess, MockStoreSuccessBuilder};
 
 mod account;
 pub use account::MockPrivateAccount;

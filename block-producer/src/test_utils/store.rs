@@ -76,23 +76,6 @@ pub struct MockStoreSuccess {
 }
 
 impl MockStoreSuccess {
-    /// Initializes the known accounts from provided mock accounts, where the account hash in the
-    /// store is the first state in `MockAccount.states`.
-    pub fn new(
-        accounts: impl Iterator<Item = (AccountId, Digest)>,
-        consumed_nullifiers: BTreeSet<Digest>,
-    ) -> Self {
-        let accounts =
-            accounts.into_iter().map(|(account_id, hash)| (account_id.into(), hash.into()));
-        let store_accounts = SimpleSmt::with_leaves(64, accounts).unwrap();
-
-        Self {
-            accounts: Arc::new(RwLock::new(store_accounts)),
-            consumed_nullifiers: Arc::new(RwLock::new(consumed_nullifiers)),
-            num_apply_block_called: Arc::new(RwLock::new(0)),
-        }
-    }
-
     /// Update some accounts in the store
     pub async fn update_accounts(
         &self,

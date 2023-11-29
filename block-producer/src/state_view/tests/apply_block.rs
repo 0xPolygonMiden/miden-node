@@ -6,7 +6,7 @@
 
 use std::iter;
 
-use crate::test_utils::MockStoreSuccess;
+use crate::test_utils::MockStoreSuccessBuilder;
 
 use super::*;
 
@@ -16,10 +16,11 @@ async fn test_apply_block_ab1() {
     let tx_gen = DummyProvenTxGenerator::new();
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
-    let store = Arc::new(MockStoreSuccess::new(
-        iter::once((account.id, account.states[0])),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(iter::once((account.id, account.states[0])))
+            .build(),
+    );
 
     let tx = tx_gen.dummy_proven_tx_with_params(
         account.id,
@@ -50,13 +51,16 @@ async fn test_apply_block_ab2() {
 
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(&tx_gen, 3).unzip();
 
-    let store = Arc::new(MockStoreSuccess::new(
-        accounts
-            .clone()
-            .into_iter()
-            .map(|mock_account| (mock_account.id, mock_account.states[0])),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(
+                accounts
+                    .clone()
+                    .into_iter()
+                    .map(|mock_account| (mock_account.id, mock_account.states[0])),
+            )
+            .build(),
+    );
 
     let state_view = DefaulStateView::new(store.clone());
 
@@ -88,13 +92,16 @@ async fn test_apply_block_ab3() {
 
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(&tx_gen, 3).unzip();
 
-    let store = Arc::new(MockStoreSuccess::new(
-        accounts
-            .clone()
-            .into_iter()
-            .map(|mock_account| (mock_account.id, mock_account.states[0])),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(
+                accounts
+                    .clone()
+                    .into_iter()
+                    .map(|mock_account| (mock_account.id, mock_account.states[0])),
+            )
+            .build(),
+    );
 
     let state_view = DefaulStateView::new(store.clone());
 

@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::Arc;
 
 use miden_air::FieldElement;
 use miden_mock::mock::block::mock_block_header;
@@ -14,7 +14,7 @@ use crate::{
     batch_builder::TransactionBatch,
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
     store::Store,
-    test_utils::{DummyProvenTxGenerator, MockStoreSuccess},
+    test_utils::{DummyProvenTxGenerator, MockStoreSuccessBuilder},
     SharedTxBatch,
 };
 
@@ -210,13 +210,15 @@ async fn test_compute_account_root_success() {
     // Set up store's account SMT
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccess::new(
-        account_ids
-            .iter()
-            .zip(account_initial_states.iter())
-            .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
-        BTreeSet::new(),
-    );
+    let store = MockStoreSuccessBuilder::new()
+        .initial_accounts(
+            account_ids
+                .iter()
+                .zip(account_initial_states.iter())
+                .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
+        )
+        .build();
+
     // Block prover
     // ---------------------------------------------------------------------------------------------
 
@@ -290,13 +292,15 @@ async fn test_compute_account_root_empty_batches() {
     // Set up store's account SMT
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccess::new(
-        account_ids
-            .iter()
-            .zip(account_initial_states.iter())
-            .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
-        BTreeSet::new(),
-    );
+    let store = MockStoreSuccessBuilder::new()
+        .initial_accounts(
+            account_ids
+                .iter()
+                .zip(account_initial_states.iter())
+                .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
+        )
+        .build();
+
     // Block prover
     // ---------------------------------------------------------------------------------------------
 
@@ -325,7 +329,7 @@ async fn test_compute_note_root_empty_batches_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccess::new(std::iter::empty(), BTreeSet::new());
+    let store = MockStoreSuccessBuilder::new().build();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -354,7 +358,7 @@ async fn test_compute_note_root_empty_notes_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccess::new(std::iter::empty(), BTreeSet::new());
+    let store = MockStoreSuccessBuilder::new().build();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -409,7 +413,7 @@ async fn test_compute_note_root_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccess::new(std::iter::empty(), BTreeSet::new());
+    let store = MockStoreSuccessBuilder::new().build();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
