@@ -231,6 +231,3 @@ impl BlockProver {
         Ok((new_account_root.into(), new_note_root.into()))
     }
 }
-
-// BLOCK WITNESS
-// =================================================================================================
