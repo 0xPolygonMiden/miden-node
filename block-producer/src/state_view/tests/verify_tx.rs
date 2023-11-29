@@ -90,6 +90,7 @@ async fn test_verify_tx_vt1() {
         account.states[1],
         account.states[2],
         vec![consumed_note_by_index(0)],
+        Vec::new(),
     );
 
     let state_view = DefaulStateView::new(store);
@@ -120,6 +121,7 @@ async fn test_verify_tx_vt2() {
         account_not_in_store.states[0],
         account_not_in_store.states[1],
         vec![consumed_note_by_index(0)],
+        Vec::new(),
     );
 
     let state_view = DefaulStateView::new(store);
@@ -155,6 +157,7 @@ async fn test_verify_tx_vt3() {
         account.states[0],
         account.states[1],
         vec![consumed_note_in_store],
+        Vec::new(),
     );
 
     let state_view = DefaulStateView::new(store);
@@ -186,6 +189,7 @@ async fn test_verify_tx_vt4() {
         account.states[0],
         account.states[1],
         Vec::new(),
+        Vec::new(),
     );
 
     // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
@@ -194,6 +198,7 @@ async fn test_verify_tx_vt4() {
         account.id,
         account.states[1],
         account.states[2],
+        Vec::new(),
         Vec::new(),
     );
 
@@ -231,6 +236,7 @@ async fn test_verify_tx_vt5() {
         account_1.states[0],
         account_1.states[1],
         vec![consumed_note_in_both_txs],
+        Vec::new(),
     );
 
     // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
@@ -240,6 +246,7 @@ async fn test_verify_tx_vt5() {
         account_2.states[1],
         account_2.states[2],
         vec![consumed_note_in_both_txs],
+        Vec::new(),
     );
 
     let state_view = DefaulStateView::new(store);

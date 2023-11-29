@@ -6,17 +6,32 @@ use std::{
 use miden_air::ExecutionOptions;
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
-    accounts::AccountId, assembly::Assembler, crypto::merkle::MerkleStore, BlockHeader, Digest,
-    Felt,
+    accounts::AccountId,
+    assembly::Assembler,
+    crypto::merkle::{EmptySubtreeRoots, MerkleStore},
+    BlockHeader, Digest, Felt,
 };
 use miden_stdlib::StdLibrary;
 use miden_vm::{
     crypto::MerklePath, execute, AdviceInputs, DefaultHost, MemAdviceProvider, Program, StackInputs,
 };
 
-use crate::SharedTxBatch;
+use crate::{batch_builder, SharedTxBatch};
 
 use super::{errors::BlockProverError, BuildBlockError};
+
+/// The index of the word at which the account root is stored on the output stack.
+pub const ACCOUNT_ROOT_WORD_IDX: usize = 0;
+
+/// The index of the word at which the note root is stored on the output stack.
+pub const NOTE_ROOT_WORD_IDX: usize = 4;
+
+/// The depth at which we insert roots from the batches.
+pub(crate) const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
+
+/// The depth of the created notes tree in the block.
+pub(crate) const CREATED_NOTES_TREE_DEPTH: u8 =
+    CREATED_NOTES_TREE_INSERTION_DEPTH + batch_builder::CREATED_NOTES_SMT_DEPTH;
 
 #[cfg(test)]
 mod tests;
@@ -29,7 +44,12 @@ mod tests;
 const BLOCK_KERNEL_MASM: &str = "
 use.std::collections::smt64
 
-begin
+#! Compute the account root
+#! 
+#! Stack: [num_accounts_updated, OLD_ACCOUNT_ROOT, 
+#!         NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
+#! Output: [NEW_ACCOUNT_ROOT]
+proc.compute_account_root
     dup neq.0 
     # => [0 or 1, num_accounts_updated, OLD_ACCOUNT_ROOT, 
     #     NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
@@ -56,6 +76,57 @@ begin
 
     drop
     # => [ROOT_{n-1}]
+end
+
+#! Compute the note root.
+#!
+#! Each batch contains a tree of depth 13 for its created notes. The block's created notes tree is created
+#! by aggregating up to 2^8 tree roots coming from the batches contained in the block.
+#! 
+#! `SMT_EMPTY_ROOT` must be `E21`, the root of the empty tree of depth 21. If less than 2^8 batches are
+#! contained in the block, `E13` is used as the padding value; this is derived from the fact that
+#! `SMT_EMPTY_ROOT` is `E21`, and that our tree has depth 8.
+#! 
+#! Stack: [num_notes_updated, SMT_EMPTY_ROOT, 
+#!         batch_note_root_idx_0, BATCH_NOTE_TREE_ROOT_0, 
+#!         ... , 
+#!         batch_note_root_idx_{n-1}, BATCH_NOTE_TREE_ROOT_{n-1}]
+#! Output: [NOTES_ROOT]
+proc.compute_note_root
+    # assess if we should loop
+    dup neq.0 
+    #=> [0 or 1, num_notes_updated, SMT_EMPTY_ROOT, ... ]
+
+    while.true
+        #=> [note_roots_left_to_update, ROOT_i, batch_note_root_idx_i, BATCH_NOTE_TREE_ROOT_i, ... ]
+
+        # Prepare stack for mtree_set
+        movdn.9 movup.4 push.8
+        #=> [depth=8, batch_note_root_idx_i, ROOT_i, BATCH_NOTE_TREE_ROOT_i, note_roots_left_to_update, ... ]
+
+        mtree_set dropw 
+        #=> [ROOT_{i+1}, note_roots_left_to_update, ... ]
+
+        # loop counter
+        movup.4 sub.1 dup neq.0
+        #=> [0 or 1, note_roots_left_to_update - 1, ROOT_{i+1}, ... ]
+    end
+
+    drop
+    # => [ROOT_{n-1}]
+end
+
+# Stack: [<account root inputs>, <note root inputs>]
+begin
+    exec.compute_account_root mem_storew.0 dropw
+    #=> [<note root inputs>]
+
+    exec.compute_note_root
+    #=> [ ]
+
+    # Load output on stack
+    padw mem_loadw.0
+    #=> [ ACCOUNT_ROOT, NOTE_ROOT]
 end
 ";
 
@@ -90,10 +161,10 @@ impl BlockProver {
         let block_num = witness.prev_header.block_num();
         let version = witness.prev_header.version();
 
+        let (account_root, note_root) = self.compute_roots(witness)?;
+
         let chain_root = Digest::default();
-        let account_root = self.compute_new_account_root(witness)?;
         let nullifier_root = Digest::default();
-        let note_root = Digest::default();
         let batch_root = Digest::default();
         let proof_hash = Digest::default();
         let timestamp: Felt = SystemTime::now()
@@ -116,12 +187,10 @@ impl BlockProver {
         ))
     }
 
-    /// `current_account_states`: iterator of (account id, node hash, Merkle path)
-    /// `account_updates`: iterator of (account id, new account hash)
-    fn compute_new_account_root(
+    fn compute_roots(
         &self,
         witness: BlockWitness,
-    ) -> Result<Digest, BlockProverError> {
+    ) -> Result<(Digest, Digest), BlockProverError> {
         let (advice_inputs, stack_inputs) = witness.into_parts()?;
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
@@ -133,31 +202,29 @@ impl BlockProver {
             execute(&self.kernel, stack_inputs, host, ExecutionOptions::default())
                 .map_err(BlockProverError::ProgramExecutionFailed)?;
 
-        let new_account_root = {
-            let stack_output = execution_output.stack_outputs().stack_truncated(4);
+        let new_account_root = execution_output
+            .stack_outputs()
+            .get_stack_word(ACCOUNT_ROOT_WORD_IDX)
+            .ok_or(BlockProverError::InvalidRootOutput("account".to_string()))?;
 
-            let digest_elements: Vec<Felt> = stack_output
-            .iter()
-            .cloned()
-            .map(Felt::from)
-            // We reverse, since a word `[a, b, c, d]` will be stored on the stack as `[d, c, b, a]`
-            .rev()
-            .collect();
+        let new_note_root = execution_output
+            .stack_outputs()
+            .get_stack_word(NOTE_ROOT_WORD_IDX)
+            .ok_or(BlockProverError::InvalidRootOutput("note".to_string()))?;
 
-            let digest_elements: [Felt; 4] =
-                digest_elements.try_into().map_err(|_| BlockProverError::InvalidRootReturned)?;
-
-            digest_elements.into()
-        };
-
-        Ok(new_account_root)
+        Ok((new_account_root.into(), new_note_root.into()))
     }
 }
+
+// BLOCK WITNESS
+// =================================================================================================
 
 /// Provides inputs to the `BlockKernel` so that it can generate the new header
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct BlockWitness {
     updated_accounts: BTreeMap<AccountId, AccountUpdate>,
+    /// (batch_index, created_notes_root) for batches that contain notes
+    batch_created_notes_roots: Vec<(usize, Digest)>,
     prev_header: BlockHeader,
 }
 
@@ -201,8 +268,21 @@ impl BlockWitness {
                 .collect()
         };
 
+        let batch_created_notes_roots = batches
+            .iter()
+            .enumerate()
+            .filter_map(|(batch_index, batch)| {
+                if batch.created_notes().next().is_none() {
+                    None
+                } else {
+                    Some((batch_index, batch.created_notes_root()))
+                }
+            })
+            .collect();
+
         Ok(Self {
             updated_accounts,
+            batch_created_notes_roots,
             prev_header: block_inputs.block_header,
         })
     }
@@ -213,6 +293,11 @@ impl BlockWitness {
     ) -> Result<(), BuildBlockError> {
         // TODO:
         // - Block height returned for each nullifier is 0.
+
+        // Validate that there aren't too many batches in the block.
+        if batches.len() > 2usize.pow(CREATED_NOTES_TREE_INSERTION_DEPTH.into()) {
+            return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
+        }
 
         Self::validate_account_states(block_inputs, batches)?;
 
@@ -279,7 +364,26 @@ impl BlockWitness {
             // from the bottom to the top
             let mut stack_inputs = Vec::new();
 
-            // append all insert key/values
+            // Notes stack inputs
+            {
+                let num_created_notes_roots = self.batch_created_notes_roots.len();
+                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots {
+                    stack_inputs.extend(batch_created_notes_root);
+
+                    let batch_index = u64::try_from(batch_index)
+                        .expect("can't be more than 2^64 - 1 notes created");
+                    stack_inputs.push(Felt::from(batch_index));
+                }
+
+                let empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
+                stack_inputs.extend(*empty_root);
+                stack_inputs.push(Felt::from(
+                    u64::try_from(num_created_notes_roots)
+                        .expect("can't be more than 2^64 - 1 notes created"),
+                ));
+            }
+
+            // Account stack inputs
             let mut num_accounts_updated: u64 = 0;
             for (idx, (&account_id, account_update)) in self.updated_accounts.iter().enumerate() {
                 stack_inputs.push(account_id.into());

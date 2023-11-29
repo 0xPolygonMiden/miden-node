@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::store::{ApplyBlockError, BlockInputsError};
 
+use super::prover::CREATED_NOTES_TREE_INSERTION_DEPTH;
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum BuildBlockError {
     #[error("failed to update account root: {0}")]
@@ -16,6 +17,11 @@ pub enum BuildBlockError {
     InconsistentAccountIds(Vec<AccountId>),
     #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
     InconsistentAccountStates(Vec<AccountId>),
+    #[error(
+        "too many batches in block. Got: {0}, max: 2^{}",
+        CREATED_NOTES_TREE_INSERTION_DEPTH
+    )]
+    TooManyBatchesInBlock(usize),
     #[error("dummy")]
     Dummy,
 }
@@ -26,6 +32,6 @@ pub enum BlockProverError {
     InvalidMerklePaths(MerkleError),
     #[error("program execution failed")]
     ProgramExecutionFailed(ExecutionError),
-    #[error("invalid return value on stack (not a hash)")]
-    InvalidRootReturned,
+    #[error("failed to retrieve {0} root from stack outputs")]
+    InvalidRootOutput(String),
 }

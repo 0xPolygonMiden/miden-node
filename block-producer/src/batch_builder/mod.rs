@@ -1,14 +1,24 @@
-use std::{cmp::min, fmt::Debug, sync::Arc, time::Duration};
+use std::{cmp::min, collections::BTreeMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use itertools::Itertools;
-use miden_objects::{accounts::AccountId, Digest};
+use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
+use miden_vm::crypto::SimpleSmt;
 use tokio::{sync::RwLock, time};
 
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
 
+use self::errors::BuildBatchError;
+
+pub mod errors;
 #[cfg(test)]
 mod tests;
+
+pub(crate) const CREATED_NOTES_SMT_DEPTH: u8 = 13;
+
+/// The created notes tree uses an extra depth to store the 2 components of `NoteEnvelope`.
+/// That is, conceptually, notes sit at depth 12; where in reality, depth 12 contains the
+/// hash of level 13, where both the `note_hash()` and metadata are stored (one per node).
+const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2usize.pow((CREATED_NOTES_SMT_DEPTH - 1) as u32);
 
 // TRANSACTION BATCH
 // ================================================================================================
@@ -18,65 +28,99 @@ mod tests;
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
 pub struct TransactionBatch {
-    txs: Vec<SharedProvenTx>,
+    updated_accounts: BTreeMap<AccountId, AccountStates>,
+    produced_nullifiers: Vec<Digest>,
+    created_notes_smt: SimpleSmt,
 }
 
 impl TransactionBatch {
-    pub fn new(txs: Vec<SharedProvenTx>) -> Self {
-        Self { txs }
+    pub fn new(txs: Vec<SharedProvenTx>) -> Result<Self, BuildBatchError> {
+        let updated_accounts = txs
+            .iter()
+            .map(|tx| {
+                (
+                    tx.account_id(),
+                    AccountStates {
+                        initial_state: tx.initial_account_hash(),
+                        final_state: tx.final_account_hash(),
+                    },
+                )
+            })
+            .collect();
+
+        let produced_nullifiers = txs
+            .iter()
+            .flat_map(|tx| tx.consumed_notes())
+            .map(|consumed_note| consumed_note.nullifier())
+            .collect();
+
+        let created_notes_smt = {
+            let created_notes: Vec<&NoteEnvelope> =
+                txs.iter().flat_map(|tx| tx.created_notes()).collect();
+
+            if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
+                return Err(BuildBatchError::TooManyNotesCreated(created_notes.len()));
+            }
+
+            SimpleSmt::with_contiguous_leaves(
+                CREATED_NOTES_SMT_DEPTH,
+                created_notes
+                    .into_iter()
+                    .flat_map(|note_envelope| {
+                        [note_envelope.note_hash().into(), note_envelope.metadata().into()]
+                    })
+                    .collect::<Vec<_>>(),
+            )?
+        };
+
+        Ok(Self {
+            updated_accounts,
+            produced_nullifiers,
+            created_notes_smt,
+        })
     }
 
     /// Returns an iterator over account ids that were modified in the transaction batch, and their
     /// corresponding initial hash
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
-        self.txs.iter().map(|tx| (tx.account_id(), tx.initial_account_hash()))
+        self.updated_accounts
+            .iter()
+            .map(|(account_id, account_states)| (*account_id, account_states.initial_state))
     }
 
     /// Returns an iterator over account ids that were modified in the transaction batch, and their
     /// corresponding new hash
     pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
-        self.txs.iter().map(|tx| (tx.account_id(), tx.final_account_hash()))
-    }
-
-    /// Returns the script root of all consumed notes
-    pub fn consumed_notes_script_roots(&self) -> impl Iterator<Item = Digest> + '_ {
-        let mut script_roots: Vec<Digest> = self
-            .txs
+        self.updated_accounts
             .iter()
-            .flat_map(|tx| tx.consumed_notes())
-            .map(|consumed_note| consumed_note.script_root())
-            .collect();
-
-        script_roots.sort();
-
-        // Removes duplicates in consecutive items
-        script_roots.into_iter().dedup()
+            .map(|(account_id, account_states)| (*account_id, account_states.final_state))
     }
 
     /// Returns the nullifier of all consumed notes
     pub fn produced_nullifiers(&self) -> impl Iterator<Item = Digest> + '_ {
-        self.txs
-            .iter()
-            .flat_map(|tx| tx.consumed_notes())
-            .map(|consumed_note| consumed_note.nullifier())
+        self.produced_nullifiers.iter().cloned()
     }
 
     /// Returns the hash of created notes
     pub fn created_notes(&self) -> impl Iterator<Item = Digest> + '_ {
-        self.txs
-            .iter()
-            .flat_map(|tx| tx.created_notes())
-            .map(|note_envelope| note_envelope.note_hash())
+        self.created_notes_smt.leaves().map(|(_key, leaf)| leaf.into())
     }
+
+    /// Returns the root of the created notes SMT
+    pub fn created_notes_root(&self) -> Digest {
+        self.created_notes_smt.root()
+    }
+}
+
+/// Stores the initial state (before the transaction) and final state (after the transaction) of an
+/// account
+struct AccountStates {
+    initial_state: Digest,
+    final_state: Digest,
 }
 
 // BATCH BUILDER
 // ================================================================================================
-
-#[derive(Debug, PartialEq)]
-pub enum BuildBatchError {
-    Dummy,
-}
 
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {
@@ -160,7 +204,7 @@ where
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
-        let batch = Arc::new(TransactionBatch::new(txs));
+        let batch = Arc::new(TransactionBatch::new(txs)?);
         self.ready_batches.write().await.push(batch);
 
         Ok(())

@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    batch_builder::{BuildBatchError, TransactionBatch},
+    batch_builder::{errors::BuildBatchError, TransactionBatch},
     test_utils::DummyProvenTxGenerator,
     SharedTxBatch,
 };
@@ -47,7 +47,7 @@ impl BatchBuilder for BatchBuilderSuccess {
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
-        let batch = Arc::new(TransactionBatch::new(txs));
+        let batch = Arc::new(TransactionBatch::new(txs).unwrap());
         self.ready_batches.write().await.push(batch);
 
         Ok(())
@@ -152,7 +152,7 @@ async fn test_build_batch_failure() {
     let build_batch_frequency = Duration::from_millis(30);
     let batch_size = 3;
 
-    let batch_builder = Arc::new(BatchBuilderFailure::default());
+    let batch_builder = Arc::new(BatchBuilderFailure);
 
     let tx_queue = DefaultTransactionQueue::new(
         Arc::new(TransactionVerifierSuccess),
