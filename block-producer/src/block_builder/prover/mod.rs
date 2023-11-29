@@ -117,20 +117,16 @@ proc.compute_note_root
 end
 
 # Stack: [<account root inputs>, <note root inputs>]
-proc.main.2
-    exec.compute_account_root loc_storew.0 dropw
+begin
+    exec.compute_account_root mem_storew.0 dropw
     #=> [<note root inputs>]
 
-    exec.compute_note_root loc_storew.1 dropw
+    exec.compute_note_root
     #=> [ ]
 
     # Load output on stack
-    loc_loadw.1 padw loc_loadw.0
+    padw mem_loadw.0
     #=> [ ACCOUNT_ROOT, NOTE_ROOT]
-end
-
-begin
-    exec.main
 end
 ";
 
