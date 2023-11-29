@@ -10,7 +10,7 @@ pub mod errors;
 mod prover;
 use self::{
     errors::BuildBlockError,
-    prover::{BlockProver, BlockWitness},
+    prover::{block_witness::BlockWitness, BlockProver},
 };
 
 #[cfg(test)]

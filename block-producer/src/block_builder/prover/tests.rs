@@ -1,18 +1,21 @@
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use miden_air::FieldElement;
 use miden_mock::mock::block::mock_block_header;
-use miden_node_proto::domain::AccountInputRecord;
+use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{
-    crypto::merkle::MmrPeaks,
+    accounts::AccountId,
+    crypto::merkle::{EmptySubtreeRoots, MmrPeaks},
     notes::{NoteEnvelope, NoteMetadata},
 };
-use miden_vm::crypto::SimpleSmt;
+use miden_vm::crypto::{MerklePath, SimpleSmt};
 
 use crate::{
     batch_builder::TransactionBatch,
+    block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
     store::Store,
     test_utils::{DummyProvenTxGenerator, MockStoreSuccess},
+    SharedTxBatch,
 };
 
 use super::*;
