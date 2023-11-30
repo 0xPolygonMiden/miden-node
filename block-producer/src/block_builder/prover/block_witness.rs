@@ -234,6 +234,9 @@ impl BlockWitness {
 
             // advice map data is expected to be:
             // [ NUM_LEAVES, peak_0, ..., peak{n-1}, <padding until 16 peaks> ]
+            //
+            // TODO: use `self.chain_peaks.to_advice_inputs(&mut advice_inputs)` instead of this block
+            // when https://github.com/0xPolygonMiden/miden-base/pull/333 is merged
             let map_data = {
                 // num leaves
                 let num_leaves =
