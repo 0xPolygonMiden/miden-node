@@ -4,14 +4,13 @@ use miden_node_proto::domain::BlockInputs;
 use miden_objects::{accounts::AccountId, crypto::merkle::Mmr, BlockHeader, Digest, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
+use super::MockStoreSuccess;
 use crate::{
     batch_builder::TransactionBatch,
     block::Block,
     block_builder::prover::{block_witness::BlockWitness, BlockProver},
     store::Store,
 };
-
-use super::MockStoreSuccess;
 
 /// Constructs the block we expect to be built given the store state, and a set of transaction
 /// batches to be applied

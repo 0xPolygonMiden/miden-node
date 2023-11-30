@@ -6,9 +6,8 @@
 
 use std::iter;
 
-use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
-
 use super::*;
+use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 
 /// Tests requirement AB1
 #[tokio::test]

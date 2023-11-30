@@ -1,7 +1,7 @@
+use std::{env, fs, path::PathBuf};
+
 use miette::IntoDiagnostic;
 use prost::Message;
-use std::env;
-use std::{fs, path::PathBuf};
 
 fn main() -> miette::Result<()> {
     // Compute the directory of the `proto` definitions

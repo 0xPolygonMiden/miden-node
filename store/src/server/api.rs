@@ -1,4 +1,5 @@
-use crate::{config::StoreConfig, db::Db, state::State};
+use std::{net::ToSocketAddrs, sync::Arc};
+
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
@@ -15,9 +16,10 @@ use miden_node_proto::{
     },
     store::api_server,
 };
-use std::{net::ToSocketAddrs, sync::Arc};
 use tonic::{transport::Server, Response, Status};
 use tracing::info;
+
+use crate::{config::StoreConfig, db::Db, state::State};
 
 // STORE INITIALIZER
 // ================================================================================================

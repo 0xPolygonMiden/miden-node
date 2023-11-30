@@ -1,11 +1,15 @@
-use crate::domain::{AccountInputRecord, BlockInputs, NullifierInputRecord};
-use crate::{account_id, block_header, digest, error, merkle, mmr, note, responses, tsmt};
 use miden_crypto::{
     hash::rpo::RpoDigest,
     merkle::{MerklePath, MmrDelta, MmrPeaks, TieredSmtProof},
     Felt, FieldElement, StarkField, Word,
 };
 use miden_objects::{accounts::AccountId, BlockHeader};
+
+use crate::{
+    account_id, block_header, digest,
+    domain::{AccountInputRecord, BlockInputs, NullifierInputRecord},
+    error, merkle, mmr, note, responses, tsmt,
+};
 
 impl From<[u64; 4]> for digest::Digest {
     fn from(value: [u64; 4]) -> Self {

@@ -1,20 +1,15 @@
 pub mod conversion;
 pub mod domain;
 pub mod error;
+
+#[rustfmt::skip]
 mod generated;
+
 pub mod hex;
 
 // RE-EXPORTS
 // ------------------------------------------------------------------------------------------------
-pub use generated::account_id;
-pub use generated::block_header;
-pub use generated::block_producer;
-pub use generated::digest;
-pub use generated::merkle;
-pub use generated::mmr;
-pub use generated::note;
-pub use generated::requests;
-pub use generated::responses;
-pub use generated::rpc;
-pub use generated::store;
-pub use generated::tsmt;
+pub use generated::{
+    account_id, block_header, block_producer, digest, merkle, mmr, note, requests, responses, rpc,
+    store, tsmt,
+};

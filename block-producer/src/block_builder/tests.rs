@@ -1,9 +1,8 @@
+use miden_air::Felt;
+
 // block builder tests (higher level)
 // 1. `apply_block()` is called
 use super::*;
-
-use miden_air::Felt;
-
 use crate::{
     batch_builder::TransactionBatch,
     test_utils::{DummyProvenTxGenerator, MockStoreFailure, MockStoreSuccessBuilder},

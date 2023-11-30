@@ -1,4 +1,5 @@
-use crate::config::RpcConfig;
+use std::net::ToSocketAddrs;
+
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
@@ -14,12 +15,13 @@ use miden_node_proto::{
     rpc::api_server,
     store::api_client as store_client,
 };
-use std::net::ToSocketAddrs;
 use tonic::{
     transport::{Channel, Error, Server},
     Request, Response, Status,
 };
 use tracing::info;
+
+use crate::config::RpcConfig;
 
 pub struct RpcApi {
     store: store_client::ApiClient<Channel>,

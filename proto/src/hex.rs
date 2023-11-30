@@ -1,6 +1,6 @@
-use crate::digest::Digest;
-use crate::error::ParseError;
 use hex::{FromHex, ToHex};
+
+use crate::{digest::Digest, error::ParseError};
 
 pub const DIGEST_DATA_SIZE: usize = 32;
 
@@ -63,9 +63,10 @@ impl FromHex for Digest {
 
 #[cfg(test)]
 mod test {
-    use crate::digest::Digest;
     use hex::{self, FromHex, ToHex};
     use proptest::prelude::*;
+
+    use crate::digest::Digest;
 
     #[test]
     fn test_hex_digest() {

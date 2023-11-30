@@ -14,8 +14,7 @@ use miden_objects::{
 use once_cell::sync::Lazy;
 use winterfell::{
     crypto::{hashers::Blake3_192, DefaultRandomCoin},
-    math::fields::f64::BaseElement,
-    math::FieldElement,
+    math::{fields::f64::BaseElement, FieldElement},
     matrix::ColMatrix,
     Air, AirContext, Assertion, AuxTraceRandElements, ConstraintCompositionCoefficients,
     DefaultConstraintEvaluator, DefaultTraceLde, EvaluationFrame, FieldExtension, ProofOptions,

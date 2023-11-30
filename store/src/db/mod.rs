@@ -1,8 +1,5 @@
-use crate::{
-    config::StoreConfig,
-    migrations,
-    types::{AccountId, BlockNumber},
-};
+use std::fs::create_dir_all;
+
 use anyhow::anyhow;
 use deadpool_sqlite::{Config as SqliteConfig, Pool, Runtime};
 use miden_crypto::hash::rpo::RpoDigest;
@@ -13,9 +10,14 @@ use miden_node_proto::{
     responses::{AccountHashUpdate, NullifierUpdate},
 };
 use rusqlite::vtab::array;
-use std::fs::create_dir_all;
 use tokio::sync::oneshot;
 use tracing::{info, span, Level};
+
+use crate::{
+    config::StoreConfig,
+    migrations,
+    types::{AccountId, BlockNumber},
+};
 
 mod sql;
 
