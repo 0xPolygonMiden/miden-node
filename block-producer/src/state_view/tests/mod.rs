@@ -1,6 +1,6 @@
 use super::*;
 
-use miden_objects::{transaction::ConsumedNoteInfo, BlockHeader, Felt, Hasher};
+use miden_objects::{transaction::ConsumedNoteInfo, Hasher};
 
 use crate::test_utils::{DummyProvenTxGenerator, MockPrivateAccount};
 
@@ -32,34 +32,4 @@ pub fn get_txs_and_accounts(
 
         (Arc::new(tx), account)
     })
-}
-
-pub fn get_dummy_block(
-    updated_accounts: Vec<MockPrivateAccount>,
-    new_nullifiers: Vec<Digest>,
-) -> Block {
-    let header = BlockHeader::new(
-        Digest::default(),
-        Felt::new(42),
-        Digest::default(),
-        Digest::default(),
-        Digest::default(),
-        Digest::default(),
-        Digest::default(),
-        Digest::default(),
-        Felt::new(0),
-        Felt::new(42),
-    );
-
-    let updated_accounts = updated_accounts
-        .into_iter()
-        .map(|mock_account| (mock_account.id, mock_account.states[1]))
-        .collect();
-
-    Block {
-        header,
-        updated_accounts,
-        created_notes: Vec::new(),
-        produced_nullifiers: new_nullifiers,
-    }
 }

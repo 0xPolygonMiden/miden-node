@@ -6,7 +6,7 @@
 
 use std::iter;
 
-use crate::test_utils::MockStoreSuccessBuilder;
+use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 
 use super::*;
 
@@ -36,9 +36,16 @@ async fn test_apply_block_ab1() {
     let verify_tx_res = state_view.verify_tx(tx.into()).await;
     assert!(verify_tx_res.is_ok());
 
-    let block = Arc::new(get_dummy_block(vec![account], Vec::new()));
+    let block = MockBlockBuilder::new(&store)
+        .await
+        .account_updates(
+            std::iter::once(account)
+                .map(|mock_account| (mock_account.id, mock_account.states[1]))
+                .collect(),
+        )
+        .build();
 
-    let apply_block_res = state_view.apply_block(block).await;
+    let apply_block_res = state_view.apply_block(Arc::new(block)).await;
     assert!(apply_block_res.is_ok());
 
     assert_eq!(*store.num_apply_block_called.read().await, 1);
@@ -71,11 +78,19 @@ async fn test_apply_block_ab2() {
     }
 
     // All except the first account will go into the block.
-    let accounts_in_block = accounts.iter().skip(1).cloned().collect();
+    let accounts_in_block: Vec<MockPrivateAccount> = accounts.iter().skip(1).cloned().collect();
 
-    let block = Arc::new(get_dummy_block(accounts_in_block, Vec::new()));
+    let block = MockBlockBuilder::new(&store)
+        .await
+        .account_updates(
+            accounts_in_block
+                .into_iter()
+                .map(|mock_account| (mock_account.id, mock_account.states[1]))
+                .collect(),
+        )
+        .build();
 
-    let apply_block_res = state_view.apply_block(block).await;
+    let apply_block_res = state_view.apply_block(Arc::new(block)).await;
     assert!(apply_block_res.is_ok());
 
     let accounts_still_in_flight = state_view.accounts_in_flight.read().await;
@@ -111,9 +126,18 @@ async fn test_apply_block_ab3() {
         assert!(verify_tx_res.is_ok());
     }
 
-    let block = Arc::new(get_dummy_block(accounts.clone(), Vec::new()));
+    let block = MockBlockBuilder::new(&store)
+        .await
+        .account_updates(
+            accounts
+                .clone()
+                .into_iter()
+                .map(|mock_account| (mock_account.id, mock_account.states[1]))
+                .collect(),
+        )
+        .build();
 
-    let apply_block_res = state_view.apply_block(block).await;
+    let apply_block_res = state_view.apply_block(Arc::new(block)).await;
     assert!(apply_block_res.is_ok());
 
     // Craft a new transaction which tries to consume the same note that was consumed in in the
