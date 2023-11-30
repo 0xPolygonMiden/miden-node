@@ -1,5 +1,6 @@
 pub mod account_id;
 pub mod block_header;
+pub mod block_producer;
 pub mod digest;
 pub mod merkle;
 pub mod mmr;

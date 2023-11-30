@@ -8,6 +8,7 @@ pub mod hex;
 // ------------------------------------------------------------------------------------------------
 pub use generated::account_id;
 pub use generated::block_header;
+pub use generated::block_producer;
 pub use generated::digest;
 pub use generated::merkle;
 pub use generated::mmr;

@@ -23,6 +23,8 @@ pub struct RpcConfig {
     pub endpoint: Endpoint,
     /// Address of the store server in the format `http://<host>[:<port>]`.
     pub store: String,
+    /// Address of the store server in the format `http://<host>[:<port>]`.
+    pub block_producer: String,
 }
 
 impl Default for Endpoint {
@@ -48,6 +50,7 @@ impl Default for RpcConfig {
         Self {
             endpoint: Endpoint::default(),
             store: format!("http://localhost:{}", miden_node_store::config::PORT),
+            block_producer: format!("http://localhost:{}", miden_node_block_producer::config::PORT),
         }
     }
 }
