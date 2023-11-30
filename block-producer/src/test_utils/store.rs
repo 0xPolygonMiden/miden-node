@@ -3,7 +3,7 @@ use miden_air::{Felt, FieldElement};
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{
     crypto::merkle::{Mmr, MmrPeaks},
-    BlockHeader, EMPTY_WORD,
+    BlockHeader, EMPTY_WORD, ZERO,
 };
 use miden_vm::crypto::SimpleSmt;
 
@@ -23,6 +23,7 @@ pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt>,
     consumed_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
+    block_header: Option<BlockHeader>,
 }
 
 impl MockStoreSuccessBuilder {
@@ -64,7 +65,31 @@ impl MockStoreSuccessBuilder {
         self
     }
 
+    pub fn initial_block_header(
+        mut self,
+        block_header: BlockHeader,
+    ) -> Self {
+        self.block_header = Some(block_header);
+
+        self
+    }
+
     pub fn build(self) -> MockStoreSuccess {
+        let default_block_header = || {
+            BlockHeader::new(
+                Digest::default(),
+                Felt::ZERO,
+                Digest::default(),
+                Digest::default(),
+                Digest::default(),
+                Digest::default(),
+                Digest::default(),
+                Digest::default(),
+                Felt::ZERO,
+                Felt::ONE,
+            )
+        };
+
         MockStoreSuccess {
             accounts: Arc::new(RwLock::new(
                 self.accounts.unwrap_or(SimpleSmt::new(ACCOUNT_SMT_DEPTH).unwrap()),
@@ -73,6 +98,9 @@ impl MockStoreSuccessBuilder {
                 self.consumed_nullifiers.unwrap_or_default(),
             )),
             chain_mmr: Arc::new(RwLock::new(self.chain_mmr.unwrap_or_default())),
+            last_block_header: Arc::new(RwLock::new(
+                self.block_header.unwrap_or_else(default_block_header),
+            )),
             num_apply_block_called: Arc::new(RwLock::new(0)),
         }
     }
@@ -85,7 +113,11 @@ pub struct MockStoreSuccess {
     /// Stores the nullifiers of the notes that were consumed
     consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
 
+    // Stores the chain MMR
     chain_mmr: Arc<RwLock<Mmr>>,
+
+    // Stores the header of the last applied block
+    last_block_header: Arc<RwLock<BlockHeader>>,
 
     /// The number of times `apply_block()` was called
     pub num_apply_block_called: Arc<RwLock<u32>>,
