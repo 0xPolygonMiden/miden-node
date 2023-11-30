@@ -2,10 +2,17 @@ use crate::config::RpcConfig;
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
-    requests::{CheckNullifiersRequest, GetBlockHeaderByNumberRequest, SyncStateRequest},
-    responses::{CheckNullifiersResponse, GetBlockHeaderByNumberResponse, SyncStateResponse},
+    block_producer::api_client as block_producer_client,
+    requests::{
+        CheckNullifiersRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,
+        SyncStateRequest,
+    },
+    responses::{
+        CheckNullifiersResponse, GetBlockHeaderByNumberResponse, SubmitProvenTransactionResponse,
+        SyncStateResponse,
+    },
     rpc::api_server,
-    store::api_client,
+    store::api_client as store_client,
 };
 use std::net::ToSocketAddrs;
 use tonic::{
@@ -15,14 +22,21 @@ use tonic::{
 use tracing::info;
 
 pub struct RpcApi {
-    store: api_client::ApiClient<Channel>,
+    store: store_client::ApiClient<Channel>,
+    block_producer: block_producer_client::ApiClient<Channel>,
 }
 
 impl RpcApi {
     async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
-        let client = api_client::ApiClient::connect(config.store.clone()).await?;
+        let store = store_client::ApiClient::connect(config.store.clone()).await?;
         info!(store = config.store, "Store client initialized",);
-        Ok(Self { store: client })
+        let block_producer =
+            block_producer_client::ApiClient::connect(config.block_producer.clone()).await?;
+        info!(block_producer = config.block_producer, "Store client initialized",);
+        Ok(Self {
+            store,
+            block_producer,
+        })
     }
 }
 
@@ -54,6 +68,13 @@ impl api_server::Api for RpcApi {
         request: tonic::Request<SyncStateRequest>,
     ) -> Result<Response<SyncStateResponse>, Status> {
         self.store.clone().sync_state(request).await
+    }
+
+    async fn submit_proven_transaction(
+        &self,
+        request: Request<SubmitProvenTransactionRequest>,
+    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
+        self.block_producer.clone().submit_proven_transaction(request).await
     }
 }
 

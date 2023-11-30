@@ -13,7 +13,11 @@ fn main() -> miette::Result<()> {
     let file_descriptor_path = PathBuf::from(out).join("file_descriptor_set.bin");
 
     // Compile the proto file for all servers APIs
-    let protos = &[proto_dir.join("store.proto"), proto_dir.join("rpc.proto")];
+    let protos = &[
+        proto_dir.join("block_producer.proto"),
+        proto_dir.join("store.proto"),
+        proto_dir.join("rpc.proto"),
+    ];
     let includes = &[proto_dir];
     let file_descriptors = protox::compile(protos, includes)?;
     fs::write(&file_descriptor_path, file_descriptors.encode_to_vec()).into_diagnostic()?;
