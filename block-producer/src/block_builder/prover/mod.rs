@@ -176,7 +176,7 @@ impl BlockProver {
         &self,
         witness: BlockWitness,
     ) -> Result<BlockHeader, BuildBlockError> {
-        let prev_hash = witness.prev_header.prev_hash();
+        let prev_hash = witness.prev_header.hash();
         let block_num = witness.prev_header.block_num() + Felt::ONE;
         let version = witness.prev_header.version();
 
