@@ -12,3 +12,5 @@ pub use store::{MockStoreFailure, MockStoreSuccess, MockStoreSuccessBuilder};
 
 mod account;
 pub use account::MockPrivateAccount;
+
+pub mod block;

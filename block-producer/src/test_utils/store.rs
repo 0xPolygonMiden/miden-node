@@ -95,16 +95,16 @@ impl MockStoreSuccessBuilder {
 
 pub struct MockStoreSuccess {
     /// Map account id -> account hash
-    accounts: Arc<RwLock<SimpleSmt>>,
+    pub accounts: Arc<RwLock<SimpleSmt>>,
 
     /// Stores the nullifiers of the notes that were consumed
-    consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
+    pub consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
 
     // Stores the chain MMR
-    chain_mmr: Arc<RwLock<Mmr>>,
+    pub chain_mmr: Arc<RwLock<Mmr>>,
 
     // Stores the header of the last applied block
-    last_block_header: Arc<RwLock<BlockHeader>>,
+    pub last_block_header: Arc<RwLock<BlockHeader>>,
 
     /// The number of times `apply_block()` was called
     pub num_apply_block_called: Arc<RwLock<u32>>,
