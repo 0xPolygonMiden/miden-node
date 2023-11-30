@@ -482,3 +482,54 @@ async fn test_compute_note_root_success() {
 // - add header to empty MMR, and check that we get the expected commitment
 // - add header to non-empty MMR (1 peak), and check that we get the expected commitment
 // - add header to MMR with 17 peaks
+
+/// Test that the current account root is returned if the batches are empty
+#[tokio::test]
+async fn test_compute_chain_mmr_root_empty_mmr() {
+    // Set up account states
+    // ---------------------------------------------------------------------------------------------
+    let account_ids = [
+        AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_1111_0000_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_0000u64)),
+        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_1111u64)),
+    ];
+
+    let account_initial_states = [
+        [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)],
+        [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)],
+        [Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)],
+        [Felt::from(4u64), Felt::from(4u64), Felt::from(4u64), Felt::from(4u64)],
+        [Felt::from(5u64), Felt::from(5u64), Felt::from(5u64), Felt::from(5u64)],
+    ];
+
+    // Set up store's account SMT
+    // ---------------------------------------------------------------------------------------------
+
+    let store = MockStoreSuccessBuilder::new()
+        .initial_accounts(
+            account_ids
+                .iter()
+                .zip(account_initial_states.iter())
+                .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
+        )
+        .build();
+
+    // Block prover
+    // ---------------------------------------------------------------------------------------------
+
+    // Block inputs is initialized with all the accounts and their initial state
+    let block_inputs_from_store: BlockInputs =
+        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+
+    let batches = Vec::new();
+    let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
+
+    let block_prover = BlockProver::new();
+    let block_header = block_prover.prove(block_witness).unwrap();
+
+    // Compare roots
+    // ---------------------------------------------------------------------------------------------
+    assert_eq!(block_header.account_root(), store.account_root().await);
+}

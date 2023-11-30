@@ -55,7 +55,10 @@ impl MockStoreSuccessBuilder {
         self
     }
 
-    pub fn initial_chain_mmr(mut self, chain_mmr: Mmr) -> Self {
+    pub fn initial_chain_mmr(
+        mut self,
+        chain_mmr: Mmr,
+    ) -> Self {
         self.chain_mmr = Some(chain_mmr);
 
         self
@@ -69,7 +72,7 @@ impl MockStoreSuccessBuilder {
             consumed_nullifiers: Arc::new(RwLock::new(
                 self.consumed_nullifiers.unwrap_or_default(),
             )),
-            chain_mmr: Arc::new(RwLock::new(Mmr::default())),
+            chain_mmr: Arc::new(RwLock::new(self.chain_mmr.unwrap_or_default())),
             num_apply_block_called: Arc::new(RwLock::new(0)),
         }
     }
