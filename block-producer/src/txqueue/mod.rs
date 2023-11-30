@@ -100,7 +100,7 @@ where
         }
     }
 
-    pub async fn run(self) {
+    pub async fn run(&self) {
         let mut interval = time::interval(self.options.build_batch_frequency);
 
         loop {

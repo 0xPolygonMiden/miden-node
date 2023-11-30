@@ -9,6 +9,12 @@ keywords = ["miden", "node", "program", "store"]
 edition = "2021"
 rust-version = "1.73"
 
+[[bin]]
+name = "block_producer"
+path = "src/main.rs"
+bench = false
+doctest = false
+
 [dev-dependencies]
 miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", default-features = false }
 winterfell = "0.7"
