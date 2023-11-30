@@ -111,20 +111,6 @@ pub struct MockStoreSuccess {
 }
 
 impl MockStoreSuccess {
-    /// Update some accounts in the store
-    /// TODO: Remove this, and instead create a function to create a block from account updates
-    pub async fn update_accounts(
-        &self,
-        updated_accounts: impl Iterator<Item = (AccountId, Digest)>,
-    ) {
-        let mut locked_accounts = self.accounts.write().await;
-        for (account_id, new_account_state) in updated_accounts {
-            locked_accounts
-                .update_leaf(account_id.into(), new_account_state.into())
-                .unwrap();
-        }
-    }
-
     pub async fn account_root(&self) -> Digest {
         let locked_accounts = self.accounts.read().await;
 
@@ -226,7 +212,7 @@ impl Store for MockStoreSuccess {
         };
 
         Ok(BlockInputs {
-            block_header: self.last_block_header.read().await.clone(),
+            block_header: *self.last_block_header.read().await,
             chain_peaks,
             account_states,
             // TODO: return a proper nullifiers iterator

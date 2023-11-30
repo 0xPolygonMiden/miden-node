@@ -22,7 +22,7 @@ impl MockBlockBuilder {
         Self {
             store_accounts: store.accounts.read().await.clone(),
             store_chain_mmr: store.chain_mmr.read().await.clone(),
-            last_block_header: store.last_block_header.read().await.clone(),
+            last_block_header: *store.last_block_header.read().await,
 
             updated_accounts: None,
             created_notes: None,

@@ -13,8 +13,8 @@ use miden_vm::crypto::{MerklePath, SimpleSmt};
 use crate::{
     batch_builder::TransactionBatch,
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
-    store::Store,
-    test_utils::{DummyProvenTxGenerator, MockStoreSuccessBuilder},
+    store::{ApplyBlock, Store},
+    test_utils::{block::MockBlockBuilder, DummyProvenTxGenerator, MockStoreSuccessBuilder},
     SharedTxBatch,
 };
 
@@ -254,14 +254,18 @@ async fn test_compute_account_root_success() {
 
     // Update SMT by hand to get new root
     // ---------------------------------------------------------------------------------------------
-    store
-        .update_accounts(
+    let block = MockBlockBuilder::new(&store)
+        .await
+        .account_updates(
             account_ids
                 .iter()
                 .zip(account_final_states.iter())
-                .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
+                .map(|(&account_id, &account_hash)| (account_id, account_hash.into()))
+                .collect(),
         )
-        .await;
+        .build();
+
+    store.apply_block(Arc::new(block)).await.unwrap();
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
