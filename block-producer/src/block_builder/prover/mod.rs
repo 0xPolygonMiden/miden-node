@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use miden_air::{ExecutionOptions, Felt};
+use miden_air::{ExecutionOptions, Felt, FieldElement};
 use miden_objects::{assembly::Assembler, BlockHeader, Digest};
 use miden_stdlib::StdLibrary;
 use miden_vm::{execute, DefaultHost, MemAdviceProvider, Program};
@@ -177,7 +177,7 @@ impl BlockProver {
         witness: BlockWitness,
     ) -> Result<BlockHeader, BuildBlockError> {
         let prev_hash = witness.prev_header.prev_hash();
-        let block_num = witness.prev_header.block_num();
+        let block_num = witness.prev_header.block_num() + Felt::ONE;
         let version = witness.prev_header.version();
 
         let (account_root, note_root, chain_root) = self.compute_roots(witness)?;
