@@ -74,6 +74,7 @@ impl MockStoreSuccessBuilder {
             chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
             accounts_smt.root(),
             Digest::default(),
+            // FIXME: FILL IN CORRECT VALUE
             Digest::default(),
             Digest::default(),
             Digest::default(),

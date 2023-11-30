@@ -13,7 +13,7 @@ use miden_vm::crypto::{MerklePath, SimpleSmt};
 use crate::{
     batch_builder::TransactionBatch,
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
-    store::{ApplyBlock, Store},
+    store::Store,
     test_utils::{block::MockBlockBuilder, DummyProvenTxGenerator, MockStoreSuccessBuilder},
     SharedTxBatch,
 };
@@ -265,11 +265,9 @@ async fn test_compute_account_root_success() {
         )
         .build();
 
-    store.apply_block(Arc::new(block)).await.unwrap();
-
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    assert_eq!(block_header.account_root(), store.account_root().await);
+    assert_eq!(block_header.account_root(), block.header.account_root());
 }
 
 /// Test that the current account root is returned if the batches are empty
