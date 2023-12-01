@@ -15,7 +15,7 @@ use crate::{
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
     store::Store,
     test_utils::{
-        block::{build_expected_block_header, MockBlockBuilder},
+        block::{build_actual_block_header, build_expected_block_header, MockBlockBuilder},
         DummyProvenTxGenerator, MockStoreSuccessBuilder,
     },
     SharedTxBatch,
@@ -484,7 +484,6 @@ async fn test_compute_note_root_success() {
 // CHAIN MMR ROOT TESTS
 // =================================================================================================
 
-// - add header to empty MMR, and check that we get the expected commitment
 // - add header to non-empty MMR (1 peak), and check that we get the expected commitment
 // - add header to MMR with 17 peaks
 
@@ -493,22 +492,8 @@ async fn test_compute_note_root_success() {
 async fn test_compute_chain_mmr_root_empty_mmr() {
     let store = MockStoreSuccessBuilder::new().build();
 
-    // Compute actual chain MMR root, from applying an empty block
-    let actual_chain_mmr_root = {
-        let block_inputs_from_store: BlockInputs =
-            store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
-
-        let batches = Vec::new();
-        let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
-
-        let block_prover = BlockProver::new();
-        let block_header = block_prover.prove(block_witness).unwrap();
-
-        block_header.chain_root()
-    };
-
-    // Compute expected chain MMR root
     let expected_block_header = build_expected_block_header(&store, &[]).await;
+    let actual_block_header = build_actual_block_header(&store, Vec::new()).await;
 
-    assert_eq!(actual_chain_mmr_root, expected_block_header.chain_root());
+    assert_eq!(actual_block_header.chain_root(), expected_block_header.chain_root());
 }
