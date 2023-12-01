@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 use miden_objects::{accounts::AccountId, Digest};
 
 mod proven_tx;
-pub use proven_tx::DummyProvenTxGenerator;
+pub use proven_tx::{DummyProvenTxGenerator, MockProvenTxBuilder};
 
 mod store;
 pub use store::{MockStoreFailure, MockStoreSuccess, MockStoreSuccessBuilder};

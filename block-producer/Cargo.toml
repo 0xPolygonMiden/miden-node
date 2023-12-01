@@ -10,13 +10,15 @@ edition = "2021"
 rust-version = "1.73"
 
 [dev-dependencies]
+miden-crypto = { workspace = true }
 miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", default-features = false }
+once_cell = { version = "1.18" }
 winterfell = "0.7"
 
 [dependencies]
 anyhow = { version = "1.0" }
 async-trait = { version = "0.1" }
-clap = { version = "4.3" , features = ["derive"] }
+clap = { version = "4.3", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
 miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
@@ -25,10 +27,10 @@ miden-node-utils = { path = "../utils" }
 miden_objects = { workspace = true }
 miden_stdlib = { package = "miden-stdlib", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 miden_vm = { package = "miden-vm", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
-serde = { version = "1.0" , features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
 toml = { version = "0.8" }
 tonic = { version = "0.10" }
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" , features = ["fmt"] }
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
