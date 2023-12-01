@@ -102,7 +102,9 @@ impl BlockWitness {
         })
     }
 
-    pub(super) fn into_parts(self) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
+    pub(super) fn into_program_inputs(
+        self
+    ) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
         let stack_inputs = {
             // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
             // from the bottom to the top
@@ -276,7 +278,6 @@ impl BlockWitness {
             Err(BuildBlockError::InconsistentAccountIds(difference))
         }
     }
-
 }
 
 #[derive(Debug, PartialEq, Eq)]
