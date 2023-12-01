@@ -1,9 +1,74 @@
 use miden_objects::{accounts::AccountId, crypto::merkle::Mmr, BlockHeader, Digest, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
-use crate::block::Block;
+use crate::{batch_builder::TransactionBatch, block::Block};
 
 use super::MockStoreSuccess;
+
+/// Constructs the block we expect to be built given the store state, and a set of transaction
+/// batches to be applied
+pub async fn build_expected_block(
+    store: &MockStoreSuccess,
+    batches: Vec<TransactionBatch>,
+) -> Block {
+    let last_block_header = *store.last_block_header.read().await;
+
+    // Compute new account root
+    let updated_accounts: Vec<(AccountId, Digest)> =
+        batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+    let new_account_root = {
+        let mut store_accounts = store.accounts.read().await.clone();
+        for (account_id, new_account_state) in updated_accounts.iter() {
+            store_accounts
+                .update_leaf(u64::from(*account_id), new_account_state.into())
+                .unwrap();
+        }
+
+        store_accounts.root()
+    };
+
+    // Compute created notes root
+    // FIXME: compute the right root. Needs
+    // https://github.com/0xPolygonMiden/crypto/issues/220#issuecomment-1823911017
+    let created_notes: Vec<Digest> =
+        batches.iter().flat_map(|batch| batch.created_notes()).collect();
+    let new_created_notes_root = Digest::default();
+
+    // Compute new chain MMR root
+    let new_chain_mmr_root = {
+        let mut store_chain_mmr = store.chain_mmr.read().await.clone();
+
+        store_chain_mmr.add(last_block_header.hash());
+
+        store_chain_mmr.peaks(store_chain_mmr.forest()).unwrap().hash_peaks()
+    };
+
+    // Build header
+    let header = BlockHeader::new(
+        last_block_header.hash(),
+        last_block_header.block_num() + ONE,
+        new_chain_mmr_root,
+        new_account_root,
+        // FIXME: FILL IN CORRECT NULLIFIER ROOT
+        Digest::default(),
+        // FIXME: FILL IN CORRECT CREATED NOTES ROOT
+        new_created_notes_root,
+        Digest::default(),
+        Digest::default(),
+        ZERO,
+        ONE,
+    );
+
+    let produced_nullifiers: Vec<Digest> =
+        batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+
+    Block {
+        header,
+        updated_accounts,
+        created_notes,
+        produced_nullifiers,
+    }
+}
 
 #[derive(Debug)]
 pub struct MockBlockBuilder {
