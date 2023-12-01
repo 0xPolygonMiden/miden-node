@@ -485,8 +485,6 @@ async fn test_compute_note_root_success() {
 // CHAIN MMR ROOT TESTS
 // =================================================================================================
 
-// - add header to MMR with 17 peaks
-
 /// Test that the chain mmr root is as expected if the batches are empty
 #[tokio::test]
 async fn test_compute_chain_mmr_root_empty_mmr() {
@@ -504,6 +502,28 @@ async fn test_compute_chain_mmr_root_mmr_1_peak() {
     let initial_chain_mmr = {
         let mut mmr = Mmr::new();
         mmr.add(Digest::default());
+
+        mmr
+    };
+
+    let store = MockStoreSuccessBuilder::new().initial_chain_mmr(initial_chain_mmr).build();
+
+    let expected_block_header = build_expected_block_header(&store, &[]).await;
+    let actual_block_header = build_actual_block_header(&store, Vec::new()).await;
+
+    assert_eq!(actual_block_header.chain_root(), expected_block_header.chain_root());
+}
+
+/// add header to an MMR with 17 peaks, and check that we get the expected commitment
+#[tokio::test]
+async fn test_compute_chain_mmr_root_mmr_17_peaks() {
+    let initial_chain_mmr = {
+        let mut mmr = Mmr::new();
+        for _ in 0..(2_u32.pow(17)-1) {
+            mmr.add(Digest::default());
+        }
+
+        assert_eq!(mmr.peaks(mmr.forest()).unwrap().peaks().len(), 17);
 
         mmr
     };
