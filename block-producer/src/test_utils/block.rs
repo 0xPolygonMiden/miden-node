@@ -15,10 +15,10 @@ use super::MockStoreSuccess;
 
 /// Constructs the block we expect to be built given the store state, and a set of transaction
 /// batches to be applied
-pub async fn build_expected_block(
+pub async fn build_expected_block_header(
     store: &MockStoreSuccess,
     batches: &[TransactionBatch],
-) -> Block {
+) -> BlockHeader {
     let last_block_header = *store.last_block_header.read().await;
 
     // Compute new account root
@@ -38,8 +38,6 @@ pub async fn build_expected_block(
     // Compute created notes root
     // FIXME: compute the right root. Needs
     // https://github.com/0xPolygonMiden/crypto/issues/220#issuecomment-1823911017
-    let created_notes: Vec<Digest> =
-        batches.iter().flat_map(|batch| batch.created_notes()).collect();
     let new_created_notes_root = Digest::default();
 
     // Compute new chain MMR root
@@ -52,7 +50,7 @@ pub async fn build_expected_block(
     };
 
     // Build header
-    let header = BlockHeader::new(
+    BlockHeader::new(
         last_block_header.hash(),
         last_block_header.block_num() + ONE,
         new_chain_mmr_root,
@@ -65,17 +63,7 @@ pub async fn build_expected_block(
         Digest::default(),
         ZERO,
         ONE,
-    );
-
-    let produced_nullifiers: Vec<Digest> =
-        batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
-
-    Block {
-        header,
-        updated_accounts,
-        created_notes,
-        produced_nullifiers,
-    }
+    )
 }
 
 /// Builds the "actual" block header; i.e. the block header built using the Miden VM, used in the
