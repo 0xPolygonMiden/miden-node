@@ -1,9 +1,6 @@
 use async_trait::async_trait;
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
-use miden_objects::{
-    crypto::merkle::{Mmr, MmrPeaks},
-    BlockHeader, EMPTY_WORD, ONE, ZERO,
-};
+use miden_objects::{crypto::merkle::Mmr, BlockHeader, EMPTY_WORD, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
 use crate::{
@@ -192,7 +189,10 @@ impl Store for MockStoreSuccess {
         updated_accounts: impl Iterator<Item = &AccountId> + Send,
         _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
-        let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+        let chain_peaks = {
+            let locked_chain_mmr = self.chain_mmr.read().await;
+            locked_chain_mmr.peaks(locked_chain_mmr.forest()).unwrap()
+        };
 
         let account_states = {
             let locked_accounts = self.accounts.read().await;
