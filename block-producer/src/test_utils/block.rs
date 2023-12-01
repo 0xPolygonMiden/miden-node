@@ -1,5 +1,4 @@
-use miden_air::{Felt, FieldElement};
-use miden_objects::{accounts::AccountId, crypto::merkle::Mmr, BlockHeader, Digest};
+use miden_objects::{accounts::AccountId, crypto::merkle::Mmr, BlockHeader, Digest, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
 use crate::block::Block;
@@ -66,15 +65,15 @@ impl MockBlockBuilder {
     pub fn build(self) -> Block {
         let header = BlockHeader::new(
             self.last_block_header.hash(),
-            self.last_block_header.block_num() + Felt::ONE,
+            self.last_block_header.block_num() + ONE,
             self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
             self.store_accounts.root(),
             Digest::default(),
             Digest::default(),
             Digest::default(),
             Digest::default(),
-            Felt::ZERO,
-            Felt::ONE,
+            ZERO,
+            ONE,
         );
 
         Block {

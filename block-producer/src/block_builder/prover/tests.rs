@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use miden_air::FieldElement;
 use miden_mock::mock::block::mock_block_header;
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MmrPeaks},
     notes::{NoteEnvelope, NoteMetadata},
+    ZERO,
 };
 use miden_vm::crypto::{MerklePath, SimpleSmt};
 
@@ -30,12 +30,12 @@ use super::*;
 #[test]
 fn test_block_witness_validation_inconsistent_account_ids() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let account_id_1 = AccountId::new_unchecked(Felt::ZERO);
-    let account_id_2 = AccountId::new_unchecked(Felt::ONE);
+    let account_id_1 = AccountId::new_unchecked(ZERO);
+    let account_id_2 = AccountId::new_unchecked(ONE);
     let account_id_3 = AccountId::new_unchecked(Felt::new(42));
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = mock_block_header(Felt::ZERO, None, None, &[]);
+        let block_header = mock_block_header(ZERO, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let account_states = vec![
@@ -102,8 +102,8 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 #[test]
 fn test_block_witness_validation_inconsistent_account_hashes() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let account_id_1 = AccountId::new_unchecked(Felt::ZERO);
-    let account_id_2 = AccountId::new_unchecked(Felt::ONE);
+    let account_id_1 = AccountId::new_unchecked(ZERO);
+    let account_id_2 = AccountId::new_unchecked(ONE);
 
     let account_1_hash_store =
         Digest::new([Felt::from(1u64), Felt::from(2u64), Felt::from(3u64), Felt::from(4u64)]);
@@ -111,7 +111,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
         Digest::new([Felt::from(4u64), Felt::from(3u64), Felt::from(2u64), Felt::from(1u64)]);
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = mock_block_header(Felt::ZERO, None, None, &[]);
+        let block_header = mock_block_header(ZERO, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let account_states = vec![

@@ -1,9 +1,8 @@
 use async_trait::async_trait;
-use miden_air::{Felt, FieldElement};
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{
     crypto::merkle::{Mmr, MmrPeaks},
-    BlockHeader, EMPTY_WORD,
+    BlockHeader, EMPTY_WORD, ONE, ZERO,
 };
 use miden_vm::crypto::SimpleSmt;
 
@@ -70,7 +69,7 @@ impl MockStoreSuccessBuilder {
 
         let initial_block_header = BlockHeader::new(
             Digest::default(),
-            Felt::ZERO,
+            ZERO,
             chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
             accounts_smt.root(),
             Digest::default(),
@@ -78,8 +77,8 @@ impl MockStoreSuccessBuilder {
             Digest::default(),
             Digest::default(),
             Digest::default(),
-            Felt::ZERO,
-            Felt::ONE,
+            ZERO,
+            ONE,
         );
 
         MockStoreSuccess {
