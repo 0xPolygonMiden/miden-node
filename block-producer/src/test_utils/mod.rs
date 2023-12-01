@@ -14,3 +14,5 @@ mod account;
 pub use account::MockPrivateAccount;
 
 pub mod block;
+
+pub mod batch;
