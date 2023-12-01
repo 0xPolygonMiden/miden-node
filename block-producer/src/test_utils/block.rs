@@ -1,7 +1,15 @@
+use std::sync::Arc;
+
+use miden_node_proto::domain::BlockInputs;
 use miden_objects::{accounts::AccountId, crypto::merkle::Mmr, BlockHeader, Digest, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
-use crate::{batch_builder::TransactionBatch, block::Block};
+use crate::{
+    batch_builder::TransactionBatch,
+    block::Block,
+    block_builder::prover::{block_witness::BlockWitness, BlockProver},
+    store::Store,
+};
 
 use super::MockStoreSuccess;
 
@@ -9,7 +17,7 @@ use super::MockStoreSuccess;
 /// batches to be applied
 pub async fn build_expected_block(
     store: &MockStoreSuccess,
-    batches: Vec<TransactionBatch>,
+    batches: &[TransactionBatch],
 ) -> Block {
     let last_block_header = *store.last_block_header.read().await;
 
@@ -68,6 +76,32 @@ pub async fn build_expected_block(
         created_notes,
         produced_nullifiers,
     }
+}
+
+/// Builds the "actual" block header; i.e. the block header built using the Miden VM, used in the
+/// node
+pub async fn build_actual_block_header(
+    store: &MockStoreSuccess,
+    batches: Vec<TransactionBatch>,
+) -> BlockHeader {
+    let updated_accounts: Vec<(AccountId, Digest)> =
+        batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+    let produced_nullifiers: Vec<Digest> =
+        batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(
+            updated_accounts.iter().map(|(account_id, _)| account_id),
+            produced_nullifiers.iter(),
+        )
+        .await
+        .unwrap();
+
+    let block_witness =
+        BlockWitness::new(block_inputs_from_store, batches.into_iter().map(Arc::new).collect())
+            .unwrap();
+
+    BlockProver::new().prove(block_witness).unwrap()
 }
 
 #[derive(Debug)]

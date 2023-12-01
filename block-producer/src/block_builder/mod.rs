@@ -7,7 +7,7 @@ use crate::{block::Block, store::Store, SharedTxBatch};
 
 pub mod errors;
 
-mod prover;
+pub(crate) mod prover;
 use self::{
     errors::BuildBlockError,
     prover::{block_witness::BlockWitness, BlockProver},

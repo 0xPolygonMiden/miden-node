@@ -14,7 +14,10 @@ use crate::{
     batch_builder::TransactionBatch,
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
     store::Store,
-    test_utils::{block::MockBlockBuilder, DummyProvenTxGenerator, MockStoreSuccessBuilder},
+    test_utils::{
+        block::{build_expected_block, MockBlockBuilder},
+        DummyProvenTxGenerator, MockStoreSuccessBuilder,
+    },
     SharedTxBatch,
 };
 
@@ -505,11 +508,7 @@ async fn test_compute_chain_mmr_root_empty_mmr() {
     };
 
     // Compute expected chain MMR root
-    let expected_chain_mmr_root = {
-        let expected_block = MockBlockBuilder::new(&store).await.build();
+    let expected_block = build_expected_block(&store, &[]).await;
 
-        expected_block.header.chain_root()
-    };
-
-    assert_eq!(actual_chain_mmr_root, expected_chain_mmr_root);
+    assert_eq!(actual_chain_mmr_root, expected_block.header.chain_root());
 }

@@ -150,7 +150,7 @@ end
 ";
 
 #[derive(Debug)]
-pub(super) struct BlockProver {
+pub(crate) struct BlockProver {
     kernel: Program,
 }
 
