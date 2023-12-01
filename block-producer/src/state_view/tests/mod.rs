@@ -10,15 +10,23 @@ mod verify_tx;
 // HELPERS
 // -------------------------------------------------------------------------------------------------
 
-pub fn consumed_note_by_index(index: u8) -> ConsumedNoteInfo {
-    ConsumedNoteInfo::new(Hasher::hash(&[index]), Hasher::hash(&[index, index]))
+pub fn consumed_note_by_index(index: u32) -> ConsumedNoteInfo {
+    ConsumedNoteInfo::new(
+        Hasher::hash(&index.to_be_bytes()),
+        Hasher::hash(
+            &[index.to_be_bytes(), index.to_be_bytes()]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>(),
+        ),
+    )
 }
 
 /// Returns `num` transactions, and the corresponding account they modify.
 /// The transactions each consume a single different note
 pub fn get_txs_and_accounts(
     tx_gen: &DummyProvenTxGenerator,
-    num: u8,
+    num: u32,
 ) -> impl Iterator<Item = (SharedProvenTx, MockPrivateAccount)> + '_ {
     (0..num).map(|index| {
         let account = MockPrivateAccount::from(index);

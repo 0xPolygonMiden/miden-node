@@ -37,12 +37,11 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
     }
 }
 
-impl<const NUM_STATES: usize> From<u8> for MockPrivateAccount<NUM_STATES> {
+impl<const NUM_STATES: usize> From<u32> for MockPrivateAccount<NUM_STATES> {
     /// Each index gives rise to a different account ID
-    fn from(index: u8) -> Self {
-        let mut init_seed: [u8; 32] = [0; 32];
-        init_seed[0] = index;
+    fn from(index: u32) -> Self {
+        let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 28]).collect();
 
-        Self::new(init_seed)
+        Self::new(init_seed.try_into().unwrap())
     }
 }
