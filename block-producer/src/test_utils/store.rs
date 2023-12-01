@@ -22,6 +22,8 @@ pub struct MockStoreSuccessBuilder {
 }
 
 impl MockStoreSuccessBuilder {
+    /// FIXME: the store always needs to be properly initialized with initial accounts
+    /// see https://github.com/0xPolygonMiden/miden-node/issues/79
     pub fn new() -> Self {
         Self::default()
     }
