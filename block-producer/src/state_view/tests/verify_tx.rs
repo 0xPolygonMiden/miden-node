@@ -14,7 +14,7 @@ use std::iter;
 
 use tokio::task::JoinSet;
 
-use crate::test_utils::MockStoreSuccess;
+use crate::test_utils::MockStoreSuccessBuilder;
 
 use super::*;
 
@@ -26,12 +26,15 @@ async fn test_verify_tx_happy_path() {
     let (txs, accounts): (Vec<SharedProvenTx>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
-    let store = Arc::new(MockStoreSuccess::new(
-        accounts
-            .into_iter()
-            .map(|mock_account| (mock_account.id, mock_account.states[0])),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(
+                accounts
+                    .into_iter()
+                    .map(|mock_account| (mock_account.id, mock_account.states[0])),
+            )
+            .build(),
+    );
 
     let state_view = DefaulStateView::new(store);
 
@@ -50,12 +53,15 @@ async fn test_verify_tx_happy_path_concurrent() {
     let (txs, accounts): (Vec<SharedProvenTx>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
-    let store = Arc::new(MockStoreSuccess::new(
-        accounts
-            .into_iter()
-            .map(|mock_account| (mock_account.id, mock_account.states[0])),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(
+                accounts
+                    .into_iter()
+                    .map(|mock_account| (mock_account.id, mock_account.states[0])),
+            )
+            .build(),
+    );
 
     let state_view = Arc::new(DefaulStateView::new(store));
 
@@ -78,10 +84,11 @@ async fn test_verify_tx_vt1() {
 
     let account = MockPrivateAccount::<3>::from(0);
 
-    let store = Arc::new(MockStoreSuccess::new(
-        iter::once((account.id, account.states[0])),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(iter::once((account.id, account.states[0])))
+            .build(),
+    );
 
     // The transaction's initial account hash uses `account.states[1]`, where the store expects
     // `account.states[0]`
@@ -114,7 +121,7 @@ async fn test_verify_tx_vt2() {
     let account_not_in_store: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
     // Notice: account is not added to the store
-    let store = Arc::new(MockStoreSuccess::new(iter::empty(), BTreeSet::new()));
+    let store = Arc::new(MockStoreSuccessBuilder::new().build());
 
     let tx = tx_gen.dummy_proven_tx_with_params(
         account_not_in_store.id,
@@ -147,10 +154,12 @@ async fn test_verify_tx_vt3() {
     let consumed_note_in_store = consumed_note_by_index(0);
 
     // Notice: `consumed_note_in_store` is added to the store
-    let store = Arc::new(MockStoreSuccess::new(
-        iter::once((account.id, account.states[0])),
-        BTreeSet::from_iter(iter::once(consumed_note_in_store.nullifier())),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(iter::once((account.id, account.states[0])))
+            .initial_nullifiers(BTreeSet::from_iter(iter::once(consumed_note_in_store.nullifier())))
+            .build(),
+    );
 
     let tx = tx_gen.dummy_proven_tx_with_params(
         account.id,
@@ -179,10 +188,11 @@ async fn test_verify_tx_vt4() {
 
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
-    let store = Arc::new(MockStoreSuccess::new(
-        iter::once((account.id, account.states[0])),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(iter::once((account.id, account.states[0])))
+            .build(),
+    );
 
     let tx1 = tx_gen.dummy_proven_tx_with_params(
         account.id,
@@ -224,12 +234,15 @@ async fn test_verify_tx_vt5() {
     let consumed_note_in_both_txs = consumed_note_by_index(0);
 
     // Notice: `consumed_note_in_both_txs` is NOT in the store
-    let store = Arc::new(MockStoreSuccess::new(
-        vec![account_1, account_2]
-            .into_iter()
-            .map(|account| (account.id, account.states[0])),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(
+                vec![account_1, account_2]
+                    .into_iter()
+                    .map(|account| (account.id, account.states[0])),
+            )
+            .build(),
+    );
 
     let tx1 = tx_gen.dummy_proven_tx_with_params(
         account_1.id,

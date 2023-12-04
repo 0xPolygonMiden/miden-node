@@ -1,22 +1,11 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use miden_air::ExecutionOptions;
-use miden_node_proto::domain::BlockInputs;
-use miden_objects::{
-    accounts::AccountId,
-    assembly::Assembler,
-    crypto::merkle::{EmptySubtreeRoots, MerkleStore},
-    BlockHeader, Digest, Felt,
-};
+use miden_air::{ExecutionOptions, Felt};
+use miden_objects::{assembly::Assembler, BlockHeader, Digest, ONE};
 use miden_stdlib::StdLibrary;
-use miden_vm::{
-    crypto::MerklePath, execute, AdviceInputs, DefaultHost, MemAdviceProvider, Program, StackInputs,
-};
+use miden_vm::{execute, DefaultHost, MemAdviceProvider, Program};
 
-use crate::{batch_builder, SharedTxBatch};
+use self::block_witness::BlockWitness;
 
 use super::{errors::BlockProverError, BuildBlockError};
 
@@ -26,12 +15,10 @@ pub const ACCOUNT_ROOT_WORD_IDX: usize = 0;
 /// The index of the word at which the note root is stored on the output stack.
 pub const NOTE_ROOT_WORD_IDX: usize = 4;
 
-/// The depth at which we insert roots from the batches.
-pub(crate) const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
+/// The index of the word at which the note root is stored on the output stack.
+pub const CHAIN_MMR_ROOT_WORD_IDX: usize = 8;
 
-/// The depth of the created notes tree in the block.
-pub(crate) const CREATED_NOTES_TREE_DEPTH: u8 =
-    CREATED_NOTES_TREE_INSERTION_DEPTH + batch_builder::CREATED_NOTES_SMT_DEPTH;
+pub mod block_witness;
 
 #[cfg(test)]
 mod tests;
@@ -43,6 +30,9 @@ mod tests;
 /// NEW_ACCOUNT_HASH_n, account_id_n]
 const BLOCK_KERNEL_MASM: &str = "
 use.std::collections::smt64
+use.std::collections::mmr
+
+const.CHAIN_MMR_PTR=1000
 
 #! Compute the account root
 #! 
@@ -116,22 +106,51 @@ proc.compute_note_root
     # => [ROOT_{n-1}]
 end
 
-# Stack: [<account root inputs>, <note root inputs>]
+#! Compute the chain MMR root
+#! 
+#! Stack: [ PREV_CHAIN_MMR_HASH, PREV_BLOCK_HASH_TO_INSERT ]
+#! Advice map: PREV_CHAIN_MMR_HASH -> NUM_LEAVES || peak_0 || .. || peak_{n-1} || <maybe padding>
+#!
+#! Output: [ CHAIN_MMR_ROOT ]
+proc.compute_chain_mmr_root
+    push.CHAIN_MMR_PTR movdn.4
+    # => [ PREV_CHAIN_MMR_HASH, chain_mmr_ptr, PREV_BLOCK_HASH_TO_INSERT ]
+
+    # load the chain MMR (as of previous block) at memory location CHAIN_MMR_PTR
+    exec.mmr::unpack
+    # => [ PREV_BLOCK_HASH_TO_INSERT ]
+
+    push.CHAIN_MMR_PTR movdn.4
+    # => [ PREV_BLOCK_HASH_TO_INSERT, chain_mmr_ptr ]
+
+    # add PREV_BLOCK_HASH_TO_INSERT to chain MMR
+    exec.mmr::add
+    # => [ ]
+
+    # Compute new MMR root
+    push.CHAIN_MMR_PTR exec.mmr::pack
+    # => [ CHAIN_MMR_ROOT ]
+end
+
+# Stack: [<account root inputs>, <note root inputs>, <chain mmr root inputs>]
 begin
     exec.compute_account_root mem_storew.0 dropw
-    #=> [<note root inputs>]
+    # => [<note root inputs>, <chain mmr root inputs>]
 
-    exec.compute_note_root
-    #=> [ ]
+    exec.compute_note_root mem_storew.1 dropw
+    # => [ <chain mmr root inputs> ]
+
+    exec.compute_chain_mmr_root
+    # => [ CHAIN_MMR_ROOT ]
 
     # Load output on stack
-    padw mem_loadw.0
-    #=> [ ACCOUNT_ROOT, NOTE_ROOT]
+    padw mem_loadw.1 padw mem_loadw.0
+    #=> [ ACCOUNT_ROOT, NOTE_ROOT, CHAIN_MMR_ROOT ]
 end
 ";
 
 #[derive(Debug)]
-pub(super) struct BlockProver {
+pub(crate) struct BlockProver {
     kernel: Program,
 }
 
@@ -157,13 +176,12 @@ impl BlockProver {
         &self,
         witness: BlockWitness,
     ) -> Result<BlockHeader, BuildBlockError> {
-        let prev_hash = witness.prev_header.prev_hash();
-        let block_num = witness.prev_header.block_num();
+        let prev_hash = witness.prev_header.hash();
+        let block_num = witness.prev_header.block_num() + ONE;
         let version = witness.prev_header.version();
 
-        let (account_root, note_root) = self.compute_roots(witness)?;
+        let (account_root, note_root, chain_root) = self.compute_roots(witness)?;
 
-        let chain_root = Digest::default();
         let nullifier_root = Digest::default();
         let batch_root = Digest::default();
         let proof_hash = Digest::default();
@@ -190,8 +208,8 @@ impl BlockProver {
     fn compute_roots(
         &self,
         witness: BlockWitness,
-    ) -> Result<(Digest, Digest), BlockProverError> {
-        let (advice_inputs, stack_inputs) = witness.into_parts()?;
+    ) -> Result<(Digest, Digest, Digest), BlockProverError> {
+        let (advice_inputs, stack_inputs) = witness.into_program_inputs()?;
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
 
@@ -212,221 +230,11 @@ impl BlockProver {
             .get_stack_word(NOTE_ROOT_WORD_IDX)
             .ok_or(BlockProverError::InvalidRootOutput("note".to_string()))?;
 
-        Ok((new_account_root.into(), new_note_root.into()))
+        let new_chain_mmr_root = execution_output
+            .stack_outputs()
+            .get_stack_word(CHAIN_MMR_ROOT_WORD_IDX)
+            .ok_or(BlockProverError::InvalidRootOutput("chain mmr".to_string()))?;
+
+        Ok((new_account_root.into(), new_note_root.into(), new_chain_mmr_root.into()))
     }
-}
-
-// BLOCK WITNESS
-// =================================================================================================
-
-/// Provides inputs to the `BlockKernel` so that it can generate the new header
-#[derive(Debug, PartialEq, Eq)]
-pub(super) struct BlockWitness {
-    updated_accounts: BTreeMap<AccountId, AccountUpdate>,
-    /// (batch_index, created_notes_root) for batches that contain notes
-    batch_created_notes_roots: Vec<(usize, Digest)>,
-    prev_header: BlockHeader,
-}
-
-impl BlockWitness {
-    pub(super) fn new(
-        block_inputs: BlockInputs,
-        batches: Vec<SharedTxBatch>,
-    ) -> Result<Self, BuildBlockError> {
-        Self::validate_inputs(&block_inputs, &batches)?;
-
-        let updated_accounts = {
-            let mut account_initial_states: BTreeMap<AccountId, Digest> =
-                batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
-
-            let mut account_merkle_proofs: BTreeMap<AccountId, MerklePath> = block_inputs
-                .account_states
-                .into_iter()
-                .map(|record| (record.account_id, record.proof))
-                .collect();
-
-            batches
-                .iter()
-                .flat_map(|batch| batch.updated_accounts())
-                .map(|(account_id, final_state_hash)| {
-                    let initial_state_hash = account_initial_states
-                        .remove(&account_id)
-                        .expect("already validated that key exists");
-                    let proof = account_merkle_proofs
-                        .remove(&account_id)
-                        .expect("already validated that key exists");
-
-                    (
-                        account_id,
-                        AccountUpdate {
-                            initial_state_hash,
-                            final_state_hash,
-                            proof,
-                        },
-                    )
-                })
-                .collect()
-        };
-
-        let batch_created_notes_roots = batches
-            .iter()
-            .enumerate()
-            .filter_map(|(batch_index, batch)| {
-                if batch.created_notes().next().is_none() {
-                    None
-                } else {
-                    Some((batch_index, batch.created_notes_root()))
-                }
-            })
-            .collect();
-
-        Ok(Self {
-            updated_accounts,
-            batch_created_notes_roots,
-            prev_header: block_inputs.block_header,
-        })
-    }
-
-    fn validate_inputs(
-        block_inputs: &BlockInputs,
-        batches: &[SharedTxBatch],
-    ) -> Result<(), BuildBlockError> {
-        // TODO:
-        // - Block height returned for each nullifier is 0.
-
-        // Validate that there aren't too many batches in the block.
-        if batches.len() > 2usize.pow(CREATED_NOTES_TREE_INSERTION_DEPTH.into()) {
-            return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
-        }
-
-        Self::validate_account_states(block_inputs, batches)?;
-
-        Ok(())
-    }
-
-    /// Validate that initial account states coming from the batches are the same as the account
-    /// states returned from the store
-    fn validate_account_states(
-        block_inputs: &BlockInputs,
-        batches: &[SharedTxBatch],
-    ) -> Result<(), BuildBlockError> {
-        let batches_initial_states: BTreeMap<AccountId, Digest> =
-            batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
-
-        let accounts_in_batches: BTreeSet<AccountId> =
-            batches_initial_states.keys().cloned().collect();
-        let accounts_in_store: BTreeSet<AccountId> = block_inputs
-            .account_states
-            .iter()
-            .map(|record| &record.account_id)
-            .cloned()
-            .collect();
-
-        if accounts_in_batches == accounts_in_store {
-            let accounts_with_different_hashes: Vec<AccountId> = block_inputs
-                .account_states
-                .iter()
-                .filter_map(|record| {
-                    let hash_in_store = record.account_hash;
-                    let hash_in_batches = batches_initial_states
-                        .get(&record.account_id)
-                        .expect("we already verified that account id is contained in batches");
-
-                    if hash_in_store == *hash_in_batches {
-                        None
-                    } else {
-                        Some(record.account_id)
-                    }
-                })
-                .collect();
-
-            if accounts_with_different_hashes.is_empty() {
-                Ok(())
-            } else {
-                Err(BuildBlockError::InconsistentAccountStates(accounts_with_different_hashes))
-            }
-        } else {
-            // The batches and store don't modify the same set of accounts
-            let union: BTreeSet<AccountId> =
-                accounts_in_batches.union(&accounts_in_store).cloned().collect();
-            let intersection: BTreeSet<AccountId> =
-                accounts_in_batches.intersection(&accounts_in_store).cloned().collect();
-
-            let difference: Vec<AccountId> = union.difference(&intersection).cloned().collect();
-
-            Err(BuildBlockError::InconsistentAccountIds(difference))
-        }
-    }
-
-    fn into_parts(self) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
-        let stack_inputs = {
-            // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
-            // from the bottom to the top
-            let mut stack_inputs = Vec::new();
-
-            // Notes stack inputs
-            {
-                let num_created_notes_roots = self.batch_created_notes_roots.len();
-                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots {
-                    stack_inputs.extend(batch_created_notes_root);
-
-                    let batch_index = u64::try_from(batch_index)
-                        .expect("can't be more than 2^64 - 1 notes created");
-                    stack_inputs.push(Felt::from(batch_index));
-                }
-
-                let empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
-                stack_inputs.extend(*empty_root);
-                stack_inputs.push(Felt::from(
-                    u64::try_from(num_created_notes_roots)
-                        .expect("can't be more than 2^64 - 1 notes created"),
-                ));
-            }
-
-            // Account stack inputs
-            let mut num_accounts_updated: u64 = 0;
-            for (idx, (&account_id, account_update)) in self.updated_accounts.iter().enumerate() {
-                stack_inputs.push(account_id.into());
-                stack_inputs.extend(account_update.final_state_hash);
-
-                let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
-                num_accounts_updated = idx + 1;
-            }
-
-            // append initial account root
-            stack_inputs.extend(self.prev_header.account_root());
-
-            // append number of accounts updated
-            stack_inputs.push(num_accounts_updated.into());
-
-            StackInputs::new(stack_inputs)
-        };
-
-        let advice_inputs = {
-            let mut merkle_store = MerkleStore::default();
-            merkle_store
-                .add_merkle_paths(self.updated_accounts.into_iter().map(
-                    |(
-                        account_id,
-                        AccountUpdate {
-                            initial_state_hash,
-                            final_state_hash: _,
-                            proof,
-                        },
-                    )| { (u64::from(account_id), initial_state_hash, proof) },
-                ))
-                .map_err(BlockProverError::InvalidMerklePaths)?;
-
-            AdviceInputs::default().with_merkle_store(merkle_store)
-        };
-
-        Ok((advice_inputs, stack_inputs))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub(super) struct AccountUpdate {
-    pub initial_state_hash: Digest,
-    pub final_state_hash: Digest,
-    pub proof: MerklePath,
 }

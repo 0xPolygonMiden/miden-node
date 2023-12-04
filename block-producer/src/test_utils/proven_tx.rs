@@ -1,13 +1,17 @@
 //! FibSmall taken from the `fib_small` example in `winterfell`
 
+use std::sync::{Arc, Mutex};
+
 use miden_air::{ExecutionProof, HashFunction};
+use miden_crypto::hash::rpo::Rpo256;
 use miden_mock::constants::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN;
 use miden_objects::{
     accounts::AccountId,
-    notes::NoteEnvelope,
+    notes::{NoteEnvelope, NoteMetadata},
     transaction::{ConsumedNoteInfo, ProvenTransaction},
-    Digest,
+    Digest, ONE, ZERO,
 };
+use once_cell::sync::Lazy;
 use winterfell::{
     crypto::{hashers::Blake3_192, DefaultRandomCoin},
     math::fields::f64::BaseElement,
@@ -18,6 +22,78 @@ use winterfell::{
     Prover, StarkDomain, StarkProof, Trace, TraceInfo, TracePolyTable, TraceTable,
     TransitionConstraintDegree,
 };
+
+use super::MockPrivateAccount;
+
+/// Keeps track how many accounts were created as a source of randomness
+static NUM_ACCOUNTS_CREATED: Lazy<Arc<Mutex<u32>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
+
+/// Keeps track how many accounts were created as a source of randomness
+static NUM_NOTES_CREATED: Lazy<Arc<Mutex<u64>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
+
+pub struct MockProvenTxBuilder {
+    mock_account: MockPrivateAccount,
+    notes_created: Option<Vec<NoteEnvelope>>,
+}
+
+impl MockProvenTxBuilder {
+    pub fn new() -> Self {
+        let account_index: u32 = {
+            let mut locked_num_accounts_created = NUM_ACCOUNTS_CREATED.lock().unwrap();
+
+            let account_index = *locked_num_accounts_created;
+
+            *locked_num_accounts_created += 1;
+
+            account_index
+        };
+        Self {
+            mock_account: account_index.into(),
+            notes_created: None,
+        }
+    }
+
+    pub fn num_notes_created(
+        mut self,
+        num_notes_created_in_tx: u64,
+    ) -> Self {
+        let mut locked_num_notes_created = NUM_NOTES_CREATED.lock().unwrap();
+
+        let notes_created: Vec<_> = (*locked_num_notes_created
+            ..(*locked_num_notes_created + num_notes_created_in_tx))
+            .map(|note_index| {
+                let note_hash = Rpo256::hash(&note_index.to_be_bytes());
+
+                NoteEnvelope::new(note_hash, NoteMetadata::new(self.mock_account.id, ONE, ZERO))
+            })
+            .collect();
+
+        // update state
+        self.notes_created = Some(notes_created);
+        *locked_num_notes_created += num_notes_created_in_tx;
+
+        self
+    }
+
+    pub fn build(self) -> ProvenTransaction {
+        ProvenTransaction::new(
+            self.mock_account.id,
+            self.mock_account.states[0],
+            self.mock_account.states[1],
+            Vec::new(),
+            self.notes_created.unwrap_or_default(),
+            None,
+            Digest::default(),
+            ExecutionProof::new(StarkProof::new_dummy(), HashFunction::Blake3_192),
+        )
+    }
+}
+
+impl Default for MockProvenTxBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// We need to generate a new `ProvenTransaction` every time because it doesn't
 /// derive `Clone`. Doing it this way allows us to compute the `StarkProof`

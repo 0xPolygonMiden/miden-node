@@ -4,11 +4,12 @@ use thiserror::Error;
 
 use crate::store::{ApplyBlockError, BlockInputsError};
 
-use super::prover::CREATED_NOTES_TREE_INSERTION_DEPTH;
+use super::prover::block_witness::CREATED_NOTES_TREE_INSERTION_DEPTH;
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum BuildBlockError {
-    #[error("failed to update account root: {0}")]
-    AccountRootUpdateFailed(#[from] BlockProverError),
+    #[error("failed to compute new block: {0}")]
+    BlockProverFailed(#[from] BlockProverError),
     #[error("failed to apply block: {0}")]
     ApplyBlockFailed(#[from] ApplyBlockError),
     #[error("failed to get block inputs from store: {0}")]

@@ -1,6 +1,6 @@
 use super::*;
 
-use miden_objects::{transaction::ConsumedNoteInfo, BlockHeader, Felt, Hasher};
+use miden_objects::{transaction::ConsumedNoteInfo, Hasher};
 
 use crate::test_utils::{DummyProvenTxGenerator, MockPrivateAccount};
 
@@ -10,15 +10,23 @@ mod verify_tx;
 // HELPERS
 // -------------------------------------------------------------------------------------------------
 
-pub fn consumed_note_by_index(index: u8) -> ConsumedNoteInfo {
-    ConsumedNoteInfo::new(Hasher::hash(&[index]), Hasher::hash(&[index, index]))
+pub fn consumed_note_by_index(index: u32) -> ConsumedNoteInfo {
+    ConsumedNoteInfo::new(
+        Hasher::hash(&index.to_be_bytes()),
+        Hasher::hash(
+            &[index.to_be_bytes(), index.to_be_bytes()]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>(),
+        ),
+    )
 }
 
 /// Returns `num` transactions, and the corresponding account they modify.
 /// The transactions each consume a single different note
 pub fn get_txs_and_accounts(
     tx_gen: &DummyProvenTxGenerator,
-    num: u8,
+    num: u32,
 ) -> impl Iterator<Item = (SharedProvenTx, MockPrivateAccount)> + '_ {
     (0..num).map(|index| {
         let account = MockPrivateAccount::from(index);
@@ -32,34 +40,4 @@ pub fn get_txs_and_accounts(
 
         (Arc::new(tx), account)
     })
-}
-
-pub fn get_dummy_block(
-    updated_accounts: Vec<MockPrivateAccount>,
-    new_nullifiers: Vec<Digest>,
-) -> Block {
-    let header = BlockHeader::new(
-        Digest::default(),
-        Felt::new(42),
-        Digest::default(),
-        Digest::default(),
-        Digest::default(),
-        Digest::default(),
-        Digest::default(),
-        Digest::default(),
-        Felt::new(0),
-        Felt::new(42),
-    );
-
-    let updated_accounts = updated_accounts
-        .into_iter()
-        .map(|mock_account| (mock_account.id, mock_account.states[1]))
-        .collect();
-
-    Block {
-        header,
-        updated_accounts,
-        created_notes: Vec::new(),
-        produced_nullifiers: new_nullifiers,
-    }
 }

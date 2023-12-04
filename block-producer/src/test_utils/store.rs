@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use miden_air::{Felt, FieldElement};
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
-use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader, EMPTY_WORD};
+use miden_objects::{crypto::merkle::Mmr, BlockHeader, EMPTY_WORD, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
 use crate::{
@@ -12,50 +11,105 @@ use crate::{
 
 use super::*;
 
+const ACCOUNT_SMT_DEPTH: u8 = 64;
+
+/// Builds a [`MockStoreSuccess`]
+#[derive(Debug, Default)]
+pub struct MockStoreSuccessBuilder {
+    accounts: Option<SimpleSmt>,
+    consumed_nullifiers: Option<BTreeSet<Digest>>,
+    chain_mmr: Option<Mmr>,
+}
+
+impl MockStoreSuccessBuilder {
+    /// FIXME: the store always needs to be properly initialized with initial accounts
+    /// see https://github.com/0xPolygonMiden/miden-node/issues/79
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn initial_accounts(
+        mut self,
+        accounts: impl Iterator<Item = (AccountId, Digest)>,
+    ) -> Self {
+        let accounts_smt = {
+            let accounts =
+                accounts.into_iter().map(|(account_id, hash)| (account_id.into(), hash.into()));
+
+            SimpleSmt::with_leaves(ACCOUNT_SMT_DEPTH, accounts).unwrap()
+        };
+
+        self.accounts = Some(accounts_smt);
+
+        self
+    }
+
+    pub fn initial_nullifiers(
+        mut self,
+        consumed_nullifiers: BTreeSet<Digest>,
+    ) -> Self {
+        self.consumed_nullifiers = Some(consumed_nullifiers);
+
+        self
+    }
+
+    pub fn initial_chain_mmr(
+        mut self,
+        chain_mmr: Mmr,
+    ) -> Self {
+        self.chain_mmr = Some(chain_mmr);
+
+        self
+    }
+
+    pub fn build(self) -> MockStoreSuccess {
+        let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new(ACCOUNT_SMT_DEPTH).unwrap());
+        let chain_mmr = self.chain_mmr.unwrap_or_default();
+
+        let initial_block_header = BlockHeader::new(
+            Digest::default(),
+            ZERO,
+            chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
+            accounts_smt.root(),
+            Digest::default(),
+            // FIXME: FILL IN CORRECT VALUE
+            Digest::default(),
+            Digest::default(),
+            Digest::default(),
+            ZERO,
+            ONE,
+        );
+
+        MockStoreSuccess {
+            accounts: Arc::new(RwLock::new(accounts_smt)),
+            consumed_nullifiers: Arc::new(RwLock::new(
+                self.consumed_nullifiers.unwrap_or_default(),
+            )),
+            chain_mmr: Arc::new(RwLock::new(chain_mmr)),
+            last_block_header: Arc::new(RwLock::new(initial_block_header)),
+            num_apply_block_called: Arc::new(RwLock::new(0)),
+        }
+    }
+}
+
 pub struct MockStoreSuccess {
     /// Map account id -> account hash
-    accounts: Arc<RwLock<SimpleSmt>>,
+    pub accounts: Arc<RwLock<SimpleSmt>>,
 
     /// Stores the nullifiers of the notes that were consumed
-    consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
+    pub consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
+
+    // Stores the chain MMR
+    pub chain_mmr: Arc<RwLock<Mmr>>,
+
+    // Stores the header of the last applied block
+    pub last_block_header: Arc<RwLock<BlockHeader>>,
 
     /// The number of times `apply_block()` was called
     pub num_apply_block_called: Arc<RwLock<u32>>,
 }
 
 impl MockStoreSuccess {
-    /// Initializes the known accounts from provided mock accounts, where the account hash in the
-    /// store is the first state in `MockAccount.states`.
-    pub fn new(
-        accounts: impl Iterator<Item = (AccountId, Digest)>,
-        consumed_nullifiers: BTreeSet<Digest>,
-    ) -> Self {
-        let accounts: Vec<_> = accounts
-            .into_iter()
-            .map(|(account_id, hash)| (account_id.into(), hash.into()))
-            .collect();
-        let store_accounts = SimpleSmt::with_leaves(64, accounts).unwrap();
-
-        Self {
-            accounts: Arc::new(RwLock::new(store_accounts)),
-            consumed_nullifiers: Arc::new(RwLock::new(consumed_nullifiers)),
-            num_apply_block_called: Arc::new(RwLock::new(0)),
-        }
-    }
-
-    /// Update some accounts in the store
-    pub async fn update_accounts(
-        &self,
-        updated_accounts: impl Iterator<Item = (AccountId, Digest)>,
-    ) {
-        let mut locked_accounts = self.accounts.write().await;
-        for (account_id, new_account_state) in updated_accounts {
-            locked_accounts
-                .update_leaf(account_id.into(), new_account_state.into())
-                .unwrap();
-        }
-    }
-
     pub async fn account_root(&self) -> Digest {
         let locked_accounts = self.accounts.read().await;
 
@@ -73,14 +127,28 @@ impl ApplyBlock for MockStoreSuccess {
         let mut locked_accounts = self.accounts.write().await;
         let mut locked_consumed_nullifiers = self.consumed_nullifiers.write().await;
 
+        // update accounts
         for &(account_id, account_hash) in block.updated_accounts.iter() {
             locked_accounts.update_leaf(account_id.into(), account_hash.into()).unwrap();
         }
+        debug_assert_eq!(locked_accounts.root(), block.header.account_root());
 
+        // update nullifiers
         let mut new_nullifiers: BTreeSet<Digest> =
             block.produced_nullifiers.iter().cloned().collect();
         locked_consumed_nullifiers.append(&mut new_nullifiers);
 
+        // update chain mmr with new block header hash
+        {
+            let mut chain_mmr = self.chain_mmr.write().await;
+
+            chain_mmr.add(block.header.hash());
+        }
+
+        // update last block header
+        *self.last_block_header.write().await = block.header;
+
+        // update num_apply_block_called
         *self.num_apply_block_called.write().await += 1;
 
         Ok(())
@@ -123,30 +191,10 @@ impl Store for MockStoreSuccess {
         updated_accounts: impl Iterator<Item = &AccountId> + Send,
         _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
-        let block_header = {
-            let prev_hash: Digest = Digest::default();
-            let chain_root: Digest = Digest::default();
-            let acct_root: Digest = self.account_root().await;
-            let nullifier_root: Digest = Digest::default();
-            let note_root: Digest = Digest::default();
-            let batch_root: Digest = Digest::default();
-            let proof_hash: Digest = Digest::default();
-
-            BlockHeader::new(
-                prev_hash,
-                Felt::ZERO,
-                chain_root,
-                acct_root,
-                nullifier_root,
-                note_root,
-                batch_root,
-                proof_hash,
-                Felt::ZERO,
-                Felt::ONE,
-            )
+        let chain_peaks = {
+            let locked_chain_mmr = self.chain_mmr.read().await;
+            locked_chain_mmr.peaks(locked_chain_mmr.forest()).unwrap()
         };
-
-        let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let account_states = {
             let locked_accounts = self.accounts.read().await;
@@ -166,7 +214,7 @@ impl Store for MockStoreSuccess {
         };
 
         Ok(BlockInputs {
-            block_header,
+            block_header: *self.last_block_header.read().await,
             chain_peaks,
             account_states,
             // TODO: return a proper nullifiers iterator

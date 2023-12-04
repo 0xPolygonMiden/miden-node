@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 // block builder tests (higher level)
 // 1. `apply_block()` is called
 use super::*;
@@ -8,7 +6,7 @@ use miden_air::Felt;
 
 use crate::{
     batch_builder::TransactionBatch,
-    test_utils::{DummyProvenTxGenerator, MockStoreFailure, MockStoreSuccess},
+    test_utils::{DummyProvenTxGenerator, MockStoreFailure, MockStoreSuccessBuilder},
 };
 
 /// Tests that `build_block()` succeeds when the transaction batches are not empty
@@ -18,10 +16,11 @@ async fn test_apply_block_called_nonempty_batches() {
     let account_id = AccountId::new_unchecked(42u64.into());
     let account_initial_hash: Digest =
         [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)].into();
-    let store = Arc::new(MockStoreSuccess::new(
-        std::iter::once((account_id, account_initial_hash)),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(std::iter::once((account_id, account_initial_hash)))
+            .build(),
+    );
 
     let block_builder = DefaultBlockBuilder::new(store.clone());
 
@@ -52,10 +51,11 @@ async fn test_apply_block_called_empty_batches() {
     let account_id = AccountId::new_unchecked(42u64.into());
     let account_hash: Digest =
         [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)].into();
-    let store = Arc::new(MockStoreSuccess::new(
-        std::iter::once((account_id, account_hash)),
-        BTreeSet::new(),
-    ));
+    let store = Arc::new(
+        MockStoreSuccessBuilder::new()
+            .initial_accounts(std::iter::once((account_id, account_hash)))
+            .build(),
+    );
 
     let block_builder = DefaultBlockBuilder::new(store.clone());
 
