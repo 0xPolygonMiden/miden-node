@@ -35,7 +35,7 @@ pub(crate) const MAX_BATCHES_PER_BLOCK: usize =
 pub struct BlockWitness {
     pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     /// (batch_index, created_notes_root) for batches that contain notes
-    pub(super) batch_created_notes_roots: Vec<(usize, Digest)>,
+    pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
     pub(super) chain_peaks: MmrPeaks,
     pub(super) prev_header: BlockHeader,
 }
