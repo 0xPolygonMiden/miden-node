@@ -89,6 +89,12 @@ impl MockProvenTxBuilder {
     }
 }
 
+impl Default for MockProvenTxBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// We need to generate a new `ProvenTransaction` every time because it doesn't
 /// derive `Clone`. Doing it this way allows us to compute the `StarkProof`
 /// once, and clone it for each new `ProvenTransaction`.
