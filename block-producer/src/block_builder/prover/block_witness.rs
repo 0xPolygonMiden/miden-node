@@ -27,7 +27,7 @@ pub(crate) const CREATED_NOTES_TREE_DEPTH: u8 =
 // BLOCK WITNESS
 // =================================================================================================
 
-/// Provides inputs to the `BlockKernel` so that it can generate the new header
+/// Provides inputs to the `BlockKernel` so that it can generate the new header.
 #[derive(Debug, PartialEq)]
 pub struct BlockWitness {
     pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdate>,
