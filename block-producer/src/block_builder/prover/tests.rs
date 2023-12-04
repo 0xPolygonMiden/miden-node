@@ -16,7 +16,6 @@ use crate::{
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
     store::Store,
     test_utils::{
-        batch::TransactionBatchConstructor,
         block::{build_actual_block_header, build_expected_block_header, MockBlockBuilder},
         DummyProvenTxGenerator, MockStoreSuccessBuilder,
     },

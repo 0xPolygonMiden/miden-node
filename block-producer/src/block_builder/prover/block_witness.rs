@@ -24,6 +24,9 @@ pub(crate) const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
 pub(crate) const CREATED_NOTES_TREE_DEPTH: u8 =
     CREATED_NOTES_TREE_INSERTION_DEPTH + batch_builder::CREATED_NOTES_SMT_DEPTH;
 
+pub(crate) const MAX_BATCHES_PER_BLOCK: usize =
+    2_usize.pow(CREATED_NOTES_TREE_INSERTION_DEPTH as u32);
+
 // BLOCK WITNESS
 // =================================================================================================
 
@@ -183,8 +186,7 @@ impl BlockWitness {
         // TODO:
         // - Block height returned for each nullifier is 0.
 
-        // Validate that there aren't too many batches in the block.
-        if batches.len() > 2usize.pow(CREATED_NOTES_TREE_INSERTION_DEPTH.into()) {
+        if batches.len() > MAX_BATCHES_PER_BLOCK {
             return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
         }
 
