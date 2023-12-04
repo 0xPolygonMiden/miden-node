@@ -141,7 +141,7 @@ begin
     # => [ <chain mmr root inputs> ]
 
     exec.compute_chain_mmr_root
-    # => [ ]
+    # => [ CHAIN_MMR_ROOT ]
 
     # Load output on stack
     padw mem_loadw.1 padw mem_loadw.0
