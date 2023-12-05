@@ -1,7 +1,8 @@
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 use hex::FromHex;
 use miden_node_proto::digest::Digest;
-use std::path::PathBuf;
 
 use crate::config;
 

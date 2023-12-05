@@ -4,11 +4,6 @@
 //! data is atomically written, and that reads are consistent.
 use std::mem;
 
-use crate::{
-    db::{Db, StateSyncUpdate},
-    errors::StateError,
-    types::{AccountId, BlockNumber},
-};
 use anyhow::{anyhow, Result};
 use miden_crypto::{
     hash::rpo::RpoDigest,
@@ -37,6 +32,12 @@ use tokio::{
     time::Instant,
 };
 use tracing::{info, instrument, span, Level};
+
+use crate::{
+    db::{Db, StateSyncUpdate},
+    errors::StateError,
+    types::{AccountId, BlockNumber},
+};
 
 // CONSTANTS
 // ================================================================================================

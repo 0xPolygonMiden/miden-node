@@ -9,13 +9,12 @@ use miden_objects::{
 };
 use miden_vm::crypto::SimpleSmt;
 
+use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     store::Store,
     test_utils::{DummyProvenTxGenerator, MockStoreSuccess},
 };
-
-use super::*;
 
 // BLOCK WITNESS TESTS
 // =================================================================================================

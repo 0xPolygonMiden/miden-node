@@ -1,4 +1,3 @@
-use serde::Serialize;
 use std::path::Path;
 
 use directories;
@@ -6,6 +5,7 @@ use figment::{
     providers::{Env, Format, Serialized, Toml},
     Figment,
 };
+use serde::Serialize;
 
 /// Trait with the basic to load configurations for different services.
 ///

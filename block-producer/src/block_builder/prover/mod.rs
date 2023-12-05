@@ -16,9 +16,8 @@ use miden_vm::{
     crypto::MerklePath, execute, AdviceInputs, DefaultHost, MemAdviceProvider, Program, StackInputs,
 };
 
-use crate::{batch_builder, SharedTxBatch};
-
 use super::{errors::BlockProverError, BuildBlockError};
+use crate::{batch_builder, SharedTxBatch};
 
 /// The index of the word at which the account root is stored on the output stack.
 pub const ACCOUNT_ROOT_WORD_IDX: usize = 0;

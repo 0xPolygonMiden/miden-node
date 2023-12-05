@@ -1,3 +1,15 @@
+use std::{net::ToSocketAddrs, sync::Arc, time::Duration};
+
+use anyhow::Result;
+use async_trait::async_trait;
+use miden_node_proto::{
+    block_producer::api_server, domain::BlockInputs, requests::SubmitProvenTransactionRequest,
+    responses::SubmitProvenTransactionResponse,
+};
+use miden_objects::{accounts::AccountId, Digest};
+use tonic::{transport::Server, Status};
+use tracing::info;
+
 use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
     block::Block,
@@ -8,16 +20,6 @@ use crate::{
     txqueue::{DefaultTransactionQueue, DefaultTransactionQueueOptions, TransactionQueue},
     SharedProvenTx,
 };
-use anyhow::Result;
-use async_trait::async_trait;
-use miden_node_proto::{
-    block_producer::api_server, domain::BlockInputs, requests::SubmitProvenTransactionRequest,
-    responses::SubmitProvenTransactionResponse,
-};
-use miden_objects::{accounts::AccountId, Digest};
-use std::{net::ToSocketAddrs, sync::Arc, time::Duration};
-use tonic::{transport::Server, Status};
-use tracing::info;
 
 struct RpcStore {}
 

@@ -1,10 +1,11 @@
+use tokio::time;
+
 use super::*;
 use crate::{
     batch_builder::{errors::BuildBatchError, TransactionBatch},
     test_utils::DummyProvenTxGenerator,
     SharedTxBatch,
 };
-use tokio::time;
 
 // STRUCTS
 // ================================================================================================

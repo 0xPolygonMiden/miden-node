@@ -1,7 +1,6 @@
-use once_cell::sync::Lazy;
-use std::fmt::Display;
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 pub const HOST: &str = "localhost";

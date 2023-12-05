@@ -14,9 +14,8 @@ use std::iter;
 
 use tokio::task::JoinSet;
 
-use crate::test_utils::MockStoreSuccess;
-
 use super::*;
+use crate::test_utils::MockStoreSuccess;
 
 /// Tests the happy path where 3 transactions who modify different accounts and consume different
 /// notes all verify successfully

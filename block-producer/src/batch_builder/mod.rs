@@ -5,9 +5,8 @@ use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
 use miden_vm::crypto::SimpleSmt;
 use tokio::{sync::RwLock, time};
 
-use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
-
 use self::errors::BuildBatchError;
+use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
 
 pub mod errors;
 #[cfg(test)]

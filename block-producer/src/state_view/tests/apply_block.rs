@@ -6,9 +6,8 @@
 
 use std::iter;
 
-use crate::test_utils::MockStoreSuccess;
-
 use super::*;
+use crate::test_utils::MockStoreSuccess;
 
 /// Tests requirement AB1
 #[tokio::test]

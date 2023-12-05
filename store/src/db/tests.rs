@@ -1,5 +1,3 @@
-use super::sql;
-use crate::migrations;
 use miden_crypto::{hash::rpo::RpoDigest, merkle::NodeIndex, StarkField};
 use miden_node_proto::{
     block_header::BlockHeader as ProtobufBlockHeader,
@@ -10,6 +8,9 @@ use miden_node_proto::{
 };
 use miden_objects::{crypto::merkle::SimpleSmt, notes::NOTE_LEAF_DEPTH, Felt, FieldElement};
 use rusqlite::{vtab::array, Connection};
+
+use super::sql;
+use crate::migrations;
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();

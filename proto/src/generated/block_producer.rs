@@ -1,8 +1,7 @@
 /// Generated client implementations.
 pub mod api_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
-    use tonic::codegen::*;
-    use tonic::codegen::http::Uri;
+    use tonic::codegen::{http::Uri, *};
     #[derive(Debug, Clone)]
     pub struct ApiClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -29,7 +28,10 @@ pub mod api_client {
             let inner = tonic::client::Grpc::new(inner);
             Self { inner }
         }
-        pub fn with_origin(inner: T, origin: Uri) -> Self {
+        pub fn with_origin(
+            inner: T,
+            origin: Uri,
+        ) -> Self {
             let inner = tonic::client::Grpc::with_origin(inner, origin);
             Self { inner }
         }
@@ -46,9 +48,8 @@ pub mod api_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + Send + Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + Send + Sync,
         {
             ApiClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -57,13 +58,19 @@ pub mod api_client {
         /// This requires the server to support it otherwise it might respond with an
         /// error.
         #[must_use]
-        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+        pub fn send_compressed(
+            mut self,
+            encoding: CompressionEncoding,
+        ) -> Self {
             self.inner = self.inner.send_compressed(encoding);
             self
         }
         /// Enable decompressing responses.
         #[must_use]
-        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+        pub fn accept_compressed(
+            mut self,
+            encoding: CompressionEncoding,
+        ) -> Self {
             self.inner = self.inner.accept_compressed(encoding);
             self
         }
@@ -71,7 +78,10 @@ pub mod api_client {
         ///
         /// Default: `4MB`
         #[must_use]
-        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+        pub fn max_decoding_message_size(
+            mut self,
+            limit: usize,
+        ) -> Self {
             self.inner = self.inner.max_decoding_message_size(limit);
             self
         }
@@ -79,37 +89,32 @@ pub mod api_client {
         ///
         /// Default: `usize::MAX`
         #[must_use]
-        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+        pub fn max_encoding_message_size(
+            mut self,
+            limit: usize,
+        ) -> Self {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
         pub async fn submit_proven_transaction(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::SubmitProvenTransactionRequest,
-            >,
+            request: impl tonic::IntoRequest<super::super::requests::SubmitProvenTransactionRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/block_producer.Api/SubmitProvenTransaction",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/block_producer.Api/SubmitProvenTransaction");
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("block_producer.Api", "SubmitProvenTransaction"),
-                );
+                .insert(GrpcMethod::new("block_producer.Api", "SubmitProvenTransaction"));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -123,9 +128,7 @@ pub mod api_server {
     pub trait Api: Send + Sync + 'static {
         async fn submit_proven_transaction(
             &self,
-            request: tonic::Request<
-                super::super::requests::SubmitProvenTransactionRequest,
-            >,
+            request: tonic::Request<super::super::requests::SubmitProvenTransactionRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
             tonic::Status,
@@ -165,13 +168,19 @@ pub mod api_server {
         }
         /// Enable decompressing requests with the given encoding.
         #[must_use]
-        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+        pub fn accept_compressed(
+            mut self,
+            encoding: CompressionEncoding,
+        ) -> Self {
             self.accept_compression_encodings.enable(encoding);
             self
         }
         /// Compress responses with the given encoding, if the client supports it.
         #[must_use]
-        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+        pub fn send_compressed(
+            mut self,
+            encoding: CompressionEncoding,
+        ) -> Self {
             self.send_compression_encodings.enable(encoding);
             self
         }
@@ -179,7 +188,10 @@ pub mod api_server {
         ///
         /// Default: `4MB`
         #[must_use]
-        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+        pub fn max_decoding_message_size(
+            mut self,
+            limit: usize,
+        ) -> Self {
             self.max_decoding_message_size = Some(limit);
             self
         }
@@ -187,7 +199,10 @@ pub mod api_server {
         ///
         /// Default: `usize::MAX`
         #[must_use]
-        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+        pub fn max_encoding_message_size(
+            mut self,
+            limit: usize,
+        ) -> Self {
             self.max_encoding_message_size = Some(limit);
             self
         }
@@ -207,22 +222,22 @@ pub mod api_server {
         ) -> Poll<std::result::Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
-        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+        fn call(
+            &mut self,
+            req: http::Request<B>,
+        ) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
                 "/block_producer.Api/SubmitProvenTransaction" => {
                     #[allow(non_camel_case_types)]
                     struct SubmitProvenTransactionSvc<T: Api>(pub Arc<T>);
-                    impl<
-                        T: Api,
-                    > tonic::server::UnaryService<
-                        super::super::requests::SubmitProvenTransactionRequest,
-                    > for SubmitProvenTransactionSvc<T> {
+                    impl<T: Api>
+                        tonic::server::UnaryService<
+                            super::super::requests::SubmitProvenTransactionRequest,
+                        > for SubmitProvenTransactionSvc<T>
+                    {
                         type Response = super::super::responses::SubmitProvenTransactionResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -258,19 +273,15 @@ pub mod api_server {
                         Ok(res)
                     };
                     Box::pin(fut)
-                }
-                _ => {
-                    Box::pin(async move {
-                        Ok(
-                            http::Response::builder()
-                                .status(200)
-                                .header("grpc-status", "12")
-                                .header("content-type", "application/grpc")
-                                .body(empty_body())
-                                .unwrap(),
-                        )
-                    })
-                }
+                },
+                _ => Box::pin(async move {
+                    Ok(http::Response::builder()
+                        .status(200)
+                        .header("grpc-status", "12")
+                        .header("content-type", "application/grpc")
+                        .body(empty_body())
+                        .unwrap())
+                }),
             }
         }
     }
@@ -292,7 +303,10 @@ pub mod api_server {
         }
     }
     impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn fmt(
+            &self,
+            f: &mut std::fmt::Formatter<'_>,
+        ) -> std::fmt::Result {
             write!(f, "{:?}", self.0)
         }
     }

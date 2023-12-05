@@ -4,13 +4,12 @@ use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader, EMPTY_WORD};
 use miden_vm::crypto::SimpleSmt;
 
+use super::*;
 use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputs, TxInputsError},
     SharedProvenTx,
 };
-
-use super::*;
 
 pub struct MockStoreSuccess {
     /// Map account id -> account hash
