@@ -20,6 +20,9 @@ pub struct Endpoint {
 pub struct BlockProducerConfig {
     /// Main endpoint of the server.
     pub endpoint: Endpoint,
+
+    /// Endpoint of the store gRPC server
+    pub store_endpoint: Endpoint,
 }
 
 impl Default for Endpoint {
