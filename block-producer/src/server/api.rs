@@ -52,7 +52,6 @@ impl Store for RpcStore {
 }
 
 pub struct BlockProducerApi<T> {
-    #[allow(dead_code)]
     queue: Arc<T>,
 }
 
