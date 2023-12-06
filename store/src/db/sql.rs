@@ -1,9 +1,6 @@
 //! Wrapper functions for SQL statements.
-use super::StateSyncUpdate;
-use crate::{
-    errors::StateError,
-    types::{AccountId, BlockNumber},
-};
+use std::rc::Rc;
+
 use anyhow::anyhow;
 use miden_crypto::{
     hash::rpo::RpoDigest,
@@ -19,7 +16,12 @@ use miden_node_proto::{
 };
 use prost::Message;
 use rusqlite::{params, types::Value, Connection, Transaction};
-use std::rc::Rc;
+
+use super::StateSyncUpdate;
+use crate::{
+    errors::StateError,
+    types::{AccountId, BlockNumber},
+};
 
 /// Insert nullifiers to the DB using the given [Transaction].
 ///

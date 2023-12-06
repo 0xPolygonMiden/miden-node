@@ -2,9 +2,8 @@ use miden_objects::accounts::AccountId;
 use miden_vm::{crypto::MerkleError, ExecutionError};
 use thiserror::Error;
 
-use crate::store::{ApplyBlockError, BlockInputsError};
-
 use super::prover::block_witness::CREATED_NOTES_TREE_INSERTION_DEPTH;
+use crate::store::{ApplyBlockError, BlockInputsError};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum BuildBlockError {

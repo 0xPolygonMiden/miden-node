@@ -11,6 +11,7 @@ use miden_objects::{
 };
 use miden_vm::crypto::{MerklePath, SimpleSmt};
 
+use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
@@ -21,8 +22,6 @@ use crate::{
     },
     SharedTxBatch,
 };
-
-use super::*;
 
 // BLOCK WITNESS TESTS
 // =================================================================================================

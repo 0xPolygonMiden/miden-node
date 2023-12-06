@@ -1,7 +1,6 @@
-use once_cell::sync::Lazy;
-use std::fmt::Display;
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 pub const HOST: &str = "localhost";
@@ -15,7 +14,7 @@ pub static DEFAULT_STORE_PATH: Lazy<PathBuf> = Lazy::new(|| {
     directories::ProjectDirs::from("", "Polygon", "Miden")
         .map(|d| d.data_local_dir().join(STORE_FILENAME))
         // fallback to current dir
-        .unwrap_or(PathBuf::new())
+        .unwrap_or_default()
 });
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]

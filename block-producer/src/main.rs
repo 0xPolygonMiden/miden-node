@@ -1,10 +1,10 @@
-mod cli;
-mod config;
-mod server;
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, Command};
-use config::BlockProducerConfig;
+use miden_node_block_producer::{
+    cli::{Cli, Command},
+    config::BlockProducerConfig,
+    server,
+};
 use miden_node_utils::Config;
 
 #[tokio::main]

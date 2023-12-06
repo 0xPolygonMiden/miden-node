@@ -1,7 +1,6 @@
-use super::*;
-
 use miden_objects::{transaction::ConsumedNoteInfo, Hasher};
 
+use super::*;
 use crate::test_utils::{DummyProvenTxGenerator, MockPrivateAccount};
 
 mod apply_block;

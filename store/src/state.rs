@@ -4,11 +4,6 @@
 //! data is atomically written, and that reads are consistent.
 use std::mem;
 
-use crate::{
-    db::{Db, StateSyncUpdate},
-    errors::StateError,
-    types::{AccountId, BlockNumber},
-};
 use anyhow::{anyhow, Result};
 use miden_crypto::{
     hash::rpo::RpoDigest,
@@ -37,6 +32,12 @@ use tokio::{
     time::Instant,
 };
 use tracing::{info, instrument, span, Level};
+
+use crate::{
+    db::{Db, StateSyncUpdate},
+    errors::StateError,
+    types::{AccountId, BlockNumber},
+};
 
 // CONSTANTS
 // ================================================================================================
@@ -184,7 +185,7 @@ impl State {
             .select_block_header_by_block_num(None)
             .await?
             .ok_or(StateError::DbBlockHeaderEmpty)?;
-        let block_num = (prev_block_msg.block_num as u32) + 1;
+        let block_num = prev_block_msg.block_num + 1;
         let prev_block: BlockHeader = prev_block_msg.try_into()?;
         let prev_hash =
             block_header.prev_hash.clone().ok_or(StateError::MissingPrevHash)?.try_into()?;
@@ -215,7 +216,7 @@ impl State {
             chain_mmr.add(prev_hash);
             let peaks = chain_mmr.peaks(chain_mmr.forest())?;
 
-            if RpoDigest::from(peaks.hash_peaks())
+            if peaks.hash_peaks()
                 != block_header
                     .clone()
                     .chain_root

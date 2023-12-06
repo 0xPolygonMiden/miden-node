@@ -6,7 +6,6 @@ use miden_stdlib::StdLibrary;
 use miden_vm::{execute, DefaultHost, MemAdviceProvider, Program};
 
 use self::block_witness::BlockWitness;
-
 use super::{errors::BlockProverError, BuildBlockError};
 
 /// The index of the word at which the account root is stored on the output stack.
@@ -35,13 +34,13 @@ use.std::collections::mmr
 const.CHAIN_MMR_PTR=1000
 
 #! Compute the account root
-#! 
-#! Stack: [num_accounts_updated, OLD_ACCOUNT_ROOT, 
+#!
+#! Stack: [num_accounts_updated, OLD_ACCOUNT_ROOT,
 #!         NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
 #! Output: [NEW_ACCOUNT_ROOT]
 proc.compute_account_root
-    dup neq.0 
-    # => [0 or 1, num_accounts_updated, OLD_ACCOUNT_ROOT, 
+    dup neq.0
+    # => [0 or 1, num_accounts_updated, OLD_ACCOUNT_ROOT,
     #     NEW_ACCOUNT_HASH_0, account_id_0, ... , NEW_ACCOUNT_HASH_n, account_id_n]
 
     while.true
@@ -72,19 +71,19 @@ end
 #!
 #! Each batch contains a tree of depth 13 for its created notes. The block's created notes tree is created
 #! by aggregating up to 2^8 tree roots coming from the batches contained in the block.
-#! 
+#!
 #! `SMT_EMPTY_ROOT` must be `E21`, the root of the empty tree of depth 21. If less than 2^8 batches are
 #! contained in the block, `E13` is used as the padding value; this is derived from the fact that
 #! `SMT_EMPTY_ROOT` is `E21`, and that our tree has depth 8.
-#! 
-#! Stack: [num_notes_updated, SMT_EMPTY_ROOT, 
-#!         batch_note_root_idx_0, BATCH_NOTE_TREE_ROOT_0, 
-#!         ... , 
+#!
+#! Stack: [num_notes_updated, SMT_EMPTY_ROOT,
+#!         batch_note_root_idx_0, BATCH_NOTE_TREE_ROOT_0,
+#!         ... ,
 #!         batch_note_root_idx_{n-1}, BATCH_NOTE_TREE_ROOT_{n-1}]
 #! Output: [NOTES_ROOT]
 proc.compute_note_root
     # assess if we should loop
-    dup neq.0 
+    dup neq.0
     #=> [0 or 1, num_notes_updated, SMT_EMPTY_ROOT, ... ]
 
     while.true
@@ -94,7 +93,7 @@ proc.compute_note_root
         movdn.9 movup.4 push.8
         #=> [depth=8, batch_note_root_idx_i, ROOT_i, BATCH_NOTE_TREE_ROOT_i, note_roots_left_to_update, ... ]
 
-        mtree_set dropw 
+        mtree_set dropw
         #=> [ROOT_{i+1}, note_roots_left_to_update, ... ]
 
         # loop counter
@@ -107,7 +106,7 @@ proc.compute_note_root
 end
 
 #! Compute the chain MMR root
-#! 
+#!
 #! Stack: [ PREV_CHAIN_MMR_HASH, PREV_BLOCK_HASH_TO_INSERT ]
 #! Advice map: PREV_CHAIN_MMR_HASH -> NUM_LEAVES || peak_0 || .. || peak_{n-1} || <maybe padding>
 #!

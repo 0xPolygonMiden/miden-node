@@ -3,13 +3,12 @@ use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{crypto::merkle::Mmr, BlockHeader, EMPTY_WORD, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
+use super::*;
 use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputs, TxInputsError},
     SharedProvenTx,
 };
-
-use super::*;
 
 const ACCOUNT_SMT_DEPTH: u8 = 64;
 
