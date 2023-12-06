@@ -32,10 +32,10 @@ pub async fn serve(
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
     let state = Arc::new(State::load(db).await?);
-    let db = api_server::ApiServer::new(StoreApi { state });
+    let store = api_server::ApiServer::new(StoreApi { state });
 
     info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
-    Server::builder().add_service(db).serve(addrs[0]).await?;
+    Server::builder().add_service(store).serve(addrs[0]).await?;
 
     Ok(())
 }
