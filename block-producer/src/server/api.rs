@@ -37,6 +37,12 @@ impl ApplyBlock for DefaultStore {
         &self,
         block: Arc<Block>,
     ) -> Result<(), ApplyBlockError> {
+        let request = tonic::Request::new(ApplyBlockRequest {
+            block: Some(block.header.into()),
+            accounts: todo!(),
+            nullifiers: todo!(),
+            notes: todo!(),
+        });
         todo!()
     }
 }
