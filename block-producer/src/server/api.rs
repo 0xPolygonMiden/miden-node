@@ -21,10 +21,10 @@ use crate::{
     SharedProvenTx,
 };
 
-struct RpcStore {}
+struct DefaultStore {}
 
 #[async_trait]
-impl ApplyBlock for RpcStore {
+impl ApplyBlock for DefaultStore {
     async fn apply_block(
         &self,
         _block: Arc<Block>,
@@ -34,7 +34,7 @@ impl ApplyBlock for RpcStore {
 }
 
 #[async_trait]
-impl Store for RpcStore {
+impl Store for DefaultStore {
     async fn get_tx_inputs(
         &self,
         _proven_tx: SharedProvenTx,
@@ -72,7 +72,7 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
-    let store = Arc::new(RpcStore {});
+    let store = Arc::new(DefaultStore {});
     let block_builder = DefaultBlockBuilder::new(store.clone());
     let batch_builder_options = DefaultBatchBuilderOptions {
         block_frequency: Duration::from_secs(10),
