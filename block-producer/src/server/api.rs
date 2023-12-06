@@ -3,11 +3,17 @@ use std::{net::ToSocketAddrs, sync::Arc, time::Duration};
 use anyhow::Result;
 use async_trait::async_trait;
 use miden_node_proto::{
-    block_producer::api_server, domain::BlockInputs, requests::SubmitProvenTransactionRequest,
+    block_producer::api_server,
+    domain::BlockInputs,
+    requests::{ApplyBlockRequest, SubmitProvenTransactionRequest},
     responses::SubmitProvenTransactionResponse,
+    store::api_client as store_client,
 };
 use miden_objects::{accounts::AccountId, Digest};
-use tonic::{transport::Server, Status};
+use tonic::{
+    transport::{Channel, Server},
+    Status,
+};
 use tracing::info;
 
 use crate::{
@@ -21,13 +27,15 @@ use crate::{
     SharedProvenTx,
 };
 
-struct DefaultStore {}
+struct DefaultStore {
+    store: store_client::ApiClient<Channel>,
+}
 
 #[async_trait]
 impl ApplyBlock for DefaultStore {
     async fn apply_block(
         &self,
-        _block: Arc<Block>,
+        block: Arc<Block>,
     ) -> Result<(), ApplyBlockError> {
         todo!()
     }
@@ -72,7 +80,9 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
-    let store = Arc::new(DefaultStore {});
+    let store = Arc::new(DefaultStore {
+        store: store_client::ApiClient::connect(config.store_endpoint.to_string()).await?,
+    });
     let block_builder = DefaultBlockBuilder::new(store.clone());
     let batch_builder_options = DefaultBatchBuilderOptions {
         block_frequency: Duration::from_secs(10),
