@@ -180,6 +180,27 @@ impl TryFrom<&block_header::BlockHeader> for BlockHeader {
     }
 }
 
+impl From<BlockHeader> for block_header::BlockHeader {
+    fn from(header: BlockHeader) -> Self {
+        Self {
+            prev_hash: Some(header.prev_hash().into()),
+            block_num: u64::from(header.block_num())
+                .try_into()
+                .expect("TODO: BlockHeader.block_num should be u64"),
+            chain_root: Some(header.chain_root().into()),
+            account_root: Some(header.account_root().into()),
+            nullifier_root: Some(header.nullifier_root().into()),
+            note_root: Some(header.note_root().into()),
+            batch_root: Some(header.batch_root().into()),
+            proof_hash: Some(header.proof_hash().into()),
+            version: u64::from(header.version())
+                .try_into()
+                .expect("TODO: BlockHeader.version should be u64"),
+            timestamp: header.timestamp().into(),
+        }
+    }
+}
+
 impl TryFrom<mmr::MmrDelta> for MmrDelta {
     type Error = error::ParseError;
 
