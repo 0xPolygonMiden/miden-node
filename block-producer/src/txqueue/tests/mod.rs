@@ -101,7 +101,7 @@ async fn test_build_batch_success() {
     }
 
     // Start the queue
-    tokio::spawn(tx_queue.run());
+    tokio::spawn(Arc::new(tx_queue).run());
 
     // Wait for tx queue to build batches
     time::sleep(build_batch_frequency * 2).await;
@@ -138,7 +138,7 @@ async fn test_tx_verify_failure() {
     }
 
     // Start the queue
-    tokio::spawn(tx_queue.run());
+    tokio::spawn(Arc::new(tx_queue).run());
 
     // Wait for tx queue to build batches
     time::sleep(build_batch_frequency * 2).await;
@@ -177,7 +177,7 @@ async fn test_build_batch_failure() {
     }
 
     // Start the queue
-    tokio::spawn(tx_queue.run());
+    tokio::spawn(Arc::new(tx_queue).run());
 
     // Wait for tx queue to fail once to build the batch
     time::sleep(Duration::from_millis(45)).await;

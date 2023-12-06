@@ -98,11 +98,10 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
 
     info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
 
-    // TODO: fix lifetime issue
-    // tokio::spawn(async move {
-    //     info!("Block producer task created");
-    //     queue.run().await
-    // });
+    tokio::spawn(async move {
+        info!("Block producer task created");
+        queue.run().await
+    });
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
 
     Ok(())
