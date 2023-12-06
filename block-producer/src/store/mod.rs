@@ -20,6 +20,8 @@ pub enum BlockInputsError {
 
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ApplyBlockError {
+    #[error("gRPC client failed with error: {0}")]
+    GrpcClientError(String),
     #[error("dummy")]
     Dummy,
 }

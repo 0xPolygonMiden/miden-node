@@ -47,10 +47,21 @@ impl ApplyBlock for DefaultStore {
                     account_hash: Some(account_hash.into()),
                 })
                 .collect(),
-            nullifiers: todo!(),
-            notes: todo!(),
+            nullifiers: block
+                .produced_nullifiers
+                .iter()
+                .map(|nullifier| nullifier.into())
+                .collect(),
+            notes: todo!()
         });
-        todo!()
+
+        let _ = self
+            .store
+            .apply_block(request)
+            .await
+            .map_err(|status| ApplyBlockError::GrpcClientError(status.message().to_string()))?;
+
+        Ok(())
     }
 }
 
