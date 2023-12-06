@@ -266,6 +266,14 @@ impl From<u64> for account_id::AccountId {
     }
 }
 
+impl From<AccountId> for account_id::AccountId {
+    fn from(account_id: AccountId) -> Self {
+        Self {
+            id: account_id.into(),
+        }
+    }
+}
+
 impl TryFrom<account_id::AccountId> for AccountId {
     type Error = error::ParseError;
 

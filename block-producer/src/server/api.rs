@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use miden_node_proto::{
     block_producer::api_server,
     domain::BlockInputs,
-    requests::{ApplyBlockRequest, SubmitProvenTransactionRequest},
+    requests::{AccountUpdate, ApplyBlockRequest, SubmitProvenTransactionRequest},
     responses::SubmitProvenTransactionResponse,
     store::api_client as store_client,
 };
@@ -39,7 +39,14 @@ impl ApplyBlock for DefaultStore {
     ) -> Result<(), ApplyBlockError> {
         let request = tonic::Request::new(ApplyBlockRequest {
             block: Some(block.header.into()),
-            accounts: todo!(),
+            accounts: block
+                .updated_accounts
+                .iter()
+                .map(|(account_id, account_hash)| AccountUpdate {
+                    account_id: Some((*account_id).into()),
+                    account_hash: Some(account_hash.into()),
+                })
+                .collect(),
             nullifiers: todo!(),
             notes: todo!(),
         });
