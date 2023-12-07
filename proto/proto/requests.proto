@@ -4,18 +4,25 @@ package requests;
 import "account_id.proto";
 import "block_header.proto";
 import "digest.proto";
-import "note.proto";
 
 message AccountUpdate {
     account_id.AccountId account_id = 1;
     digest.Digest account_hash = 2;
 }
 
+message NoteCreated {
+    digest.Digest note_hash = 1;
+    uint64 sender  = 2;
+    uint64 tag = 3;
+    uint32 num_assets = 4;
+    uint32 note_index = 5;
+}
+
 message ApplyBlockRequest {
     block_header.BlockHeader block = 1;
     repeated AccountUpdate accounts = 2;
     repeated digest.Digest nullifiers = 3;
-    repeated note.Note notes = 4;
+    repeated NoteCreated notes = 4;
 }
 
 message CheckNullifiersRequest {
