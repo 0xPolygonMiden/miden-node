@@ -61,8 +61,8 @@ where
     ) -> Result<(), BuildBlockError> {
         let account_updates: Vec<(AccountId, Digest)> =
             batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
-        let created_notes: Vec<Digest> =
-            batches.iter().flat_map(|batch| batch.created_notes()).collect();
+        let created_notes =
+            batches.iter().flat_map(|batch| batch.created_notes()).cloned().collect();
         let produced_nullifiers: Vec<Digest> =
             batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
 
