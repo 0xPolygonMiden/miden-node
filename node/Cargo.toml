@@ -6,6 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = { version = "1.0" }
 miden-node-block-producer = { version = "0.1", path = "../block-producer" }
 miden-node-rpc = { version = "0.1", path = "../rpc" }
 miden-node-store = { version = "0.1", path = "../store" }
+miden-node-utils = { path = "../utils" }
+tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
