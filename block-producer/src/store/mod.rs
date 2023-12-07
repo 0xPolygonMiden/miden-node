@@ -7,6 +7,7 @@ use thiserror::Error;
 
 use crate::{block::Block, SharedProvenTx};
 
+// TODO: consolidate errors in this file
 #[derive(Debug, PartialEq, Error)]
 pub enum TxInputsError {
     #[error("gRPC client failed with error: {0}")]
