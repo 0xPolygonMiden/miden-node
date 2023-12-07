@@ -5,7 +5,7 @@ use thiserror::Error;
 use super::prover::block_witness::CREATED_NOTES_TREE_INSERTION_DEPTH;
 use crate::store::{ApplyBlockError, BlockInputsError};
 
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum BuildBlockError {
     #[error("failed to compute new block: {0}")]
     BlockProverFailed(#[from] BlockProverError),
@@ -26,7 +26,7 @@ pub enum BuildBlockError {
     Dummy,
 }
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum BlockProverError {
     #[error("Received invalid merkle path")]
     InvalidMerklePaths(MerkleError),

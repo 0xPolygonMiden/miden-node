@@ -9,18 +9,22 @@ use crate::{block::Block, SharedProvenTx};
 
 #[derive(Debug, PartialEq, Error)]
 pub enum TxInputsError {
-    #[error("failed to parse protobuf message: {0}")]
-    ParseError(#[from] ParseError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
     #[error("malformed response from store: {0}")]
     MalformedResponse(String),
+    #[error("failed to parse protobuf message: {0}")]
+    ParseError(#[from] ParseError),
     #[error("dummy")]
     Dummy,
 }
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, PartialEq, Error)]
 pub enum BlockInputsError {
+    #[error("failed to parse protobuf message: {0}")]
+    ParseError(#[from] ParseError),
+    #[error("gRPC client failed with error: {0}")]
+    GrpcClientError(String),
     #[error("dummy")]
     Dummy,
 }

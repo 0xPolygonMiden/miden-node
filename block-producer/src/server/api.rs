@@ -3,10 +3,12 @@ use std::{net::ToSocketAddrs, sync::Arc, time::Duration};
 use anyhow::Result;
 use async_trait::async_trait;
 use miden_node_proto::{
+    account_id,
     block_producer::api_server,
+    digest,
     domain::BlockInputs,
     requests::{
-        AccountUpdate, ApplyBlockRequest, GetTransactionInputsRequest,
+        AccountUpdate, ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest,
         SubmitProvenTransactionRequest,
     },
     responses::SubmitProvenTransactionResponse,
@@ -139,10 +141,25 @@ impl Store for DefaultStore {
 
     async fn get_block_inputs(
         &self,
-        _updated_accounts: impl Iterator<Item = &AccountId> + Send,
-        _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
+        updated_accounts: impl Iterator<Item = &AccountId> + Send,
+        produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
-        todo!()
+        let request = tonic::Request::new(GetBlockInputsRequest {
+            account_ids: updated_accounts
+                .map(|&account_id| account_id::AccountId::from(account_id))
+                .collect(),
+            nullifiers: produced_nullifiers.map(digest::Digest::from).collect(),
+        });
+
+        let store_response = self
+            .store
+            .clone()
+            .get_block_inputs(request)
+            .await
+            .map_err(|err| BlockInputsError::GrpcClientError(err.message().to_string()))?
+            .into_inner();
+
+        Ok(store_response.try_into()?)
     }
 }
 
