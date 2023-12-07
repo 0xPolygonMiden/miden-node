@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
@@ -100,7 +100,7 @@ pub struct MockBlockBuilder {
     last_block_header: BlockHeader,
 
     updated_accounts: Option<Vec<(AccountId, Digest)>>,
-    created_notes: Option<Vec<NoteEnvelope>>,
+    created_notes: Option<BTreeMap<u64, NoteEnvelope>>,
     produced_nullifiers: Option<Vec<Digest>>,
 }
 
@@ -134,7 +134,7 @@ impl MockBlockBuilder {
 
     pub fn created_notes(
         mut self,
-        created_notes: Vec<NoteEnvelope>,
+        created_notes: BTreeMap<u64, NoteEnvelope>,
     ) -> Self {
         self.created_notes = Some(created_notes);
 

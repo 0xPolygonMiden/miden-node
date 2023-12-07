@@ -3,7 +3,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, Digest};
 
-use crate::{block::Block, store::Store, SharedTxBatch};
+use crate::{
+    batch_builder::MAX_NUM_CREATED_NOTES_PER_BATCH, block::Block, store::Store, SharedTxBatch,
+};
 
 pub mod errors;
 
@@ -61,8 +63,17 @@ where
     ) -> Result<(), BuildBlockError> {
         let account_updates: Vec<(AccountId, Digest)> =
             batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
-        let created_notes =
-            batches.iter().flat_map(|batch| batch.created_notes()).cloned().collect();
+        let created_notes = batches
+            .iter()
+            .enumerate()
+            .flat_map(|(batch_idx, batch)| {
+                batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
+                    let note_idx_in_block =
+                        batch_idx * MAX_NUM_CREATED_NOTES_PER_BATCH + note_idx_in_batch;
+                    (note_idx_in_block as u64, *note)
+                })
+            })
+            .collect();
         let produced_nullifiers: Vec<Digest> =
             batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
 
