@@ -1,8 +1,9 @@
 use std::{path::PathBuf, time::Duration};
 
-use miden_node_rpc::config as rpc_config;
-use miden_node_rpc::config::RpcConfig;
-use miden_node_rpc::server as rpc_server;
+use miden_node_block_producer::{
+    config as block_producer_config, config::BlockProducerConfig, server as block_producer_server,
+};
+use miden_node_rpc::{config as rpc_config, config::RpcConfig, server as rpc_server};
 use miden_node_store::{
     config::{self as store_config, StoreConfig},
     db::Db,
@@ -42,6 +43,22 @@ async fn main() -> anyhow::Result<()> {
         };
 
         join_set.spawn(rpc_server::api::serve(config));
+    }
+
+    // start block-producer
+    {
+        let config: BlockProducerConfig = {
+            let config_path = PathBuf::from(block_producer_config::CONFIG_FILENAME);
+
+            BlockProducerConfig::load_config(Some(config_path).as_deref()).extract()?
+        };
+
+        join_set.spawn(block_producer_server::api::serve(config));
+    }
+
+    // block on all tasks
+    while let Some(_res) = join_set.join_next().await {
+        // do nothing
     }
 
     Ok(())

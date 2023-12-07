@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use hex::FromHex;
 use miden_node_proto::digest::Digest;
-
 use miden_node_rpc::config;
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Parser)]
