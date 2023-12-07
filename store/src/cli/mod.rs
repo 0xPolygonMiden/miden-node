@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-
-use crate::config;
+use miden_node_store::config;
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Parser)]
 #[command(version, about, long_about = None)]
