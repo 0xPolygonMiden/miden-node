@@ -18,7 +18,7 @@ use miden_node_proto::{
     digest::Digest,
     error::ParseError,
     note::Note,
-    requests,
+    requests::{AccountUpdate, NoteCreated},
     responses::{
         AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
     },
@@ -98,10 +98,10 @@ impl From<AccountState> for AccountTransactionInputRecord {
     }
 }
 
-impl TryFrom<requests::AccountUpdate> for AccountState {
+impl TryFrom<AccountUpdate> for AccountState {
     type Error = StateError;
 
-    fn try_from(value: requests::AccountUpdate) -> Result<Self, Self::Error> {
+    fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
         Ok(Self {
             account_id: value.account_id.ok_or(StateError::MissingAccountId)?.into(),
             account_hash: value
@@ -113,10 +113,10 @@ impl TryFrom<requests::AccountUpdate> for AccountState {
     }
 }
 
-impl TryFrom<&requests::AccountUpdate> for AccountState {
+impl TryFrom<&AccountUpdate> for AccountState {
     type Error = StateError;
 
-    fn try_from(value: &requests::AccountUpdate) -> Result<Self, Self::Error> {
+    fn try_from(value: &AccountUpdate) -> Result<Self, Self::Error> {
         value.clone().try_into()
     }
 }
@@ -175,7 +175,7 @@ impl State {
         block_header: block_header::BlockHeader,
         nullifiers: &[RpoDigest],
         accounts: &[(AccountId, Digest)],
-        notes: &[Note],
+        notes: &[NoteCreated],
     ) -> Result<(), anyhow::Error> {
         let _ = self.writer.try_lock().map_err(|_| StateError::ConcurrentWrite)?;
 
@@ -194,7 +194,7 @@ impl State {
         }
 
         // scope to read in-memory data, validate the request, and compute intermediary values
-        let (account_tree, chain_mmr, nullifier_tree) = {
+        let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
             let span = span!(Level::INFO, "updating in-memory data structures");
@@ -266,7 +266,29 @@ impl State {
 
             drop(guard);
 
-            (account_tree, chain_mmr, nullifier_tree)
+            let notes = notes
+                .iter()
+                .map(|note| {
+                    // Safety: This should never happen, the note_tree is created direclty form
+                    // this list of notes
+                    let merkle_path =
+                        note_tree.get_leaf_path(note.note_index as u64).map_err(|_| {
+                            anyhow!("Internal server error, unable to created proof for note")
+                        })?;
+
+                    Ok(Note {
+                        block_num,
+                        note_hash: note.note_hash.clone(),
+                        sender: note.sender,
+                        note_index: note.note_index,
+                        tag: note.tag,
+                        num_assets: note.num_assets,
+                        merkle_path: Some(merkle_path.into()),
+                    })
+                })
+                .collect::<Result<Vec<_>, anyhow::Error>>()?;
+
+            (account_tree, chain_mmr, nullifier_tree, notes)
         };
 
         // signals the transaction is ready to be commited, and the write lock can be acquired
@@ -275,7 +297,7 @@ impl State {
         let (inform_acquire_done, acquire_done) = oneshot::channel::<()>();
 
         self.db
-            .apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
+            .apply_block(allow_acquire, acquire_done, block_header, &notes, nullifiers, accounts)
             .await?;
 
         acquired_allowed.await?;
@@ -415,21 +437,16 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
     [Felt::new(block as u64), Felt::ZERO, Felt::ZERO, Felt::ZERO]
 }
 
-// /// Returns the block number encoded as a leaf value to be used in the TSMT.
-// fn nullifier_data_to_block(block: Word) -> BlockNumber {
-//     block[0].as_int() as BlockNumber
-// }
-
 /// Creates a [SimpleSmt] tree from the `notes`.
-pub fn build_notes_tree(notes: &[Note]) -> Result<SimpleSmt, anyhow::Error> {
+pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt, anyhow::Error> {
     // TODO: create SimpleSmt without this allocation
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
-    for (index, note) in notes.iter().enumerate() {
+    for note in notes.iter() {
         let note_hash = note.note_hash.clone().ok_or(StateError::MissingNoteHash)?;
         let account_id = note.sender.try_into().or(Err(StateError::InvalidAccountId))?;
         let note_metadata = NoteMetadata::new(account_id, note.tag.into(), note.num_assets.into());
-        let index = (index as u64) * 2;
+        let index = note.note_index as u64;
         entries.push((index, note_hash.try_into()?));
         entries.push((index + 1, note_metadata.into()));
     }
