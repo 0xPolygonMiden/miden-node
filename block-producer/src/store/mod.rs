@@ -1,14 +1,21 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
-use miden_node_proto::domain::BlockInputs;
+use miden_node_proto::{domain::BlockInputs, error::ParseError};
 use miden_objects::{accounts::AccountId, Digest};
 use thiserror::Error;
 
 use crate::{block::Block, SharedProvenTx};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum TxInputsError {
+    #[error("failed to parse protobuf message: {0}")]
+    ParseError(#[from] ParseError),
+    #[error("gRPC client failed with error: {0}")]
+    GrpcClientError(String),
+    #[error("malformed response from store: {0}")]
+    MalformedResponse(String),
+    #[error("dummy")]
     Dummy,
 }
 

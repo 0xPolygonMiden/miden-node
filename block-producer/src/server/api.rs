@@ -5,7 +5,10 @@ use async_trait::async_trait;
 use miden_node_proto::{
     block_producer::api_server,
     domain::BlockInputs,
-    requests::{AccountUpdate, ApplyBlockRequest, SubmitProvenTransactionRequest},
+    requests::{
+        AccountUpdate, ApplyBlockRequest, GetTransactionInputsRequest,
+        SubmitProvenTransactionRequest,
+    },
     responses::SubmitProvenTransactionResponse,
     store::api_client as store_client,
 };
@@ -52,7 +55,7 @@ impl ApplyBlock for DefaultStore {
                 .iter()
                 .map(|nullifier| nullifier.into())
                 .collect(),
-            notes: todo!()
+            notes: todo!(),
         });
 
         let _ = self
@@ -69,9 +72,69 @@ impl ApplyBlock for DefaultStore {
 impl Store for DefaultStore {
     async fn get_tx_inputs(
         &self,
-        _proven_tx: SharedProvenTx,
+        proven_tx: SharedProvenTx,
     ) -> Result<TxInputs, TxInputsError> {
-        todo!()
+        let request = tonic::Request::new(GetTransactionInputsRequest {
+            account_ids: vec![proven_tx.account_id().into()],
+            nullifiers: proven_tx
+                .consumed_notes()
+                .iter()
+                .map(|note| note.nullifier().into())
+                .collect(),
+        });
+        let response = self
+            .store
+            .clone()
+            .get_transaction_inputs(request)
+            .await
+            .map_err(|status| TxInputsError::GrpcClientError(status.message().to_string()))?
+            .into_inner();
+
+        let account_hash = {
+            let account_state = response
+                .account_states
+                .get(0)
+                .ok_or(TxInputsError::MalformedResponse("account_states empty".to_string()))?;
+
+            let account_id_from_store: AccountId = account_state
+                .account_id
+                .clone()
+                .ok_or(TxInputsError::MalformedResponse("empty account id".to_string()))?
+                .try_into()?;
+
+            if account_id_from_store != proven_tx.account_id() {
+                return Err(TxInputsError::MalformedResponse(format!(
+                    "incorrect account id returned from store. Got: {}, expected: {}",
+                    account_id_from_store,
+                    proven_tx.account_id()
+                )));
+            }
+
+            account_state.account_hash.clone().map(Digest::try_from).transpose()?
+        };
+
+        let nullifiers = {
+            let mut nullifiers = Vec::new();
+
+            for nullifier_record in response.nullifiers {
+                let nullifier = nullifier_record
+                    .nullifier
+                    .ok_or(TxInputsError::MalformedResponse(
+                        "nullifier record contains empty nullifier".to_string(),
+                    ))?
+                    .try_into()?;
+
+                // `block_num` is nonzero if already consumed; 0 otherwise
+                nullifiers.push((nullifier, nullifier_record.block_num != 0))
+            }
+
+            nullifiers.into_iter().collect()
+        };
+
+        Ok(TxInputs {
+            account_hash,
+            nullifiers,
+        })
     }
 
     async fn get_block_inputs(

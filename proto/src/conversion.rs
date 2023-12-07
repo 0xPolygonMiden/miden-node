@@ -1,9 +1,8 @@
 use miden_crypto::{
-    hash::rpo::RpoDigest,
     merkle::{MerklePath, MmrDelta, MmrPeaks, TieredSmtProof},
     Felt, FieldElement, StarkField, Word,
 };
-use miden_objects::{accounts::AccountId, BlockHeader};
+use miden_objects::{accounts::AccountId, BlockHeader, Digest as RpoDigest};
 
 use crate::{
     account_id, block_header, digest,
