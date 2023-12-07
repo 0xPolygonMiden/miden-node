@@ -1,0 +1,11 @@
+[package]
+name = "miden-node"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+miden-node-block-producer = { version = "0.1", path = "../block-producer" }
+miden-node-rpc = { version = "0.1", path = "../rpc" }
+miden-node-store = { version = "0.1", path = "../store" }
