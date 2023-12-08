@@ -18,7 +18,7 @@ pub(crate) const CREATED_NOTES_SMT_DEPTH: u8 = 13;
 /// That is, conceptually, notes sit at depth 12; where in reality, depth 12 contains the
 /// hash of level 13, where both the `note_hash()` and metadata are stored (one per node).
 pub(crate) const MAX_NUM_CREATED_NOTES_PER_BATCH: usize =
-    2usize.pow((CREATED_NOTES_SMT_DEPTH - 1) as u32);
+    2_usize.pow((CREATED_NOTES_SMT_DEPTH - 1) as u32);
 
 // TRANSACTION BATCH
 // ================================================================================================
