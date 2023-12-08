@@ -16,13 +16,13 @@ pub struct Endpoint {
     pub port: u16,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct BlockProducerConfig {
     /// Main endpoint of the server.
     pub endpoint: Endpoint,
 
     /// Endpoint of the store gRPC server
-    pub store_endpoint: Endpoint,
+    pub store_endpoint: String,
 }
 
 impl Default for Endpoint {
@@ -40,6 +40,15 @@ impl Display for Endpoint {
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
         write!(f, "{}:{}", self.host, self.port)
+    }
+}
+
+impl Default for BlockProducerConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: Endpoint::default(),
+            store_endpoint: format!("http://localhost:{}", miden_node_store::config::PORT),
+        }
     }
 }
 

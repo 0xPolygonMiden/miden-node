@@ -29,6 +29,7 @@ itertools = { version = "0.12" }
 miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 miden-crypto = { workspace = true }
 miden-node-proto = { path = "../proto" }
+miden-node-store = { path = "../store" }
 miden-node-utils = { path = "../utils" }
 miden_objects = { workspace = true }
 miden_stdlib = { package = "miden-stdlib", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
