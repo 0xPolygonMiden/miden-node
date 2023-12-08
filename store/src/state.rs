@@ -185,7 +185,7 @@ impl State {
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .ok_or(StateError::DbBlockHeaderEmpty)?;
+            .unwrap_or_else(genesis_header);
         let block_num = prev_block_msg.block_num + 1;
         let prev_block: BlockHeader = prev_block_msg.try_into()?;
         let prev_hash =
