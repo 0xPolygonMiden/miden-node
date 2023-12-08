@@ -10,7 +10,7 @@ use miden_node_proto::{
     domain::BlockInputs,
     requests::{
         AccountUpdate, ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest,
-        SubmitProvenTransactionRequest,
+        NoteCreated, SubmitProvenTransactionRequest,
     },
     responses::SubmitProvenTransactionResponse,
     store::api_client as store_client,
@@ -58,11 +58,22 @@ impl ApplyBlock for DefaultStore {
                 .iter()
                 .map(|nullifier| nullifier.into())
                 .collect(),
-            notes: todo!(),
+            notes: block
+                .created_notes
+                .iter()
+                .map(|(note_idx, note)| NoteCreated {
+                    note_hash: Some(note.note_hash().into()),
+                    sender: note.metadata().sender().into(),
+                    tag: note.metadata().tag().into(),
+                    num_assets: u64::from(note.metadata().num_assets()) as u32,
+                    note_index: *note_idx as u32,
+                })
+                .collect(),
         });
 
         let _ = self
             .store
+            .clone()
             .apply_block(request)
             .await
             .map_err(|status| ApplyBlockError::GrpcClientError(status.message().to_string()))?;
