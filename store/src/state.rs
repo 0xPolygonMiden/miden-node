@@ -2,13 +2,17 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::mem;
+use std::{
+    mem,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::{anyhow, Result};
 use miden_crypto::{
     hash::rpo::RpoDigest,
     merkle::{
-        MerkleError, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, TieredSmt, TieredSmtProof,
+        EmptySubtreeRoots, MerkleError, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, TieredSmt,
+        TieredSmtProof,
     },
     Felt, FieldElement, Word, EMPTY_WORD,
 };
@@ -369,11 +373,24 @@ impl State {
     {
         let inner = self.inner.read().await;
 
-        let latest = self
-            .db
-            .select_block_header_by_block_num(None)
-            .await?
-            .ok_or(anyhow!("Database is empty"))?;
+        let latest = self.db.select_block_header_by_block_num(None).await?.unwrap_or_else(|| {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("failed to read system time")
+                .as_millis();
+            block_header::BlockHeader {
+                prev_hash: Some(Digest::default().into()),
+                block_num: 0,
+                chain_root: Some(MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks().into()),
+                account_root: Some(EmptySubtreeRoots::entry(ACCOUNT_DB_DEPTH, 0).into()),
+                nullifier_root: Some(Digest::default().into()),
+                note_root: Some(EmptySubtreeRoots::entry(NOTE_LEAF_DEPTH, 0).into()),
+                batch_root: Some(Digest::default().into()),
+                proof_hash: Some(Digest::default().into()),
+                version: 0,
+                timestamp: now as u64,
+            }
+        });
         let accumulator = inner.chain_mmr.peaks(latest.block_num as usize)?;
         let account_states = account_ids
             .iter()

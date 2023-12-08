@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, Digest};
+use tracing::info;
 
 use crate::{
     batch_builder::MAX_NUM_CREATED_NOTES_PER_BATCH, block::Block, store::Store, SharedTxBatch,
@@ -89,6 +90,8 @@ where
 
         let new_block_header = self.block_kernel.prove(block_header_witness)?;
 
+        let block_num = new_block_header.block_num();
+
         let block = Arc::new(Block {
             header: new_block_header,
             updated_accounts: account_updates,
@@ -97,6 +100,8 @@ where
         });
 
         self.store.apply_block(block.clone()).await?;
+
+        info!("block #{block_num} built!");
 
         Ok(())
     }
