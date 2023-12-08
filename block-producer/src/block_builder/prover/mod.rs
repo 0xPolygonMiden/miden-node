@@ -1,6 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use miden_air::{ExecutionOptions, Felt};
+use miden_crypto::merkle::TieredSmt;
 use miden_objects::{assembly::Assembler, BlockHeader, Digest, ONE};
 use miden_stdlib::StdLibrary;
 use miden_vm::{execute, DefaultHost, MemAdviceProvider, Program};
@@ -181,7 +182,7 @@ impl BlockProver {
 
         let (account_root, note_root, chain_root) = self.compute_roots(witness)?;
 
-        let nullifier_root = Digest::default();
+        let nullifier_root = TieredSmt::default().root();
         let batch_root = Digest::default();
         let proof_hash = Digest::default();
         let timestamp: Felt = SystemTime::now()
