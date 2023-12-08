@@ -17,7 +17,8 @@ pub(crate) const CREATED_NOTES_SMT_DEPTH: u8 = 13;
 /// The created notes tree uses an extra depth to store the 2 components of `NoteEnvelope`.
 /// That is, conceptually, notes sit at depth 12; where in reality, depth 12 contains the
 /// hash of level 13, where both the `note_hash()` and metadata are stored (one per node).
-const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2usize.pow((CREATED_NOTES_SMT_DEPTH - 1) as u32);
+pub(crate) const MAX_NUM_CREATED_NOTES_PER_BATCH: usize =
+    2_usize.pow((CREATED_NOTES_SMT_DEPTH - 1) as u32);
 
 // TRANSACTION BATCH
 // ================================================================================================
@@ -30,6 +31,8 @@ pub struct TransactionBatch {
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Digest>,
     created_notes_smt: SimpleSmt,
+    /// The notes stored `created_notes_smt`
+    created_notes: Vec<NoteEnvelope>,
 }
 
 impl TransactionBatch {
@@ -53,26 +56,30 @@ impl TransactionBatch {
             .map(|consumed_note| consumed_note.nullifier())
             .collect();
 
-        let created_notes_smt = {
-            let created_notes: Vec<&NoteEnvelope> =
-                txs.iter().flat_map(|tx| tx.created_notes()).collect();
+        let (created_notes, created_notes_smt) = {
+            let created_notes: Vec<NoteEnvelope> =
+                txs.iter().flat_map(|tx| tx.created_notes()).cloned().collect();
 
             if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
                 return Err(BuildBatchError::TooManyNotesCreated(created_notes.len()));
             }
 
-            SimpleSmt::with_contiguous_leaves(
-                CREATED_NOTES_SMT_DEPTH,
-                created_notes.into_iter().flat_map(|note_envelope| {
-                    [note_envelope.note_hash().into(), note_envelope.metadata().into()]
-                }),
-            )?
+            (
+                created_notes.clone(),
+                SimpleSmt::with_contiguous_leaves(
+                    CREATED_NOTES_SMT_DEPTH,
+                    created_notes.into_iter().flat_map(|note_envelope| {
+                        [note_envelope.note_hash().into(), note_envelope.metadata().into()]
+                    }),
+                )?,
+            )
         };
 
         Ok(Self {
             updated_accounts,
             produced_nullifiers,
             created_notes_smt,
+            created_notes,
         })
     }
 
@@ -98,8 +105,8 @@ impl TransactionBatch {
     }
 
     /// Returns the hash of created notes
-    pub fn created_notes(&self) -> impl Iterator<Item = Digest> + '_ {
-        self.created_notes_smt.leaves().map(|(_key, leaf)| leaf.into())
+    pub fn created_notes(&self) -> impl Iterator<Item = &NoteEnvelope> + '_ {
+        self.created_notes.iter()
     }
 
     /// Returns the root of the created notes SMT
