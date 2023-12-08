@@ -214,7 +214,8 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
         block_frequency: Duration::from_secs(10),
         max_batches_per_block: 4,
     };
-    let batch_builder = DefaultBatchBuilder::new(Arc::new(block_builder), batch_builder_options);
+    let batch_builder =
+        Arc::new(DefaultBatchBuilder::new(Arc::new(block_builder), batch_builder_options));
     let state_view = DefaulStateView::new(store.clone());
 
     let transaction_queue_options = DefaultTransactionQueueOptions {
@@ -223,7 +224,7 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     };
     let queue = Arc::new(DefaultTransactionQueue::new(
         Arc::new(state_view),
-        Arc::new(batch_builder),
+        batch_builder.clone(),
         transaction_queue_options,
     ));
 
@@ -231,12 +232,17 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
         queue: queue.clone(),
     });
 
-    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
-
     tokio::spawn(async move {
-        info!("Block producer task created");
+        info!("transaction queue started");
         queue.run().await
     });
+
+    tokio::spawn(async move {
+        info!("batch builder started");
+        batch_builder.run().await
+    });
+
+    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
 
     Ok(())

@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
 use miden_vm::crypto::SimpleSmt;
 use tokio::{sync::RwLock, time};
+use tracing::info;
 
 use self::errors::BuildBatchError;
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
@@ -27,6 +28,7 @@ pub(crate) const MAX_NUM_CREATED_NOTES_PER_BATCH: usize =
 /// in the batch must be addressing that account.
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
+#[derive(Debug)]
 pub struct TransactionBatch {
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Digest>,
@@ -117,6 +119,7 @@ impl TransactionBatch {
 
 /// Stores the initial state (before the transaction) and final state (after the transaction) of an
 /// account
+#[derive(Debug)]
 struct AccountStates {
     initial_state: Digest,
     final_state: Digest,
@@ -165,7 +168,7 @@ where
         }
     }
 
-    pub async fn run(self) {
+    pub async fn run(self: Arc<Self>) {
         let mut interval = time::interval(self.options.block_frequency);
 
         loop {
@@ -207,8 +210,12 @@ where
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
+        let num_txs = txs.len();
+
         let batch = Arc::new(TransactionBatch::new(txs)?);
         self.ready_batches.write().await.push(batch);
+
+        info!("batch built with {num_txs} txs");
 
         Ok(())
     }
