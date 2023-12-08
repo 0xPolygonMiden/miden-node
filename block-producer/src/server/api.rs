@@ -2,6 +2,7 @@ use std::{net::ToSocketAddrs, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_trait::async_trait;
+use miden_crypto::utils::Deserializable;
 use miden_node_proto::{
     account_id,
     block_producer::api_server,
@@ -14,7 +15,7 @@ use miden_node_proto::{
     responses::SubmitProvenTransactionResponse,
     store::api_client as store_client,
 };
-use miden_objects::{accounts::AccountId, Digest};
+use miden_objects::{accounts::AccountId, transaction::ProvenTransaction, Digest};
 use tonic::{
     transport::{Channel, Server},
     Status,
@@ -174,9 +175,19 @@ where
 {
     async fn submit_proven_transaction(
         &self,
-        _request: tonic::Request<SubmitProvenTransactionRequest>,
+        request: tonic::Request<SubmitProvenTransactionRequest>,
     ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        let tx = ProvenTransaction::read_from_bytes(&request.transaction)
+            .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
+
+        self.queue
+            .add_transaction(Arc::new(tx))
+            .await
+            .map_err(|err| Status::invalid_argument(format!("{:?}", err)))?;
+
+        Ok(tonic::Response::new(SubmitProvenTransactionResponse {}))
     }
 }
 
