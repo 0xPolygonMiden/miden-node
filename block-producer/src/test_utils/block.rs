@@ -1,7 +1,9 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use miden_node_proto::domain::BlockInputs;
-use miden_objects::{accounts::AccountId, crypto::merkle::Mmr, BlockHeader, Digest, ONE, ZERO};
+use miden_objects::{
+    accounts::AccountId, crypto::merkle::Mmr, notes::NoteEnvelope, BlockHeader, Digest, ONE, ZERO,
+};
 use miden_vm::crypto::SimpleSmt;
 
 use super::MockStoreSuccess;
@@ -98,7 +100,7 @@ pub struct MockBlockBuilder {
     last_block_header: BlockHeader,
 
     updated_accounts: Option<Vec<(AccountId, Digest)>>,
-    created_notes: Option<Vec<Digest>>,
+    created_notes: Option<BTreeMap<u64, NoteEnvelope>>,
     produced_nullifiers: Option<Vec<Digest>>,
 }
 
@@ -132,7 +134,7 @@ impl MockBlockBuilder {
 
     pub fn created_notes(
         mut self,
-        created_notes: Vec<Digest>,
+        created_notes: BTreeMap<u64, NoteEnvelope>,
     ) -> Self {
         self.created_notes = Some(created_notes);
 

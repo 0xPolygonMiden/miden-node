@@ -10,6 +10,21 @@ pub struct AccountUpdate {
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NoteCreated {
+    #[prost(message, optional, tag = "1")]
+    pub note_hash: ::core::option::Option<super::digest::Digest>,
+    #[prost(uint64, tag = "2")]
+    pub sender: u64,
+    #[prost(uint64, tag = "3")]
+    pub tag: u64,
+    #[prost(uint32, tag = "4")]
+    pub num_assets: u32,
+    #[prost(uint32, tag = "5")]
+    pub note_index: u32,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyBlockRequest {
     #[prost(message, optional, tag = "1")]
     pub block: ::core::option::Option<super::block_header::BlockHeader>,
@@ -18,7 +33,7 @@ pub struct ApplyBlockRequest {
     #[prost(message, repeated, tag = "3")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
     #[prost(message, repeated, tag = "4")]
-    pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
+    pub notes: ::prost::alloc::vec::Vec<NoteCreated>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
