@@ -12,3 +12,4 @@ miden-node-rpc = { version = "0.1", path = "../rpc" }
 miden-node-store = { version = "0.1", path = "../store" }
 miden-node-utils = { path = "../utils" }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
+tracing = { version = "0.1" }
