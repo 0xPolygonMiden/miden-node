@@ -16,7 +16,6 @@ bench = false
 doctest = false
 
 [dev-dependencies]
-miden-crypto = { workspace = true }
 miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", default-features = false }
 once_cell = { version = "1.18" }
 winterfell = "0.7"
@@ -28,6 +27,7 @@ clap = { version = "4.3", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
 miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
+miden-crypto = { workspace = true }
 miden-node-proto = { path = "../proto" }
 miden-node-utils = { path = "../utils" }
 miden_objects = { workspace = true }
