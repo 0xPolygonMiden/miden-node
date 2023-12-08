@@ -107,7 +107,7 @@ impl Store for DefaultStore {
         let account_hash = {
             let account_state = response
                 .account_states
-                .get(0)
+                .first()
                 .ok_or(TxInputsError::MalformedResponse("account_states empty".to_string()))?;
 
             let account_id_from_store: AccountId = account_state
