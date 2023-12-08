@@ -34,17 +34,6 @@ async fn main() -> anyhow::Result<()> {
     // wait for store to be started
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    // start rpc
-    {
-        let config: RpcConfig = {
-            let config_path = PathBuf::from(rpc_config::CONFIG_FILENAME);
-
-            RpcConfig::load_config(Some(config_path).as_deref()).extract()?
-        };
-
-        join_set.spawn(rpc_server::api::serve(config));
-    }
-
     // start block-producer
     {
         let config: BlockProducerConfig = {
@@ -54,6 +43,17 @@ async fn main() -> anyhow::Result<()> {
         };
 
         join_set.spawn(block_producer_server::api::serve(config));
+    }
+
+    // start rpc
+    {
+        let config: RpcConfig = {
+            let config_path = PathBuf::from(rpc_config::CONFIG_FILENAME);
+
+            RpcConfig::load_config(Some(config_path).as_deref()).extract()?
+        };
+
+        join_set.spawn(rpc_server::api::serve(config));
     }
 
     // block on all tasks
