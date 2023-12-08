@@ -1,5 +1,4 @@
 mod cli;
-mod errors;
 use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Command};
