@@ -17,8 +17,7 @@ async fn test_apply_block_ab1() {
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
-            .initial_accounts(iter::once((account.id, account.states[0])))
-            .build(),
+            .build_from_accounts(iter::once((account.id, account.states[0]))),
     );
 
     let tx = tx_gen.dummy_proven_tx_with_params(
@@ -58,14 +57,12 @@ async fn test_apply_block_ab2() {
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(
-        MockStoreSuccessBuilder::new()
-            .initial_accounts(
-                accounts
-                    .clone()
-                    .into_iter()
-                    .map(|mock_account| (mock_account.id, mock_account.states[0])),
-            )
-            .build(),
+        MockStoreSuccessBuilder::new().build_from_accounts(
+            accounts
+                .clone()
+                .into_iter()
+                .map(|mock_account| (mock_account.id, mock_account.states[0])),
+        ),
     );
 
     let state_view = DefaulStateView::new(store.clone());
@@ -107,14 +104,12 @@ async fn test_apply_block_ab3() {
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(
-        MockStoreSuccessBuilder::new()
-            .initial_accounts(
-                accounts
-                    .clone()
-                    .into_iter()
-                    .map(|mock_account| (mock_account.id, mock_account.states[0])),
-            )
-            .build(),
+        MockStoreSuccessBuilder::new().build_from_accounts(
+            accounts
+                .clone()
+                .into_iter()
+                .map(|mock_account| (mock_account.id, mock_account.states[0])),
+        ),
     );
 
     let state_view = DefaulStateView::new(store.clone());

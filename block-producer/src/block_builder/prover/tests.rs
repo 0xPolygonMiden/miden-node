@@ -213,14 +213,12 @@ async fn test_compute_account_root_success() {
     // Set up store's account SMT
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new()
-        .initial_accounts(
-            account_ids
-                .iter()
-                .zip(account_initial_states.iter())
-                .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
-        )
-        .build();
+    let store = MockStoreSuccessBuilder::new().build_from_accounts(
+        account_ids
+            .iter()
+            .zip(account_initial_states.iter())
+            .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
+    );
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -298,13 +296,12 @@ async fn test_compute_account_root_empty_batches() {
     // ---------------------------------------------------------------------------------------------
 
     let store = MockStoreSuccessBuilder::new()
-        .initial_accounts(
+        .build_from_accounts(
             account_ids
                 .iter()
                 .zip(account_initial_states.iter())
                 .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
-        )
-        .build();
+        );
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -334,7 +331,7 @@ async fn test_compute_note_root_empty_batches_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new().build();
+    let store = MockStoreSuccessBuilder::empty_store();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -363,7 +360,7 @@ async fn test_compute_note_root_empty_notes_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new().build();
+    let store = MockStoreSuccessBuilder::empty_store();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -418,7 +415,7 @@ async fn test_compute_note_root_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new().build();
+    let store = MockStoreSuccessBuilder::empty_store();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -487,7 +484,7 @@ async fn test_compute_note_root_success() {
 /// Test that the chain mmr root is as expected if the batches are empty
 #[tokio::test]
 async fn test_compute_chain_mmr_root_empty_mmr() {
-    let store = MockStoreSuccessBuilder::new().build();
+    let store = MockStoreSuccessBuilder::empty_store();
 
     let expected_block_header = build_expected_block_header(&store, &[]).await;
     let actual_block_header = build_actual_block_header(&store, Vec::new()).await;
@@ -505,7 +502,9 @@ async fn test_compute_chain_mmr_root_mmr_1_peak() {
         mmr
     };
 
-    let store = MockStoreSuccessBuilder::new().initial_chain_mmr(initial_chain_mmr).build();
+    let store = MockStoreSuccessBuilder::new()
+        .initial_chain_mmr(initial_chain_mmr)
+        .build_from_accounts(std::iter::empty());
 
     let expected_block_header = build_expected_block_header(&store, &[]).await;
     let actual_block_header = build_actual_block_header(&store, Vec::new()).await;
@@ -527,7 +526,9 @@ async fn test_compute_chain_mmr_root_mmr_17_peaks() {
         mmr
     };
 
-    let store = MockStoreSuccessBuilder::new().initial_chain_mmr(initial_chain_mmr).build();
+    let store = MockStoreSuccessBuilder::new()
+        .initial_chain_mmr(initial_chain_mmr)
+        .build_from_accounts(std::iter::empty());
 
     let expected_block_header = build_expected_block_header(&store, &[]).await;
     let actual_block_header = build_actual_block_header(&store, Vec::new()).await;

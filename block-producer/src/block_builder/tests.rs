@@ -17,8 +17,7 @@ async fn test_apply_block_called_nonempty_batches() {
         [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)].into();
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
-            .initial_accounts(std::iter::once((account_id, account_initial_hash)))
-            .build(),
+            .build_from_accounts(std::iter::once((account_id, account_initial_hash))),
     );
 
     let block_builder = DefaultBlockBuilder::new(store.clone());
@@ -52,8 +51,7 @@ async fn test_apply_block_called_empty_batches() {
         [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)].into();
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
-            .initial_accounts(std::iter::once((account_id, account_hash)))
-            .build(),
+            .build_from_accounts(std::iter::once((account_id, account_hash))),
     );
 
     let block_builder = DefaultBlockBuilder::new(store.clone());

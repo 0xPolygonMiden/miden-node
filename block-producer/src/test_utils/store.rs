@@ -15,14 +15,13 @@ const ACCOUNT_SMT_DEPTH: u8 = 64;
 /// Builds a [`MockStoreSuccess`]
 #[derive(Debug, Default)]
 pub struct MockStoreSuccessBuilder {
+    // TODO: REMOVE accounts, and `build(accounts_smt)`
     accounts: Option<SimpleSmt>,
     consumed_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
 }
 
 impl MockStoreSuccessBuilder {
-    /// FIXME: the store always needs to be properly initialized with initial accounts
-    /// see https://github.com/0xPolygonMiden/miden-node/issues/79
     pub fn new() -> Self {
         Self::default()
     }
@@ -32,10 +31,10 @@ impl MockStoreSuccessBuilder {
         Self::default().build()
     }
 
-    pub fn initial_accounts(
+    pub fn build_from_accounts(
         mut self,
         accounts: impl Iterator<Item = (AccountId, Digest)>,
-    ) -> Self {
+    ) -> MockStoreSuccess {
         let accounts_smt = {
             let accounts =
                 accounts.into_iter().map(|(account_id, hash)| (account_id.into(), hash.into()));
@@ -45,7 +44,7 @@ impl MockStoreSuccessBuilder {
 
         self.accounts = Some(accounts_smt);
 
-        self
+        self.build()
     }
 
     pub fn initial_nullifiers(
@@ -66,7 +65,17 @@ impl MockStoreSuccessBuilder {
         self
     }
 
-    pub fn build(self) -> MockStoreSuccess {
+    pub fn build_from_batches(
+        self,
+        _accounts: impl Iterator<Item = (AccountId, Digest)>,
+    ) -> MockStoreSuccess {
+        assert!(self.accounts.is_none());
+        assert!(self.consumed_nullifiers.is_none());
+
+        todo!()
+    }
+
+    fn build(self) -> MockStoreSuccess {
         let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new(ACCOUNT_SMT_DEPTH).unwrap());
         let chain_mmr = self.chain_mmr.unwrap_or_default();
 
