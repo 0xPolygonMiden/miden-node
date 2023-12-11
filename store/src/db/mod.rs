@@ -147,14 +147,10 @@ impl Db {
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
         block_header: BlockHeader,
-        notes: &[Note],
-        nullifiers: &[RpoDigest],
-        accounts: &[(AccountId, Digest)],
+        notes: Vec<Note>,
+        nullifiers: Vec<RpoDigest>,
+        accounts: Vec<(AccountId, Digest)>,
     ) -> Result<(), anyhow::Error> {
-        let notes = notes.to_vec();
-        let nullifiers = nullifiers.to_vec();
-        let accounts = accounts.to_vec();
-
         self.pool
             .get()
             .await?
