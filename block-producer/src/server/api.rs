@@ -49,11 +49,7 @@ impl ApplyBlock for DefaultStore {
             block: Some(block.header.into()),
             accounts: convert(block.updated_accounts.clone()),
 
-            nullifiers: block
-                .produced_nullifiers
-                .iter()
-                .map(|nullifier| nullifier.into())
-                .collect(),
+            nullifiers: convert(block.produced_nullifiers.clone()),
             notes: block
                 .created_notes
                 .iter()
