@@ -5,6 +5,7 @@ use miden_vm::crypto::SimpleSmt;
 
 use super::*;
 use crate::{
+    batch_builder::TransactionBatch,
     block::Block,
     store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputs, TxInputsError},
     SharedProvenTx,
@@ -13,10 +14,13 @@ use crate::{
 const ACCOUNT_SMT_DEPTH: u8 = 64;
 
 /// Builds a [`MockStoreSuccess`]
+/// 
+/// The only way to build a [`MockStoreSuccess`] is from [`Self::build_from_accounts`] or
+/// [`Self::build_from_batches`]. This is to remind the user that any accounts used in transactions
+/// *must exist in the store*; this API makes it hard to forget to initialize the store with the
+/// proper accounts.
 #[derive(Debug, Default)]
 pub struct MockStoreSuccessBuilder {
-    // TODO: REMOVE accounts, and `build(accounts_smt)`
-    accounts: Option<SimpleSmt>,
     consumed_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
 }
@@ -28,23 +32,7 @@ impl MockStoreSuccessBuilder {
 
     /// Builds an empty store directly
     pub fn empty_store() -> MockStoreSuccess {
-        Self::default().build()
-    }
-
-    pub fn build_from_accounts(
-        mut self,
-        accounts: impl Iterator<Item = (AccountId, Digest)>,
-    ) -> MockStoreSuccess {
-        let accounts_smt = {
-            let accounts =
-                accounts.into_iter().map(|(account_id, hash)| (account_id.into(), hash.into()));
-
-            SimpleSmt::with_leaves(ACCOUNT_SMT_DEPTH, accounts).unwrap()
-        };
-
-        self.accounts = Some(accounts_smt);
-
-        self.build()
+        Self::default().build(None)
     }
 
     pub fn initial_nullifiers(
@@ -65,18 +53,37 @@ impl MockStoreSuccessBuilder {
         self
     }
 
+    /// Builds a `MockStoreSuccess` with accounts (and initial state) explicitly stated. Most tests will prefer to use [`Self::build_from_batches`], which infers which accounts should be added to the store
+    pub fn build_from_accounts(
+        self,
+        accounts: impl Iterator<Item = (AccountId, Digest)>,
+    ) -> MockStoreSuccess {
+        let accounts_smt = {
+            let accounts =
+                accounts.into_iter().map(|(account_id, hash)| (account_id.into(), hash.into()));
+
+            SimpleSmt::with_leaves(ACCOUNT_SMT_DEPTH, accounts).unwrap()
+        };
+
+        self.build(Some(accounts_smt))
+    }
+
     pub fn build_from_batches(
         self,
-        _accounts: impl Iterator<Item = (AccountId, Digest)>,
+        _batches: impl Iterator<Item = TransactionBatch>,
     ) -> MockStoreSuccess {
-        assert!(self.accounts.is_none());
-        assert!(self.consumed_nullifiers.is_none());
-
         todo!()
     }
 
-    fn build(self) -> MockStoreSuccess {
-        let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new(ACCOUNT_SMT_DEPTH).unwrap());
+    // HELPERS
+    // ----------------------------------------------------------------------------------------------
+
+    /// Build a `MockStoreSuccess`
+    fn build(
+        self,
+        accounts: Option<SimpleSmt>,
+    ) -> MockStoreSuccess {
+        let accounts_smt = accounts.unwrap_or(SimpleSmt::new(ACCOUNT_SMT_DEPTH).unwrap());
         let chain_mmr = self.chain_mmr.unwrap_or_default();
 
         let initial_block_header = BlockHeader::new(
