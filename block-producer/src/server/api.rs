@@ -6,11 +6,12 @@ use miden_crypto::utils::Deserializable;
 use miden_node_proto::{
     account_id,
     block_producer::api_server,
+    conversion::convert,
     digest,
     domain::BlockInputs,
     requests::{
-        AccountUpdate, ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest,
-        NoteCreated, SubmitProvenTransactionRequest,
+        ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest, NoteCreated,
+        SubmitProvenTransactionRequest,
     },
     responses::SubmitProvenTransactionResponse,
     store::api_client as store_client,
@@ -46,14 +47,8 @@ impl ApplyBlock for DefaultStore {
     ) -> Result<(), ApplyBlockError> {
         let request = tonic::Request::new(ApplyBlockRequest {
             block: Some(block.header.into()),
-            accounts: block
-                .updated_accounts
-                .iter()
-                .map(|(account_id, account_hash)| AccountUpdate {
-                    account_id: Some((*account_id).into()),
-                    account_hash: Some(account_hash.into()),
-                })
-                .collect(),
+            accounts: convert(block.updated_accounts.clone()),
+
             nullifiers: block
                 .produced_nullifiers
                 .iter()

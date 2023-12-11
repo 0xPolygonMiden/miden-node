@@ -7,7 +7,7 @@ use miden_objects::{accounts::AccountId, BlockHeader, Digest as RpoDigest};
 use crate::{
     account_id, block_header, digest,
     domain::{AccountInputRecord, BlockInputs, NullifierInputRecord},
-    error, merkle, mmr, note, responses, tsmt,
+    error, merkle, mmr, note, requests, responses, tsmt,
 };
 
 impl From<[u64; 4]> for digest::Digest {
@@ -351,6 +351,15 @@ impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
             account_states: try_convert(get_block_inputs.account_states)?,
             nullifiers: try_convert(get_block_inputs.nullifiers)?,
         })
+    }
+}
+
+impl From<(AccountId, RpoDigest)> for requests::AccountUpdate {
+    fn from((account_id, account_hash): (AccountId, RpoDigest)) -> Self {
+        Self {
+            account_id: Some(account_id.into()),
+            account_hash: Some(account_hash.into()),
+        }
     }
 }
 
