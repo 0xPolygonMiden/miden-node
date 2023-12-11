@@ -295,13 +295,12 @@ async fn test_compute_account_root_empty_batches() {
     // Set up store's account SMT
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new()
-        .build_from_accounts(
-            account_ids
-                .iter()
-                .zip(account_initial_states.iter())
-                .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
-        );
+    let store = MockStoreSuccessBuilder::new().build_from_accounts(
+        account_ids
+            .iter()
+            .zip(account_initial_states.iter())
+            .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
+    );
 
     // Block prover
     // ---------------------------------------------------------------------------------------------

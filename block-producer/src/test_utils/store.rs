@@ -14,7 +14,7 @@ use crate::{
 const ACCOUNT_SMT_DEPTH: u8 = 64;
 
 /// Builds a [`MockStoreSuccess`]
-/// 
+///
 /// The only way to build a [`MockStoreSuccess`] is from [`Self::build_from_accounts`] or
 /// [`Self::build_from_batches`]. This is to remind the user that any accounts used in transactions
 /// *must exist in the store*; this API makes it hard to forget to initialize the store with the
