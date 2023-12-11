@@ -31,7 +31,9 @@ static NUM_ACCOUNTS_CREATED: Lazy<Arc<Mutex<u32>>> = Lazy::new(|| Arc::new(Mutex
 static NUM_NOTES_CREATED: Lazy<Arc<Mutex<u64>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
 
 pub struct MockProvenTxBuilder {
-    mock_account: MockPrivateAccount,
+    account_id: AccountId,
+    initial_state: Digest,
+    final_state: Digest,
     notes_created: Option<Vec<NoteEnvelope>>,
 }
 
@@ -46,8 +48,25 @@ impl MockProvenTxBuilder {
 
             account_index
         };
+        let mock_account: MockPrivateAccount<2> = account_index.into();
+
         Self {
-            mock_account: account_index.into(),
+            account_id: mock_account.id,
+            initial_state: mock_account.states[0],
+            final_state: mock_account.states[1],
+            notes_created: None,
+        }
+    }
+
+    pub fn from_account(
+        account_id: AccountId,
+        initial_state: Digest,
+        final_state: Digest,
+    ) -> Self {
+        Self {
+            account_id,
+            initial_state,
+            final_state,
             notes_created: None,
         }
     }
@@ -63,7 +82,7 @@ impl MockProvenTxBuilder {
             .map(|note_index| {
                 let note_hash = Rpo256::hash(&note_index.to_be_bytes());
 
-                NoteEnvelope::new(note_hash, NoteMetadata::new(self.mock_account.id, ONE, ZERO))
+                NoteEnvelope::new(note_hash, NoteMetadata::new(self.account_id, ONE, ZERO))
             })
             .collect();
 
@@ -76,9 +95,9 @@ impl MockProvenTxBuilder {
 
     pub fn build(self) -> ProvenTransaction {
         ProvenTransaction::new(
-            self.mock_account.id,
-            self.mock_account.states[0],
-            self.mock_account.states[1],
+            self.account_id,
+            self.initial_state,
+            self.final_state,
             Vec::new(),
             self.notes_created.unwrap_or_default(),
             None,
