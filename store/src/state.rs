@@ -2,7 +2,7 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::mem;
+use std::{mem, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use miden_crypto::{
@@ -58,7 +58,7 @@ struct InnerState {
 
 /// The rollup state
 pub struct State {
-    db: Db,
+    db: Arc<Db>,
 
     /// Read-write lock used to prevent writing to a structure while it is being used.
     ///
@@ -150,6 +150,7 @@ impl State {
         });
 
         let writer = Mutex::new(());
+        let db = Arc::new(db);
         Ok(Self { db, inner, writer })
     }
 
@@ -175,9 +176,9 @@ impl State {
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,
-        nullifiers: &[RpoDigest],
-        accounts: &[(AccountId, Digest)],
-        notes: &[NoteCreated],
+        nullifiers: Vec<RpoDigest>,
+        accounts: Vec<(AccountId, Digest)>,
+        notes: Vec<NoteCreated>,
     ) -> Result<(), anyhow::Error> {
         let _ = self.writer.try_lock().map_err(|_| StateError::ConcurrentWrite)?;
 
@@ -230,7 +231,7 @@ impl State {
 
             let mut nullifier_tree = inner.nullifier_tree.clone();
             let nullifier_data = block_to_nullifier_data(block_num);
-            for nullifier in nullifiers {
+            for nullifier in nullifiers.iter() {
                 nullifier_tree.insert(*nullifier, nullifier_data);
             }
 
@@ -245,7 +246,7 @@ impl State {
             }
 
             let mut account_tree = inner.account_tree.clone();
-            for (account_id, account_hash) in accounts {
+            for (account_id, account_hash) in accounts.iter() {
                 account_tree.update_leaf(*account_id, account_hash.try_into()?)?;
             }
 
@@ -259,7 +260,7 @@ impl State {
                 return Err(StateError::InvalidAccountRoot.into());
             }
 
-            let note_tree = build_notes_tree(notes)?;
+            let note_tree = build_notes_tree(&notes)?;
             if note_tree.root()
                 != block_header.note_root.clone().ok_or(StateError::MissingNoteRoot)?.try_into()?
             {
@@ -298,9 +299,15 @@ impl State {
         // signals the write lock has been acquired, and the transaction can be commited
         let (inform_acquire_done, acquire_done) = oneshot::channel::<()>();
 
-        self.db
-            .apply_block(allow_acquire, acquire_done, block_header, &notes, nullifiers, accounts)
-            .await?;
+        // The DB and in-memory state updates need to be synchronized and are partially
+        // overlapping. Namely, the DB transaction only proceeds after this task acquires the
+        // in-memory write lock. This requires the DB update to run concurrently, so a new task is
+        // spawned.
+        let db = self.db.clone();
+        tokio::spawn(async move {
+            db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
+                .await;
+        });
 
         acquired_allowed.await?;
 

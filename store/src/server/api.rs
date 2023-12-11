@@ -149,7 +149,7 @@ impl api_server::Api for StoreApi {
 
         let notes = request.notes;
 
-        let _ = self.state.apply_block(block, &nullifiers, &accounts, &notes).await;
+        let _ = self.state.apply_block(block, nullifiers, accounts, notes).await;
 
         Ok(Response::new(ApplyBlockResponse {}))
     }
