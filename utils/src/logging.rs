@@ -1,6 +1,6 @@
 use anyhow::Result;
-use tracing::{debug, subscriber};
-use tracing_subscriber::{self, EnvFilter};
+use tracing::subscriber;
+use tracing_subscriber::{self, fmt::format::FmtSpan, EnvFilter};
 
 pub fn setup_logging() -> Result<()> {
     let subscriber = tracing_subscriber::fmt()
@@ -13,6 +13,7 @@ pub fn setup_logging() -> Result<()> {
         .with_thread_names(true)
         .with_target(true)
         .with_env_filter(EnvFilter::from_default_env())
+        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
         .finish();
     subscriber::set_global_default(subscriber)?;
 
