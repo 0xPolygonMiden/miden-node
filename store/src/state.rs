@@ -34,6 +34,7 @@ use tokio::{
 use tracing::{info, instrument, span, Level};
 
 use crate::{
+    constants::COMPONENT,
     db::{Db, StateSyncUpdate},
     errors::StateError,
     genesis::genesis_header,
@@ -198,7 +199,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = span!(Level::INFO, "updating in-memory data structures");
+            let span = span!(Level::INFO, COMPONENT, "updating in-memory data structures");
             let guard = span.enter();
 
             // nullifiers can be produced only once
@@ -467,7 +468,12 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifier_tree = TieredSmt::with_entries(leaves)?;
     let elapsed = now.elapsed().as_secs();
 
-    info!(num_of_leaves = len, tree_construction = elapsed, "Loaded nullifier tree");
+    info!(
+        num_of_leaves = len,
+        tree_construction = elapsed,
+        COMPONENT,
+        "Loaded nullifier tree"
+    );
     Ok(nullifier_tree)
 }
 

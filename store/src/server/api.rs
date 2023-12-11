@@ -19,7 +19,7 @@ use miden_node_proto::{
 use tonic::{transport::Server, Response, Status};
 use tracing::info;
 
-use crate::{config::StoreConfig, db::Db, state::State};
+use crate::{config::StoreConfig, constants::COMPONENT, db::Db, state::State};
 
 // STORE INITIALIZER
 // ================================================================================================
@@ -34,7 +34,12 @@ pub async fn serve(
     let state = Arc::new(State::load(db).await?);
     let store = api_server::ApiServer::new(StoreApi { state });
 
-    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
+    info!(
+        host = config.endpoint.host,
+        port = config.endpoint.port,
+        COMPONENT,
+        "Server initialized",
+    );
     Server::builder().add_service(store).serve(addrs[0]).await?;
 
     Ok(())

@@ -27,6 +27,7 @@ use crate::{
     block::Block,
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
+    constants::COMPONENT,
     state_view::DefaulStateView,
     store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputs, TxInputsError},
     txqueue::{DefaultTransactionQueue, DefaultTransactionQueueOptions, TransactionQueue},
@@ -233,16 +234,21 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     });
 
     tokio::spawn(async move {
-        info!("transaction queue started");
+        info!(COMPONENT, "transaction queue started");
         queue.run().await
     });
 
     tokio::spawn(async move {
-        info!("batch builder started");
+        info!(COMPONENT, "batch builder started");
         batch_builder.run().await
     });
 
-    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
+    info!(
+        COMPONENT,
+        host = config.endpoint.host,
+        port = config.endpoint.port,
+        "Server initialized",
+    );
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
 
     Ok(())

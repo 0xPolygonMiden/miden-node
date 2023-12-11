@@ -5,7 +5,8 @@ use miden_objects::{accounts::AccountId, Digest};
 use tracing::info;
 
 use crate::{
-    batch_builder::MAX_NUM_CREATED_NOTES_PER_BATCH, block::Block, store::Store, SharedTxBatch,
+    batch_builder::MAX_NUM_CREATED_NOTES_PER_BATCH, block::Block, constants::COMPONENT,
+    store::Store, SharedTxBatch,
 };
 
 pub mod errors;
@@ -101,7 +102,7 @@ where
 
         self.store.apply_block(block.clone()).await?;
 
-        info!("block #{block_num} built!");
+        info!(COMPONENT, "block #{block_num} built!");
 
         Ok(())
     }

@@ -15,6 +15,7 @@ use tracing::{info, span, Level};
 
 use crate::{
     config::StoreConfig,
+    constants::COMPONENT,
     migrations,
     types::{AccountId, BlockNumber},
 };
@@ -48,7 +49,10 @@ impl Db {
 
         let conn = pool.get().await?;
 
-        info!(sqlite = format!("{}", config.sqlite.display()), "Connected to the DB");
+        info!(
+            sqlite = format!("{}", config.sqlite.display()),
+            COMPONENT, "Connected to the DB"
+        );
 
         // Feature used to support `IN` and `NOT IN` queries
         conn.interact(|conn| array::load_module(conn))
@@ -155,7 +159,7 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let span = span!(Level::INFO, "writing new block data to DB");
+                let span = span!(Level::INFO, COMPONENT, "writing new block data to DB");
                 let guard = span.enter();
 
                 let transaction = conn.transaction()?;

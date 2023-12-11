@@ -12,6 +12,7 @@ pub mod block;
 pub mod block_builder;
 pub mod cli;
 pub mod config;
+pub mod constants;
 pub mod server;
 pub mod state_view;
 pub mod store;
