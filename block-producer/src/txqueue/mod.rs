@@ -114,34 +114,30 @@ where
         let txs: Vec<SharedProvenTx> = {
             let mut locked_ready_queue = self.ready_queue.write().await;
 
+            if locked_ready_queue.is_empty() {
+                return;
+            }
+
             locked_ready_queue.drain(..).collect()
         };
 
-        if txs.is_empty() {
+        let tx_groups = txs.chunks(self.options.batch_size).map(|txs| txs.to_vec());
+
+        for mut txs in tx_groups {
+            let ready_queue = self.ready_queue.clone();
             let batch_builder = self.batch_builder.clone();
 
             tokio::spawn(async move {
-                let _ = batch_builder.build_batch(Vec::new()).await;
+                match batch_builder.build_batch(txs.clone()).await {
+                    Ok(_) => {
+                        // batch was successfully built, do nothing
+                    },
+                    Err(_) => {
+                        // batch building failed, add txs back at the end of the queue
+                        ready_queue.write().await.append(&mut txs);
+                    },
+                }
             });
-        } else {
-            let tx_groups = txs.chunks(self.options.batch_size).map(|txs| txs.to_vec());
-
-            for mut txs in tx_groups {
-                let ready_queue = self.ready_queue.clone();
-                let batch_builder = self.batch_builder.clone();
-
-                tokio::spawn(async move {
-                    match batch_builder.build_batch(txs.clone()).await {
-                        Ok(_) => {
-                            // batch was successfully built, do nothing
-                        },
-                        Err(_) => {
-                            // batch building failed, add txs back at the end of the queue
-                            ready_queue.write().await.append(&mut txs);
-                        },
-                    }
-                });
-            }
         }
     }
 }
