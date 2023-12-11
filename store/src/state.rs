@@ -306,7 +306,7 @@ impl State {
         let db = self.db.clone();
         tokio::spawn(async move {
             db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
-                .await;
+                .await
         });
 
         acquired_allowed.await?;
