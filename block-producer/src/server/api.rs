@@ -10,7 +10,7 @@ use miden_node_proto::{
     digest,
     domain::BlockInputs,
     requests::{
-        ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest, NoteCreated,
+        ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest,
         SubmitProvenTransactionRequest,
     },
     responses::SubmitProvenTransactionResponse,
@@ -48,19 +48,8 @@ impl ApplyBlock for DefaultStore {
         let request = tonic::Request::new(ApplyBlockRequest {
             block: Some(block.header.into()),
             accounts: convert(block.updated_accounts.clone()),
-
             nullifiers: convert(block.produced_nullifiers.clone()),
-            notes: block
-                .created_notes
-                .iter()
-                .map(|(note_idx, note)| NoteCreated {
-                    note_hash: Some(note.note_hash().into()),
-                    sender: note.metadata().sender().into(),
-                    tag: note.metadata().tag().into(),
-                    num_assets: u64::from(note.metadata().num_assets()) as u32,
-                    note_index: *note_idx as u32,
-                })
-                .collect(),
+            notes: convert(block.created_notes.clone()),
         });
 
         let _ = self

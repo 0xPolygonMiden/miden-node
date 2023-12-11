@@ -2,7 +2,7 @@ use miden_crypto::{
     merkle::{MerklePath, MmrDelta, MmrPeaks, TieredSmtProof},
     Felt, FieldElement, StarkField, Word,
 };
-use miden_objects::{accounts::AccountId, BlockHeader, Digest as RpoDigest};
+use miden_objects::{accounts::AccountId, notes::NoteEnvelope, BlockHeader, Digest as RpoDigest};
 
 use crate::{
     account_id, block_header, digest,
@@ -359,6 +359,18 @@ impl From<(AccountId, RpoDigest)> for requests::AccountUpdate {
         Self {
             account_id: Some(account_id.into()),
             account_hash: Some(account_hash.into()),
+        }
+    }
+}
+
+impl From<(u64, NoteEnvelope)> for requests::NoteCreated {
+    fn from((note_idx, note): (u64, NoteEnvelope)) -> Self {
+        Self {
+            note_hash: Some(note.note_hash().into()),
+            sender: note.metadata().sender().into(),
+            tag: note.metadata().tag().into(),
+            num_assets: u64::from(note.metadata().num_assets()) as u32,
+            note_index: note_idx as u32,
         }
     }
 }
