@@ -25,8 +25,8 @@ serde = { version = "1.0" , features = ["derive"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 toml = { version = "0.8" }
 tonic = { version = "0.10" }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" , features = ["fmt"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [build-dependencies]
 miette = { version = "5.9", features = ["fancy"] }

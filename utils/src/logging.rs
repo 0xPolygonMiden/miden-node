@@ -1,9 +1,10 @@
 use anyhow::Result;
-use tracing::subscriber;
+use tracing::{debug, subscriber};
 use tracing_subscriber;
 
 pub fn setup_logging() -> Result<()> {
     let subscriber = tracing_subscriber::fmt()
+        .json()
         .compact()
         .with_level(true)
         .with_file(true)
