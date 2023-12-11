@@ -15,7 +15,7 @@ use std::iter;
 use tokio::task::JoinSet;
 
 use super::*;
-use crate::test_utils::MockStoreSuccessBuilder;
+use crate::test_utils::{MockProvenTxBuilder, MockStoreSuccessBuilder};
 
 /// Tests the happy path where 3 transactions who modify different accounts and consume different
 /// notes all verify successfully
@@ -79,24 +79,15 @@ async fn test_verify_tx_happy_path_concurrent() {
 /// Verifies requirement VT1
 #[tokio::test]
 async fn test_verify_tx_vt1() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     let account = MockPrivateAccount::<3>::from(0);
+
+    let tx =
+        MockProvenTxBuilder::from_account(account.id, account.states[1], account.states[2]).build();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
             .initial_accounts(iter::once((account.id, account.states[0])))
             .build(),
-    );
-
-    // The transaction's initial account hash uses `account.states[1]`, where the store expects
-    // `account.states[0]`
-    let tx = tx_gen.dummy_proven_tx_with_params(
-        account.id,
-        account.states[1],
-        account.states[2],
-        vec![consumed_note_by_index(0)],
-        Vec::new(),
     );
 
     let state_view = DefaulStateView::new(store);
