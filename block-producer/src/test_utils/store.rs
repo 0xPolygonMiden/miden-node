@@ -27,6 +27,11 @@ impl MockStoreSuccessBuilder {
         Self::default()
     }
 
+    /// Builds an empty store directly
+    pub fn empty_store() -> MockStoreSuccess {
+        Self::default().build()
+    }
+
     pub fn initial_accounts(
         mut self,
         accounts: impl Iterator<Item = (AccountId, Digest)>,
