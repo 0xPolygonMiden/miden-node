@@ -28,7 +28,7 @@ use crate::{
     block::Block,
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
-    state_view::DefaulStateView,
+    state_view::DefaultStateView,
     store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputs, TxInputsError},
     txqueue::{DefaultTransactionQueue, DefaultTransactionQueueOptions, TransactionQueue},
     SharedProvenTx, COMPONENT,
@@ -196,7 +196,7 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     };
     let batch_builder =
         Arc::new(DefaultBatchBuilder::new(Arc::new(block_builder), batch_builder_options));
-    let state_view = DefaulStateView::new(store.clone());
+    let state_view = DefaultStateView::new(store.clone());
 
     let transaction_queue_options = DefaultTransactionQueueOptions {
         build_batch_frequency: Duration::from_secs(2),

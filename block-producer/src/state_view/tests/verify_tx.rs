@@ -35,7 +35,7 @@ async fn test_verify_tx_happy_path() {
             .build(),
     );
 
-    let state_view = DefaulStateView::new(store);
+    let state_view = DefaultStateView::new(store);
 
     for tx in txs {
         state_view.verify_tx(tx).await.unwrap();
@@ -62,7 +62,7 @@ async fn test_verify_tx_happy_path_concurrent() {
             .build(),
     );
 
-    let state_view = Arc::new(DefaulStateView::new(store));
+    let state_view = Arc::new(DefaultStateView::new(store));
 
     let mut set = JoinSet::new();
 
@@ -99,7 +99,7 @@ async fn test_verify_tx_vt1() {
         Vec::new(),
     );
 
-    let state_view = DefaulStateView::new(store);
+    let state_view = DefaultStateView::new(store);
 
     let verify_tx_result = state_view.verify_tx(tx.into()).await;
 
@@ -130,7 +130,7 @@ async fn test_verify_tx_vt2() {
         Vec::new(),
     );
 
-    let state_view = DefaulStateView::new(store);
+    let state_view = DefaultStateView::new(store);
 
     let verify_tx_result = state_view.verify_tx(tx.into()).await;
 
@@ -168,7 +168,7 @@ async fn test_verify_tx_vt3() {
         Vec::new(),
     );
 
-    let state_view = DefaulStateView::new(store);
+    let state_view = DefaultStateView::new(store);
 
     let verify_tx_result = state_view.verify_tx(tx.into()).await;
 
@@ -211,7 +211,7 @@ async fn test_verify_tx_vt4() {
         Vec::new(),
     );
 
-    let state_view = DefaulStateView::new(store);
+    let state_view = DefaultStateView::new(store);
 
     let verify_tx1_result = state_view.verify_tx(tx1.into()).await;
     assert!(verify_tx1_result.is_ok());
@@ -261,7 +261,7 @@ async fn test_verify_tx_vt5() {
         Vec::new(),
     );
 
-    let state_view = DefaulStateView::new(store);
+    let state_view = DefaultStateView::new(store);
 
     let verify_tx1_result = state_view.verify_tx(tx1.into()).await;
     assert!(verify_tx1_result.is_ok());
