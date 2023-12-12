@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use batch_builder::TransactionBatch;
 use miden_objects::transaction::ProvenTransaction;
@@ -42,3 +42,15 @@ pub(crate) const CREATED_NOTES_SMT_DEPTH: u8 = 13;
 /// hash of level 13, where both the `note_hash()` and metadata are stored (one per node).
 pub(crate) const MAX_NUM_CREATED_NOTES_PER_BATCH: usize =
     2_usize.pow((CREATED_NOTES_SMT_DEPTH - 1) as u32);
+
+/// The number of transactions per batch
+pub(crate) const SERVER_BATCH_SIZE: usize = 2;
+
+/// The frequency at which blocks are produced
+pub(crate) const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_secs(10);
+
+/// The frequency at which batches are built
+pub(crate) const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
+
+/// Maximum number of batches per block
+pub(crate) const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
