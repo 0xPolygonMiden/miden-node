@@ -21,7 +21,7 @@ use tonic::{
 };
 use tracing::info;
 
-use crate::{config::RpcConfig, constants::COMPONENT};
+use crate::{config::RpcConfig, COMPONENT};
 
 pub struct RpcApi {
     store: store_client::ApiClient<Channel>,

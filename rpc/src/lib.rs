@@ -1,3 +1,6 @@
 pub mod config;
-pub mod constants;
 pub mod server;
+
+// CONSTANTS
+// =================================================================================================
+pub const COMPONENT: &str = "miden-rpc";
