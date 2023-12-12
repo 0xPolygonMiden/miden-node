@@ -1,7 +1,7 @@
 use miden_vm::crypto::MerkleError;
 use thiserror::Error;
 
-use super::MAX_NUM_CREATED_NOTES_PER_BATCH;
+use crate::MAX_NUM_CREATED_NOTES_PER_BATCH;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum BuildBatchError {

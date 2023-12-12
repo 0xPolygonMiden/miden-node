@@ -9,9 +9,8 @@ use miden_objects::{
 use miden_vm::{crypto::MerklePath, AdviceInputs, StackInputs};
 
 use crate::{
-    batch_builder,
     block_builder::errors::{BlockProverError, BuildBlockError},
-    SharedTxBatch,
+    SharedTxBatch, CREATED_NOTES_SMT_DEPTH,
 };
 
 // CONSTANTS
@@ -22,7 +21,7 @@ pub(crate) const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
 
 /// The depth of the created notes tree in the block.
 pub(crate) const CREATED_NOTES_TREE_DEPTH: u8 =
-    CREATED_NOTES_TREE_INSERTION_DEPTH + batch_builder::CREATED_NOTES_SMT_DEPTH;
+    CREATED_NOTES_TREE_INSERTION_DEPTH + CREATED_NOTES_SMT_DEPTH;
 
 pub(crate) const MAX_BATCHES_PER_BLOCK: usize =
     2_usize.pow(CREATED_NOTES_TREE_INSERTION_DEPTH as u32);
