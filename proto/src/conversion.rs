@@ -1,14 +1,13 @@
 use miden_crypto::{
-    hash::rpo::RpoDigest,
     merkle::{MerklePath, MmrDelta, MmrPeaks, TieredSmtProof},
     Felt, FieldElement, StarkField, Word,
 };
-use miden_objects::{accounts::AccountId, BlockHeader};
+use miden_objects::{accounts::AccountId, notes::NoteEnvelope, BlockHeader, Digest as RpoDigest};
 
 use crate::{
     account_id, block_header, digest,
     domain::{AccountInputRecord, BlockInputs, NullifierInputRecord},
-    error, merkle, mmr, note, responses, tsmt,
+    error, merkle, mmr, note, requests, responses, tsmt,
 };
 
 impl From<[u64; 4]> for digest::Digest {
@@ -180,6 +179,27 @@ impl TryFrom<&block_header::BlockHeader> for BlockHeader {
     }
 }
 
+impl From<BlockHeader> for block_header::BlockHeader {
+    fn from(header: BlockHeader) -> Self {
+        Self {
+            prev_hash: Some(header.prev_hash().into()),
+            block_num: u64::from(header.block_num())
+                .try_into()
+                .expect("TODO: BlockHeader.block_num should be u64"),
+            chain_root: Some(header.chain_root().into()),
+            account_root: Some(header.account_root().into()),
+            nullifier_root: Some(header.nullifier_root().into()),
+            note_root: Some(header.note_root().into()),
+            batch_root: Some(header.batch_root().into()),
+            proof_hash: Some(header.proof_hash().into()),
+            version: u64::from(header.version())
+                .try_into()
+                .expect("TODO: BlockHeader.version should be u64"),
+            timestamp: header.timestamp().into(),
+        }
+    }
+}
+
 impl TryFrom<mmr::MmrDelta> for MmrDelta {
     type Error = error::ParseError;
 
@@ -242,6 +262,14 @@ impl From<account_id::AccountId> for u64 {
 impl From<u64> for account_id::AccountId {
     fn from(value: u64) -> Self {
         account_id::AccountId { id: value }
+    }
+}
+
+impl From<AccountId> for account_id::AccountId {
+    fn from(account_id: AccountId) -> Self {
+        Self {
+            id: account_id.into(),
+        }
     }
 }
 
@@ -323,6 +351,27 @@ impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
             account_states: try_convert(get_block_inputs.account_states)?,
             nullifiers: try_convert(get_block_inputs.nullifiers)?,
         })
+    }
+}
+
+impl From<(AccountId, RpoDigest)> for requests::AccountUpdate {
+    fn from((account_id, account_hash): (AccountId, RpoDigest)) -> Self {
+        Self {
+            account_id: Some(account_id.into()),
+            account_hash: Some(account_hash.into()),
+        }
+    }
+}
+
+impl From<(u64, NoteEnvelope)> for requests::NoteCreated {
+    fn from((note_idx, note): (u64, NoteEnvelope)) -> Self {
+        Self {
+            note_hash: Some(note.note_hash().into()),
+            sender: note.metadata().sender().into(),
+            tag: note.metadata().tag().into(),
+            num_assets: u64::from(note.metadata().num_assets()) as u32,
+            note_index: note_idx as u32,
+        }
     }
 }
 

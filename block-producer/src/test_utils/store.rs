@@ -231,7 +231,7 @@ impl ApplyBlock for MockStoreFailure {
         &self,
         _block: Arc<Block>,
     ) -> Result<(), ApplyBlockError> {
-        Err(ApplyBlockError::Dummy)
+        Err(ApplyBlockError::GrpcClientError(String::new()))
     }
 }
 
@@ -249,6 +249,6 @@ impl Store for MockStoreFailure {
         _updated_accounts: impl Iterator<Item = &AccountId> + Send,
         _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
-        Err(BlockInputsError::Dummy)
+        Err(BlockInputsError::GrpcClientError(String::new()))
     }
 }

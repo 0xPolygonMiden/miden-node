@@ -90,4 +90,8 @@ pub struct GetTransactionInputsRequest {
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SubmitProvenTransactionRequest {}
+pub struct SubmitProvenTransactionRequest {
+    /// Transaction encoded using miden's native format
+    #[prost(bytes = "vec", tag = "1")]
+    pub transaction: ::prost::alloc::vec::Vec<u8>,
+}

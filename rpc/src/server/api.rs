@@ -21,7 +21,7 @@ use tonic::{
 };
 use tracing::info;
 
-use crate::config::RpcConfig;
+use crate::{config::RpcConfig, COMPONENT};
 
 pub struct RpcApi {
     store: store_client::ApiClient<Channel>,
@@ -31,10 +31,16 @@ pub struct RpcApi {
 impl RpcApi {
     async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
         let store = store_client::ApiClient::connect(config.store.clone()).await?;
-        info!(store = config.store, "Store client initialized",);
+        info!(COMPONENT, store = config.store, "Store client initialized",);
+
         let block_producer =
             block_producer_client::ApiClient::connect(config.block_producer.clone()).await?;
-        info!(block_producer = config.block_producer, "Store client initialized",);
+        info!(
+            COMPONENT,
+            block_producer = config.block_producer,
+            "Block producer client initialized",
+        );
+
         Ok(Self {
             store,
             block_producer,
@@ -87,7 +93,12 @@ pub async fn serve(config: RpcConfig) -> Result<()> {
     let api = RpcApi::from_config(&config).await?;
     let rpc = api_server::ApiServer::new(api);
 
-    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized");
+    info!(
+        host = config.endpoint.host,
+        port = config.endpoint.port,
+        COMPONENT,
+        "Server initialized"
+    );
 
     Server::builder().add_service(rpc).serve(addrs[0]).await?;
 

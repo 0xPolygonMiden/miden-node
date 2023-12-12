@@ -14,7 +14,7 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-pub struct DefaulStateView<S> {
+pub struct DefaultStateView<S> {
     store: Arc<S>,
 
     /// The account ID of accounts being modified by transactions currently in the block production
@@ -25,7 +25,7 @@ pub struct DefaulStateView<S> {
     nullifiers_in_flight: Arc<RwLock<BTreeSet<Digest>>>,
 }
 
-impl<S> DefaulStateView<S>
+impl<S> DefaultStateView<S>
 where
     S: Store,
 {
@@ -39,7 +39,7 @@ where
 }
 
 #[async_trait]
-impl<S> TransactionVerifier for DefaulStateView<S>
+impl<S> TransactionVerifier for DefaultStateView<S>
 where
     S: Store,
 {
@@ -90,7 +90,7 @@ where
 }
 
 #[async_trait]
-impl<S> ApplyBlock for DefaulStateView<S>
+impl<S> ApplyBlock for DefaultStateView<S>
 where
     S: Store,
 {

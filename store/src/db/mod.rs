@@ -17,6 +17,7 @@ use crate::{
     config::StoreConfig,
     migrations,
     types::{AccountId, BlockNumber},
+    COMPONENT,
 };
 
 mod sql;
@@ -48,7 +49,10 @@ impl Db {
 
         let conn = pool.get().await?;
 
-        info!(sqlite = format!("{}", config.sqlite.display()), "Connected to the DB");
+        info!(
+            sqlite = format!("{}", config.sqlite.display()),
+            COMPONENT, "Connected to the DB"
+        );
 
         // Feature used to support `IN` and `NOT IN` queries
         conn.interact(|conn| array::load_module(conn))
@@ -137,25 +141,21 @@ impl Db {
     /// Inserts the data of a new block into the DB.
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
-    /// the in-memory trees. Further detais available on [State::apply_block].
+    /// the in-memory trees. Further detais available on [super::state::State::apply_block].
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
         block_header: BlockHeader,
-        notes: &[Note],
-        nullifiers: &[RpoDigest],
-        accounts: &[(AccountId, Digest)],
+        notes: Vec<Note>,
+        nullifiers: Vec<RpoDigest>,
+        accounts: Vec<(AccountId, Digest)>,
     ) -> Result<(), anyhow::Error> {
-        let notes = notes.to_vec();
-        let nullifiers = nullifiers.to_vec();
-        let accounts = accounts.to_vec();
-
         self.pool
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let span = span!(Level::INFO, "writing new block data to DB");
+                let span = span!(Level::INFO, COMPONENT, "writing new block data to DB");
                 let guard = span.enter();
 
                 let transaction = conn.transaction()?;

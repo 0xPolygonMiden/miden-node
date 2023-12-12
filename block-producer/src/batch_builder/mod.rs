@@ -4,21 +4,17 @@ use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
 use miden_vm::crypto::SimpleSmt;
 use tokio::{sync::RwLock, time};
+use tracing::info;
 
 use self::errors::BuildBatchError;
-use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
+use crate::{
+    block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch, COMPONENT,
+    CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH,
+};
 
 pub mod errors;
 #[cfg(test)]
 mod tests;
-
-pub(crate) const CREATED_NOTES_SMT_DEPTH: u8 = 13;
-
-/// The created notes tree uses an extra depth to store the 2 components of `NoteEnvelope`.
-/// That is, conceptually, notes sit at depth 12; where in reality, depth 12 contains the
-/// hash of level 13, where both the `note_hash()` and metadata are stored (one per node).
-pub(crate) const MAX_NUM_CREATED_NOTES_PER_BATCH: usize =
-    2_usize.pow((CREATED_NOTES_SMT_DEPTH - 1) as u32);
 
 // TRANSACTION BATCH
 // ================================================================================================
@@ -27,6 +23,7 @@ pub(crate) const MAX_NUM_CREATED_NOTES_PER_BATCH: usize =
 /// in the batch must be addressing that account.
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
+#[derive(Debug)]
 pub struct TransactionBatch {
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Digest>,
@@ -117,6 +114,7 @@ impl TransactionBatch {
 
 /// Stores the initial state (before the transaction) and final state (after the transaction) of an
 /// account
+#[derive(Debug)]
 struct AccountStates {
     initial_state: Digest,
     final_state: Digest,
@@ -165,7 +163,7 @@ where
         }
     }
 
-    pub async fn run(self) {
+    pub async fn run(self: Arc<Self>) {
         let mut interval = time::interval(self.options.block_frequency);
 
         loop {
@@ -207,8 +205,12 @@ where
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
+        let num_txs = txs.len();
+
         let batch = Arc::new(TransactionBatch::new(txs)?);
         self.ready_batches.write().await.push(batch);
+
+        info!(COMPONENT, "batch built with {num_txs} txs");
 
         Ok(())
     }

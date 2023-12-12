@@ -37,7 +37,7 @@ impl BlockBuilder for BlockBuilderFailure {
         &self,
         _batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
-        Err(BuildBlockError::Dummy)
+        Err(BuildBlockError::TooManyBatchesInBlock(0))
     }
 }
 
@@ -52,13 +52,13 @@ async fn test_block_size_doesnt_exceed_limit() {
 
     let block_builder = Arc::new(BlockBuilderSuccess::default());
 
-    let batch_builder = DefaultBatchBuilder::new(
+    let batch_builder = Arc::new(DefaultBatchBuilder::new(
         block_builder.clone(),
         DefaultBatchBuilderOptions {
             block_frequency,
             max_batches_per_block,
         },
-    );
+    ));
 
     // Add 3 batches in internal queue (remember: 2 batches/block)
     {
@@ -97,13 +97,13 @@ async fn test_build_block_called_when_no_batches() {
 
     let block_builder = Arc::new(BlockBuilderSuccess::default());
 
-    let batch_builder = DefaultBatchBuilder::new(
+    let batch_builder = Arc::new(DefaultBatchBuilder::new(
         block_builder.clone(),
         DefaultBatchBuilderOptions {
             block_frequency,
             max_batches_per_block,
         },
-    );
+    ));
 
     // start batch builder
     tokio::spawn(batch_builder.run());
@@ -124,13 +124,13 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
 
     let block_builder = Arc::new(BlockBuilderFailure);
 
-    let batch_builder = DefaultBatchBuilder::new(
+    let batch_builder = Arc::new(DefaultBatchBuilder::new(
         block_builder.clone(),
         DefaultBatchBuilderOptions {
             block_frequency,
             max_batches_per_block,
         },
-    );
+    ));
 
     let internal_ready_batches = batch_builder.ready_batches.clone();
 

@@ -1,0 +1,20 @@
+[package]
+name = "miden-node"
+version = "0.1.0"
+authors = ["miden contributors"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/0xPolygonMiden/miden-node"
+keywords = ["miden", "node", "program"]
+edition = "2021"
+rust-version = "1.73"
+
+[dependencies]
+anyhow = { version = "1.0" }
+miden-node-block-producer = { version = "0.1", path = "../block-producer" }
+miden-node-rpc = { version = "0.1", path = "../rpc" }
+miden-node-store = { version = "0.1", path = "../store" }
+miden-node-utils = { path = "../utils" }
+tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

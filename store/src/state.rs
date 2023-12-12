@@ -2,7 +2,7 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::mem;
+use std::{mem, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use miden_crypto::{
@@ -36,13 +36,15 @@ use tracing::{info, instrument, span, Level};
 use crate::{
     db::{Db, StateSyncUpdate},
     errors::StateError,
+    genesis::genesis_header,
     types::{AccountId, BlockNumber},
+    COMPONENT,
 };
 
 // CONSTANTS
 // ================================================================================================
 
-const ACCOUNT_DB_DEPTH: u8 = 64;
+pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;
 
 // STRUCTURES
 // ================================================================================================
@@ -56,7 +58,7 @@ struct InnerState {
 
 /// The rollup state
 pub struct State {
-    db: Db,
+    db: Arc<Db>,
 
     /// Read-write lock used to prevent writing to a structure while it is being used.
     ///
@@ -148,6 +150,7 @@ impl State {
         });
 
         let writer = Mutex::new(());
+        let db = Arc::new(db);
         Ok(Self { db, inner, writer })
     }
 
@@ -173,9 +176,9 @@ impl State {
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,
-        nullifiers: &[RpoDigest],
-        accounts: &[(AccountId, Digest)],
-        notes: &[NoteCreated],
+        nullifiers: Vec<RpoDigest>,
+        accounts: Vec<(AccountId, Digest)>,
+        notes: Vec<NoteCreated>,
     ) -> Result<(), anyhow::Error> {
         let _ = self.writer.try_lock().map_err(|_| StateError::ConcurrentWrite)?;
 
@@ -184,7 +187,7 @@ impl State {
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .ok_or(StateError::DbBlockHeaderEmpty)?;
+            .unwrap_or_else(genesis_header);
         let block_num = prev_block_msg.block_num + 1;
         let prev_block: BlockHeader = prev_block_msg.try_into()?;
         let prev_hash =
@@ -197,7 +200,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = span!(Level::INFO, "updating in-memory data structures");
+            let span = span!(Level::INFO, COMPONENT, "updating in-memory data structures");
             let guard = span.enter();
 
             // nullifiers can be produced only once
@@ -228,7 +231,7 @@ impl State {
 
             let mut nullifier_tree = inner.nullifier_tree.clone();
             let nullifier_data = block_to_nullifier_data(block_num);
-            for nullifier in nullifiers {
+            for nullifier in nullifiers.iter() {
                 nullifier_tree.insert(*nullifier, nullifier_data);
             }
 
@@ -243,7 +246,7 @@ impl State {
             }
 
             let mut account_tree = inner.account_tree.clone();
-            for (account_id, account_hash) in accounts {
+            for (account_id, account_hash) in accounts.iter() {
                 account_tree.update_leaf(*account_id, account_hash.try_into()?)?;
             }
 
@@ -257,7 +260,7 @@ impl State {
                 return Err(StateError::InvalidAccountRoot.into());
             }
 
-            let note_tree = build_notes_tree(notes)?;
+            let note_tree = build_notes_tree(&notes)?;
             if note_tree.root()
                 != block_header.note_root.clone().ok_or(StateError::MissingNoteRoot)?.try_into()?
             {
@@ -296,9 +299,15 @@ impl State {
         // signals the write lock has been acquired, and the transaction can be commited
         let (inform_acquire_done, acquire_done) = oneshot::channel::<()>();
 
-        self.db
-            .apply_block(allow_acquire, acquire_done, block_header, &notes, nullifiers, accounts)
-            .await?;
+        // The DB and in-memory state updates need to be synchronized and are partially
+        // overlapping. Namely, the DB transaction only proceeds after this task acquires the
+        // in-memory write lock. This requires the DB update to run concurrently, so a new task is
+        // spawned.
+        let db = self.db.clone();
+        tokio::spawn(async move {
+            db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
+                .await
+        });
 
         acquired_allowed.await?;
 
@@ -373,7 +382,7 @@ impl State {
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .ok_or(anyhow!("Database is empty"))?;
+            .unwrap_or_else(genesis_header);
         let accumulator = inner.chain_mmr.peaks(latest.block_num as usize)?;
         let account_states = account_ids
             .iter()
@@ -466,7 +475,12 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifier_tree = TieredSmt::with_entries(leaves)?;
     let elapsed = now.elapsed().as_secs();
 
-    info!(num_of_leaves = len, tree_construction = elapsed, "Loaded nullifier tree");
+    info!(
+        num_of_leaves = len,
+        tree_construction = elapsed,
+        COMPONENT,
+        "Loaded nullifier tree"
+    );
     Ok(nullifier_tree)
 }
 

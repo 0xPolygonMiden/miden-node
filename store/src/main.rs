@@ -1,16 +1,8 @@
 mod cli;
-mod config;
-mod db;
-mod errors;
-mod migrations;
-mod server;
-mod state;
-mod types;
 use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Command};
-use config::StoreConfig;
-use db::Db;
+use miden_node_store::{config::StoreConfig, db::Db, server};
 use miden_node_utils::Config;
 
 #[tokio::main]
