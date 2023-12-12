@@ -34,11 +34,11 @@ use tokio::{
 use tracing::{info, instrument, span, Level};
 
 use crate::{
-    constants::COMPONENT,
     db::{Db, StateSyncUpdate},
     errors::StateError,
     genesis::genesis_header,
     types::{AccountId, BlockNumber},
+    COMPONENT,
 };
 
 // CONSTANTS

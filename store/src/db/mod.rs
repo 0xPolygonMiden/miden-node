@@ -15,9 +15,9 @@ use tracing::{info, span, Level};
 
 use crate::{
     config::StoreConfig,
-    constants::COMPONENT,
     migrations,
     types::{AccountId, BlockNumber},
+    COMPONENT,
 };
 
 mod sql;

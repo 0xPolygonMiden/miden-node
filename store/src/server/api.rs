@@ -19,7 +19,7 @@ use miden_node_proto::{
 use tonic::{transport::Server, Response, Status};
 use tracing::info;
 
-use crate::{config::StoreConfig, constants::COMPONENT, db::Db, state::State};
+use crate::{config::StoreConfig, db::Db, state::State, COMPONENT};
 
 // STORE INITIALIZER
 // ================================================================================================
