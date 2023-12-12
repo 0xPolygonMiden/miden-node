@@ -28,11 +28,10 @@ use crate::{
     block::Block,
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
-    constants::COMPONENT,
     state_view::DefaulStateView,
     store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputs, TxInputsError},
     txqueue::{DefaultTransactionQueue, DefaultTransactionQueueOptions, TransactionQueue},
-    SharedProvenTx,
+    SharedProvenTx, COMPONENT,
 };
 
 struct DefaultStore {

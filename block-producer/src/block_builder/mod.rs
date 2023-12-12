@@ -5,8 +5,8 @@ use miden_objects::{accounts::AccountId, Digest};
 use tracing::info;
 
 use crate::{
-    batch_builder::MAX_NUM_CREATED_NOTES_PER_BATCH, block::Block, constants::COMPONENT,
-    store::Store, SharedTxBatch,
+    batch_builder::MAX_NUM_CREATED_NOTES_PER_BATCH, block::Block, store::Store, SharedTxBatch,
+    COMPONENT,
 };
 
 pub mod errors;

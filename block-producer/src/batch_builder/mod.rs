@@ -7,9 +7,7 @@ use tokio::{sync::RwLock, time};
 use tracing::info;
 
 use self::errors::BuildBatchError;
-use crate::{
-    block_builder::BlockBuilder, constants::COMPONENT, SharedProvenTx, SharedRwVec, SharedTxBatch,
-};
+use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch, COMPONENT};
 
 pub mod errors;
 #[cfg(test)]
