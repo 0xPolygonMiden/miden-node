@@ -26,16 +26,12 @@ pub enum BlockInputsError {
     ParseError(#[from] ParseError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
-    #[error("dummy")]
-    Dummy,
 }
 
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ApplyBlockError {
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
-    #[error("dummy")]
-    Dummy,
 }
 
 #[async_trait]

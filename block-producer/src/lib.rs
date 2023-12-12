@@ -7,15 +7,16 @@ use tokio::sync::RwLock;
 #[cfg(test)]
 pub mod test_utils;
 
-pub mod batch_builder;
+mod batch_builder;
+mod block_builder;
+mod state_view;
+mod store;
+mod txqueue;
+
 pub mod block;
-pub mod block_builder;
 pub mod cli;
 pub mod config;
 pub mod server;
-pub mod state_view;
-pub mod store;
-pub mod txqueue;
 
 // TYPE ALIASES
 // =================================================================================================

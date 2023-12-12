@@ -37,7 +37,7 @@ impl BlockBuilder for BlockBuilderFailure {
         &self,
         _batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
-        Err(BuildBlockError::Dummy)
+        Err(BuildBlockError::TooManyBatchesInBlock(0))
     }
 }
 

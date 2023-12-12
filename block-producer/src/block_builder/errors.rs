@@ -22,8 +22,6 @@ pub enum BuildBlockError {
         CREATED_NOTES_TREE_INSERTION_DEPTH
     )]
     TooManyBatchesInBlock(usize),
-    #[error("dummy")]
-    Dummy,
 }
 
 #[derive(Error, Debug, PartialEq)]

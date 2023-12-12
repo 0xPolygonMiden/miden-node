@@ -65,7 +65,7 @@ impl BatchBuilder for BatchBuilderFailure {
         &self,
         _txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
-        Err(BuildBatchError::Dummy)
+        Err(BuildBatchError::TooManyNotesCreated(0))
     }
 }
 
