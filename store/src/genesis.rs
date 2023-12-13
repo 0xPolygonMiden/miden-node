@@ -1,6 +1,11 @@
-use miden_crypto::merkle::{EmptySubtreeRoots, MmrPeaks, TieredSmt};
+use miden_crypto::{
+    dsa::rpo_falcon512,
+    merkle::{EmptySubtreeRoots, MmrPeaks, TieredSmt},
+    Felt,
+};
+use miden_lib::{faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_proto::block_header;
-use miden_objects::{accounts::Account, notes::NOTE_LEAF_DEPTH, Digest};
+use miden_objects::{accounts::Account, assets::TokenSymbol, notes::NOTE_LEAF_DEPTH, Digest};
 use serde::{Deserialize, Serialize};
 
 use crate::state::ACCOUNT_DB_DEPTH;
@@ -27,9 +32,23 @@ pub struct GenesisState {
     pub accounts: Vec<Account>,
 }
 
-impl Default for GenesisState {
-    fn default() -> Self {
-        let accounts = Vec::new();
+impl GenesisState {
+    pub fn new(pub_key: rpo_falcon512::PublicKey) -> Self {
+        let mut accounts = Vec::new();
+
+        // fungible asset faucet
+        {
+            let (account, _) = create_basic_fungible_faucet(
+                [0; 32],
+                TokenSymbol::new("TODO").unwrap(),
+                9,
+                Felt::from(1_000_000_000_u64),
+                AuthScheme::RpoFalcon512 { pub_key },
+            )
+            .unwrap();
+
+            accounts.push(account);
+        }
 
         Self { accounts }
     }

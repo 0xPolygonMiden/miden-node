@@ -5,6 +5,7 @@ use std::{fs::File, io::Write, path::Path};
 
 use anyhow::anyhow;
 use clap::Parser;
+use miden_crypto::dsa::rpo_falcon512::PublicKey;
 use miden_node_store::genesis::GenesisState;
 
 #[derive(Parser, Debug)]
@@ -41,7 +42,9 @@ fn main() -> anyhow::Result<()> {
     }
 
     let genesis_state_json = {
-        let genesis_state = GenesisState::default();
+        // FIXME: Which pubkey to use?
+        let pub_key = PublicKey::new([0; 897]).unwrap();
+        let genesis_state = GenesisState::new(pub_key);
 
         serde_json::to_string_pretty(&genesis_state).expect("Failed to serialize genesis state")
     };

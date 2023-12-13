@@ -1,18 +1,12 @@
 [workspace]
-members = [
-    "block-producer",
-    "node",
-    "proto",
-    "rpc",
-    "store",
-    "utilities/genesis",
-    "utils",
-]
+members = ["block-producer", "node", "proto", "rpc", "store", "utilities/genesis", "utils"]
 resolver = "2"
 
 [workspace.dependencies]
-miden-crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto.git", branch = "next", features = ["std"] }
-miden_objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main", default-features = false }
+miden-crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto.git", branch = "next", features = [
+    "std",
+] }
+miden_objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "main" }
 thiserror = "1.0"
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" , features = ["fmt", "json", "env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["fmt", "json", "env-filter"] }
