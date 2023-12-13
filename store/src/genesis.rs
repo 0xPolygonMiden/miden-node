@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::state::ACCOUNT_DB_DEPTH;
 
 /// Generates the header of the genesis block. The timestamp is currently hardcoded to be the UNIX epoch.
-pub fn genesis_header() -> block_header::BlockHeader {
+fn genesis_header() -> block_header::BlockHeader {
     block_header::BlockHeader {
         prev_hash: Some(Digest::default().into()),
         block_num: 0,
