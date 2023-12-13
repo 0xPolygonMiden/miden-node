@@ -3,7 +3,7 @@ use miden_crypto::{
     merkle::{EmptySubtreeRoots, MmrPeaks, TieredSmt},
     Felt,
 };
-use miden_lib::{faucets::create_basic_fungible_faucet, AuthScheme};
+use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet, AuthScheme};
 use miden_node_proto::block_header;
 use miden_objects::{accounts::Account, assets::TokenSymbol, notes::NOTE_LEAF_DEPTH, Digest};
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,18 @@ impl GenesisState {
                 9,
                 Felt::from(1_000_000_000_u64),
                 AuthScheme::RpoFalcon512 { pub_key },
+            )
+            .unwrap();
+
+            accounts.push(account);
+        }
+
+        // basic wallet account
+        {
+            let (account, _) = create_basic_wallet(
+                [0; 32],
+                AuthScheme::RpoFalcon512 { pub_key },
+                miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
             )
             .unwrap();
 
