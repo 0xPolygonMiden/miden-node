@@ -5,6 +5,7 @@ members = [
     "proto",
     "rpc",
     "store",
+    "utilities/genesis",
     "utils",
 ]
 resolver = "2"
