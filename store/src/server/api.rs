@@ -31,6 +31,8 @@ pub async fn serve(
     let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
+    ensure_genesis_block(&db).await?;
+
     let state = Arc::new(State::load(db).await?);
     let store = api_server::ApiServer::new(StoreApi { state });
 
@@ -43,6 +45,13 @@ pub async fn serve(
     Server::builder().add_service(store).serve(addrs[0]).await?;
 
     Ok(())
+}
+
+/// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that the
+/// genesis block in the database is consistent with the genesis block data in the genesis JSON
+/// file.
+async fn ensure_genesis_block(db: &Db) -> Result<()> {
+    todo!()
 }
 
 // STORE API
