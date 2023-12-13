@@ -4,7 +4,7 @@
 mod state;
 
 use anyhow::anyhow;
-use std::{fs::write, path::Path};
+use std::{fs::File, io::Write, path::Path};
 
 use state::GenesisState;
 
@@ -14,23 +14,24 @@ fn main() -> anyhow::Result<()> {
     let json_file_path = Path::new(FILE_LOC);
 
     match json_file_path.try_exists() {
-        Ok(existence_verified) => {
-            if !existence_verified {
-                return Err(anyhow!("Failed to generate new genesis file at {FILE_LOC}: there are broken symbolic links along the path"));
+        Ok(file_exists) => {
+            if file_exists {
+                return Err(anyhow!("Failed to generate new genesis file \"{FILE_LOC}\" because it already exists. Use the --force flag to overwrite."));
             }
         },
         Err(err) => {
-            return Err(anyhow!("Failed to generate new genesis file at {FILE_LOC}. Error: {err}. Use the --force flag to overwrite."));
+            return Err(anyhow!("Failed to generate new genesis file \"{FILE_LOC}\". Error: {err}"));
         },
     }
 
     let genesis_state_json = {
         let genesis_state = GenesisState::default();
 
-        serde_json::to_string(&genesis_state).expect("Failed to serialize genesis state")
+        serde_json::to_string_pretty(&genesis_state).expect("Failed to serialize genesis state")
     };
 
-    write(FILE_LOC, genesis_state_json)?;
+    let mut file = File::create(FILE_LOC)?;
+    writeln!(file, "{}", genesis_state_json)?;
 
     Ok(())
 }
