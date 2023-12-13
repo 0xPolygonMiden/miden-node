@@ -8,7 +8,7 @@ repository = "https://github.com/0xpolygonmiden/miden-node"
 keywords = ["miden", "node", "program"]
 edition = "2021"
 rust-version = "1.73"
-about = "Generate a JSON file representing the chain state at genesis"
+description = "Generate a JSON file representing the chain state at genesis"
 
 [dependencies]
 anyhow = { version = "1" }
