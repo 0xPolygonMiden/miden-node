@@ -91,7 +91,6 @@ impl TryFrom<GenesisState> for block_header::BlockHeader {
             Digest::default(),
             Digest::default(),
             genesis_state.version.into(),
-            // FIXME: timestamp and versioddn goes in json
             genesis_state.timestamp.into(),
         );
 
