@@ -41,23 +41,6 @@ pub struct NullifierUpdate {
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct NoteSyncRecord {
-    #[prost(uint32, tag = "1")]
-    pub note_index: u32,
-    #[prost(message, optional, tag = "2")]
-    pub note_hash: ::core::option::Option<super::digest::Digest>,
-    #[prost(uint64, tag = "3")]
-    pub sender: u64,
-    #[prost(uint64, tag = "4")]
-    pub tag: u64,
-    #[prost(uint32, tag = "5")]
-    pub num_assets: u32,
-    #[prost(message, optional, tag = "6")]
-    pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
-}
-#[derive(Eq, PartialOrd, Ord, Hash)]
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateResponse {
     /// number of the latest block in the chain
     #[prost(uint32, tag = "1")]
@@ -76,7 +59,7 @@ pub struct SyncStateResponse {
     pub accounts: ::prost::alloc::vec::Vec<AccountHashUpdate>,
     /// a list of all notes together with the Merkle paths from `block_header.note_root`
     #[prost(message, repeated, tag = "6")]
-    pub notes: ::prost::alloc::vec::Vec<NoteSyncRecord>,
+    pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
     /// a list of nullifiers created between `block_ref` and `block_header.block_num`
     #[prost(message, repeated, tag = "7")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,

@@ -17,8 +17,8 @@ use miden_node_proto::{
     conversion::nullifier_value_to_blocknum,
     digest::Digest,
     error::ParseError,
-    note::Note,
-    requests::{AccountUpdate, NoteCreated},
+    note::{Note, NoteCreated},
+    requests::AccountUpdate,
     responses::{
         AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
     },
