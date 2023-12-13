@@ -6,6 +6,7 @@ import "block_header.proto";
 import "digest.proto";
 import "merkle.proto";
 import "mmr.proto";
+import "note.proto";
 import "tsmt.proto";
 
 message ApplyBlockResponse {}
@@ -31,15 +32,6 @@ message NullifierUpdate {
     uint32 block_num = 2;
 }
 
-message NoteSyncRecord {
-    uint32 note_index = 1;
-    digest.Digest note_hash = 2;
-    uint64 sender  = 3;
-    uint64 tag = 4;
-    uint32 num_assets = 5;
-    merkle.MerklePath merkle_path = 6;
-}
-
 message SyncStateResponse {
     // number of the latest block in the chain
     uint32 chain_tip = 1;
@@ -57,7 +49,7 @@ message SyncStateResponse {
     repeated AccountHashUpdate accounts = 5;
 
     // a list of all notes together with the Merkle paths from `block_header.note_root`
-    repeated NoteSyncRecord notes = 6;
+    repeated note.NoteSyncRecord notes = 6;
 
     // a list of nullifiers created between `block_ref` and `block_header.block_num`
     repeated NullifierUpdate nullifiers = 7;

@@ -141,7 +141,7 @@ impl Db {
     /// Inserts the data of a new block into the DB.
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
-    /// the in-memory trees. Further detais available on [super::state::State::apply_block].
+    /// the in-memory trees. Further details available on [super::state::State::apply_block].
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,

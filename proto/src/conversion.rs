@@ -240,7 +240,7 @@ impl TryFrom<merkle::MerklePath> for MerklePath {
     }
 }
 
-impl From<note::Note> for responses::NoteSyncRecord {
+impl From<note::Note> for note::NoteSyncRecord {
     fn from(value: note::Note) -> Self {
         Self {
             note_index: value.note_index,
@@ -363,7 +363,7 @@ impl From<(AccountId, RpoDigest)> for requests::AccountUpdate {
     }
 }
 
-impl From<(u64, NoteEnvelope)> for requests::NoteCreated {
+impl From<(u64, NoteEnvelope)> for note::NoteCreated {
     fn from((note_idx, note): (u64, NoteEnvelope)) -> Self {
         Self {
             note_hash: Some(note.note_hash().into()),
