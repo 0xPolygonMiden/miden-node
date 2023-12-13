@@ -1,8 +1,9 @@
-use std::{net::ToSocketAddrs, sync::Arc};
+use std::{fs, net::ToSocketAddrs, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
+    block_header,
     conversion::convert,
     digest::Digest,
     error::ParseError,
@@ -19,7 +20,7 @@ use miden_node_proto::{
 use tonic::{transport::Server, Response, Status};
 use tracing::info;
 
-use crate::{config::StoreConfig, db::Db, state::State, COMPONENT};
+use crate::{config::StoreConfig, db::Db, genesis::GenesisState, state::State, COMPONENT};
 
 // STORE INITIALIZER
 // ================================================================================================
@@ -51,7 +52,33 @@ pub async fn serve(
 /// genesis block in the database is consistent with the genesis block data in the genesis JSON
 /// file.
 async fn ensure_genesis_block(db: &Db) -> Result<()> {
-    todo!()
+    let expected_genesis_header: block_header::BlockHeader = {
+        // FIXME: use file path from config (issue #100)
+        let file_contents = fs::read_to_string("TODO FILE PATH")?;
+
+        let genesis_state: GenesisState = serde_json::from_str(&file_contents)?;
+
+        genesis_state.try_into()?
+    };
+
+    let maybe_block_header_in_store = db.select_block_header_by_block_num(Some(0)).await?;
+
+    match maybe_block_header_in_store {
+        Some(block_header) => {
+            // ensure that expected header is what's also in the store
+            if expected_genesis_header != block_header {
+                // TODO: Fill in correct file path
+                return Err(anyhow!("block header in store doesn't match block header in genesis file <TODO FILE PATH>. expected {expected_genesis_header:?}, but store contained {block_header:?}"));
+            }
+        },
+        None => {
+            // add genesis header to store
+
+            // FIXME: `Db::apply_block` requires the channels that are set up in `State`.
+        },
+    }
+
+    Ok(())
 }
 
 // STORE API
