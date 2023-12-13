@@ -1,6 +1,7 @@
 use miden_crypto::merkle::{EmptySubtreeRoots, MmrPeaks, TieredSmt};
 use miden_node_proto::block_header;
-use miden_objects::{notes::NOTE_LEAF_DEPTH, Digest};
+use miden_objects::{accounts::Account, notes::NOTE_LEAF_DEPTH, Digest};
+use serde::{Deserialize, Serialize};
 
 use crate::state::ACCOUNT_DB_DEPTH;
 
@@ -17,5 +18,19 @@ pub fn genesis_header() -> block_header::BlockHeader {
         proof_hash: Some(Digest::default().into()),
         version: 0,
         timestamp: 0,
+    }
+}
+
+/// Represents the state at genesis, which will be used to derive the genesis block.
+#[derive(Serialize, Deserialize)]
+pub struct GenesisState {
+    pub accounts: Vec<Account>,
+}
+
+impl Default for GenesisState {
+    fn default() -> Self {
+        let accounts = Vec::new();
+
+        Self { accounts }
     }
 }

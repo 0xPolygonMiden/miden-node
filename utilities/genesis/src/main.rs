@@ -1,13 +1,11 @@
 //! Generates a JSON file representing the chain state at genesis. This information will be used to
 //! derive the genesis block.
 
-mod state;
+use std::{fs::File, io::Write, path::Path};
 
 use anyhow::anyhow;
 use clap::Parser;
-use std::{fs::File, io::Write, path::Path};
-
-use state::GenesisState;
+use miden_node_store::genesis::GenesisState;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
