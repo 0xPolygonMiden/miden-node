@@ -1,11 +1,15 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use miden_crypto::{
     dsa::rpo_falcon512,
-    merkle::{EmptySubtreeRoots, MmrPeaks, TieredSmt},
+    merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt},
     Felt,
 };
 use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet, AuthScheme};
 use miden_node_proto::block_header;
-use miden_objects::{accounts::Account, assets::TokenSymbol, notes::NOTE_LEAF_DEPTH, Digest};
+use miden_objects::{
+    accounts::Account, assets::TokenSymbol, notes::NOTE_LEAF_DEPTH, BlockHeader, Digest,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::state::ACCOUNT_DB_DEPTH;
@@ -63,5 +67,40 @@ impl GenesisState {
         }
 
         Self { accounts }
+    }
+}
+
+impl TryFrom<GenesisState> for block_header::BlockHeader {
+    type Error = MerkleError;
+
+    fn try_from(value: GenesisState) -> Result<Self, Self::Error> {
+        let account_smt = SimpleSmt::with_leaves(
+            ACCOUNT_DB_DEPTH,
+            value
+                .accounts
+                .into_iter()
+                .map(|account| (account.id().into(), account.hash().into())),
+        )?;
+
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("we are after 1970")
+            .as_millis() as u64;
+
+        let block_header = BlockHeader::new(
+            Digest::default(),
+            Felt::from(0_u64),
+            MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks().into(),
+            account_smt.root(),
+            TieredSmt::default().root().into(),
+            *EmptySubtreeRoots::entry(NOTE_LEAF_DEPTH, 0),
+            Digest::default(),
+            Digest::default(),
+            Felt::from(0_u64),
+            // FIXME: timestamp and version goes in json
+            timestamp.into(),
+        );
+
+        Ok(block_header.into())
     }
 }
