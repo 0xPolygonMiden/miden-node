@@ -1,14 +1,16 @@
-use std::fs::create_dir_all;
+use std::fs::{self, create_dir_all};
 
 use anyhow::anyhow;
 use deadpool_sqlite::{Config as SqliteConfig, Pool, Runtime};
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
-    block_header::BlockHeader,
+    block_header,
     digest::Digest,
     note::Note,
     responses::{AccountHashUpdate, NullifierUpdate},
 };
+use miden_node_utils::genesis::GenesisState;
+use miden_objects::BlockHeader;
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
 use tracing::{info, span, Level};
@@ -32,7 +34,7 @@ pub struct Db {
 #[derive(Debug, PartialEq)]
 pub struct StateSyncUpdate {
     pub notes: Vec<Note>,
-    pub block_header: BlockHeader,
+    pub block_header: block_header::BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountHashUpdate>,
     pub nullifiers: Vec<NullifierUpdate>,
@@ -63,7 +65,10 @@ impl Db {
             .await
             .map_err(|_| anyhow!("Migration task failed with a panic"))??;
 
-        Ok(Db { pool })
+        let db = Db { pool };
+        db.ensure_genesis_block().await?;
+
+        Ok(db)
     }
 
     /// Loads all the nullifiers from the DB.
@@ -82,7 +87,7 @@ impl Db {
     pub async fn select_block_header_by_block_num(
         &self,
         block_number: Option<BlockNumber>,
-    ) -> Result<Option<BlockHeader>, anyhow::Error> {
+    ) -> Result<Option<block_header::BlockHeader>, anyhow::Error> {
         self.pool
             .get()
             .await?
@@ -92,7 +97,9 @@ impl Db {
     }
 
     /// Loads all the block headers from the DB.
-    pub async fn select_block_headers(&self) -> Result<Vec<BlockHeader>, anyhow::Error> {
+    pub async fn select_block_headers(
+        &self
+    ) -> Result<Vec<block_header::BlockHeader>, anyhow::Error> {
         self.pool
             .get()
             .await?
@@ -146,7 +153,7 @@ impl Db {
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
-        block_header: BlockHeader,
+        block_header: block_header::BlockHeader,
         notes: Vec<Note>,
         nullifiers: Vec<RpoDigest>,
         accounts: Vec<(AccountId, Digest)>,
@@ -171,6 +178,43 @@ impl Db {
             })
             .await
             .map_err(|_| anyhow!("Apply block task failed with a panic"))??;
+
+        Ok(())
+    }
+
+    // HELPERS
+    // ---------------------------------------------------------------------------------------------
+
+    /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that the
+    /// genesis block in the database is consistent with the genesis block data in the genesis JSON
+    /// file.
+    async fn ensure_genesis_block(&self) -> Result<(), anyhow::Error> {
+        let expected_genesis_header: block_header::BlockHeader = {
+            // FIXME: use file path from config (issue #100)
+            let file_contents = fs::read_to_string("TODO FILE PATH")?;
+
+            let genesis_state: GenesisState = serde_json::from_str(&file_contents)?;
+            let block_header: BlockHeader = genesis_state.try_into()?;
+
+            block_header.into()
+        };
+
+        let maybe_block_header_in_store = self.select_block_header_by_block_num(Some(0)).await?;
+
+        match maybe_block_header_in_store {
+            Some(block_header) => {
+                // ensure that expected header is what's also in the store
+                if expected_genesis_header != block_header {
+                    // TODO: Fill in correct file path
+                    return Err(anyhow!("block header in store doesn't match block header in genesis file <TODO FILE PATH>. expected {expected_genesis_header:?}, but store contained {block_header:?}"));
+                }
+            },
+            None => {
+                // add genesis header to store
+
+                // FIXME: `Db::apply_block` requires the channels that are set up in `State`.
+            },
+        }
 
         Ok(())
     }

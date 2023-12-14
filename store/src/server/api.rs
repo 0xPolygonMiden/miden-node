@@ -1,9 +1,8 @@
-use std::{fs, net::ToSocketAddrs, sync::Arc};
+use std::{net::ToSocketAddrs, sync::Arc};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
-    block_header,
     conversion::convert,
     digest::Digest,
     error::ParseError,
@@ -17,8 +16,6 @@ use miden_node_proto::{
     },
     store::api_server,
 };
-use miden_node_utils::genesis::GenesisState;
-use miden_objects::BlockHeader;
 use tonic::{transport::Server, Response, Status};
 use tracing::info;
 
@@ -34,8 +31,6 @@ pub async fn serve(
     let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
-    ensure_genesis_block(&db).await?;
-
     let state = Arc::new(State::load(db).await?);
     let store = api_server::ApiServer::new(StoreApi { state });
 
@@ -46,40 +41,6 @@ pub async fn serve(
         "Server initialized",
     );
     Server::builder().add_service(store).serve(addrs[0]).await?;
-
-    Ok(())
-}
-
-/// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that the
-/// genesis block in the database is consistent with the genesis block data in the genesis JSON
-/// file.
-async fn ensure_genesis_block(db: &Db) -> Result<()> {
-    let expected_genesis_header: block_header::BlockHeader = {
-        // FIXME: use file path from config (issue #100)
-        let file_contents = fs::read_to_string("TODO FILE PATH")?;
-
-        let genesis_state: GenesisState = serde_json::from_str(&file_contents)?;
-        let block_header: BlockHeader = genesis_state.try_into()?;
-
-        block_header.into()
-    };
-
-    let maybe_block_header_in_store = db.select_block_header_by_block_num(Some(0)).await?;
-
-    match maybe_block_header_in_store {
-        Some(block_header) => {
-            // ensure that expected header is what's also in the store
-            if expected_genesis_header != block_header {
-                // TODO: Fill in correct file path
-                return Err(anyhow!("block header in store doesn't match block header in genesis file <TODO FILE PATH>. expected {expected_genesis_header:?}, but store contained {block_header:?}"));
-            }
-        },
-        None => {
-            // add genesis header to store
-
-            // FIXME: `Db::apply_block` requires the channels that are set up in `State`.
-        },
-    }
 
     Ok(())
 }
