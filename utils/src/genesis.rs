@@ -1,14 +1,8 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use miden_crypto::{
-    dsa::rpo_falcon512,
     merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt},
     Felt,
 };
-use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet, AuthScheme};
-use miden_objects::{
-    accounts::Account, assets::TokenSymbol, notes::NOTE_LEAF_DEPTH, BlockHeader, Digest,
-};
+use miden_objects::{accounts::Account, notes::NOTE_LEAF_DEPTH, BlockHeader, Digest};
 use serde::{Deserialize, Serialize};
 
 // FIXME: This is a duplicate of the constant in `store::state`
@@ -23,47 +17,14 @@ pub struct GenesisState {
 }
 
 impl GenesisState {
-    pub fn new(pub_key: rpo_falcon512::PublicKey) -> Self {
-        let accounts = {
-            let mut accounts = Vec::new();
-
-            // fungible asset faucet
-            {
-                let (account, _) = create_basic_fungible_faucet(
-                    [0; 32],
-                    TokenSymbol::new("TODO").unwrap(),
-                    9,
-                    Felt::from(1_000_000_000_u64),
-                    AuthScheme::RpoFalcon512 { pub_key },
-                )
-                .unwrap();
-
-                accounts.push(account);
-            }
-
-            // basic wallet account
-            {
-                let (account, _) = create_basic_wallet(
-                    [0; 32],
-                    AuthScheme::RpoFalcon512 { pub_key },
-                    miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
-                )
-                .unwrap();
-
-                accounts.push(account);
-            }
-
-            accounts
-        };
-
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("we are after 1970")
-            .as_millis() as u64;
-
+    pub fn new(
+        accounts: Vec<Account>,
+        version: u64,
+        timestamp: u64,
+    ) -> Self {
         Self {
             accounts,
-            version: 0,
+            version,
             timestamp,
         }
     }
