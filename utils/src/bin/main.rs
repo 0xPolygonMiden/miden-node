@@ -12,7 +12,7 @@ use anyhow::anyhow;
 use clap::Parser;
 use miden_crypto::{dsa::rpo_falcon512::PublicKey, Felt};
 use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet, AuthScheme};
-use miden_node_utils::genesis::GenesisState;
+use miden_node_utils::genesis::{GenesisState, DEFAULT_GENESIS_FILE_PATH};
 use miden_objects::assets::TokenSymbol;
 
 // CONSTANTS
@@ -27,9 +27,6 @@ const FUNGIBLE_FAUCET_TOKEN_DECIMALS: u8 = 9;
 /// Max supply for the token of the faucet present at genesis
 const FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY: u64 = 1_000_000_000;
 
-/// Default path at which the genesis file will be written to
-const DEFAULT_GENESIS_FILE_PATH: &str = "genesis.json";
-
 // MAIN
 // =================================================================================================
 
@@ -37,7 +34,7 @@ const DEFAULT_GENESIS_FILE_PATH: &str = "genesis.json";
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Path to output json file
-    #[arg(short, long, default_value = DEFAULT_GENESIS_FILE_PATH)]
+    #[arg(short, long, default_value_t = DEFAULT_GENESIS_FILE_PATH.clone())]
     output_path: String,
 
     /// Generate the output file even if a file already exists

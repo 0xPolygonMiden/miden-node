@@ -3,10 +3,26 @@ use miden_crypto::{
     Felt,
 };
 use miden_objects::{accounts::Account, notes::NOTE_LEAF_DEPTH, BlockHeader, Digest};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 // FIXME: This is a duplicate of the constant in `store::state`
 pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;
+
+pub const ORG: &str = "Polygon";
+pub const APP: &str = "Miden";
+
+/// Default path at which the genesis file will be written to
+pub static DEFAULT_GENESIS_FILE_PATH: Lazy<String> = Lazy::new(|| {
+    directories::ProjectDirs::from("", ORG, APP)
+        .map(|d| d.data_local_dir().join("genesis.json"))
+        // fallback to current dir
+        .unwrap_or_default()
+        .as_path()
+        .to_str()
+        .expect("path only contains UTF-8 characters")
+        .into()
+});
 
 /// Represents the state at genesis, which will be used to derive the genesis block.
 #[derive(Serialize, Deserialize)]
