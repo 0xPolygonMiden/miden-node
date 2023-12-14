@@ -6,11 +6,10 @@ use miden_objects::{accounts::Account, notes::NOTE_LEAF_DEPTH, BlockHeader, Dige
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
+use crate::{APP, ORG};
+
 // FIXME: This is a duplicate of the constant in `store::state`
 pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;
-
-pub const ORG: &str = "Polygon";
-pub const APP: &str = "Miden";
 
 /// Default path at which the genesis file will be written to
 pub static DEFAULT_GENESIS_FILE_PATH: Lazy<String> = Lazy::new(|| {

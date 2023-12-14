@@ -1,6 +1,6 @@
 use std::{fmt::Display, path::PathBuf};
 
-use miden_node_utils::genesis::{APP, DEFAULT_GENESIS_FILE_PATH, ORG};
+use miden_node_utils::{genesis::DEFAULT_GENESIS_FILE_PATH, APP, ORG};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
