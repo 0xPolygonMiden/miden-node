@@ -8,11 +8,22 @@ pub const HOST: &str = "localhost";
 pub const PORT: u16 = 28943;
 pub const ENV_PREFIX: &str = "MIDEN_STORE";
 pub const CONFIG_FILENAME: &str = "miden-store.toml";
+pub const GENESIS_CONFIG_FILENAME: &str = "genesis.json";
 pub const STORE_FILENAME: &str = "miden-store.sqlite3";
 
+const ORG: &'static str = "Polygon";
+const APP: &'static str = "Miden";
+
 pub static DEFAULT_STORE_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    directories::ProjectDirs::from("", "Polygon", "Miden")
+    directories::ProjectDirs::from("", ORG, APP)
         .map(|d| d.data_local_dir().join(STORE_FILENAME))
+        // fallback to current dir
+        .unwrap_or_default()
+});
+
+pub static DEFAULT_GENESIS_PATH: Lazy<PathBuf> = Lazy::new(|| {
+    directories::ProjectDirs::from("", ORG, APP)
+        .map(|d| d.data_local_dir().join(GENESIS_CONFIG_FILENAME))
         // fallback to current dir
         .unwrap_or_default()
 });
@@ -31,6 +42,8 @@ pub struct StoreConfig {
     pub endpoint: Endpoint,
     /// SQLite database file
     pub sqlite: PathBuf,
+    /// Genesis file
+    pub genesis_filepath: PathBuf,
 }
 
 impl Default for Endpoint {
@@ -56,6 +69,7 @@ impl Default for StoreConfig {
         Self {
             endpoint: Endpoint::default(),
             sqlite: DEFAULT_STORE_PATH.clone(),
+            genesis_filepath: DEFAULT_GENESIS_PATH.clone(),
         }
     }
 }
