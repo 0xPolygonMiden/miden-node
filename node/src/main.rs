@@ -26,7 +26,7 @@ async fn main() -> anyhow::Result<()> {
             StoreConfig::load_config(Some(config_path).as_deref()).extract()?
         };
 
-        let db = Db::get_conn(config.clone()).await?;
+        let db = Db::setup(config.clone()).await?;
 
         join_set.spawn(store_server::api::serve(config, db));
     }

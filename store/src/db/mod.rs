@@ -41,8 +41,9 @@ pub struct StateSyncUpdate {
 }
 
 impl Db {
-    /// Open a connection to the DB and apply any pending migrations.
-    pub async fn get_conn(config: StoreConfig) -> Result<Self, anyhow::Error> {
+    /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
+    /// is as expected and present in the database.
+    pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
         if let Some(p) = config.sqlite.parent() {
             create_dir_all(p)?;
         }
