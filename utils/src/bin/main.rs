@@ -10,7 +10,7 @@ use std::{
 
 use anyhow::anyhow;
 use clap::Parser;
-use miden_crypto::{dsa::rpo_falcon512::PublicKey, Felt};
+use miden_crypto::{dsa::rpo_falcon512::KeyPair, Felt};
 use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet, AuthScheme};
 use miden_node_utils::genesis::{GenesisState, DEFAULT_GENESIS_FILE_PATH};
 use miden_objects::assets::TokenSymbol;
@@ -26,6 +26,15 @@ const FUNGIBLE_FAUCET_TOKEN_DECIMALS: u8 = 9;
 
 /// Max supply for the token of the faucet present at genesis
 const FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY: u64 = 1_000_000_000;
+
+/// Seed for the Falcon512 keypair
+const SEED_KEYPAIR: [u8; 40] = [2_u8; 40];
+
+/// Seed for the fungible faucet account
+const SEED_FAUCET: [u8; 32] = [0_u8; 32];
+
+/// Seed for the basic wallet account
+const SEED_WALLET: [u8; 32] = [1_u8; 32];
 
 // MAIN
 // =================================================================================================
@@ -63,19 +72,22 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    let key_pair = KeyPair::from_seed(&SEED_KEYPAIR).unwrap();
+
     let genesis_state = {
-        let pub_key = PublicKey::new([0; 897]).unwrap();
         let accounts = {
             let mut accounts = Vec::new();
 
             // fungible asset faucet
             {
                 let (account, _) = create_basic_fungible_faucet(
-                    [0; 32],
+                    SEED_FAUCET,
                     TokenSymbol::new(FUNGIBLE_FAUCET_TOKEN_SYMBOL).unwrap(),
                     FUNGIBLE_FAUCET_TOKEN_DECIMALS,
                     Felt::from(FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY),
-                    AuthScheme::RpoFalcon512 { pub_key },
+                    AuthScheme::RpoFalcon512 {
+                        pub_key: key_pair.public_key(),
+                    },
                 )
                 .unwrap();
 
@@ -85,8 +97,10 @@ fn main() -> anyhow::Result<()> {
             // basic wallet account
             {
                 let (account, _) = create_basic_wallet(
-                    [1; 32],
-                    AuthScheme::RpoFalcon512 { pub_key },
+                    SEED_WALLET,
+                    AuthScheme::RpoFalcon512 {
+                        pub_key: key_pair.public_key(),
+                    },
                     miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
                 )
                 .unwrap();
