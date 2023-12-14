@@ -11,8 +11,8 @@ pub const CONFIG_FILENAME: &str = "miden-store.toml";
 pub const GENESIS_CONFIG_FILENAME: &str = "genesis.json";
 pub const STORE_FILENAME: &str = "miden-store.sqlite3";
 
-const ORG: &'static str = "Polygon";
-const APP: &'static str = "Miden";
+const ORG: &str = "Polygon";
+const APP: &str = "Miden";
 
 pub static DEFAULT_STORE_PATH: Lazy<PathBuf> = Lazy::new(|| {
     directories::ProjectDirs::from("", ORG, APP)
