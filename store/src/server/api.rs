@@ -17,10 +17,11 @@ use miden_node_proto::{
     },
     store::api_server,
 };
+use miden_node_utils::genesis::GenesisState;
 use tonic::{transport::Server, Response, Status};
 use tracing::info;
 
-use crate::{config::StoreConfig, db::Db, genesis::GenesisState, state::State, COMPONENT};
+use crate::{config::StoreConfig, db::Db, state::State, COMPONENT};
 
 // STORE INITIALIZER
 // ================================================================================================

@@ -6,7 +6,7 @@ use std::{fs::File, io::Write, path::Path};
 use anyhow::anyhow;
 use clap::Parser;
 use miden_crypto::dsa::rpo_falcon512::PublicKey;
-use miden_node_store::genesis::GenesisState;
+use miden_node_utils::genesis::GenesisState;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

@@ -12,7 +12,8 @@ use miden_objects::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::state::ACCOUNT_DB_DEPTH;
+// FIXME: This is a duplicate of the constant in `store::state`
+pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;
 
 /// Represents the state at genesis, which will be used to derive the genesis block.
 #[derive(Serialize, Deserialize)]
