@@ -2,7 +2,7 @@
 //! derive the genesis block.
 
 use std::{
-    fs::File,
+    fs::{self, File},
     io::Write,
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
@@ -10,7 +10,7 @@ use std::{
 
 use anyhow::anyhow;
 use clap::Parser;
-use miden_crypto::{dsa::rpo_falcon512::KeyPair, Felt};
+use miden_crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt};
 use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet, AuthScheme};
 use miden_node_utils::genesis::{GenesisState, DEFAULT_GENESIS_FILE_PATH};
 use miden_objects::assets::TokenSymbol;
@@ -27,14 +27,23 @@ const FUNGIBLE_FAUCET_TOKEN_DECIMALS: u8 = 9;
 /// Max supply for the token of the faucet present at genesis
 const FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY: u64 = 1_000_000_000;
 
-/// Seed for the Falcon512 keypair
-const SEED_KEYPAIR: [u8; 40] = [2_u8; 40];
+/// Seed for the Falcon512 keypair (faucet account)
+const SEED_FAUCET_KEYPAIR: [u8; 40] = [2_u8; 40];
+
+/// Seed for the Falcon512 keypair (wallet account)
+const SEED_WALLET_KEYPAIR: [u8; 40] = [3_u8; 40];
 
 /// Seed for the fungible faucet account
 const SEED_FAUCET: [u8; 32] = [0_u8; 32];
 
 /// Seed for the basic wallet account
 const SEED_WALLET: [u8; 32] = [1_u8; 32];
+
+/// Public key file path
+const FAUCET_KEYPAIR_FILE_PATH: &str = "faucet.fsk";
+
+/// Private key file path
+const WALLET_KEYPAIR_FILE_PATH: &str = "wallet.fsk";
 
 // MAIN
 // =================================================================================================
@@ -72,7 +81,8 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let key_pair = KeyPair::from_seed(&SEED_KEYPAIR).unwrap();
+    let faucet_key_pair = KeyPair::from_seed(&SEED_FAUCET_KEYPAIR).unwrap();
+    let wallet_key_pair = KeyPair::from_seed(&SEED_WALLET_KEYPAIR).unwrap();
 
     let genesis_state = {
         let accounts = {
@@ -86,7 +96,7 @@ fn main() -> anyhow::Result<()> {
                     FUNGIBLE_FAUCET_TOKEN_DECIMALS,
                     Felt::from(FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY),
                     AuthScheme::RpoFalcon512 {
-                        pub_key: key_pair.public_key(),
+                        pub_key: faucet_key_pair.public_key(),
                     },
                 )
                 .unwrap();
@@ -99,7 +109,7 @@ fn main() -> anyhow::Result<()> {
                 let (account, _) = create_basic_wallet(
                     SEED_WALLET,
                     AuthScheme::RpoFalcon512 {
-                        pub_key: key_pair.public_key(),
+                        pub_key: wallet_key_pair.public_key(),
                     },
                     miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
                 )
@@ -120,11 +130,18 @@ fn main() -> anyhow::Result<()> {
         GenesisState::new(accounts, version, timestamp)
     };
 
-    let genesis_state_json =
-        serde_json::to_string_pretty(&genesis_state).expect("Failed to serialize genesis state");
+    // Write genesis state as JSON
+    {
+        let genesis_state_json = serde_json::to_string_pretty(&genesis_state)
+            .expect("Failed to serialize genesis state");
 
-    let mut file = File::create(json_file_path)?;
-    writeln!(file, "{}", genesis_state_json)?;
+        let mut file = File::create(json_file_path)?;
+        writeln!(file, "{}", genesis_state_json)?;
+    }
+
+    // Write keypairs to disk
+    fs::write(FAUCET_KEYPAIR_FILE_PATH, faucet_key_pair.to_bytes()).unwrap();
+    fs::write(WALLET_KEYPAIR_FILE_PATH, wallet_key_pair.to_bytes()).unwrap();
 
     Ok(())
 }
