@@ -21,11 +21,15 @@ pub static DEFAULT_STORE_PATH: Lazy<PathBuf> = Lazy::new(|| {
         .unwrap_or_default()
 });
 
-pub static DEFAULT_GENESIS_PATH: Lazy<PathBuf> = Lazy::new(|| {
+pub static DEFAULT_GENESIS_PATH: Lazy<String> = Lazy::new(|| {
     directories::ProjectDirs::from("", ORG, APP)
         .map(|d| d.data_local_dir().join(GENESIS_CONFIG_FILENAME))
         // fallback to current dir
         .unwrap_or_default()
+        .as_path()
+        .to_str()
+        .expect("path only contains UTF-8 characters")
+        .into()
 });
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
@@ -43,7 +47,7 @@ pub struct StoreConfig {
     /// SQLite database file
     pub sqlite: PathBuf,
     /// Genesis file
-    pub genesis_filepath: PathBuf,
+    pub genesis_filepath: String,
 }
 
 impl Default for Endpoint {

@@ -66,7 +66,7 @@ impl Db {
             .map_err(|_| anyhow!("Migration task failed with a panic"))??;
 
         let db = Db { pool };
-        db.ensure_genesis_block().await?;
+        db.ensure_genesis_block(&config.genesis_filepath).await?;
 
         Ok(db)
     }
@@ -188,10 +188,12 @@ impl Db {
     /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that the
     /// genesis block in the database is consistent with the genesis block data in the genesis JSON
     /// file.
-    async fn ensure_genesis_block(&self) -> Result<(), anyhow::Error> {
+    async fn ensure_genesis_block(
+        &self,
+        genesis_filepath: &str,
+    ) -> Result<(), anyhow::Error> {
         let expected_genesis_header: block_header::BlockHeader = {
-            // FIXME: use file path from config (issue #100)
-            let file_contents = fs::read_to_string("TODO FILE PATH")?;
+            let file_contents = fs::read_to_string(genesis_filepath)?;
 
             let genesis_state: GenesisState = serde_json::from_str(&file_contents)?;
             let block_header: BlockHeader = genesis_state.try_into()?;
@@ -205,8 +207,7 @@ impl Db {
             Some(block_header) => {
                 // ensure that expected header is what's also in the store
                 if expected_genesis_header != block_header {
-                    // TODO: Fill in correct file path
-                    return Err(anyhow!("block header in store doesn't match block header in genesis file <TODO FILE PATH>. expected {expected_genesis_header:?}, but store contained {block_header:?}"));
+                    return Err(anyhow!("block header in store doesn't match block header in genesis file \"{genesis_filepath}\". expected {expected_genesis_header:?}, but store contained {block_header:?}"));
                 }
             },
             None => {
