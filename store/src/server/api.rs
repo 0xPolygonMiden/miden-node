@@ -18,6 +18,7 @@ use miden_node_proto::{
     store::api_server,
 };
 use miden_node_utils::genesis::GenesisState;
+use miden_objects::BlockHeader;
 use tonic::{transport::Server, Response, Status};
 use tracing::info;
 
@@ -58,8 +59,9 @@ async fn ensure_genesis_block(db: &Db) -> Result<()> {
         let file_contents = fs::read_to_string("TODO FILE PATH")?;
 
         let genesis_state: GenesisState = serde_json::from_str(&file_contents)?;
+        let block_header: BlockHeader = genesis_state.try_into()?;
 
-        genesis_state.try_into()?
+        block_header.into()
     };
 
     let maybe_block_header_in_store = db.select_block_header_by_block_num(Some(0)).await?;

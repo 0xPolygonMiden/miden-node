@@ -6,7 +6,6 @@ use miden_crypto::{
     Felt,
 };
 use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet, AuthScheme};
-use miden_node_proto::block_header;
 use miden_objects::{
     accounts::Account, assets::TokenSymbol, notes::NOTE_LEAF_DEPTH, BlockHeader, Digest,
 };
@@ -70,7 +69,7 @@ impl GenesisState {
     }
 }
 
-impl TryFrom<GenesisState> for block_header::BlockHeader {
+impl TryFrom<GenesisState> for BlockHeader {
     type Error = MerkleError;
 
     fn try_from(genesis_state: GenesisState) -> Result<Self, Self::Error> {
@@ -95,6 +94,6 @@ impl TryFrom<GenesisState> for block_header::BlockHeader {
             genesis_state.timestamp.into(),
         );
 
-        Ok(block_header.into())
+        Ok(block_header)
     }
 }
