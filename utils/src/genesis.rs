@@ -28,16 +28,12 @@ impl GenesisState {
             timestamp,
         }
     }
-}
 
-impl TryFrom<GenesisState> for BlockHeader {
-    type Error = MerkleError;
-
-    fn try_from(genesis_state: GenesisState) -> Result<Self, Self::Error> {
+    /// Returns the block header and the account SMT
+    pub fn into_block_parts(self) -> Result<(BlockHeader, SimpleSmt), MerkleError> {
         let account_smt = SimpleSmt::with_leaves(
             ACCOUNT_DB_DEPTH,
-            genesis_state
-                .accounts
+            self.accounts
                 .into_iter()
                 .map(|account| (account.id().into(), account.hash().into())),
         )?;
@@ -51,10 +47,10 @@ impl TryFrom<GenesisState> for BlockHeader {
             *EmptySubtreeRoots::entry(NOTE_LEAF_DEPTH, 0),
             Digest::default(),
             Digest::default(),
-            genesis_state.version.into(),
-            genesis_state.timestamp.into(),
+            self.version.into(),
+            self.timestamp.into(),
         );
 
-        Ok(block_header)
+        Ok((block_header, account_smt))
     }
 }

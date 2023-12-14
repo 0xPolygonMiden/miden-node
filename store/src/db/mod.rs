@@ -10,7 +10,6 @@ use miden_node_proto::{
     responses::{AccountHashUpdate, NullifierUpdate},
 };
 use miden_node_utils::genesis::GenesisState;
-use miden_objects::BlockHeader;
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
 use tracing::{info, span, Level};
@@ -82,7 +81,7 @@ impl Db {
             .map_err(|_| anyhow!("Get nullifiers task failed with a panic"))?
     }
 
-    /// Search for a [BlockHeader] from the DB by its `block_num`.
+    /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
     pub async fn select_block_header_by_block_num(
@@ -193,28 +192,53 @@ impl Db {
         &self,
         genesis_filepath: &str,
     ) -> Result<(), anyhow::Error> {
-        let expected_genesis_header: block_header::BlockHeader = {
+        let (expected_genesis_header, account_smt) = {
             let file_contents = fs::read_to_string(genesis_filepath)?;
 
             let genesis_state: GenesisState = serde_json::from_str(&file_contents)?;
-            let block_header: BlockHeader = genesis_state.try_into()?;
+            let (block_header, account_smt) = genesis_state.into_block_parts()?;
 
-            block_header.into()
+            (block_header.into(), account_smt)
         };
 
         let maybe_block_header_in_store = self.select_block_header_by_block_num(Some(0)).await?;
 
         match maybe_block_header_in_store {
-            Some(block_header) => {
+            Some(block_header_in_store) => {
                 // ensure that expected header is what's also in the store
-                if expected_genesis_header != block_header {
-                    return Err(anyhow!("block header in store doesn't match block header in genesis file \"{genesis_filepath}\". expected {expected_genesis_header:?}, but store contained {block_header:?}"));
+                if expected_genesis_header != block_header_in_store {
+                    return Err(anyhow!("block header in store doesn't match block header in genesis file \"{genesis_filepath}\". expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}"));
                 }
             },
             None => {
                 // add genesis header to store
+                self.pool
+                    .get()
+                    .await?
+                    .interact(move |conn| -> anyhow::Result<()> {
+                        let span = span!(Level::INFO, COMPONENT, "writing genesis block to DB");
+                        let guard = span.enter();
 
-                // FIXME: `Db::apply_block` requires the channels that are set up in `State`.
+                        let transaction = conn.transaction()?;
+                        let accounts: Vec<_> = account_smt
+                            .leaves()
+                            .map(|(account_id, state_hash)| (account_id, Digest::from(state_hash)))
+                            .collect();
+                        sql::apply_block(
+                            &transaction,
+                            &expected_genesis_header,
+                            &[],
+                            &[],
+                            &accounts,
+                        )?;
+
+                        transaction.commit()?;
+
+                        drop(guard);
+                        Ok(())
+                    })
+                    .await
+                    .map_err(|_| anyhow!("Apply block task failed with a panic"))??;
             },
         }
 
