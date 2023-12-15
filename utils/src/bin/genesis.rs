@@ -92,6 +92,7 @@ fn main() -> anyhow::Result<()> {
 
             // fungible asset faucet
             {
+                println!("Generating faucet account... ");
                 let (account, _) = create_basic_fungible_faucet(
                     SEED_FAUCET,
                     TokenSymbol::new(FUNGIBLE_FAUCET_TOKEN_SYMBOL).unwrap(),
@@ -103,11 +104,14 @@ fn main() -> anyhow::Result<()> {
                 )
                 .unwrap();
 
+                println!("Done");
+
                 accounts.push(account);
             }
 
             // basic wallet account
             {
+                println!("Generating basic wallet account... ");
                 let (account, _) = create_basic_wallet(
                     SEED_WALLET,
                     AuthScheme::RpoFalcon512 {
@@ -116,6 +120,8 @@ fn main() -> anyhow::Result<()> {
                     miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
                 )
                 .unwrap();
+
+                println!("Done");
 
                 accounts.push(account);
             }
