@@ -39,10 +39,10 @@ const SEED_FAUCET: [u8; 32] = [0_u8; 32];
 /// Seed for the basic wallet account
 const SEED_WALLET: [u8; 32] = [1_u8; 32];
 
-/// Public key file path
+/// Faucet account keys (public/private) file path
 const FAUCET_KEYPAIR_FILE_PATH: &str = "faucet.fsk";
 
-/// Private key file path
+/// Wallet account keys (public/private) file path
 const WALLET_KEYPAIR_FILE_PATH: &str = "wallet.fsk";
 
 // MAIN
