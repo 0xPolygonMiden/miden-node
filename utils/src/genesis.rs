@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use miden_crypto::{
     merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt},
     Felt,
@@ -12,7 +14,7 @@ use crate::{APP, ORG};
 pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;
 
 /// Default path at which the genesis file will be written to
-pub static DEFAULT_GENESIS_FILE_PATH: Lazy<String> = Lazy::new(|| {
+pub static DEFAULT_GENESIS_FILE_PATH: Lazy<PathBuf> = Lazy::new(|| {
     directories::ProjectDirs::from("", ORG, APP)
         .map(|d| d.data_local_dir().join("genesis.json"))
         // fallback to current dir

@@ -33,7 +33,7 @@ pub struct StoreConfig {
     /// SQLite database file
     pub sqlite: PathBuf,
     /// Genesis file
-    pub genesis_filepath: String,
+    pub genesis_filepath: PathBuf,
 }
 
 impl Default for Endpoint {

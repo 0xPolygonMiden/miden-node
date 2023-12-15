@@ -68,7 +68,8 @@ impl Db {
             .map_err(|_| anyhow!("Migration task failed with a panic"))??;
 
         let db = Db { pool };
-        db.ensure_genesis_block(&config.genesis_filepath).await?;
+        db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy())
+            .await?;
 
         Ok(db)
     }

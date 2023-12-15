@@ -2,9 +2,11 @@
 //! derive the genesis block.
 
 use std::{
+    fmt::{Display, Formatter},
     fs::{self, File},
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
+    str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -52,8 +54,8 @@ const WALLET_KEYPAIR_FILE_PATH: &str = "wallet.fsk";
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Path to output json file
-    #[arg(short, long, default_value_t = DEFAULT_GENESIS_FILE_PATH.clone())]
-    output_path: String,
+    #[arg(short, long, default_value_t = DEFAULT_GENESIS_FILE_PATH.clone().into())]
+    output_path: DisplayPathBuf,
 
     /// Generate the output file even if a file already exists
     #[arg(short, long)]
@@ -63,7 +65,7 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    let json_file_path = Path::new(&args.output_path);
+    let json_file_path = Path::new(&args.output_path.0);
 
     if !args.force {
         match json_file_path.try_exists() {
@@ -144,4 +146,35 @@ fn main() -> anyhow::Result<()> {
     fs::write(WALLET_KEYPAIR_FILE_PATH, wallet_key_pair.to_bytes()).unwrap();
 
     Ok(())
+}
+
+// HELPERS
+// =================================================================================================
+
+/// This type is needed for use as a `clap::Arg`. The problem with `PathBuf` is that it doesn't
+/// implement `Display`; this is a thin wrapper around `PathBuf` which does implement `Display`
+#[derive(Debug, Clone)]
+struct DisplayPathBuf(PathBuf);
+
+impl Display for DisplayPathBuf {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        write!(f, "{}", self.0.display())
+    }
+}
+
+impl From<PathBuf> for DisplayPathBuf {
+    fn from(value: PathBuf) -> Self {
+        Self(value)
+    }
+}
+
+impl FromStr for DisplayPathBuf {
+    type Err = <PathBuf as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(PathBuf::from_str(s)?))
+    }
 }
