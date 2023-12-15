@@ -14,6 +14,7 @@ use rusqlite::vtab::array;
 use tokio::sync::oneshot;
 use tracing::{info, span, Level};
 
+use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
     migrations,
@@ -21,6 +22,7 @@ use crate::{
     COMPONENT,
 };
 
+pub mod errors;
 mod sql;
 
 #[cfg(test)]
@@ -191,9 +193,14 @@ impl Db {
     async fn ensure_genesis_block(
         &self,
         genesis_filepath: &str,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(), GenesisBlockError> {
         let (expected_genesis_header, account_smt) = {
-            let file_contents = fs::read_to_string(genesis_filepath)?;
+            let file_contents = fs::read_to_string(genesis_filepath).map_err(|error| {
+                GenesisBlockError::FailedToReadGenesisFile {
+                    genesis_filepath: genesis_filepath.to_string(),
+                    error,
+                }
+            })?;
 
             let genesis_state: GenesisState = serde_json::from_str(&file_contents)?;
             let (block_header, account_smt) = genesis_state.into_block_parts()?;
@@ -201,13 +208,19 @@ impl Db {
             (block_header.into(), account_smt)
         };
 
-        let maybe_block_header_in_store = self.select_block_header_by_block_num(Some(0)).await?;
+        let maybe_block_header_in_store = self
+            .select_block_header_by_block_num(Some(0))
+            .await
+            .map_err(|err| GenesisBlockError::SelectBlockHeaderByBlockNumError(err.to_string()))?;
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {
                 // ensure that expected header is what's also in the store
                 if expected_genesis_header != block_header_in_store {
-                    return Err(anyhow!("block header in store doesn't match block header in genesis file \"{genesis_filepath}\". expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}"));
+                    return Err(GenesisBlockError::GenesisBlockHeaderMismatch {
+                        expected_genesis_header: Box::new(expected_genesis_header),
+                        block_header_in_store: Box::new(block_header_in_store),
+                    });
                 }
             },
             None => {
@@ -238,7 +251,8 @@ impl Db {
                         Ok(())
                     })
                     .await
-                    .map_err(|_| anyhow!("Apply block task failed with a panic"))??;
+                    .map_err(|err| GenesisBlockError::ApplyBlockFailed(err.to_string()))?
+                    .map_err(|err| GenesisBlockError::ApplyBlockFailed(err.to_string()))?;
             },
         }
 
