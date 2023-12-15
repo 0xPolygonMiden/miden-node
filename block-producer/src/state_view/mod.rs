@@ -80,8 +80,11 @@ where
             // Success! Register transaction as successfully verified
             locked_accounts_in_flight.insert(candidate_tx.account_id());
 
-            let mut nullifiers_in_tx: BTreeSet<_> =
-                candidate_tx.consumed_notes().iter().map(|note| note.nullifier()).collect();
+            let mut nullifiers_in_tx: BTreeSet<_> = candidate_tx
+                .consumed_notes()
+                .iter()
+                .map(|nullifier| nullifier.inner())
+                .collect();
             locked_nullifiers_in_flight.append(&mut nullifiers_in_tx);
         }
 
@@ -143,7 +146,8 @@ fn ensure_in_flight_constraints(
 
     // 2. Check no consumed notes were already consumed
     let infracting_nullifiers: Vec<Digest> = {
-        let nullifiers_in_tx = candidate_tx.consumed_notes().iter().map(|note| note.nullifier());
+        let nullifiers_in_tx =
+            candidate_tx.consumed_notes().iter().map(|nullifier| nullifier.inner());
 
         nullifiers_in_tx
             .filter(|nullifier_in_tx| already_consumed_nullifiers.contains(nullifier_in_tx))
@@ -151,7 +155,7 @@ fn ensure_in_flight_constraints(
     };
 
     if !infracting_nullifiers.is_empty() {
-        return Err(VerifyTxError::ConsumedNotesAlreadyConsumed(infracting_nullifiers));
+        return Err(VerifyTxError::NullifiersAlreadyConsumed(infracting_nullifiers));
     }
 
     Ok(())
@@ -186,7 +190,7 @@ fn ensure_tx_inputs_constraints(
         .collect();
 
     if !infracting_nullifiers.is_empty() {
-        return Err(VerifyTxError::ConsumedNotesAlreadyConsumed(infracting_nullifiers));
+        return Err(VerifyTxError::NullifiersAlreadyConsumed(infracting_nullifiers));
     }
 
     Ok(())

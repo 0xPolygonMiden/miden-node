@@ -74,7 +74,7 @@ impl Store for DefaultStore {
             nullifiers: proven_tx
                 .consumed_notes()
                 .iter()
-                .map(|note| note.nullifier().into())
+                .map(|nullifier| nullifier.inner().into())
                 .collect(),
         });
         let response = self
