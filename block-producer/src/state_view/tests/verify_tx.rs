@@ -156,7 +156,7 @@ async fn test_verify_tx_vt3() {
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
             .initial_accounts(iter::once((account.id, account.states[0])))
-            .initial_nullifiers(BTreeSet::from_iter(iter::once(consumed_note_in_store.nullifier())))
+            .initial_nullifiers(BTreeSet::from_iter(iter::once(consumed_note_in_store.inner())))
             .build(),
     );
 
@@ -174,9 +174,7 @@ async fn test_verify_tx_vt3() {
 
     assert_eq!(
         verify_tx_result,
-        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(vec![
-            consumed_note_in_store.nullifier()
-        ]))
+        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(vec![consumed_note_in_store]))
     );
 }
 
@@ -269,8 +267,6 @@ async fn test_verify_tx_vt5() {
     let verify_tx2_result = state_view.verify_tx(tx2.into()).await;
     assert_eq!(
         verify_tx2_result,
-        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(vec![
-            consumed_note_in_both_txs.nullifier()
-        ]))
+        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(vec![consumed_note_in_both_txs]))
     );
 }

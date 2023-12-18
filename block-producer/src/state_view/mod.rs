@@ -1,7 +1,7 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
-use miden_objects::{accounts::AccountId, Digest};
+use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -80,8 +80,11 @@ where
             // Success! Register transaction as successfully verified
             locked_accounts_in_flight.insert(candidate_tx.account_id());
 
-            let mut nullifiers_in_tx: BTreeSet<_> =
-                candidate_tx.consumed_notes().iter().map(|note| note.nullifier()).collect();
+            let mut nullifiers_in_tx: BTreeSet<_> = candidate_tx
+                .consumed_notes()
+                .iter()
+                .map(|nullifier| nullifier.inner())
+                .collect();
             locked_nullifiers_in_flight.append(&mut nullifiers_in_tx);
         }
 
@@ -142,11 +145,14 @@ fn ensure_in_flight_constraints(
     }
 
     // 2. Check no consumed notes were already consumed
-    let infracting_nullifiers: Vec<Digest> = {
-        let nullifiers_in_tx = candidate_tx.consumed_notes().iter().map(|note| note.nullifier());
-
-        nullifiers_in_tx
-            .filter(|nullifier_in_tx| already_consumed_nullifiers.contains(nullifier_in_tx))
+    let infracting_nullifiers: Vec<Nullifier> = {
+        candidate_tx
+            .consumed_notes()
+            .iter()
+            .filter(|&nullifier_in_tx| {
+                already_consumed_nullifiers.contains(&nullifier_in_tx.inner())
+            })
+            .cloned()
             .collect()
     };
 
@@ -178,11 +184,11 @@ fn ensure_tx_inputs_constraints(
         },
     }
 
-    let infracting_nullifiers: Vec<_> = tx_inputs
+    let infracting_nullifiers: Vec<Nullifier> = tx_inputs
         .nullifiers
         .into_iter()
-        .filter(|&(_nullifier_in_tx, is_already_consumed)| is_already_consumed)
-        .map(|(nullifier_in_tx, _is_already_consumed)| nullifier_in_tx)
+        .filter(|&(_, is_already_consumed)| is_already_consumed)
+        .map(|(nullifier_in_tx, _)| nullifier_in_tx.into())
         .collect();
 
     if !infracting_nullifiers.is_empty() {
