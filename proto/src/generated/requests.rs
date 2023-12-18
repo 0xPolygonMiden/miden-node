@@ -67,8 +67,8 @@ pub struct GetBlockInputsRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetTransactionInputsRequest {
-    #[prost(message, repeated, tag = "1")]
-    pub account_ids: ::prost::alloc::vec::Vec<super::account_id::AccountId>,
+    #[prost(message, optional, tag = "1")]
+    pub account_id: ::core::option::Option<super::account_id::AccountId>,
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }

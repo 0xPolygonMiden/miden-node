@@ -129,8 +129,8 @@ pub struct NullifierTransactionInputRecord {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetTransactionInputsResponse {
-    #[prost(message, repeated, tag = "1")]
-    pub account_states: ::prost::alloc::vec::Vec<AccountTransactionInputRecord>,
+    #[prost(message, optional, tag = "1")]
+    pub account_state: ::core::option::Option<AccountTransactionInputRecord>,
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierTransactionInputRecord>,
 }

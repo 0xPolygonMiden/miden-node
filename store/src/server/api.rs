@@ -186,16 +186,16 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
+        let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
 
-        let (accounts, nullifiers_blocks) = self
+        let (account, nullifiers_blocks) = self
             .state
-            .get_transaction_inputs(&account_ids, &nullifiers)
+            .get_transaction_inputs(account_id, &nullifiers)
             .await
             .map_err(internal_error)?;
 
         Ok(Response::new(GetTransactionInputsResponse {
-            account_states: convert(accounts),
+            account_state: Some(account.into()),
             nullifiers: convert(nullifiers_blocks),
         }))
     }

@@ -97,7 +97,7 @@ message NullifierTransactionInputRecord {
 }
 
 message GetTransactionInputsResponse {
-    repeated AccountTransactionInputRecord account_states = 1;
+    AccountTransactionInputRecord account_state = 1;
     repeated NullifierTransactionInputRecord nullifiers = 2;
 }
 
