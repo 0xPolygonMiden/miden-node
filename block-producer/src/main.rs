@@ -2,22 +2,22 @@ use anyhow::Result;
 use clap::Parser;
 use miden_node_block_producer::{
     cli::{Cli, Command},
-    config::BlockProducerConfig,
+    config::BlockProducerTopLevelConfig,
     server,
 };
-use miden_node_utils::Config;
+use miden_node_utils::config::Config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     miden_node_utils::logging::setup_logging()?;
 
     let cli = Cli::parse();
-    let config: BlockProducerConfig =
-        BlockProducerConfig::load_config(cli.config.as_deref()).extract()?;
+    let config: BlockProducerTopLevelConfig =
+        BlockProducerTopLevelConfig::load_config(cli.config.as_deref()).extract()?;
 
     match cli.command {
         Command::Serve { .. } => {
-            server::api::serve(config).await?;
+            server::api::serve(config.block_producer).await?;
         },
     }
 

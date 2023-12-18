@@ -30,14 +30,15 @@ pub struct RpcApi {
 
 impl RpcApi {
     async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
-        let store = store_client::ApiClient::connect(config.store.clone()).await?;
-        info!(COMPONENT, store = config.store, "Store client initialized",);
+        let store = store_client::ApiClient::connect(config.store_endpoint.clone()).await?;
+        info!(COMPONENT, store_endpoint = config.store_endpoint, "Store client initialized");
 
         let block_producer =
-            block_producer_client::ApiClient::connect(config.block_producer.clone()).await?;
+            block_producer_client::ApiClient::connect(config.block_producer_endpoint.clone())
+                .await?;
         info!(
             COMPONENT,
-            block_producer = config.block_producer,
+            block_producer_endpoint = config.block_producer_endpoint,
             "Block producer client initialized",
         );
 
@@ -87,15 +88,15 @@ impl api_server::Api for RpcApi {
 }
 
 pub async fn serve(config: RpcConfig) -> Result<()> {
-    let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
+    let host_port = (config.host_port.host.as_ref(), config.host_port.port);
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
     let api = RpcApi::from_config(&config).await?;
     let rpc = api_server::ApiServer::new(api);
 
     info!(
-        host = config.endpoint.host,
-        port = config.endpoint.port,
+        host = config.host_port.host,
+        port = config.host_port.port,
         COMPONENT,
         "Server initialized"
     );
