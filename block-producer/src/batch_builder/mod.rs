@@ -50,7 +50,7 @@ impl TransactionBatch {
         let produced_nullifiers = txs
             .iter()
             .flat_map(|tx| tx.consumed_notes())
-            .map(|consumed_note| consumed_note.nullifier())
+            .map(|nullifier| nullifier.inner())
             .collect();
 
         let (created_notes, created_notes_smt) = {

@@ -152,8 +152,6 @@ async fn test_apply_block_ab3() {
     let verify_tx_res = state_view.verify_tx(tx_new.into()).await;
     assert_eq!(
         verify_tx_res,
-        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(
-            txs[0].consumed_notes().iter().map(|note| note.nullifier()).collect()
-        ))
+        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(txs[0].consumed_notes().to_vec()))
     );
 }

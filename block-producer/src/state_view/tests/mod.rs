@@ -1,4 +1,5 @@
-use miden_objects::{transaction::ConsumedNoteInfo, Hasher};
+use miden_crypto::ZERO;
+use miden_objects::{notes::Nullifier, Hasher, EMPTY_WORD};
 
 use super::*;
 use crate::test_utils::{DummyProvenTxGenerator, MockPrivateAccount};
@@ -9,8 +10,8 @@ mod verify_tx;
 // HELPERS
 // -------------------------------------------------------------------------------------------------
 
-pub fn consumed_note_by_index(index: u32) -> ConsumedNoteInfo {
-    ConsumedNoteInfo::new(
+pub fn consumed_note_by_index(index: u32) -> Nullifier {
+    Nullifier::new(
         Hasher::hash(&index.to_be_bytes()),
         Hasher::hash(
             &[index.to_be_bytes(), index.to_be_bytes()]
@@ -18,6 +19,8 @@ pub fn consumed_note_by_index(index: u32) -> ConsumedNoteInfo {
                 .flatten()
                 .collect::<Vec<_>>(),
         ),
+        EMPTY_WORD.into(),
+        [ZERO, ZERO, ZERO, index.into()],
     )
 }
 

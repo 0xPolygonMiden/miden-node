@@ -2,10 +2,15 @@ use miden_crypto::{
     merkle::{MerklePath, MmrDelta, MmrPeaks, TieredSmtProof},
     Felt, FieldElement, StarkField, Word,
 };
-use miden_objects::{accounts::AccountId, notes::NoteEnvelope, BlockHeader, Digest as RpoDigest};
+use miden_objects::{
+    accounts::AccountId,
+    notes::{NoteEnvelope, Nullifier},
+    BlockHeader, Digest as RpoDigest,
+};
 
 use crate::{
-    account_id, block_header, digest,
+    account_id, block_header,
+    digest::{self, Digest},
     domain::{AccountInputRecord, BlockInputs, NullifierInputRecord},
     error, merkle, mmr, note, requests, responses, tsmt,
 };
@@ -372,6 +377,18 @@ impl From<(u64, NoteEnvelope)> for note::NoteCreated {
             num_assets: u64::from(note.metadata().num_assets()) as u32,
             note_index: note_idx as u32,
         }
+    }
+}
+
+impl From<&Nullifier> for Digest {
+    fn from(value: &Nullifier) -> Self {
+        (*value).inner().into()
+    }
+}
+
+impl From<Nullifier> for Digest {
+    fn from(value: Nullifier) -> Self {
+        value.inner().into()
     }
 }
 

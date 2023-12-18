@@ -7,8 +7,8 @@ use miden_crypto::hash::rpo::Rpo256;
 use miden_mock::constants::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN;
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteEnvelope, NoteMetadata},
-    transaction::{ConsumedNoteInfo, ProvenTransaction},
+    notes::{NoteEnvelope, NoteMetadata, Nullifier},
+    transaction::ProvenTransaction,
     Digest, ONE, ZERO,
 };
 use once_cell::sync::Lazy;
@@ -127,7 +127,7 @@ impl DummyProvenTxGenerator {
         account_id: AccountId,
         initial_account_hash: Digest,
         final_account_hash: Digest,
-        consumed_notes: Vec<ConsumedNoteInfo>,
+        consumed_notes: Vec<Nullifier>,
         created_notes: Vec<NoteEnvelope>,
     ) -> ProvenTransaction {
         ProvenTransaction::new(
