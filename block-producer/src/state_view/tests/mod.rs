@@ -1,5 +1,5 @@
 use miden_crypto::ZERO;
-use miden_objects::{notes::Nullifier, Hasher};
+use miden_objects::{notes::Nullifier, Hasher, EMPTY_WORD};
 
 use super::*;
 use crate::test_utils::{DummyProvenTxGenerator, MockPrivateAccount};
@@ -19,8 +19,8 @@ pub fn nullifier_by_index(index: u32) -> Nullifier {
                 .flatten()
                 .collect::<Vec<_>>(),
         ),
-        Digest::default(),
-        [ZERO, ZERO, ZERO, ZERO],
+        EMPTY_WORD.into(),
+        [ZERO, ZERO, ZERO, index.into()],
     )
 }
 

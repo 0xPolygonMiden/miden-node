@@ -1,7 +1,7 @@
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_objects::{accounts::AccountId, Digest};
+use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
 use tokio::{sync::RwLock, time};
 
 use crate::{batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec};
@@ -19,7 +19,7 @@ pub enum VerifyTxError {
     AccountAlreadyModifiedByOtherTx(AccountId),
 
     /// Another transaction already consumed the notes with given nullifiers
-    NullifiersAlreadyConsumed(Vec<Digest>),
+    NullifiersAlreadyConsumed(Vec<Nullifier>),
 
     /// The account's initial hash did not match the current account's hash
     IncorrectAccountInitialHash {
