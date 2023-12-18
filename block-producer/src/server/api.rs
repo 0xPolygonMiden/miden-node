@@ -70,7 +70,7 @@ impl Store for DefaultStore {
         proven_tx: SharedProvenTx,
     ) -> Result<TxInputs, TxInputsError> {
         let request = tonic::Request::new(GetTransactionInputsRequest {
-            account_ids: vec![proven_tx.account_id().into()],
+            account_id: Some(proven_tx.account_id().into()),
             nullifiers: proven_tx
                 .consumed_notes()
                 .iter()
@@ -87,8 +87,7 @@ impl Store for DefaultStore {
 
         let account_hash = {
             let account_state = response
-                .account_states
-                .first()
+                .account_state
                 .ok_or(TxInputsError::MalformedResponse("account_states empty".to_string()))?;
 
             let account_id_from_store: AccountId = account_state

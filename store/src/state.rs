@@ -404,21 +404,15 @@ impl State {
 
     pub async fn get_transaction_inputs(
         &self,
-        account_ids: &[AccountId],
+        account_id: AccountId,
         nullifiers: &[RpoDigest],
-    ) -> Result<(Vec<AccountState>, Vec<NullifierStateForTransactionInput>), anyhow::Error> {
+    ) -> Result<(AccountState, Vec<NullifierStateForTransactionInput>), anyhow::Error> {
         let inner = self.inner.read().await;
 
-        let accounts: Vec<_> = account_ids
-            .iter()
-            .cloned()
-            .map(|id| {
-                Ok(AccountState {
-                    account_id: id,
-                    account_hash: inner.account_tree.get_leaf(id)?,
-                })
-            })
-            .collect::<Result<Vec<AccountState>, MerkleError>>()?;
+        let account = AccountState {
+            account_id,
+            account_hash: inner.account_tree.get_leaf(account_id)?,
+        };
 
         let nullifier_blocks = nullifiers
             .iter()
@@ -434,7 +428,7 @@ impl State {
             })
             .collect();
 
-        Ok((accounts, nullifier_blocks))
+        Ok((account, nullifier_blocks))
     }
 }
 
