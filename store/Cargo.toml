@@ -41,3 +41,6 @@ miette = { version = "5.9", features = ["fancy"] }
 prost = { version = "0.12" }
 protox = { version = "0.5" }
 tonic-build = { version = "0.10" }
+
+[dev-dependencies]
+figment = { version = "0.10", features = ["toml", "env", "test"] }

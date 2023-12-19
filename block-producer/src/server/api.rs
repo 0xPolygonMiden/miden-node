@@ -183,7 +183,7 @@ where
 }
 
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
-    let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
+    let host_port = (config.host_port.host.as_ref(), config.host_port.port);
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
     let store = Arc::new(DefaultStore {
@@ -224,8 +224,8 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
 
     info!(
         COMPONENT,
-        host = config.endpoint.host,
-        port = config.endpoint.port,
+        host = config.host_port.host,
+        port = config.host_port.port,
         "Server initialized",
     );
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;

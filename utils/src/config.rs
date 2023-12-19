@@ -5,14 +5,26 @@ use figment::{
     providers::{Env, Format, Serialized, Toml},
     Figment,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-/// Trait with the basic to load configurations for different services.
+/// Environment variable default prefix.
+pub const ENV_PREFIX: &str = "MIDEN__";
+
+/// The `(host, port)` pair for the server's listening socket.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+pub struct HostPort {
+    /// Host used by the store.
+    pub host: String,
+    /// Port number used by the store.
+    pub port: u16,
+}
+
+/// Trait with the basic logic to load configurations for different services.
 ///
 /// This trait makes sure the priority and features are consistent across different services.
 pub trait Config: Default + Serialize {
     const CONFIG_FILENAME: &'static str;
-    const ENV_PREFIX: &'static str;
+    const ENV_PREFIX: &'static str = ENV_PREFIX;
 
     fn load_user_config() -> Option<Figment> {
         let dirs = directories::ProjectDirs::from("", "Polygon", "Miden")?;
@@ -29,7 +41,7 @@ pub trait Config: Default + Serialize {
     }
 
     fn load_env_config() -> Figment {
-        Figment::from(Env::prefixed(Self::ENV_PREFIX))
+        Figment::from(Env::prefixed(Self::ENV_PREFIX).split("__"))
     }
 
     /// Loads the user configuration.
