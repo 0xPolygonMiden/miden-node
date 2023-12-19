@@ -2,9 +2,12 @@ use std::path::PathBuf;
 
 use miden_crypto::{
     merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt},
+    utils::ByteWriter,
     Felt,
 };
-use miden_objects::{accounts::Account, notes::NOTE_LEAF_DEPTH, BlockHeader, Digest};
+use miden_objects::{
+    accounts::Account, notes::NOTE_LEAF_DEPTH, utils::serde::Serializable, BlockHeader, Digest,
+};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
@@ -69,5 +72,21 @@ impl GenesisState {
         );
 
         Ok((block_header, account_smt))
+    }
+}
+// SERIALIZATION
+// ================================================================================================
+
+impl Serializable for GenesisState {
+    fn write_into<W: ByteWriter>(
+        &self,
+        target: &mut W,
+    ) {
+        assert!(self.accounts.len() <= u64::MAX as usize, "too many accounts in GenesisState");
+        target.write_u64(self.accounts.len() as u64);
+
+        for account in self.accounts.iter() {
+            account.write_into(target);
+        }
     }
 }
