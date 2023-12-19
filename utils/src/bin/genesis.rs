@@ -141,10 +141,9 @@ fn main() -> anyhow::Result<()> {
     {
         let genesis_state_bin = genesis_state.to_bytes();
 
-        fs::write(output_file_path, genesis_state_bin).expect(
-            format!("Failed to write genesis state to output file {}", output_file_path.display())
-                .as_str(),
-        );
+        fs::write(output_file_path, genesis_state_bin).unwrap_or_else(|_| {
+            panic!("Failed to write genesis state to output file {}", output_file_path.display())
+        });
     }
 
     // Write keypairs to disk

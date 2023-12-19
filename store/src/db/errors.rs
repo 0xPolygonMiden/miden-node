@@ -1,7 +1,7 @@
 use std::io;
 
 use deadpool_sqlite::PoolError;
-use miden_crypto::merkle::MerkleError;
+use miden_crypto::{merkle::MerkleError, utils::DeserializationError};
 use miden_node_proto::block_header::BlockHeader;
 use thiserror::Error;
 
@@ -14,6 +14,8 @@ pub enum GenesisBlockError {
         genesis_filepath: String,
         error: io::Error,
     },
+    #[error("failed to deserialize genesis file: {0}")]
+    GenesisFileDeserializationError(DeserializationError),
     #[error("block header in store doesn't match block header in genesis file. Expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}")]
     GenesisBlockHeaderMismatch {
         expected_genesis_header: Box<BlockHeader>,

@@ -2,7 +2,7 @@ use std::fs::{self, create_dir_all};
 
 use anyhow::anyhow;
 use deadpool_sqlite::{Config as SqliteConfig, Pool, Runtime};
-use miden_crypto::hash::rpo::RpoDigest;
+use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use miden_node_proto::{
     block_header,
     digest::Digest,
@@ -196,14 +196,15 @@ impl Db {
         genesis_filepath: &str,
     ) -> Result<(), GenesisBlockError> {
         let (expected_genesis_header, account_smt) = {
-            let file_contents = fs::read_to_string(genesis_filepath).map_err(|error| {
+            let file_contents = fs::read(genesis_filepath).map_err(|error| {
                 GenesisBlockError::FailedToReadGenesisFile {
                     genesis_filepath: genesis_filepath.to_string(),
                     error,
                 }
             })?;
 
-            let genesis_state: GenesisState = serde_json::from_str(&file_contents)?;
+            let genesis_state = GenesisState::read_from_bytes(&file_contents)
+                .map_err(GenesisBlockError::GenesisFileDeserializationError)?;
             let (block_header, account_smt) = genesis_state.into_block_parts()?;
 
             (block_header.into(), account_smt)
