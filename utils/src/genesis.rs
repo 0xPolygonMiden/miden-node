@@ -2,11 +2,13 @@ use std::path::PathBuf;
 
 use miden_crypto::{
     merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt},
-    utils::ByteWriter,
     Felt,
 };
 use miden_objects::{
-    accounts::Account, notes::NOTE_LEAF_DEPTH, utils::serde::Serializable, BlockHeader, Digest,
+    accounts::Account,
+    notes::NOTE_LEAF_DEPTH,
+    utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
+    BlockHeader, Digest,
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -88,5 +90,20 @@ impl Serializable for GenesisState {
         for account in self.accounts.iter() {
             account.write_into(target);
         }
+
+        target.write_u64(self.version);
+        target.write_u64(self.timestamp);
+    }
+}
+
+impl Deserializable for GenesisState {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let num_accounts = source.read_u64()? as usize;
+        let accounts = Account::read_batch_from(source, num_accounts)?;
+
+        let version = source.read_u64()?;
+        let timestamp = source.read_u64()?;
+
+        Ok(Self::new(accounts, version, timestamp))
     }
 }

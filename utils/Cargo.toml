@@ -13,7 +13,7 @@ directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-crypto = { workspace = true }
 miden-lib = { workspace = true, features = ["concurrent"] }
-miden_objects = { workspace = true, features = ["serde"] }
+miden_objects = { workspace = true }
 once_cell = { version = "1.18.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
