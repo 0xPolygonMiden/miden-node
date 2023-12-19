@@ -1,60 +1,32 @@
-use std::{path::PathBuf, time::Duration};
+use std::{path::Path, time::Duration};
 
-use miden_node_block_producer::{
-    config as block_producer_config, config::BlockProducerConfig, server as block_producer_server,
-};
-use miden_node_rpc::{config as rpc_config, config::RpcConfig, server as rpc_server};
-use miden_node_store::{
-    config::{self as store_config, StoreConfig},
-    db::Db,
-    server as store_server,
-};
+use config::{NodeTopLevelConfig, CONFIG_FILENAME};
+use miden_node_block_producer::server as block_producer_server;
+use miden_node_rpc::server as rpc_server;
+use miden_node_store::{db::Db, server as store_server};
 use miden_node_utils::Config;
 use tokio::task::JoinSet;
+
+mod config;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     miden_node_utils::logging::setup_logging()?;
 
+    let config: NodeTopLevelConfig =
+        NodeTopLevelConfig::load_config(Some(Path::new(CONFIG_FILENAME))).extract()?;
+
     let mut join_set = JoinSet::new();
+    let db = Db::setup(config.store.clone()).await?;
+    join_set.spawn(store_server::api::serve(config.store, db));
 
-    // start store
-    {
-        let config: StoreConfig = {
-            let config_path = PathBuf::from(store_config::CONFIG_FILENAME);
-
-            StoreConfig::load_config(Some(config_path).as_deref()).extract()?
-        };
-
-        let db = Db::setup(config.clone()).await?;
-
-        join_set.spawn(store_server::api::serve(config, db));
-    }
-
-    // wait for store to be started
+    // wait for store before starting block producer
     tokio::time::sleep(Duration::from_secs(1)).await;
+    join_set.spawn(block_producer_server::api::serve(config.block_producer));
 
-    // start block-producer
-    {
-        let config: BlockProducerConfig = {
-            let config_path = PathBuf::from(block_producer_config::CONFIG_FILENAME);
-
-            BlockProducerConfig::load_config(Some(config_path).as_deref()).extract()?
-        };
-
-        join_set.spawn(block_producer_server::api::serve(config));
-    }
-
-    // start rpc
-    {
-        let config: RpcConfig = {
-            let config_path = PathBuf::from(rpc_config::CONFIG_FILENAME);
-
-            RpcConfig::load_config(Some(config_path).as_deref()).extract()?
-        };
-
-        join_set.spawn(rpc_server::api::serve(config));
-    }
+    // wait for blockproducer before starting rpc
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    join_set.spawn(rpc_server::api::serve(config.rpc));
 
     // block on all tasks
     while let Some(_res) = join_set.join_next().await {

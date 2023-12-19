@@ -28,15 +28,15 @@ pub async fn serve(
     config: StoreConfig,
     db: Db,
 ) -> Result<()> {
-    let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
+    let host_port = (config.host_port.host.as_ref(), config.host_port.port);
     let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
 
     let state = Arc::new(State::load(db).await?);
     let store = api_server::ApiServer::new(StoreApi { state });
 
     info!(
-        host = config.endpoint.host,
-        port = config.endpoint.port,
+        host = config.host_port.host,
+        port = config.host_port.port,
         COMPONENT,
         "Server initialized",
     );
