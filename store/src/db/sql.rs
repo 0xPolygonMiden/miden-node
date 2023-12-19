@@ -265,11 +265,11 @@ pub fn select_notes_since_block_by_tag_and_sender(
     block_num: BlockNumber,
 ) -> Result<Vec<Note>, anyhow::Error> {
     let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
-    let account_ids = account_ids
+    let account_ids: Vec<Value> = account_ids
         .iter()
         .copied()
         .map(u64_to_value)
-        .collect::<Result<Vec<Value>, anyhow::Error>>()?;
+        .collect();
 
     let mut stmt = conn.prepare(
         "
@@ -349,7 +349,7 @@ pub fn upsert_accounts_with_blocknum(
 
     let mut count = 0;
     for (account_id, account_hash) in accounts.iter() {
-        count += stmt.execute(params![account_id, account_hash.encode_to_vec(), block_num])?
+        count += stmt.execute(params![u64_to_value(*account_id), account_hash.encode_to_vec(), block_num])?
     }
     Ok(count)
 }
@@ -366,11 +366,11 @@ pub fn select_accounts_by_block_range(
     block_end: BlockNumber,
     account_ids: &[AccountId],
 ) -> Result<Vec<AccountHashUpdate>, anyhow::Error> {
-    let account_ids = account_ids
+    let account_ids: Vec<Value> = account_ids
         .iter()
         .copied()
         .map(u64_to_value)
-        .collect::<Result<Vec<Value>, anyhow::Error>>()?;
+        .collect();
 
     let mut stmt = conn.prepare(
         "
@@ -519,10 +519,10 @@ pub fn u64_to_prefix(v: u64) -> u32 {
 
 /// Converts a `u64` into a [Value].
 ///
-/// Sqlite uses `i64` as its internal representation format.
-pub fn u64_to_value(v: u64) -> Result<Value, anyhow::Error> {
-    let v: i64 = v.try_into()?;
-    Ok(Value::Integer(v))
+/// Sqlite uses `i64` as its internal representation format. Note that the `as` operator performs a
+/// lossless conversion from `u64` to `i64`.
+pub fn u64_to_value(v: u64) -> Value {
+    Value::Integer(v as i64)
 }
 
 /// Converts a `u32` into a [Value].
