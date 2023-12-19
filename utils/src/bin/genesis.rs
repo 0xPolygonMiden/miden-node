@@ -3,8 +3,7 @@
 
 use std::{
     fmt::{Display, Formatter},
-    fs::{self, File},
-    io::Write,
+    fs,
     path::{Path, PathBuf},
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
@@ -65,10 +64,10 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    let json_file_path = Path::new(&args.output_path.0);
+    let output_file_path = Path::new(&args.output_path.0);
 
     if !args.force {
-        match json_file_path.try_exists() {
+        match output_file_path.try_exists() {
             Ok(file_exists) => {
                 if file_exists {
                     return Err(anyhow!("Failed to generate new genesis file \"{}\" because it already exists. Use the --force flag to overwrite.", args.output_path));
@@ -138,13 +137,14 @@ fn main() -> anyhow::Result<()> {
         GenesisState::new(accounts, version, timestamp)
     };
 
-    // Write genesis state as JSON
+    // Write genesis state as binary format
     {
-        let genesis_state_json = serde_json::to_string_pretty(&genesis_state)
-            .expect("Failed to serialize genesis state");
+        let genesis_state_bin = genesis_state.to_bytes();
 
-        let mut file = File::create(json_file_path)?;
-        writeln!(file, "{}", genesis_state_json)?;
+        fs::write(output_file_path, genesis_state_bin).expect(
+            format!("Failed to write genesis state to output file {}", output_file_path.display())
+                .as_str(),
+        );
     }
 
     // Write keypairs to disk
