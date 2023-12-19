@@ -1,12 +1,15 @@
 use std::path::PathBuf;
 
-use miden_node_utils::{
-    config::{Config, HostPort},
-    genesis::DEFAULT_GENESIS_FILE_PATH,
-    APP, ORG,
-};
+use miden_node_utils::config::{Config, HostPort};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+
+use crate::genesis::DEFAULT_GENESIS_FILE_PATH;
+
+/// The name of the organization - for config file path purposes
+pub const ORG: &str = "Polygon";
+/// The name of the app - for config file path purposes
+pub const APP: &str = "Miden";
 
 pub const HOST: &str = "localhost";
 // defined as: sum(ord(c)**p for (p, c) in enumerate('miden-store', 1)) % 2**16

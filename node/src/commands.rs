@@ -9,8 +9,8 @@ use miden_crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt};
 use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet, AuthScheme};
 use miden_node_block_producer::server as block_producer_server;
 use miden_node_rpc::server as rpc_server;
-use miden_node_store::{db::Db, server as store_server};
-use miden_node_utils::{genesis::GenesisState, Config};
+use miden_node_store::{db::Db, genesis::GenesisState, server as store_server};
+use miden_node_utils::Config;
 use miden_objects::assets::TokenSymbol;
 use tokio::task::JoinSet;
 

@@ -5,7 +5,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use miden_node_utils::genesis::DEFAULT_GENESIS_FILE_PATH;
+use miden_node_store::genesis::DEFAULT_GENESIS_FILE_PATH;
 
 mod commands;
 mod config;

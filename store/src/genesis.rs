@@ -13,7 +13,7 @@ use miden_objects::{
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::{APP, ORG};
+use crate::config::{APP, ORG};
 
 // FIXME: This is a duplicate of the constant in `store::state`
 pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;

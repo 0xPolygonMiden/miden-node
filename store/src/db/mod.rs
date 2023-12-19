@@ -9,7 +9,6 @@ use miden_node_proto::{
     note::Note,
     responses::{AccountHashUpdate, NullifierUpdate},
 };
-use miden_node_utils::genesis::GenesisState;
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
 use tracing::{info, span, Level};
@@ -17,6 +16,7 @@ use tracing::{info, span, Level};
 use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
+    genesis::GenesisState,
     migrations,
     types::{AccountId, BlockNumber},
     COMPONENT,
