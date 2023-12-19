@@ -22,7 +22,10 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Start the node
     Start,
+
+    /// Generate genesis file
     MakeGenesis {
         #[arg(short, long, default_value_t = DEFAULT_GENESIS_FILE_PATH.clone().into())]
         output_path: DisplayPathBuf,
