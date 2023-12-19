@@ -9,6 +9,10 @@ keywords = ["miden", "node", "program"]
 edition = "2021"
 rust-version = "1.73"
 
+[features]
+# Makes `make-genesis` subcommand run faster. Is only suitable for testing.
+testing = ["miden-lib/testing"]
+
 [dependencies]
 anyhow = { version = "1.0" }
 clap = { version = "4.3", features = ["derive"] }
