@@ -11,7 +11,6 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
 
 use crate::config::{APP, ORG};
 
@@ -31,7 +30,6 @@ pub static DEFAULT_GENESIS_FILE_PATH: Lazy<PathBuf> = Lazy::new(|| {
 });
 
 /// Represents the state at genesis, which will be used to derive the genesis block.
-#[derive(Serialize, Deserialize)]
 pub struct GenesisState {
     pub accounts: Vec<Account>,
     pub version: u64,
