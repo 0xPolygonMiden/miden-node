@@ -44,8 +44,9 @@ pub async fn start() -> anyhow::Result<()> {
     join_set.spawn(rpc_server::api::serve(config.rpc));
 
     // block on all tasks
-    while let Some(_res) = join_set.join_next().await {
-        // do nothing
+    while let Some(res) = join_set.join_next().await {
+        // For now, if one of the components fails, crash the node
+        res.unwrap().unwrap();
     }
 
     Ok(())
