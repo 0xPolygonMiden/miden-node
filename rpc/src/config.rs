@@ -1,6 +1,6 @@
 use miden_node_block_producer::config::BlockProducerConfig;
 use miden_node_store::config::StoreConfig;
-use miden_node_utils::config::{Config, HostPort};
+use miden_node_utils::config::{Config, Endpoint};
 use serde::{Deserialize, Serialize};
 
 pub const HOST: &str = "localhost";
@@ -13,7 +13,7 @@ pub const CONFIG_FILENAME: &str = "miden-rpc.toml";
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct RpcConfig {
-    pub endpoint: HostPort,
+    pub endpoint: Endpoint,
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.
     pub store_url: String,
     /// Block producer gRPC endpoint in the format `http://<host>[:<port>]`.
@@ -23,7 +23,7 @@ pub struct RpcConfig {
 impl Default for RpcConfig {
     fn default() -> Self {
         Self {
-            endpoint: HostPort {
+            endpoint: Endpoint {
                 host: HOST.to_string(),
                 port: PORT,
             },
@@ -55,7 +55,7 @@ impl Config for RpcTopLevelConfig {
 #[cfg(test)]
 mod tests {
     use figment::Jail;
-    use miden_node_utils::{config::HostPort, Config};
+    use miden_node_utils::{config::Endpoint, Config};
 
     use super::{RpcConfig, RpcTopLevelConfig, CONFIG_FILENAME};
 
@@ -81,7 +81,7 @@ mod tests {
                 config,
                 RpcTopLevelConfig {
                     rpc: RpcConfig {
-                        endpoint: HostPort {
+                        endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },

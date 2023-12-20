@@ -12,7 +12,7 @@ pub const ENV_PREFIX: &str = "MIDEN__";
 
 /// The `(host, port)` pair for the server's listening socket.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
-pub struct HostPort {
+pub struct Endpoint {
     /// Host used by the store.
     pub host: String,
     /// Port number used by the store.

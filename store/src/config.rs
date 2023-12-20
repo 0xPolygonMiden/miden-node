@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use miden_node_utils::config::{Config, HostPort};
+use miden_node_utils::config::{Config, Endpoint};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,7 @@ pub static DEFAULT_STORE_PATH: Lazy<PathBuf> = Lazy::new(|| {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct StoreConfig {
     /// Defines the lisening socket.
-    pub endpoint: HostPort,
+    pub endpoint: Endpoint,
     /// SQLite database file
     pub database_filepath: PathBuf,
     /// Genesis file
@@ -40,7 +40,7 @@ pub struct StoreConfig {
 impl Default for StoreConfig {
     fn default() -> Self {
         Self {
-            endpoint: HostPort {
+            endpoint: Endpoint {
                 host: HOST.to_string(),
                 port: PORT,
             },
@@ -74,7 +74,7 @@ mod tests {
     use figment::Jail;
     use miden_node_utils::Config;
 
-    use super::{HostPort, StoreConfig, StoreTopLevelConfig, CONFIG_FILENAME};
+    use super::{Endpoint, StoreConfig, StoreTopLevelConfig, CONFIG_FILENAME};
 
     #[test]
     fn test_store_config() {
@@ -98,7 +98,7 @@ mod tests {
                 config,
                 StoreTopLevelConfig {
                     store: StoreConfig {
-                        endpoint: HostPort {
+                        endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },

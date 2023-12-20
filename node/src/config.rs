@@ -27,7 +27,7 @@ mod tests {
     use miden_node_block_producer::config::BlockProducerConfig;
     use miden_node_rpc::config::RpcConfig;
     use miden_node_store::config::StoreConfig;
-    use miden_node_utils::{config::HostPort, Config};
+    use miden_node_utils::{config::Endpoint, Config};
 
     use super::{NodeTopLevelConfig, CONFIG_FILENAME};
 
@@ -65,14 +65,14 @@ mod tests {
                 config,
                 NodeTopLevelConfig {
                     block_producer: BlockProducerConfig {
-                        endpoint: HostPort {
+                        endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
                         store_url: "http://store:8000".to_string(),
                     },
                     rpc: RpcConfig {
-                        endpoint: HostPort {
+                        endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
@@ -80,7 +80,7 @@ mod tests {
                         block_producer_url: "http://block_producer:8001".to_string(),
                     },
                     store: StoreConfig {
-                        endpoint: HostPort {
+                        endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
@@ -123,14 +123,14 @@ mod tests {
                 config,
                 NodeTopLevelConfig {
                     block_producer: BlockProducerConfig {
-                        endpoint: HostPort {
+                        endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
                         store_url: "http://store:8000".to_string(),
                     },
                     rpc: RpcConfig {
-                        endpoint: HostPort {
+                        endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
@@ -138,7 +138,7 @@ mod tests {
                         block_producer_url: "http://block_producer:8001".to_string(),
                     },
                     store: StoreConfig {
-                        endpoint: HostPort {
+                        endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
