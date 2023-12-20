@@ -30,9 +30,9 @@ pub static DEFAULT_STORE_PATH: Lazy<PathBuf> = Lazy::new(|| {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct StoreConfig {
     /// Defines the lisening socket.
-    pub host_port: HostPort,
+    pub endpoint: HostPort,
     /// SQLite database file
-    pub sqlite: PathBuf,
+    pub database_filepath: PathBuf,
     /// Genesis file
     pub genesis_filepath: PathBuf,
 }
@@ -40,11 +40,11 @@ pub struct StoreConfig {
 impl Default for StoreConfig {
     fn default() -> Self {
         Self {
-            host_port: HostPort {
+            endpoint: HostPort {
                 host: HOST.to_string(),
                 port: PORT,
             },
-            sqlite: DEFAULT_STORE_PATH.clone(),
+            database_filepath: DEFAULT_STORE_PATH.clone(),
             genesis_filepath: DEFAULT_GENESIS_FILE_PATH.clone(),
         }
     }
@@ -52,7 +52,7 @@ impl Default for StoreConfig {
 
 impl StoreConfig {
     pub fn as_endpoint(&self) -> String {
-        format!("http://{}:{}", self.host_port.host, self.host_port.port)
+        format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
     }
 }
 
@@ -98,11 +98,11 @@ mod tests {
                 config,
                 StoreTopLevelConfig {
                     store: StoreConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        sqlite: "local.sqlite3".into(),
+                        database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.bin".into()
                     }
                 }

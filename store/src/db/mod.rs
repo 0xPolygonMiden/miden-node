@@ -45,16 +45,17 @@ impl Db {
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
     pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
-        if let Some(p) = config.sqlite.parent() {
+        if let Some(p) = config.database_filepath.parent() {
             create_dir_all(p)?;
         }
 
-        let pool = SqliteConfig::new(config.sqlite.clone()).create_pool(Runtime::Tokio1)?;
+        let pool =
+            SqliteConfig::new(config.database_filepath.clone()).create_pool(Runtime::Tokio1)?;
 
         let conn = pool.get().await?;
 
         info!(
-            sqlite = format!("{}", config.sqlite.display()),
+            sqlite = format!("{}", config.database_filepath.display()),
             COMPONENT, "Connected to the DB"
         );
 
