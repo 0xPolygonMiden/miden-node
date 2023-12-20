@@ -83,10 +83,10 @@ mod tests {
                 CONFIG_FILENAME,
                 r#"
                     [store]
-                    sqlite = "local.sqlite3"
+                    database_filepath = "local.sqlite3"
                     genesis_filepath = "genesis.dat"
 
-                    [store.host_port]
+                    [store.endpoint]
                     host = "127.0.0.1"
                     port = 8080
                 "#,
