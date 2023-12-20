@@ -137,6 +137,7 @@ impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord
 }
 
 impl State {
+    #[instrument(skip(db))]
     pub async fn load(mut db: Db) -> Result<Self, anyhow::Error> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;

@@ -17,13 +17,14 @@ use miden_node_proto::{
     store::api_server,
 };
 use tonic::{transport::Server, Response, Status};
-use tracing::info;
+use tracing::{info, instrument};
 
 use crate::{config::StoreConfig, db::Db, state::State, COMPONENT};
 
 // STORE INITIALIZER
 // ================================================================================================
 
+#[instrument(skip(config, db))]
 pub async fn serve(
     config: StoreConfig,
     db: Db,
