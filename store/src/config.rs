@@ -84,7 +84,7 @@ mod tests {
                 r#"
                     [store]
                     sqlite = "local.sqlite3"
-                    genesis_filepath = "genesis.bin"
+                    genesis_filepath = "genesis.dat"
 
                     [store.host_port]
                     host = "127.0.0.1"
@@ -103,7 +103,7 @@ mod tests {
                             port: 8080,
                         },
                         database_filepath: "local.sqlite3".into(),
-                        genesis_filepath: "genesis.bin".into()
+                        genesis_filepath: "genesis.dat".into()
                     }
                 }
             );

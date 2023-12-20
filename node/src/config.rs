@@ -51,7 +51,7 @@ mod tests {
 
                     [store]
                     database_filepath = "local.sqlite3"
-                    genesis_filepath = "genesis.bin"
+                    genesis_filepath = "genesis.dat"
 
                     [store.endpoint]
                     host = "127.0.0.1"
@@ -85,7 +85,7 @@ mod tests {
                             port: 8080,
                         },
                         database_filepath: "local.sqlite3".into(),
-                        genesis_filepath: "genesis.bin".into()
+                        genesis_filepath: "genesis.dat".into()
                     },
                 }
             );
@@ -113,7 +113,7 @@ mod tests {
             // Store
             // ------------------------------------------------------------------------------------
             jail.set_env("MIDEN__STORE__DATABASE_FILEPATH", "local.sqlite3");
-            jail.set_env("MIDEN__STORE__GENESIS_FILEPATH", "genesis.bin");
+            jail.set_env("MIDEN__STORE__GENESIS_FILEPATH", "genesis.dat");
             jail.set_env("MIDEN__STORE__ENDPOINT__HOST", "127.0.0.1");
             jail.set_env("MIDEN__STORE__ENDPOINT__PORT", 8080);
 
@@ -143,7 +143,7 @@ mod tests {
                             port: 8080,
                         },
                         database_filepath: "local.sqlite3".into(),
-                        genesis_filepath: "genesis.bin".into()
+                        genesis_filepath: "genesis.dat".into()
                     },
                 }
             );
