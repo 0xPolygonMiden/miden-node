@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
         Command::Request(req) => match req {
             Request::CheckNullifiers { nullifiers } => {
                 let host_port =
-                    format!("http://{}:{}", config.rpc.host_port.host, config.rpc.host_port.port);
+                    format!("http://{}:{}", config.rpc.endpoint.host, config.rpc.endpoint.port);
                 let mut client = api_client::ApiClient::connect(host_port).await?;
                 let request = tonic::Request::new(CheckNullifiersRequest {
                     nullifiers: nullifiers.clone(),

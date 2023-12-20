@@ -13,29 +13,29 @@ pub const CONFIG_FILENAME: &str = "miden-rpc.toml";
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct RpcConfig {
-    pub host_port: HostPort,
+    pub endpoint: HostPort,
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.
-    pub store_endpoint: String,
+    pub store_url: String,
     /// Block producer gRPC endpoint in the format `http://<host>[:<port>]`.
-    pub block_producer_endpoint: String,
+    pub block_producer_url: String,
 }
 
 impl Default for RpcConfig {
     fn default() -> Self {
         Self {
-            host_port: HostPort {
+            endpoint: HostPort {
                 host: HOST.to_string(),
                 port: PORT,
             },
-            store_endpoint: StoreConfig::default().as_endpoint(),
-            block_producer_endpoint: BlockProducerConfig::default().as_endpoint(),
+            store_url: StoreConfig::default().as_endpoint(),
+            block_producer_url: BlockProducerConfig::default().as_endpoint(),
         }
     }
 }
 
 impl RpcConfig {
     pub fn as_endpoint(&self) -> String {
-        format!("http://{}:{}", self.host_port.host, self.host_port.port)
+        format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
     }
 }
 
@@ -66,10 +66,10 @@ mod tests {
                 CONFIG_FILENAME,
                 r#"
                     [rpc]
-                    store_endpoint = "http://store:8000"
-                    block_producer_endpoint = "http://block_producer:8001"
+                    store_url = "http://store:8000"
+                    block_producer_url = "http://block_producer:8001"
 
-                    [rpc.host_port]
+                    [rpc.endpoint]
                     host = "127.0.0.1"
                     port = 8080
                 "#,
@@ -81,12 +81,12 @@ mod tests {
                 config,
                 RpcTopLevelConfig {
                     rpc: RpcConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        store_endpoint: "http://store:8000".to_string(),
-                        block_producer_endpoint: "http://block_producer:8001".to_string(),
+                        store_url: "http://store:8000".to_string(),
+                        block_producer_url: "http://block_producer:8001".to_string(),
                     }
                 }
             );
