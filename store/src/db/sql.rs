@@ -414,7 +414,13 @@ pub fn select_account_hashes(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        let account_id: u64 = row.get(0)?;
+        let account_id: u64 = {
+            // sqlite doesn't support `u64` so we store `u64` as `i64`.
+            // Here, we do the reverse.
+            let account_id: i64 = row.get(0)?;
+
+            account_id as u64
+        };
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = Digest::decode(account_hash_data)?;
 
