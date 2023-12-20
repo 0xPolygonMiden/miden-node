@@ -4,7 +4,7 @@
 //! data is atomically written, and that reads are consistent.
 use std::{mem, sync::Arc};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use miden_crypto::{
     hash::rpo::RpoDigest,
     merkle::{
@@ -383,7 +383,17 @@ impl State {
             .select_block_header_by_block_num(None)
             .await?
             .ok_or(StateError::DbBlockHeaderEmpty)?;
-        let accumulator = inner.chain_mmr.peaks(latest.block_num as usize)?;
+
+        // sanity check
+        if inner.chain_mmr.forest() != latest.block_num as usize + 1 {
+            bail!(
+                "chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {}, block num: {}", 
+                inner.chain_mmr.forest(), 
+                latest.block_num
+            );
+        }
+
+        let peaks = inner.chain_mmr.peaks(inner.chain_mmr.forest())?;
         let account_states = account_ids
             .iter()
             .cloned()
@@ -399,7 +409,7 @@ impl State {
             .collect::<Result<Vec<AccountStateWithProof>, MerkleError>>()?;
 
         // TODO: add nullifiers
-        Ok((latest, accumulator, account_states))
+        Ok((latest, peaks, account_states))
     }
 
     pub async fn get_transaction_inputs(
