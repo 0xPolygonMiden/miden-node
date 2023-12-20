@@ -21,8 +21,6 @@ pub enum GenesisBlockError {
         expected_genesis_header: Box<BlockHeader>,
         block_header_in_store: Box<BlockHeader>,
     },
-    #[error("failed to deserialize the JSON genesis state: {0}")]
-    JsonDeserializeError(#[from] serde_json::Error),
     #[error("malconstructed genesis state: {0}")]
     MalconstructedGenesisState(#[from] MerkleError),
     #[error("missing db connection: {0}")]
