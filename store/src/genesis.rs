@@ -9,10 +9,12 @@ use miden_objects::{
 };
 use once_cell::sync::Lazy;
 
-use crate::config::{APP, ORG};
+use crate::{
+    config::{APP, ORG},
+    state::ACCOUNT_DB_DEPTH,
+};
 
-// FIXME: This is a duplicate of the constant in `store::state`
-pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;
+pub const GENESIS_BLOCK_NUM: u32 = 0;
 
 /// Default path at which the genesis file will be written to
 pub static DEFAULT_GENESIS_FILE_PATH: Lazy<PathBuf> = Lazy::new(|| {
@@ -57,7 +59,7 @@ impl GenesisState {
 
         let block_header = BlockHeader::new(
             Digest::default(),
-            1_u32,
+            GENESIS_BLOCK_NUM,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             TieredSmt::default().root(),
