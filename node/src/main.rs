@@ -9,6 +9,7 @@ use miden_node_store::genesis::DEFAULT_GENESIS_FILE_PATH;
 
 mod commands;
 mod config;
+pub(crate) mod genesis;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

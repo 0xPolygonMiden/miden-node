@@ -16,6 +16,11 @@ use tokio::task::JoinSet;
 
 use crate::{
     config::{NodeTopLevelConfig, CONFIG_FILENAME},
+    genesis::{
+        FAUCET_KEYPAIR_FILE_PATH, FUNGIBLE_FAUCET_TOKEN_DECIMALS, FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY,
+        FUNGIBLE_FAUCET_TOKEN_SYMBOL, SEED_FAUCET, SEED_FAUCET_KEYPAIR, SEED_WALLET,
+        SEED_WALLET_KEYPAIR, WALLET_KEYPAIR_FILE_PATH,
+    },
     DisplayPathBuf,
 };
 
@@ -48,33 +53,6 @@ pub async fn start() -> anyhow::Result<()> {
 
 // MAKE GENESIS
 // ===================================================================================================
-
-/// Token symbol of the faucet present at genesis
-const FUNGIBLE_FAUCET_TOKEN_SYMBOL: &str = "POL";
-
-/// Decimals for the token of the faucet present at genesis
-const FUNGIBLE_FAUCET_TOKEN_DECIMALS: u8 = 9;
-
-/// Max supply for the token of the faucet present at genesis
-const FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY: u64 = 1_000_000_000;
-
-/// Seed for the Falcon512 keypair (faucet account)
-const SEED_FAUCET_KEYPAIR: [u8; 40] = [2_u8; 40];
-
-/// Seed for the Falcon512 keypair (wallet account)
-const SEED_WALLET_KEYPAIR: [u8; 40] = [3_u8; 40];
-
-/// Seed for the fungible faucet account
-const SEED_FAUCET: [u8; 32] = [0_u8; 32];
-
-/// Seed for the basic wallet account
-const SEED_WALLET: [u8; 32] = [1_u8; 32];
-
-/// Faucet account keys (public/private) file path
-const FAUCET_KEYPAIR_FILE_PATH: &str = "faucet.fsk";
-
-/// Wallet account keys (public/private) file path
-const WALLET_KEYPAIR_FILE_PATH: &str = "wallet.fsk";
 
 pub async fn make_genesis(
     output_path: &DisplayPathBuf,
