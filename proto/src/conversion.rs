@@ -163,7 +163,7 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
     fn try_from(value: block_header::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(
             value.prev_hash.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.block_num.into(),
+            value.block_num,
             value.chain_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
             value.account_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
             value.nullifier_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,

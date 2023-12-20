@@ -19,7 +19,7 @@ pub enum VerifyTxError {
     AccountAlreadyModifiedByOtherTx(AccountId),
 
     /// Another transaction already consumed the notes with given nullifiers
-    ConsumedNotesAlreadyConsumed(Vec<Nullifier>),
+    NullifiersAlreadyConsumed(Vec<Nullifier>),
 
     /// The account's initial hash did not match the current account's hash
     IncorrectAccountInitialHash {

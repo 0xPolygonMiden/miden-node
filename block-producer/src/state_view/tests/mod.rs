@@ -10,7 +10,7 @@ mod verify_tx;
 // HELPERS
 // -------------------------------------------------------------------------------------------------
 
-pub fn consumed_note_by_index(index: u32) -> Nullifier {
+pub fn nullifier_by_index(index: u32) -> Nullifier {
     Nullifier::new(
         Hasher::hash(&index.to_be_bytes()),
         Hasher::hash(
@@ -36,7 +36,7 @@ pub fn get_txs_and_accounts(
             account.id,
             account.states[0],
             account.states[1],
-            vec![consumed_note_by_index(index)],
+            vec![nullifier_by_index(index)],
             Vec::new(),
         );
 

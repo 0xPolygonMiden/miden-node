@@ -1,10 +1,10 @@
-use std::fs::create_dir_all;
+use std::fs::{self, create_dir_all};
 
 use anyhow::anyhow;
 use deadpool_sqlite::{Config as SqliteConfig, Pool, Runtime};
-use miden_crypto::hash::rpo::RpoDigest;
+use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use miden_node_proto::{
-    block_header::BlockHeader,
+    block_header,
     digest::Digest,
     note::Note,
     responses::{AccountHashUpdate, NullifierUpdate},
@@ -13,13 +13,16 @@ use rusqlite::vtab::array;
 use tokio::sync::oneshot;
 use tracing::{info, span, Level};
 
+use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
+    genesis::GenesisState,
     migrations,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
 
+pub mod errors;
 mod sql;
 
 #[cfg(test)]
@@ -32,25 +35,27 @@ pub struct Db {
 #[derive(Debug, PartialEq)]
 pub struct StateSyncUpdate {
     pub notes: Vec<Note>,
-    pub block_header: BlockHeader,
+    pub block_header: block_header::BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountHashUpdate>,
     pub nullifiers: Vec<NullifierUpdate>,
 }
 
 impl Db {
-    /// Open a connection to the DB and apply any pending migrations.
-    pub async fn get_conn(config: StoreConfig) -> Result<Self, anyhow::Error> {
-        if let Some(p) = config.sqlite.parent() {
+    /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
+    /// is as expected and present in the database.
+    pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
+        if let Some(p) = config.database_filepath.parent() {
             create_dir_all(p)?;
         }
 
-        let pool = SqliteConfig::new(config.sqlite.clone()).create_pool(Runtime::Tokio1)?;
+        let pool =
+            SqliteConfig::new(config.database_filepath.clone()).create_pool(Runtime::Tokio1)?;
 
         let conn = pool.get().await?;
 
         info!(
-            sqlite = format!("{}", config.sqlite.display()),
+            sqlite = format!("{}", config.database_filepath.display()),
             COMPONENT, "Connected to the DB"
         );
 
@@ -63,7 +68,11 @@ impl Db {
             .await
             .map_err(|_| anyhow!("Migration task failed with a panic"))??;
 
-        Ok(Db { pool })
+        let db = Db { pool };
+        db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy())
+            .await?;
+
+        Ok(db)
     }
 
     /// Loads all the nullifiers from the DB.
@@ -76,13 +85,13 @@ impl Db {
             .map_err(|_| anyhow!("Get nullifiers task failed with a panic"))?
     }
 
-    /// Search for a [BlockHeader] from the DB by its `block_num`.
+    /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
     pub async fn select_block_header_by_block_num(
         &self,
         block_number: Option<BlockNumber>,
-    ) -> Result<Option<BlockHeader>, anyhow::Error> {
+    ) -> Result<Option<block_header::BlockHeader>, anyhow::Error> {
         self.pool
             .get()
             .await?
@@ -92,7 +101,9 @@ impl Db {
     }
 
     /// Loads all the block headers from the DB.
-    pub async fn select_block_headers(&self) -> Result<Vec<BlockHeader>, anyhow::Error> {
+    pub async fn select_block_headers(
+        &self
+    ) -> Result<Vec<block_header::BlockHeader>, anyhow::Error> {
         self.pool
             .get()
             .await?
@@ -146,7 +157,7 @@ impl Db {
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
-        block_header: BlockHeader,
+        block_header: block_header::BlockHeader,
         notes: Vec<Note>,
         nullifiers: Vec<RpoDigest>,
         accounts: Vec<(AccountId, Digest)>,
@@ -171,6 +182,82 @@ impl Db {
             })
             .await
             .map_err(|_| anyhow!("Apply block task failed with a panic"))??;
+
+        Ok(())
+    }
+
+    // HELPERS
+    // ---------------------------------------------------------------------------------------------
+
+    /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that the
+    /// genesis block in the database is consistent with the genesis block data in the genesis JSON
+    /// file.
+    async fn ensure_genesis_block(
+        &self,
+        genesis_filepath: &str,
+    ) -> Result<(), GenesisBlockError> {
+        let (expected_genesis_header, account_smt) = {
+            let file_contents = fs::read(genesis_filepath).map_err(|error| {
+                GenesisBlockError::FailedToReadGenesisFile {
+                    genesis_filepath: genesis_filepath.to_string(),
+                    error,
+                }
+            })?;
+
+            let genesis_state = GenesisState::read_from_bytes(&file_contents)
+                .map_err(GenesisBlockError::GenesisFileDeserializationError)?;
+            let (block_header, account_smt) = genesis_state.into_block_parts()?;
+
+            (block_header.into(), account_smt)
+        };
+
+        let maybe_block_header_in_store = self
+            .select_block_header_by_block_num(Some(0))
+            .await
+            .map_err(|err| GenesisBlockError::SelectBlockHeaderByBlockNumError(err.to_string()))?;
+
+        match maybe_block_header_in_store {
+            Some(block_header_in_store) => {
+                // ensure that expected header is what's also in the store
+                if expected_genesis_header != block_header_in_store {
+                    return Err(GenesisBlockError::GenesisBlockHeaderMismatch {
+                        expected_genesis_header: Box::new(expected_genesis_header),
+                        block_header_in_store: Box::new(block_header_in_store),
+                    });
+                }
+            },
+            None => {
+                // add genesis header to store
+                self.pool
+                    .get()
+                    .await?
+                    .interact(move |conn| -> anyhow::Result<()> {
+                        let span = span!(Level::INFO, COMPONENT, "writing genesis block to DB");
+                        let guard = span.enter();
+
+                        let transaction = conn.transaction()?;
+                        let accounts: Vec<_> = account_smt
+                            .leaves()
+                            .map(|(account_id, state_hash)| (account_id, Digest::from(state_hash)))
+                            .collect();
+                        sql::apply_block(
+                            &transaction,
+                            &expected_genesis_header,
+                            &[],
+                            &[],
+                            &accounts,
+                        )?;
+
+                        transaction.commit()?;
+
+                        drop(guard);
+                        Ok(())
+                    })
+                    .await
+                    .map_err(|err| GenesisBlockError::ApplyBlockFailed(err.to_string()))?
+                    .map_err(|err| GenesisBlockError::ApplyBlockFailed(err.to_string()))?;
+            },
+        }
 
         Ok(())
     }

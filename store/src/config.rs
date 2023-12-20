@@ -4,6 +4,13 @@ use miden_node_utils::config::{Config, HostPort};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
+use crate::genesis::DEFAULT_GENESIS_FILE_PATH;
+
+/// The name of the organization - for config file path purposes
+pub const ORG: &str = "Polygon";
+/// The name of the app - for config file path purposes
+pub const APP: &str = "Miden";
+
 pub const HOST: &str = "localhost";
 // defined as: sum(ord(c)**p for (p, c) in enumerate('miden-store', 1)) % 2**16
 pub const PORT: u16 = 28943;
@@ -11,7 +18,7 @@ pub const CONFIG_FILENAME: &str = "miden-store.toml";
 pub const STORE_FILENAME: &str = "miden-store.sqlite3";
 
 pub static DEFAULT_STORE_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    directories::ProjectDirs::from("", "Polygon", "Miden")
+    directories::ProjectDirs::from("", ORG, APP)
         .map(|d| d.data_local_dir().join(STORE_FILENAME))
         // fallback to current dir
         .unwrap_or_default()
@@ -23,26 +30,29 @@ pub static DEFAULT_STORE_PATH: Lazy<PathBuf> = Lazy::new(|| {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct StoreConfig {
     /// Defines the lisening socket.
-    pub host_port: HostPort,
+    pub endpoint: HostPort,
     /// SQLite database file
-    pub sqlite: PathBuf,
+    pub database_filepath: PathBuf,
+    /// Genesis file
+    pub genesis_filepath: PathBuf,
 }
 
 impl Default for StoreConfig {
     fn default() -> Self {
         Self {
-            host_port: HostPort {
+            endpoint: HostPort {
                 host: HOST.to_string(),
                 port: PORT,
             },
-            sqlite: DEFAULT_STORE_PATH.clone(),
+            database_filepath: DEFAULT_STORE_PATH.clone(),
+            genesis_filepath: DEFAULT_GENESIS_FILE_PATH.clone(),
         }
     }
 }
 
 impl StoreConfig {
     pub fn as_endpoint(&self) -> String {
-        format!("http://{}:{}", self.host_port.host, self.host_port.port)
+        format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
     }
 }
 
@@ -73,9 +83,10 @@ mod tests {
                 CONFIG_FILENAME,
                 r#"
                     [store]
-                    sqlite = "local.sqlite3"
+                    database_filepath = "local.sqlite3"
+                    genesis_filepath = "genesis.dat"
 
-                    [store.host_port]
+                    [store.endpoint]
                     host = "127.0.0.1"
                     port = 8080
                 "#,
@@ -87,11 +98,12 @@ mod tests {
                 config,
                 StoreTopLevelConfig {
                     store: StoreConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        sqlite: "local.sqlite3".into(),
+                        database_filepath: "local.sqlite3".into(),
+                        genesis_filepath: "genesis.dat".into()
                     }
                 }
             );

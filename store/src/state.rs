@@ -36,7 +36,6 @@ use tracing::{info, instrument, span, Level};
 use crate::{
     db::{Db, StateSyncUpdate},
     errors::StateError,
-    genesis::genesis_header,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -138,6 +137,7 @@ impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord
 }
 
 impl State {
+    #[instrument(skip(db))]
     pub async fn load(mut db: Db) -> Result<Self, anyhow::Error> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
@@ -187,7 +187,7 @@ impl State {
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .unwrap_or_else(genesis_header);
+            .ok_or(StateError::DbBlockHeaderEmpty)?;
         let block_num = prev_block_msg.block_num + 1;
         let prev_block: BlockHeader = prev_block_msg.try_into()?;
         let prev_hash =
@@ -382,7 +382,7 @@ impl State {
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .unwrap_or_else(genesis_header);
+            .ok_or(StateError::DbBlockHeaderEmpty)?;
         let accumulator = inner.chain_mmr.peaks(latest.block_num as usize)?;
         let account_states = account_ids
             .iter()

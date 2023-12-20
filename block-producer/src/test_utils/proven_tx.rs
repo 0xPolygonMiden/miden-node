@@ -127,14 +127,14 @@ impl DummyProvenTxGenerator {
         account_id: AccountId,
         initial_account_hash: Digest,
         final_account_hash: Digest,
-        consumed_notes: Vec<Nullifier>,
+        nullifiers: Vec<Nullifier>,
         created_notes: Vec<NoteEnvelope>,
     ) -> ProvenTransaction {
         ProvenTransaction::new(
             account_id,
             initial_account_hash,
             final_account_hash,
-            consumed_notes,
+            nullifiers,
             created_notes,
             None,
             Digest::default(),

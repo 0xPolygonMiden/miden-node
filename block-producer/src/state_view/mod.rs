@@ -157,7 +157,7 @@ fn ensure_in_flight_constraints(
     };
 
     if !infracting_nullifiers.is_empty() {
-        return Err(VerifyTxError::ConsumedNotesAlreadyConsumed(infracting_nullifiers));
+        return Err(VerifyTxError::NullifiersAlreadyConsumed(infracting_nullifiers));
     }
 
     Ok(())
@@ -192,7 +192,7 @@ fn ensure_tx_inputs_constraints(
         .collect();
 
     if !infracting_nullifiers.is_empty() {
-        return Err(VerifyTxError::ConsumedNotesAlreadyConsumed(infracting_nullifiers));
+        return Err(VerifyTxError::NullifiersAlreadyConsumed(infracting_nullifiers));
     }
 
     Ok(())

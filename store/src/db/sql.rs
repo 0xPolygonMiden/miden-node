@@ -265,11 +265,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     block_num: BlockNumber,
 ) -> Result<Vec<Note>, anyhow::Error> {
     let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
-    let account_ids = account_ids
-        .iter()
-        .copied()
-        .map(u64_to_value)
-        .collect::<Result<Vec<Value>, anyhow::Error>>()?;
+    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
         "
@@ -349,7 +345,11 @@ pub fn upsert_accounts_with_blocknum(
 
     let mut count = 0;
     for (account_id, account_hash) in accounts.iter() {
-        count += stmt.execute(params![account_id, account_hash.encode_to_vec(), block_num])?
+        count += stmt.execute(params![
+            u64_to_value(*account_id),
+            account_hash.encode_to_vec(),
+            block_num
+        ])?
     }
     Ok(count)
 }
@@ -366,11 +366,7 @@ pub fn select_accounts_by_block_range(
     block_end: BlockNumber,
     account_ids: &[AccountId],
 ) -> Result<Vec<AccountHashUpdate>, anyhow::Error> {
-    let account_ids = account_ids
-        .iter()
-        .copied()
-        .map(u64_to_value)
-        .collect::<Result<Vec<Value>, anyhow::Error>>()?;
+    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
         "
@@ -418,7 +414,13 @@ pub fn select_account_hashes(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        let account_id: u64 = row.get(0)?;
+        let account_id: u64 = {
+            // sqlite doesn't support `u64` so we store `u64` as `i64`.
+            // Here, we do the reverse.
+            let account_id: i64 = row.get(0)?;
+
+            account_id as u64
+        };
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = Digest::decode(account_hash_data)?;
 
@@ -513,22 +515,22 @@ fn decode_rpo_digest(data: &[u8]) -> Result<RpoDigest, anyhow::Error> {
 }
 
 /// Returns the high bits of the `u64` value used during searches.
-pub fn u64_to_prefix(v: u64) -> u32 {
+pub(crate) fn u64_to_prefix(v: u64) -> u32 {
     (v >> 48) as u32
 }
 
 /// Converts a `u64` into a [Value].
 ///
-/// Sqlite uses `i64` as its internal representation format.
-pub fn u64_to_value(v: u64) -> Result<Value, anyhow::Error> {
-    let v: i64 = v.try_into()?;
-    Ok(Value::Integer(v))
+/// Sqlite uses `i64` as its internal representation format. Note that the `as` operator performs a
+/// lossless conversion from `u64` to `i64`.
+fn u64_to_value(v: u64) -> Value {
+    Value::Integer(v as i64)
 }
 
 /// Converts a `u32` into a [Value].
 ///
 /// Sqlite uses `i64` as its internal representation format.
-pub fn u32_to_value(v: u32) -> Value {
+fn u32_to_value(v: u32) -> Value {
     let v: i64 = v.into();
     Value::Integer(v)
 }

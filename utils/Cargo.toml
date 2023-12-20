@@ -7,6 +7,6 @@ edition = "2021"
 anyhow = { version = "1.0" }
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
-serde = { version = "1.0" , features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

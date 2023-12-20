@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     let config: StoreTopLevelConfig =
         StoreTopLevelConfig::load_config(cli.config.as_deref()).extract()?;
-    let db = Db::get_conn(config.store.clone()).await?;
+    let db = Db::setup(config.store.clone()).await?;
 
     match cli.command {
         Command::Serve { .. } => {

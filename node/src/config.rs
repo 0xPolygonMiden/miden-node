@@ -50,9 +50,10 @@ mod tests {
                     host_port = { host = "127.0.0.1",  port = 8080 }
 
                     [store]
-                    sqlite = "local.sqlite3"
+                    database_filepath = "local.sqlite3"
+                    genesis_filepath = "genesis.dat"
 
-                    [store.host_port]
+                    [store.endpoint]
                     host = "127.0.0.1"
                     port = 8080
                 "#,
@@ -79,11 +80,12 @@ mod tests {
                         block_producer_endpoint: "http://block_producer:8001".to_string(),
                     },
                     store: StoreConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        sqlite: "local.sqlite3".into(),
+                        database_filepath: "local.sqlite3".into(),
+                        genesis_filepath: "genesis.dat".into()
                     },
                 }
             );
@@ -110,9 +112,10 @@ mod tests {
 
             // Store
             // ------------------------------------------------------------------------------------
-            jail.set_env("MIDEN__STORE__SQLITE", "local.sqlite3");
-            jail.set_env("MIDEN__STORE__HOST_PORT__HOST", "127.0.0.1");
-            jail.set_env("MIDEN__STORE__HOST_PORT__PORT", 8080);
+            jail.set_env("MIDEN__STORE__DATABASE_FILEPATH", "local.sqlite3");
+            jail.set_env("MIDEN__STORE__GENESIS_FILEPATH", "genesis.dat");
+            jail.set_env("MIDEN__STORE__ENDPOINT__HOST", "127.0.0.1");
+            jail.set_env("MIDEN__STORE__ENDPOINT__PORT", 8080);
 
             let config: NodeTopLevelConfig = NodeTopLevelConfig::load_config(None).extract()?;
 
@@ -135,11 +138,12 @@ mod tests {
                         block_producer_endpoint: "http://block_producer:8001".to_string(),
                     },
                     store: StoreConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        sqlite: "local.sqlite3".into(),
+                        database_filepath: "local.sqlite3".into(),
+                        genesis_filepath: "genesis.dat".into()
                     },
                 }
             );

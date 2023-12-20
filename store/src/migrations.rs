@@ -42,9 +42,8 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             block_num INTEGER NOT NULL,
 
             PRIMARY KEY (account_id),
-            CONSTRAINT accounts_block_account_id_is_felt CHECK (account_id >= 0 AND account_id < 18446744069414584321),
-            CONSTRAINT accounts_block_num_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296),
-            FOREIGN KEY (block_num) REFERENCES block_header (block_num)
+            FOREIGN KEY (block_num) REFERENCES block_header (block_num),
+            CONSTRAINT accounts_block_num_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296)
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE

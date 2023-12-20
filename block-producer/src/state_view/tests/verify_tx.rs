@@ -95,7 +95,7 @@ async fn test_verify_tx_vt1() {
         account.id,
         account.states[1],
         account.states[2],
-        vec![consumed_note_by_index(0)],
+        vec![nullifier_by_index(0)],
         Vec::new(),
     );
 
@@ -126,7 +126,7 @@ async fn test_verify_tx_vt2() {
         account_not_in_store.id,
         account_not_in_store.states[0],
         account_not_in_store.states[1],
-        vec![consumed_note_by_index(0)],
+        vec![nullifier_by_index(0)],
         Vec::new(),
     );
 
@@ -150,13 +150,13 @@ async fn test_verify_tx_vt3() {
 
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
-    let consumed_note_in_store = consumed_note_by_index(0);
+    let nullifier_in_store = nullifier_by_index(0);
 
     // Notice: `consumed_note_in_store` is added to the store
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
             .initial_accounts(iter::once((account.id, account.states[0])))
-            .initial_nullifiers(BTreeSet::from_iter(iter::once(consumed_note_in_store.inner())))
+            .initial_nullifiers(BTreeSet::from_iter(iter::once(nullifier_in_store.inner())))
             .build(),
     );
 
@@ -164,7 +164,7 @@ async fn test_verify_tx_vt3() {
         account.id,
         account.states[0],
         account.states[1],
-        vec![consumed_note_in_store],
+        vec![nullifier_in_store],
         Vec::new(),
     );
 
@@ -174,7 +174,7 @@ async fn test_verify_tx_vt3() {
 
     assert_eq!(
         verify_tx_result,
-        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(vec![consumed_note_in_store]))
+        Err(VerifyTxError::NullifiersAlreadyConsumed(vec![nullifier_in_store]))
     );
 }
 
@@ -228,7 +228,7 @@ async fn test_verify_tx_vt5() {
 
     let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(0);
     let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(1);
-    let consumed_note_in_both_txs = consumed_note_by_index(0);
+    let nullifier_in_both_txs = nullifier_by_index(0);
 
     // Notice: `consumed_note_in_both_txs` is NOT in the store
     let store = Arc::new(
@@ -245,7 +245,7 @@ async fn test_verify_tx_vt5() {
         account_1.id,
         account_1.states[0],
         account_1.states[1],
-        vec![consumed_note_in_both_txs],
+        vec![nullifier_in_both_txs],
         Vec::new(),
     );
 
@@ -255,7 +255,7 @@ async fn test_verify_tx_vt5() {
         account_2.id,
         account_2.states[1],
         account_2.states[2],
-        vec![consumed_note_in_both_txs],
+        vec![nullifier_in_both_txs],
         Vec::new(),
     );
 
@@ -267,6 +267,6 @@ async fn test_verify_tx_vt5() {
     let verify_tx2_result = state_view.verify_tx(tx2.into()).await;
     assert_eq!(
         verify_tx2_result,
-        Err(VerifyTxError::ConsumedNotesAlreadyConsumed(vec![consumed_note_in_both_txs]))
+        Err(VerifyTxError::NullifiersAlreadyConsumed(vec![nullifier_in_both_txs]))
     );
 }
