@@ -60,7 +60,7 @@ impl GenesisState {
 
         let block_header = BlockHeader::new(
             Digest::default(),
-            Felt::from(0_u64),
+            Felt::from(1_u64),
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             TieredSmt::default().root(),
