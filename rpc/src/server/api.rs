@@ -34,8 +34,7 @@ impl RpcApi {
         info!(COMPONENT, store_endpoint = config.store_url, "Store client initialized");
 
         let block_producer =
-            block_producer_client::ApiClient::connect(config.block_producer_url.clone())
-                .await?;
+            block_producer_client::ApiClient::connect(config.block_producer_url.clone()).await?;
         info!(
             COMPONENT,
             block_producer_endpoint = config.block_producer_url,

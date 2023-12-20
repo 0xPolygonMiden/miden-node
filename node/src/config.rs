@@ -38,16 +38,16 @@ mod tests {
                 CONFIG_FILENAME,
                 r#"
                     [block_producer]
-                    store_endpoint = "http://store:8000"
+                    store_url = "http://store:8000"
 
-                    [block_producer.host_port]
+                    [block_producer.endpoint]
                     host = "127.0.0.1"
                     port = 8080
 
                     [rpc]
-                    store_endpoint = "http://store:8000"
-                    block_producer_endpoint = "http://block_producer:8001"
-                    host_port = { host = "127.0.0.1",  port = 8080 }
+                    store_url = "http://store:8000"
+                    block_producer_url = "http://block_producer:8001"
+                    endpoint = { host = "127.0.0.1",  port = 8080 }
 
                     [store]
                     database_filepath = "local.sqlite3"
@@ -65,19 +65,19 @@ mod tests {
                 config,
                 NodeTopLevelConfig {
                     block_producer: BlockProducerConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        store_endpoint: "http://store:8000".to_string(),
+                        store_url: "http://store:8000".to_string(),
                     },
                     rpc: RpcConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        store_endpoint: "http://store:8000".to_string(),
-                        block_producer_endpoint: "http://block_producer:8001".to_string(),
+                        store_url: "http://store:8000".to_string(),
+                        block_producer_url: "http://block_producer:8001".to_string(),
                     },
                     store: StoreConfig {
                         endpoint: HostPort {
@@ -99,16 +99,16 @@ mod tests {
         Jail::expect_with(|jail| {
             // Block producer
             // ------------------------------------------------------------------------------------
-            jail.set_env("MIDEN__BLOCK_PRODUCER__STORE_ENDPOINT", "http://store:8000");
-            jail.set_env("MIDEN__BLOCK_PRODUCER__HOST_PORT__HOST", "127.0.0.1");
-            jail.set_env("MIDEN__BLOCK_PRODUCER__HOST_PORT__PORT", 8080);
+            jail.set_env("MIDEN__BLOCK_PRODUCER__STORE_URL", "http://store:8000");
+            jail.set_env("MIDEN__BLOCK_PRODUCER__ENDPOINT__HOST", "127.0.0.1");
+            jail.set_env("MIDEN__BLOCK_PRODUCER__ENDPOINT__PORT", 8080);
 
             // Rpc
             // ------------------------------------------------------------------------------------
-            jail.set_env("MIDEN__RPC__STORE_ENDPOINT", "http://store:8000");
-            jail.set_env("MIDEN__RPC__BLOCK_PRODUCER_ENDPOINT", "http://block_producer:8001");
-            jail.set_env("MIDEN__RPC__HOST_PORT__HOST", "127.0.0.1");
-            jail.set_env("MIDEN__RPC__HOST_PORT__PORT", 8080);
+            jail.set_env("MIDEN__RPC__STORE_URL", "http://store:8000");
+            jail.set_env("MIDEN__RPC__BLOCK_PRODUCER_URL", "http://block_producer:8001");
+            jail.set_env("MIDEN__RPC__ENDPOINT__HOST", "127.0.0.1");
+            jail.set_env("MIDEN__RPC__ENDPOINT__PORT", 8080);
 
             // Store
             // ------------------------------------------------------------------------------------
@@ -123,19 +123,19 @@ mod tests {
                 config,
                 NodeTopLevelConfig {
                     block_producer: BlockProducerConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        store_endpoint: "http://store:8000".to_string(),
+                        store_url: "http://store:8000".to_string(),
                     },
                     rpc: RpcConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        store_endpoint: "http://store:8000".to_string(),
-                        block_producer_endpoint: "http://block_producer:8001".to_string(),
+                        store_url: "http://store:8000".to_string(),
+                        block_producer_url: "http://block_producer:8001".to_string(),
                     },
                     store: StoreConfig {
                         endpoint: HostPort {

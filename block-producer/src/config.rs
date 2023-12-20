@@ -13,27 +13,27 @@ pub const CONFIG_FILENAME: &str = "miden-block-producer.toml";
 /// Block producer specific configuration
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct BlockProducerConfig {
-    pub host_port: HostPort,
+    pub endpoint: HostPort,
 
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.
-    pub store_endpoint: String,
+    pub store_url: String,
 }
 
 impl Default for BlockProducerConfig {
     fn default() -> Self {
         Self {
-            host_port: HostPort {
+            endpoint: HostPort {
                 host: HOST.to_string(),
                 port: PORT,
             },
-            store_endpoint: StoreConfig::default().as_endpoint(),
+            store_url: StoreConfig::default().as_endpoint(),
         }
     }
 }
 
 impl BlockProducerConfig {
     pub fn as_endpoint(&self) -> String {
-        format!("http://{}:{}", self.host_port.host, self.host_port.port)
+        format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
     }
 }
 
@@ -64,9 +64,9 @@ mod tests {
                 CONFIG_FILENAME,
                 r#"
                     [block_producer]
-                    store_endpoint = "http://store:8000"
+                    store_url = "http://store:8000"
 
-                    [block_producer.host_port]
+                    [block_producer.endpoint]
                     host = "127.0.0.1"
                     port = 8080
                 "#,
@@ -79,11 +79,11 @@ mod tests {
                 config,
                 BlockProducerTopLevelConfig {
                     block_producer: BlockProducerConfig {
-                        host_port: HostPort {
+                        endpoint: HostPort {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        store_endpoint: "http://store:8000".to_string(),
+                        store_url: "http://store:8000".to_string(),
                     }
                 }
             );
