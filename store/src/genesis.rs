@@ -9,10 +9,10 @@ use miden_objects::{
 };
 use once_cell::sync::Lazy;
 
-use crate::config::{APP, ORG};
-
-// FIXME: This is a duplicate of the constant in `store::state`
-pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;
+use crate::{
+    config::{APP, ORG},
+    state::ACCOUNT_DB_DEPTH,
+};
 
 /// Default path at which the genesis file will be written to
 pub static DEFAULT_GENESIS_FILE_PATH: Lazy<PathBuf> = Lazy::new(|| {
