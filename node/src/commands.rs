@@ -1,6 +1,6 @@
 use std::{
     fs,
-    path::Path,
+    path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -15,7 +15,7 @@ use miden_objects::assets::TokenSymbol;
 use tokio::task::JoinSet;
 
 use crate::{
-    config::{NodeTopLevelConfig, CONFIG_FILENAME},
+    config::NodeTopLevelConfig,
     genesis::{
         FAUCET_KEYPAIR_FILE_PATH, FUNGIBLE_FAUCET_TOKEN_DECIMALS, FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY,
         FUNGIBLE_FAUCET_TOKEN_SYMBOL, SEED_FAUCET, SEED_FAUCET_KEYPAIR, SEED_WALLET,
@@ -27,9 +27,9 @@ use crate::{
 // START
 // ===================================================================================================
 
-pub async fn start() -> anyhow::Result<()> {
+pub async fn start(config_filepath: &PathBuf) -> anyhow::Result<()> {
     let config: NodeTopLevelConfig =
-        NodeTopLevelConfig::load_config(Some(Path::new(CONFIG_FILENAME))).extract()?;
+        NodeTopLevelConfig::load_config(Some(&config_filepath)).extract()?;
 
     let mut join_set = JoinSet::new();
     let db = Db::setup(config.store.clone()).await?;

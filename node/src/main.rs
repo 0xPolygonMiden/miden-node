@@ -14,9 +14,6 @@ pub(crate) mod genesis;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
-    #[arg(short, long, value_name = "FILE", default_value = config::CONFIG_FILENAME)]
-    pub config: Option<PathBuf>,
-
     #[command(subcommand)]
     pub command: Command,
 }
@@ -24,7 +21,10 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Command {
     /// Start the node
-    Start,
+    Start {
+        #[arg(short, long, value_name = "FILE", default_value = config::CONFIG_FILENAME)]
+        config: PathBuf,
+    },
 
     /// Generate genesis file
     MakeGenesis {
@@ -44,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::Start => commands::start().await,
+        Command::Start { config } => commands::start(config).await,
         Command::MakeGenesis { output_path, force } => {
             commands::make_genesis(output_path, force).await
         },
