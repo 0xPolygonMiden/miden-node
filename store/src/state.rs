@@ -387,8 +387,8 @@ impl State {
         // sanity check
         if inner.chain_mmr.forest() != latest.block_num as usize + 1 {
             bail!(
-                "chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {}, block num: {}", 
-                inner.chain_mmr.forest(), 
+                "chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {}, block num: {}",
+                inner.chain_mmr.forest(),
                 latest.block_num
             );
         }
