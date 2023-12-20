@@ -16,7 +16,7 @@ use tracing::{info, span, Level};
 use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
-    genesis::GenesisState,
+    genesis::{GenesisState, GENESIS_HEADER_BLOCK_NUM},
     migrations,
     types::{AccountId, BlockNumber},
     COMPONENT,
@@ -212,7 +212,7 @@ impl Db {
         };
 
         let maybe_block_header_in_store = self
-            .select_block_header_by_block_num(Some(0))
+            .select_block_header_by_block_num(Some(GENESIS_HEADER_BLOCK_NUM))
             .await
             .map_err(|err| GenesisBlockError::SelectBlockHeaderByBlockNumError(err.to_string()))?;
 

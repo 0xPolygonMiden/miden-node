@@ -14,6 +14,8 @@ use crate::{
     state::ACCOUNT_DB_DEPTH,
 };
 
+pub const GENESIS_HEADER_BLOCK_NUM: u32 = 0;
+
 /// Default path at which the genesis file will be written to
 pub static DEFAULT_GENESIS_FILE_PATH: Lazy<PathBuf> = Lazy::new(|| {
     directories::ProjectDirs::from("", ORG, APP)
@@ -57,7 +59,7 @@ impl GenesisState {
 
         let block_header = BlockHeader::new(
             Digest::default(),
-            1_u32,
+            GENESIS_HEADER_BLOCK_NUM,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             TieredSmt::default().root(),
