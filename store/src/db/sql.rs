@@ -509,7 +509,7 @@ fn decode_rpo_digest(data: &[u8]) -> Result<RpoDigest, anyhow::Error> {
 }
 
 /// Returns the high bits of the `u64` value used during searches.
-pub fn u64_to_prefix(v: u64) -> u32 {
+pub(crate) fn u64_to_prefix(v: u64) -> u32 {
     (v >> 48) as u32
 }
 
@@ -517,14 +517,14 @@ pub fn u64_to_prefix(v: u64) -> u32 {
 ///
 /// Sqlite uses `i64` as its internal representation format. Note that the `as` operator performs a
 /// lossless conversion from `u64` to `i64`.
-pub fn u64_to_value(v: u64) -> Value {
+fn u64_to_value(v: u64) -> Value {
     Value::Integer(v as i64)
 }
 
 /// Converts a `u32` into a [Value].
 ///
 /// Sqlite uses `i64` as its internal representation format.
-pub fn u32_to_value(v: u32) -> Value {
+fn u32_to_value(v: u32) -> Value {
     let v: i64 = v.into();
     Value::Integer(v)
 }
