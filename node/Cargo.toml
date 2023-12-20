@@ -16,14 +16,14 @@ testing = ["miden-lib/testing"]
 [dependencies]
 anyhow = { version = "1.0" }
 clap = { version = "4.3", features = ["derive"] }
-miden-crypto = { workspace = true }
+miden-crypto = { workspace = true, features = ["std"] }
 miden-lib = { workspace = true, features = ["concurrent"] }
 miden-node-block-producer = { version = "0.1", path = "../block-producer" }
 miden-node-rpc = { version = "0.1", path = "../rpc" }
 miden-node-store = { version = "0.1", path = "../store" }
 miden-node-utils = { path = "../utils" }
 miden_objects = { workspace = true }
-serde = { version = "1.0" , features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
