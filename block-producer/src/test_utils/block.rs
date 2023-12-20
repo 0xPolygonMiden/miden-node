@@ -53,7 +53,7 @@ pub async fn build_expected_block_header(
     // Build header
     BlockHeader::new(
         last_block_header.hash(),
-        last_block_header.block_num() + ONE,
+        last_block_header.block_num() + 1,
         new_chain_mmr_root,
         new_account_root,
         // FIXME: FILL IN CORRECT NULLIFIER ROOT
@@ -153,7 +153,7 @@ impl MockBlockBuilder {
     pub fn build(self) -> Block {
         let header = BlockHeader::new(
             self.last_block_header.hash(),
-            self.last_block_header.block_num() + ONE,
+            self.last_block_header.block_num() + 1,
             self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
             self.store_accounts.root(),
             Digest::default(),

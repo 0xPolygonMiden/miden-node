@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use miden_crypto::merkle::Mmr;
+use miden_crypto::{merkle::Mmr, ONE};
 use miden_mock::mock::block::mock_block_header;
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{
@@ -38,7 +38,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
     let account_id_3 = AccountId::new_unchecked(Felt::new(42));
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = mock_block_header(ZERO, None, None, &[]);
+        let block_header = mock_block_header(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let account_states = vec![
@@ -114,7 +114,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
         Digest::new([Felt::from(4u64), Felt::from(3u64), Felt::from(2u64), Felt::from(1u64)]);
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = mock_block_header(ZERO, None, None, &[]);
+        let block_header = mock_block_header(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let account_states = vec![

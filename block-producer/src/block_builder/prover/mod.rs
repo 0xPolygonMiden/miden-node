@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use miden_air::{ExecutionOptions, Felt};
 use miden_crypto::merkle::TieredSmt;
-use miden_objects::{assembly::Assembler, BlockHeader, Digest, ONE};
+use miden_objects::{assembly::Assembler, BlockHeader, Digest};
 use miden_stdlib::StdLibrary;
 use miden_vm::{execute, DefaultHost, MemAdviceProvider, Program};
 
@@ -177,7 +177,7 @@ impl BlockProver {
         witness: BlockWitness,
     ) -> Result<BlockHeader, BuildBlockError> {
         let prev_hash = witness.prev_header.hash();
-        let block_num = witness.prev_header.block_num() + ONE;
+        let block_num = witness.prev_header.block_num() + 1;
         let version = witness.prev_header.version();
 
         let (account_root, note_root, chain_root) = self.compute_roots(witness)?;

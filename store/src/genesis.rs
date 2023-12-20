@@ -1,9 +1,6 @@
 use std::path::PathBuf;
 
-use miden_crypto::{
-    merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt},
-    Felt,
-};
+use miden_crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt};
 use miden_objects::{
     accounts::Account,
     notes::NOTE_LEAF_DEPTH,
@@ -60,7 +57,7 @@ impl GenesisState {
 
         let block_header = BlockHeader::new(
             Digest::default(),
-            Felt::from(1_u64),
+            1_u32,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             TieredSmt::default().root(),

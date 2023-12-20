@@ -67,7 +67,7 @@ impl MockStoreSuccessBuilder {
 
         let initial_block_header = BlockHeader::new(
             Digest::default(),
-            ZERO,
+            0,
             chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
             accounts_smt.root(),
             Digest::default(),
