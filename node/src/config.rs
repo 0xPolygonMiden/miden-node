@@ -4,7 +4,7 @@ use miden_node_store::config::StoreConfig;
 use miden_node_utils::config::Config;
 use serde::{Deserialize, Serialize};
 
-pub const CONFIG_FILENAME: &str = "miden-node.toml";
+pub const CONFIG_FILENAME: &str = "miden.toml";
 
 // Top-level config
 // ================================================================================================
