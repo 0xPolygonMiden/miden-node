@@ -28,8 +28,11 @@ use crate::{
 // ===================================================================================================
 
 pub async fn start(config_filepath: &PathBuf) -> anyhow::Result<()> {
-    let config: NodeTopLevelConfig =
-        NodeTopLevelConfig::load_config(Some(&config_filepath)).extract()?;
+    let config: NodeTopLevelConfig = NodeTopLevelConfig::load_config(Some(config_filepath))
+        .extract()
+        .map_err(|err| {
+            anyhow!("failed to load config file `{}`: {err}", config_filepath.display())
+        })?;
 
     let mut join_set = JoinSet::new();
     let db = Db::setup(config.store.clone()).await?;
