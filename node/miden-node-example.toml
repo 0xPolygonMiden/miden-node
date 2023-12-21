@@ -1,19 +1,13 @@
 [block_producer]
 store_url = "http://localhost:28943"
-
-[block_producer.endpoint]
-host = "localhost"
-port = 48046
+endpoint = { host = "localhost", port = 48046 }
 
 [rpc]
 store_url = "http://localhost:28943"
 block_producer_url = "http://localhost:48046"
-endpoint = { host = "localhost",  port = 57291 }
+endpoint = { host = "localhost", port = 57291 }
 
 [store]
 database_filepath = "miden-store.sqlite3"
 genesis_filepath = "genesis.dat"
-
-[store.endpoint]
-host = "localhost"
-port = 28943
+endpoint = { host = "localhost", port = 28943 }
