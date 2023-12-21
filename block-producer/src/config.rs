@@ -1,10 +1,6 @@
-use miden_node_store::config::StoreConfig;
-use miden_node_utils::config::{Config, Endpoint};
+use miden_node_utils::config::Endpoint;
 use serde::{Deserialize, Serialize};
 
-pub const HOST: &str = "localhost";
-// defined as: sum(ord(c)**p for (p, c) in enumerate('miden-block-producer', 1)) % 2**16
-pub const PORT: u16 = 48046;
 pub const CONFIG_FILENAME: &str = "miden-block-producer.toml";
 
 // Main config
@@ -19,18 +15,6 @@ pub struct BlockProducerConfig {
     pub store_url: String,
 }
 
-impl Default for BlockProducerConfig {
-    fn default() -> Self {
-        Self {
-            endpoint: Endpoint {
-                host: HOST.to_string(),
-                port: PORT,
-            },
-            store_url: StoreConfig::default().as_url(),
-        }
-    }
-}
-
 impl BlockProducerConfig {
     pub fn as_url(&self) -> String {
         format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
@@ -41,13 +25,9 @@ impl BlockProducerConfig {
 // ================================================================================================
 
 /// Block producer top-level configuration.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct BlockProducerTopLevelConfig {
     pub block_producer: BlockProducerConfig,
-}
-
-impl Config for BlockProducerTopLevelConfig {
-    const CONFIG_FILENAME: &'static str = CONFIG_FILENAME;
 }
 
 #[cfg(test)]
@@ -55,9 +35,10 @@ mod tests {
     use std::path::PathBuf;
 
     use figment::Jail;
-    use miden_node_utils::{config::Endpoint, Config};
+    use miden_node_utils::config::{load_config, Endpoint};
 
-    use super::{BlockProducerConfig, BlockProducerTopLevelConfig, CONFIG_FILENAME};
+    use super::{BlockProducerConfig, BlockProducerTopLevelConfig};
+    use crate::config::CONFIG_FILENAME;
 
     #[test]
     fn test_block_producer_config() {
@@ -74,10 +55,8 @@ mod tests {
                 "#,
             )?;
 
-            let config: BlockProducerTopLevelConfig = BlockProducerTopLevelConfig::load_config(
-                Some(PathBuf::from(CONFIG_FILENAME).as_path()),
-            )
-            .extract()?;
+            let config: BlockProducerTopLevelConfig =
+                load_config(PathBuf::from(CONFIG_FILENAME).as_path()).extract()?;
 
             assert_eq!(
                 config,

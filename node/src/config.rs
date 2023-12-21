@@ -1,7 +1,6 @@
 use miden_node_block_producer::config::BlockProducerConfig;
 use miden_node_rpc::config::RpcConfig;
 use miden_node_store::config::StoreConfig;
-use miden_node_utils::config::Config;
 use serde::{Deserialize, Serialize};
 
 pub const CONFIG_FILENAME: &str = "miden.toml";
@@ -10,15 +9,11 @@ pub const CONFIG_FILENAME: &str = "miden.toml";
 // ================================================================================================
 
 /// Node top-level configuration.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct NodeTopLevelConfig {
     pub block_producer: BlockProducerConfig,
     pub rpc: RpcConfig,
     pub store: StoreConfig,
-}
-
-impl Config for NodeTopLevelConfig {
-    const CONFIG_FILENAME: &'static str = CONFIG_FILENAME;
 }
 
 #[cfg(test)]
@@ -29,7 +24,7 @@ mod tests {
     use miden_node_block_producer::config::BlockProducerConfig;
     use miden_node_rpc::config::RpcConfig;
     use miden_node_store::config::StoreConfig;
-    use miden_node_utils::{config::Endpoint, Config};
+    use miden_node_utils::config::{load_config, Endpoint};
 
     use super::{NodeTopLevelConfig, CONFIG_FILENAME};
 
@@ -62,66 +57,7 @@ mod tests {
             )?;
 
             let config: NodeTopLevelConfig =
-                NodeTopLevelConfig::load_config(Some(PathBuf::from(CONFIG_FILENAME).as_path()))
-                    .extract()?;
-
-            assert_eq!(
-                config,
-                NodeTopLevelConfig {
-                    block_producer: BlockProducerConfig {
-                        endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
-                        },
-                        store_url: "http://store:8000".to_string(),
-                    },
-                    rpc: RpcConfig {
-                        endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
-                        },
-                        store_url: "http://store:8000".to_string(),
-                        block_producer_url: "http://block_producer:8001".to_string(),
-                    },
-                    store: StoreConfig {
-                        endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
-                        },
-                        database_filepath: "local.sqlite3".into(),
-                        genesis_filepath: "genesis.dat".into()
-                    },
-                }
-            );
-
-            Ok(())
-        });
-    }
-
-    #[test]
-    fn test_node_config_env() {
-        Jail::expect_with(|jail| {
-            // Block producer
-            // ------------------------------------------------------------------------------------
-            jail.set_env("MIDEN__BLOCK_PRODUCER__STORE_URL", "http://store:8000");
-            jail.set_env("MIDEN__BLOCK_PRODUCER__ENDPOINT__HOST", "127.0.0.1");
-            jail.set_env("MIDEN__BLOCK_PRODUCER__ENDPOINT__PORT", 8080);
-
-            // Rpc
-            // ------------------------------------------------------------------------------------
-            jail.set_env("MIDEN__RPC__STORE_URL", "http://store:8000");
-            jail.set_env("MIDEN__RPC__BLOCK_PRODUCER_URL", "http://block_producer:8001");
-            jail.set_env("MIDEN__RPC__ENDPOINT__HOST", "127.0.0.1");
-            jail.set_env("MIDEN__RPC__ENDPOINT__PORT", 8080);
-
-            // Store
-            // ------------------------------------------------------------------------------------
-            jail.set_env("MIDEN__STORE__DATABASE_FILEPATH", "local.sqlite3");
-            jail.set_env("MIDEN__STORE__GENESIS_FILEPATH", "genesis.dat");
-            jail.set_env("MIDEN__STORE__ENDPOINT__HOST", "127.0.0.1");
-            jail.set_env("MIDEN__STORE__ENDPOINT__PORT", 8080);
-
-            let config: NodeTopLevelConfig = NodeTopLevelConfig::load_config(None).extract()?;
+                load_config(PathBuf::from(CONFIG_FILENAME).as_path()).extract()?;
 
             assert_eq!(
                 config,

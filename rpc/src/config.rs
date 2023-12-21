@@ -1,11 +1,6 @@
-use miden_node_block_producer::config::BlockProducerConfig;
-use miden_node_store::config::StoreConfig;
-use miden_node_utils::config::{Config, Endpoint};
+use miden_node_utils::config::Endpoint;
 use serde::{Deserialize, Serialize};
 
-pub const HOST: &str = "localhost";
-// defined as: sum(ord(c)**p for (p, c) in enumerate('miden-rpc', 1)) % 2**16
-pub const PORT: u16 = 57291;
 pub const CONFIG_FILENAME: &str = "miden-rpc.toml";
 
 // Main config
@@ -20,19 +15,6 @@ pub struct RpcConfig {
     pub block_producer_url: String,
 }
 
-impl Default for RpcConfig {
-    fn default() -> Self {
-        Self {
-            endpoint: Endpoint {
-                host: HOST.to_string(),
-                port: PORT,
-            },
-            store_url: StoreConfig::default().as_url(),
-            block_producer_url: BlockProducerConfig::default().as_url(),
-        }
-    }
-}
-
 impl RpcConfig {
     pub fn as_url(&self) -> String {
         format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
@@ -43,13 +25,9 @@ impl RpcConfig {
 // ================================================================================================
 
 /// Rpc top-level configuration.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct RpcTopLevelConfig {
     pub rpc: RpcConfig,
-}
-
-impl Config for RpcTopLevelConfig {
-    const CONFIG_FILENAME: &'static str = CONFIG_FILENAME;
 }
 
 #[cfg(test)]
@@ -57,7 +35,7 @@ mod tests {
     use std::path::PathBuf;
 
     use figment::Jail;
-    use miden_node_utils::{config::Endpoint, Config};
+    use miden_node_utils::config::{load_config, Endpoint};
 
     use super::{RpcConfig, RpcTopLevelConfig, CONFIG_FILENAME};
 
@@ -78,8 +56,7 @@ mod tests {
             )?;
 
             let config: RpcTopLevelConfig =
-                RpcTopLevelConfig::load_config(Some(PathBuf::from(CONFIG_FILENAME).as_path()))
-                    .extract()?;
+                load_config(PathBuf::from(CONFIG_FILENAME).as_path()).extract()?;
 
             assert_eq!(
                 config,

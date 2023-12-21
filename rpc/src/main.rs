@@ -6,7 +6,7 @@ use hex::ToHex;
 use miden_crypto::merkle::{path_to_text, TieredSmtProof};
 use miden_node_proto::{requests::CheckNullifiersRequest, rpc::api_client, tsmt::NullifierProof};
 use miden_node_rpc::{config::RpcTopLevelConfig, server::api};
-use miden_node_utils::Config;
+use miden_node_utils::config::load_config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -14,8 +14,7 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    let config: RpcTopLevelConfig =
-        RpcTopLevelConfig::load_config(cli.config.as_deref()).extract()?;
+    let config: RpcTopLevelConfig = load_config(cli.config.as_path()).extract()?;
 
     match cli.command {
         Command::Serve => {
