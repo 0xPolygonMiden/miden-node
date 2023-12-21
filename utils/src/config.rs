@@ -63,27 +63,3 @@ pub trait Config: Default + Serialize {
         }
     }
 }
-
-#[test]
-fn f() {
-    #[derive(serde::Deserialize, Debug)]
-    struct C {
-        name: String
-    }
-
-    impl std::fmt::Display for C {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            writeln!(f, "{}", self.name)
-        }
-    }
-
-    let x = Figment::from(Toml::file("doesnt_exit"));
-    
-    let c: Result<C, figment::Error> = x.extract();
-
-    match c {
-        Ok(v) => println!("{v}"),
-        Err(e) => println!("{e}"),
-    }
-
-}

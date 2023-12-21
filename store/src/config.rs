@@ -51,7 +51,7 @@ impl Default for StoreConfig {
 }
 
 impl StoreConfig {
-    pub fn as_endpoint(&self) -> String {
+    pub fn as_url(&self) -> String {
         format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
     }
 }

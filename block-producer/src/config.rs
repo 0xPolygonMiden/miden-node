@@ -26,13 +26,13 @@ impl Default for BlockProducerConfig {
                 host: HOST.to_string(),
                 port: PORT,
             },
-            store_url: StoreConfig::default().as_endpoint(),
+            store_url: StoreConfig::default().as_url(),
         }
     }
 }
 
 impl BlockProducerConfig {
-    pub fn as_endpoint(&self) -> String {
+    pub fn as_url(&self) -> String {
         format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
     }
 }
