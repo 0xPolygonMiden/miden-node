@@ -71,6 +71,8 @@ impl Config for StoreTopLevelConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use figment::Jail;
     use miden_node_utils::Config;
 
@@ -92,7 +94,9 @@ mod tests {
                 "#,
             )?;
 
-            let config: StoreTopLevelConfig = StoreTopLevelConfig::load_config(None).extract()?;
+            let config: StoreTopLevelConfig =
+                StoreTopLevelConfig::load_config(Some(PathBuf::from(CONFIG_FILENAME).as_path()))
+                    .extract()?;
 
             assert_eq!(
                 config,

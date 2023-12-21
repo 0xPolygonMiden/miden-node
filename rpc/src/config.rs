@@ -54,6 +54,8 @@ impl Config for RpcTopLevelConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use figment::Jail;
     use miden_node_utils::{config::Endpoint, Config};
 
@@ -75,7 +77,9 @@ mod tests {
                 "#,
             )?;
 
-            let config: RpcTopLevelConfig = RpcTopLevelConfig::load_config(None).extract()?;
+            let config: RpcTopLevelConfig =
+                RpcTopLevelConfig::load_config(Some(PathBuf::from(CONFIG_FILENAME).as_path()))
+                    .extract()?;
 
             assert_eq!(
                 config,
