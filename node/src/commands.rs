@@ -1,6 +1,6 @@
 use std::{
     fs,
-    path::Path,
+    path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -10,26 +10,26 @@ use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wal
 use miden_node_block_producer::server as block_producer_server;
 use miden_node_rpc::server as rpc_server;
 use miden_node_store::{db::Db, genesis::GenesisState, server as store_server};
-use miden_node_utils::Config;
+use miden_node_utils::config::load_config;
 use miden_objects::assets::TokenSymbol;
 use tokio::task::JoinSet;
 
 use crate::{
-    config::{NodeTopLevelConfig, CONFIG_FILENAME},
+    config::NodeTopLevelConfig,
     genesis::{
         FAUCET_KEYPAIR_FILE_PATH, FUNGIBLE_FAUCET_TOKEN_DECIMALS, FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY,
         FUNGIBLE_FAUCET_TOKEN_SYMBOL, SEED_FAUCET, SEED_FAUCET_KEYPAIR, SEED_WALLET,
         SEED_WALLET_KEYPAIR, WALLET_KEYPAIR_FILE_PATH,
     },
-    DisplayPathBuf,
 };
 
 // START
 // ===================================================================================================
 
-pub async fn start() -> anyhow::Result<()> {
-    let config: NodeTopLevelConfig =
-        NodeTopLevelConfig::load_config(Some(Path::new(CONFIG_FILENAME))).extract()?;
+pub async fn start(config_filepath: &Path) -> anyhow::Result<()> {
+    let config: NodeTopLevelConfig = load_config(config_filepath).extract().map_err(|err| {
+        anyhow!("failed to load config file `{}`: {err}", config_filepath.display())
+    })?;
 
     let mut join_set = JoinSet::new();
     let db = Db::setup(config.store.clone()).await?;
@@ -56,21 +56,22 @@ pub async fn start() -> anyhow::Result<()> {
 // ===================================================================================================
 
 pub async fn make_genesis(
-    output_path: &DisplayPathBuf,
+    output_path: &PathBuf,
     force: &bool,
 ) -> anyhow::Result<()> {
-    let output_file_path = Path::new(&output_path.0);
+    let output_file_path = Path::new(output_path);
 
     if !force {
         match output_file_path.try_exists() {
             Ok(file_exists) => {
                 if file_exists {
-                    return Err(anyhow!("Failed to generate new genesis file \"{output_path}\" because it already exists. Use the --force flag to overwrite."));
+                    return Err(anyhow!("Failed to generate new genesis file \"{}\" because it already exists. Use the --force flag to overwrite.", output_path.display()));
                 }
             },
             Err(err) => {
                 return Err(anyhow!(
-                    "Failed to generate new genesis file \"{output_path}\". Error: {err}",
+                    "Failed to generate new genesis file \"{}\". Error: {err}",
+                    output_path.display()
                 ));
             },
         }

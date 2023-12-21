@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use miden_crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt};
 use miden_objects::{
     accounts::Account,
@@ -7,26 +5,10 @@ use miden_objects::{
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     BlockHeader, Digest,
 };
-use once_cell::sync::Lazy;
 
-use crate::{
-    config::{APP, ORG},
-    state::ACCOUNT_DB_DEPTH,
-};
+use crate::state::ACCOUNT_DB_DEPTH;
 
 pub const GENESIS_BLOCK_NUM: u32 = 0;
-
-/// Default path at which the genesis file will be written to
-pub static DEFAULT_GENESIS_FILE_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    directories::ProjectDirs::from("", ORG, APP)
-        .map(|d| d.data_local_dir().join("genesis.dat"))
-        // fallback to current dir
-        .unwrap_or_default()
-        .as_path()
-        .to_str()
-        .expect("path only contains UTF-8 characters")
-        .into()
-});
 
 /// Represents the state at genesis, which will be used to derive the genesis block.
 pub struct GenesisState {

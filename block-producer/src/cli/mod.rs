@@ -8,7 +8,7 @@ use crate::config;
 #[command(version, about, long_about = None)]
 pub struct Cli {
     #[arg(short, long, value_name = "FILE", default_value = config::CONFIG_FILENAME)]
-    pub config: Option<PathBuf>,
+    pub config: PathBuf,
 
     #[command(subcommand)]
     pub command: Command,

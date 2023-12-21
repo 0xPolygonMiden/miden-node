@@ -183,11 +183,11 @@ where
 }
 
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
-    let host_port = (config.host_port.host.as_ref(), config.host_port.port);
-    let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
+    let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
+    let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
 
     let store = Arc::new(DefaultStore {
-        store: store_client::ApiClient::connect(config.store_endpoint.to_string()).await?,
+        store: store_client::ApiClient::connect(config.store_url.to_string()).await?,
     });
     let block_builder = DefaultBlockBuilder::new(store.clone());
     let batch_builder_options = DefaultBatchBuilderOptions {
@@ -224,8 +224,8 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
 
     info!(
         COMPONENT,
-        host = config.host_port.host,
-        port = config.host_port.port,
+        host = config.endpoint.host,
+        port = config.endpoint.port,
         "Server initialized",
     );
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
