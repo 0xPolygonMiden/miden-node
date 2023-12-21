@@ -87,8 +87,8 @@ impl api_server::Api for RpcApi {
 }
 
 pub async fn serve(config: RpcConfig) -> Result<()> {
-    let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
-    let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
+    let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
+    let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
 
     let api = RpcApi::from_config(&config).await?;
     let rpc = api_server::ApiServer::new(api);

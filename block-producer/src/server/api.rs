@@ -183,8 +183,8 @@ where
 }
 
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
-    let host_port = (config.endpoint.host.as_ref(), config.endpoint.port);
-    let addrs: Vec<_> = host_port.to_socket_addrs()?.collect();
+    let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
+    let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
 
     let store = Arc::new(DefaultStore {
         store: store_client::ApiClient::connect(config.store_url.to_string()).await?,
