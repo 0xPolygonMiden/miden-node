@@ -1,0 +1,4 @@
+[store]
+endpoint = { host = "localhost", port = 28943 }
+database_filepath = "miden-store.sqlite3"
+genesis_filepath = "genesis.dat"
