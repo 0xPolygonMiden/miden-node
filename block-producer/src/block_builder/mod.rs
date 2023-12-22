@@ -5,7 +5,9 @@ use miden_objects::{accounts::AccountId, Digest};
 use tracing::info;
 
 use crate::{
-    block::Block, store::Store, SharedTxBatch, COMPONENT, MAX_NUM_CREATED_NOTES_PER_BATCH,
+    block::Block,
+    store::{ApplyBlock, Store},
+    SharedTxBatch, COMPONENT, MAX_NUM_CREATED_NOTES_PER_BATCH,
 };
 
 pub mod errors;
@@ -36,27 +38,34 @@ pub trait BlockBuilder: Send + Sync + 'static {
 }
 
 #[derive(Debug)]
-pub struct DefaultBlockBuilder<S> {
+pub struct DefaultBlockBuilder<S, A> {
     store: Arc<S>,
+    state_view: Arc<A>,
     block_kernel: BlockProver,
 }
 
-impl<S> DefaultBlockBuilder<S>
+impl<S, A> DefaultBlockBuilder<S, A>
 where
     S: Store,
+    A: ApplyBlock,
 {
-    pub fn new(store: Arc<S>) -> Self {
+    pub fn new(
+        store: Arc<S>,
+        state_view: Arc<A>,
+    ) -> Self {
         Self {
             store,
+            state_view,
             block_kernel: BlockProver::new(),
         }
     }
 }
 
 #[async_trait]
-impl<S> BlockBuilder for DefaultBlockBuilder<S>
+impl<S, A> BlockBuilder for DefaultBlockBuilder<S, A>
 where
     S: Store,
+    A: ApplyBlock,
 {
     async fn build_block(
         &self,
@@ -99,7 +108,7 @@ where
             produced_nullifiers,
         });
 
-        self.store.apply_block(block.clone()).await?;
+        self.state_view.apply_block(block.clone()).await?;
 
         info!(COMPONENT, "block #{block_num} built!");
 
