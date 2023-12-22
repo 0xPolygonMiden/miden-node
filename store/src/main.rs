@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Serve { .. } => {
-            server::api::serve(config.store, db).await?;
+            server::serve(config.store, db).await?;
         },
     }
 
