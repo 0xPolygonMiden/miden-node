@@ -1,5 +1,4 @@
 [store]
-# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-store', 1)) % 2**16
 endpoint = { host = "localhost", port = 28943 }
 database_filepath = "miden-store.sqlite3"
 genesis_filepath = "genesis.dat"

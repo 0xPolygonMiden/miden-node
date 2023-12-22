@@ -1,26 +1,31 @@
 # Miden node
 
-This repository holds the Miden node; that is, the software which processes transactions and creates
-blocks.
+<a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+<img src="https://github.com/0xPolygonMiden/miden-node/workflows/CI/badge.svg?branch=main">
+<a href="https://crates.io/crates/miden-node"><img src="https://img.shields.io/crates/v/miden-node"></a>
 
-The node is made up of 3 main components: 
-- **store:** manages the databases, 
-- **rpc:** listens for new transactions to be added to blocks
-- **block producer:** takes new transactions from the store, creates blocks containing those
-  transactions, and sends them to the store
+This repository holds the Miden node; that is, the software which processes transactions and creates blocks for the Miden rollup.
 
-We currently have a restriction that for any account `A`, only one transaction per block can be
-about `A`. We intend to lift that restriction in the near future.
+### Status
 
-# Usage
+The Miden node is still under heavy development and the project can be considered to be in an *alpha* stage. Many features are yet to be implemented and there is a number of limitations which we will lift in the near future.
+
+At this point, we are developing the Miden node for a centralized operator. Thus, the work does not yet include such components as P2P networking and consensus. These also will be added in the future.
+
+## Architecture
+
+The Miden node is made up of 3 main components: 
+- **store:** stores the current state of the chain.
+- **rpc:** serves client requests such as to synchronize with the latest state of the chain or to submit transactions.
+- **block producer:** accepts transactions from the RPC component, creates blocks containing those transactions, and sends them to the store.
+
+## Usage
 
 Before running the node, you must first generate the genesis file. 
 
-## Generating the genesis file
+### Generating the genesis file
 
-The contents of the genesis file are currently hardcoded in Rust, but we intend to make those
-configurable shortly. The genesis block currently sets up 2 accounts: a faucet account for a `POL`
-token, as well as a wallet account.
+The contents of the genesis file are currently hardcoded in Rust, but we intend to make those configurable shortly. The genesis block currently sets up 2 accounts: a faucet account for a `POL` token, as well as a wallet account.
 
 To generate the file for production, run 
 
@@ -28,25 +33,19 @@ To generate the file for production, run
 $ cargo run -p miden-node -- make-genesis
 ```
 
-However, you will notice that this can take many minutes to execute. To generate the file for
-testing purposes, run
+However, you will notice that this can take many minutes to execute. To generate the file for testing purposes, run
 
 ```sh
 $ cargo run -p miden-node --features testing -- make-genesis
 ```
 
 This will generate 3 files in the current directory: 
-- `genesis.dat`: the genesis file
-- `faucet.fsk` and `wallet.fsk`: the public/private keys of the faucet and wallet accounts, respectively
+- `genesis.dat`: the genesis file.
+- `faucet.fsk` and `wallet.fsk`: the public/private keys of the faucet and wallet accounts, respectively.
 
-## Running the node
+### Running the node
 
-There are 2 ways to run the node: all 3 components in one process, or each component in its own
-process. Each executable will require a configuration file. Each directory containing the
-executables also contains an example configuration file. For example, `node/miden-node-example.toml`
-is the example configuration file for running all the components in the same process. Notably, the
-`store.genesis_filepath` field must point to the `genesis.dat` file that you generated in the
-previous step.
+There are 2 ways to run the node: all 3 components in one process, or each component in its own process. Each executable will require a configuration file. Each directory containing the executables also contains an example configuration file. For example, `node/miden-node-example.toml` is the example configuration file for running all the components in the same process. Notably, the`store.genesis_filepath` field must point to the `genesis.dat` file that you generated in the previous step.
 
 To run all components in the same process:
 
@@ -68,5 +67,7 @@ $ cargo run -p miden-node-rpc -- serve --config <path-to-rpc-config-file>
 $ cargo run -p miden-node-block-producer -- serve --config <path-to-block-producer-config-file>
 ```
 
-Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are
-valid and point to the right endpoint.
+Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are valid and point to the right endpoint.
+
+## License
+This project is [MIT licensed](./LICENSE).

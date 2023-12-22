@@ -1,4 +1,3 @@
 [block_producer]
-store_url = "http://localhost:28943"
-# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-block-producer', 1)) % 2**16
 endpoint = { host = "localhost", port = 48046 }
+store_url = "http://localhost:28943"
