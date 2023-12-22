@@ -31,21 +31,22 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let store = Arc::new(DefaultStore::new(
         store_client::ApiClient::connect(config.store_url.to_string()).await?,
     ));
-    let block_builder = DefaultBlockBuilder::new(store.clone());
+    let state_view = Arc::new(DefaultStateView::new(store.clone()));
+
+    let block_builder = DefaultBlockBuilder::new(store.clone(), state_view.clone());
     let batch_builder_options = DefaultBatchBuilderOptions {
         block_frequency: SERVER_BLOCK_FREQUENCY,
         max_batches_per_block: SERVER_MAX_BATCHES_PER_BLOCK,
     };
     let batch_builder =
         Arc::new(DefaultBatchBuilder::new(Arc::new(block_builder), batch_builder_options));
-    let state_view = DefaultStateView::new(store.clone());
 
     let transaction_queue_options = DefaultTransactionQueueOptions {
         build_batch_frequency: SERVER_BUILD_BATCH_FREQUENCY,
         batch_size: SERVER_BATCH_SIZE,
     };
     let queue = Arc::new(DefaultTransactionQueue::new(
-        Arc::new(state_view),
+        state_view,
         batch_builder.clone(),
         transaction_queue_options,
     ));
