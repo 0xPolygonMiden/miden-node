@@ -50,20 +50,6 @@ $ cargo install --features testing --path node
 
 Currently, the only difference between the 2 is how long the `make-genesis` command will take to run (see next subsection).
 
-#### Installing the node as separate components
-If you intend on running the node in different processes, you need to install each component separately:
-
-```sh
-# Installs `miden-node-store` executable
-$ cargo install --path store
-
-# Installs `miden-node-rpc` executable
-$ cargo install --path rpc
-
-# Installs `miden-node-block-producer` executable
-$ cargo install --path block-producer
-```
-
 ### Generating the genesis file
 
 The contents of the genesis file are currently hardcoded in Rust, but we intend to make those configurable shortly. The genesis block currently sets up 2 accounts: a faucet account for a `POL` token, as well as a wallet account.
@@ -88,8 +74,22 @@ To run all components in the same process:
 $ miden-node start -c <path-to-config-file>
 ```
 
-#### Running the node as separate components
-If you [installed the components separately](#installing-the-node-as-separate-components), run
+### Advanced usage
+
+If you intend on running the node in different processes, you need to install each component separately:
+
+```sh
+# Installs `miden-node-store` executable
+$ cargo install --path store
+
+# Installs `miden-node-rpc` executable
+$ cargo install --path rpc
+
+# Installs `miden-node-block-producer` executable
+$ cargo install --path block-producer
+```
+
+Then, to run each component,
 
 ```sh
 $ miden-node-store serve --sqlite <path-to-sqlite3-database-file> --config <path-to-store-config-file>
