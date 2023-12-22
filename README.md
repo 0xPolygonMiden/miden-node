@@ -14,12 +14,13 @@ At this point, we are developing the Miden node for a centralized operator. Thus
 
 ## Architecture
 
-![Architecture diagram](./assets/architecture.png)
 
 The Miden node is made up of 3 main components, which communicate over gRPC: 
 - **store:** stores the current state of the chain.
 - **rpc:** serves client requests such as to synchronize with the latest state of the chain or to submit transactions.
 - **block producer:** accepts transactions from the RPC component, creates blocks containing those transactions, and sends them to the store.
+
+![Architecture diagram](./assets/architecture.png)
 
 All 3 components can either run in one process, or each component can run in its own process. See the [Running the node](#running-the-node) section for more details.
 
