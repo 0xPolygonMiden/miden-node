@@ -37,9 +37,10 @@ The `miden-node` executable is used to both generate the genesis file, and runni
 To install for production use cases, run
 
 ```sh
-# Installs `miden-node` executable
 $ cargo install --path node
 ```
+
+This will install the executable `miden-node` in your PATH, at `~/.cargo/bin/miden-node`.
 
 Otherwise, if only to try the node out for testing, run
 
