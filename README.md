@@ -19,24 +19,52 @@ The Miden node is made up of 3 main components:
 - **rpc:** serves client requests such as to synchronize with the latest state of the chain or to submit transactions.
 - **block producer:** accepts transactions from the RPC component, creates blocks containing those transactions, and sends them to the store.
 
+There are 2 ways to run the node: all 3 components in one process, or each component in its own process. Each executable will require a configuration file. Each directory containing the executables also contains an example configuration file. For example, `node/miden-node-example.toml` is the example configuration file for running all the components in the same process. Notably, the`store.genesis_filepath` field must point to the `genesis.dat` file that you generated in the previous step.
+
 ## Usage
 
 Before running the node, you must first generate the genesis file. 
+
+The `miden-node` executable is used to both generate the genesis file, and running the node.
+
+### Installing the node
+
+To install for production use cases, run
+
+```sh
+# Installs `miden-node` executable
+$ cargo install --path node
+```
+
+Otherwise, if only to try the node out for testing, run
+
+```sh
+$ cargo install --features testing --path node
+```
+
+Currently, the only difference between the 2 is how long the `make-genesis` command will take to run (see next subsection).
+
+If you intend on running the node in different processes, you need to install each component separately:
+
+```sh
+# Installs `miden-node-store` executable
+$ cargo install --path store
+
+# Installs `miden-node-rpc` executable
+$ cargo install --path rpc
+
+# Installs `miden-node-block-producer` executable
+$ cargo install --path block-producer
+```
 
 ### Generating the genesis file
 
 The contents of the genesis file are currently hardcoded in Rust, but we intend to make those configurable shortly. The genesis block currently sets up 2 accounts: a faucet account for a `POL` token, as well as a wallet account.
 
-To generate the file for production, run 
+To generate the genesis file, run 
 
 ```sh
-$ cargo run -p miden-node -- make-genesis
-```
-
-However, you will notice that this can take many minutes to execute. To generate the file for testing purposes, run
-
-```sh
-$ cargo run -p miden-node --features testing -- make-genesis
+$ miden-node make-genesis
 ```
 
 This will generate 3 files in the current directory: 
@@ -45,26 +73,22 @@ This will generate 3 files in the current directory:
 
 ### Running the node
 
-There are 2 ways to run the node: all 3 components in one process, or each component in its own process. Each executable will require a configuration file. Each directory containing the executables also contains an example configuration file. For example, `node/miden-node-example.toml` is the example configuration file for running all the components in the same process. Notably, the`store.genesis_filepath` field must point to the `genesis.dat` file that you generated in the previous step.
-
 To run all components in the same process:
 
 ```sh
-$ cd node
-$ cargo run -- start -c <path-to-config-file>
+$ miden-node start -c <path-to-config-file>
 ```
-
 
 To run components separately, run
 
 ```sh
-$ cargo run -p miden-node-store -- serve --config <path-to-store-config-file>
+$ miden-node-store serve --sqlite <path-to-sqlite3-database-file> --config <path-to-store-config-file>
 
 # In a separate terminal
-$ cargo run -p miden-node-rpc -- serve --config <path-to-rpc-config-file>
+$ miden-node-rpc serve --config <path-to-rpc-config-file>
 
 # In a separate terminal
-$ cargo run -p miden-node-block-producer -- serve --config <path-to-block-producer-config-file>
+$ miden-node-block-producer serve --config <path-to-block-producer-config-file>
 ```
 
 Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are valid and point to the right endpoint.
