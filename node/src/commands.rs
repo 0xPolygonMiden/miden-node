@@ -33,7 +33,7 @@ pub async fn start(config_filepath: &Path) -> anyhow::Result<()> {
 
     let mut join_set = JoinSet::new();
     let db = Db::setup(config.store.clone()).await?;
-    join_set.spawn(store_server::api::serve(config.store, db));
+    join_set.spawn(store_server::serve(config.store, db));
 
     // wait for store before starting block producer
     tokio::time::sleep(Duration::from_secs(1)).await;
@@ -41,7 +41,7 @@ pub async fn start(config_filepath: &Path) -> anyhow::Result<()> {
 
     // wait for block producer before starting rpc
     tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(rpc_server::api::serve(config.rpc));
+    join_set.spawn(rpc_server::serve(config.rpc));
 
     // block on all tasks
     while let Some(res) = join_set.join_next().await {
