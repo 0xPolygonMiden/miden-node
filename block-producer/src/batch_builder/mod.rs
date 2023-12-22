@@ -1,136 +1,35 @@
-use std::{cmp::min, collections::BTreeMap, sync::Arc, time::Duration};
+use std::{cmp::min, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
-use miden_vm::crypto::SimpleSmt;
 use tokio::{sync::RwLock, time};
 use tracing::info;
 
 use self::errors::BuildBatchError;
-use crate::{
-    block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch, COMPONENT,
-    CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH,
-};
+use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch, COMPONENT};
 
 pub mod errors;
 #[cfg(test)]
 mod tests;
 
-// TRANSACTION BATCH
-// ================================================================================================
-
-/// A batch of transactions that share a common proof. For any given account, at most 1 transaction
-/// in the batch must be addressing that account.
-///
-/// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
-#[derive(Debug)]
-pub struct TransactionBatch {
-    updated_accounts: BTreeMap<AccountId, AccountStates>,
-    produced_nullifiers: Vec<Digest>,
-    created_notes_smt: SimpleSmt,
-    /// The notes stored `created_notes_smt`
-    created_notes: Vec<NoteEnvelope>,
-}
-
-impl TransactionBatch {
-    pub fn new(txs: Vec<SharedProvenTx>) -> Result<Self, BuildBatchError> {
-        let updated_accounts = txs
-            .iter()
-            .map(|tx| {
-                (
-                    tx.account_id(),
-                    AccountStates {
-                        initial_state: tx.initial_account_hash(),
-                        final_state: tx.final_account_hash(),
-                    },
-                )
-            })
-            .collect();
-
-        let produced_nullifiers = txs
-            .iter()
-            .flat_map(|tx| tx.consumed_notes())
-            .map(|nullifier| nullifier.inner())
-            .collect();
-
-        let (created_notes, created_notes_smt) = {
-            let created_notes: Vec<NoteEnvelope> =
-                txs.iter().flat_map(|tx| tx.created_notes()).cloned().collect();
-
-            if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
-                return Err(BuildBatchError::TooManyNotesCreated(created_notes.len()));
-            }
-
-            (
-                created_notes.clone(),
-                SimpleSmt::with_contiguous_leaves(
-                    CREATED_NOTES_SMT_DEPTH,
-                    created_notes.into_iter().flat_map(|note_envelope| {
-                        [note_envelope.note_hash().into(), note_envelope.metadata().into()]
-                    }),
-                )?,
-            )
-        };
-
-        Ok(Self {
-            updated_accounts,
-            produced_nullifiers,
-            created_notes_smt,
-            created_notes,
-        })
-    }
-
-    /// Returns an iterator over account ids that were modified in the transaction batch, and their
-    /// corresponding initial hash
-    pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
-        self.updated_accounts
-            .iter()
-            .map(|(account_id, account_states)| (*account_id, account_states.initial_state))
-    }
-
-    /// Returns an iterator over account ids that were modified in the transaction batch, and their
-    /// corresponding new hash
-    pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
-        self.updated_accounts
-            .iter()
-            .map(|(account_id, account_states)| (*account_id, account_states.final_state))
-    }
-
-    /// Returns the nullifier of all consumed notes
-    pub fn produced_nullifiers(&self) -> impl Iterator<Item = Digest> + '_ {
-        self.produced_nullifiers.iter().cloned()
-    }
-
-    /// Returns the hash of created notes
-    pub fn created_notes(&self) -> impl Iterator<Item = &NoteEnvelope> + '_ {
-        self.created_notes.iter()
-    }
-
-    /// Returns the root of the created notes SMT
-    pub fn created_notes_root(&self) -> Digest {
-        self.created_notes_smt.root()
-    }
-}
-
-/// Stores the initial state (before the transaction) and final state (after the transaction) of an
-/// account
-#[derive(Debug)]
-struct AccountStates {
-    initial_state: Digest,
-    final_state: Digest,
-}
+mod batch;
+pub use batch::TransactionBatch;
 
 // BATCH BUILDER
 // ================================================================================================
 
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {
+    /// TODO: add doc comments
     async fn build_batch(
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError>;
 }
 
+// DEFAULT BATCH BUILDER
+// ================================================================================================
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DefaultBatchBuilderOptions {
     /// The frequency at which blocks are created
     pub block_frequency: Duration,
@@ -152,6 +51,10 @@ impl<BB> DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
 {
+    // CONSTRUCTOR
+    // --------------------------------------------------------------------------------------------
+    /// Returns an new [BatchBuilder] instantiated with the provided [BlockBuilder] and the
+    /// specified options.
     pub fn new(
         block_builder: Arc<BB>,
         options: DefaultBatchBuilderOptions,
@@ -163,6 +66,10 @@ where
         }
     }
 
+    // BATCH BUILDER STARTER
+    // --------------------------------------------------------------------------------------------
+
+    /// TODO: add comments
     pub async fn run(self: Arc<Self>) {
         let mut interval = time::interval(self.options.block_frequency);
 
@@ -171,6 +78,9 @@ where
             self.try_build_block().await;
         }
     }
+
+    // HELPER METHODS
+    // --------------------------------------------------------------------------------------------
 
     /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
     /// A call to an empty `build_block()` indicates that an empty block should be created.

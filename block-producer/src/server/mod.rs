@@ -18,9 +18,8 @@ use crate::{
 
 // TODO: does this need to be public?
 pub mod api;
-use api::BlockProducerApi;
 
-// SERVER INITIALIZER
+// BLOCK PRODUCER INITIALIZER
 // ================================================================================================
 
 /// TODO: add comments
@@ -51,7 +50,7 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
         transaction_queue_options,
     ));
 
-    let block_producer = api_server::ApiServer::new(BlockProducerApi::new(queue.clone()));
+    let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(queue.clone()));
 
     tokio::spawn(async move {
         info!(COMPONENT, "transaction queue started");
