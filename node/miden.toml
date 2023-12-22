@@ -1,3 +1,5 @@
+# This is an example configuration file for the Miden node.
+
 [block_producer]
 # port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-block-producer', 1)) % 2**16
 endpoint = { host = "localhost", port = 48046 }

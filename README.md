@@ -80,7 +80,7 @@ This will generate 3 files in the current directory:
 
 ### Running the node
 
-Each executable will require a configuration file. Each directory containing the executables also contains an example configuration file. For example, `node/miden-node-example.toml` is the example configuration file for running all the components in the same process. Notably, the`store.genesis_filepath` field must point to the `genesis.dat` file that you generated in the previous step.
+Each executable will require a configuration file. Each directory containing the executables also contains an example configuration file. For example, [`node/miden.toml`](/node/miden.toml) is the example configuration file for running all the components in the same process. Notably, the`store.genesis_filepath` field must point to the `genesis.dat` file that you generated in the previous step.
 
 To run all components in the same process:
 
