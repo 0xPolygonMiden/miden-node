@@ -50,6 +50,7 @@ $ cargo install --features testing --path node
 
 Currently, the only difference between the 2 is how long the `make-genesis` command will take to run (see next subsection).
 
+#### Installing the node as separate components
 If you intend on running the node in different processes, you need to install each component separately:
 
 ```sh
@@ -87,7 +88,8 @@ To run all components in the same process:
 $ miden-node start -c <path-to-config-file>
 ```
 
-To run components separately, run
+#### Running the node as separate components
+If you [installed the components separately](#installing-the-node-as-separate-components), run
 
 ```sh
 $ miden-node-store serve --sqlite <path-to-sqlite3-database-file> --config <path-to-store-config-file>
