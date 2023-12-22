@@ -37,9 +37,9 @@ pub async fn start(config_filepath: &Path) -> anyhow::Result<()> {
 
     // wait for store before starting block producer
     tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(block_producer_server::api::serve(config.block_producer));
+    join_set.spawn(block_producer_server::serve(config.block_producer));
 
-    // wait for blockproducer before starting rpc
+    // wait for block producer before starting rpc
     tokio::time::sleep(Duration::from_secs(1)).await;
     join_set.spawn(rpc_server::api::serve(config.rpc));
 
