@@ -21,7 +21,7 @@ The Miden node is made up of 3 main components, which communicate over gRPC:
 - **rpc:** serves client requests such as to synchronize with the latest state of the chain or to submit transactions.
 - **block producer:** accepts transactions from the RPC component, creates blocks containing those transactions, and sends them to the store.
 
-There are 2 ways to run the node: all 3 components in one process, or each component in its own process. Each executable will require a configuration file. Each directory containing the executables also contains an example configuration file. For example, `node/miden-node-example.toml` is the example configuration file for running all the components in the same process. Notably, the`store.genesis_filepath` field must point to the `genesis.dat` file that you generated in the previous step.
+All 3 components can either run in one process, or each component can run in its own process. See the [Running the node](#running-the-node) section for more details.
 
 ## Usage
 
@@ -74,6 +74,8 @@ This will generate 3 files in the current directory:
 - `faucet.fsk` and `wallet.fsk`: the public/private keys of the faucet and wallet accounts, respectively.
 
 ### Running the node
+
+Each executable will require a configuration file. Each directory containing the executables also contains an example configuration file. For example, `node/miden-node-example.toml` is the example configuration file for running all the components in the same process. Notably, the`store.genesis_filepath` field must point to the `genesis.dat` file that you generated in the previous step.
 
 To run all components in the same process:
 
