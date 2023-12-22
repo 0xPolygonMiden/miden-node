@@ -14,6 +14,8 @@ At this point, we are developing the Miden node for a centralized operator. Thus
 
 ## Architecture
 
+![Architecture diagram](./assets/architecture.png)
+
 The Miden node is made up of 3 main components: 
 - **store:** stores the current state of the chain.
 - **rpc:** serves client requests such as to synchronize with the latest state of the chain or to submit transactions.
