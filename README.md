@@ -26,6 +26,8 @@ All 3 components can either run in one process, or each component can run in its
 
 ## Usage
 
+Before you can run the Miden node, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.1 requires Rust version **1.73** or later.
+
 Before running the node, you must first generate the genesis file. 
 
 The `miden-node` executable is used to both generate the genesis file, and running the node.
