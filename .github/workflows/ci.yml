@@ -75,7 +75,7 @@ jobs:
           toolchain: ${{matrix.toolchain}}
           override: true
       - name: Doc
-      - uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1
         with:
           command: doc
           args: ${{matrix.args}}
