@@ -91,7 +91,7 @@ cargo install --path block-producer
 Then, to run each component:
 
 ```sh
-miden-node-store serve --sqlite <path-to-sqlite3-database-file> --config <path-to-store-config-file>
+miden-node-store serve --config <path-to-store-config-file>
 
 # In a separate terminal
 miden-node-rpc serve --config <path-to-rpc-config-file>
