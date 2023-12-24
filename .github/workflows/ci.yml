@@ -70,16 +70,24 @@ jobs:
           args: --all-features --release
   
   test:
-    name: tests
-    runs-on: ubuntu-latest
+    name: test ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable]
+        os: [ubuntu]
+        args: [--all-features --workspace]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{matrix.toolchain}}
           override: true
-      - uses: actions-rs/cargo@v1
+      - name: Test
+        uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features --no-fail-fast --workspace
+          args: ${{matrix.args}}
