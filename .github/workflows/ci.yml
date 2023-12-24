@@ -8,23 +8,28 @@ on:
 
 jobs:
   rustfmt:
-    name: rustfmt
-    runs-on: ubuntu-latest
+    name: rustfmt ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [nightly]
+        os: [ubuntu]
+        args: [--all -- --check]
     steps:
       - uses: actions/checkout@v4
-      - name: Install minimal nightly with rustfmt
+      - name: Install minimal Rust with rustfmt
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: ${{matrix.toolchain}}
           components: rustfmt
           override: true
-
       - name: fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check
+          args: ${{matrix.args}}
 
   clippy:
     name: Clippy
@@ -81,7 +86,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Install rust
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{matrix.toolchain}}
