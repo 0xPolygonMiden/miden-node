@@ -21,7 +21,7 @@ async fn test_apply_block_called_nonempty_batches() {
             .build(),
     );
 
-    let block_builder = DefaultBlockBuilder::new(store.clone());
+    let block_builder = DefaultBlockBuilder::new(store.clone(), store.clone());
 
     let batches: Vec<SharedTxBatch> = {
         let batch_1 = {
@@ -56,7 +56,7 @@ async fn test_apply_block_called_empty_batches() {
             .build(),
     );
 
-    let block_builder = DefaultBlockBuilder::new(store.clone());
+    let block_builder = DefaultBlockBuilder::new(store.clone(), store.clone());
 
     block_builder.build_block(Vec::new()).await.unwrap();
 
@@ -69,7 +69,7 @@ async fn test_apply_block_called_empty_batches() {
 async fn test_build_block_failure() {
     let store = Arc::new(MockStoreFailure);
 
-    let block_builder = DefaultBlockBuilder::new(store.clone());
+    let block_builder = DefaultBlockBuilder::new(store.clone(), store.clone());
 
     let result = block_builder.build_block(Vec::new()).await;
 

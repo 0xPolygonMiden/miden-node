@@ -1,3 +1,5 @@
+use std::{net::ToSocketAddrs, sync::Arc};
+
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
@@ -16,7 +18,6 @@ use miden_node_proto::{
     store::api_server,
     tsmt::NullifierLeaf,
 };
-use std::{net::ToSocketAddrs, sync::Arc};
 use tonic::{transport::Server, Response, Status};
 use tracing::{info, instrument};
 
@@ -51,7 +52,7 @@ pub async fn serve(
 // ================================================================================================
 
 pub struct StoreApi {
-    state: Arc<State>,
+    pub(super) state: Arc<State>,
 }
 
 #[tonic::async_trait]

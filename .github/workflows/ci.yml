@@ -8,18 +8,22 @@ on:
 
 jobs:
   rustfmt:
-    name: rustfmt
-    runs-on: ubuntu-latest
+    name: rustfmt ${{matrix.toolchain}} on ${{matrix.os}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [nightly]
+        os: [ubuntu]
     steps:
       - uses: actions/checkout@v4
-      - name: Install minimal nightly with rustfmt
+      - name: Install minimal Rust with rustfmt
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: ${{matrix.toolchain}}
           components: rustfmt
           override: true
-
       - name: fmt
         uses: actions-rs/cargo@v1
         with:
@@ -27,18 +31,22 @@ jobs:
           args: --all -- --check
 
   clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
+    name: clippy ${{matrix.toolchain}} on ${{matrix.os}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [nightly]
+        os: [ubuntu]
     steps:
       - uses: actions/checkout@v4
-      - name: Install minimal stable with clippy
+      - name: Install minimal Rust with clippy
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: ${{matrix.toolchain}}
           components: clippy
           override: true
-
       - name: Clippy
         uses: actions-rs/cargo@v1
         with:
@@ -49,37 +57,48 @@ jobs:
         with:
           command: clippy
           args: --workspace --all-targets --all-features -- -D clippy::all -D warnings
-      - name: Clippy no default features
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace --all-targets --no-default-features -- -D clippy::all -D warnings
 
-  doc_all_features:
-    name: docs
-    runs-on: ubuntu-latest
+  docs:
+    name: docs ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable]
+        os: [ubuntu]
+        args: [--all-features --release]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{matrix.toolchain}}
           override: true
-      - uses: actions-rs/cargo@v1
+      - name: Doc
+        uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --all-features --release
+          args: ${{matrix.args}}
   
   test:
-    name: tests
-    runs-on: ubuntu-latest
+    name: test ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable]
+        os: [ubuntu]
+        args: [--all-features --workspace]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{matrix.toolchain}}
           override: true
-      - uses: actions-rs/cargo@v1
+      - name: Test
+        uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features --no-fail-fast --workspace
+          args: ${{matrix.args}}

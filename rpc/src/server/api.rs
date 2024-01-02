@@ -1,5 +1,3 @@
-use std::net::ToSocketAddrs;
-
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
@@ -16,12 +14,15 @@ use miden_node_proto::{
     store::api_client as store_client,
 };
 use tonic::{
-    transport::{Channel, Error, Server},
+    transport::{Channel, Error},
     Request, Response, Status,
 };
 use tracing::info;
 
 use crate::{config::RpcConfig, COMPONENT};
+
+// RPC API
+// ================================================================================================
 
 pub struct RpcApi {
     store: store_client::ApiClient<Channel>,
@@ -29,7 +30,7 @@ pub struct RpcApi {
 }
 
 impl RpcApi {
-    async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
+    pub(super) async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
         let store = store_client::ApiClient::connect(config.store_url.clone()).await?;
         info!(COMPONENT, store_endpoint = config.store_url, "Store client initialized");
 
@@ -84,23 +85,4 @@ impl api_server::Api for RpcApi {
     ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
         self.block_producer.clone().submit_proven_transaction(request).await
     }
-}
-
-pub async fn serve(config: RpcConfig) -> Result<()> {
-    let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
-    let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
-
-    let api = RpcApi::from_config(&config).await?;
-    let rpc = api_server::ApiServer::new(api);
-
-    info!(
-        host = config.endpoint.host,
-        port = config.endpoint.port,
-        COMPONENT,
-        "Server initialized"
-    );
-
-    Server::builder().add_service(rpc).serve(addrs[0]).await?;
-
-    Ok(())
 }

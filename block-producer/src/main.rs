@@ -16,7 +16,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Serve { .. } => {
-            server::api::serve(config.block_producer).await?;
+            server::serve(config.block_producer).await?;
         },
     }
 
