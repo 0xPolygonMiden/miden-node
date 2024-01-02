@@ -1,5 +1,5 @@
 syntax = "proto3";
-package account_id;
+package account;
 
 message AccountId {
     // A miden account is defined with a little bit of proof-of-work, the id itself
@@ -8,3 +8,5 @@ message AccountId {
     // fixed 64 bits, instead of zig-zag encoding.
     fixed64 id = 1;
 }
+
+message Account {}

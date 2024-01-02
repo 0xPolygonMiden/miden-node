@@ -9,7 +9,7 @@ use miden_objects::{
 };
 
 use crate::{
-    account_id, block_header,
+    account, block_header,
     digest::{self, Digest},
     domain::{AccountInputRecord, BlockInputs, NullifierInputRecord},
     error, merkle, mmr, note, requests, responses, tsmt,
@@ -258,19 +258,19 @@ impl From<note::Note> for note::NoteSyncRecord {
     }
 }
 
-impl From<account_id::AccountId> for u64 {
-    fn from(value: account_id::AccountId) -> Self {
+impl From<account::AccountId> for u64 {
+    fn from(value: account::AccountId) -> Self {
         value.id
     }
 }
 
-impl From<u64> for account_id::AccountId {
+impl From<u64> for account::AccountId {
     fn from(value: u64) -> Self {
-        account_id::AccountId { id: value }
+        account::AccountId { id: value }
     }
 }
 
-impl From<AccountId> for account_id::AccountId {
+impl From<AccountId> for account::AccountId {
     fn from(account_id: AccountId) -> Self {
         Self {
             id: account_id.into(),
@@ -278,10 +278,10 @@ impl From<AccountId> for account_id::AccountId {
     }
 }
 
-impl TryFrom<account_id::AccountId> for AccountId {
+impl TryFrom<account::AccountId> for AccountId {
     type Error = error::ParseError;
 
-    fn try_from(account_id: account_id::AccountId) -> Result<Self, Self::Error> {
+    fn try_from(account_id: account::AccountId) -> Result<Self, Self::Error> {
         account_id.id.try_into().map_err(|_| error::ParseError::NotAValidFelt)
     }
 }

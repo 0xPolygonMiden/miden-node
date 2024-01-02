@@ -7,7 +7,7 @@ use miden_crypto::{
     utils::{Deserializable, SliceReader},
 };
 use miden_node_proto::{
-    account_id,
+    account,
     block_header::BlockHeader,
     digest::Digest,
     merkle::MerklePath,
@@ -386,7 +386,7 @@ pub fn select_accounts_by_block_range(
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
         let account_id_data: u64 = row.get(0)?;
-        let account_id: account_id::AccountId = account_id_data.into();
+        let account_id: account::AccountId = account_id_data.into();
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = Digest::decode(account_hash_data)?;
         let block_num = row.get(2)?;

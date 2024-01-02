@@ -12,8 +12,8 @@ use miden_node_proto::{
     },
     responses::{
         ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
-        GetBlockInputsResponse, GetTransactionInputsResponse, ListNullifiersResponse,
-        SyncStateResponse,
+        GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
+        ListNotesResponse, ListNullifiersResponse, SyncStateResponse,
     },
     store::api_server,
     tsmt::NullifierLeaf,
@@ -194,6 +194,26 @@ impl api_server::Api for StoreApi {
             })
             .collect();
         Ok(Response::new(ListNullifiersResponse { nullifiers }))
+    }
+
+    // Returns a list of all accounts
+    async fn list_accounts(
+        &self,
+        _request: tonic::Request<EmptyRequest>,
+    ) -> Result<Response<ListAccountsResponse>, Status> {
+        Ok(Response::new(ListAccountsResponse {
+            ..Default::default()
+        }))
+    }
+
+    // Returns a list of all notes
+    async fn list_notes(
+        &self,
+        _request: tonic::Request<EmptyRequest>,
+    ) -> Result<Response<ListNotesResponse>, Status> {
+        Ok(Response::new(ListNotesResponse {
+            ..Default::default()
+        }))
     }
 }
 

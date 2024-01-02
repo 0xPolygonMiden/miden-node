@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
 use miden_node_proto::{
-    account_id,
+    account,
     conversion::convert,
     digest,
     domain::BlockInputs,
@@ -166,7 +166,7 @@ impl Store for DefaultStore {
     ) -> Result<BlockInputs, BlockInputsError> {
         let request = tonic::Request::new(GetBlockInputsRequest {
             account_ids: updated_accounts
-                .map(|&account_id| account_id::AccountId::from(account_id))
+                .map(|&account_id| account::AccountId::from(account_id))
                 .collect(),
             nullifiers: produced_nullifiers.map(digest::Digest::from).collect(),
         });
