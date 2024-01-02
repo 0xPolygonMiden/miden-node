@@ -440,6 +440,11 @@ impl State {
 
         Ok((account, nullifier_blocks))
     }
+
+    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
+        let nullifiers = self.db.select_nullifiers().await?;
+        Ok(nullifiers)
+    }
 }
 
 // UTILITIES

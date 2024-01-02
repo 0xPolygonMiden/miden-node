@@ -1,5 +1,3 @@
-use std::{net::ToSocketAddrs, sync::Arc};
-
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
@@ -7,15 +5,18 @@ use miden_node_proto::{
     digest::Digest,
     error::ParseError,
     requests::{
-        ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
+        ApplyBlockRequest, CheckNullifiersRequest, EmptyRequest, GetBlockHeaderByNumberRequest,
         GetBlockInputsRequest, GetTransactionInputsRequest, SyncStateRequest,
     },
     responses::{
         ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
-        GetBlockInputsResponse, GetTransactionInputsResponse, SyncStateResponse,
+        GetBlockInputsResponse, GetTransactionInputsResponse, ListNullifiersResponse,
+        SyncStateResponse,
     },
     store::api_server,
+    tsmt::NullifierLeaf,
 };
+use std::{net::ToSocketAddrs, sync::Arc};
 use tonic::{transport::Server, Response, Status};
 use tracing::{info, instrument};
 
@@ -199,6 +200,25 @@ impl api_server::Api for StoreApi {
             account_state: Some(account.into()),
             nullifiers: convert(nullifiers_blocks),
         }))
+    }
+
+    // TESTING ENDPOINTS
+    // --------------------------------------------------------------------------------------------
+
+    // Returns a list of all nullifiers
+    async fn list_nullifiers(
+        &self,
+        _request: tonic::Request<EmptyRequest>,
+    ) -> Result<Response<ListNullifiersResponse>, Status> {
+        let request = self.state.list_nullifiers().await.map_err(internal_error)?;
+        let nullifiers = request
+            .into_iter()
+            .map(|(key, block_num)| NullifierLeaf {
+                key: Some(Digest::from(key)),
+                block_num,
+            })
+            .collect();
+        Ok(Response::new(ListNullifiersResponse { nullifiers }))
     }
 }
 

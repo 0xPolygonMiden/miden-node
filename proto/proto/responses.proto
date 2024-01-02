@@ -9,6 +9,8 @@ import "mmr.proto";
 import "note.proto";
 import "tsmt.proto";
 
+message EmptyResponse {}
+
 message ApplyBlockResponse {}
 
 message CheckNullifiersResponse {
@@ -102,3 +104,8 @@ message GetTransactionInputsResponse {
 }
 
 message SubmitProvenTransactionResponse {}
+
+message ListNullifiersResponse {
+    // Lists all nullifiers of the current chain
+    repeated tsmt.NullifierLeaf nullifiers = 1;
+}

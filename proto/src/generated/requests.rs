@@ -1,6 +1,10 @@
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EmptyRequest {}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountUpdate {
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account_id::AccountId>,

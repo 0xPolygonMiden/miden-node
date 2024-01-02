@@ -6,6 +6,8 @@ import "block_header.proto";
 import "digest.proto";
 import "note.proto";
 
+message EmptyRequest {}
+
 message AccountUpdate {
     account_id.AccountId account_id = 1;
     digest.Digest account_hash = 2;

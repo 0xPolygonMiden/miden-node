@@ -1,6 +1,10 @@
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EmptyResponse {}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyBlockResponse {}
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -138,3 +142,11 @@ pub struct GetTransactionInputsResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubmitProvenTransactionResponse {}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListNullifiersResponse {
+    /// Lists all nullifiers of the current chain
+    #[prost(message, repeated, tag = "1")]
+    pub nullifiers: ::prost::alloc::vec::Vec<super::tsmt::NullifierLeaf>,
+}
