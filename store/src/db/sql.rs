@@ -7,7 +7,7 @@ use miden_crypto::{
     utils::{Deserializable, SliceReader},
 };
 use miden_node_proto::{
-    account,
+    account::{self, Account, AccountId as AccountIdProto},
     block_header::BlockHeader,
     digest::Digest,
     merkle::MerklePath,
@@ -55,11 +55,11 @@ pub fn insert_nullifiers_for_block(
     Ok(count)
 }
 
-/// Select all nullifiers to the DB using the given [Connection].
+/// Select all nullifiers from the DB using the given [Connection].
 ///
 /// # Returns
 ///
-/// The vector with the nullifiers and the block height at which they where created, or an error.
+/// A vector with nullifiers and the block height at which they where created, or an error.
 pub fn select_nullifiers(
     conn: &mut Connection
 ) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
@@ -74,6 +74,64 @@ pub fn select_nullifiers(
         result.push((nullifier, block_number));
     }
     Ok(result)
+}
+
+/// Select all notes from the DB using the given [Connection].
+///
+///
+/// # Returns
+///
+/// A vector with notes, or an error.
+pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
+    let mut stmt = conn.prepare("SELECT * FROM notes")?;
+    let mut rows = stmt.query([])?;
+
+    let mut notes = vec![];
+    while let Some(row) = rows.next()? {
+        let note_hash_data = row.get_ref(2)?.as_blob()?;
+        let note_hash = Digest::decode(note_hash_data)?;
+
+        let merkle_path_data = row.get_ref(6)?.as_blob()?;
+        let merkle_path = MerklePath::decode(merkle_path_data)?;
+
+        notes.push(Note {
+            block_num: row.get(0)?,
+            note_index: row.get(1)?,
+            note_hash: Some(note_hash),
+            sender: row.get(3)?,
+            tag: row.get(4)?,
+            num_assets: row.get(5)?,
+            merkle_path: Some(merkle_path),
+        })
+    }
+    Ok(notes)
+}
+
+/// Select all accounts from the DB using the given [Connection].
+///
+///
+/// # Returns
+///
+/// A vector with accounts, or an error.
+pub fn select_accounts(conn: &mut Connection) -> Result<Vec<Account>, anyhow::Error> {
+    let mut stmt = conn.prepare("SELECT * FROM accounts")?;
+    let mut rows = stmt.query([])?;
+
+    let mut accounts = vec![];
+    while let Some(row) = rows.next()? {
+        let account_hash_data = row.get_ref(1)?.as_blob()?;
+        let account_hash = Digest::decode(account_hash_data)?;
+
+        let account_id_data: i64 = row.get(0)?;
+        let account_id = AccountIdProto::from(account_id_data as u64);
+
+        accounts.push(Account {
+            account_id: Some(account_id),
+            account_hash: Some(account_hash),
+            block_num: row.get(2)?,
+        })
+    }
+    Ok(accounts)
 }
 
 /// Select nullifiers created between `(block_start, block_end]` that also match the
@@ -499,7 +557,6 @@ pub fn apply_block(
     count += insert_nullifiers_for_block(transaction, nullifiers, block_header.block_num)?;
     Ok(count)
 }
-
 // UTILITIES
 // ================================================================================================
 

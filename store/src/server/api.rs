@@ -196,24 +196,22 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(ListNullifiersResponse { nullifiers }))
     }
 
-    // Returns a list of all accounts
-    async fn list_accounts(
-        &self,
-        _request: tonic::Request<EmptyRequest>,
-    ) -> Result<Response<ListAccountsResponse>, Status> {
-        Ok(Response::new(ListAccountsResponse {
-            ..Default::default()
-        }))
-    }
-
     // Returns a list of all notes
     async fn list_notes(
         &self,
         _request: tonic::Request<EmptyRequest>,
     ) -> Result<Response<ListNotesResponse>, Status> {
-        Ok(Response::new(ListNotesResponse {
-            ..Default::default()
-        }))
+        let notes = self.state.list_notes().await.map_err(internal_error)?;
+        Ok(Response::new(ListNotesResponse { notes }))
+    }
+
+    // Returns a list of all accounts
+    async fn list_accounts(
+        &self,
+        _request: tonic::Request<EmptyRequest>,
+    ) -> Result<Response<ListAccountsResponse>, Status> {
+        let accounts = self.state.list_accounts().await.map_err(internal_error)?;
+        Ok(Response::new(ListAccountsResponse { accounts }))
     }
 }
 

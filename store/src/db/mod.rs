@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use deadpool_sqlite::{Config as SqliteConfig, Pool, Runtime};
 use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use miden_node_proto::{
+    account::Account,
     block_header,
     digest::Digest,
     note::Note,
@@ -83,6 +84,26 @@ impl Db {
             .interact(sql::select_nullifiers)
             .await
             .map_err(|_| anyhow!("Get nullifiers task failed with a panic"))?
+    }
+
+    /// Loads all the notes from the DB.
+    pub async fn select_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
+        self.pool
+            .get()
+            .await?
+            .interact(sql::select_notes)
+            .await
+            .map_err(|_| anyhow!("Get notes task failed with a panic"))?
+    }
+
+    /// Loads all the accounts from the DB.
+    pub async fn select_accounts(&self) -> Result<Vec<Account>, anyhow::Error> {
+        self.pool
+            .get()
+            .await?
+            .interact(sql::select_accounts)
+            .await
+            .map_err(|_| anyhow!("Get accounts task failed with a panic"))?
     }
 
     /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.

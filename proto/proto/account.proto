@@ -1,6 +1,8 @@
 syntax = "proto3";
 package account;
 
+import "digest.proto";
+
 message AccountId {
     // A miden account is defined with a little bit of proof-of-work, the id itself
     // is defined as the first word of a hash digest. For this reason account ids
@@ -9,4 +11,8 @@ message AccountId {
     fixed64 id = 1;
 }
 
-message Account {}
+message Account {
+    AccountId account_id = 1;
+    digest.Digest account_hash = 2;
+    uint32 block_num = 3;
+}
