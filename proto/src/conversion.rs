@@ -4,7 +4,7 @@ use miden_crypto::{
 };
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteEnvelope, Nullifier, NoteId},
+    notes::{NoteEnvelope, NoteId, Nullifier},
     BlockHeader, Digest as RpoDigest,
 };
 

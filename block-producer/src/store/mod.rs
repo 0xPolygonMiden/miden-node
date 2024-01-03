@@ -100,7 +100,7 @@ impl Store for DefaultStore {
         let request = tonic::Request::new(GetTransactionInputsRequest {
             account_id: Some(proven_tx.account_id().into()),
             nullifiers: proven_tx
-                .consumed_notes()
+                .input_notes()
                 .iter()
                 .map(|nullifier| (*nullifier).into())
                 .collect(),
