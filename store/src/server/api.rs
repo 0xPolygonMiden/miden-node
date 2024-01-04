@@ -180,13 +180,13 @@ impl api_server::Api for StoreApi {
     // TESTING ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
-    // Returns a list of all nullifiers
+    /// Returns a list of all nullifiers
     async fn list_nullifiers(
         &self,
         _request: tonic::Request<EmptyRequest>,
     ) -> Result<Response<ListNullifiersResponse>, Status> {
-        let request = self.state.list_nullifiers().await.map_err(internal_error)?;
-        let nullifiers = request
+        let raw_nullifiers = self.state.list_nullifiers().await.map_err(internal_error)?;
+        let nullifiers = raw_nullifiers
             .into_iter()
             .map(|(key, block_num)| NullifierLeaf {
                 key: Some(Digest::from(key)),
@@ -196,7 +196,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(ListNullifiersResponse { nullifiers }))
     }
 
-    // Returns a list of all notes
+    /// Returns a list of all notes
     async fn list_notes(
         &self,
         _request: tonic::Request<EmptyRequest>,
@@ -205,7 +205,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(ListNotesResponse { notes }))
     }
 
-    // Returns a list of all accounts
+    /// Returns a list of all accounts
     async fn list_accounts(
         &self,
         _request: tonic::Request<EmptyRequest>,
