@@ -8,7 +8,7 @@ use miden_mock::constants::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteEnvelope, NoteMetadata, Nullifier},
-    transaction::ProvenTransaction,
+    transaction::{InputNotes, OutputNotes, ProvenTransaction},
     Digest, ONE, ZERO,
 };
 use once_cell::sync::Lazy;
@@ -63,7 +63,10 @@ impl MockProvenTxBuilder {
             .map(|note_index| {
                 let note_hash = Rpo256::hash(&note_index.to_be_bytes());
 
-                NoteEnvelope::new(note_hash, NoteMetadata::new(self.mock_account.id, ONE, ZERO))
+                NoteEnvelope::new(
+                    note_hash.into(),
+                    NoteMetadata::new(self.mock_account.id, ONE, ZERO),
+                )
             })
             .collect();
 
@@ -79,8 +82,8 @@ impl MockProvenTxBuilder {
             self.mock_account.id,
             self.mock_account.states[0],
             self.mock_account.states[1],
-            Vec::new(),
-            self.notes_created.unwrap_or_default(),
+            InputNotes::new(Vec::new()).unwrap(),
+            OutputNotes::new(self.notes_created.unwrap_or_default()).unwrap(),
             None,
             Digest::default(),
             ExecutionProof::new(StarkProof::new_dummy(), HashFunction::Blake3_192),
@@ -114,8 +117,8 @@ impl DummyProvenTxGenerator {
             AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN).unwrap(),
             Digest::default(),
             Digest::default(),
-            Vec::new(),
-            Vec::new(),
+            InputNotes::new(Vec::new()).unwrap(),
+            OutputNotes::new(Vec::new()).unwrap(),
             None,
             Digest::default(),
             ExecutionProof::new(self.stark_proof.clone(), HashFunction::Blake3_192),
@@ -127,15 +130,15 @@ impl DummyProvenTxGenerator {
         account_id: AccountId,
         initial_account_hash: Digest,
         final_account_hash: Digest,
-        nullifiers: Vec<Nullifier>,
-        created_notes: Vec<NoteEnvelope>,
+        input_notes: InputNotes<Nullifier>,
+        output_notes: OutputNotes<NoteEnvelope>,
     ) -> ProvenTransaction {
         ProvenTransaction::new(
             account_id,
             initial_account_hash,
             final_account_hash,
-            nullifiers,
-            created_notes,
+            input_notes,
+            output_notes,
             None,
             Digest::default(),
             ExecutionProof::new(self.stark_proof.clone(), HashFunction::Blake3_192),

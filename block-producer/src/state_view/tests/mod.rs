@@ -1,5 +1,5 @@
 use miden_crypto::ZERO;
-use miden_objects::{notes::Nullifier, Hasher, EMPTY_WORD};
+use miden_objects::{notes::Nullifier, transaction::OutputNotes, Hasher, EMPTY_WORD};
 
 use super::*;
 use crate::test_utils::{DummyProvenTxGenerator, MockPrivateAccount};
@@ -36,8 +36,8 @@ pub fn get_txs_and_accounts(
             account.id,
             account.states[0],
             account.states[1],
-            vec![nullifier_by_index(index)],
-            Vec::new(),
+            InputNotes::new(vec![nullifier_by_index(index)]).unwrap(),
+            OutputNotes::new(Vec::new()).unwrap(),
         );
 
         (Arc::new(tx), account)

@@ -49,13 +49,13 @@ impl TransactionBatch {
 
         let produced_nullifiers = txs
             .iter()
-            .flat_map(|tx| tx.consumed_notes())
+            .flat_map(|tx| tx.input_notes().iter())
             .map(|nullifier| nullifier.inner())
             .collect();
 
         let (created_notes, created_notes_smt) = {
             let created_notes: Vec<NoteEnvelope> =
-                txs.iter().flat_map(|tx| tx.created_notes()).cloned().collect();
+                txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
 
             if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
                 return Err(BuildBatchError::TooManyNotesCreated(created_notes.len()));
@@ -67,7 +67,7 @@ impl TransactionBatch {
                 SimpleSmt::with_contiguous_leaves(
                     CREATED_NOTES_SMT_DEPTH,
                     created_notes.into_iter().flat_map(|note_envelope| {
-                        [note_envelope.note_hash().into(), note_envelope.metadata().into()]
+                        [note_envelope.note_id().into(), note_envelope.metadata().into()]
                     }),
                 )?,
             )

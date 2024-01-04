@@ -174,7 +174,7 @@ impl Store for MockStoreSuccess {
         };
 
         let nullifiers = proven_tx
-            .consumed_notes()
+            .input_notes()
             .iter()
             .map(|nullifier| {
                 (nullifier.inner(), locked_consumed_nullifiers.contains(&nullifier.inner()))

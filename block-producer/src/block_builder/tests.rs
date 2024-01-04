@@ -1,4 +1,5 @@
 use miden_air::Felt;
+use miden_objects::transaction::{InputNotes, OutputNotes};
 
 // block builder tests (higher level)
 // 1. `apply_block()` is called
@@ -29,8 +30,8 @@ async fn test_apply_block_called_nonempty_batches() {
                 account_id,
                 account_initial_hash,
                 [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)].into(),
-                Vec::new(),
-                Vec::new(),
+                InputNotes::new(Vec::new()).unwrap(),
+                OutputNotes::new(Vec::new()).unwrap(),
             ));
 
             Arc::new(TransactionBatch::new(vec![tx]).unwrap())

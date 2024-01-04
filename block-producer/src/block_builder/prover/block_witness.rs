@@ -1,10 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use miden_crypto::ZERO;
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerkleStore, MmrPeaks},
-    BlockHeader, Digest, Felt, ToAdviceInputs,
+    BlockHeader, Digest, Felt,
 };
 use miden_vm::{crypto::MerklePath, AdviceInputs, StackInputs};
 
@@ -167,7 +168,7 @@ impl BlockWitness {
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 
             let mut advice_inputs = AdviceInputs::default().with_merkle_store(merkle_store);
-            self.chain_peaks.to_advice_inputs(&mut advice_inputs);
+            add_mmr_peaks_to_advice_inputs(&self.chain_peaks, &mut advice_inputs);
 
             advice_inputs
         };
@@ -254,4 +255,19 @@ pub(super) struct AccountUpdate {
     pub initial_state_hash: Digest,
     pub final_state_hash: Digest,
     pub proof: MerklePath,
+}
+
+// HELPERS
+// =================================================================================================
+
+/// insert MMR peaks info into the advice map
+/// FIXME: This was copy/pasted from `miden-lib`'s `add_chain_mmr_to_advice_inputs`. Once we move the block kernel
+/// into `miden-lib`, we should use that function instead
+fn add_mmr_peaks_to_advice_inputs(
+    peaks: &MmrPeaks,
+    inputs: &mut AdviceInputs,
+) {
+    let mut elements = vec![Felt::new(peaks.num_leaves() as u64), ZERO, ZERO, ZERO];
+    elements.extend(peaks.flatten_and_pad_peaks());
+    inputs.extend_map([(peaks.hash_peaks().into(), elements)]);
 }
