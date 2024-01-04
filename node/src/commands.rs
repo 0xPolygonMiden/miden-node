@@ -6,7 +6,10 @@ use std::{
 
 use anyhow::anyhow;
 use miden_crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt};
-use miden_lib::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet, AuthScheme};
+use miden_lib::{
+    accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
+    AuthScheme,
+};
 use miden_node_block_producer::server as block_producer_server;
 use miden_node_rpc::server as rpc_server;
 use miden_node_store::{db::Db, genesis::GenesisState, server as store_server};

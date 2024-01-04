@@ -1,7 +1,7 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
-use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
+use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -80,11 +80,8 @@ where
             // Success! Register transaction as successfully verified
             locked_accounts_in_flight.insert(candidate_tx.account_id());
 
-            let mut nullifiers_in_tx: BTreeSet<_> = candidate_tx
-                .consumed_notes()
-                .iter()
-                .map(|nullifier| nullifier.inner())
-                .collect();
+            let mut nullifiers_in_tx: BTreeSet<_> =
+                candidate_tx.input_notes().iter().map(|nullifier| nullifier.inner()).collect();
             locked_nullifiers_in_flight.append(&mut nullifiers_in_tx);
         }
 
@@ -147,7 +144,7 @@ fn ensure_in_flight_constraints(
     // 2. Check no consumed notes were already consumed
     let infracting_nullifiers: Vec<Nullifier> = {
         candidate_tx
-            .consumed_notes()
+            .input_notes()
             .iter()
             .filter(|&nullifier_in_tx| {
                 already_consumed_nullifiers.contains(&nullifier_in_tx.inner())
@@ -157,7 +154,9 @@ fn ensure_in_flight_constraints(
     };
 
     if !infracting_nullifiers.is_empty() {
-        return Err(VerifyTxError::NullifiersAlreadyConsumed(infracting_nullifiers));
+        return Err(VerifyTxError::InputNotesAlreadyConsumed(InputNotes::new(
+            infracting_nullifiers,
+        )?));
     }
 
     Ok(())
@@ -192,7 +191,9 @@ fn ensure_tx_inputs_constraints(
         .collect();
 
     if !infracting_nullifiers.is_empty() {
-        return Err(VerifyTxError::NullifiersAlreadyConsumed(infracting_nullifiers));
+        return Err(VerifyTxError::InputNotesAlreadyConsumed(InputNotes::new(
+            infracting_nullifiers,
+        )?));
     }
 
     Ok(())

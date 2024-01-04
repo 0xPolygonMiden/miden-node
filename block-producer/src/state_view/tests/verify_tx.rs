@@ -12,6 +12,7 @@
 
 use std::iter;
 
+use miden_objects::transaction::{InputNotes, OutputNotes};
 use tokio::task::JoinSet;
 
 use super::*;
@@ -95,8 +96,8 @@ async fn test_verify_tx_vt1() {
         account.id,
         account.states[1],
         account.states[2],
-        vec![nullifier_by_index(0)],
-        Vec::new(),
+        InputNotes::new(vec![nullifier_by_index(0)]).unwrap(),
+        OutputNotes::new(Vec::new()).unwrap(),
     );
 
     let state_view = DefaultStateView::new(store);
@@ -126,8 +127,8 @@ async fn test_verify_tx_vt2() {
         account_not_in_store.id,
         account_not_in_store.states[0],
         account_not_in_store.states[1],
-        vec![nullifier_by_index(0)],
-        Vec::new(),
+        InputNotes::new(vec![nullifier_by_index(0)]).unwrap(),
+        OutputNotes::new(Vec::new()).unwrap(),
     );
 
     let state_view = DefaultStateView::new(store);
@@ -164,8 +165,8 @@ async fn test_verify_tx_vt3() {
         account.id,
         account.states[0],
         account.states[1],
-        vec![nullifier_in_store],
-        Vec::new(),
+        InputNotes::new(vec![nullifier_in_store]).unwrap(),
+        OutputNotes::new(Vec::new()).unwrap(),
     );
 
     let state_view = DefaultStateView::new(store);
@@ -174,7 +175,9 @@ async fn test_verify_tx_vt3() {
 
     assert_eq!(
         verify_tx_result,
-        Err(VerifyTxError::NullifiersAlreadyConsumed(vec![nullifier_in_store]))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(
+            InputNotes::new(vec![nullifier_in_store]).unwrap()
+        ))
     );
 }
 
@@ -195,8 +198,8 @@ async fn test_verify_tx_vt4() {
         account.id,
         account.states[0],
         account.states[1],
-        Vec::new(),
-        Vec::new(),
+        InputNotes::new(Vec::new()).unwrap(),
+        OutputNotes::new(Vec::new()).unwrap(),
     );
 
     // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
@@ -205,8 +208,8 @@ async fn test_verify_tx_vt4() {
         account.id,
         account.states[1],
         account.states[2],
-        Vec::new(),
-        Vec::new(),
+        InputNotes::new(Vec::new()).unwrap(),
+        OutputNotes::new(Vec::new()).unwrap(),
     );
 
     let state_view = DefaultStateView::new(store);
@@ -245,8 +248,8 @@ async fn test_verify_tx_vt5() {
         account_1.id,
         account_1.states[0],
         account_1.states[1],
-        vec![nullifier_in_both_txs],
-        Vec::new(),
+        InputNotes::new(vec![nullifier_in_both_txs]).unwrap(),
+        OutputNotes::new(Vec::new()).unwrap(),
     );
 
     // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
@@ -255,8 +258,8 @@ async fn test_verify_tx_vt5() {
         account_2.id,
         account_2.states[1],
         account_2.states[2],
-        vec![nullifier_in_both_txs],
-        Vec::new(),
+        InputNotes::new(vec![nullifier_in_both_txs]).unwrap(),
+        OutputNotes::new(Vec::new()).unwrap(),
     );
 
     let state_view = DefaultStateView::new(store);
@@ -267,6 +270,8 @@ async fn test_verify_tx_vt5() {
     let verify_tx2_result = state_view.verify_tx(tx2.into()).await;
     assert_eq!(
         verify_tx2_result,
-        Err(VerifyTxError::NullifiersAlreadyConsumed(vec![nullifier_in_both_txs]))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(
+            InputNotes::new(vec![nullifier_in_both_txs]).unwrap()
+        ))
     );
 }

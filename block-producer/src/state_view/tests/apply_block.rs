@@ -6,6 +6,8 @@
 
 use std::iter;
 
+use miden_objects::transaction::{InputNotes, OutputNotes};
+
 use super::*;
 use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 
@@ -25,8 +27,8 @@ async fn test_apply_block_ab1() {
         account.id,
         account.states[0],
         account.states[1],
-        Vec::new(),
-        Vec::new(),
+        InputNotes::new(Vec::new()).unwrap(),
+        OutputNotes::new(Vec::new()).unwrap(),
     );
 
     let state_view = DefaultStateView::new(store.clone());
@@ -145,13 +147,13 @@ async fn test_apply_block_ab3() {
         accounts[0].id,
         accounts[0].states[1],
         accounts[0].states[2],
-        txs[0].consumed_notes().to_vec(),
-        Vec::new(),
+        txs[0].input_notes().clone(),
+        OutputNotes::new(Vec::new()).unwrap(),
     );
 
     let verify_tx_res = state_view.verify_tx(tx_new.into()).await;
     assert_eq!(
         verify_tx_res,
-        Err(VerifyTxError::NullifiersAlreadyConsumed(txs[0].consumed_notes().to_vec()))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(txs[0].input_notes().clone()))
     );
 }

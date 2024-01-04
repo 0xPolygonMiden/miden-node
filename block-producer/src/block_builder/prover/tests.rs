@@ -7,6 +7,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MmrPeaks},
     notes::{NoteEnvelope, NoteMetadata},
+    transaction::{InputNotes, OutputNotes},
     ZERO,
 };
 use miden_vm::crypto::{MerklePath, SimpleSmt};
@@ -68,8 +69,8 @@ fn test_block_witness_validation_inconsistent_account_ids() {
                 account_id_2,
                 Digest::default(),
                 Digest::default(),
-                Vec::new(),
-                Vec::new(),
+                InputNotes::new(Vec::new()).unwrap(),
+                OutputNotes::new(Vec::new()).unwrap(),
             ));
 
             Arc::new(TransactionBatch::new(vec![tx]).unwrap())
@@ -80,8 +81,8 @@ fn test_block_witness_validation_inconsistent_account_ids() {
                 account_id_3,
                 Digest::default(),
                 Digest::default(),
-                Vec::new(),
-                Vec::new(),
+                InputNotes::new(Vec::new()).unwrap(),
+                OutputNotes::new(Vec::new()).unwrap(),
             ));
 
             Arc::new(TransactionBatch::new(vec![tx]).unwrap())
@@ -144,8 +145,8 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 account_id_1,
                 account_1_hash_batches,
                 Digest::default(),
-                Vec::new(),
-                Vec::new(),
+                InputNotes::new(Vec::new()).unwrap(),
+                OutputNotes::new(Vec::new()).unwrap(),
             ));
 
             Arc::new(TransactionBatch::new(vec![tx]).unwrap())
@@ -156,8 +157,8 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 account_id_2,
                 Digest::default(),
                 Digest::default(),
-                Vec::new(),
-                Vec::new(),
+                InputNotes::new(Vec::new()).unwrap(),
+                OutputNotes::new(Vec::new()).unwrap(),
             ));
 
             Arc::new(TransactionBatch::new(vec![tx]).unwrap())
@@ -238,8 +239,8 @@ async fn test_compute_account_root_success() {
                     account_id,
                     account_initial_states[idx].into(),
                     account_final_states[idx].into(),
-                    Vec::new(),
-                    Vec::new(),
+                    InputNotes::new(Vec::new()).unwrap(),
+                    OutputNotes::new(Vec::new()).unwrap(),
                 ))
             })
             .collect();
@@ -409,7 +410,7 @@ async fn test_compute_note_root_success() {
     .zip(account_ids.iter())
     .map(|(note_digest, &account_id)| {
         NoteEnvelope::new(
-            note_digest,
+            note_digest.into(),
             NoteMetadata::new(account_id, Felt::from(1u64), Felt::from(0u64)),
         )
     })
@@ -436,8 +437,8 @@ async fn test_compute_note_root_success() {
                     account_id,
                     Digest::default(),
                     Digest::default(),
-                    Vec::new(),
-                    vec![*note],
+                    InputNotes::new(Vec::new()).unwrap(),
+                    OutputNotes::new(vec![*note]).unwrap(),
                 ))
             })
             .collect();
@@ -466,11 +467,11 @@ async fn test_compute_note_root_success() {
     let notes_smt = SimpleSmt::with_leaves(
         CREATED_NOTES_TREE_DEPTH,
         vec![
-            (0u64, notes_created[0].note_hash().into()),
+            (0u64, notes_created[0].note_id().into()),
             (1u64, notes_created[0].metadata().into()),
-            (2u64, notes_created[1].note_hash().into()),
+            (2u64, notes_created[1].note_id().into()),
             (3u64, notes_created[1].metadata().into()),
-            (2u64.pow(13), notes_created[2].note_hash().into()),
+            (2u64.pow(13), notes_created[2].note_id().into()),
             (2u64.pow(13) + 1, notes_created[2].metadata().into()),
         ],
     )
