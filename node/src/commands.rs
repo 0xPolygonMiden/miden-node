@@ -5,16 +5,16 @@ use std::{
 };
 
 use anyhow::anyhow;
-use miden_crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt};
+use miden_crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt, Word};
 use miden_lib::{
     accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
     AuthScheme,
 };
 use miden_node_block_producer::server as block_producer_server;
 use miden_node_rpc::server as rpc_server;
-use miden_node_store::{db::Db, genesis::GenesisState, server as store_server};
+use miden_node_store::{db::Db, genesis::{GenesisState, AccountAndSeed}, server as store_server};
 use miden_node_utils::config::load_config;
-use miden_objects::assets::TokenSymbol;
+use miden_objects::{assets::TokenSymbol, accounts::Account};
 use tokio::task::JoinSet;
 
 use crate::{
@@ -85,12 +85,12 @@ pub async fn make_genesis(
 
     let genesis_state = {
         let accounts = {
-            let mut accounts = Vec::new();
+            let mut accounts_and_seeds = Vec::new();
 
             // fungible asset faucet
             {
                 println!("Generating faucet account... ");
-                let (account, _) = create_basic_fungible_faucet(
+                let (account, seed) = create_basic_fungible_faucet(
                     SEED_FAUCET,
                     TokenSymbol::new(FUNGIBLE_FAUCET_TOKEN_SYMBOL).unwrap(),
                     FUNGIBLE_FAUCET_TOKEN_DECIMALS,
@@ -101,15 +101,16 @@ pub async fn make_genesis(
                 )
                 .unwrap();
 
-                println!("Done");
-
-                accounts.push(account);
+                let account = AccountAndSeed { account, seed };
+                println!("Done with faucet: {:?}", account);
+                
+                accounts_and_seeds.push(account);
             }
 
             // basic wallet account
             {
                 println!("Generating basic wallet account... ");
-                let (account, _) = create_basic_wallet(
+                let (account, seed) = create_basic_wallet(
                     SEED_WALLET,
                     AuthScheme::RpoFalcon512 {
                         pub_key: wallet_key_pair.public_key(),
@@ -118,12 +119,13 @@ pub async fn make_genesis(
                 )
                 .unwrap();
 
-                println!("Done");
+                let account = AccountAndSeed { account, seed };
+                println!("Done with wallet: {:?}", account);
 
-                accounts.push(account);
+                accounts_and_seeds.push(account);
             }
 
-            accounts
+            accounts_and_seeds
         };
 
         let version = 0;
