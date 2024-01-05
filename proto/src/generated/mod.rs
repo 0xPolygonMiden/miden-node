@@ -1,4 +1,4 @@
-pub mod account_id;
+pub mod account;
 pub mod block_header;
 pub mod block_producer;
 pub mod digest;

@@ -10,6 +10,6 @@ pub mod hex;
 // RE-EXPORTS
 // ------------------------------------------------------------------------------------------------
 pub use generated::{
-    account_id, block_header, block_producer, digest, merkle, mmr, note, requests, responses, rpc,
+    account, block_header, block_producer, digest, merkle, mmr, note, requests, responses, rpc,
     store, tsmt,
 };

@@ -23,7 +23,7 @@ pub struct GetBlockHeaderByNumberResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountHashUpdate {
     #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    pub account_id: ::core::option::Option<super::account::AccountId>,
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
     #[prost(uint32, tag = "3")]
@@ -70,7 +70,7 @@ pub struct SyncStateResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountBlockInputRecord {
     #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    pub account_id: ::core::option::Option<super::account::AccountId>,
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
     #[prost(message, optional, tag = "3")]
@@ -109,7 +109,7 @@ pub struct GetBlockInputsResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountTransactionInputRecord {
     #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    pub account_id: ::core::option::Option<super::account::AccountId>,
     /// The latest account hash, zero hash if the account doesn't exist.
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
@@ -138,3 +138,27 @@ pub struct GetTransactionInputsResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubmitProvenTransactionResponse {}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListNullifiersResponse {
+    /// Lists all nullifiers of the current chain
+    #[prost(message, repeated, tag = "1")]
+    pub nullifiers: ::prost::alloc::vec::Vec<super::tsmt::NullifierLeaf>,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAccountsResponse {
+    /// Lists all accounts of the current chain
+    #[prost(message, repeated, tag = "1")]
+    pub accounts: ::prost::alloc::vec::Vec<super::account::AccountInfo>,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListNotesResponse {
+    /// Lists all notes of the current chain
+    #[prost(message, repeated, tag = "1")]
+    pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
+}

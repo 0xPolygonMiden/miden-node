@@ -1,13 +1,14 @@
 syntax = "proto3";
 package requests;
 
-import "account_id.proto";
+import "account.proto";
 import "block_header.proto";
 import "digest.proto";
 import "note.proto";
 
+
 message AccountUpdate {
-    account_id.AccountId account_id = 1;
+    account.AccountId account_id = 1;
     digest.Digest account_hash = 2;
 }
 
@@ -34,7 +35,7 @@ message SyncStateRequest {
     // Send updates to the client starting at this block.
     uint32 block_num = 1;
 
-    repeated account_id.AccountId account_ids = 2;
+    repeated account.AccountId account_ids = 2;
 
     // Tags and nullifiers are filters, both filters correspond to the high
     // 16bits of the real values shifted to the right `>> 48`.
@@ -43,12 +44,12 @@ message SyncStateRequest {
 }
 
 message GetBlockInputsRequest {
-    repeated account_id.AccountId account_ids = 1;
+    repeated account.AccountId account_ids = 1;
     repeated digest.Digest nullifiers = 2;
 }
 
 message GetTransactionInputsRequest {
-    account_id.AccountId account_id = 1;
+    account.AccountId account_id = 1;
     repeated digest.Digest nullifiers = 2;
 }
 
@@ -56,3 +57,9 @@ message SubmitProvenTransactionRequest {
     // Transaction encoded using miden's native format
     bytes transaction = 1;
 }
+
+message ListNullifiersRequest {}
+
+message ListAccountsRequest {}
+
+message ListNotesRequest {}

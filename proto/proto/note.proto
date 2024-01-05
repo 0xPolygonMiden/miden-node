@@ -4,8 +4,6 @@ package note;
 import "digest.proto";
 import "merkle.proto";
 
-// TODO: remove this message as it can be replaced by an internal domain type in the Store
-// component
 message Note {
     uint32 block_num = 1;
     uint32 note_index = 2;

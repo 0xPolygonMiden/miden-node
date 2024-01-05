@@ -13,6 +13,7 @@ use miden_crypto::{
     Felt, FieldElement, Word, EMPTY_WORD,
 };
 use miden_node_proto::{
+    account::AccountInfo,
     block_header,
     conversion::nullifier_value_to_blocknum,
     digest::Digest,
@@ -439,6 +440,21 @@ impl State {
             .collect();
 
         Ok((account, nullifier_blocks))
+    }
+
+    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
+        let nullifiers = self.db.select_nullifiers().await?;
+        Ok(nullifiers)
+    }
+
+    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
+        let accounts = self.db.select_accounts().await?;
+        Ok(accounts)
+    }
+
+    pub async fn list_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
+        let notes = self.db.select_notes().await?;
+        Ok(notes)
     }
 }
 

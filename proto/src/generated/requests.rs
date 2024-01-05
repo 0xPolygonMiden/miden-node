@@ -3,7 +3,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountUpdate {
     #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    pub account_id: ::core::option::Option<super::account::AccountId>,
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
 }
@@ -46,7 +46,7 @@ pub struct SyncStateRequest {
     #[prost(uint32, tag = "1")]
     pub block_num: u32,
     #[prost(message, repeated, tag = "2")]
-    pub account_ids: ::prost::alloc::vec::Vec<super::account_id::AccountId>,
+    pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
     /// Tags and nullifiers are filters, both filters correspond to the high
     /// 16bits of the real values shifted to the right `>> 48`.
     #[prost(uint32, repeated, tag = "3")]
@@ -59,7 +59,7 @@ pub struct SyncStateRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockInputsRequest {
     #[prost(message, repeated, tag = "1")]
-    pub account_ids: ::prost::alloc::vec::Vec<super::account_id::AccountId>,
+    pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
@@ -68,7 +68,7 @@ pub struct GetBlockInputsRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetTransactionInputsRequest {
     #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    pub account_id: ::core::option::Option<super::account::AccountId>,
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
@@ -80,3 +80,15 @@ pub struct SubmitProvenTransactionRequest {
     #[prost(bytes = "vec", tag = "1")]
     pub transaction: ::prost::alloc::vec::Vec<u8>,
 }
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListNullifiersRequest {}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAccountsRequest {}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListNotesRequest {}

@@ -1,7 +1,7 @@
 syntax = "proto3";
 package responses;
 
-import "account_id.proto";
+import "account.proto";
 import "block_header.proto";
 import "digest.proto";
 import "merkle.proto";
@@ -22,7 +22,7 @@ message GetBlockHeaderByNumberResponse {
 }
 
 message AccountHashUpdate {
-    account_id.AccountId account_id = 1;
+    account.AccountId account_id = 1;
     digest.Digest account_hash = 2;
     uint32 block_num = 3;
 }
@@ -57,7 +57,7 @@ message SyncStateResponse {
 
 // An account returned as a response to the GetBlockInputs
 message AccountBlockInputRecord {
-    account_id.AccountId account_id = 1;
+    account.AccountId account_id = 1;
     digest.Digest account_hash = 2;
     merkle.MerklePath proof = 3;
 }
@@ -84,7 +84,7 @@ message GetBlockInputsResponse {
 
 // An account returned as a response to the GetTransactionInputs
 message AccountTransactionInputRecord {
-    account_id.AccountId account_id = 1;
+    account.AccountId account_id = 1;
     // The latest account hash, zero hash if the account doesn't exist.
     digest.Digest account_hash = 2;
 }
@@ -102,3 +102,18 @@ message GetTransactionInputsResponse {
 }
 
 message SubmitProvenTransactionResponse {}
+
+message ListNullifiersResponse {
+    // Lists all nullifiers of the current chain
+    repeated tsmt.NullifierLeaf nullifiers = 1;
+}
+
+message ListAccountsResponse {
+    // Lists all accounts of the current chain
+    repeated account.AccountInfo accounts = 1;
+}
+
+message ListNotesResponse {
+    // Lists all notes of the current chain
+    repeated note.Note notes = 1;
+}

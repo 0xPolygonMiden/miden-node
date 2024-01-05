@@ -14,4 +14,7 @@ service Api {
     rpc GetBlockInputs(requests.GetBlockInputsRequest) returns (responses.GetBlockInputsResponse) {}
     rpc GetTransactionInputs(requests.GetTransactionInputsRequest) returns (responses.GetTransactionInputsResponse) {}
     rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
+    rpc ListNullifiers(requests.ListNullifiersRequest) returns (responses.ListNullifiersResponse) {}
+    rpc ListAccounts(requests.ListAccountsRequest) returns (responses.ListAccountsResponse) {}
+    rpc ListNotes(requests.ListNotesRequest) returns (responses.ListNotesResponse) {}
 }
