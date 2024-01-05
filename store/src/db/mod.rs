@@ -1,7 +1,7 @@
 use std::fs::{self, create_dir_all};
 
 use anyhow::anyhow;
-use deadpool_sqlite::{Config as SqliteConfig, Pool, Runtime};
+use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use miden_node_proto::{
     block_header,
@@ -49,20 +49,28 @@ impl Db {
             create_dir_all(p)?;
         }
 
-        let pool =
-            SqliteConfig::new(config.database_filepath.clone()).create_pool(Runtime::Tokio1)?;
+        let pool = SqliteConfig::new(config.database_filepath.clone())
+            .builder(Runtime::Tokio1)?
+            .post_create(Hook::async_fn(move |conn, _| {
+                Box::pin(async move {
+                    // Feature used to support `IN` and `NOT IN` queries. We need to load this module
+                    // for every connection we create to the DB to support the queries we want to run
+                    let _ = conn
+                        .interact(|conn| array::load_module(conn))
+                        .await
+                        .map_err(|_| HookError::StaticMessage("Loading carray module failed"))?;
 
-        let conn = pool.get().await?;
+                    Ok(())
+                })
+            }))
+            .build()?;
 
         info!(
             sqlite = format!("{}", config.database_filepath.display()),
             COMPONENT, "Connected to the DB"
         );
 
-        // Feature used to support `IN` and `NOT IN` queries
-        conn.interact(|conn| array::load_module(conn))
-            .await
-            .map_err(|_| anyhow!("Loading carray module failed"))??;
+        let conn = pool.get().await?;
 
         conn.interact(|conn| migrations::MIGRATIONS.to_latest(conn))
             .await
