@@ -11,7 +11,7 @@ message AccountId {
     fixed64 id = 1;
 }
 
-message Account {
+message AccountInfo {
     AccountId account_id = 1;
     digest.Digest account_hash = 2;
     uint32 block_num = 3;

@@ -7,7 +7,7 @@ use miden_crypto::{
     utils::{Deserializable, SliceReader},
 };
 use miden_node_proto::{
-    account::{self, Account, AccountId as AccountIdProto},
+    account::{self, AccountId as AccountIdProto, AccountInfo},
     block_header::BlockHeader,
     digest::Digest,
     merkle::MerklePath,
@@ -113,7 +113,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
 /// # Returns
 ///
 /// A vector with accounts, or an error.
-pub fn select_accounts(conn: &mut Connection) -> Result<Vec<Account>, anyhow::Error> {
+pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>, anyhow::Error> {
     let mut stmt = conn.prepare("SELECT * FROM accounts")?;
     let mut rows = stmt.query([])?;
 
@@ -125,7 +125,7 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<Account>, anyhow::Er
         let account_id_data: i64 = row.get(0)?;
         let account_id = AccountIdProto::from(account_id_data as u64);
 
-        accounts.push(Account {
+        accounts.push(AccountInfo {
             account_id: Some(account_id),
             account_hash: Some(account_hash),
             block_num: row.get(2)?,

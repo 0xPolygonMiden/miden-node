@@ -1,10 +1,6 @@
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct EmptyResponse {}
-#[derive(Eq, PartialOrd, Ord, Hash)]
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyBlockResponse {}
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -156,7 +152,7 @@ pub struct ListNullifiersResponse {
 pub struct ListAccountsResponse {
     /// Lists all accounts of the current chain
     #[prost(message, repeated, tag = "1")]
-    pub accounts: ::prost::alloc::vec::Vec<super::account::Account>,
+    pub accounts: ::prost::alloc::vec::Vec<super::account::AccountInfo>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]

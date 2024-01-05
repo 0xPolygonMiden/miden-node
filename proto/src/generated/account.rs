@@ -12,7 +12,7 @@ pub struct AccountId {
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Account {
+pub struct AccountInfo {
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<AccountId>,
     #[prost(message, optional, tag = "2")]

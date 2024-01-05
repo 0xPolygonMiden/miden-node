@@ -7,8 +7,9 @@ use miden_node_proto::{
     digest::Digest,
     error::ParseError,
     requests::{
-        ApplyBlockRequest, CheckNullifiersRequest, EmptyRequest, GetBlockHeaderByNumberRequest,
-        GetBlockInputsRequest, GetTransactionInputsRequest, SyncStateRequest,
+        ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
+        GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
+        ListNullifiersRequest, SyncStateRequest,
     },
     responses::{
         ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
@@ -183,7 +184,7 @@ impl api_server::Api for StoreApi {
     /// Returns a list of all nullifiers
     async fn list_nullifiers(
         &self,
-        _request: tonic::Request<EmptyRequest>,
+        _request: tonic::Request<ListNullifiersRequest>,
     ) -> Result<Response<ListNullifiersResponse>, Status> {
         let raw_nullifiers = self.state.list_nullifiers().await.map_err(internal_error)?;
         let nullifiers = raw_nullifiers
@@ -199,7 +200,7 @@ impl api_server::Api for StoreApi {
     /// Returns a list of all notes
     async fn list_notes(
         &self,
-        _request: tonic::Request<EmptyRequest>,
+        _request: tonic::Request<ListNotesRequest>,
     ) -> Result<Response<ListNotesResponse>, Status> {
         let notes = self.state.list_notes().await.map_err(internal_error)?;
         Ok(Response::new(ListNotesResponse { notes }))
@@ -208,7 +209,7 @@ impl api_server::Api for StoreApi {
     /// Returns a list of all accounts
     async fn list_accounts(
         &self,
-        _request: tonic::Request<EmptyRequest>,
+        _request: tonic::Request<ListAccountsRequest>,
     ) -> Result<Response<ListAccountsResponse>, Status> {
         let accounts = self.state.list_accounts().await.map_err(internal_error)?;
         Ok(Response::new(ListAccountsResponse { accounts }))

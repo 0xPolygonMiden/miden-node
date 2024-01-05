@@ -9,8 +9,6 @@ import "mmr.proto";
 import "note.proto";
 import "tsmt.proto";
 
-message EmptyResponse {}
-
 message ApplyBlockResponse {}
 
 message CheckNullifiersResponse {
@@ -112,7 +110,7 @@ message ListNullifiersResponse {
 
 message ListAccountsResponse {
     // Lists all accounts of the current chain
-    repeated account.Account accounts = 1;
+    repeated account.AccountInfo accounts = 1;
 }
 
 message ListNotesResponse {

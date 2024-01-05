@@ -233,7 +233,9 @@ pub mod api_client {
         }
         pub async fn list_nullifiers(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::EmptyRequest>,
+            request: impl tonic::IntoRequest<
+                super::super::requests::ListNullifiersRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::ListNullifiersResponse>,
             tonic::Status,
@@ -255,7 +257,7 @@ pub mod api_client {
         }
         pub async fn list_accounts(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::EmptyRequest>,
+            request: impl tonic::IntoRequest<super::super::requests::ListAccountsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::ListAccountsResponse>,
             tonic::Status,
@@ -277,7 +279,7 @@ pub mod api_client {
         }
         pub async fn list_notes(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::EmptyRequest>,
+            request: impl tonic::IntoRequest<super::super::requests::ListNotesRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::ListNotesResponse>,
             tonic::Status,
@@ -352,21 +354,21 @@ pub mod api_server {
         >;
         async fn list_nullifiers(
             &self,
-            request: tonic::Request<super::super::requests::EmptyRequest>,
+            request: tonic::Request<super::super::requests::ListNullifiersRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::ListNullifiersResponse>,
             tonic::Status,
         >;
         async fn list_accounts(
             &self,
-            request: tonic::Request<super::super::requests::EmptyRequest>,
+            request: tonic::Request<super::super::requests::ListAccountsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::ListAccountsResponse>,
             tonic::Status,
         >;
         async fn list_notes(
             &self,
-            request: tonic::Request<super::super::requests::EmptyRequest>,
+            request: tonic::Request<super::super::requests::ListNotesRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::ListNotesResponse>,
             tonic::Status,
@@ -751,8 +753,9 @@ pub mod api_server {
                     struct ListNullifiersSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
-                    > tonic::server::UnaryService<super::super::requests::EmptyRequest>
-                    for ListNullifiersSvc<T> {
+                    > tonic::server::UnaryService<
+                        super::super::requests::ListNullifiersRequest,
+                    > for ListNullifiersSvc<T> {
                         type Response = super::super::responses::ListNullifiersResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
@@ -760,7 +763,9 @@ pub mod api_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::super::requests::EmptyRequest>,
+                            request: tonic::Request<
+                                super::super::requests::ListNullifiersRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -797,8 +802,9 @@ pub mod api_server {
                     struct ListAccountsSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
-                    > tonic::server::UnaryService<super::super::requests::EmptyRequest>
-                    for ListAccountsSvc<T> {
+                    > tonic::server::UnaryService<
+                        super::super::requests::ListAccountsRequest,
+                    > for ListAccountsSvc<T> {
                         type Response = super::super::responses::ListAccountsResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
@@ -806,7 +812,9 @@ pub mod api_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::super::requests::EmptyRequest>,
+                            request: tonic::Request<
+                                super::super::requests::ListAccountsRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -843,8 +851,9 @@ pub mod api_server {
                     struct ListNotesSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
-                    > tonic::server::UnaryService<super::super::requests::EmptyRequest>
-                    for ListNotesSvc<T> {
+                    > tonic::server::UnaryService<
+                        super::super::requests::ListNotesRequest,
+                    > for ListNotesSvc<T> {
                         type Response = super::super::responses::ListNotesResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
@@ -852,7 +861,9 @@ pub mod api_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::super::requests::EmptyRequest>,
+                            request: tonic::Request<
+                                super::super::requests::ListNotesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {

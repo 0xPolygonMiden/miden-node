@@ -6,7 +6,6 @@ import "block_header.proto";
 import "digest.proto";
 import "note.proto";
 
-message EmptyRequest {}
 
 message AccountUpdate {
     account.AccountId account_id = 1;
@@ -58,3 +57,9 @@ message SubmitProvenTransactionRequest {
     // Transaction encoded using miden's native format
     bytes transaction = 1;
 }
+
+message ListNullifiersRequest {}
+
+message ListAccountsRequest {}
+
+message ListNotesRequest {}

@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use deadpool_sqlite::{Config as SqliteConfig, Pool, Runtime};
 use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use miden_node_proto::{
-    account::Account,
+    account::AccountInfo,
     block_header,
     digest::Digest,
     note::Note,
@@ -97,7 +97,7 @@ impl Db {
     }
 
     /// Loads all the accounts from the DB.
-    pub async fn select_accounts(&self) -> Result<Vec<Account>, anyhow::Error> {
+    pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
         self.pool
             .get()
             .await?
