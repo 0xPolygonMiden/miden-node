@@ -361,7 +361,7 @@ impl State {
 
             let proof = inner.chain_mmr.open(
                 state_sync.block_header.block_num as usize,
-                state_sync.block_header.block_num as usize,
+                state_sync.block_header.block_num as usize + 1,
             )?;
 
             (delta, proof.merkle_path)
