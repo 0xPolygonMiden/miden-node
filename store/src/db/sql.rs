@@ -201,7 +201,7 @@ pub fn insert_block_header(
     Ok(stmt.execute(params![block_header.block_num, block_header.encode_to_vec()])?)
 }
 
-/// Select a [BlockHeader] from the DB by its `block_num` usiing the given [Connection].
+/// Select a [BlockHeader] from the DB by its `block_num` using the given [Connection].
 ///
 /// # Returns
 ///
