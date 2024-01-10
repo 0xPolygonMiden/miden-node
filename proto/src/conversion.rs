@@ -338,7 +338,7 @@ impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
             .try_into()?;
 
         let chain_peaks = {
-            let num_leaves: u64 = u64::from(block_header.block_num()) + 1;
+            let num_leaves: u64 = u64::from(block_header.block_num());
 
             MmrPeaks::new(
                 num_leaves.try_into().map_err(|_| error::ParseError::TooManyMmrPeaks)?,

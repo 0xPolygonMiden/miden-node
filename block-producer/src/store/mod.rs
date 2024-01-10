@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc, hash::Hash};
 
 use async_trait::async_trait;
 use miden_node_proto::{

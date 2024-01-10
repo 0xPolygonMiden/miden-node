@@ -100,10 +100,7 @@ pub async fn make_genesis(
                     },
                 )
                 .unwrap();
-
                 let account = AccountAndSeed { account, seed };
-                println!("Done with faucet: {:?}", account);
-                
                 accounts_and_seeds.push(account);
             }
 
@@ -120,7 +117,6 @@ pub async fn make_genesis(
                 .unwrap();
 
                 let account = AccountAndSeed { account, seed };
-                println!("Done with wallet: {:?}", account);
 
                 accounts_and_seeds.push(account);
             }

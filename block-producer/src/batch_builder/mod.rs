@@ -22,7 +22,7 @@ pub trait BatchBuilder: Send + Sync + 'static {
     /// TODO: add doc comments
     async fn build_batch(
         &self,
-        txs: Vec<SharedProvenTx>,
+        txs: Vec<SharedProvenTx>, 
     ) -> Result<(), BuildBatchError>;
 }
 

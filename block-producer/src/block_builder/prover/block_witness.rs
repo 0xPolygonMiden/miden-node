@@ -91,7 +91,6 @@ impl BlockWitness {
                 }
             })
             .collect();
-
         Ok(Self {
             updated_accounts,
             batch_created_notes_roots,

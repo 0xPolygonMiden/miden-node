@@ -209,6 +209,7 @@ impl BlockProver {
         &self,
         witness: BlockWitness,
     ) -> Result<(Digest, Digest, Digest), BlockProverError> {
+
         let (advice_inputs, stack_inputs) = witness.into_program_inputs()?;
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);

@@ -181,7 +181,6 @@ impl State {
         notes: Vec<NoteCreated>,
     ) -> Result<(), anyhow::Error> {
         let _ = self.writer.try_lock().map_err(|_| StateError::ConcurrentWrite)?;
-
         // ensures the right block header is being processed
         let prev_block_msg = self
             .db
@@ -347,7 +346,6 @@ impl State {
         nullifier_prefixes: &[u32],
     ) -> Result<(StateSyncUpdate, MmrDelta, MerklePath), anyhow::Error> {
         let inner = self.inner.read().await;
-
         let state_sync = self
             .db
             .get_state_sync(block_num, account_ids, note_tag_prefixes, nullifier_prefixes)
@@ -359,8 +357,8 @@ impl State {
                 .get_delta(block_num as usize, state_sync.block_header.block_num as usize)?;
 
             let proof = inner.chain_mmr.open(
+                state_sync.block_header.block_num as usize - 1,
                 state_sync.block_header.block_num as usize,
-                state_sync.block_header.block_num as usize + 1,
             )?;
 
             (delta, proof.merkle_path)
@@ -385,7 +383,7 @@ impl State {
             .ok_or(StateError::DbBlockHeaderEmpty)?;
 
         // sanity check
-        if inner.chain_mmr.forest() != latest.block_num as usize + 1 {
+        if inner.chain_mmr.forest() != latest.block_num as usize {
             bail!(
                 "chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {}, block num: {}",
                 inner.chain_mmr.forest(),
@@ -497,7 +495,12 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr> {
         .map(|b| b.try_into().map(|b: BlockHeader| b.hash()))
         .collect();
 
-    let mmr: Mmr = block_hashes?.into();
+    let block_hashes = block_hashes?;
+    let (_last_block, remaining_block_hashes) = block_hashes
+        .split_last()
+        .expect("there should at least be the genesis block by this point");
+
+    let mmr: Mmr = remaining_block_hashes.to_vec().into();
     Ok(mmr)
 }
 

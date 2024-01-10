@@ -46,7 +46,7 @@ const MAX_NUM_CREATED_NOTES_PER_BATCH: usize = 2_usize.pow((CREATED_NOTES_SMT_DE
 const SERVER_BATCH_SIZE: usize = 2;
 
 /// The frequency at which blocks are produced
-const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_secs(10);
+const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_secs(15);
 
 /// The frequency at which batches are built
 const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);

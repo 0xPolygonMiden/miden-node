@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use anyhow::Result;
 use clap::Parser;
 use miden_node_block_producer::{

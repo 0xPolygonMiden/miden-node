@@ -1,4 +1,7 @@
-use miden_crypto::{merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt}, Word};
+use miden_crypto::{
+    merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt},
+    Word,
+};
 use miden_objects::{
     accounts::Account,
     notes::NOTE_LEAF_DEPTH,
@@ -10,7 +13,6 @@ use crate::state::ACCOUNT_DB_DEPTH;
 
 pub const GENESIS_BLOCK_NUM: u32 = 0;
 
-
 #[derive(Debug)]
 pub struct AccountAndSeed {
     pub account: Account,
@@ -18,7 +20,10 @@ pub struct AccountAndSeed {
 }
 
 impl Serializable for AccountAndSeed {
-    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+    fn write_into<W: ByteWriter>(
+        &self,
+        target: &mut W,
+    ) {
         target.write(self.account.to_bytes());
         target.write(self.seed.to_bytes());
     }
@@ -27,8 +32,8 @@ impl Serializable for AccountAndSeed {
 impl Deserializable for AccountAndSeed {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let account = Account::read_from(source)?;
-        let seed =Word::read_from(source)?;
-        Ok(AccountAndSeed{account, seed})
+        let seed = Word::read_from(source)?;
+        Ok(AccountAndSeed { account, seed })
     }
 }
 
@@ -56,9 +61,9 @@ impl GenesisState {
     pub fn into_block_parts(self) -> Result<(BlockHeader, SimpleSmt), MerkleError> {
         let account_smt = SimpleSmt::with_leaves(
             ACCOUNT_DB_DEPTH,
-            self.accounts
-                .into_iter()
-                .map(|account_and_seed| (account_and_seed.account.id().into(), account_and_seed.account.hash().into())),
+            self.accounts.into_iter().map(|account_and_seed| {
+                (account_and_seed.account.id().into(), account_and_seed.account.hash().into())
+            }),
         )?;
 
         let block_header = BlockHeader::new(

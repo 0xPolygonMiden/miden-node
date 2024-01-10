@@ -58,6 +58,7 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     });
 
     tokio::spawn(async move {
+        std::thread::sleep(std::time::Duration::from_secs(15));
         info!(COMPONENT, "batch builder started");
         batch_builder.run().await
     });

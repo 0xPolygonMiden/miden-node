@@ -71,8 +71,10 @@ where
         &self,
         batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
+
         let account_updates: Vec<(AccountId, Digest)> =
             batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+
         let created_notes = batches
             .iter()
             .enumerate()
@@ -84,6 +86,7 @@ where
                 })
             })
             .collect();
+
         let produced_nullifiers: Vec<Digest> =
             batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
 
@@ -111,7 +114,6 @@ where
         self.state_view.apply_block(block.clone()).await?;
 
         info!(COMPONENT, "block #{block_num} built!");
-
         Ok(())
     }
 }
