@@ -4,8 +4,8 @@ use clap::{Parser, Subcommand};
 
 mod commands;
 mod config;
-pub(crate) mod genesis;
 
+const INPUT_GENESIS_FILE_PATH: &str = "genesis.toml";
 const DEFAULT_GENESIS_FILE_PATH: &str = "genesis.dat";
 
 #[derive(Parser)]

@@ -27,6 +27,7 @@ serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+hex = { version = "0.4" }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
