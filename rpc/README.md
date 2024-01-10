@@ -14,7 +14,7 @@ filled later.
 
 ### Installing RPC
 
-RPC is being installed and run as a part of [Miden node](../README.md#installing-the-node).
+RPC can be installed and run as a part of [Miden node](../README.md#installing-the-node).
 But if you intend on running RPC as a separated process, you need to install and run it separately:
 
 ```sh
@@ -37,7 +37,7 @@ description of supported methods.
 
 ### CheckNullifiers
 
-Get a list of proofs for given nullifier hashes, each proof as Tiered Sparse Merkle Trees ([read more](../proto/proto/tsmt.proto)). 
+Gets a list of proofs for given nullifier hashes, each proof as Tiered Sparse Merkle Trees ([read more](../proto/proto/tsmt.proto)). 
 
 **Parameters:**
 
@@ -53,7 +53,7 @@ Retrieves block header by given block number.
 
 **Parameters**
 
-* `block_num`: `uint32` *(optional)* – the block number of the target block. If not provided, means latest know block.
+* `block_num`: `uint32` *(optional)* – the block number of the target block. If not provided, the latest known block will be returned.
 
 **Returns:**
 

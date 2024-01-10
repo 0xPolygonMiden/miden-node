@@ -83,12 +83,12 @@ To run the node you'll need to provide a configuration file. We have an example 
 miden-node start --config <path-to-config-file>
 ```
 
-Or, if your config file is in named `miden.toml` and is in the current directory, you can simply run:
+Or, if your config file is named `miden.toml` and is in the current directory, you can simply run:
 ```sh
 miden-node start
 ```
 
-Note that the`store.genesis_filepath` field in the config file must point to the `genesis.dat` file that you generated in the previous step.
+Note that the `store.genesis_filepath` field in the config file must point to the `genesis.dat` file that you generated in the previous step.
 
 ### Running the node as separate components
 

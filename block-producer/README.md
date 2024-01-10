@@ -13,7 +13,7 @@ This topic will be filled later.
 
 ### Installing the Block Producer
 
-Block Producer is being installed and run as a part of [Miden node](../README.md#installing-the-node). 
+Block Producer can be installed and run as a part of [Miden node](../README.md#installing-the-node). 
 But if you intend on running Block Producer as a separated process, you need to install and run it separately:
 
 ```sh

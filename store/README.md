@@ -13,7 +13,7 @@ filled later.
 
 ### Installing the Store
 
-Store is being installed and run as a part of [Miden node](../README.md#installing-the-node).
+Store can be installed and run as a part of [Miden node](../README.md#installing-the-node).
 But if you intend on running Store as a separated process, you need to install and run it separately:
 
 ```sh
@@ -70,7 +70,7 @@ Retrieves block header by given block number.
 
 **Parameters**
 
-* `block_num`: `uint32` *(optional)* – the block number of the target block. If not provided, means latest know block.
+* `block_num`: `uint32` *(optional)* – the block number of the target block. If not provided, the latest known block will be returned.
 
 **Returns:**
 
@@ -133,7 +133,7 @@ Lists all nullifiers of the current chain.
 
 **Parameters**
 
-This request doesn't have any request parameters.
+This request doesn't have any parameters.
 
 **Returns**
 
@@ -145,7 +145,7 @@ Lists all accounts of the current chain.
 
 **Parameters**
 
-This request doesn't have any request parameters.
+This request doesn't have any parameters.
 
 **Returns**
 
@@ -157,7 +157,7 @@ Lists all notes of the current chain.
 
 **Parameters**
 
-This request doesn't have any request parameters.
+This request doesn't have any parameters.
 
 **Returns**
 
