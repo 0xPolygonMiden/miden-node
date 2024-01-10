@@ -11,8 +11,6 @@ This topic will be filled later.
 
 ## Usage
 
-Before you can build any component of the Miden node, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.1 requires Rust version **1.73** or later.
-
 ### Installing the Block Producer
 
 Block Producer is being installed and run as a part of [Miden node](../README.md#installing-the-node). 
