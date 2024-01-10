@@ -27,7 +27,24 @@ The diagram below illustrates high-level design of each component as well as bas
 
 ## Usage
 
-Before you can run the Miden node, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.1 requires Rust version **1.73** or later.
+### Prerequisites
+
+Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.1 requires Rust version **1.73** or later.
+
+Also make sure all of this libraries are installed:
+
+Ubuntu 22.04:
+
+```sh
+sudo apt install gcc llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
+```
+
+macOS:
+
+```sh
+xcode-select --install
+brew install buf llvm openssl pkg-config sqlite 
+```
 
 ### Installing the node
 
