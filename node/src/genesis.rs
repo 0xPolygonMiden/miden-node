@@ -283,13 +283,22 @@ mod tests {
                     max_supply = 1000000
                 "#,
             )?;
+
             let genesis_dat_file_path = PathBuf::from(DEFAULT_GENESIS_DAT_FILE_PATH);
+
+            //  run `make_genesis` to generate `genesis.dat` and accounts folder and files
             make_genesis(&genesis_dat_file_path, &true, &genesis_file_path).unwrap();
+
             // assert that the genesis.dat file exists
             assert!(genesis_dat_file_path.exists());
 
-            // TODO
+            let account_0_file_path = PathBuf::from("accounts/account0.mac");
+            let account_1_file_path = PathBuf::from("accounts/account1.mac");
+
             // assert that all the account files exist
+            assert!(account_0_file_path.exists());
+            assert!(account_1_file_path.exists());
+
             Ok(())
         });
     }
