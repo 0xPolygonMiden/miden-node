@@ -61,7 +61,7 @@ pub struct BasicFungibleFaucetInputs {
 // MAKE GENESIS
 // ===================================================================================================
 
-pub async fn make_genesis(
+pub fn make_genesis(
     output_path: &PathBuf,
     force: &bool,
     config_filepath: &PathBuf,
@@ -176,4 +176,54 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<(Account, Word)>> {
     }
 
     Ok(final_accounts)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use figment::Jail;
+
+    use super::make_genesis;
+    use crate::DEFAULT_GENESIS_DAT_FILE_PATH;
+
+    #[test]
+    fn test_node_genesis() {
+        let genesis_file_path = PathBuf::from("genesis.toml");
+
+        Jail::expect_with(|jail| {
+            jail.create_file(
+                genesis_file_path.as_path(),
+                r#"
+                    version = 1
+                    timestamp = 1672531200
+
+                    [[accounts]]
+                    type = "BasicWallet"
+                    mode = "RegularAccountImmutableCode"
+                    seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    auth_scheme = "RpoFalcon512"
+                    auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+                    [[accounts]]
+                    type = "BasicFungibleFaucet"
+                    mode = "FungibleFaucet"
+                    seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    auth_scheme = "RpoFalcon512"
+                    auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    token_symbol = "POL"
+                    decimals = 12
+                    max_supply = 1000000
+                "#,
+            )?;
+            let genesis_dat_file_path = PathBuf::from(DEFAULT_GENESIS_DAT_FILE_PATH);
+            make_genesis(&genesis_dat_file_path, &true, &genesis_file_path).unwrap();
+            // assert that the genesis.dat file exists
+            assert!(genesis_dat_file_path.exists());
+
+            // TODO
+            // assert that all the account files exist
+            Ok(())
+        });
+    }
 }
