@@ -16,7 +16,6 @@ testing = ["miden-lib/testing"]
 [dependencies]
 anyhow = { version = "1.0" }
 clap = { version = "4.3", features = ["derive"] }
-hex = { version = "0.4" }
 miden-crypto = { workspace = true, features = ["std"] }
 miden-lib = { workspace = true, features = ["concurrent"] }
 miden-node-block-producer = { version = "0.1", path = "../block-producer" }

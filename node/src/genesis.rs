@@ -10,7 +10,7 @@ use miden_lib::{
     AuthScheme,
 };
 use miden_node_store::genesis::GenesisState;
-use miden_node_utils::config::load_config;
+use miden_node_utils::config::{hex_string_to_byte_array, load_config};
 use miden_objects::{
     accounts::{Account, AccountType},
     assets::TokenSymbol,
@@ -176,15 +176,4 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<(Account, Word)>> {
     }
 
     Ok(final_accounts)
-}
-
-fn hex_string_to_byte_array<const N: usize>(hex_str: &str) -> Result<[u8; N]> {
-    if !hex_str.starts_with("0x") {
-        return Err(anyhow!("Seed should be formatted as hex strings starting with: '0x'"));
-    }
-    let raw_hex_data = &hex_str[2..];
-    let mut bytes_array = [0u8; N];
-    hex::decode_to_slice(raw_hex_data, &mut bytes_array)
-        .map_err(|err| anyhow!("Error while processing hex string. {err}"))?;
-    Ok(bytes_array)
 }
