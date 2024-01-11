@@ -109,28 +109,24 @@ pub async fn make_genesis(
 
     let genesis_state = GenesisState::new(accounts, genesis_input.version, genesis_input.timestamp);
 
-    println!("GenesisState: {:#?}", genesis_state);
+    // Write genesis state as binary format
+    fs::write(output_path, genesis_state.to_bytes()).unwrap_or_else(|_| {
+        panic!("Failed to write genesis state to output file {}", output_path.display())
+    });
+
+    println!("Genesis initialisation successful: {} has been created", output_path.display());
 
     Ok(())
 }
 
-fn _generate_files(
-    genesis_state: GenesisState,
-    genesis_state_path: &Path,
-    keypairs: Vec<KeyPair>,
-) {
-    // Write genesis state as binary format
-    fs::write(genesis_state_path, genesis_state.to_bytes()).unwrap_or_else(|_| {
-        panic!("Failed to write genesis state to output file {}", genesis_state_path.display())
-    });
-
-    // Write account keys
-    keypairs.into_iter().enumerate().for_each(|(index, keypair)| {
-        let s = format!("acount{}.fsk", index);
-        let file_path = Path::new(&s);
-        fs::write(file_path, keypair.to_bytes())
-            .unwrap_or_else(|_| panic!("Failed to write account file to {}", file_path.display()));
-    });
+fn _create_account_files(_accounts: Vec<KeyPair>) {
+    // // Write account keys
+    // keypairs.into_iter().enumerate().for_each(|(index, keypair)| {
+    //     let s = format!("acount{}.fsk", index);
+    //     let file_path = Path::new(&s);
+    //     fs::write(file_path, keypair.to_bytes())
+    //         .unwrap_or_else(|_| panic!("Failed to write account file to {}", file_path.display()));
+    // });
 }
 
 fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<(Account, Word)>> {
