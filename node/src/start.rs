@@ -10,6 +10,9 @@ use tokio::task::JoinSet;
 
 pub const CONFIG_FILENAME: &str = "miden.toml";
 
+// Top-level config
+// ================================================================================================
+
 /// Node top-level configuration.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct NodeTopLevelConfig {

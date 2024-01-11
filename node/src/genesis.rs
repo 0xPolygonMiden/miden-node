@@ -15,7 +15,9 @@ use miden_objects::{
     accounts::{Account, AccountType},
     assets::TokenSymbol,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+const DEFAULT_ACCOUNTS_FOLDER: &str = "accounts";
 
 // *Input helper structs
 // ================================================================================================
@@ -59,6 +61,19 @@ pub struct BasicFungibleFaucetInputs {
     pub token_symbol: String,
     pub decimals: u8,
     pub max_supply: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AccountData {
+    pub account: Account,
+    pub seed: Word,
+    pub auth_scheme: AuthSchemeData,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthSchemeData {
+    pub scheme: String,
+    pub seed: String,
 }
 
 // MAKE GENESIS
@@ -105,10 +120,8 @@ pub fn make_genesis(
     })?;
     println!("Config file: {} has successfully been loaded.", genesis_file_path.display());
 
-    let accounts_data = create_accounts(&genesis_input.accounts)?;
+    let accounts = create_accounts(&genesis_input.accounts)?;
     println!("Accounts have successfully been created.");
-
-    let accounts: Vec<Account> = accounts_data.iter().map(|(account, _)| account.clone()).collect();
 
     let genesis_state = GenesisState::new(accounts, genesis_input.version, genesis_input.timestamp);
 
@@ -122,17 +135,40 @@ pub fn make_genesis(
     Ok(())
 }
 
-fn _create_account_files(_accounts: Vec<KeyPair>) {
-    // // Write account keys
-    // keypairs.into_iter().enumerate().for_each(|(index, keypair)| {
-    //     let s = format!("acount{}.fsk", index);
-    //     let file_path = Path::new(&s);
-    //     fs::write(file_path, keypair.to_bytes())
-    //         .unwrap_or_else(|_| panic!("Failed to write account file to {}", file_path.display()));
-    // });
+fn create_account_file(
+    account: &Account,
+    seed: Word,
+    auth_scheme: String,
+    auth_seed: String,
+    index: usize,
+) -> Result<()> {
+    let file_path = PathBuf::from(format!("accounts/account{index}.mac"));
+
+    let account_data = AccountData {
+        account: account.clone(),
+        seed,
+        auth_scheme: AuthSchemeData {
+            scheme: auth_scheme,
+            seed: auth_seed,
+        },
+    };
+
+    let json_data = serde_json::to_string(&account_data)?;
+
+    fs::write(file_path.as_path(), json_data).map_err(|err| {
+        anyhow!("Failed to write account file to {}, Error: {err}", file_path.display())
+    })?;
+
+    Ok(())
 }
 
-fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<(Account, Word)>> {
+fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
+    // create the accounts folder
+    let accounts_folder_path = PathBuf::from(DEFAULT_ACCOUNTS_FOLDER);
+
+    fs::create_dir(accounts_folder_path.as_path())
+        .map_err(|err| anyhow!("Failed to create accounts folder: {err}"))?;
+
     let mut final_accounts = Vec::new();
 
     for account in accounts {
@@ -149,9 +185,23 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<(Account, Word)>> {
                     },
                 };
 
-                let account_pair = create_basic_wallet(seed, auth_scheme, inputs.mode)?;
+                let (account, seed) = create_basic_wallet(seed, auth_scheme, inputs.mode)?;
                 println!("Done. ");
-                final_accounts.push(account_pair);
+
+                let auth_scheme_name = match inputs.auth_scheme {
+                    AuthSchemeInput::RpoFalcon512 => "RpoFalcon512".to_string(),
+                };
+
+                // create account file
+                create_account_file(
+                    &account,
+                    seed,
+                    auth_scheme_name,
+                    inputs.auth_seed.clone(),
+                    final_accounts.len(),
+                )?;
+
+                final_accounts.push(account);
             },
             AccountInput::BasicFungibleFaucet(inputs) => {
                 println!("Generating fungible faucet account... ");
@@ -165,7 +215,7 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<(Account, Word)>> {
                     },
                 };
 
-                let account_pair = create_basic_fungible_faucet(
+                let (account, seed) = create_basic_fungible_faucet(
                     seed,
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
@@ -173,7 +223,21 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<(Account, Word)>> {
                     auth_scheme,
                 )?;
                 println!("Done.");
-                final_accounts.push(account_pair);
+
+                let auth_scheme_name = match inputs.auth_scheme {
+                    AuthSchemeInput::RpoFalcon512 => "RpoFalcon512".to_string(),
+                };
+
+                // create account file
+                create_account_file(
+                    &account,
+                    seed,
+                    auth_scheme_name,
+                    inputs.auth_seed.clone(),
+                    final_accounts.len(),
+                )?;
+
+                final_accounts.push(account);
             },
         }
     }
