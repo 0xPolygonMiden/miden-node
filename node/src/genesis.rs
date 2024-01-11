@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use hex;
 use miden_crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt, Word};
 use miden_lib::{
     accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
