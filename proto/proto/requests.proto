@@ -37,14 +37,15 @@ message SyncStateRequest {
 
     repeated account.AccountId account_ids = 2;
 
-    // Tags and nullifiers are filters, both filters correspond to the high
-    // 16bits of the real values shifted to the right `>> 48`.
+    // Tags and nullifiers are filters, both filters correspond to the high 16 bits of the real values.
     repeated uint32 note_tags = 3;
     repeated uint32 nullifiers = 4;
 }
 
 message GetBlockInputsRequest {
+    // ID of the account against which a transaction is executed.
     repeated account.AccountId account_ids = 1;
+    // Array of nullifiers for all notes consumed by a transaction.
     repeated digest.Digest nullifiers = 2;
 }
 

@@ -1,27 +1,28 @@
-# Block Producer
+# Miden block producer
 
-**Block producer** accepts transactions from the RPC component, creates blocks containing those transactions, and 
-sends them to the store. 
+The **Block producer** receives transactions from the RPC component, processes them, creates block containing those transactions before sending created blocks to the store. 
+
 **Block Producer** is one of components of the [Miden node](..). 
 
 ## Architecture
 
-The Miden node is still under heavy development and current architecture is subject of change. 
-This topic will be filled later.
+`TODO`
 
 ## Usage
 
 ### Installing the Block Producer
 
-Block Producer can be installed and run as a part of [Miden node](../README.md#installing-the-node). 
-But if you intend on running Block Producer as a separated process, you need to install and run it separately:
+The Block Producer can be installed and run as part of [Miden node](../README.md#installing-the-node). 
+But if you intend on running the Block Producer as a separate process, you will need to install and run it as follows:
 
 ```sh
 # Installs `miden-node-block-producer` executable
 cargo install --path block-producer
 ```
 
-To run the Block Producer you'll need to provide a configuration file. We have an example config file in [block-producer-example.toml](block-producer-example.toml).
+### Running the Block Producer
+
+To run the Block Producer you will need to provide a configuration file. We have an example config file in [block-producer-example.toml](block-producer-example.toml).
 
 Then, to run the Block Producer:
 
@@ -31,8 +32,8 @@ miden-node-block-producer serve --config <path-to-block-producer-config-file>
 
 ## API
 
-**Block Producer** serves connections using [gRPC protocol](https://grpc.io) on a port, set in configuration file. Here is a brief
-description of supported methods.
+The **Block Producer** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file. 
+Here is a brief description of supported methods.
 
 ### SubmitProvenTransaction
 

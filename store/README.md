@@ -1,30 +1,30 @@
-# Store
+# Miden node store
 
-**Store** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in 
-the store, the node does not consider it to be a part of the chain. 
+The **Store** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in 
+the store, the node does not consider it to be part of the chain. 
 **Store** is one of components of the [Miden node](..).
 
 ## Architecture
 
-The Miden node is still under heavy development and current architecture is subject of change. This topic will be 
-filled later.
+`TODO`
 
 ## Usage
 
 ### Installing the Store
 
-Store can be installed and run as a part of [Miden node](../README.md#installing-the-node).
-But if you intend on running Store as a separated process, you need to install and run it separately:
+The Store can be installed and run as part of [Miden node](../README.md#installing-the-node).
+But if you intend on running the Store as a separate process, you will need to install and run it as follows:
 
 ```sh
 # Installs `miden-node-store` executable
 cargo install --path store
 ```
 
-In order to run Store, you must provide genesis file. To generate genesis file you need to use [Miden node](../README.md#generating-the-genesis-file)'s `make-genesis` command. 
+### Running the Store
 
+In order to run Store, you must provide a genesis file. To generate a genesis file you will need to use [Miden node](../README.md#generating-the-genesis-file)'s `make-genesis` command. 
 
-You'll also need to provide a configuration file. We have an example config file in [store-example.toml](store-example.toml).
+You will also need to provide a configuration file. We have an example config file in [store-example.toml](store-example.toml).
 
 Then, to run the Store:
 
@@ -34,8 +34,8 @@ miden-node-store serve --config <path-to-store-config-file>
 
 ## API
 
-**Store** serves connections using [gRPC protocol](https://grpc.io) on a port, set in configuration file. Here is a brief
-description of supported methods.
+The **Store** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file. 
+Here is a brief description of supported methods.
 
 ### ApplyBlock
 
@@ -94,38 +94,41 @@ Returns data needed by the block producer to construct and prove the next block.
 
 ### GetTransactionInputs
 
-Returns account and nullifiers descriptors. 
+Returns the data needed by the block producer to check validity of an incoming transaction. 
 
 **Parameters**
 
-* `account_id`: `AccountId` – account ID.
-* `nullifiers`: `[Digest]` – array of nullifier hashes.
+* `account_id`: `AccountId` – ID of the account against which a transaction is executed.
+* `nullifiers`: `[Digest]` – array of nullifiers for all notes consumed by a transaction.
 
 **Returns**
 
 * `account_state`: `AccountTransactionInputRecord` – account's descriptors. 
-* `nullifiers`: `[NullifierTransactionInputRecord]` – the requested nullifiers' blocks at which ones have been consumed, zero if not consumed.
+* `nullifiers`: `[NullifierTransactionInputRecord]` – the block numbers at which corresponding nullifiers have been consumed, zero if not consumed.
 
 ### SyncState
 
-State synchronization request.
+Returns info which can be used by the client to sync up to the latest state of the chain
+for the objects the client is interested in.
 
 **Parameters**
 
 * `block_num`: `uint32` – send updates to the client starting at this block.
 * `account_ids`: `[AccountId]`
-* `note_tags`: `[uint32]` – note tags filter. Corresponds to the high 16 bits of the real values, shifted right (`value >> 48`).
-* `nullifiers`: `[uint32]` – nullifiers filter. Corresponds to the high 16 bits of the real values, shifted right (`value >> 48`).
+* `note_tags`: `[uint32]` – note tags filter. Corresponds to the high 16 bits of the real values.
+* `nullifiers`: `[uint32]` – nullifiers filter. Corresponds to the high 16 bits of the real values.
 
 **Returns**
 
 * `chain_tip`: `uint32` – number of the latest block in the chain.
 * `block_header`: `BlockHeader` – block header of the block with the first note matching the specified criteria.
-* `mmr_delta`: `MmrDelta` – data needed to update the partial MMR from `block_ref` to `block_header.block_num`.
+* `mmr_delta`: `MmrDelta` – data needed to update the partial MMR from `block_num` to `block_header.block_num`.
 * `block_path`: `MerklePath` – Merkle path in the updated chain MMR to the block at `block_header.block_num`.
-* `accounts`: `[AccountHashUpdate]` – a list of account hashes updated after `block_ref` but not after `block_header.block_num`.
+* `accounts`: `[AccountHashUpdate]` – a list of account hashes updated after `block_num` but not after `block_header.block_num`.
 * `notes`: `[NoteSyncRecord]` – a list of all notes together with the Merkle paths from `block_header.note_root`.
-* `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `block_ref` and `block_header.block_num`.
+* `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `block_num` and `block_header.block_num`.
+
+## Methods for testing purposes
 
 ### ListNullifiers
 

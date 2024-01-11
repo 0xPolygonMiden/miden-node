@@ -16,10 +16,10 @@ At this point, we are developing the Miden node for a centralized operator. Thus
 
 The Miden node is made up of 3 main components, which communicate over gRPC:
 - **[RPC](rpc):** an externally-facing component through which clients can interact with the node. It receives client requests (e.g., to synchronize with the latest state of the chain, or to submit transactions), performs basic validation, and forwards the requests to the appropriate internal components.
-- **[Store](store):** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in the store, the node does not consider it to be a part of the chain.
+- **[Store](store):** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in the store, the node does not consider it to be part of the chain.
 - **[Block Producer](block-producer):** accepts transactions from the RPC component, creates blocks containing those transactions, and sends them to the store.
 
-All 3 components can either run in one process, or each component can run in its own process. See the [Running the node](#running-the-node) section for more details.
+All 3 components can either run as one process, or each component can run in its own process. See the [Running the node](#running-the-node) section for more details.
 
 The diagram below illustrates high-level design of each component as well as basic interactions between them (components in light-grey are yet to be built).
 
@@ -27,23 +27,12 @@ The diagram below illustrates high-level design of each component as well as bas
 
 ## Usage
 
-### Prerequisites
-
 Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.1 requires Rust version **1.73** or later.
 
-Also make sure all of this libraries are installed:
-
-Ubuntu 22.04:
+Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 
 ```sh
 sudo apt install gcc llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
-```
-
-macOS:
-
-```sh
-xcode-select --install
-brew install buf llvm openssl pkg-config sqlite 
 ```
 
 ### Installing the node
@@ -77,7 +66,7 @@ This will generate 3 files in the current directory:
 
 ### Running the node
 
-To run the node you'll need to provide a configuration file. We have an example config file in [node/miden.toml](/node/miden.toml). Then, to run the node, run:
+To run the node you will need to provide a configuration file. We have an example config file in [node/miden.toml](/node/miden.toml). Then, to run the node, run:
 
 ```sh
 miden-node start --config <path-to-config-file>
@@ -92,7 +81,7 @@ Note that the `store.genesis_filepath` field in the config file must point to th
 
 ### Running the node as separate components
 
-If you intend on running the node in different processes, you need to install and run each component separately.
+If you intend on running the node as different processes, you will need to install and run each component separately.
 Please, refer to each component's documentation:
 
 * [RPC](rpc/README.md#usage)

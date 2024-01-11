@@ -1,28 +1,29 @@
-# RPC
+# Miden node RPC
 
-**RPC** is an externally-facing component through which clients can interact with the node. It receives client requests 
+The **RPC** is an externally-facing component through which clients can interact with the node. It receives client requests 
 (e.g., to synchronize with the latest state of the chain, or to submit transactions), performs basic validation, 
-and forwards the requests to the appropriate internal components.
+and forwards the requests to the appropriate components.
 **RPC** is one of components of the [Miden node](..).
 
 ## Architecture
 
-The Miden node is still under heavy development and current architecture is subject of change. This topic will be 
-filled later.
+`TODO`
 
 ## Usage
 
-### Installing RPC
+### Installing the RPC
 
-RPC can be installed and run as a part of [Miden node](../README.md#installing-the-node).
-But if you intend on running RPC as a separated process, you need to install and run it separately:
+The RPC can be installed and run as part of [Miden node](../README.md#installing-the-node).
+But if you intend on running the RPC as a separate process, you will need to install and run it as follows:
 
 ```sh
 # Installs `miden-node-rpc` executable
 cargo install --path rpc
 ```
 
-To run the RPC you'll need to provide a configuration file. We have an example config file in [rpc-example.toml](rpc-example.toml).
+### Running the RPC
+
+To run the RPC you will need to provide a configuration file. We have an example config file in [rpc-example.toml](rpc-example.toml).
 
 Then, to run an RPC:
 
@@ -32,8 +33,8 @@ miden-node-rpc serve --config <path-to-rpc-config-file>
 
 ## API
 
-**RPC** serves connections using [gRPC protocol](https://grpc.io) on a port, set in configuration file. Here is a brief 
-description of supported methods.
+The **RPC** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file. 
+Here is a brief description of supported methods.
 
 ### CheckNullifiers
 
@@ -61,24 +62,25 @@ Retrieves block header by given block number.
 
 ### SyncState
 
-State synchronization request.
+Returns info which can be used by the client to sync up to the latest state of the chain
+for the objects the client is interested in.
 
 **Parameters**
 
 * `block_num`: `uint32` – send updates to the client starting at this block.
 * `account_ids`: `[AccountId]` 
-* `note_tags`: `[uint32]` – note tags filter. Corresponds to the high 16 bits of the real values, shifted right (`value >> 48`). 
-* `nullifiers`: `[uint32]` – nullifiers filter. Corresponds to the high 16 bits of the real values, shifted right (`value >> 48`).
+* `note_tags`: `[uint32]` – note tags filter. Corresponds to the high 16 bits of the real values. 
+* `nullifiers`: `[uint32]` – nullifiers filter. Corresponds to the high 16 bits of the real values.
 
 **Returns**
 
 * `chain_tip`: `uint32` – number of the latest block in the chain.
 * `block_header`: `BlockHeader` – block header of the block with the first note matching the specified criteria.
-* `mmr_delta`: `MmrDelta` – data needed to update the partial MMR from `block_ref` to `block_header.block_num`.
+* `mmr_delta`: `MmrDelta` – data needed to update the partial MMR from `block_num` to `block_header.block_num`.
 * `block_path`: `MerklePath` – Merkle path in the updated chain MMR to the block at `block_header.block_num`.
-* `accounts`: `[AccountHashUpdate]` – a list of account hashes updated after `block_ref` but not after `block_header.block_num`.
+* `accounts`: `[AccountHashUpdate]` – a list of account hashes updated after `block_num` but not after `block_header.block_num`.
 * `notes`: `[NoteSyncRecord]` – a list of all notes together with the Merkle paths from `block_header.note_root`.
-* `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `block_ref` and `block_header.block_num`.
+* `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `block_num` and `block_header.block_num`.
 
 ### SubmitProvenTransaction
 
