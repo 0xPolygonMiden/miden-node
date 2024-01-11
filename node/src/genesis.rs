@@ -67,13 +67,8 @@ pub struct BasicFungibleFaucetInputs {
 pub struct AccountData {
     pub account: Account,
     pub seed: Word,
-    pub auth_scheme: AuthSchemeData,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AuthSchemeData {
-    pub scheme: String,
-    pub seed: String,
+    pub auth_scheme: String,
+    pub auth_seed: String,
 }
 
 // MAKE GENESIS
@@ -147,10 +142,8 @@ fn create_account_file(
     let account_data = AccountData {
         account: account.clone(),
         seed,
-        auth_scheme: AuthSchemeData {
-            scheme: auth_scheme,
-            seed: auth_seed,
-        },
+        auth_scheme,
+        auth_seed,
     };
 
     let json_data = serde_json::to_string(&account_data)?;
