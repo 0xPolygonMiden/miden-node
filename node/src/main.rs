@@ -4,8 +4,8 @@ use clap::{Parser, Subcommand};
 
 mod commands;
 mod config;
+mod genesis;
 
-const INPUT_GENESIS_FILE_PATH: &str = "genesis.toml";
 const DEFAULT_GENESIS_FILE_PATH: &str = "genesis.dat";
 
 #[derive(Parser)]
@@ -25,6 +25,9 @@ pub enum Command {
 
     /// Generate genesis file
     MakeGenesis {
+        #[arg(short, long, value_name = "FILE", default_value = config::CONFIG_FILENAME)]
+        config: PathBuf,
+
         #[arg(short, long, default_value = DEFAULT_GENESIS_FILE_PATH)]
         output_path: PathBuf,
 
@@ -42,8 +45,10 @@ async fn main() -> anyhow::Result<()> {
 
     match &cli.command {
         Command::Start { config } => commands::start(config).await,
-        Command::MakeGenesis { output_path, force } => {
-            commands::make_genesis(output_path, force).await
-        },
+        Command::MakeGenesis {
+            output_path,
+            force,
+            config,
+        } => genesis::make_genesis(output_path, force, config).await,
     }
 }

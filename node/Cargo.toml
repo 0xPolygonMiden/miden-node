@@ -16,6 +16,7 @@ testing = ["miden-lib/testing"]
 [dependencies]
 anyhow = { version = "1.0" }
 clap = { version = "4.3", features = ["derive"] }
+hex = { version = "0.4" }
 miden-crypto = { workspace = true, features = ["std"] }
 miden-lib = { workspace = true, features = ["concurrent"] }
 miden-node-block-producer = { version = "0.1", path = "../block-producer" }
@@ -27,7 +28,6 @@ serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-hex = { version = "0.4" }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }

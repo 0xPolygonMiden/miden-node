@@ -1,0 +1,19 @@
+version = 1
+timestamp = 1672531200
+
+[[accounts]]
+type = "BasicWallet"
+mode = "RegularAccountImmutableCode"
+seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+auth_scheme = "RpoFalcon512"
+auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+[[accounts]]
+type = "BasicFungibleFaucet"
+mode = "FungibleFaucet"
+seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+auth_scheme = "RpoFalcon512"
+auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+token_symbol = "POL"
+decimals = 12
+max_supply = 1000000

@@ -1,55 +1,15 @@
 use miden_crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt};
 use miden_objects::{
-    accounts::{Account, AccountType},
+    accounts::Account,
     notes::NOTE_LEAF_DEPTH,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     BlockHeader, Digest,
 };
-use serde::Deserialize;
 
 use crate::state::ACCOUNT_DB_DEPTH;
 
 pub const GENESIS_BLOCK_NUM: u32 = 0;
-
-#[derive(Debug, Deserialize)]
-pub struct GenesisInput {
-    pub version: u64,
-    pub timestamp: u64,
-    pub accounts: Vec<AccountInput>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
-pub enum AccountInput {
-    BasicWallet(BasicWalletInputs),
-    BasicFungibleFaucet(BasicFungibleFaucetInputs),
-}
-
-#[derive(Debug, Deserialize)]
-pub enum AuthSchemeInput {
-    RpoFalcon512,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct BasicWalletInputs {
-    pub mode: AccountType,
-    pub account_seed: String,
-    pub auth_seed: String,
-    pub auth_scheme: AuthSchemeInput,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct BasicFungibleFaucetInputs {
-    pub mode: AccountType,
-    pub account_seed: String,
-    pub auth_seed: String,
-    pub auth_scheme: AuthSchemeInput,
-    pub token_symbol: String,
-    pub decimals: u8,
-    pub max_supply: u64,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct GenesisState {
     pub accounts: Vec<Account>,
     pub version: u64,
