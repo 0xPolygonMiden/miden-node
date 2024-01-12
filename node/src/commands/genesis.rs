@@ -66,7 +66,7 @@ pub struct BasicFungibleFaucetInputs {
 #[derive(Debug)]
 pub struct AccountData {
     pub account: Account,
-    pub seed: Word,
+    pub seed: Option<Word>,
     pub auth: AuthInfo,
 }
 
