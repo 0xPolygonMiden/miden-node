@@ -10,7 +10,7 @@ use miden_lib::{
     AuthScheme,
 };
 use miden_node_store::genesis::GenesisState;
-use miden_node_utils::config::{hex_string_to_byte_array, load_config};
+use miden_node_utils::config::load_config;
 use miden_objects::{
     accounts::{Account, AccountType},
     assets::TokenSymbol,
@@ -172,8 +172,8 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
         match account {
             AccountInput::BasicWallet(inputs) => {
                 print!("Generating basic wallet account... ");
-                let seed: [u8; 32] = hex_string_to_byte_array(&inputs.seed)?;
-                let auth_seed: [u8; 40] = hex_string_to_byte_array(&inputs.auth_seed)?;
+                let seed: [u8; 32] = miden_crypto::utils::hex_to_bytes(&inputs.seed)?;
+                let auth_seed: [u8; 40] = miden_crypto::utils::hex_to_bytes(&inputs.auth_seed)?;
 
                 let keypair = KeyPair::from_seed(&auth_seed)?;
                 let auth_scheme = match inputs.auth_scheme {
@@ -202,8 +202,8 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
             },
             AccountInput::BasicFungibleFaucet(inputs) => {
                 print!("Generating fungible faucet account... ");
-                let auth_seed: [u8; 40] = hex_string_to_byte_array(&inputs.auth_seed)?;
-                let seed: [u8; 32] = hex_string_to_byte_array(&inputs.seed)?;
+                let auth_seed: [u8; 40] = miden_crypto::utils::hex_to_bytes(&inputs.auth_seed)?;
+                let seed: [u8; 32] = miden_crypto::utils::hex_to_bytes(&inputs.seed)?;
 
                 let keypair = KeyPair::from_seed(&auth_seed)?;
                 let auth_scheme = match inputs.auth_scheme {
