@@ -1,12 +1,13 @@
 use std::{
-    fs,
+    fs::{self, File},
+    io::{self, Read},
     path::{Path, PathBuf},
 };
 
 use anyhow::{anyhow, Result};
 use miden_crypto::{
     dsa::rpo_falcon512::KeyPair,
-    utils::{Deserializable, DeserializationError, Serializable},
+    utils::{Deserializable, DeserializationError, Serializable, SliceReader},
     Felt, Word,
 };
 use miden_lib::{
@@ -137,7 +138,17 @@ impl AccountData {
         fs::write(file_path.as_path(), self.to_bytes()).map_err(|err| {
             anyhow!("Failed to write account file to {}, Error: {err}", file_path.display())
         })?;
+
         Ok(())
+    }
+
+    pub fn read(file_path: PathBuf) -> Result<Self, io::Error> {
+        let mut file = File::open(file_path.as_path())?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+
+        let mut reader = SliceReader::new(&buffer);
+        Ok(AccountData::read_from(&mut reader).map_err(|_| io::ErrorKind::InvalidData)?)
     }
 }
 
@@ -196,7 +207,9 @@ impl Deserializable for AccountData {
 
         let auth_seed = <[u8; 40]>::read_from(source)?;
 
-        let auth = AuthInfo::RpoFalcon512Seed(auth_seed);
+        let auth = match auth_scheme {
+            AuthSchemeInput::RpoFalcon512 => AuthInfo::RpoFalcon512Seed(auth_seed),
+        };
 
         Ok(Self::new(account, seed, auth))
     }
@@ -268,7 +281,7 @@ fn create_account_file(
     index: usize,
 ) -> Result<()> {
     let account_data = AccountData::new(account.clone(), seed, auth_info);
-    account_data.write(index);
+    account_data.write(index)?;
     Ok(())
 }
 
@@ -350,7 +363,7 @@ mod tests {
     use figment::Jail;
 
     use super::make_genesis;
-    use crate::DEFAULT_GENESIS_DAT_FILE_PATH;
+    use crate::{commands::genesis::AccountData, DEFAULT_GENESIS_DAT_FILE_PATH};
 
     #[test]
     fn test_node_genesis() {
@@ -396,6 +409,9 @@ mod tests {
             // assert that all the account files exist
             assert!(account_0_file_path.exists());
             assert!(account_1_file_path.exists());
+
+            let account_data_0 = AccountData::read(account_0_file_path).unwrap();
+            let account_data_1 = AccountData::read(account_1_file_path).unwrap();
 
             Ok(())
         });
