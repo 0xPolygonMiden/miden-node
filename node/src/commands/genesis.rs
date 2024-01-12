@@ -64,15 +64,54 @@ pub struct BasicFungibleFaucetInputs {
 }
 
 #[derive(Debug)]
+pub enum AuthInfo {
+    RpoFalcon512Seed([u8; 40]),
+}
+
+impl AuthInfo {
+    pub fn try_from_seed(
+        auth_scheme: AuthSchemeInput,
+        seed: String,
+    ) -> Result<Self> {
+        let seed: [u8; 40] = miden_crypto::utils::hex_to_bytes(seed.as_str())?;
+        let auth_info = match auth_scheme {
+            AuthSchemeInput::RpoFalcon512 => Self::RpoFalcon512Seed(seed),
+        };
+        Ok(auth_info)
+    }
+}
+
+#[derive(Debug)]
 pub struct AccountData {
     pub account: Account,
     pub seed: Option<Word>,
     pub auth: AuthInfo,
 }
 
-#[derive(Debug)]
-pub enum AuthInfo {
-    RpoFalcon512Seed([u8; 40]),
+impl AccountData {
+    pub fn new(
+        account: Account,
+        seed: Option<Word>,
+        auth: AuthInfo,
+    ) -> Self {
+        Self {
+            account: account.clone(),
+            seed,
+            auth,
+        }
+    }
+
+    pub fn write(
+        &self,
+        index: usize,
+    ) -> Result<()> {
+        let file_path = PathBuf::from(format!("accounts/account{index}.mac"));
+
+        fs::write(file_path.as_path(), json_data).map_err(|err| {
+            anyhow!("Failed to write account file to {}, Error: {err}", file_path.display())
+        })?;
+        Ok(())
+    }
 }
 
 // MAKE GENESIS
@@ -136,26 +175,12 @@ pub fn make_genesis(
 
 fn create_account_file(
     account: &Account,
-    seed: Word,
-    auth_scheme: String,
-    auth_seed: String,
+    seed: Option<Word>,
+    auth_info: AuthInfo,
     index: usize,
 ) -> Result<()> {
-    let file_path = PathBuf::from(format!("accounts/account{index}.mac"));
-
-    let account_data = AccountData {
-        account: account.clone(),
-        seed,
-        auth_scheme,
-        auth_seed,
-    };
-
-    let json_data = serde_json::to_string(&account_data)?;
-
-    fs::write(file_path.as_path(), json_data).map_err(|err| {
-        anyhow!("Failed to write account file to {}, Error: {err}", file_path.display())
-    })?;
-
+    let account_data = AccountData::new(account.clone(), seed, auth_info);
+    account_data.write(index);
     Ok(())
 }
 
@@ -185,18 +210,12 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                 let (account, seed) = create_basic_wallet(seed, auth_scheme, inputs.mode)?;
                 print!("done!");
 
-                let auth_scheme_name = match inputs.auth_scheme {
-                    AuthSchemeInput::RpoFalcon512 => "RpoFalcon512".to_string(),
+                let auth_info = match inputs.auth_scheme {
+                    AuthSchemeInput::RpoFalcon512 => AuthInfo::RpoFalcon512Seed(auth_seed),
                 };
 
                 // create account file
-                create_account_file(
-                    &account,
-                    seed,
-                    auth_scheme_name,
-                    inputs.auth_seed.clone(),
-                    final_accounts.len(),
-                )?;
+                create_account_file(&account, Some(seed), auth_info, final_accounts.len())?;
 
                 final_accounts.push(account);
             },
@@ -221,18 +240,12 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                 )?;
                 print!("done!");
 
-                let auth_scheme_name = match inputs.auth_scheme {
-                    AuthSchemeInput::RpoFalcon512 => "RpoFalcon512".to_string(),
+                let auth_info = match inputs.auth_scheme {
+                    AuthSchemeInput::RpoFalcon512 => AuthInfo::RpoFalcon512Seed(auth_seed),
                 };
 
                 // create account file
-                create_account_file(
-                    &account,
-                    seed,
-                    auth_scheme_name,
-                    inputs.auth_seed.clone(),
-                    final_accounts.len(),
-                )?;
+                create_account_file(&account, Some(seed), auth_info, final_accounts.len())?;
 
                 final_accounts.push(account);
             },
