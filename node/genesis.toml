@@ -1,3 +1,5 @@
+# This is an example configuration file for the Miden node.
+
 version = 1
 timestamp = 1672531200
 

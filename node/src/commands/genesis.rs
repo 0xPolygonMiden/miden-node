@@ -15,11 +15,11 @@ use miden_objects::{
     accounts::{Account, AccountType},
     assets::TokenSymbol,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 const DEFAULT_ACCOUNTS_FOLDER: &str = "accounts";
 
-// *Input helper structs
+// INPUT HELPER STRUCTS
 // ================================================================================================
 
 /// *Input types are helper structures designed for parsing and deserializing configuration files.
@@ -63,12 +63,16 @@ pub struct BasicFungibleFaucetInputs {
     pub max_supply: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct AccountData {
     pub account: Account,
     pub seed: Word,
-    pub auth_scheme: String,
-    pub auth_seed: String,
+    pub auth: AuthInfo,
+}
+
+#[derive(Debug)]
+pub enum AuthInfo {
+    RpoFalcon512Seed([u8; 40]),
 }
 
 // MAKE GENESIS
@@ -167,7 +171,7 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
     for account in accounts {
         match account {
             AccountInput::BasicWallet(inputs) => {
-                println!("Generating basic wallet account... ");
+                print!("Generating basic wallet account... ");
                 let seed: [u8; 32] = hex_string_to_byte_array(&inputs.seed)?;
                 let auth_seed: [u8; 40] = hex_string_to_byte_array(&inputs.auth_seed)?;
 
@@ -179,7 +183,7 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                 };
 
                 let (account, seed) = create_basic_wallet(seed, auth_scheme, inputs.mode)?;
-                println!("Done. ");
+                print!("done!");
 
                 let auth_scheme_name = match inputs.auth_scheme {
                     AuthSchemeInput::RpoFalcon512 => "RpoFalcon512".to_string(),
@@ -197,7 +201,7 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                 final_accounts.push(account);
             },
             AccountInput::BasicFungibleFaucet(inputs) => {
-                println!("Generating fungible faucet account... ");
+                print!("Generating fungible faucet account... ");
                 let auth_seed: [u8; 40] = hex_string_to_byte_array(&inputs.auth_seed)?;
                 let seed: [u8; 32] = hex_string_to_byte_array(&inputs.seed)?;
 
@@ -215,7 +219,7 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                     Felt::from(inputs.max_supply),
                     auth_scheme,
                 )?;
-                println!("Done.");
+                print!("done!");
 
                 let auth_scheme_name = match inputs.auth_scheme {
                     AuthSchemeInput::RpoFalcon512 => "RpoFalcon512".to_string(),
