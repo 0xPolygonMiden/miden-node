@@ -15,7 +15,7 @@ pub const CONFIG_FILENAME: &str = "miden.toml";
 
 /// Node top-level configuration.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
-pub struct NodeTopLevelConfig {
+pub struct StartCommandConfig {
     pub block_producer: BlockProducerConfig,
     pub rpc: RpcConfig,
     pub store: StoreConfig,
@@ -25,7 +25,7 @@ pub struct NodeTopLevelConfig {
 // ===================================================================================================
 
 pub async fn start(config_filepath: &Path) -> Result<()> {
-    let config: NodeTopLevelConfig = load_config(config_filepath).extract().map_err(|err| {
+    let config: StartCommandConfig = load_config(config_filepath).extract().map_err(|err| {
         anyhow!("failed to load config file `{}`: {err}", config_filepath.display())
     })?;
 
@@ -60,7 +60,7 @@ mod tests {
     use miden_node_store::config::StoreConfig;
     use miden_node_utils::config::{load_config, Endpoint};
 
-    use super::{NodeTopLevelConfig, CONFIG_FILENAME};
+    use super::{StartCommandConfig, CONFIG_FILENAME};
 
     #[test]
     fn test_node_config() {
@@ -90,12 +90,12 @@ mod tests {
                 "#,
             )?;
 
-            let config: NodeTopLevelConfig =
+            let config: StartCommandConfig =
                 load_config(PathBuf::from(CONFIG_FILENAME).as_path()).extract()?;
 
             assert_eq!(
                 config,
-                NodeTopLevelConfig {
+                StartCommandConfig {
                     block_producer: BlockProducerConfig {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
