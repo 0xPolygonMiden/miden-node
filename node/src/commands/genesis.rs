@@ -4,7 +4,11 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use miden_crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt, Word};
+use miden_crypto::{
+    dsa::rpo_falcon512::KeyPair,
+    utils::{Deserializable, DeserializationError, Serializable},
+    Felt, Word,
+};
 use miden_lib::{
     accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
     AuthScheme,
@@ -42,6 +46,29 @@ pub enum AccountInput {
 #[derive(Debug, Deserialize)]
 pub enum AuthSchemeInput {
     RpoFalcon512,
+}
+
+impl Serializable for AuthSchemeInput {
+    fn write_into<W: miden_crypto::utils::ByteWriter>(
+        &self,
+        target: &mut W,
+    ) {
+        match self {
+            AuthSchemeInput::RpoFalcon512 => target.write_u8(0),
+        }
+    }
+}
+
+impl Deserializable for AuthSchemeInput {
+    fn read_from<R: miden_crypto::utils::ByteReader>(
+        source: &mut R
+    ) -> std::prelude::v1::Result<Self, miden_crypto::utils::DeserializationError> {
+        let auth_scheme = source.read_u8()?;
+        match auth_scheme {
+            0 => Ok(AuthSchemeInput::RpoFalcon512),
+            _ => return Err(DeserializationError::InvalidValue("Invalid auth_scheme".to_string())),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -107,10 +134,71 @@ impl AccountData {
     ) -> Result<()> {
         let file_path = PathBuf::from(format!("accounts/account{index}.mac"));
 
-        fs::write(file_path.as_path(), json_data).map_err(|err| {
+        fs::write(file_path.as_path(), self.to_bytes()).map_err(|err| {
             anyhow!("Failed to write account file to {}, Error: {err}", file_path.display())
         })?;
         Ok(())
+    }
+}
+
+impl Serializable for AccountData {
+    fn write_into<W: miden_crypto::utils::ByteWriter>(
+        &self,
+        target: &mut W,
+    ) {
+        let AccountData {
+            account,
+            seed,
+            auth,
+        } = self;
+
+        let auth_scheme = match auth {
+            AuthInfo::RpoFalcon512Seed(_) => AuthSchemeInput::RpoFalcon512,
+        };
+
+        let auth_seed = match auth {
+            AuthInfo::RpoFalcon512Seed(seed) => seed,
+        };
+
+        account.write_into(target);
+        match seed {
+            None => target.write_u8(0),
+            Some(seed) => {
+                target.write_u8(1);
+                seed.write_into(target)
+            },
+        };
+        auth_scheme.write_into(target);
+        auth_seed.write_into(target);
+    }
+}
+
+impl Deserializable for AccountData {
+    fn read_from<R: miden_crypto::utils::ByteReader>(
+        source: &mut R
+    ) -> std::prelude::v1::Result<Self, miden_crypto::utils::DeserializationError> {
+        let account = Account::read_from(source)?;
+
+        let seed = {
+            let option_flag = source.read_u8()?;
+            match option_flag {
+                0 => None,
+                1 => Some(Word::read_from(source)?),
+                _ => {
+                    return Err(miden_crypto::utils::DeserializationError::InvalidValue(
+                        "Invalid option flag".to_string(),
+                    ))
+                },
+            }
+        };
+
+        let auth_scheme = AuthSchemeInput::read_from(source)?;
+
+        let auth_seed = <[u8; 40]>::read_from(source)?;
+
+        let auth = AuthInfo::RpoFalcon512Seed(auth_seed);
+
+        Ok(Self::new(account, seed, auth))
     }
 }
 
