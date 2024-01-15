@@ -60,7 +60,7 @@ impl TransactionBatch {
             if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
                 return Err(BuildBatchError::TooManyNotesCreated(created_notes.len()));
             }
-
+            
             // TODO: document under what circumstances SMT creating can fail
             (
                 created_notes.clone(),
