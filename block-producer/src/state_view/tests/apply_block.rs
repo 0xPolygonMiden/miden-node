@@ -46,7 +46,7 @@ async fn test_apply_block_ab1() {
         )
         .build();
 
-    let apply_block_res = state_view.apply_block(Arc::new(block)).await;
+    let apply_block_res = state_view.apply_block(block).await;
     assert!(apply_block_res.is_ok());
 
     assert_eq!(*store.num_apply_block_called.read().await, 1);
@@ -91,7 +91,7 @@ async fn test_apply_block_ab2() {
         )
         .build();
 
-    let apply_block_res = state_view.apply_block(Arc::new(block)).await;
+    let apply_block_res = state_view.apply_block(block).await;
     assert!(apply_block_res.is_ok());
 
     let accounts_still_in_flight = state_view.accounts_in_flight.read().await;
@@ -138,7 +138,7 @@ async fn test_apply_block_ab3() {
         )
         .build();
 
-    let apply_block_res = state_view.apply_block(Arc::new(block)).await;
+    let apply_block_res = state_view.apply_block(block).await;
     assert!(apply_block_res.is_ok());
 
     // Craft a new transaction which tries to consume the same note that was consumed in in the
