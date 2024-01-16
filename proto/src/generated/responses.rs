@@ -48,19 +48,19 @@ pub struct SyncStateResponse {
     /// block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
-    /// data needed to update the partial MMR from `block_ref` to `block_header.block_num`
+    /// data needed to update the partial MMR from `block_num` to `block_header.block_num`
     #[prost(message, optional, tag = "3")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
     /// Merkle path in the updated chain MMR to the block at `block_header.block_num`
     #[prost(message, optional, tag = "4")]
     pub block_path: ::core::option::Option<super::merkle::MerklePath>,
-    /// a list of account hashes updated after `block_ref` but not after `block_header.block_num`
+    /// a list of account hashes updated after `block_num` but not after `block_header.block_num`
     #[prost(message, repeated, tag = "5")]
     pub accounts: ::prost::alloc::vec::Vec<AccountHashUpdate>,
     /// a list of all notes together with the Merkle paths from `block_header.note_root`
     #[prost(message, repeated, tag = "6")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
-    /// a list of nullifiers created between `block_ref` and `block_header.block_num`
+    /// a list of nullifiers created between `block_num` and `block_header.block_num`
     #[prost(message, repeated, tag = "7")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
