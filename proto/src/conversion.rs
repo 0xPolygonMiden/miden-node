@@ -9,7 +9,7 @@ use miden_objects::{
 };
 
 use crate::{
-    account_id, block_header,
+    account, block_header,
     digest::{self, Digest},
     domain::{AccountInputRecord, BlockInputs, NullifierInputRecord},
     error, merkle, mmr, note, requests, responses, tsmt,
@@ -258,19 +258,19 @@ impl From<note::Note> for note::NoteSyncRecord {
     }
 }
 
-impl From<account_id::AccountId> for u64 {
-    fn from(value: account_id::AccountId) -> Self {
+impl From<account::AccountId> for u64 {
+    fn from(value: account::AccountId) -> Self {
         value.id
     }
 }
 
-impl From<u64> for account_id::AccountId {
+impl From<u64> for account::AccountId {
     fn from(value: u64) -> Self {
-        account_id::AccountId { id: value }
+        account::AccountId { id: value }
     }
 }
 
-impl From<AccountId> for account_id::AccountId {
+impl From<AccountId> for account::AccountId {
     fn from(account_id: AccountId) -> Self {
         Self {
             id: account_id.into(),
@@ -278,10 +278,10 @@ impl From<AccountId> for account_id::AccountId {
     }
 }
 
-impl TryFrom<account_id::AccountId> for AccountId {
+impl TryFrom<account::AccountId> for AccountId {
     type Error = error::ParseError;
 
-    fn try_from(account_id: account_id::AccountId) -> Result<Self, Self::Error> {
+    fn try_from(account_id: account::AccountId) -> Result<Self, Self::Error> {
         account_id.id.try_into().map_err(|_| error::ParseError::NotAValidFelt)
     }
 }
@@ -338,17 +338,21 @@ impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
             .try_into()?;
 
         let chain_peaks = {
-            let num_leaves: u64 = u64::from(block_header.block_num()) + 1;
+            // setting the number of leaves to the current block number gives us one leaf less than
+            // what is currently in the chain MMR (i.e., chain MMR with block_num = 1 has 2 leave);
+            // this is because GetBlockInputs returns the state of the chain MMR as of one block
+            // ago so that block_header.chain_root matches the hash of MMR peaks.
+            let num_leaves = block_header.block_num() as usize;
 
             MmrPeaks::new(
-                num_leaves.try_into().map_err(|_| error::ParseError::TooManyMmrPeaks)?,
+                num_leaves,
                 get_block_inputs
                     .mmr_peaks
                     .into_iter()
                     .map(|peak| peak.try_into())
                     .collect::<Result<_, Self::Error>>()?,
             )
-            .map_err(error::ParseError::MmrPeaksError)?
+            .map_err(Self::Error::MmrPeaksError)?
         };
 
         Ok(Self {

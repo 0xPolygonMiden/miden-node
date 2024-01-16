@@ -8,13 +8,16 @@ use miden_node_proto::{
     error::ParseError,
     requests::{
         ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
-        GetBlockInputsRequest, GetTransactionInputsRequest, SyncStateRequest,
+        GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
+        ListNullifiersRequest, SyncStateRequest,
     },
     responses::{
         ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
-        GetBlockInputsResponse, GetTransactionInputsResponse, SyncStateResponse,
+        GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
+        ListNotesResponse, ListNullifiersResponse, SyncStateResponse,
     },
     store::api_server,
+    tsmt::NullifierLeaf,
 };
 use tonic::{Response, Status};
 
@@ -173,6 +176,43 @@ impl api_server::Api for StoreApi {
             account_state: Some(account.into()),
             nullifiers: convert(nullifiers_blocks),
         }))
+    }
+
+    // TESTING ENDPOINTS
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns a list of all nullifiers
+    async fn list_nullifiers(
+        &self,
+        _request: tonic::Request<ListNullifiersRequest>,
+    ) -> Result<Response<ListNullifiersResponse>, Status> {
+        let raw_nullifiers = self.state.list_nullifiers().await.map_err(internal_error)?;
+        let nullifiers = raw_nullifiers
+            .into_iter()
+            .map(|(key, block_num)| NullifierLeaf {
+                key: Some(Digest::from(key)),
+                block_num,
+            })
+            .collect();
+        Ok(Response::new(ListNullifiersResponse { nullifiers }))
+    }
+
+    /// Returns a list of all notes
+    async fn list_notes(
+        &self,
+        _request: tonic::Request<ListNotesRequest>,
+    ) -> Result<Response<ListNotesResponse>, Status> {
+        let notes = self.state.list_notes().await.map_err(internal_error)?;
+        Ok(Response::new(ListNotesResponse { notes }))
+    }
+
+    /// Returns a list of all accounts
+    async fn list_accounts(
+        &self,
+        _request: tonic::Request<ListAccountsRequest>,
+    ) -> Result<Response<ListAccountsResponse>, Status> {
+        let accounts = self.state.list_accounts().await.map_err(internal_error)?;
+        Ok(Response::new(ListAccountsResponse { accounts }))
     }
 }
 

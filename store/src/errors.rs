@@ -8,20 +8,14 @@ pub enum StateError {
     DigestError(ParseError),
     DuplicatedNullifiers(Vec<RpoDigest>),
     InvalidAccountId,
-    InvalidAccountRoot,
-    InvalidChainRoot,
-    InvalidNoteRoot,
-    InvalidNullifierRoot,
     MissingAccountHash,
     MissingAccountId,
-    MissingAccountRoot,
-    MissingBatchRoot,
-    MissingChainRoot,
     MissingNoteHash,
-    MissingNoteRoot,
-    MissingNullifierRoot,
-    MissingPrevHash,
-    MissingProofHash,
+    NewBlockInvalidAccountRoot,
+    NewBlockInvalidBlockNum,
+    NewBlockInvalidChainRoot,
+    NewBlockInvalidNoteRoot,
+    NewBlockInvalidNullifierRoot,
     NewBlockInvalidPrevHash,
     NoteMissingHash,
     NoteMissingMerklePath,
@@ -42,20 +36,22 @@ impl std::fmt::Display for StateError {
                 write!(f, "Duplicated nullifiers {:?}", nullifiers)
             },
             StateError::InvalidAccountId => write!(f, "Received invalid account id"),
-            StateError::InvalidAccountRoot => write!(f, "Received invalid account tree root"),
-            StateError::InvalidChainRoot => write!(f, "Received invalid chain mmr hash"),
-            StateError::InvalidNoteRoot => write!(f, "Received invalid note root"),
-            StateError::InvalidNullifierRoot => write!(f, "Received invalid nullifier tree root"),
             StateError::MissingAccountHash => write!(f, "Missing account_hash"),
             StateError::MissingAccountId => write!(f, "Missing account_id"),
-            StateError::MissingAccountRoot => write!(f, "Missing account root"),
-            StateError::MissingBatchRoot => write!(f, "Missing batch root"),
-            StateError::MissingChainRoot => write!(f, "Missing chain root"),
             StateError::MissingNoteHash => write!(f, "Missing note hash"),
-            StateError::MissingNoteRoot => write!(f, "Missing note root"),
-            StateError::MissingNullifierRoot => write!(f, "Missing nullifier root"),
-            StateError::MissingPrevHash => write!(f, "Missing prev hash"),
-            StateError::MissingProofHash => write!(f, "Missing proof hash"),
+            StateError::NewBlockInvalidAccountRoot => {
+                write!(f, "Received invalid account tree root")
+            },
+            StateError::NewBlockInvalidBlockNum => {
+                write!(f, "New block number must be 1 greater than the current block number")
+            },
+            StateError::NewBlockInvalidChainRoot => {
+                write!(f, "New block chain root is not consistent with chain MMR")
+            },
+            StateError::NewBlockInvalidNoteRoot => write!(f, "Received invalid note root"),
+            StateError::NewBlockInvalidNullifierRoot => {
+                write!(f, "Received invalid nullifier tree root")
+            },
             StateError::NewBlockInvalidPrevHash => {
                 write!(f, "New block prev_hash must match the chain's tip")
             },

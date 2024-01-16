@@ -1,5 +1,3 @@
-/// TODO: remove this message as it can be replaced by an internal domain type in the Store
-/// component
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

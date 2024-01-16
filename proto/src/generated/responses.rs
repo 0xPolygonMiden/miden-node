@@ -23,7 +23,7 @@ pub struct GetBlockHeaderByNumberResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountHashUpdate {
     #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    pub account_id: ::core::option::Option<super::account::AccountId>,
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
     #[prost(uint32, tag = "3")]
@@ -48,19 +48,19 @@ pub struct SyncStateResponse {
     /// block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
-    /// data needed to update the partial MMR from `block_ref` to `block_header.block_num`
+    /// data needed to update the partial MMR from `block_num` to `block_header.block_num`
     #[prost(message, optional, tag = "3")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
     /// Merkle path in the updated chain MMR to the block at `block_header.block_num`
     #[prost(message, optional, tag = "4")]
     pub block_path: ::core::option::Option<super::merkle::MerklePath>,
-    /// a list of account hashes updated after `block_ref` but not after `block_header.block_num`
+    /// a list of account hashes updated after `block_num` but not after `block_header.block_num`
     #[prost(message, repeated, tag = "5")]
     pub accounts: ::prost::alloc::vec::Vec<AccountHashUpdate>,
     /// a list of all notes together with the Merkle paths from `block_header.note_root`
     #[prost(message, repeated, tag = "6")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
-    /// a list of nullifiers created between `block_ref` and `block_header.block_num`
+    /// a list of nullifiers created between `block_num` and `block_header.block_num`
     #[prost(message, repeated, tag = "7")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
@@ -70,7 +70,7 @@ pub struct SyncStateResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountBlockInputRecord {
     #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    pub account_id: ::core::option::Option<super::account::AccountId>,
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
     #[prost(message, optional, tag = "3")]
@@ -109,7 +109,7 @@ pub struct GetBlockInputsResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountTransactionInputRecord {
     #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account_id::AccountId>,
+    pub account_id: ::core::option::Option<super::account::AccountId>,
     /// The latest account hash, zero hash if the account doesn't exist.
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
@@ -138,3 +138,27 @@ pub struct GetTransactionInputsResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubmitProvenTransactionResponse {}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListNullifiersResponse {
+    /// Lists all nullifiers of the current chain
+    #[prost(message, repeated, tag = "1")]
+    pub nullifiers: ::prost::alloc::vec::Vec<super::tsmt::NullifierLeaf>,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAccountsResponse {
+    /// Lists all accounts of the current chain
+    #[prost(message, repeated, tag = "1")]
+    pub accounts: ::prost::alloc::vec::Vec<super::account::AccountInfo>,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListNotesResponse {
+    /// Lists all notes of the current chain
+    #[prost(message, repeated, tag = "1")]
+    pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
+}

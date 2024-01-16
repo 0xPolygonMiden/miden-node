@@ -1,9 +1,10 @@
 use std::fs::{self, create_dir_all};
 
 use anyhow::anyhow;
-use deadpool_sqlite::{Config as SqliteConfig, Pool, Runtime};
+use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use miden_node_proto::{
+    account::AccountInfo,
     block_header,
     digest::Digest,
     note::Note,
@@ -49,20 +50,40 @@ impl Db {
             create_dir_all(p)?;
         }
 
-        let pool =
-            SqliteConfig::new(config.database_filepath.clone()).create_pool(Runtime::Tokio1)?;
+        let pool = SqliteConfig::new(config.database_filepath.clone())
+            .builder(Runtime::Tokio1)?
+            .post_create(Hook::async_fn(move |conn, _| {
+                Box::pin(async move {
+                    let _ = conn
+                        .interact(|conn| {
+                            // Feature used to support `IN` and `NOT IN` queries. We need to load
+                            // this module for every connection we create to the DB to support the
+                            // queries we want to run
+                            array::load_module(conn)?;
 
-        let conn = pool.get().await?;
+                            // Enable the WAL mode. This allows concurrent reads while the
+                            // transaction is being written, this is required for proper
+                            // synchronization of the servers in-memory and on-disk representations
+                            // (see [State::apply_block])
+                            conn.execute("PRAGMA journal_mode = WAL;", ())?;
+
+                            // Enable foreign key checks.
+                            conn.execute("PRAGMA foreign_keys = ON;", ())
+                        })
+                        .await
+                        .map_err(|_| HookError::StaticMessage("Loading carray module failed"))?;
+
+                    Ok(())
+                })
+            }))
+            .build()?;
 
         info!(
             sqlite = format!("{}", config.database_filepath.display()),
             COMPONENT, "Connected to the DB"
         );
 
-        // Feature used to support `IN` and `NOT IN` queries
-        conn.interact(|conn| array::load_module(conn))
-            .await
-            .map_err(|_| anyhow!("Loading carray module failed"))??;
+        let conn = pool.get().await?;
 
         conn.interact(|conn| migrations::MIGRATIONS.to_latest(conn))
             .await
@@ -83,6 +104,26 @@ impl Db {
             .interact(sql::select_nullifiers)
             .await
             .map_err(|_| anyhow!("Get nullifiers task failed with a panic"))?
+    }
+
+    /// Loads all the notes from the DB.
+    pub async fn select_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
+        self.pool
+            .get()
+            .await?
+            .interact(sql::select_notes)
+            .await
+            .map_err(|_| anyhow!("Get notes task failed with a panic"))?
+    }
+
+    /// Loads all the accounts from the DB.
+    pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
+        self.pool
+            .get()
+            .await?
+            .interact(sql::select_accounts)
+            .await
+            .map_err(|_| anyhow!("Get accounts task failed with a panic"))?
     }
 
     /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.

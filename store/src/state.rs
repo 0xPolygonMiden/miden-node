@@ -13,6 +13,7 @@ use miden_crypto::{
     Felt, FieldElement, Word, EMPTY_WORD,
 };
 use miden_node_proto::{
+    account::AccountInfo,
     block_header,
     conversion::nullifier_value_to_blocknum,
     digest::Digest,
@@ -159,20 +160,20 @@ impl State {
     /// ## Note on state consistency
     ///
     /// The server contains in-memory representations of the existing trees, the in-memory
-    /// representation must be kept consistent with the commited data, this is necessary so to
+    /// representation must be kept consistent with the committed data, this is necessary so to
     /// provide consistent results for all endpoints. In order to achieve consistency, the
     /// following steps are used:
     ///
-    /// - the request data is validated, prior to starting any modifications
-    /// - a transaction is open in the DB and the writes are started
-    ///  - while the transaction is not commited, concurrent reads are allowed, both the DB and
-    ///  the in-memory representations, which are consistent at this stage.
-    /// - prior to commiting the changes to the DB, an exclusive lock to the in-memory data is
-    /// acquired, preventing concurrent reads to the in-memory data, since that will be
-    /// out-of-sync w.r.t. the DB.
-    /// - the DB transaction is commited, and requests that read only from the DB can proceed to
-    /// use the fresh data
-    /// - the in-memory structures are updated, and the lock is released
+    /// - the request data is validated, prior to starting any modifications.
+    /// - a transaction is open in the DB and the writes are started.
+    /// - while the transaction is not committed, concurrent reads are allowed, both the DB and
+    ///   the in-memory representations, which are consistent at this stage.
+    /// - prior to committing the changes to the DB, an exclusive lock to the in-memory data is
+    ///   acquired, preventing concurrent reads to the in-memory data, since that will be
+    ///   out-of-sync w.r.t. the DB.
+    /// - the DB transaction is committed, and requests that read only from the DB can proceed to
+    ///   use the fresh data.
+    /// - the in-memory structures are updated, and the lock is released.
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,
@@ -182,17 +183,20 @@ impl State {
     ) -> Result<(), anyhow::Error> {
         let _ = self.writer.try_lock().map_err(|_| StateError::ConcurrentWrite)?;
 
+        let new_block: BlockHeader = block_header.clone().try_into()?;
+
         // ensures the right block header is being processed
-        let prev_block_msg = self
+        let prev_block: BlockHeader = self
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .ok_or(StateError::DbBlockHeaderEmpty)?;
-        let block_num = prev_block_msg.block_num + 1;
-        let prev_block: BlockHeader = prev_block_msg.try_into()?;
-        let prev_hash =
-            block_header.prev_hash.clone().ok_or(StateError::MissingPrevHash)?.try_into()?;
-        if prev_hash != prev_block.hash() {
+            .ok_or(StateError::DbBlockHeaderEmpty)?
+            .try_into()?;
+
+        if new_block.block_num() != prev_block.block_num() + 1 {
+            return Err(StateError::NewBlockInvalidBlockNum.into());
+        }
+        if new_block.prev_hash() != prev_block.hash() {
             return Err(StateError::NewBlockInvalidPrevHash.into());
         }
 
@@ -213,58 +217,51 @@ impl State {
                 return Err(StateError::DuplicatedNullifiers(duplicate_nullifiers).into());
             }
 
-            // update the in-memory datastructures and compute the new block header. Important, the
-            // structures are not yet commited
-            let mut chain_mmr = inner.chain_mmr.clone();
-            chain_mmr.add(prev_hash);
-            let peaks = chain_mmr.peaks(chain_mmr.forest())?;
+            // update the in-memory data structures and compute the new block header. Important, the
+            // structures are not yet committed
 
-            if peaks.hash_peaks()
-                != block_header
-                    .clone()
-                    .chain_root
-                    .ok_or(StateError::MissingChainRoot)?
-                    .try_into()?
-            {
-                return Err(StateError::InvalidChainRoot.into());
-            }
+            // update chain MMR
+            let chain_mmr = {
+                let mut chain_mmr = inner.chain_mmr.clone();
 
-            let mut nullifier_tree = inner.nullifier_tree.clone();
-            let nullifier_data = block_to_nullifier_data(block_num);
-            for nullifier in nullifiers.iter() {
-                nullifier_tree.insert(*nullifier, nullifier_data);
-            }
+                // new_block.chain_root must be equal to the chain MMR root prior to the update
+                let peaks = chain_mmr.peaks(chain_mmr.forest())?;
+                if peaks.hash_peaks() != new_block.chain_root() {
+                    return Err(StateError::NewBlockInvalidChainRoot.into());
+                }
 
-            if nullifier_tree.root()
-                != block_header
-                    .nullifier_root
-                    .clone()
-                    .ok_or(StateError::MissingNullifierRoot)?
-                    .try_into()?
-            {
-                return Err(StateError::InvalidNullifierRoot.into());
-            }
+                chain_mmr.add(new_block.hash());
+                chain_mmr
+            };
 
+            // update nullifier tree
+            let nullifier_tree = {
+                let mut nullifier_tree = inner.nullifier_tree.clone();
+                let nullifier_data = block_to_nullifier_data(new_block.block_num());
+                for nullifier in nullifiers.iter() {
+                    nullifier_tree.insert(*nullifier, nullifier_data);
+                }
+
+                if nullifier_tree.root() != new_block.nullifier_root() {
+                    return Err(StateError::NewBlockInvalidNullifierRoot.into());
+                }
+                nullifier_tree
+            };
+
+            // update account tree
             let mut account_tree = inner.account_tree.clone();
             for (account_id, account_hash) in accounts.iter() {
                 account_tree.update_leaf(*account_id, account_hash.try_into()?)?;
             }
 
-            if account_tree.root()
-                != block_header
-                    .account_root
-                    .clone()
-                    .ok_or(StateError::MissingAccountRoot)?
-                    .try_into()?
-            {
-                return Err(StateError::InvalidAccountRoot.into());
+            if account_tree.root() != new_block.account_root() {
+                return Err(StateError::NewBlockInvalidAccountRoot.into());
             }
 
+            // build notes tree
             let note_tree = build_notes_tree(&notes)?;
-            if note_tree.root()
-                != block_header.note_root.clone().ok_or(StateError::MissingNoteRoot)?.try_into()?
-            {
-                return Err(StateError::InvalidNoteRoot.into());
+            if note_tree.root() != new_block.note_root() {
+                return Err(StateError::NewBlockInvalidNoteRoot.into());
             }
 
             drop(guard);
@@ -272,7 +269,7 @@ impl State {
             let notes = notes
                 .iter()
                 .map(|note| {
-                    // Safety: This should never happen, the note_tree is created direclty form
+                    // Safety: This should never happen, the note_tree is created directly form
                     // this list of notes
                     let merkle_path =
                         note_tree.get_leaf_path(note.note_index as u64).map_err(|_| {
@@ -280,7 +277,7 @@ impl State {
                         })?;
 
                     Ok(Note {
-                        block_num,
+                        block_num: new_block.block_num(),
                         note_hash: note.note_hash.clone(),
                         sender: note.sender,
                         note_index: note.note_index,
@@ -294,9 +291,9 @@ impl State {
             (account_tree, chain_mmr, nullifier_tree, notes)
         };
 
-        // signals the transaction is ready to be commited, and the write lock can be acquired
+        // signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
-        // signals the write lock has been acquired, and the transaction can be commited
+        // signals the write lock has been acquired, and the transaction can be committed
         let (inform_acquire_done, acquire_done) = oneshot::channel::<()>();
 
         // The DB and in-memory state updates need to be synchronized and are partially
@@ -393,7 +390,9 @@ impl State {
             );
         }
 
-        let peaks = inner.chain_mmr.peaks(inner.chain_mmr.forest())?;
+        // using current block number gets us the peaks of the chain MMR as of one block ago;
+        // this is done so that latest.chain_root matches the returned peaks
+        let peaks = inner.chain_mmr.peaks(latest.block_num as usize)?;
         let account_states = account_ids
             .iter()
             .cloned()
@@ -439,6 +438,21 @@ impl State {
             .collect();
 
         Ok((account, nullifier_blocks))
+    }
+
+    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
+        let nullifiers = self.db.select_nullifiers().await?;
+        Ok(nullifiers)
+    }
+
+    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
+        let accounts = self.db.select_accounts().await?;
+        Ok(accounts)
+    }
+
+    pub async fn list_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
+        let notes = self.db.select_notes().await?;
+        Ok(notes)
     }
 }
 
