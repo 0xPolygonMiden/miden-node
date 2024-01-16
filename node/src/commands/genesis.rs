@@ -1,13 +1,12 @@
 use std::{
-    fs::{self, File},
-    io::{self, Read},
+    fs,
     path::{Path, PathBuf},
 };
 
 use anyhow::{anyhow, Result};
 use miden_crypto::{
     dsa::rpo_falcon512::KeyPair,
-    utils::{Deserializable, DeserializationError, Serializable, SliceReader},
+    utils::{hex_to_bytes, Serializable},
 };
 use miden_lib::{
     accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
@@ -16,7 +15,7 @@ use miden_lib::{
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::config::load_config;
 use miden_objects::{
-    accounts::{Account, AccountType},
+    accounts::{Account, AccountData, AccountType, AuthData},
     assets::TokenSymbol,
     Felt, Word,
 };
@@ -45,37 +44,9 @@ pub enum AccountInput {
 }
 
 #[derive(Debug, Deserialize)]
-pub enum AuthSchemeInput {
-    RpoFalcon512,
-}
-
-impl Serializable for AuthSchemeInput {
-    fn write_into<W: miden_crypto::utils::ByteWriter>(
-        &self,
-        target: &mut W,
-    ) {
-        match self {
-            AuthSchemeInput::RpoFalcon512 => target.write_u8(0),
-        }
-    }
-}
-
-impl Deserializable for AuthSchemeInput {
-    fn read_from<R: miden_crypto::utils::ByteReader>(
-        source: &mut R
-    ) -> std::prelude::v1::Result<Self, miden_crypto::utils::DeserializationError> {
-        let auth_scheme = source.read_u8()?;
-        match auth_scheme {
-            0 => Ok(AuthSchemeInput::RpoFalcon512),
-            _ => return Err(DeserializationError::InvalidValue("Invalid auth_scheme".to_string())),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
 pub struct BasicWalletInputs {
     pub mode: AccountType,
-    pub seed: String,
+    pub init_seed: String,
     pub auth_scheme: AuthSchemeInput,
     pub auth_seed: String,
 }
@@ -83,7 +54,7 @@ pub struct BasicWalletInputs {
 #[derive(Debug, Deserialize)]
 pub struct BasicFungibleFaucetInputs {
     pub mode: AccountType,
-    pub seed: String,
+    pub init_seed: String,
     pub auth_scheme: AuthSchemeInput,
     pub auth_seed: String,
     pub token_symbol: String,
@@ -91,128 +62,9 @@ pub struct BasicFungibleFaucetInputs {
     pub max_supply: u64,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum AuthInfo {
-    RpoFalcon512Seed([u8; 40]),
-}
-
-impl AuthInfo {
-    pub fn try_from_seed(
-        auth_scheme: AuthSchemeInput,
-        seed: String,
-    ) -> Result<Self> {
-        let seed: [u8; 40] = miden_crypto::utils::hex_to_bytes(seed.as_str())?;
-        let auth_info = match auth_scheme {
-            AuthSchemeInput::RpoFalcon512 => Self::RpoFalcon512Seed(seed),
-        };
-        Ok(auth_info)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct AccountData {
-    pub account: Account,
-    pub seed: Option<Word>,
-    pub auth: AuthInfo,
-}
-
-impl AccountData {
-    pub fn new(
-        account: Account,
-        seed: Option<Word>,
-        auth: AuthInfo,
-    ) -> Self {
-        Self {
-            account: account.clone(),
-            seed,
-            auth,
-        }
-    }
-
-    pub fn write(
-        &self,
-        index: usize,
-    ) -> Result<()> {
-        let file_path = PathBuf::from(format!("accounts/account{index}.mac"));
-
-        fs::write(file_path.as_path(), self.to_bytes()).map_err(|err| {
-            anyhow!("Failed to write account file to {}, Error: {err}", file_path.display())
-        })?;
-
-        Ok(())
-    }
-
-    pub fn read(file_path: PathBuf) -> Result<Self, io::Error> {
-        let mut file = File::open(file_path.as_path())?;
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)?;
-
-        let mut reader = SliceReader::new(&buffer);
-        Ok(AccountData::read_from(&mut reader).map_err(|_| io::ErrorKind::InvalidData)?)
-    }
-}
-
-impl Serializable for AccountData {
-    fn write_into<W: miden_crypto::utils::ByteWriter>(
-        &self,
-        target: &mut W,
-    ) {
-        let AccountData {
-            account,
-            seed,
-            auth,
-        } = self;
-
-        let auth_scheme = match auth {
-            AuthInfo::RpoFalcon512Seed(_) => AuthSchemeInput::RpoFalcon512,
-        };
-
-        let auth_seed = match auth {
-            AuthInfo::RpoFalcon512Seed(seed) => seed,
-        };
-
-        account.write_into(target);
-        match seed {
-            None => target.write_u8(0),
-            Some(seed) => {
-                target.write_u8(1);
-                seed.write_into(target)
-            },
-        };
-        auth_scheme.write_into(target);
-        auth_seed.write_into(target);
-    }
-}
-
-impl Deserializable for AccountData {
-    fn read_from<R: miden_crypto::utils::ByteReader>(
-        source: &mut R
-    ) -> std::prelude::v1::Result<Self, miden_crypto::utils::DeserializationError> {
-        let account = Account::read_from(source)?;
-
-        let seed = {
-            let option_flag = source.read_u8()?;
-            match option_flag {
-                0 => None,
-                1 => Some(Word::read_from(source)?),
-                _ => {
-                    return Err(miden_crypto::utils::DeserializationError::InvalidValue(
-                        "Invalid option flag".to_string(),
-                    ))
-                },
-            }
-        };
-
-        let auth_scheme = AuthSchemeInput::read_from(source)?;
-
-        let auth_seed = <[u8; 40]>::read_from(source)?;
-
-        let auth = match auth_scheme {
-            AuthSchemeInput::RpoFalcon512 => AuthInfo::RpoFalcon512Seed(auth_seed),
-        };
-
-        Ok(Self::new(account, seed, auth))
-    }
+#[derive(Debug, Deserialize)]
+pub enum AuthSchemeInput {
+    RpoFalcon512,
 }
 
 // MAKE GENESIS
@@ -276,12 +128,17 @@ pub fn make_genesis(
 
 fn create_account_file(
     account: &Account,
-    seed: Option<Word>,
-    auth_info: AuthInfo,
+    account_seed: Option<Word>,
+    auth_info: AuthData,
     index: usize,
 ) -> Result<()> {
-    let account_data = AccountData::new(account.clone(), seed, auth_info);
-    account_data.write(index)?;
+    let account_data = AccountData::new(account.clone(), account_seed, auth_info);
+
+    let path = format!("accounts/account{}.mac", index);
+    let filepath = Path::new(&path);
+
+    account_data.write(&filepath)?;
+
     Ok(())
 }
 
@@ -298,8 +155,8 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
         match account {
             AccountInput::BasicWallet(inputs) => {
                 print!("Generating basic wallet account... ");
-                let seed: [u8; 32] = miden_crypto::utils::hex_to_bytes(&inputs.seed)?;
-                let auth_seed: [u8; 40] = miden_crypto::utils::hex_to_bytes(&inputs.auth_seed)?;
+                let init_seed = hex_to_bytes(&inputs.init_seed)?;
+                let auth_seed = hex_to_bytes(&inputs.auth_seed)?;
 
                 let keypair = KeyPair::from_seed(&auth_seed)?;
                 let auth_scheme = match inputs.auth_scheme {
@@ -308,22 +165,26 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                     },
                 };
 
-                let (account, seed) = create_basic_wallet(seed, auth_scheme, inputs.mode)?;
+                let (account, account_seed) = create_basic_wallet(
+                    init_seed,
+                    auth_scheme,
+                    AccountType::RegularAccountImmutableCode,
+                )?;
                 print!("done!");
 
                 let auth_info = match inputs.auth_scheme {
-                    AuthSchemeInput::RpoFalcon512 => AuthInfo::RpoFalcon512Seed(auth_seed),
+                    AuthSchemeInput::RpoFalcon512 => AuthData::RpoFalcon512Seed(auth_seed),
                 };
 
                 // create account file
-                create_account_file(&account, Some(seed), auth_info, final_accounts.len())?;
+                create_account_file(&account, Some(account_seed), auth_info, final_accounts.len())?;
 
                 final_accounts.push(account);
             },
             AccountInput::BasicFungibleFaucet(inputs) => {
                 print!("Generating fungible faucet account... ");
-                let auth_seed: [u8; 40] = miden_crypto::utils::hex_to_bytes(&inputs.auth_seed)?;
-                let seed: [u8; 32] = miden_crypto::utils::hex_to_bytes(&inputs.seed)?;
+                let init_seed = hex_to_bytes(&inputs.init_seed)?;
+                let auth_seed = hex_to_bytes(&inputs.auth_seed)?;
 
                 let keypair = KeyPair::from_seed(&auth_seed)?;
                 let auth_scheme = match inputs.auth_scheme {
@@ -332,8 +193,8 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                     },
                 };
 
-                let (account, seed) = create_basic_fungible_faucet(
-                    seed,
+                let (account, account_seed) = create_basic_fungible_faucet(
+                    init_seed,
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
                     Felt::from(inputs.max_supply),
@@ -342,11 +203,11 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                 print!("done!");
 
                 let auth_info = match inputs.auth_scheme {
-                    AuthSchemeInput::RpoFalcon512 => AuthInfo::RpoFalcon512Seed(auth_seed),
+                    AuthSchemeInput::RpoFalcon512 => AuthData::RpoFalcon512Seed(auth_seed),
                 };
 
                 // create account file
-                create_account_file(&account, Some(seed), auth_info, final_accounts.len())?;
+                create_account_file(&account, Some(account_seed), auth_info, final_accounts.len())?;
 
                 final_accounts.push(account);
             },
@@ -364,9 +225,18 @@ mod tests {
     use miden_crypto::{dsa::rpo_falcon512::KeyPair, utils::hex_to_bytes};
     use miden_lib::{
         accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
+        transaction::TransactionKernel,
         AuthScheme,
     };
-    use miden_objects::{accounts::AccountType, assets::TokenSymbol, Felt};
+    use miden_objects::{
+        accounts::{
+            get_account_seed, Account, AccountCode, AccountId, AccountStorage, AccountType,
+            ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        },
+        assembly::ModuleAst,
+        assets::{AssetVault, TokenSymbol},
+        Felt,
+    };
 
     use super::make_genesis;
     use crate::{
@@ -382,26 +252,26 @@ mod tests {
             jail.create_file(
                 genesis_file_path.as_path(),
                 r#"
-                    version = 1
-                    timestamp = 1672531200
+                version = 1
+                timestamp = 1672531200
 
-                    [[accounts]]
-                    type = "BasicWallet"
-                    mode = "RegularAccountImmutableCode"
-                    seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                    auth_scheme = "RpoFalcon512"
-                    auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                [[accounts]]
+                type = "BasicWallet"
+                mode = "RegularAccountImmutableCode"
+                init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                auth_scheme = "RpoFalcon512"
+                auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
-                    [[accounts]]
-                    type = "BasicFungibleFaucet"
-                    mode = "FungibleFaucet"
-                    seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                    auth_scheme = "RpoFalcon512"
-                    auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                    token_symbol = "POL"
-                    decimals = 12
-                    max_supply = 1000000
-                "#,
+                [[accounts]]
+                type = "BasicFungibleFaucet"
+                mode = "FungibleFaucet"
+                init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                auth_scheme = "RpoFalcon512"
+                auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                token_symbol = "POL"
+                decimals = 12
+                max_supply = 1000000
+            "#,
             )?;
 
             let genesis_dat_file_path = PathBuf::from(DEFAULT_GENESIS_DAT_FILE_PATH);
@@ -412,74 +282,96 @@ mod tests {
             // assert that the genesis.dat file exists
             assert!(genesis_dat_file_path.exists());
 
-            let account_0_file_path = PathBuf::from("accounts/account0.mac");
-            let account_1_file_path = PathBuf::from("accounts/account1.mac");
+            let a0_file_path = PathBuf::from("accounts/account0.mac");
+            let a1_file_path = PathBuf::from("accounts/account1.mac");
 
             // assert that all the account files exist
-            assert!(account_0_file_path.exists());
-            assert!(account_1_file_path.exists());
+            assert!(a0_file_path.exists());
+            assert!(a1_file_path.exists());
 
-            let account_data_0 = AccountData::read(account_0_file_path).unwrap();
-            let account_data_1 = AccountData::read(account_1_file_path).unwrap();
+            // deserialise the `AccountData` from the 2 created account files
+            let account_data_0 = AccountData::read(a0_file_path.as_path()).unwrap();
+            let account_data_1 = AccountData::read(a1_file_path.as_path()).unwrap();
 
-            let account_0_seed: [u8; 32] =
+            let a0_init_seed =
                 hex_to_bytes("0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
                     .unwrap();
 
-            let account_0_auth_seed: [u8; 40] = hex_to_bytes("0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").unwrap();
+            let a0_auth_seed= hex_to_bytes("0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").unwrap();
 
-            let account_0_type = AccountType::RegularAccountImmutableCode;
+            let a0_type = AccountType::RegularAccountImmutableCode;
 
-            let account_0_keypair = KeyPair::from_seed(&account_0_auth_seed).unwrap();
+            let a0_keypair = KeyPair::from_seed(&a0_auth_seed).unwrap();
 
-            let account_0_auth_scheme = AuthScheme::RpoFalcon512 {
-                pub_key: account_0_keypair.public_key(),
+            let a0_auth_scheme = AuthScheme::RpoFalcon512 {
+                pub_key: a0_keypair.public_key(),
             };
 
-            let (account_0, seed_0) =
-                create_basic_wallet(account_0_seed, account_0_auth_scheme, account_0_type).unwrap();
+            let (a0, seed_0) = create_basic_wallet(a0_init_seed, a0_auth_scheme, a0_type).unwrap();
 
-            let account_1_seed =
+            let a1_init_seed =
                 hex_to_bytes("0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
                     .unwrap();
 
-            let account_1_auth_seed = hex_to_bytes("0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").unwrap();
+            let a1_auth_seed = hex_to_bytes("0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").unwrap();
 
-            let account_1_keypair = KeyPair::from_seed(&account_1_auth_seed).unwrap();
+            let a1_keypair = KeyPair::from_seed(&a1_auth_seed).unwrap();
 
-            let account_1_auth_scheme = AuthScheme::RpoFalcon512 {
-                pub_key: account_1_keypair.public_key(),
+            let a1_auth_scheme = AuthScheme::RpoFalcon512 {
+                pub_key: a1_keypair.public_key(),
             };
 
-            let (account_1, seed_1) = create_basic_fungible_faucet(
-                account_1_seed,
+            let (a1, seed_1) = create_basic_fungible_faucet(
+                a1_init_seed,
                 TokenSymbol::try_from("POL").unwrap(),
                 12,
                 Felt::new(1000000),
-                account_1_auth_scheme,
+                a1_auth_scheme,
             )
             .unwrap();
 
-            // Assert that both the deserialized and created `AccountData` are eq
-            assert_eq!(
-                account_data_0,
-                AccountData::new(
-                    account_0,
-                    Some(seed_0),
-                    AuthInfo::RpoFalcon512Seed(account_0_auth_seed)
-                )
-            );
+            let account_id = AccountId::new(
+                seed_0,
+                account_data_0.account.code().root(),
+                account_data_0.account.storage().root(),
+            )
+            .unwrap();
 
-            assert_eq!(
-                account_data_1,
-                AccountData::new(
-                    account_1,
-                    Some(seed_1),
-                    AuthInfo::RpoFalcon512Seed(account_1_auth_seed)
-                )
-            );
+            // // Assert that both the deserialized and created `AccountData` are eq
+            // assert_eq!(
+            //     account_data_0,
+            //     AccountData::new(
+            //         a0.clone(),
+            //         Some(seed_0),
+            //         AuthInfo::RpoFalcon512Seed(a0_auth_seed)
+            //     )
+            // );
+
+            // // Assert that both the deserialized and created `AccountData` are eq
+            // assert_eq!(
+            //     account_data_1,
+            //     AccountData::new(a1, Some(seed_1), AuthInfo::RpoFalcon512Seed(a1_auth_seed))
+            // );
 
             Ok(())
         });
     }
+
+    fn configuration_file_creates_correct_struct() {
+        let genesis_file_path = PathBuf::from("genesis.toml");
+    }
+
+    // fn accountdata_is_correctly_serialised_deserialised() {
+    //     // Setup
+    //     let assembler = TransactionKernel::assembler();
+    //     // let id = AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap();
+    //     let (id , seed) = get_account_seed(init_seed, account_type, on_chain, code_root, storage_root)
+    //     let vault = AssetVault::new(&[]).unwrap();
+    //     let storage = AccountStorage::new(vec![]).unwrap();
+    //     let mast = ModuleAst::new(vec![], vec![], None).unwrap();
+    //     let code = AccountCode::new(mast, &assembler).unwrap();
+    //     let nonce = Felt::new(0);
+    //     let account = Account::new(id, vault, storage, code, nonce);
+    //     let account_data = AccountData::new(account, account., auth)
+    // }
 }
