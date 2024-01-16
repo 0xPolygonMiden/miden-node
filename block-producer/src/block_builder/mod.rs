@@ -101,14 +101,14 @@ where
 
         let block_num = new_block_header.block_num();
 
-        let block = Arc::new(Block {
+        let block = Block {
             header: new_block_header,
             updated_accounts: account_updates,
             created_notes,
             produced_nullifiers,
-        });
+        };
 
-        self.state_view.apply_block(block.clone()).await?;
+        self.state_view.apply_block(block).await?;
 
         info!(COMPONENT, "block #{block_num} built!");
 

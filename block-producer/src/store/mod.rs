@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 use miden_node_proto::{
@@ -40,7 +40,7 @@ pub trait Store: ApplyBlock {
 pub trait ApplyBlock: Send + Sync + 'static {
     async fn apply_block(
         &self,
-        block: Arc<Block>,
+        block: Block,
     ) -> Result<(), ApplyBlockError>;
 }
 
@@ -71,13 +71,13 @@ impl DefaultStore {
 impl ApplyBlock for DefaultStore {
     async fn apply_block(
         &self,
-        block: Arc<Block>,
+        block: Block,
     ) -> Result<(), ApplyBlockError> {
         let request = tonic::Request::new(ApplyBlockRequest {
             block: Some(block.header.into()),
-            accounts: convert(block.updated_accounts.clone()),
-            nullifiers: convert(block.produced_nullifiers.clone()),
-            notes: convert(block.created_notes.clone()),
+            accounts: convert(block.updated_accounts),
+            nullifiers: convert(block.produced_nullifiers),
+            notes: convert(block.created_notes),
         });
 
         let _ = self
