@@ -11,6 +11,7 @@ use crate::state::ACCOUNT_DB_DEPTH;
 pub const GENESIS_BLOCK_NUM: u32 = 0;
 
 /// Represents the state at genesis, which will be used to derive the genesis block.
+#[derive(Debug, PartialEq, Eq)]
 pub struct GenesisState {
     pub accounts: Vec<Account>,
     pub version: u64,
