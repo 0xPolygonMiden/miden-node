@@ -4,7 +4,7 @@ use serde::Deserialize;
 // INPUT HELPER STRUCTS
 // ================================================================================================
 
-/// *Input types are helper structures designed for parsing and deserializing configuration files.
+/// Input types are helper structures designed for parsing and deserializing configuration files.
 /// They serve as intermediary representations, facilitating the conversion from
 /// placeholder types (like `GenesisInput`) to internal types (like `GenesisState`).
 #[derive(Debug, Deserialize)]

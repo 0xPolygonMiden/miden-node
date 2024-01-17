@@ -45,7 +45,6 @@ const DEFAULT_ACCOUNTS_FOLDER: &str = "accounts";
 ///
 /// This function returns a `Result` type. On successful creation of the genesis file, it returns `Ok(())`.
 /// If it fails at any point, due to issues like file existence checks or read/write operations, it returns an `Err` with a detailed error message.
-///
 pub fn make_genesis(
     output_path: &PathBuf,
     force: &bool,
@@ -103,7 +102,6 @@ pub fn make_genesis(
 /// It takes an account instance along with its seed and authentication data, serializes this information into an `AccountData`
 /// object, and writes it to a uniquely named file. The file naming convention uses an index to ensure uniqueness and is stored
 /// within a dedicated 'accounts' directory.
-///
 fn create_account_file(
     account: Account,
     account_seed: Option<Word>,
@@ -125,7 +123,6 @@ fn create_account_file(
 /// This function is used by the `make_genesis` function during the genesis phase of the node.
 /// It enables the creation of the accounts that have been deserialised from the configuration file
 /// used for the node initialisation.
-///
 fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
     let accounts_folder_path = PathBuf::from(DEFAULT_ACCOUNTS_FOLDER);
 
