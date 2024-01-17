@@ -162,10 +162,7 @@ where
         &self,
         tx: SharedProvenTx,
     ) -> Result<(), AddTransactionError> {
-        self.tx_verifier
-            .verify_tx(tx.clone())
-            .await
-            .map_err(AddTransactionError::VerificationFailed)?;
+        self.tx_verifier.verify_tx(tx.clone()).await.map_err(AddTransactionError::VerificationFailed)?;
 
         self.ready_queue.write().await.push(tx);
 

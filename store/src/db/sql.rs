@@ -4,7 +4,7 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    utils::{Deserializable, SliceReader},
+    utils::{collections::KvMap, Deserializable, SliceReader},
 };
 use miden_node_proto::{
     account::{self, AccountId as AccountIdProto, AccountInfo},
@@ -14,6 +14,7 @@ use miden_node_proto::{
     note::Note,
     responses::{AccountHashUpdate, NullifierUpdate},
 };
+use miden_objects::block;
 use prost::Message;
 use rusqlite::{params, types::Value, Connection, Transaction};
 
@@ -98,8 +99,8 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
             block_num: row.get(0)?,
             note_index: row.get(1)?,
             note_hash: Some(note_hash),
-            sender: row.get(3)?,
-            tag: row.get(4)?,
+            sender: column_value_as_u64(row, 3)?,
+            tag: column_value_as_u64(row, 4)?,
             num_assets: row.get(5)?,
             merkle_path: Some(merkle_path),
         })
@@ -122,8 +123,8 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>, anyhow
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = Digest::decode(account_hash_data)?;
 
-        let account_id_data: i64 = row.get(0)?;
-        let account_id = AccountIdProto::from(account_id_data as u64);
+        let account_id_data = column_value_as_u64(row, 0)?;
+        let account_id = AccountIdProto::from(account_id_data);
 
         accounts.push(AccountInfo {
             account_id: Some(account_id),
@@ -287,18 +288,24 @@ pub fn insert_notes(
 
     let mut count = 0;
     for note in notes.iter() {
-        count += stmt.execute(params![
+        count += match stmt.execute(params![
             note.block_num,
             note.note_index,
             note.note_hash.clone().ok_or(StateError::NoteMissingHash)?.encode_to_vec(),
-            note.sender,
-            note.tag,
-            note.num_assets,
+            u64_to_value(note.sender),
+            u64_to_value(note.tag),
+            note.num_assets as u8,
             note.merkle_path
                 .clone()
                 .ok_or(StateError::NoteMissingMerklePath)?
                 .encode_to_vec(),
-        ])?;
+        ]) {
+            Ok(n) => n,
+            Err(e) => {
+                tracing::error!("{}", e);
+                0
+            },
+        };
     }
 
     Ok(count)
@@ -364,8 +371,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note_index = row.get(1)?;
         let note_hash_data = row.get_ref(2)?.as_blob()?;
         let note_hash = Some(decode_protobuf_digest(note_hash_data)?);
-        let sender = row.get(3)?;
-        let tag = row.get(4)?;
+        let sender = column_value_as_u64(row, 3)?;
+        let tag = column_value_as_u64(row, 4)?;
         let num_assets = row.get(5)?;
         let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = Some(MerklePath::decode(merkle_path_data)?);
@@ -443,8 +450,8 @@ pub fn select_accounts_by_block_range(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        let account_id_data: u64 = row.get(0)?;
-        let account_id: account::AccountId = account_id_data.into();
+        let account_id_data = column_value_as_u64(row, 0)?;
+        let account_id: account::AccountId = (account_id_data).into();
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = Digest::decode(account_hash_data)?;
         let block_num = row.get(2)?;
@@ -472,13 +479,9 @@ pub fn select_account_hashes(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        let account_id: u64 = {
-            // sqlite doesn't support `u64` so we store `u64` as `i64`.
-            // Here, we do the reverse.
-            let account_id: i64 = row.get(0)?;
-
-            account_id as u64
-        };
+        // sqlite doesn't support `u64` so we store `u64` as `i64`.
+        // Here, we do the reverse.
+        let account_id = column_value_as_u64(row, 0)?;
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = Digest::decode(account_hash_data)?;
 
@@ -590,4 +593,16 @@ fn u64_to_value(v: u64) -> Value {
 fn u32_to_value(v: u32) -> Value {
     let v: i64 = v.into();
     Value::Integer(v)
+}
+
+/// Gets a `u64`` value from the database.
+///
+/// Sqlite uses `i64` as its internal representation format, and so when retreiving
+/// we need to make sure we cast as `u64` to get the original value
+fn column_value_as_u64<I: rusqlite::RowIndex>(
+    row: &rusqlite::Row<'_>,
+    index: I,
+) -> rusqlite::Result<u64> {
+    let value: i64 = row.get(index)?;
+    Ok(value as u64)
 }
