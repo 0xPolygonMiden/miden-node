@@ -240,7 +240,7 @@ mod tests {
 
     use super::make_genesis;
     use crate::{
-        commands::genesis::{AccountData, AuthInfo},
+        commands::genesis::{AccountData, AuthData},
         DEFAULT_GENESIS_DAT_FILE_PATH,
     };
 
