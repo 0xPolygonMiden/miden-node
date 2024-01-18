@@ -23,7 +23,7 @@ use miden_objects::{
 
 mod inputs;
 
-const DEFAULT_ACCOUNTS_DIR: &str = "accounts";
+const DEFAULT_ACCOUNTS_DIR: &str = "accounts/";
 
 // MAKE GENESIS
 // ================================================================================================
@@ -46,41 +46,51 @@ pub fn make_genesis(
     output_path: &PathBuf,
     force: &bool,
 ) -> Result<()> {
-    let output_file_path = Path::new(output_path);
+    let inputs_path = Path::new(inputs_path);
+    let output_path = Path::new(output_path);
 
     if !force {
-        if let Ok(file_exists) = output_file_path.try_exists() {
+        if let Ok(file_exists) = output_path.try_exists() {
             if file_exists {
                 return Err(anyhow!("Failed to generate new genesis file {} because it already exists. Use the --force flag to overwrite.", output_path.display()));
             }
         } else {
-            return Err(anyhow!("Failed to open {} file.", output_file_path.display()));
+            return Err(anyhow!("Failed to open {} file.", output_path.display()));
         }
     }
 
-    let genesis_file_path = Path::new(inputs_path);
-
-    if let Ok(file_exists) = genesis_file_path.try_exists() {
+    if let Ok(file_exists) = inputs_path.try_exists() {
         if !file_exists {
             return Err(anyhow!(
                 "The {} file does not exist. It is necessary to generate the genesis file",
-                genesis_file_path.display()
+                inputs_path.display()
             ));
         }
     } else {
-        return Err(anyhow!("Failed to open {} file.", genesis_file_path.display()));
+        return Err(anyhow!("Failed to open {} file.", inputs_path.display()));
     }
 
-    let genesis_input: GenesisInput = load_config(genesis_file_path).extract().map_err(|err| {
-        anyhow!("Failed to load {} genesis input file: {err}", genesis_file_path.display())
-    })?;
-    println!(
-        "Genesis input file: {} has successfully been loaded.",
-        genesis_file_path.display()
-    );
+    let parent_path = match output_path.parent() {
+        Some(path) => path,
+        None => {
+            return Err(anyhow!(
+                "There has been an error processing output_path: {}",
+                output_path.display()
+            ))
+        },
+    };
 
-    let accounts = create_accounts(&genesis_input.accounts)?;
-    println!("Accounts have successfully been created at: /{}", DEFAULT_ACCOUNTS_DIR);
+    let genesis_input: GenesisInput = load_config(inputs_path).extract().map_err(|err| {
+        anyhow!("Failed to load {} genesis input file: {err}", inputs_path.display())
+    })?;
+    println!("Genesis input file: {} has successfully been loaded.", output_path.display());
+
+    let accounts = create_accounts(&genesis_input.accounts, parent_path, force)?;
+    println!(
+        "Accounts have successfully been created at: {}/{}",
+        parent_path.display(),
+        DEFAULT_ACCOUNTS_DIR
+    );
 
     let genesis_state = GenesisState::new(accounts, genesis_input.version, genesis_input.timestamp);
     fs::write(output_path, genesis_state.to_bytes()).unwrap_or_else(|_| {
@@ -94,10 +104,25 @@ pub fn make_genesis(
 /// Converts the provided list of account inputs into [Account] objects.
 ///
 /// This function also writes the account data files into the default accounts directory.
-fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
-    let accounts_dir_path = PathBuf::from(DEFAULT_ACCOUNTS_DIR);
+fn create_accounts(
+    accounts: &[AccountInput],
+    parent_path: &Path,
+    force: &bool,
+) -> Result<Vec<Account>> {
+    let mut accounts_path = PathBuf::from(&parent_path);
+    accounts_path.push(DEFAULT_ACCOUNTS_DIR);
 
-    fs::create_dir(accounts_dir_path.as_path())
+    let accounts_exists = accounts_path.try_exists()?;
+
+    if accounts_exists {
+        if *force {
+            fs::remove_dir_all(&accounts_path)?;
+        } else {
+            return Err(anyhow!("Failed to generate accounts folder {} because it already exists. Use the --force flag to overwrite.", accounts_path.display()));
+        }
+    }
+
+    fs::create_dir_all(&accounts_path)
         .map_err(|err| anyhow!("Failed to create accounts directory: {err}"))?;
 
     let mut final_accounts = Vec::new();
@@ -140,7 +165,7 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
         };
 
         // write account data to file
-        let path = format!("{DEFAULT_ACCOUNTS_DIR}/account{}.mac", final_accounts.len());
+        let path = format!("{}/account{}.mac", accounts_path.display(), final_accounts.len());
         account_data.write(path)?;
 
         final_accounts.push(account_data.account);
