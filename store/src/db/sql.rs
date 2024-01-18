@@ -137,7 +137,7 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>, anyhow
 /// Select nullifiers created between `(block_start, block_end]` that also match the
 /// `nullifier_prefixes` filter using the given [Connection].
 ///
-/// Each value of the `nullifier_prefixes` is only the 16 most significat bits of the nullifier of
+/// Each value of the `nullifier_prefixes` is only the 16 most significant bits of the nullifier of
 /// interest to the client. This hides the details of the specific nullifier being requested.
 ///
 /// # Returns
