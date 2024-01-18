@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use miden_crypto::merkle::{LeafIndex, ValuePath};
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{crypto::merkle::Mmr, BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
@@ -126,7 +127,8 @@ impl ApplyBlock for MockStoreSuccess {
 
         // update accounts
         for &(account_id, account_hash) in block.updated_accounts.iter() {
-            locked_accounts.update_leaf(account_id.into(), account_hash.into()).unwrap();
+            locked_accounts
+                .insert(LeafIndex::new_max_depth(account_id.into()), account_hash.into());
         }
         debug_assert_eq!(locked_accounts.root(), block.header.account_root());
 
@@ -162,7 +164,8 @@ impl Store for MockStoreSuccess {
         let locked_consumed_nullifiers = self.consumed_nullifiers.read().await;
 
         let account_hash = {
-            let account_hash = locked_accounts.get_leaf(proven_tx.account_id().into()).unwrap();
+            let account_hash =
+                locked_accounts.get_leaf(&LeafIndex::new_max_depth(proven_tx.account_id().into()));
 
             if account_hash == EMPTY_WORD {
                 None
@@ -200,8 +203,10 @@ impl Store for MockStoreSuccess {
 
             updated_accounts
                 .map(|&account_id| {
-                    let account_hash = locked_accounts.get_leaf(account_id.into()).unwrap();
-                    let proof = locked_accounts.get_leaf_path(account_id.into()).unwrap();
+                    let ValuePath {
+                        value: account_hash,
+                        path: proof,
+                    } = locked_accounts.open(&LeafIndex::new_max_depth(account_id.into()));
 
                     AccountInputRecord {
                         account_id,

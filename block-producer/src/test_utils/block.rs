@@ -1,8 +1,10 @@
 use std::{collections::BTreeMap, sync::Arc};
 
+use miden_crypto::merkle::LeafIndex;
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
-    accounts::AccountId, crypto::merkle::Mmr, notes::NoteEnvelope, BlockHeader, Digest, ONE, ZERO, ACCOUNT_TREE_DEPTH,
+    accounts::AccountId, crypto::merkle::Mmr, notes::NoteEnvelope, BlockHeader, Digest,
+    ACCOUNT_TREE_DEPTH, ONE, ZERO,
 };
 use miden_vm::crypto::SimpleSmt;
 
@@ -29,8 +31,7 @@ pub async fn build_expected_block_header(
         let mut store_accounts = store.accounts.read().await.clone();
         for (account_id, new_account_state) in updated_accounts.iter() {
             store_accounts
-                .update_leaf(u64::from(*account_id), new_account_state.into())
-                .unwrap();
+                .insert(LeafIndex::new_max_depth(u64::from(*account_id)), new_account_state.into());
         }
 
         store_accounts.root()
@@ -95,7 +96,7 @@ pub async fn build_actual_block_header(
 
 #[derive(Debug)]
 pub struct MockBlockBuilder {
-    store_accounts: SimpleSmt::<ACCOUNT_TREE_DEPTH>,
+    store_accounts: SimpleSmt<ACCOUNT_TREE_DEPTH>,
     store_chain_mmr: Mmr,
     last_block_header: BlockHeader,
 
@@ -123,8 +124,7 @@ impl MockBlockBuilder {
     ) -> Self {
         for (account_id, new_account_state) in updated_accounts.iter() {
             self.store_accounts
-                .update_leaf(u64::from(*account_id), new_account_state.into())
-                .unwrap();
+                .insert(LeafIndex::new_max_depth(u64::from(*account_id)), new_account_state.into());
         }
 
         self.updated_accounts = Some(updated_accounts);
