@@ -15,7 +15,7 @@ pub fn setup_logging() -> Result<()> {
                 .with_default_directive(LevelFilter::INFO.into())
                 .from_env_lossy(),
         )
-        .with_span_events(FmtSpan::ENTER | FmtSpan::EXIT)
+        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
         .finish();
     subscriber::set_global_default(subscriber)?;
 

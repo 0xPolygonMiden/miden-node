@@ -41,8 +41,7 @@ where
         let request = request.into_inner();
 
         let request_id = gen_request_id();
-        let span = info_span!("submit_proven_transaction", request_id, ?request);
-        let _guard = span.enter();
+        let _span = info_span!("submit_proven_transaction", request_id, ?request);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
             .map_err(|_| Status::invalid_argument("Invalid transaction"))?;

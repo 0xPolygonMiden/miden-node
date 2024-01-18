@@ -35,7 +35,6 @@ use crate::{
     db::{Db, StateSyncUpdate},
     errors::StateError,
     types::{AccountId, BlockNumber},
-    COMPONENT,
 };
 
 // CONSTANTS
@@ -204,8 +203,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = info_span!(COMPONENT, "updating in-memory data structures");
-            let guard = span.enter();
+            let span = info_span!("updating in-memory data structures");
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
@@ -264,7 +262,7 @@ impl State {
                 return Err(StateError::NewBlockInvalidNoteRoot.into());
             }
 
-            drop(guard);
+            drop(span);
 
             let notes = notes
                 .iter()

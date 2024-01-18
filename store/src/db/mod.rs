@@ -207,18 +207,17 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let span = info_span!(COMPONENT, "writing new block data to DB");
-                let _guard = span.enter();
+                info_span!("writing new block data to DB").in_scope(|| {
+                    let transaction = conn.transaction()?;
+                    sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
 
-                let transaction = conn.transaction()?;
-                sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
+                    let _ = allow_acquire.send(());
+                    acquire_done.blocking_recv()?;
 
-                let _ = allow_acquire.send(());
-                acquire_done.blocking_recv()?;
+                    transaction.commit()?;
 
-                transaction.commit()?;
-
-                Ok(())
+                    Ok(())
+                })
             })
             .await
             .map_err(|_| anyhow!("Apply block task failed with a panic"))??;
@@ -272,8 +271,7 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let span = info_span!(COMPONENT, "writing genesis block to DB");
-                        let _guard = span.enter();
+                        let _span = info_span!("writing genesis block to DB");
 
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt
