@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use async_trait::async_trait;
 use miden_node_proto::{
