@@ -1,0 +1,46 @@
+# This is an example configuration file for the Miden node.
+
+version = 1
+timestamp = 1672531200
+
+[[accounts]]
+type = "BasicWallet"
+mode = "RegularAccountImmutableCode"
+init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+auth_scheme = "RpoFalcon512"
+auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+[[accounts]]
+type = "BasicWallet"
+mode = "RegularAccountImmutableCode"
+init_seed = "0xa123456733abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+auth_scheme = "RpoFalcon512"
+auth_seed = "0xb987654321abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+[[accounts]]
+type = "BasicFungibleFaucet"
+mode = "FungibleFaucet"
+init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+auth_scheme = "RpoFalcon512"
+auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+token_symbol = "POL"
+decimals = 12
+max_supply = 1000000
+
+
+[block_producer]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-block-producer', 1)) % 2**16
+endpoint = { host = "localhost", port = 48046 }
+store_url = "http://localhost:28943"
+
+[rpc]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-rpc', 1)) % 2**16
+endpoint = { host = "localhost", port = 57291 }
+block_producer_url = "http://localhost:48046"
+store_url = "http://localhost:28943"
+
+[store]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-store', 1)) % 2**16
+endpoint = { host = "localhost", port = 28943 }
+database_filepath = "miden-store.sqlite3"
+genesis_filepath = "genesis.dat"
