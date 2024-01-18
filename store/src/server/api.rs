@@ -20,6 +20,7 @@ use miden_node_proto::{
     tsmt::NullifierLeaf,
 };
 use tonic::{Response, Status};
+use tracing::instrument;
 
 use crate::state::State;
 
@@ -38,6 +39,7 @@ impl api_server::Api for StoreApi {
     /// Returns block header for the specified block number.
     ///
     /// If the block number is not provided, block header for the latest block is returned.
+    #[instrument(skip(self), ret)]
     async fn get_block_header_by_number(
         &self,
         request: tonic::Request<GetBlockHeaderByNumberRequest>,
@@ -53,6 +55,7 @@ impl api_server::Api for StoreApi {
     ///
     /// This endpoint also returns Merkle authentication path for each requested nullifier which can
     /// be verified against the latest root of the nullifier database.
+    #[instrument(skip(self), ret)]
     async fn check_nullifiers(
         &self,
         request: tonic::Request<CheckNullifiersRequest>,
@@ -71,6 +74,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns info which can be used by the client to sync up to the latest state of the chain
     /// for the objects the client is interested in.
+    #[instrument(skip(self), ret)]
     async fn sync_state(
         &self,
         request: tonic::Request<SyncStateRequest>,
@@ -100,6 +104,7 @@ impl api_server::Api for StoreApi {
     // --------------------------------------------------------------------------------------------
 
     /// Updates the local DB by inserting a new block header and the related data.
+    #[instrument(skip(self), ret)]
     async fn apply_block(
         &self,
         request: tonic::Request<ApplyBlockRequest>,
@@ -133,6 +138,7 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
+    #[instrument(skip(self), ret)]
     async fn get_block_inputs(
         &self,
         request: tonic::Request<GetBlockInputsRequest>,
@@ -157,6 +163,7 @@ impl api_server::Api for StoreApi {
         }))
     }
 
+    #[instrument(skip(self), ret)]
     async fn get_transaction_inputs(
         &self,
         request: tonic::Request<GetTransactionInputsRequest>,
@@ -182,6 +189,7 @@ impl api_server::Api for StoreApi {
     // --------------------------------------------------------------------------------------------
 
     /// Returns a list of all nullifiers
+    #[instrument(skip(self), ret)]
     async fn list_nullifiers(
         &self,
         _request: tonic::Request<ListNullifiersRequest>,
@@ -198,6 +206,7 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns a list of all notes
+    #[instrument(skip(self), ret)]
     async fn list_notes(
         &self,
         _request: tonic::Request<ListNotesRequest>,
@@ -207,6 +216,7 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns a list of all accounts
+    #[instrument(skip(self), ret)]
     async fn list_accounts(
         &self,
         _request: tonic::Request<ListAccountsRequest>,
@@ -228,6 +238,7 @@ fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
     Status::invalid_argument(format!("{:?}", err))
 }
 
+#[instrument(level = "debug", ret)]
 fn validate_nullifiers(nullifiers: &[Digest]) -> Result<Vec<RpoDigest>, Status> {
     nullifiers
         .iter()

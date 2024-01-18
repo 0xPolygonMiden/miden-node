@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 
 use async_trait::async_trait;
 use miden_node_proto::{
@@ -11,6 +12,7 @@ use miden_node_proto::{
 };
 use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
+use tracing::instrument;
 
 use crate::{block::Block, SharedProvenTx};
 
@@ -31,8 +33,8 @@ pub trait Store: ApplyBlock {
     /// TODO: add comments
     async fn get_block_inputs(
         &self,
-        updated_accounts: impl Iterator<Item = &AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Digest> + Send,
+        updated_accounts: impl Iterator<Item = &AccountId> + Debug + Send,
+        produced_nullifiers: impl Iterator<Item = &Digest> + Debug + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
 }
 
@@ -45,6 +47,7 @@ pub trait ApplyBlock: Send + Sync + 'static {
 }
 
 /// Information needed from the store to verify a transaction.
+#[derive(Debug)]
 pub struct TxInputs {
     /// The account hash in the store corresponding to tx's account ID
     pub account_hash: Option<Digest>,
@@ -69,6 +72,7 @@ impl DefaultStore {
 
 #[async_trait]
 impl ApplyBlock for DefaultStore {
+    #[instrument(skip(self), ret)]
     async fn apply_block(
         &self,
         block: Block,
@@ -93,6 +97,7 @@ impl ApplyBlock for DefaultStore {
 
 #[async_trait]
 impl Store for DefaultStore {
+    #[instrument(skip(self), ret)]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
@@ -159,10 +164,11 @@ impl Store for DefaultStore {
         })
     }
 
+    #[instrument(skip(self), ret)]
     async fn get_block_inputs(
         &self,
-        updated_accounts: impl Iterator<Item = &AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Digest> + Send,
+        updated_accounts: impl Iterator<Item = &AccountId> + Debug + Send,
+        produced_nullifiers: impl Iterator<Item = &Digest> + Debug + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let request = tonic::Request::new(GetBlockInputsRequest {
             account_ids: updated_accounts

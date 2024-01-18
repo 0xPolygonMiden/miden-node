@@ -3,6 +3,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
+use tracing::instrument;
 
 use crate::{
     block::Block,
@@ -44,6 +45,7 @@ where
     S: Store,
 {
     // TODO: Verify proof as well
+    #[instrument(level = "trace", skip(self), ret)]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,

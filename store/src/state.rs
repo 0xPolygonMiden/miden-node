@@ -28,11 +28,8 @@ use miden_objects::{
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
     BlockHeader,
 };
-use tokio::{
-    sync::{oneshot, Mutex, RwLock},
-    time::Instant,
-};
-use tracing::{info, instrument, span, Level};
+use tokio::sync::{oneshot, Mutex, RwLock};
+use tracing::{info_span, instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
@@ -70,6 +67,7 @@ pub struct State {
     writer: Mutex<()>,
 }
 
+#[derive(Debug)]
 pub struct AccountStateWithProof {
     account_id: AccountId,
     account_hash: Word,
@@ -86,6 +84,7 @@ impl From<AccountStateWithProof> for AccountBlockInputRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct AccountState {
     account_id: AccountId,
     account_hash: Word,
@@ -123,6 +122,7 @@ impl TryFrom<&AccountUpdate> for AccountState {
     }
 }
 
+#[derive(Debug)]
 pub struct NullifierStateForTransactionInput {
     nullifier: RpoDigest,
     block_num: u32,
@@ -204,7 +204,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = span!(Level::INFO, COMPONENT, "updating in-memory data structures");
+            let span = info_span!(COMPONENT, "updating in-memory data structures");
             let guard = span.enter();
 
             // nullifiers can be produced only once
@@ -321,6 +321,7 @@ impl State {
         Ok(())
     }
 
+    #[instrument(skip(self), ret)]
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
@@ -328,6 +329,7 @@ impl State {
         self.db.select_block_header_by_block_num(block_num).await
     }
 
+    #[instrument(skip(self), ret)]
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
@@ -336,6 +338,7 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
     }
 
+    #[instrument(skip(self), ret)]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
@@ -367,6 +370,7 @@ impl State {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
+    #[instrument(skip(self), ret)]
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
@@ -411,6 +415,7 @@ impl State {
         Ok((latest, peaks, account_states))
     }
 
+    #[instrument(skip(self), ret)]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
@@ -440,16 +445,19 @@ impl State {
         Ok((account, nullifier_blocks))
     }
 
+    #[instrument(skip(self), ret)]
     pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
         let nullifiers = self.db.select_nullifiers().await?;
         Ok(nullifiers)
     }
 
+    #[instrument(skip(self), ret)]
     pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
         let accounts = self.db.select_accounts().await?;
         Ok(accounts)
     }
 
+    #[instrument(skip(self), ret)]
     pub async fn list_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
         let notes = self.db.select_notes().await?;
         Ok(notes)
@@ -465,6 +473,7 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
+#[instrument(ret)]
 pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt, anyhow::Error> {
     // TODO: create SimpleSmt without this allocation
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
@@ -481,7 +490,7 @@ pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt, anyhow::Erro
     Ok(SimpleSmt::with_leaves(NOTE_LEAF_DEPTH, entries)?)
 }
 
-#[instrument(skip(db))]
+#[instrument(skip(db), ret)]
 async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
@@ -489,16 +498,9 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
         .into_iter()
         .map(|(nullifier, block)| (nullifier, block_to_nullifier_data(block)));
 
-    let now = Instant::now();
-    let nullifier_tree = TieredSmt::with_entries(leaves)?;
-    let elapsed = now.elapsed().as_secs();
+    let nullifier_tree = info_span!("TieredSmt::with_entries", num_of_leaves = len)
+        .in_scope(|| TieredSmt::with_entries(leaves))?;
 
-    info!(
-        num_of_leaves = len,
-        tree_construction = elapsed,
-        COMPONENT,
-        "Loaded nullifier tree"
-    );
     Ok(nullifier_tree)
 }
 

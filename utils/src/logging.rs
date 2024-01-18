@@ -15,9 +15,14 @@ pub fn setup_logging() -> Result<()> {
                 .with_default_directive(LevelFilter::INFO.into())
                 .from_env_lossy(),
         )
-        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+        .with_span_events(FmtSpan::ENTER | FmtSpan::EXIT)
         .finish();
     subscriber::set_global_default(subscriber)?;
 
     Ok(())
+}
+
+pub fn gen_request_id() -> u16 {
+    // For now, it's just a random value. In future, we are going to get this value depending on context
+    rand::random()
 }

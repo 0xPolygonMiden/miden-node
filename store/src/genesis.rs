@@ -5,6 +5,7 @@ use miden_objects::{
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     BlockHeader, Digest,
 };
+use tracing::instrument;
 
 use crate::state::ACCOUNT_DB_DEPTH;
 
@@ -31,6 +32,7 @@ impl GenesisState {
     }
 
     /// Returns the block header and the account SMT
+    #[instrument(level = "debug", ret)]
     pub fn into_block_parts(self) -> Result<(BlockHeader, SimpleSmt), MerkleError> {
         let account_smt = SimpleSmt::with_leaves(
             ACCOUNT_DB_DEPTH,

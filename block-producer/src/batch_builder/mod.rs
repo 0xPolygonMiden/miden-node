@@ -2,7 +2,7 @@ use std::{cmp::min, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use tokio::{sync::RwLock, time};
-use tracing::info;
+use tracing::{info, instrument};
 
 use self::errors::BuildBatchError;
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch, COMPONENT};
@@ -84,6 +84,7 @@ where
 
     /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
     /// A call to an empty `build_block()` indicates that an empty block should be created.
+    #[instrument(skip(self))]
     async fn try_build_block(&self) {
         let mut batches_in_block: Vec<SharedTxBatch> = {
             let mut locked_ready_batches = self.ready_batches.write().await;

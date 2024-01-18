@@ -6,8 +6,10 @@ use miden_node_proto::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
     responses::SubmitProvenTransactionResponse,
 };
+use miden_node_utils::logging::gen_request_id;
 use miden_objects::transaction::ProvenTransaction;
 use tonic::Status;
+use tracing::{debug, info_span};
 
 use crate::txqueue::TransactionQueue;
 
@@ -38,8 +40,14 @@ where
     ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
         let request = request.into_inner();
 
+        let request_id = gen_request_id();
+        let span = info_span!("submit_proven_transaction", request_id, ?request);
+        let _guard = span.enter();
+
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
             .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
+
+        debug!(request_id, ?tx);
 
         self.queue
             .add_transaction(Arc::new(tx))

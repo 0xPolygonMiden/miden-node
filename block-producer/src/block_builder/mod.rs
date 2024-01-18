@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, Digest};
-use tracing::info;
+use tracing::{info, instrument};
 
 use crate::{
     block::Block,
@@ -67,6 +67,7 @@ where
     S: Store,
     A: ApplyBlock,
 {
+    #[instrument(skip(self))]
     async fn build_block(
         &self,
         batches: Vec<SharedTxBatch>,

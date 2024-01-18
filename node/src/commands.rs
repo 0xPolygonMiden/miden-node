@@ -16,6 +16,7 @@ use miden_node_store::{db::Db, genesis::GenesisState, server as store_server};
 use miden_node_utils::config::load_config;
 use miden_objects::assets::TokenSymbol;
 use tokio::task::JoinSet;
+use tracing::{debug, info_span, instrument};
 
 use crate::{
     config::NodeTopLevelConfig,
@@ -58,6 +59,7 @@ pub async fn start(config_filepath: &Path) -> anyhow::Result<()> {
 // MAKE GENESIS
 // ===================================================================================================
 
+#[instrument]
 pub async fn make_genesis(
     output_path: &PathBuf,
     force: &bool,
@@ -90,17 +92,21 @@ pub async fn make_genesis(
             // fungible asset faucet
             {
                 println!("Generating faucet account... ");
-                let (account, _) = create_basic_fungible_faucet(
-                    SEED_FAUCET,
-                    TokenSymbol::new(FUNGIBLE_FAUCET_TOKEN_SYMBOL).unwrap(),
-                    FUNGIBLE_FAUCET_TOKEN_DECIMALS,
-                    Felt::from(FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY),
-                    AuthScheme::RpoFalcon512 {
-                        pub_key: faucet_key_pair.public_key(),
-                    },
-                )
-                .unwrap();
+                let (account, _) = info_span!("create_basic_fungible_faucet")
+                    .in_scope(|| {
+                        create_basic_fungible_faucet(
+                            SEED_FAUCET,
+                            TokenSymbol::new(FUNGIBLE_FAUCET_TOKEN_SYMBOL).unwrap(),
+                            FUNGIBLE_FAUCET_TOKEN_DECIMALS,
+                            Felt::from(FUNGIBLE_FAUCET_TOKEN_MAX_SUPPLY),
+                            AuthScheme::RpoFalcon512 {
+                                pub_key: faucet_key_pair.public_key(),
+                            },
+                        )
+                    })
+                    .unwrap();
 
+                debug!(?account, "Faucet account generated");
                 println!("Done");
 
                 accounts.push(account);
@@ -109,15 +115,19 @@ pub async fn make_genesis(
             // basic wallet account
             {
                 println!("Generating basic wallet account... ");
-                let (account, _) = create_basic_wallet(
-                    SEED_WALLET,
-                    AuthScheme::RpoFalcon512 {
-                        pub_key: wallet_key_pair.public_key(),
-                    },
-                    miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
-                )
-                .unwrap();
+                let (account, _) = info_span!("create_basic_wallet")
+                    .in_scope(|| {
+                        create_basic_wallet(
+                            SEED_WALLET,
+                            AuthScheme::RpoFalcon512 {
+                                pub_key: wallet_key_pair.public_key(),
+                            },
+                            miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
+                        )
+                    })
+                    .unwrap();
 
+                debug!(?account, "Basic wallet account generated");
                 println!("Done");
 
                 accounts.push(account);

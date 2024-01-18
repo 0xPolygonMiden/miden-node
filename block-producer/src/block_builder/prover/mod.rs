@@ -5,6 +5,7 @@ use miden_crypto::merkle::TieredSmt;
 use miden_objects::{assembly::Assembler, BlockHeader, Digest};
 use miden_stdlib::StdLibrary;
 use miden_vm::{execute, DefaultHost, MemAdviceProvider, Program};
+use tracing::instrument;
 
 use self::block_witness::BlockWitness;
 use super::{errors::BlockProverError, BuildBlockError};
@@ -172,6 +173,7 @@ impl BlockProver {
     }
 
     // Note: this will eventually all be done in the VM, and also return an `ExecutionProof`
+    #[instrument(skip(self), ret)]
     pub fn prove(
         &self,
         witness: BlockWitness,
@@ -205,6 +207,7 @@ impl BlockProver {
         ))
     }
 
+    #[instrument(skip(self), ret)]
     fn compute_roots(
         &self,
         witness: BlockWitness,

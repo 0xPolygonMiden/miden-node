@@ -17,7 +17,7 @@ use tonic::{
     transport::{Channel, Error},
     Request, Response, Status,
 };
-use tracing::info;
+use tracing::{info, instrument};
 
 use crate::{config::RpcConfig, COMPONENT};
 
@@ -51,6 +51,7 @@ impl RpcApi {
 
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
+    #[instrument(skip(self), ret)]
     async fn check_nullifiers(
         &self,
         request: Request<CheckNullifiersRequest>,
@@ -65,6 +66,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().check_nullifiers(request).await
     }
 
+    #[instrument(skip(self), ret)]
     async fn get_block_header_by_number(
         &self,
         request: Request<GetBlockHeaderByNumberRequest>,
@@ -72,6 +74,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().get_block_header_by_number(request).await
     }
 
+    #[instrument(skip(self), ret)]
     async fn sync_state(
         &self,
         request: tonic::Request<SyncStateRequest>,
@@ -79,6 +82,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().sync_state(request).await
     }
 
+    #[instrument(skip(self), ret)]
     async fn submit_proven_transaction(
         &self,
         request: Request<SubmitProvenTransactionRequest>,
