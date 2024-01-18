@@ -1,6 +1,5 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use miden_crypto::merkle::LeafIndex;
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
     accounts::AccountId, crypto::merkle::Mmr, notes::NoteEnvelope, BlockHeader, Digest,
@@ -30,8 +29,7 @@ pub async fn build_expected_block_header(
     let new_account_root = {
         let mut store_accounts = store.accounts.read().await.clone();
         for &(account_id, new_account_state) in updated_accounts.iter() {
-            store_accounts
-                .insert(LeafIndex::new_max_depth(account_id.into()), new_account_state.into());
+            store_accounts.insert(account_id.into(), new_account_state.into());
         }
 
         store_accounts.root()
@@ -123,8 +121,7 @@ impl MockBlockBuilder {
         updated_accounts: Vec<(AccountId, Digest)>,
     ) -> Self {
         for &(account_id, new_account_state) in updated_accounts.iter() {
-            self.store_accounts
-                .insert(LeafIndex::new_max_depth(account_id.into()), new_account_state.into());
+            self.store_accounts.insert(account_id.into(), new_account_state.into());
         }
 
         self.updated_accounts = Some(updated_accounts);
