@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
-    accounts::AccountId, crypto::merkle::Mmr, notes::NoteEnvelope, BlockHeader, Digest, ONE, ZERO,
+    accounts::AccountId, crypto::merkle::Mmr, notes::NoteEnvelope, BlockHeader, Digest, ONE, ZERO, ACCOUNT_TREE_DEPTH,
 };
 use miden_vm::crypto::SimpleSmt;
 
@@ -95,7 +95,7 @@ pub async fn build_actual_block_header(
 
 #[derive(Debug)]
 pub struct MockBlockBuilder {
-    store_accounts: SimpleSmt,
+    store_accounts: SimpleSmt::<ACCOUNT_TREE_DEPTH>,
     store_chain_mmr: Mmr,
     last_block_header: BlockHeader,
 
