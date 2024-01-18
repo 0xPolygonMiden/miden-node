@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use miden_crypto::merkle::{LeafIndex, ValuePath};
+use miden_crypto::merkle::ValuePath;
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
 use miden_objects::{crypto::merkle::Mmr, BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
