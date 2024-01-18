@@ -57,8 +57,21 @@ impl Db {
                     // Feature used to support `IN` and `NOT IN` queries. We need to load this module
                     // for every connection we create to the DB to support the queries we want to run
                     let _ = conn
-                        .interact(|conn| array::load_module(conn))
-                        .await
+                        .interact(|conn| {
+                            // Feature used to support `IN` and `NOT IN` queries. We need to load
+                            // this module for every connection we create to the DB to support the
+                            // queries we want to run
+                            array::load_module(conn)?;
+
+                            // Enable the WAL mode. This allows concurrent reads while the
+                            // transaction is being written, this is required for proper
+                            // synchronization of the servers in-memory and on-disk representations
+                            // (see [State::apply_block])
+                            conn.execute("PRAGMA journal_mode = WAL;", ())?;
+
+                            // Enable foreign key checks.
+                            conn.execute("PRAGMA foreign_keys = ON;", ())
+                        })                        .await
                         .map_err(|_| HookError::StaticMessage("Loading carray module failed"))?;
 
                     Ok(())
