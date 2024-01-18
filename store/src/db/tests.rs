@@ -1,4 +1,4 @@
-use miden_crypto::{hash::rpo::RpoDigest, merkle::NodeIndex, StarkField};
+use miden_crypto::{hash::rpo::RpoDigest, merkle::LeafIndex, StarkField};
 use miden_node_proto::{
     block_header::BlockHeader as ProtobufBlockHeader,
     digest::Digest as ProtobufDigest,
@@ -273,9 +273,9 @@ fn test_notes() {
     let tag = 5;
     let note_hash = num_to_rpo_digest(3);
     let values = [(note_index as u64, *note_hash)];
-    let notes_db = SimpleSmt::with_leaves(NOTE_LEAF_DEPTH, values.iter().cloned()).unwrap();
-    let idx = NodeIndex::new(NOTE_LEAF_DEPTH, note_index as u64).unwrap();
-    let merkle_path = notes_db.get_path(idx).unwrap();
+    let notes_db = SimpleSmt::<NOTE_LEAF_DEPTH>::with_leaves(values.iter().cloned()).unwrap();
+    let idx = LeafIndex::<NOTE_LEAF_DEPTH>::new(note_index as u64).unwrap();
+    let merkle_path = notes_db.open(&idx).path;
 
     let merkle_path: Vec<ProtobufDigest> =
         merkle_path.nodes().iter().map(|n| (*n).into()).collect();

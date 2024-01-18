@@ -8,7 +8,8 @@ use anyhow::{anyhow, bail, Result};
 use miden_crypto::{
     hash::rpo::RpoDigest,
     merkle::{
-        MerkleError, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, TieredSmt, TieredSmtProof,
+        LeafIndex, MerkleError, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, TieredSmt,
+        TieredSmtProof, ValuePath,
     },
     Felt, FieldElement, Word, EMPTY_WORD,
 };
@@ -26,7 +27,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
-    BlockHeader,
+    BlockHeader, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -41,11 +42,6 @@ use crate::{
     COMPONENT,
 };
 
-// CONSTANTS
-// ================================================================================================
-
-pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;
-
 // STRUCTURES
 // ================================================================================================
 
@@ -53,7 +49,7 @@ pub(crate) const ACCOUNT_DB_DEPTH: u8 = 64;
 struct InnerState {
     nullifier_tree: TieredSmt,
     chain_mmr: Mmr,
-    account_tree: SimpleSmt,
+    account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
 }
 
 /// The rollup state
@@ -252,7 +248,8 @@ impl State {
             // update account tree
             let mut account_tree = inner.account_tree.clone();
             for (account_id, account_hash) in accounts.iter() {
-                account_tree.update_leaf(*account_id, account_hash.try_into()?)?;
+                account_tree
+                    .insert(LeafIndex::new_max_depth(*account_id), account_hash.try_into()?);
             }
 
             if account_tree.root() != new_block.account_root() {
@@ -272,10 +269,12 @@ impl State {
                 .map(|note| {
                     // Safety: This should never happen, the note_tree is created directly form
                     // this list of notes
-                    let merkle_path =
-                        note_tree.get_leaf_path(note.note_index as u64).map_err(|_| {
+                    let leaf_index: LeafIndex<NOTE_LEAF_DEPTH> =
+                        LeafIndex::new(note.note_index as u64).map_err(|_| {
                             anyhow!("Internal server error, unable to created proof for note")
                         })?;
+
+                    let merkle_path = note_tree.open(&leaf_index).path;
 
                     Ok(Note {
                         block_num: new_block.block_num(),
@@ -397,11 +396,13 @@ impl State {
             .iter()
             .cloned()
             .map(|account_id| {
-                let account_hash = inner.account_tree.get_leaf(account_id)?;
-                let merkle_path = inner.account_tree.get_leaf_path(account_id)?;
+                let ValuePath {
+                    value: account_hash,
+                    path: merkle_path,
+                } = inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
                 Ok(AccountStateWithProof {
                     account_id,
-                    account_hash,
+                    account_hash: account_hash.into(),
                     merkle_path,
                 })
             })
@@ -420,7 +421,11 @@ impl State {
 
         let account = AccountState {
             account_id,
-            account_hash: inner.account_tree.get_leaf(account_id)?,
+            account_hash: inner
+                .account_tree
+                .open(&LeafIndex::new_max_depth(account_id))
+                .value
+                .into(),
         };
 
         let nullifier_blocks = nullifiers
@@ -465,7 +470,9 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
-pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt, anyhow::Error> {
+pub fn build_notes_tree(
+    notes: &[NoteCreated]
+) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, anyhow::Error> {
     // TODO: create SimpleSmt without this allocation
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
@@ -478,7 +485,7 @@ pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt, anyhow::Erro
         entries.push((index + 1, note_metadata.into()));
     }
 
-    Ok(SimpleSmt::with_leaves(NOTE_LEAF_DEPTH, entries)?)
+    Ok(SimpleSmt::with_leaves(entries)?)
 }
 
 #[instrument(skip(db))]
@@ -516,7 +523,7 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr> {
 }
 
 #[instrument(skip(db))]
-async fn load_accounts(db: &mut Db) -> Result<SimpleSmt> {
+async fn load_accounts(db: &mut Db) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>> {
     let account_data: Result<Vec<(u64, Word)>> = db
         .select_account_hashes()
         .await?
@@ -524,7 +531,7 @@ async fn load_accounts(db: &mut Db) -> Result<SimpleSmt> {
         .map(|(id, account_hash)| Ok((id, account_hash.try_into()?)))
         .collect();
 
-    let smt = SimpleSmt::with_leaves(ACCOUNT_DB_DEPTH, account_data?)?;
+    let smt = SimpleSmt::with_leaves(account_data?)?;
 
     Ok(smt)
 }
