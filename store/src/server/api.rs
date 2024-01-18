@@ -127,11 +127,7 @@ impl api_server::Api for StoreApi {
 
         let notes = request.notes;
 
-        let apply_block_status = self.state.apply_block(block, nullifiers, accounts, notes).await;
-
-        if let Err(err) = apply_block_status {
-            println!("Error: {:?}", err);
-        }
+        let _ = self.state.apply_block(block, nullifiers, accounts, notes).await;
 
         Ok(Response::new(ApplyBlockResponse {}))
     }
