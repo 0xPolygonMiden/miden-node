@@ -101,6 +101,8 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
             note_hash: Some(note_hash),
             sender: column_value_as_u64(row, 3)?,
             tag: column_value_as_u64(row, 4)?,
+            sender: column_value_as_u64(row, 3)?,
+            tag: column_value_as_u64(row, 4)?,
             num_assets: row.get(5)?,
             merkle_path: Some(merkle_path),
         })
@@ -138,7 +140,7 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>, anyhow
 /// Select nullifiers created between `(block_start, block_end]` that also match the
 /// `nullifier_prefixes` filter using the given [Connection].
 ///
-/// Each value of the `nullifier_prefixes` is only the 16 most significat bits of the nullifier of
+/// Each value of the `nullifier_prefixes` is only the 16 most significant bits of the nullifier of
 /// interest to the client. This hides the details of the specific nullifier being requested.
 ///
 /// # Returns
@@ -479,8 +481,6 @@ pub fn select_account_hashes(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        // sqlite doesn't support `u64` so we store `u64` as `i64`.
-        // Here, we do the reverse.
         let account_id = column_value_as_u64(row, 0)?;
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = Digest::decode(account_hash_data)?;
@@ -560,6 +560,7 @@ pub fn apply_block(
     count += insert_nullifiers_for_block(transaction, nullifiers, block_header.block_num)?;
     Ok(count)
 }
+
 // UTILITIES
 // ================================================================================================
 
