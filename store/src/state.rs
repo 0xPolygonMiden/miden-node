@@ -242,9 +242,10 @@ impl State {
                     nullifier_tree.insert(*nullifier, nullifier_data);
                 }
 
-                if nullifier_tree.root() != new_block.nullifier_root() {
-                    return Err(StateError::NewBlockInvalidNullifierRoot.into());
-                }
+                // FIXME: Re-add when nullifiers start getting updated
+                // if nullifier_tree.root() != new_block.nullifier_root() {
+                //     return Err(StateError::NewBlockInvalidNullifierRoot.into());
+                // }
                 nullifier_tree
             };
 
@@ -355,10 +356,9 @@ impl State {
                 .chain_mmr
                 .get_delta(block_num as usize, state_sync.block_header.block_num as usize)?;
 
-            let proof = inner.chain_mmr.open(
-                state_sync.block_header.block_num as usize,
-                state_sync.block_header.block_num as usize + 1,
-            )?;
+            let proof = inner
+                .chain_mmr
+                .open(block_num as usize, state_sync.block_header.block_num as usize)?;
 
             (delta, proof.merkle_path)
         };
