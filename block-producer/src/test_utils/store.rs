@@ -210,7 +210,7 @@ impl Store for MockStoreSuccess {
 
                     AccountInputRecord {
                         account_id,
-                        account_hash: account_hash.into(),
+                        account_hash,
                         proof,
                     }
                 })
