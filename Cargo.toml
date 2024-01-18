@@ -3,7 +3,7 @@ members = ["block-producer", "node", "proto", "rpc", "store", "utils"]
 resolver = "2"
 
 [workspace.dependencies]
-miden-crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto.git", branch = "plafer-smt-trait" }
+miden-crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto.git", branch = "next" }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "bobbin-simple-smt2" }
 miden_objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "bobbin-simple-smt2" }
 thiserror = "1.0"
