@@ -120,7 +120,7 @@ impl MockStoreSuccess {
 impl ApplyBlock for MockStoreSuccess {
     async fn apply_block(
         &self,
-        block: Arc<Block>,
+        block: Block,
     ) -> Result<(), ApplyBlockError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
@@ -231,7 +231,7 @@ pub struct MockStoreFailure;
 impl ApplyBlock for MockStoreFailure {
     async fn apply_block(
         &self,
-        _block: Arc<Block>,
+        _block: Block,
     ) -> Result<(), ApplyBlockError> {
         Err(ApplyBlockError::GrpcClientError(String::new()))
     }
