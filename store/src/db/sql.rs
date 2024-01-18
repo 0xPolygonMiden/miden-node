@@ -101,8 +101,6 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
             note_hash: Some(note_hash),
             sender: column_value_as_u64(row, 3)?,
             tag: column_value_as_u64(row, 4)?,
-            sender: column_value_as_u64(row, 3)?,
-            tag: column_value_as_u64(row, 4)?,
             num_assets: row.get(5)?,
             merkle_path: Some(merkle_path),
         })

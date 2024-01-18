@@ -17,9 +17,10 @@ use tracing::{info, span, Level};
 use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
+    genesis::{GenesisState, GENESIS_BLOCK_NUM},
     migrations,
     types::{AccountId, BlockNumber},
-    COMPONENT, genesis::{GenesisState, GENESIS_BLOCK_NUM},
+    COMPONENT,
 };
 
 pub mod errors;
@@ -70,7 +71,8 @@ impl Db {
 
                             // Enable foreign key checks.
                             conn.execute("PRAGMA foreign_keys = ON;", ())
-                        })                        .await
+                        })
+                        .await
                         .map_err(|_| HookError::StaticMessage("Loading carray module failed"))?;
 
                     Ok(())
