@@ -17,10 +17,9 @@ use tracing::{info, span, Level};
 use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
-    genesis::{GenesisState, GENESIS_BLOCK_NUM},
     migrations,
     types::{AccountId, BlockNumber},
-    COMPONENT,
+    COMPONENT, genesis::{GenesisState, GENESIS_BLOCK_NUM},
 };
 
 pub mod errors;

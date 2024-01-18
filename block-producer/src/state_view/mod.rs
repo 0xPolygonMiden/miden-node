@@ -108,7 +108,7 @@ where
             .updated_accounts
             .iter()
             .map(|(account_id, _final_account_hash)| account_id);
-        
+
         for account_id in account_ids_in_block {
             let was_in_flight = locked_accounts_in_flight.remove(account_id);
             debug_assert!(was_in_flight);
