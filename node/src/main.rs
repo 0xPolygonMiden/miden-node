@@ -30,14 +30,19 @@ pub enum Command {
         config: PathBuf,
     },
 
-    /// Generate genesis file
+    /// Generates a genesis file and associated account files based on a specified genesis input
+    ///
+    /// This function creates a new genesis file and associated account files at the specified output
+    /// paths. It checks for the existence of the output file, and if it already exists, an error is
+    /// thrown unless the `force` flag is set to overwrite it. The function also verifies the existence
+    /// of a configuration file required for initializing the genesis file.
     MakeGenesis {
         /// Read genesis file inputs from this location
         #[arg(short, long, value_name = "FILE", default_value = DEFAULT_GENESIS_INPUTS_PATH)]
-        input_path: PathBuf,
+        inputs_path: PathBuf,
 
         /// Write the genesis file to this location
-        #[arg(short, long, default_value = DEFAULT_GENESIS_FILE_PATH)]
+        #[arg(short, long, value_name = "FILE", default_value = DEFAULT_GENESIS_FILE_PATH)]
         output_path: PathBuf,
 
         /// Generate the output file even if a file already exists
@@ -57,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
         Command::MakeGenesis {
             output_path,
             force,
-            input_path,
-        } => commands::make_genesis(input_path, output_path, force),
+            inputs_path,
+        } => commands::make_genesis(inputs_path, output_path, force),
     }
 }

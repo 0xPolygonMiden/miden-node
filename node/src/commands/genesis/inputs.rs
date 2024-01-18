@@ -1,4 +1,3 @@
-use miden_objects::accounts::AccountType;
 use serde::Deserialize;
 
 // INPUT HELPER STRUCTS
@@ -23,7 +22,6 @@ pub enum AccountInput {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BasicWalletInputs {
-    pub mode: AccountType,
     pub init_seed: String,
     pub auth_scheme: AuthSchemeInput,
     pub auth_seed: String,
@@ -31,7 +29,6 @@ pub struct BasicWalletInputs {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BasicFungibleFaucetInputs {
-    pub mode: AccountType,
     pub init_seed: String,
     pub auth_scheme: AuthSchemeInput,
     pub auth_seed: String,

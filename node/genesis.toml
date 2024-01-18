@@ -1,4 +1,4 @@
-# This is an example configuration file for the Miden node.
+# This is an example genesis input file for the Miden node.
 
 version = 1
 timestamp = 1672531200

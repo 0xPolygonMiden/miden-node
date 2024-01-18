@@ -28,12 +28,7 @@ const DEFAULT_ACCOUNTS_DIR: &str = "accounts";
 // MAKE GENESIS
 // ================================================================================================
 
-/// Generates a genesis file and associated account files based on a specified configuration.
-///
-/// This function creates a new genesis file and associated account files at the specified output
-/// paths. It checks for the existence of the output file, and if it already exists, an error is
-/// thrown unless the `force` flag is set to overwrite it. The function also verifies the existence
-/// of a configuration file required for initializing the genesis file.
+/// Generates a genesis file and associated account files based on a specified genesis input
 ///
 /// # Arguments
 ///
@@ -68,7 +63,7 @@ pub fn make_genesis(
     if let Ok(file_exists) = genesis_file_path.try_exists() {
         if !file_exists {
             return Err(anyhow!(
-                "The {} file does not exist. It is necessary to initialize the node",
+                "The {} file does not exist. It is necessary to generate the genesis file",
                 genesis_file_path.display()
             ));
         }
@@ -77,9 +72,12 @@ pub fn make_genesis(
     }
 
     let genesis_input: GenesisInput = load_config(genesis_file_path).extract().map_err(|err| {
-        anyhow!("Failed to load {} config file: {err}", genesis_file_path.display())
+        anyhow!("Failed to load {} genesis input file: {err}", genesis_file_path.display())
     })?;
-    println!("Config file: {} has successfully been loaded.", genesis_file_path.display());
+    println!(
+        "Genesis input file: {} has successfully been loaded.",
+        genesis_file_path.display()
+    );
 
     let accounts = create_accounts(&genesis_input.accounts)?;
     println!("Accounts have successfully been created at: /{}", DEFAULT_ACCOUNTS_DIR);
@@ -88,7 +86,7 @@ pub fn make_genesis(
     fs::write(output_path, genesis_state.to_bytes()).unwrap_or_else(|_| {
         panic!("Failed to write genesis state to output file {}", output_path.display())
     });
-    println!("Node genesis successful: {} has been created", output_path.display());
+    println!("Miden node genesis successful: {} has been created", output_path.display());
 
     Ok(())
 }
@@ -199,14 +197,12 @@ mod tests {
 
                 [[accounts]]
                 type = "BasicWallet"
-                mode = "RegularAccountImmutableCode"
                 init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
                 auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
                 [[accounts]]
                 type = "BasicFungibleFaucet"
-                mode = "FungibleFaucet"
                 init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
                 auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
