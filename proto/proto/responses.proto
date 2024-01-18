@@ -39,19 +39,19 @@ message SyncStateResponse {
     // block header of the block with the first note matching the specified criteria
     block_header.BlockHeader block_header = 2;
 
-    // data needed to update the partial MMR from `block_ref` to `block_header.block_num`
+    // data needed to update the partial MMR from `block_num` to `block_header.block_num`
     mmr.MmrDelta mmr_delta = 3;
 
     // Merkle path in the updated chain MMR to the block at `block_header.block_num`
     merkle.MerklePath block_path = 4;
 
-    // a list of account hashes updated after `block_ref` but not after `block_header.block_num`
+    // a list of account hashes updated after `block_num` but not after `block_header.block_num`
     repeated AccountHashUpdate accounts = 5;
 
     // a list of all notes together with the Merkle paths from `block_header.note_root`
     repeated note.NoteSyncRecord notes = 6;
 
-    // a list of nullifiers created between `block_ref` and `block_header.block_num`
+    // a list of nullifiers created between `block_num` and `block_header.block_num`
     repeated NullifierUpdate nullifiers = 7;
 }
 

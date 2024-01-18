@@ -38,6 +38,7 @@ impl Deserializable for AccountAndSeed {
 }
 
 /// Represents the state at genesis, which will be used to derive the genesis block.
+#[derive(Debug, PartialEq, Eq)]
 pub struct GenesisState {
     pub accounts: Vec<AccountAndSeed>,
     pub version: u64,
