@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use input::{AccountInput, AuthSchemeInput, GenesisInput};
+use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
 use miden_crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{hex_to_bytes, Serializable},
@@ -18,37 +18,38 @@ use miden_node_utils::config::load_config;
 use miden_objects::{
     accounts::{Account, AccountData, AccountType, AuthData},
     assets::TokenSymbol,
-    Felt, Word,
+    Felt,
 };
 
-mod input;
+mod inputs;
 
-const DEFAULT_ACCOUNTS_FOLDER: &str = "accounts";
+const DEFAULT_ACCOUNTS_DIR: &str = "accounts";
 
 // MAKE GENESIS
-// ===================================================================================================
+// ================================================================================================
 
 /// Generates a genesis file and associated account files based on a specified configuration.
 ///
-/// This function creates a new genesis file and associated account files at the specified output paths.
-/// It checks for the existence of the file, and if it already exists, an error is thrown
-/// unless the `force` flag is set to overwrite it. The function also verifies the existence
+/// This function creates a new genesis file and associated account files at the specified output
+/// paths. It checks for the existence of the output file, and if it already exists, an error is
+/// thrown unless the `force` flag is set to overwrite it. The function also verifies the existence
 /// of a configuration file required for initializing the genesis file.
 ///
 /// # Arguments
 ///
 /// * `output_path` - A `PathBuf` reference to the path where the genesis file will be created.
 /// * `force` - A boolean flag to determine if an existing genesis file should be overwritten.
-/// * `config_filepath` - A `PathBuf` reference to the configuration file's path.
+/// * `inputs_path` - A `PathBuf` reference to the genesis inputs file's path.
 ///
 /// # Returns
 ///
-/// This function returns a `Result` type. On successful creation of the genesis file, it returns `Ok(())`.
-/// If it fails at any point, due to issues like file existence checks or read/write operations, it returns an `Err` with a detailed error message.
+/// This function returns a `Result` type. On successful creation of the genesis file, it returns
+/// `Ok(())`. If it fails at any point, due to issues like file existence checks or read/write
+/// operations, it returns an `Err` with a detailed error message.
 pub fn make_genesis(
+    inputs_path: &PathBuf,
     output_path: &PathBuf,
     force: &bool,
-    config_filepath: &PathBuf,
 ) -> Result<()> {
     let output_file_path = Path::new(output_path);
 
@@ -62,12 +63,12 @@ pub fn make_genesis(
         }
     }
 
-    let genesis_file_path = Path::new(config_filepath);
+    let genesis_file_path = Path::new(inputs_path);
 
     if let Ok(file_exists) = genesis_file_path.try_exists() {
         if !file_exists {
             return Err(anyhow!(
-                "The {} file does not exist. It is necessary to initialise the node",
+                "The {} file does not exist. It is necessary to initialize the node",
                 genesis_file_path.display()
             ));
         }
@@ -78,72 +79,40 @@ pub fn make_genesis(
     let genesis_input: GenesisInput = load_config(genesis_file_path).extract().map_err(|err| {
         anyhow!("Failed to load {} config file: {err}", genesis_file_path.display())
     })?;
-
     println!("Config file: {} has successfully been loaded.", genesis_file_path.display());
 
     let accounts = create_accounts(&genesis_input.accounts)?;
-
-    println!("Accounts have successfully been created at: /{}", DEFAULT_ACCOUNTS_FOLDER);
+    println!("Accounts have successfully been created at: /{}", DEFAULT_ACCOUNTS_DIR);
 
     let genesis_state = GenesisState::new(accounts, genesis_input.version, genesis_input.timestamp);
-
     fs::write(output_path, genesis_state.to_bytes()).unwrap_or_else(|_| {
         panic!("Failed to write genesis state to output file {}", output_path.display())
     });
-
     println!("Node genesis successful: {} has been created", output_path.display());
 
     Ok(())
 }
 
-/// Serializes and Writes AccountData to a File.
+/// Converts the provided list of account inputs into [Account] objects.
 ///
-/// This function is a utility within the account creation process, specifically used by the `create_accounts` function.
-/// It takes an account instance along with its seed and authentication data, serializes this information into an `AccountData`
-/// object, and writes it to a uniquely named file. The file naming convention uses an index to ensure uniqueness and is stored
-/// within a dedicated 'accounts' directory.
-fn create_account_file(
-    account: Account,
-    account_seed: Option<Word>,
-    auth_info: AuthData,
-    index: usize,
-) -> Result<()> {
-    let account_data = AccountData::new(account, account_seed, auth_info);
-
-    let path = format!("accounts/account{}.mac", index);
-    let filepath = Path::new(&path);
-
-    account_data.write(filepath)?;
-
-    Ok(())
-}
-
-/// Create acccounts deserialised from genesis configuration file
-///
-/// This function is used by the `make_genesis` function during the genesis phase of the node.
-/// It enables the creation of the accounts that have been deserialised from the configuration file
-/// used for the node initialisation.
+/// This function also writes the account data files into the default accounts directory.
 fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
-    let accounts_folder_path = PathBuf::from(DEFAULT_ACCOUNTS_FOLDER);
+    let accounts_dir_path = PathBuf::from(DEFAULT_ACCOUNTS_DIR);
 
-    fs::create_dir(accounts_folder_path.as_path())
-        .map_err(|err| anyhow!("Failed to create accounts folder: {err}"))?;
+    fs::create_dir(accounts_dir_path.as_path())
+        .map_err(|err| anyhow!("Failed to create accounts directory: {err}"))?;
 
     let mut final_accounts = Vec::new();
 
     for account in accounts {
-        match account {
+        // build account data from account inputs
+        let account_data = match account {
             AccountInput::BasicWallet(inputs) => {
                 print!("Creating basic wallet account...");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
-                let auth_seed = hex_to_bytes(&inputs.auth_seed)?;
 
-                let keypair = KeyPair::from_seed(&auth_seed)?;
-                let auth_scheme = match inputs.auth_scheme {
-                    AuthSchemeInput::RpoFalcon512 => AuthScheme::RpoFalcon512 {
-                        pub_key: keypair.public_key(),
-                    },
-                };
+                let (auth_scheme, auth_info) =
+                    parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
                 let (account, account_seed) = create_basic_wallet(
                     init_seed,
@@ -151,30 +120,14 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                     AccountType::RegularAccountImmutableCode,
                 )?;
 
-                let auth_info = match inputs.auth_scheme {
-                    AuthSchemeInput::RpoFalcon512 => AuthData::RpoFalcon512Seed(auth_seed),
-                };
-
-                create_account_file(
-                    account.clone(),
-                    Some(account_seed),
-                    auth_info,
-                    final_accounts.len(),
-                )?;
-
-                final_accounts.push(account);
+                AccountData::new(account, Some(account_seed), auth_info)
             },
             AccountInput::BasicFungibleFaucet(inputs) => {
                 println!("Creating fungible faucet account...");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
-                let auth_seed = hex_to_bytes(&inputs.auth_seed)?;
 
-                let keypair = KeyPair::from_seed(&auth_seed)?;
-                let auth_scheme = match inputs.auth_scheme {
-                    AuthSchemeInput::RpoFalcon512 => AuthScheme::RpoFalcon512 {
-                        pub_key: keypair.public_key(),
-                    },
-                };
+                let (auth_scheme, auth_info) =
+                    parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
                 let (account, account_seed) = create_basic_fungible_faucet(
                     init_seed,
@@ -184,24 +137,41 @@ fn create_accounts(accounts: &[AccountInput]) -> Result<Vec<Account>> {
                     auth_scheme,
                 )?;
 
-                let auth_info = match inputs.auth_scheme {
-                    AuthSchemeInput::RpoFalcon512 => AuthData::RpoFalcon512Seed(auth_seed),
-                };
-
-                create_account_file(
-                    account.clone(),
-                    Some(account_seed),
-                    auth_info,
-                    final_accounts.len(),
-                )?;
-
-                final_accounts.push(account);
+                AccountData::new(account, Some(account_seed), auth_info)
             },
-        }
+        };
+
+        // write account data to file
+        let path = format!("{DEFAULT_ACCOUNTS_DIR}/account{}.mac", final_accounts.len());
+        account_data.write(path)?;
+
+        final_accounts.push(account_data.account);
     }
 
     Ok(final_accounts)
 }
+
+fn parse_auth_inputs(
+    auth_scheme_input: AuthSchemeInput,
+    auth_seed: &str,
+) -> Result<(AuthScheme, AuthData)> {
+    match auth_scheme_input {
+        AuthSchemeInput::RpoFalcon512 => {
+            let auth_seed = hex_to_bytes(auth_seed)?;
+            let keypair = KeyPair::from_seed(&auth_seed)?;
+
+            let auth_scheme = AuthScheme::RpoFalcon512 {
+                pub_key: keypair.public_key(),
+            };
+            let auth_info = AuthData::RpoFalcon512Seed(auth_seed);
+
+            Ok((auth_scheme, auth_info))
+        },
+    }
+}
+
+// TESTS
+// ================================================================================================
 
 #[cfg(test)]
 mod tests {
@@ -213,16 +183,16 @@ mod tests {
     use miden_objects::accounts::AccountData;
 
     use super::make_genesis;
-    use crate::DEFAULT_GENESIS_DAT_FILE_PATH;
+    use crate::DEFAULT_GENESIS_FILE_PATH;
 
     #[test]
-    fn test_node_genesis() {
-        let genesis_file_path = PathBuf::from("genesis.toml");
+    fn test_make_genesis() {
+        let genesis_inputs_file_path = PathBuf::from("genesis.toml");
 
         // node genesis configuration
         Jail::expect_with(|jail| {
             jail.create_file(
-                genesis_file_path.as_path(),
+                genesis_inputs_file_path.as_path(),
                 r#"
                 version = 1
                 timestamp = 1672531200
@@ -246,10 +216,10 @@ mod tests {
             "#,
             )?;
 
-            let genesis_dat_file_path = PathBuf::from(DEFAULT_GENESIS_DAT_FILE_PATH);
+            let genesis_dat_file_path = PathBuf::from(DEFAULT_GENESIS_FILE_PATH);
 
             //  run make_genesis to generate genesis.dat and accounts folder and files
-            make_genesis(&genesis_dat_file_path, &true, &genesis_file_path).unwrap();
+            make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
 
             let a0_file_path = PathBuf::from("accounts/account0.mac");
             let a1_file_path = PathBuf::from("accounts/account1.mac");
@@ -259,7 +229,7 @@ mod tests {
             assert!(a0_file_path.exists());
             assert!(a1_file_path.exists());
 
-            // deserialise accounts and genesis_state
+            // deserialize accounts and genesis_state
             let a0 = AccountData::read(a0_file_path).unwrap();
             let a1 = AccountData::read(a1_file_path).unwrap();
 

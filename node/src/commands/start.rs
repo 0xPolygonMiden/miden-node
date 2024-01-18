@@ -8,8 +8,6 @@ use miden_node_utils::config::load_config;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinSet;
 
-pub const CONFIG_FILENAME: &str = "miden.toml";
-
 // Top-level config
 // ================================================================================================
 
@@ -24,7 +22,7 @@ pub struct StartCommandConfig {
 // START
 // ===================================================================================================
 
-pub async fn start(config_filepath: &Path) -> Result<()> {
+pub async fn start_node(config_filepath: &Path) -> Result<()> {
     let config: StartCommandConfig = load_config(config_filepath).extract().map_err(|err| {
         anyhow!("failed to load config file `{}`: {err}", config_filepath.display())
     })?;
@@ -60,13 +58,14 @@ mod tests {
     use miden_node_store::config::StoreConfig;
     use miden_node_utils::config::{load_config, Endpoint};
 
-    use super::{StartCommandConfig, CONFIG_FILENAME};
+    use super::StartCommandConfig;
+    use crate::NODE_CONFIG_FILE_PATH;
 
     #[test]
     fn test_node_config() {
         Jail::expect_with(|jail| {
             jail.create_file(
-                CONFIG_FILENAME,
+                NODE_CONFIG_FILE_PATH,
                 r#"
                     [block_producer]
                     store_url = "http://store:8000"
@@ -91,7 +90,7 @@ mod tests {
             )?;
 
             let config: StartCommandConfig =
-                load_config(PathBuf::from(CONFIG_FILENAME).as_path()).extract()?;
+                load_config(PathBuf::from(NODE_CONFIG_FILE_PATH).as_path()).extract()?;
 
             assert_eq!(
                 config,

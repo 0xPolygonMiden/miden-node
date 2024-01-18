@@ -4,24 +4,24 @@ use serde::Deserialize;
 // INPUT HELPER STRUCTS
 // ================================================================================================
 
-/// Input types are helper structures designed for parsing and deserializing configuration files.
+/// Input types are helper structures designed for parsing and deserializing genesis input files.
 /// They serve as intermediary representations, facilitating the conversion from
 /// placeholder types (like `GenesisInput`) to internal types (like `GenesisState`).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct GenesisInput {
     pub version: u64,
     pub timestamp: u64,
     pub accounts: Vec<AccountInput>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
 pub enum AccountInput {
     BasicWallet(BasicWalletInputs),
     BasicFungibleFaucet(BasicFungibleFaucetInputs),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct BasicWalletInputs {
     pub mode: AccountType,
     pub init_seed: String,
@@ -29,7 +29,7 @@ pub struct BasicWalletInputs {
     pub auth_seed: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct BasicFungibleFaucetInputs {
     pub mode: AccountType,
     pub init_seed: String,
@@ -40,7 +40,7 @@ pub struct BasicFungibleFaucetInputs {
     pub max_supply: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 pub enum AuthSchemeInput {
     RpoFalcon512,
 }
