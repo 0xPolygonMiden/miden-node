@@ -352,8 +352,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
                 LIMIT
                     1
             ) AND
-            -- load notes that matches any of tags
-            (tag >> 48) IN rarray(?1);
+            -- filter the block's notes and return only the ones matching the requested tags
+            ((tag >> 48) IN rarray(?1) OR sender IN rarray(?2));
     ",
     )?;
     let mut rows = stmt.query(params![Rc::new(tags), Rc::new(account_ids), block_num])?;
