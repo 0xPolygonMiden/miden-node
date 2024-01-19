@@ -53,16 +53,17 @@ Currently, the only difference between the two is how long the `make-genesis` co
 
 ### Generating the genesis file
 
-Before running the node, you must first generate the genesis file. The contents of the genesis file are currently hardcoded in Rust, but we intend to make these configurable shortly. The genesis block currently sets up 2 accounts: a faucet account for a `POL` token, as well as a wallet account.
+Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](node/genesis.toml)
+
 
 To generate the genesis file, run:
 ```sh
 miden-node make-genesis
 ```
 
-This will generate 3 files in the current directory: 
+By default this will generate 1 file and 1 folder in the current directory:
 - `genesis.dat`: the genesis file.
-- `faucet.fsk` and `wallet.fsk`: the public/private keys of the faucet and wallet accounts, respectively.
+- `accounts` directory containing `.mac` files (one per account) for the accounts defined in the genesis inputs file. Each `.mac` file contains full serialization of an account, including code, storage, and authentication info.
 
 ### Running the node
 
