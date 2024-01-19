@@ -96,7 +96,7 @@ where
 {
     async fn apply_block(
         &self,
-        block: Arc<Block>,
+        block: Block,
     ) -> Result<(), ApplyBlockError> {
         self.store.apply_block(block.clone()).await?;
 

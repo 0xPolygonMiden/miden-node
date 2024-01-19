@@ -464,17 +464,14 @@ async fn test_compute_note_root_success() {
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
     // the second subtree of depth 12
-    let notes_smt = SimpleSmt::with_leaves(
-        CREATED_NOTES_TREE_DEPTH,
-        vec![
-            (0u64, notes_created[0].note_id().into()),
-            (1u64, notes_created[0].metadata().into()),
-            (2u64, notes_created[1].note_id().into()),
-            (3u64, notes_created[1].metadata().into()),
-            (2u64.pow(13), notes_created[2].note_id().into()),
-            (2u64.pow(13) + 1, notes_created[2].metadata().into()),
-        ],
-    )
+    let notes_smt = SimpleSmt::<CREATED_NOTES_TREE_DEPTH>::with_leaves(vec![
+        (0u64, notes_created[0].note_id().into()),
+        (1u64, notes_created[0].metadata().into()),
+        (2u64, notes_created[1].note_id().into()),
+        (3u64, notes_created[1].metadata().into()),
+        (2u64.pow(13), notes_created[2].note_id().into()),
+        (2u64.pow(13) + 1, notes_created[2].metadata().into()),
+    ])
     .unwrap();
 
     // Compare roots

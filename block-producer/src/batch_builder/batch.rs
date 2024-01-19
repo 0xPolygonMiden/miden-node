@@ -17,7 +17,7 @@ use crate::{SharedProvenTx, CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_B
 pub struct TransactionBatch {
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Digest>,
-    created_notes_smt: SimpleSmt,
+    created_notes_smt: SimpleSmt<CREATED_NOTES_SMT_DEPTH>,
     /// The notes stored `created_notes_smt`
     created_notes: Vec<NoteEnvelope>,
 }
@@ -64,8 +64,7 @@ impl TransactionBatch {
             // TODO: document under what circumstances SMT creating can fail
             (
                 created_notes.clone(),
-                SimpleSmt::with_contiguous_leaves(
-                    CREATED_NOTES_SMT_DEPTH,
+                SimpleSmt::<CREATED_NOTES_SMT_DEPTH>::with_contiguous_leaves(
                     created_notes.into_iter().flat_map(|note_envelope| {
                         [note_envelope.note_id().into(), note_envelope.metadata().into()]
                     }),
