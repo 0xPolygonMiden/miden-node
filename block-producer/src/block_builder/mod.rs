@@ -102,6 +102,24 @@ where
         let new_block_header = self.block_kernel.prove(block_header_witness)?;
 
         let block_num = new_block_header.block_num();
+        let block_hash = new_block_header.hash();
+
+        info!(
+            prev_hash = %new_block_header.prev_hash(),
+            block_num,
+            chain_root = %new_block_header.chain_root(),
+            account_root = %new_block_header.account_root(),
+            nullifier_root = %new_block_header.nullifier_root(),
+            note_root = %new_block_header.note_root(),
+            batch_root = %new_block_header.batch_root(),
+            proof_hash = %new_block_header.proof_hash(),
+            version = %new_block_header.version(),
+            timestamp = %new_block_header.timestamp(),
+            sub_hash = %new_block_header.sub_hash(),
+            %block_hash,
+            COMPONENT,
+            "New block header",
+        );
 
         let block = Block {
             header: new_block_header,
@@ -112,7 +130,7 @@ where
 
         self.state_view.apply_block(block).await?;
 
-        info!(COMPONENT, "block #{block_num} built!");
+        info!(block_num, %block_hash, COMPONENT, "block has been built!");
 
         Ok(())
     }

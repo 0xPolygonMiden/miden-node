@@ -63,9 +63,9 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     });
 
     info!(
-        COMPONENT,
         host = config.endpoint.host,
         port = config.endpoint.port,
+        COMPONENT,
         "Server initialized",
     );
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
