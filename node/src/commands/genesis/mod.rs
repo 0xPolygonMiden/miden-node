@@ -114,16 +114,10 @@ fn create_accounts(
 
     let accounts_exists = accounts_path.try_exists()?;
 
-    if accounts_exists {
-        if *force {
-            fs::remove_dir_all(&accounts_path)?;
-        } else {
-            return Err(anyhow!("Failed to generate accounts folder {} because it already exists. Use the --force flag to overwrite.", accounts_path.display()));
-        }
+    if !accounts_exists {
+        fs::create_dir_all(&accounts_path)
+            .map_err(|err| anyhow!("Failed to create accounts directory: {err}"))?;
     }
-
-    fs::create_dir_all(&accounts_path)
-        .map_err(|err| anyhow!("Failed to create accounts directory: {err}"))?;
 
     let mut final_accounts = Vec::new();
 
@@ -166,6 +160,14 @@ fn create_accounts(
 
         // write account data to file
         let path = format!("{}/account{}.mac", accounts_path.display(), final_accounts.len());
+        let path = Path::new(&path);
+
+        if let Ok(path_exists) = path.try_exists() {
+            if path_exists && !force {
+                return Err(anyhow!("Failed to generate account file {} because it already exists. Use the --force flag to overwrite.", path.display()));
+            }
+        }
+
         account_data.write(path)?;
 
         final_accounts.push(account_data.account);
