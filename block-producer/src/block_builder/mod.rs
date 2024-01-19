@@ -7,7 +7,7 @@ use tracing::{info, instrument};
 use crate::{
     block::Block,
     store::{ApplyBlock, Store},
-    SharedTxBatch, MAX_NUM_CREATED_NOTES_PER_BATCH,
+    SharedTxBatch, COMPONENT, MAX_NUM_CREATED_NOTES_PER_BATCH,
 };
 
 pub mod errors;
@@ -111,7 +111,7 @@ where
 
         self.state_view.apply_block(block).await?;
 
-        info!("block #{block_num} built!");
+        info!(COMPONENT, "block #{block_num} built!");
 
         Ok(())
     }

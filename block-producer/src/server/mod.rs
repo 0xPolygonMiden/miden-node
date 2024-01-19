@@ -12,7 +12,7 @@ use crate::{
     state_view::DefaultStateView,
     store::DefaultStore,
     txqueue::{DefaultTransactionQueue, DefaultTransactionQueueOptions},
-    SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
+    COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
 };
 
@@ -53,16 +53,21 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(queue.clone()));
 
     tokio::spawn(async move {
-        info!("transaction queue started");
+        info!(COMPONENT, "transaction queue started");
         queue.run().await
     });
 
     tokio::spawn(async move {
-        info!("batch builder started");
+        info!(COMPONENT, "batch builder started");
         batch_builder.run().await
     });
 
-    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
+    info!(
+        COMPONENT,
+        host = config.endpoint.host,
+        port = config.endpoint.port,
+        "Server initialized",
+    );
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
 
     Ok(())

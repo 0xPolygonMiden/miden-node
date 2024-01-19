@@ -29,6 +29,9 @@ pub(crate) type SharedRwVec<T> = Arc<RwLock<Vec<T>>>;
 // CONSTANTS
 // =================================================================================================
 
+/// The name of the block producer component
+pub const COMPONENT: &str = "miden-block-producer";
+
 /// The depth of the SMT for created notes
 const CREATED_NOTES_SMT_DEPTH: u8 = 13;
 

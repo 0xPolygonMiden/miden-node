@@ -20,6 +20,7 @@ use crate::{
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
     migrations,
     types::{AccountId, BlockNumber},
+    COMPONENT,
 };
 
 pub mod errors;
@@ -79,7 +80,7 @@ impl Db {
 
         info!(
             sqlite = format!("{}", config.database_filepath.display()),
-            "Connected to the DB"
+            COMPONENT, "Connected to the DB"
         );
 
         let conn = pool.get().await?;
