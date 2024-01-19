@@ -26,7 +26,7 @@ pub struct Cli {
 pub enum Command {
     /// Start the node
     Start {
-        #[arg(short, long, default_value = NODE_CONFIG_FILE_PATH)]
+        #[arg(short, long, value_name = "FILE", default_value = NODE_CONFIG_FILE_PATH)]
         config: PathBuf,
     },
 
@@ -37,11 +37,11 @@ pub enum Command {
     /// thrown unless the `force` flag is set to overwrite it.
     MakeGenesis {
         /// Read genesis file inputs from this location
-        #[arg(short, long, default_value = DEFAULT_GENESIS_INPUTS_PATH)]
+        #[arg(short, long, value_name = "FILE", default_value = DEFAULT_GENESIS_INPUTS_PATH)]
         inputs_path: PathBuf,
 
         /// Write the genesis file to this location
-        #[arg(short, long, default_value = DEFAULT_GENESIS_FILE_PATH)]
+        #[arg(short, long, value_name = "FILE", default_value = DEFAULT_GENESIS_FILE_PATH)]
         output_path: PathBuf,
 
         /// Generate the output file even if a file already exists

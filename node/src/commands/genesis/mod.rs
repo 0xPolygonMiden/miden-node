@@ -62,7 +62,7 @@ pub fn make_genesis(
     if let Ok(file_exists) = inputs_path.try_exists() {
         if !file_exists {
             return Err(anyhow!(
-                "The {} file does not exist. It is necessary to generate the genesis file",
+                "The {} file does not exist. It is necessary to generate the genesis file. Use the --inputs-path flag to pass in the genesis input file.",
                 inputs_path.display()
             ));
         }
