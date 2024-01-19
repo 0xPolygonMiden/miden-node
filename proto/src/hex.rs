@@ -1,3 +1,5 @@
+use std::fmt::Formatter;
+
 use hex::{FromHex, ToHex};
 
 use crate::{digest::Digest, error::ParseError};
@@ -58,6 +60,15 @@ impl FromHex for Digest {
                 Ok(Digest { d0, d1, d2, d3 })
             },
         }
+    }
+}
+
+impl std::fmt::Debug for Digest {
+    fn fmt(
+        &self,
+        formatter: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        formatter.write_str(&self.encode_hex::<String>())
     }
 }
 
