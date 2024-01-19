@@ -61,9 +61,9 @@ To generate the genesis file, run:
 miden-node make-genesis
 ```
 
-By default this will generate 1 file and 1 folder in the current directory: 
+By default this will generate 1 file and 1 folder in the current directory:
 - `genesis.dat`: the genesis file.
-- `accounts/` folder containing an `account{i}.mac` file for each provided account in the genesis inputs file: a serialised `AccountData` struct containing the account, account-seed, auth-scheme and auth-seed. Learn more: https://github.com/0xPolygonMiden/miden-base/blob/341f692edcb375c0473d8a8c19e2c5944c7c9b57/objects/src/accounts/data.rs#L17-L30
+- `accounts` directory containing `.mac` files (one per account) for the accounts defined in the genesis inputs file. Each `.mac` file contains full serialization of an account, including code, storage, and authentication info.
 
 ### Running the node
 

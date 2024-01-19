@@ -112,9 +112,7 @@ fn create_accounts(
     let mut accounts_path = PathBuf::from(&parent_path);
     accounts_path.push(DEFAULT_ACCOUNTS_DIR);
 
-    let accounts_exists = accounts_path.try_exists()?;
-
-    if !accounts_exists {
+    if !accounts_path.try_exists()? {
         fs::create_dir_all(&accounts_path)
             .map_err(|err| anyhow!("Failed to create accounts directory: {err}"))?;
     }
