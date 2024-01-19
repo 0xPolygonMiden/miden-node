@@ -160,7 +160,7 @@ where
     TV: TransactionVerifier,
     BB: BatchBuilder,
 {
-    #[instrument(skip(self), ret, fields(COMPONENT))]
+    #[instrument(skip(self), ret, err(Debug), fields(COMPONENT))]
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,

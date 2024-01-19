@@ -174,6 +174,7 @@ impl State {
     /// - the DB transaction is committed, and requests that read only from the DB can proceed to
     ///   use the fresh data.
     /// - the in-memory structures are updated, and the lock is released.
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,
@@ -320,7 +321,7 @@ impl State {
         Ok(())
     }
 
-    #[instrument(skip(self), ret, fields(COMPONENT))]
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
@@ -337,7 +338,7 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
     }
 
-    #[instrument(skip(self), ret, fields(COMPONENT))]
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
@@ -369,7 +370,7 @@ impl State {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
-    #[instrument(skip(self), ret, fields(COMPONENT))]
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
@@ -414,7 +415,7 @@ impl State {
         Ok((latest, peaks, account_states))
     }
 
-    #[instrument(skip(self), ret, fields(COMPONENT))]
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
@@ -444,19 +445,19 @@ impl State {
         Ok((account, nullifier_blocks))
     }
 
-    #[instrument(skip(self), ret, fields(COMPONENT))]
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
         let nullifiers = self.db.select_nullifiers().await?;
         Ok(nullifiers)
     }
 
-    #[instrument(skip(self), ret, fields(COMPONENT))]
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
         let accounts = self.db.select_accounts().await?;
         Ok(accounts)
     }
 
-    #[instrument(skip(self), ret, fields(COMPONENT))]
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     pub async fn list_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
         let notes = self.db.select_notes().await?;
         Ok(notes)
@@ -472,7 +473,7 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
-#[instrument(ret, fields(COMPONENT))]
+#[instrument(ret, err, fields(COMPONENT))]
 pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt, anyhow::Error> {
     // TODO: create SimpleSmt without this allocation
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
@@ -489,7 +490,7 @@ pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt, anyhow::Erro
     Ok(SimpleSmt::with_leaves(NOTE_LEAF_DEPTH, entries)?)
 }
 
-#[instrument(skip(db), ret, fields(COMPONENT))]
+#[instrument(skip(db), ret, err, fields(COMPONENT))]
 async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();

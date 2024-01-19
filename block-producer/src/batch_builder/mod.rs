@@ -112,6 +112,7 @@ impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
 {
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn build_batch(
         &self,
         txs: Vec<SharedProvenTx>,

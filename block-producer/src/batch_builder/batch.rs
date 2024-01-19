@@ -34,7 +34,7 @@ impl TransactionBatch {
     /// - The number of created notes across all transactions exceeds 4096.
     ///
     /// TODO: enforce limit on the number of created nullifiers.
-    #[instrument(ret, fields(COMPONENT))]
+    #[instrument(ret, err, fields(COMPONENT))]
     pub fn new(txs: Vec<SharedProvenTx>) -> Result<Self, BuildBatchError> {
         let updated_accounts = txs
             .iter()

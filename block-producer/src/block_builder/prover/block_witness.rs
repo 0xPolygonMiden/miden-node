@@ -42,7 +42,7 @@ pub struct BlockWitness {
 }
 
 impl BlockWitness {
-    #[instrument(ret, fields(COMPONENT))]
+    #[instrument(ret, err, fields(COMPONENT))]
     pub fn new(
         block_inputs: BlockInputs,
         batches: Vec<SharedTxBatch>,
@@ -102,7 +102,7 @@ impl BlockWitness {
         })
     }
 
-    #[instrument(ret, fields(COMPONENT))]
+    #[instrument(ret, err, fields(COMPONENT))]
     pub(super) fn into_program_inputs(
         self
     ) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
@@ -182,7 +182,7 @@ impl BlockWitness {
     // HELPERS
     // ---------------------------------------------------------------------------------------------
 
-    #[instrument(level = "debug", ret, fields(COMPONENT))]
+    #[instrument(level = "debug", ret, err, fields(COMPONENT))]
     fn validate_inputs(
         block_inputs: &BlockInputs,
         batches: &[SharedTxBatch],
@@ -201,7 +201,7 @@ impl BlockWitness {
 
     /// Validate that initial account states coming from the batches are the same as the account
     /// states returned from the store
-    #[instrument(ret, fields(COMPONENT))]
+    #[instrument(ret, err, fields(COMPONENT))]
     fn validate_account_states(
         block_inputs: &BlockInputs,
         batches: &[SharedTxBatch],

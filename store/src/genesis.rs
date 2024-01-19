@@ -33,7 +33,7 @@ impl GenesisState {
     }
 
     /// Returns the block header and the account SMT
-    #[instrument(level = "debug", ret, fields(COMPONENT))]
+    #[instrument(level = "debug", ret, err, fields(COMPONENT))]
     pub fn into_block_parts(self) -> Result<(BlockHeader, SimpleSmt), MerkleError> {
         let account_smt = SimpleSmt::with_leaves(
             ACCOUNT_DB_DEPTH,
