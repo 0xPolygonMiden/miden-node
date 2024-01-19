@@ -59,7 +59,7 @@ pub async fn start(config_filepath: &Path) -> anyhow::Result<()> {
 // MAKE GENESIS
 // ===================================================================================================
 
-#[instrument]
+#[instrument(fields(COMPONENT))]
 pub async fn make_genesis(
     output_path: &PathBuf,
     force: &bool,

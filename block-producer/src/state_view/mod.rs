@@ -45,7 +45,7 @@ where
     S: Store,
 {
     // TODO: Verify proof as well
-    #[instrument(level = "trace", skip(self), ret)]
+    #[instrument(level = "trace", skip(self), ret, fields(COMPONENT))]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,

@@ -11,7 +11,7 @@ use miden_objects::transaction::ProvenTransaction;
 use tonic::Status;
 use tracing::{debug, info_span};
 
-use crate::txqueue::TransactionQueue;
+use crate::{txqueue::TransactionQueue, COMPONENT};
 
 // BLOCK PRODUCER
 // ================================================================================================
@@ -41,12 +41,12 @@ where
         let request = request.into_inner();
 
         let request_id = gen_request_id();
-        let _span = info_span!("submit_proven_transaction", request_id, ?request);
+        let _span = info_span!("submit_proven_transaction", request_id, ?request, COMPONENT);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
             .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
 
-        debug!(request_id, ?tx);
+        debug!(request_id, ?tx, COMPONENT);
 
         self.queue
             .add_transaction(Arc::new(tx))

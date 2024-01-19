@@ -67,7 +67,7 @@ where
     S: Store,
     A: ApplyBlock,
 {
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(COMPONENT))]
     async fn build_block(
         &self,
         batches: Vec<SharedTxBatch>,

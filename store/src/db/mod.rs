@@ -207,7 +207,7 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                info_span!("writing new block data to DB").in_scope(|| {
+                info_span!("writing new block data to DB", COMPONENT).in_scope(|| {
                     let transaction = conn.transaction()?;
                     sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
 
@@ -271,7 +271,7 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let _span = info_span!("writing genesis block to DB");
+                        let _span = info_span!("writing genesis block to DB", COMPONENT);
 
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt

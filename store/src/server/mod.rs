@@ -12,7 +12,7 @@ mod api;
 // STORE INITIALIZER
 // ================================================================================================
 
-#[instrument(skip(config, db))]
+#[instrument(skip(config, db), fields(COMPONENT))]
 pub async fn serve(
     config: StoreConfig,
     db: Db,

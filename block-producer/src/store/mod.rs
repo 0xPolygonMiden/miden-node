@@ -71,7 +71,7 @@ impl DefaultStore {
 
 #[async_trait]
 impl ApplyBlock for DefaultStore {
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     async fn apply_block(
         &self,
         block: Block,
@@ -96,7 +96,7 @@ impl ApplyBlock for DefaultStore {
 
 #[async_trait]
 impl Store for DefaultStore {
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
@@ -163,7 +163,7 @@ impl Store for DefaultStore {
         })
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = &AccountId> + Debug + Send,

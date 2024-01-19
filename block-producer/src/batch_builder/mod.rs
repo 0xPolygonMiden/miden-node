@@ -84,7 +84,7 @@ where
 
     /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
     /// A call to an empty `build_block()` indicates that an empty block should be created.
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(COMPONENT))]
     async fn try_build_block(&self) {
         let mut batches_in_block: Vec<SharedTxBatch> = {
             let mut locked_ready_batches = self.ready_batches.write().await;
@@ -121,7 +121,7 @@ where
         let batch = Arc::new(TransactionBatch::new(txs)?);
         self.ready_batches.write().await.push(batch);
 
-        info!(COMPONENT, "batch built with {num_txs} txs");
+        info!(num_txs, COMPONENT, "batch built with txs");
 
         Ok(())
     }

@@ -121,6 +121,7 @@ where
     }
 
     /// Divides the queue in groups to be batched; those that failed are appended back on the queue
+    #[instrument(level = "debug", skip(self), fields(COMPONENT))]
     async fn try_build_batches(&self) {
         let txs: Vec<SharedProvenTx> = {
             let mut locked_ready_queue = self.ready_queue.write().await;
@@ -159,7 +160,7 @@ where
     TV: TransactionVerifier,
     BB: BatchBuilder,
 {
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,

@@ -42,7 +42,7 @@ pub struct BlockWitness {
 }
 
 impl BlockWitness {
-    #[instrument(ret)]
+    #[instrument(ret, fields(COMPONENT))]
     pub fn new(
         block_inputs: BlockInputs,
         batches: Vec<SharedTxBatch>,
@@ -102,7 +102,7 @@ impl BlockWitness {
         })
     }
 
-    #[instrument(ret)]
+    #[instrument(ret, fields(COMPONENT))]
     pub(super) fn into_program_inputs(
         self
     ) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
@@ -182,7 +182,7 @@ impl BlockWitness {
     // HELPERS
     // ---------------------------------------------------------------------------------------------
 
-    #[instrument(level = "debug", ret)]
+    #[instrument(level = "debug", ret, fields(COMPONENT))]
     fn validate_inputs(
         block_inputs: &BlockInputs,
         batches: &[SharedTxBatch],
@@ -201,7 +201,7 @@ impl BlockWitness {
 
     /// Validate that initial account states coming from the batches are the same as the account
     /// states returned from the store
-    #[instrument(ret)]
+    #[instrument(ret, fields(COMPONENT))]
     fn validate_account_states(
         block_inputs: &BlockInputs,
         batches: &[SharedTxBatch],
@@ -268,7 +268,7 @@ pub(super) struct AccountUpdate {
 /// insert MMR peaks info into the advice map
 /// FIXME: This was copy/pasted from `miden-lib`'s `add_chain_mmr_to_advice_inputs`. Once we move the block kernel
 /// into `miden-lib`, we should use that function instead
-#[instrument(level = "debug")]
+#[instrument(level = "debug", fields(COMPONENT))]
 fn add_mmr_peaks_to_advice_inputs(
     peaks: &MmrPeaks,
     inputs: &mut AdviceInputs,

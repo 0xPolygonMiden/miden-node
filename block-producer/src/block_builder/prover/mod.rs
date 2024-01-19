@@ -173,7 +173,7 @@ impl BlockProver {
     }
 
     // Note: this will eventually all be done in the VM, and also return an `ExecutionProof`
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     pub fn prove(
         &self,
         witness: BlockWitness,
@@ -207,7 +207,7 @@ impl BlockProver {
         ))
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     fn compute_roots(
         &self,
         witness: BlockWitness,

@@ -35,6 +35,7 @@ use crate::{
     db::{Db, StateSyncUpdate},
     errors::StateError,
     types::{AccountId, BlockNumber},
+    COMPONENT,
 };
 
 // CONSTANTS
@@ -137,7 +138,7 @@ impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord
 }
 
 impl State {
-    #[instrument(skip(db))]
+    #[instrument(skip(db), fields(COMPONENT))]
     pub async fn load(mut db: Db) -> Result<Self, anyhow::Error> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
@@ -203,7 +204,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = info_span!("updating in-memory data structures");
+            let span = info_span!("updating in-memory data structures", COMPONENT);
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
@@ -319,7 +320,7 @@ impl State {
         Ok(())
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
@@ -327,7 +328,7 @@ impl State {
         self.db.select_block_header_by_block_num(block_num).await
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
@@ -336,7 +337,7 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
@@ -368,7 +369,7 @@ impl State {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
@@ -413,7 +414,7 @@ impl State {
         Ok((latest, peaks, account_states))
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
@@ -443,19 +444,19 @@ impl State {
         Ok((account, nullifier_blocks))
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
         let nullifiers = self.db.select_nullifiers().await?;
         Ok(nullifiers)
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
         let accounts = self.db.select_accounts().await?;
         Ok(accounts)
     }
 
-    #[instrument(skip(self), ret)]
+    #[instrument(skip(self), ret, fields(COMPONENT))]
     pub async fn list_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
         let notes = self.db.select_notes().await?;
         Ok(notes)
@@ -471,7 +472,7 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
-#[instrument(ret)]
+#[instrument(ret, fields(COMPONENT))]
 pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt, anyhow::Error> {
     // TODO: create SimpleSmt without this allocation
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
@@ -488,7 +489,7 @@ pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt, anyhow::Erro
     Ok(SimpleSmt::with_leaves(NOTE_LEAF_DEPTH, entries)?)
 }
 
-#[instrument(skip(db), ret)]
+#[instrument(skip(db), ret, fields(COMPONENT))]
 async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
@@ -496,13 +497,13 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
         .into_iter()
         .map(|(nullifier, block)| (nullifier, block_to_nullifier_data(block)));
 
-    let nullifier_tree = info_span!("TieredSmt::with_entries", num_of_leaves = len)
+    let nullifier_tree = info_span!("TieredSmt::with_entries", num_of_leaves = len, COMPONENT)
         .in_scope(|| TieredSmt::with_entries(leaves))?;
 
     Ok(nullifier_tree)
 }
 
-#[instrument(skip(db))]
+#[instrument(skip(db), fields(COMPONENT))]
 async fn load_mmr(db: &mut Db) -> Result<Mmr> {
     let block_hashes: Result<Vec<RpoDigest>, ParseError> = db
         .select_block_headers()
@@ -515,7 +516,7 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr> {
     Ok(mmr)
 }
 
-#[instrument(skip(db))]
+#[instrument(skip(db), fields(COMPONENT))]
 async fn load_accounts(db: &mut Db) -> Result<SimpleSmt> {
     let account_data: Result<Vec<(u64, Word)>> = db
         .select_account_hashes()
