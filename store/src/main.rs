@@ -1,17 +1,18 @@
 mod cli;
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use cli::{Cli, Command, Query};
+use cli::{Admin, Cli, Command, Query};
 use hex::ToHex;
 use miden_crypto::merkle::{path_to_text, TieredSmtProof};
 use miden_node_proto::{
     account::AccountId,
+    control_plane::{api_client as control_plane_client, ShutdownRequest},
     requests::{
         CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
         GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest, ListNullifiersRequest,
         SyncStateRequest,
     },
-    store::api_client,
+    store::api_client as store_client,
     tsmt::NullifierProof,
 };
 use miden_node_store::{config::StoreTopLevelConfig, db::Db, server};
@@ -28,9 +29,10 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Serve { .. } => {
-            server::serve(config.store, db).await?;
+            server::serve(config.store, config.control_plane, db).await?;
         },
         Command::Query(command) => query(config, command).await?,
+        Command::Admin(command) => admin(config, command).await?,
     }
 
     Ok(())
@@ -44,7 +46,7 @@ async fn query(
     command: Query,
 ) -> Result<()> {
     let endpoint = format!("http://{}:{}", config.store.endpoint.host, config.store.endpoint.port);
-    let mut client = api_client::ApiClient::connect(endpoint).await?;
+    let mut client = store_client::ApiClient::connect(endpoint).await?;
 
     match command {
         Query::GetBlockHeaderByNumber(args) => {
@@ -139,6 +141,29 @@ async fn query(
         Query::ListAccounts => {
             let request = tonic::Request::new(ListAccountsRequest {});
             let response = client.list_accounts(request).await?.into_inner();
+            println!("{:?}", response);
+            Ok(())
+        },
+    }
+}
+
+/// Sends an administrative gRPC request as specified by `command`.
+///
+/// The request is sent to the endpoint defined in `config`.
+async fn admin(
+    config: StoreTopLevelConfig,
+    command: Admin,
+) -> Result<()> {
+    let endpoint = format!(
+        "http://{}:{}",
+        config.control_plane.endpoint.host, config.control_plane.endpoint.port
+    );
+    let mut client = control_plane_client::ApiClient::connect(endpoint).await?;
+
+    match command {
+        Admin::Shutdown => {
+            let request = tonic::Request::new(ShutdownRequest {});
+            let response = client.shutdown(request).await?.into_inner();
             println!("{:?}", response);
             Ok(())
         },

@@ -1,6 +1,7 @@
 pub mod account;
 pub mod block_header;
 pub mod block_producer;
+pub mod control_plane;
 pub mod digest;
 pub mod merkle;
 pub mod mmr;

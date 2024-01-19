@@ -15,5 +15,16 @@ pub struct Cli {
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Subcommand)]
 pub enum Command {
+    /// Starts the RPC gRPC service.
     Serve,
+
+    #[command(subcommand)]
+    /// Administer the RPC via gRPC.
+    Admin(Admin),
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Subcommand)]
+pub enum Admin {
+    /// Starts a server clean sthudown.
+    Shutdown,
 }

@@ -16,13 +16,8 @@ use crate::{
     SERVER_MAX_BATCHES_PER_BLOCK,
 };
 
-// TODO: does this need to be public?
 pub mod api;
 
-// BLOCK PRODUCER INITIALIZER
-// ================================================================================================
-
-/// TODO: add comments
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();

@@ -25,6 +25,10 @@ pub enum Command {
     #[command(subcommand)]
     /// Queries the Store via gRPC.
     Query(Query),
+
+    #[command(subcommand)]
+    /// Administer the Store via gRPC.
+    Admin(Admin),
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Subcommand)]
@@ -105,6 +109,12 @@ pub struct GetTransactionInputsArgs {
     /// Nullifiers to query.
     #[arg(value_parser=parse_nullifier)]
     pub nullifiers: Vec<Digest>,
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Subcommand)]
+pub enum Admin {
+    /// Starts a server clean sthudown.
+    Shutdown,
 }
 
 /// Parses an `u64` used to repesent an account id, returns an error if the u64 doesn't fit in the

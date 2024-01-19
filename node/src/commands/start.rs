@@ -1,11 +1,15 @@
+use miden_node_block_producer::config::BlockProducerConfig;
+use miden_node_rpc::config::RpcConfig;
+use miden_node_store::config::StoreConfig;
+use miden_node_utils::control_plane::{ControlPlane, ControlPlaneConfig};
+use serde::{Deserialize, Serialize};
 use std::{path::Path, time::Duration};
 
 use anyhow::{anyhow, Result};
-use miden_node_block_producer::{config::BlockProducerConfig, server as block_producer_server};
-use miden_node_rpc::{config::RpcConfig, server as rpc_server};
-use miden_node_store::{config::StoreConfig, db::Db, server as store_server};
+use miden_node_block_producer::server as block_producer_server;
+use miden_node_rpc::server as rpc_server;
+use miden_node_store::{db::Db, server as store_server};
 use miden_node_utils::config::load_config;
-use serde::{Deserialize, Serialize};
 use tokio::task::JoinSet;
 
 // Top-level config
@@ -17,6 +21,7 @@ pub struct StartCommandConfig {
     pub block_producer: BlockProducerConfig,
     pub rpc: RpcConfig,
     pub store: StoreConfig,
+    pub control_plane: ControlPlaneConfig,
 }
 
 // START
@@ -27,17 +32,24 @@ pub async fn start_node(config_filepath: &Path) -> Result<()> {
         anyhow!("failed to load config file `{}`: {err}", config_filepath.display())
     })?;
 
+    let mut control_plane = ControlPlane::new();
     let mut join_set = JoinSet::new();
+
     let db = Db::setup(config.store.clone()).await?;
-    join_set.spawn(store_server::serve(config.store, db));
+    let shutdown = control_plane.shutdown_waiter()?;
+    let store_server = store_server::create_server(config.store, db, shutdown).await?;
+    join_set.spawn(store_server);
 
     // wait for store before starting block producer
     tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(block_producer_server::serve(config.block_producer));
+    let block_server = block_producer_server::serve(config.block_producer);
+    join_set.spawn(block_server);
 
     // wait for block producer before starting rpc
     tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(rpc_server::serve(config.rpc));
+    let shutdown = control_plane.shutdown_waiter()?;
+    let rpc_server = rpc_server::create_server(config.rpc, shutdown).await?;
+    join_set.spawn(rpc_server);
 
     // block on all tasks
     while let Some(res) = join_set.join_next().await {
@@ -56,7 +68,10 @@ mod tests {
     use miden_node_block_producer::config::BlockProducerConfig;
     use miden_node_rpc::config::RpcConfig;
     use miden_node_store::config::StoreConfig;
-    use miden_node_utils::config::{load_config, Endpoint};
+    use miden_node_utils::{
+        config::{load_config, Endpoint},
+        control_plane::ControlPlaneConfig,
+    };
 
     use super::StartCommandConfig;
     use crate::NODE_CONFIG_FILE_PATH;
@@ -68,22 +83,26 @@ mod tests {
                 NODE_CONFIG_FILE_PATH,
                 r#"
                     [block_producer]
-                    store_url = "http://store:8000"
+                    store_url = "http://store:82"
 
                     [block_producer.endpoint]
-                    host = "127.0.0.1"
-                    port = 8080
+                    host = "0.0.0.0"
+                    port = 81
 
                     [rpc]
-                    store_url = "http://store:8000"
-                    block_producer_url = "http://block_producer:8001"
-                    endpoint = { host = "127.0.0.1",  port = 8080 }
+                    store_url = "http://store:82"
+                    block_producer_url = "http://block_producer:81"
+                    endpoint = { host = "0.0.0.0",  port = 80 }
 
                     [store]
                     database_filepath = "local.sqlite3"
                     genesis_filepath = "genesis.dat"
 
                     [store.endpoint]
+                    host = "0.0.0.0"
+                    port = 82
+
+                    [control_plane.endpoint]
                     host = "127.0.0.1"
                     port = 8080
                 "#,
@@ -97,27 +116,33 @@ mod tests {
                 StartCommandConfig {
                     block_producer: BlockProducerConfig {
                         endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
+                            host: "0.0.0.0".to_string(),
+                            port: 81,
                         },
-                        store_url: "http://store:8000".to_string(),
+                        store_url: "http://store:82".to_string(),
                     },
                     rpc: RpcConfig {
                         endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
+                            host: "0.0.0.0".to_string(),
+                            port: 80,
                         },
-                        store_url: "http://store:8000".to_string(),
-                        block_producer_url: "http://block_producer:8001".to_string(),
+                        store_url: "http://store:82".to_string(),
+                        block_producer_url: "http://block_producer:81".to_string(),
                     },
                     store: StoreConfig {
                         endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
+                            host: "0.0.0.0".to_string(),
+                            port: 82,
                         },
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into()
                     },
+                    control_plane: ControlPlaneConfig {
+                        endpoint: Endpoint {
+                            host: "127.0.0.1".to_string(),
+                            port: 8080,
+                        },
+                    }
                 }
             );
 

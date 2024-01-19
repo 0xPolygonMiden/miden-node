@@ -16,5 +16,6 @@ pub struct Cli {
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Subcommand)]
 pub enum Command {
+    /// Starts the block producer gRPC service.
     Serve,
 }

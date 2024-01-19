@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use miden_node_utils::config::Endpoint;
+use miden_node_utils::{config::Endpoint, control_plane::ControlPlaneConfig};
 use serde::{Deserialize, Serialize};
 
 pub const CONFIG_FILENAME: &str = "miden-store.toml";
@@ -10,7 +10,7 @@ pub const CONFIG_FILENAME: &str = "miden-store.toml";
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct StoreConfig {
-    /// Defines the lisening socket.
+    /// Defines the listening socket.
     pub endpoint: Endpoint,
     /// SQLite database file
     pub database_filepath: PathBuf,
@@ -31,6 +31,7 @@ impl StoreConfig {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct StoreTopLevelConfig {
     pub store: StoreConfig,
+    pub control_plane: ControlPlaneConfig,
 }
 
 #[cfg(test)]
@@ -40,7 +41,7 @@ mod tests {
     use figment::Jail;
     use miden_node_utils::config::load_config;
 
-    use super::{Endpoint, StoreConfig, StoreTopLevelConfig};
+    use super::{ControlPlaneConfig, Endpoint, StoreConfig, StoreTopLevelConfig};
     use crate::config::CONFIG_FILENAME;
 
     #[test]
@@ -54,6 +55,10 @@ mod tests {
                     genesis_filepath = "genesis.dat"
 
                     [store.endpoint]
+                    host = "0.0.0.0"
+                    port = 80
+
+                    [control_plane.endpoint]
                     host = "127.0.0.1"
                     port = 8080
                 "#,
@@ -67,11 +72,17 @@ mod tests {
                 StoreTopLevelConfig {
                     store: StoreConfig {
                         endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
+                            host: "0.0.0.0".to_string(),
+                            port: 80,
                         },
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into()
+                    },
+                    control_plane: ControlPlaneConfig {
+                        endpoint: Endpoint {
+                            host: "127.0.0.1".to_string(),
+                            port: 8080,
+                        },
                     }
                 }
             );
