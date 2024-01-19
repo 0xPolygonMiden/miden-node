@@ -3,11 +3,9 @@ use miden_objects::{
     accounts::Account,
     notes::NOTE_LEAF_DEPTH,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    BlockHeader, Digest,
+    BlockHeader, Digest, ACCOUNT_TREE_DEPTH,
 };
 use tracing::instrument;
-
-use crate::state::ACCOUNT_DB_DEPTH;
 
 pub const GENESIS_BLOCK_NUM: u32 = 0;
 
@@ -34,9 +32,10 @@ impl GenesisState {
 
     /// Returns the block header and the account SMT
     #[instrument(level = "debug", ret, err, fields(COMPONENT))]
-    pub fn into_block_parts(self) -> Result<(BlockHeader, SimpleSmt), MerkleError> {
-        let account_smt = SimpleSmt::with_leaves(
-            ACCOUNT_DB_DEPTH,
+    pub fn into_block_parts(
+        self
+    ) -> Result<(BlockHeader, SimpleSmt<ACCOUNT_TREE_DEPTH>), MerkleError> {
+        let account_smt: SimpleSmt<ACCOUNT_TREE_DEPTH> = SimpleSmt::with_leaves(
             self.accounts
                 .into_iter()
                 .map(|account| (account.id().into(), account.hash().into())),

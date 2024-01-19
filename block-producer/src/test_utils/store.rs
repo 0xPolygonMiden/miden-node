@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use miden_crypto::merkle::ValuePath;
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
-use miden_objects::{crypto::merkle::Mmr, BlockHeader, EMPTY_WORD, ONE, ZERO};
+use miden_objects::{crypto::merkle::Mmr, BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
 use super::*;
@@ -10,12 +11,10 @@ use crate::{
     SharedProvenTx,
 };
 
-const ACCOUNT_SMT_DEPTH: u8 = 64;
-
 /// Builds a [`MockStoreSuccess`]
 #[derive(Debug, Default)]
 pub struct MockStoreSuccessBuilder {
-    accounts: Option<SimpleSmt>,
+    accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
     consumed_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
 }
@@ -35,7 +34,7 @@ impl MockStoreSuccessBuilder {
             let accounts =
                 accounts.into_iter().map(|(account_id, hash)| (account_id.into(), hash.into()));
 
-            SimpleSmt::with_leaves(ACCOUNT_SMT_DEPTH, accounts).unwrap()
+            SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
         self.accounts = Some(accounts_smt);
@@ -62,7 +61,7 @@ impl MockStoreSuccessBuilder {
     }
 
     pub fn build(self) -> MockStoreSuccess {
-        let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new(ACCOUNT_SMT_DEPTH).unwrap());
+        let accounts_smt = self.accounts.unwrap_or(SimpleSmt::<ACCOUNT_TREE_DEPTH>::new().unwrap());
         let chain_mmr = self.chain_mmr.unwrap_or_default();
 
         let initial_block_header = BlockHeader::new(
@@ -93,7 +92,7 @@ impl MockStoreSuccessBuilder {
 
 pub struct MockStoreSuccess {
     /// Map account id -> account hash
-    pub accounts: Arc<RwLock<SimpleSmt>>,
+    pub accounts: Arc<RwLock<SimpleSmt<ACCOUNT_TREE_DEPTH>>>,
 
     /// Stores the nullifiers of the notes that were consumed
     pub consumed_nullifiers: Arc<RwLock<BTreeSet<Digest>>>,
@@ -128,7 +127,7 @@ impl ApplyBlock for MockStoreSuccess {
 
         // update accounts
         for &(account_id, account_hash) in block.updated_accounts.iter() {
-            locked_accounts.update_leaf(account_id.into(), account_hash.into()).unwrap();
+            locked_accounts.insert(account_id.into(), account_hash.into());
         }
         debug_assert_eq!(locked_accounts.root(), block.header.account_root());
 
@@ -164,7 +163,7 @@ impl Store for MockStoreSuccess {
         let locked_consumed_nullifiers = self.consumed_nullifiers.read().await;
 
         let account_hash = {
-            let account_hash = locked_accounts.get_leaf(proven_tx.account_id().into()).unwrap();
+            let account_hash = locked_accounts.get_leaf(&proven_tx.account_id().into());
 
             if account_hash == EMPTY_WORD {
                 None
@@ -202,12 +201,14 @@ impl Store for MockStoreSuccess {
 
             updated_accounts
                 .map(|&account_id| {
-                    let account_hash = locked_accounts.get_leaf(account_id.into()).unwrap();
-                    let proof = locked_accounts.get_leaf_path(account_id.into()).unwrap();
+                    let ValuePath {
+                        value: account_hash,
+                        path: proof,
+                    } = locked_accounts.open(&account_id.into());
 
                     AccountInputRecord {
                         account_id,
-                        account_hash: account_hash.into(),
+                        account_hash,
                         proof,
                     }
                 })

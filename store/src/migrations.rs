@@ -28,8 +28,6 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             PRIMARY KEY (block_num, note_index),
             CONSTRAINT notes_block_number_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296),
             CONSTRAINT notes_note_index_is_u32 CHECK (note_index >= 0 AND note_index < 4294967296),
-            CONSTRAINT notes_sender_is_felt CHECK (sender >= 0 AND sender <= 18446744069414584321),
-            CONSTRAINT notes_tag_is_felt CHECK (tag >= 0 AND tag <= 18446744069414584321),
             CONSTRAINT notes_num_assets_is_u8 CHECK (num_assets >= 0 AND num_assets < 256),
             FOREIGN KEY (block_num) REFERENCES block_header (block_num)
         ) STRICT, WITHOUT ROWID;
