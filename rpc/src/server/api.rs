@@ -51,6 +51,7 @@ impl RpcApi {
 
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn check_nullifiers(
         &self,
@@ -66,6 +67,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().check_nullifiers(request).await
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn get_block_header_by_number(
         &self,
@@ -74,6 +76,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().get_block_header_by_number(request).await
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn sync_state(
         &self,
@@ -82,6 +85,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().sync_state(request).await
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn submit_proven_transaction(
         &self,

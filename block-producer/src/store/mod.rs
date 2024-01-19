@@ -71,6 +71,7 @@ impl DefaultStore {
 
 #[async_trait]
 impl ApplyBlock for DefaultStore {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn apply_block(
         &self,
@@ -96,6 +97,7 @@ impl ApplyBlock for DefaultStore {
 
 #[async_trait]
 impl Store for DefaultStore {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn get_tx_inputs(
         &self,
@@ -163,6 +165,7 @@ impl Store for DefaultStore {
         })
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn get_block_inputs(
         &self,

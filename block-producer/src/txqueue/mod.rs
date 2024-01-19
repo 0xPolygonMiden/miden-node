@@ -160,6 +160,7 @@ where
     TV: TransactionVerifier,
     BB: BatchBuilder,
 {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err(Debug), fields(COMPONENT))]
     async fn add_transaction(
         &self,

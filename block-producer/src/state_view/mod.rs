@@ -45,6 +45,7 @@ where
     S: Store,
 {
     // TODO: Verify proof as well
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err(Debug), fields(COMPONENT))]
     async fn verify_tx(
         &self,

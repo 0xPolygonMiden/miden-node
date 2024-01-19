@@ -67,6 +67,7 @@ where
     S: Store,
     A: ApplyBlock,
 {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn build_block(
         &self,
