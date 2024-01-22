@@ -20,6 +20,7 @@ use miden_objects::{
     assets::TokenSymbol,
     Felt,
 };
+use tracing::{debug, info_span, instrument};
 
 mod inputs;
 
@@ -41,6 +42,7 @@ const DEFAULT_ACCOUNTS_DIR: &str = "accounts/";
 /// This function returns a `Result` type. On successful creation of the genesis file, it returns
 /// `Ok(())`. If it fails at any point, due to issues like file existence checks or read/write
 /// operations, it returns an `Err` with a detailed error message.
+#[instrument(err, fields(COMPONENT))]
 pub fn make_genesis(
     inputs_path: &PathBuf,
     output_path: &PathBuf,
@@ -104,6 +106,7 @@ pub fn make_genesis(
 /// Converts the provided list of account inputs into [Account] objects.
 ///
 /// This function also writes the account data files into the default accounts directory.
+#[instrument(ret, err, fields(COMPONENT))]
 fn create_accounts(
     accounts: &[AccountInput],
     parent_path: &Path,
@@ -123,7 +126,8 @@ fn create_accounts(
         // build account data from account inputs
         let account_data = match account {
             AccountInput::BasicWallet(inputs) => {
-                print!("Creating basic wallet account...");
+                println!("Creating basic wallet account...");
+                let _span = info_span!("create_basic_wallet");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
 
                 let (auth_scheme, auth_info) =
@@ -135,10 +139,14 @@ fn create_accounts(
                     AccountType::RegularAccountImmutableCode,
                 )?;
 
-                AccountData::new(account, Some(account_seed), auth_info)
+                let account = AccountData::new(account, Some(account_seed), auth_info);
+                debug!(?account, "Basic wallet account generated");
+
+                account
             },
             AccountInput::BasicFungibleFaucet(inputs) => {
                 println!("Creating fungible faucet account...");
+                let _span = info_span!("create_basic_fungible_faucet");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
 
                 let (auth_scheme, auth_info) =
@@ -152,7 +160,10 @@ fn create_accounts(
                     auth_scheme,
                 )?;
 
-                AccountData::new(account, Some(account_seed), auth_info)
+                let account = AccountData::new(account, Some(account_seed), auth_info);
+                debug!(?account, "Faucet account generated");
+
+                account
             },
         };
 
@@ -174,6 +185,7 @@ fn create_accounts(
     Ok(final_accounts)
 }
 
+#[instrument(level = "debug", err, fields(COMPONENT))]
 fn parse_auth_inputs(
     auth_scheme_input: AuthSchemeInput,
     auth_seed: &str,
