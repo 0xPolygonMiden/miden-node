@@ -3,13 +3,13 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
     txqueue::{TransactionVerifier, VerifyTxError},
-    SharedProvenTx,
+    SharedProvenTx, COMPONENT,
 };
 
 #[cfg(test)]
@@ -46,11 +46,18 @@ where
 {
     // TODO: Verify proof as well
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip(self), ret, err(Debug), fields(COMPONENT))]
+    #[instrument(skip_all, err(Debug), fields(COMPONENT))]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
+        info!(
+            tx_id = ?candidate_tx.id(),
+            account_id = ?candidate_tx.account_id(),
+            COMPONENT,
+            "Verifying proven transaction",
+        );
+
         // 1. soft-check if `tx` violates in-flight requirements.
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
@@ -134,7 +141,7 @@ where
 /// 1. the candidate transaction doesn't modify the same account as an existing in-flight transaction
 /// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained
 /// in `already_consumed_nullifiers`
-#[instrument(ret, err(Debug), fields(COMPONENT))]
+#[instrument(skip(candidate_tx), err(Debug), fields(COMPONENT))]
 fn ensure_in_flight_constraints(
     candidate_tx: SharedProvenTx,
     accounts_in_flight: &BTreeSet<AccountId>,

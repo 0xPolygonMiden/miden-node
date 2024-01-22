@@ -11,9 +11,9 @@ use miden_node_proto::{
 };
 use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
-use tracing::instrument;
+use tracing::{info, instrument};
 
-use crate::{block::Block, SharedProvenTx};
+use crate::{block::Block, SharedProvenTx, COMPONENT};
 
 mod errors;
 pub use errors::{ApplyBlockError, BlockInputsError, TxInputsError};
@@ -96,19 +96,23 @@ impl ApplyBlock for DefaultStore {
 #[async_trait]
 impl Store for DefaultStore {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip(self), ret, err, fields(COMPONENT))]
+    #[instrument(skip_all, ret, err, fields(COMPONENT))]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
     ) -> Result<TxInputs, TxInputsError> {
-        let request = tonic::Request::new(GetTransactionInputsRequest {
+        let message = GetTransactionInputsRequest {
             account_id: Some(proven_tx.account_id().into()),
             nullifiers: proven_tx
                 .input_notes()
                 .iter()
                 .map(|nullifier| (*nullifier).into())
                 .collect(),
-        });
+        };
+
+        info!(?message, COMPONENT, "Getting tx inputs");
+
+        let request = tonic::Request::new(message);
         let response = self
             .store
             .clone()
@@ -116,6 +120,8 @@ impl Store for DefaultStore {
             .await
             .map_err(|status| TxInputsError::GrpcClientError(status.message().to_string()))?
             .into_inner();
+
+        info!(?response, COMPONENT, "Response for tx inputs");
 
         let account_hash = {
             let account_state = response

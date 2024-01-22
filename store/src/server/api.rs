@@ -20,6 +20,7 @@ use miden_node_proto::{
     tsmt::NullifierLeaf,
 };
 use tonic::{Response, Status};
+use tracing::instrument;
 
 use crate::state::State;
 
@@ -157,6 +158,8 @@ impl api_server::Api for StoreApi {
         }))
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn get_transaction_inputs(
         &self,
         request: tonic::Request<GetTransactionInputsRequest>,
@@ -228,6 +231,7 @@ fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
     Status::invalid_argument(format!("{:?}", err))
 }
 
+#[instrument(level = "debug", ret, err, fields(COMPONENT))]
 fn validate_nullifiers(nullifiers: &[Digest]) -> Result<Vec<RpoDigest>, Status> {
     nullifiers
         .iter()

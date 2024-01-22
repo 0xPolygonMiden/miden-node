@@ -5,9 +5,11 @@ use miden_objects::{
     accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
 };
 use tokio::{sync::RwLock, time};
-use tracing::instrument;
+use tracing::{info, instrument};
 
-use crate::{batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec};
+use crate::{
+    batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec, COMPONENT,
+};
 
 #[cfg(test)]
 mod tests;
@@ -160,11 +162,12 @@ where
     BB: BatchBuilder,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip(self), err(Debug), fields(COMPONENT))]
+    #[instrument(skip_all, err(Debug), fields(COMPONENT))]
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,
     ) -> Result<(), AddTransactionError> {
+        info!(tx_id = ?tx.id(), COMPONENT, "Adding proven transaction to queue");
         self.tx_verifier
             .verify_tx(tx.clone())
             .await

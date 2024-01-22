@@ -82,6 +82,7 @@ impl From<AccountStateWithProof> for AccountBlockInputRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct AccountState {
     account_id: AccountId,
     account_hash: Word,
@@ -119,6 +120,7 @@ impl TryFrom<&AccountUpdate> for AccountState {
     }
 }
 
+#[derive(Debug)]
 pub struct NullifierStateForTransactionInput {
     nullifier: RpoDigest,
     block_num: u32,
@@ -412,6 +414,7 @@ impl State {
         Ok((latest, peaks, account_states))
     }
 
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
