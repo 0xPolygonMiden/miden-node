@@ -11,6 +11,7 @@ use miden_node_proto::{
 };
 use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
+use tracing::instrument;
 
 use crate::{block::Block, SharedProvenTx};
 
@@ -93,6 +94,8 @@ impl ApplyBlock for DefaultStore {
 
 #[async_trait]
 impl Store for DefaultStore {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(skip(self), ret, err, fields(COMPONENT))]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,

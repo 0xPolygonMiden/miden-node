@@ -3,6 +3,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
+use tracing::instrument;
 
 use crate::{
     block::Block,
@@ -44,6 +45,8 @@ where
     S: Store,
 {
     // TODO: Verify proof as well
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(skip(self), ret, err(Debug), fields(COMPONENT))]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,
@@ -131,6 +134,7 @@ where
 /// 1. the candidate transaction doesn't modify the same account as an existing in-flight transaction
 /// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained
 /// in `already_consumed_nullifiers`
+#[instrument(ret, err(Debug), fields(COMPONENT))]
 fn ensure_in_flight_constraints(
     candidate_tx: SharedProvenTx,
     accounts_in_flight: &BTreeSet<AccountId>,
@@ -162,6 +166,7 @@ fn ensure_in_flight_constraints(
     Ok(())
 }
 
+#[instrument(ret, err(Debug), fields(COMPONENT))]
 fn ensure_tx_inputs_constraints(
     candidate_tx: SharedProvenTx,
     tx_inputs: TxInputs,
