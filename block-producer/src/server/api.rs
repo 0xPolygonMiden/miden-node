@@ -6,10 +6,9 @@ use miden_node_proto::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
     responses::SubmitProvenTransactionResponse,
 };
-use miden_node_utils::logging::gen_request_id;
 use miden_objects::transaction::ProvenTransaction;
 use tonic::Status;
-use tracing::{debug, info_span};
+use tracing::{debug, instrument};
 
 use crate::{txqueue::TransactionQueue, COMPONENT};
 
@@ -34,19 +33,18 @@ impl<T> api_server::Api for BlockProducerApi<T>
 where
     T: TransactionQueue,
 {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(skip_all, err, fields(COMPONENT))]
     async fn submit_proven_transaction(
         &self,
         request: tonic::Request<SubmitProvenTransactionRequest>,
     ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
         let request = request.into_inner();
 
-        let request_id = gen_request_id();
-        let _span = info_span!("submit_proven_transaction", request_id, ?request, COMPONENT);
-
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
             .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
 
-        debug!(request_id, ?tx, COMPONENT);
+        debug!(?tx, COMPONENT);
 
         self.queue
             .add_transaction(Arc::new(tx))

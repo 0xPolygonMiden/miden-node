@@ -21,8 +21,3 @@ pub fn setup_logging() -> Result<()> {
 
     Ok(())
 }
-
-pub fn gen_request_id() -> u16 {
-    // For now, it's just a random value. In future, we are going to get this value depending on context
-    rand::random()
-}
