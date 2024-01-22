@@ -46,6 +46,7 @@ pub trait ApplyBlock: Send + Sync + 'static {
 }
 
 /// Information needed from the store to verify a transaction.
+#[derive(Debug)]
 pub struct TxInputs {
     /// The account hash in the store corresponding to tx's account ID
     pub account_hash: Option<Digest>,
