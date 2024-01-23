@@ -9,7 +9,7 @@ use miden_objects::{
     accounts::AccountId,
     notes::{NoteEnvelope, NoteMetadata, Nullifier},
     transaction::{InputNotes, OutputNotes, ProvenTransaction},
-    Digest, ONE, ZERO,
+    Digest, ONE,
 };
 use once_cell::sync::Lazy;
 use winterfell::{
@@ -63,10 +63,7 @@ impl MockProvenTxBuilder {
             .map(|note_index| {
                 let note_hash = Rpo256::hash(&note_index.to_be_bytes());
 
-                NoteEnvelope::new(
-                    note_hash.into(),
-                    NoteMetadata::new(self.mock_account.id, ONE, ZERO),
-                )
+                NoteEnvelope::new(note_hash.into(), NoteMetadata::new(self.mock_account.id, ONE))
             })
             .collect();
 

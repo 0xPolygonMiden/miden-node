@@ -252,7 +252,6 @@ impl From<note::Note> for note::NoteSyncRecord {
             note_hash: value.note_hash,
             sender: value.sender,
             tag: value.tag,
-            num_assets: value.num_assets,
             merkle_path: value.merkle_path,
         }
     }
@@ -379,7 +378,6 @@ impl From<(u64, NoteEnvelope)> for note::NoteCreated {
             note_hash: Some(note.note_id().into()),
             sender: note.metadata().sender().into(),
             tag: note.metadata().tag().into(),
-            num_assets: u64::from(note.metadata().num_assets()) as u32,
             note_index: note_idx as u32,
         }
     }

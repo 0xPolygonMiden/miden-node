@@ -286,7 +286,6 @@ fn test_notes() {
         note_hash: Some(num_to_protobuf_digest(3)),
         sender: 4,
         tag,
-        num_assets: 6,
         merkle_path: Some(MerklePath {
             siblings: merkle_path.clone(),
         }),
@@ -327,7 +326,6 @@ fn test_notes() {
         note_hash: Some(num_to_protobuf_digest(3)),
         sender: note.sender,
         tag: note.tag,
-        num_assets: note.num_assets,
         merkle_path: Some(MerklePath {
             siblings: merkle_path,
         }),

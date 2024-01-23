@@ -91,7 +91,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
         let note_hash_data = row.get_ref(2)?.as_blob()?;
         let note_hash = Digest::decode(note_hash_data)?;
 
-        let merkle_path_data = row.get_ref(6)?.as_blob()?;
+        let merkle_path_data = row.get_ref(5)?.as_blob()?;
         let merkle_path = MerklePath::decode(merkle_path_data)?;
 
         notes.push(Note {
@@ -100,7 +100,6 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
             note_hash: Some(note_hash),
             sender: column_value_as_u64(row, 3)?,
             tag: column_value_as_u64(row, 4)?,
-            num_assets: row.get(5)?,
             merkle_path: Some(merkle_path),
         })
     }
@@ -276,12 +275,11 @@ pub fn insert_notes(
             note_hash,
             sender,
             tag,
-            num_assets,
             merkle_path
         )
         VALUES
         (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7
+            ?1, ?2, ?3, ?4, ?5, ?6 
         );",
     )?;
 
@@ -293,7 +291,6 @@ pub fn insert_notes(
             note.note_hash.clone().ok_or(StateError::NoteMissingHash)?.encode_to_vec(),
             u64_to_value(note.sender),
             u64_to_value(note.tag),
-            note.num_assets as u8,
             note.merkle_path
                 .clone()
                 .ok_or(StateError::NoteMissingMerklePath)?
@@ -333,7 +330,6 @@ pub fn select_notes_since_block_by_tag_and_sender(
             note_hash,
             sender,
             tag,
-            num_assets,
             merkle_path
         FROM
             notes
@@ -366,8 +362,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note_hash = Some(decode_protobuf_digest(note_hash_data)?);
         let sender = column_value_as_u64(row, 3)?;
         let tag = column_value_as_u64(row, 4)?;
-        let num_assets = row.get(5)?;
-        let merkle_path_data = row.get_ref(6)?.as_blob()?;
+        let merkle_path_data = row.get_ref(5)?.as_blob()?;
         let merkle_path = Some(MerklePath::decode(merkle_path_data)?);
 
         let note = Note {
@@ -376,7 +371,6 @@ pub fn select_notes_since_block_by_tag_and_sender(
             note_hash,
             sender,
             tag,
-            num_assets,
             merkle_path,
         };
         res.push(note);

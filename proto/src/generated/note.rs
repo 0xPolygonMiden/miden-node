@@ -12,8 +12,6 @@ pub struct Note {
     pub sender: u64,
     #[prost(uint64, tag = "5")]
     pub tag: u64,
-    #[prost(uint32, tag = "6")]
-    pub num_assets: u32,
     #[prost(message, optional, tag = "7")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
 }
@@ -30,8 +28,6 @@ pub struct NoteSyncRecord {
     pub sender: u64,
     #[prost(uint64, tag = "4")]
     pub tag: u64,
-    #[prost(uint32, tag = "5")]
-    pub num_assets: u32,
     #[prost(message, optional, tag = "6")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
 }
@@ -48,6 +44,4 @@ pub struct NoteCreated {
     pub sender: u64,
     #[prost(uint64, tag = "4")]
     pub tag: u64,
-    #[prost(uint32, tag = "5")]
-    pub num_assets: u32,
 }
