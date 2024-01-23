@@ -2,7 +2,10 @@ use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
+    accounts::AccountId,
+    notes::Nullifier,
+    transaction::{InputNotes, TransactionId},
+    Digest, TransactionInputError,
 };
 use tokio::{sync::RwLock, time};
 
@@ -38,7 +41,7 @@ pub enum VerifyTxError {
     TransactionInputError(TransactionInputError),
 
     /// Failed to verify the transaction execution proof
-    InvalidTransactionProof(),
+    InvalidTransactionProof(TransactionId),
 }
 
 impl From<TxInputsError> for VerifyTxError {

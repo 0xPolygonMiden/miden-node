@@ -62,7 +62,7 @@ where
             let tx_verifier = TransactionVerifier::new(96);
             let _ = tx_verifier
                 .verify(candidate_tx.as_ref().clone())
-                .map_err(|_| VerifyTxError::InvalidTransactionProof())?;
+                .map_err(|_| VerifyTxError::InvalidTransactionProof(candidate_tx.id()))?;
         }
 
         // 2. soft-check if `tx` violates in-flight requirements.
