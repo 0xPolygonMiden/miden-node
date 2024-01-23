@@ -90,7 +90,7 @@ impl api_server::Api for RpcApi {
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
             .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
 
-        let tx_verifier = TransactionVerifier::new(10);
+        let tx_verifier = TransactionVerifier::new(96);
 
         let _ = tx_verifier
             .verify(tx)

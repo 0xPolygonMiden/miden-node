@@ -11,10 +11,10 @@ use crate::{
 // ================================================================================================
 
 /// All transactions verify successfully
-struct TransactionVerifierSuccess;
+struct TransactionValidatorSuccess;
 
 #[async_trait]
-impl TransactionVerifier for TransactionVerifierSuccess {
+impl TransactionValidator for TransactionValidatorSuccess {
     async fn verify_tx(
         &self,
         _tx: SharedProvenTx,
@@ -24,10 +24,10 @@ impl TransactionVerifier for TransactionVerifierSuccess {
 }
 
 /// All transactions fail to verify
-struct TransactionVerifierFailure;
+struct TransactionValidatorFailure;
 
 #[async_trait]
-impl TransactionVerifier for TransactionVerifierFailure {
+impl TransactionValidator for TransactionValidatorFailure {
     async fn verify_tx(
         &self,
         tx: SharedProvenTx,
@@ -82,7 +82,7 @@ async fn test_build_batch_success() {
     let batch_builder = Arc::new(BatchBuilderSuccess::default());
 
     let tx_queue = DefaultTransactionQueue::new(
-        Arc::new(TransactionVerifierSuccess),
+        Arc::new(TransactionValidatorSuccess),
         batch_builder.clone(),
         DefaultTransactionQueueOptions {
             build_batch_frequency,
@@ -118,7 +118,7 @@ async fn test_tx_verify_failure() {
     let batch_builder = Arc::new(BatchBuilderSuccess::default());
 
     let tx_queue = DefaultTransactionQueue::new(
-        Arc::new(TransactionVerifierFailure),
+        Arc::new(TransactionValidatorFailure),
         batch_builder.clone(),
         DefaultTransactionQueueOptions {
             build_batch_frequency,
@@ -156,7 +156,7 @@ async fn test_build_batch_failure() {
     let batch_builder = Arc::new(BatchBuilderFailure);
 
     let tx_queue = DefaultTransactionQueue::new(
-        Arc::new(TransactionVerifierSuccess),
+        Arc::new(TransactionValidatorSuccess),
         batch_builder.clone(),
         DefaultTransactionQueueOptions {
             build_batch_frequency,

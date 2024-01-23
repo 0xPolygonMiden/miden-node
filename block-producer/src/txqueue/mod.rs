@@ -51,7 +51,7 @@ impl From<TransactionInputError> for VerifyTxError {
 }
 
 #[async_trait]
-pub trait TransactionVerifier: Send + Sync + 'static {
+pub trait TransactionValidator: Send + Sync + 'static {
     async fn verify_tx(
         &self,
         tx: SharedProvenTx,
@@ -94,7 +94,7 @@ pub struct DefaultTransactionQueue<BB, TV> {
 
 impl<BB, TV> DefaultTransactionQueue<BB, TV>
 where
-    TV: TransactionVerifier,
+    TV: TransactionValidator,
     BB: BatchBuilder,
 {
     pub fn new(
@@ -155,7 +155,7 @@ where
 #[async_trait]
 impl<BB, TV> TransactionQueue for DefaultTransactionQueue<BB, TV>
 where
-    TV: TransactionVerifier,
+    TV: TransactionValidator,
     BB: BatchBuilder,
 {
     async fn add_transaction(

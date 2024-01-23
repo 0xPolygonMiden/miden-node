@@ -1,19 +1,21 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
-use miden_objects::{
-    accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
-};
+use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
 
 use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
-    txqueue::{TransactionVerifier, VerifyTxError},
+    txqueue::{TransactionValidator, VerifyTxError},
     SharedProvenTx,
 };
 
-use miden_tx::TransactionVerifier as Verifier;
+#[cfg(not(test))]
+use miden_objects::TransactionInputError;
+
+#[cfg(not(test))]
+use miden_tx::TransactionVerifier;
 
 #[cfg(test)]
 mod tests;
@@ -43,7 +45,7 @@ where
 }
 
 #[async_trait]
-impl<S> TransactionVerifier for DefaultStateView<S>
+impl<S> TransactionValidator for DefaultStateView<S>
 where
     S: Store,
 {
@@ -52,17 +54,22 @@ where
         &self,
         candidate_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
-        // 1. Verifiy transaction proof
-        //
-        // This check makes sure that the transaction proof that has been attached to the transaction
-        // is valid
-        let tx_verifier = Verifier::new(0);
-        let _ = tx_verifier.verify(candidate_tx.as_ref().clone()).map_err(|e| {
-            println!("Error: {e}");
-            VerifyTxError::TransactionInputError(
-                TransactionInputError::AccountSeedNotProvidedForNewAccount,
-            )
-        })?;
+        #[cfg(not(test))]
+        // The verification of the transaction proof is disabled in tests for now because
+        // we are using a `DummyProver`, hence proofs generated in tests are invalid.
+        // TODO: Add valid proof generation in tests
+        {
+            // 1. Verify transaction proof
+            //
+            // This check makes sure that the transaction proof that has been attached to the transaction
+            // is valid, errors out if the proof is invalid.
+            let tx_verifier = TransactionVerifier::new(96);
+            let _ = tx_verifier.verify(candidate_tx.as_ref().clone()).map_err(|_| {
+                VerifyTxError::TransactionInputError(
+                    TransactionInputError::AccountSeedNotProvidedForNewAccount,
+                )
+            })?;
+        }
 
         // 2. soft-check if `tx` violates in-flight requirements.
         //
