@@ -1,6 +1,7 @@
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use miden_air::ExecutionProof;
 use miden_objects::{
     accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
 };
@@ -36,6 +37,9 @@ pub enum VerifyTxError {
     StoreConnectionFailed(TxInputsError),
 
     TransactionInputError(TransactionInputError),
+
+    /// Failed to verify the transaction execution proof
+    InvalidTransactionProof(ExecutionProof),
 }
 
 impl From<TxInputsError> for VerifyTxError {

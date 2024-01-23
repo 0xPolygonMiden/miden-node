@@ -12,9 +12,6 @@ use crate::{
 };
 
 #[cfg(not(test))]
-use miden_objects::TransactionInputError;
-
-#[cfg(not(test))]
 use miden_tx::TransactionVerifier;
 
 #[cfg(test)]
@@ -65,9 +62,7 @@ where
             // is valid, errors out if the proof is invalid.
             let tx_verifier = TransactionVerifier::new(96);
             let _ = tx_verifier.verify(candidate_tx.as_ref().clone()).map_err(|_| {
-                VerifyTxError::TransactionInputError(
-                    TransactionInputError::AccountSeedNotProvidedForNewAccount,
-                )
+                VerifyTxError::InvalidTransactionProof(candidate_tx.proof().clone())
             })?;
         }
 
