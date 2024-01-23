@@ -46,7 +46,7 @@ where
 {
     // TODO: Verify proof as well
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, err(Debug), fields(COMPONENT))]
+    #[instrument(skip_all, err(Debug), fields(COMPONENT = crate::COMPONENT))]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,
@@ -140,7 +140,7 @@ where
 /// 1. the candidate transaction doesn't modify the same account as an existing in-flight transaction
 /// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained
 /// in `already_consumed_nullifiers`
-#[instrument(skip(candidate_tx), err(Debug), fields(COMPONENT))]
+#[instrument(skip(candidate_tx), err(Debug), fields(COMPONENT = crate::COMPONENT))]
 fn ensure_in_flight_constraints(
     candidate_tx: SharedProvenTx,
     accounts_in_flight: &BTreeSet<AccountId>,
@@ -172,7 +172,7 @@ fn ensure_in_flight_constraints(
     Ok(())
 }
 
-#[instrument(skip_all, err(Debug), fields(COMPONENT))]
+#[instrument(skip_all, err(Debug), fields(COMPONENT = crate::COMPONENT))]
 fn ensure_tx_inputs_constraints(
     candidate_tx: SharedProvenTx,
     tx_inputs: TxInputs,

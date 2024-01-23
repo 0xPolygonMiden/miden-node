@@ -33,7 +33,7 @@ use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tracing::{info, instrument, span, Level};
+use tracing::{info, info_span, instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
@@ -202,7 +202,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = span!(Level::INFO, COMPONENT, "updating in-memory data structures");
+            let span = info_span!("updating in-memory data structures", COMPONENT);
             let guard = span.enter();
 
             // nullifiers can be produced only once
@@ -414,7 +414,7 @@ impl State {
         Ok((latest, peaks, account_states))
     }
 
-    #[instrument(skip(self), ret, err, fields(COMPONENT))]
+    #[instrument(skip(self), ret, err, fields(COMPONENT = crate::COMPONENT))]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,

@@ -162,7 +162,7 @@ where
     BB: BatchBuilder,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, err(Debug), fields(COMPONENT))]
+    #[instrument(skip_all, err(Debug), fields(COMPONENT = crate::COMPONENT))]
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,

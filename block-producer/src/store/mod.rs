@@ -96,7 +96,7 @@ impl ApplyBlock for DefaultStore {
 #[async_trait]
 impl Store for DefaultStore {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, err, fields(COMPONENT))]
+    #[instrument(skip_all, err, fields(COMPONENT = crate::COMPONENT))]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,

@@ -34,7 +34,7 @@ where
     T: TransactionQueue,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, err, fields(COMPONENT))]
+    #[instrument(skip_all, err, fields(COMPONENT = crate::COMPONENT))]
     async fn submit_proven_transaction(
         &self,
         request: tonic::Request<SubmitProvenTransactionRequest>,
