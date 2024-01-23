@@ -110,7 +110,7 @@ impl Store for DefaultStore {
                 .collect(),
         };
 
-        info!(?message, COMPONENT, "Getting tx inputs");
+        info!(?message, COMPONENT);
 
         let request = tonic::Request::new(message);
         let response = self
@@ -121,7 +121,7 @@ impl Store for DefaultStore {
             .map_err(|status| TxInputsError::GrpcClientError(status.message().to_string()))?
             .into_inner();
 
-        info!(?response, COMPONENT, "Response for tx inputs");
+        info!(?response, COMPONENT);
 
         let account_hash = {
             let account_state = response
