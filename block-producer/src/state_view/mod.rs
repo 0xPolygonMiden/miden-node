@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, fmt::write, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
 use miden_objects::{
@@ -52,15 +52,19 @@ where
         &self,
         candidate_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
-        // Verifiy transaction proof
-        let tx_verifier = Verifier::new(10);
-        let _ = tx_verifier.verify(candidate_tx.as_ref().clone()).map_err(|_| {
+        // 1. Verifiy transaction proof
+        //
+        // This check makes sure that the transaction proof that has been attached to the transaction
+        // is valid
+        let tx_verifier = Verifier::new(0);
+        let _ = tx_verifier.verify(candidate_tx.as_ref().clone()).map_err(|e| {
+            println!("Error: {e}");
             VerifyTxError::TransactionInputError(
                 TransactionInputError::AccountSeedNotProvidedForNewAccount,
             )
-        });
+        })?;
 
-        // 1. soft-check if `tx` violates in-flight requirements.
+        // 2. soft-check if `tx` violates in-flight requirements.
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
         // to quickly reject clearly infracting transactions before hitting the store (slow).
@@ -70,11 +74,11 @@ where
             &*self.nullifiers_in_flight.read().await,
         )?;
 
-        // 2. Fetch the transaction inputs from the store, and check tx input constraints
+        // 3. Fetch the transaction inputs from the store, and check tx input constraints
         let tx_inputs = self.store.get_tx_inputs(candidate_tx.clone()).await?;
         ensure_tx_inputs_constraints(candidate_tx.clone(), tx_inputs)?;
 
-        // 3. Re-check in-flight transaction constraints, and if verification passes, register
+        // 4. Re-check in-flight transaction constraints, and if verification passes, register
         //    transaction
         //
         // Note: We need to re-check these constraints because we dropped the locks since we last
