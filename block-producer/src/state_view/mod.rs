@@ -173,11 +173,18 @@ fn ensure_in_flight_constraints(
     Ok(())
 }
 
-#[instrument(ret, err(Debug), fields(COMPONENT))]
+#[instrument(skip(candidate_tx), err(Debug), fields(COMPONENT))]
 fn ensure_tx_inputs_constraints(
     candidate_tx: SharedProvenTx,
     tx_inputs: TxInputs,
 ) -> Result<(), VerifyTxError> {
+    info!(
+        tx_id = ?candidate_tx.id(),
+        account_id = ?candidate_tx.account_id(),
+        COMPONENT,
+        "Ensuring tx inputs constraints",
+    );
+
     match tx_inputs.account_hash {
         Some(store_account_hash) => {
             if candidate_tx.initial_account_hash() != store_account_hash {
