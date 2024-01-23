@@ -167,7 +167,7 @@ where
         &self,
         tx: SharedProvenTx,
     ) -> Result<(), AddTransactionError> {
-        info!(tx_id = ?tx.id(), COMPONENT, "Adding proven transaction to queue");
+        info!(tx_id = %tx.id().inner(), COMPONENT);
         self.tx_verifier
             .verify_tx(tx.clone())
             .await

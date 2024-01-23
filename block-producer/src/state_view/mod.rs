@@ -52,10 +52,9 @@ where
         candidate_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
         info!(
-            tx_id = ?candidate_tx.id(),
+            tx_id = %candidate_tx.id().inner(),
             account_id = ?candidate_tx.account_id(),
             COMPONENT,
-            "Verifying proven transaction",
         );
 
         // 1. soft-check if `tx` violates in-flight requirements.
@@ -173,16 +172,17 @@ fn ensure_in_flight_constraints(
     Ok(())
 }
 
-#[instrument(skip(candidate_tx), err(Debug), fields(COMPONENT))]
+#[instrument(skip_all, err(Debug), fields(COMPONENT))]
 fn ensure_tx_inputs_constraints(
     candidate_tx: SharedProvenTx,
     tx_inputs: TxInputs,
 ) -> Result<(), VerifyTxError> {
     info!(
-        tx_id = ?candidate_tx.id(),
+        tx_id = %candidate_tx.id().inner(),
         account_id = ?candidate_tx.account_id(),
+        tx_inputs.account_hash = %tx_inputs.account_hash.as_ref().map(ToString::to_string).unwrap_or("None".to_string()),
+        ?tx_inputs.nullifiers,
         COMPONENT,
-        "Ensuring tx inputs constraints",
     );
 
     match tx_inputs.account_hash {

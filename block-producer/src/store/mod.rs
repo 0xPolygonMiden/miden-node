@@ -96,7 +96,7 @@ impl ApplyBlock for DefaultStore {
 #[async_trait]
 impl Store for DefaultStore {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, ret, err, fields(COMPONENT))]
+    #[instrument(skip_all, err, fields(COMPONENT))]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
@@ -162,6 +162,12 @@ impl Store for DefaultStore {
 
             nullifiers.into_iter().collect()
         };
+
+        info!(
+            account_hash = %account_hash.as_ref().map(ToString::to_string).unwrap_or("None".to_string()),
+            ?nullifiers,
+            COMPONENT,
+        );
 
         Ok(TxInputs {
             account_hash,
