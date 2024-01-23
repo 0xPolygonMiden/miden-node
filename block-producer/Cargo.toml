@@ -28,6 +28,7 @@ miden-node-store = { path = "../store" }
 miden-node-utils = { path = "../utils" }
 miden_objects = { workspace = true }
 miden_stdlib = { package = "miden-stdlib", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
+miden-tx = { workspace = true }
 miden_vm = { package = "miden-vm", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }

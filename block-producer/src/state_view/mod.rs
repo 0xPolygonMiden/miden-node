@@ -1,7 +1,9 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeSet, fmt::write, sync::Arc};
 
 use async_trait::async_trait;
-use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
+use miden_objects::{
+    accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
+};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -10,6 +12,8 @@ use crate::{
     txqueue::{TransactionVerifier, VerifyTxError},
     SharedProvenTx,
 };
+
+use miden_tx::TransactionVerifier as Verifier;
 
 #[cfg(test)]
 mod tests;
@@ -48,6 +52,14 @@ where
         &self,
         candidate_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
+        // Verifiy transaction proof
+        let tx_verifier = Verifier::new(10);
+        let _ = tx_verifier.verify(candidate_tx.as_ref().clone()).map_err(|_| {
+            VerifyTxError::TransactionInputError(
+                TransactionInputError::AccountSeedNotProvidedForNewAccount,
+            )
+        });
+
         // 1. soft-check if `tx` violates in-flight requirements.
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use miden_crypto::hash::rpo::RpoDigest;
+use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use miden_node_proto::{
     block_producer::api_client as block_producer_client,
     requests::{
@@ -13,6 +13,8 @@ use miden_node_proto::{
     rpc::api_server,
     store::api_client as store_client,
 };
+use miden_objects::transaction::ProvenTransaction;
+use miden_tx::TransactionVerifier;
 use tonic::{
     transport::{Channel, Error},
     Request, Response, Status,
@@ -83,6 +85,19 @@ impl api_server::Api for RpcApi {
         &self,
         request: Request<SubmitProvenTransactionRequest>,
     ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
+        let request = request.into_inner();
+
+        let tx = ProvenTransaction::read_from_bytes(&request.transaction)
+            .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
+
+        let tx_verifier = TransactionVerifier::new(10);
+
+        let _ = tx_verifier
+            .verify(tx)
+            .map_err(|_| Status::invalid_argument("Invalid transaction proof"))?;
+
+        println!("The proof has been successfully verified! by the RPC");
+
         self.block_producer.clone().submit_proven_transaction(request).await
     }
 }
