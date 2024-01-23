@@ -96,8 +96,6 @@ impl api_server::Api for RpcApi {
             .verify(tx)
             .map_err(|_| Status::invalid_argument("Invalid transaction proof"))?;
 
-        println!("The proof has been successfully verified! by the RPC");
-
         self.block_producer.clone().submit_proven_transaction(request).await
     }
 }
