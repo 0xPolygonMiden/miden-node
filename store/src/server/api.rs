@@ -79,7 +79,7 @@ impl api_server::Api for StoreApi {
 
         let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
 
-        let (state, delta, path) = self
+        let (state, delta) = self
             .state
             .sync_state(request.block_num, &account_ids, &request.note_tags, &request.nullifiers)
             .await
@@ -89,7 +89,6 @@ impl api_server::Api for StoreApi {
             chain_tip: state.chain_tip,
             block_header: Some(state.block_header),
             mmr_delta: Some(delta.into()),
-            block_path: Some(path.into()),
             accounts: state.account_updates,
             notes: convert(state.notes),
             nullifiers: state.nullifiers,
