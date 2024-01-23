@@ -2,6 +2,8 @@ use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
+#[cfg(not(test))]
+use miden_tx::TransactionVerifier;
 use tokio::sync::RwLock;
 
 use crate::{
@@ -10,9 +12,6 @@ use crate::{
     txqueue::{TransactionValidator, VerifyTxError},
     SharedProvenTx,
 };
-
-#[cfg(not(test))]
-use miden_tx::TransactionVerifier;
 
 #[cfg(test)]
 mod tests;
@@ -61,9 +60,9 @@ where
             // This check makes sure that the transaction proof that has been attached to the transaction
             // is valid, errors out if the proof is invalid.
             let tx_verifier = TransactionVerifier::new(96);
-            let _ = tx_verifier.verify(candidate_tx.as_ref().clone()).map_err(|_| {
-                VerifyTxError::InvalidTransactionProof(candidate_tx.proof().clone())
-            })?;
+            let _ = tx_verifier
+                .verify(candidate_tx.as_ref().clone())
+                .map_err(|_| VerifyTxError::InvalidTransactionProof())?;
         }
 
         // 2. soft-check if `tx` violates in-flight requirements.
