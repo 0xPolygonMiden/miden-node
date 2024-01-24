@@ -21,14 +21,14 @@ async-trait = { version = "0.1" }
 clap = { version = "4.3", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
-miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
+miden-air = { package = "miden-air", git = "https://github.com/0xPolygonMiden/miden-vm", branch = "next", default-features = false }
 miden-crypto = { workspace = true }
 miden-node-proto = { path = "../proto" }
 miden-node-store = { path = "../store" }
 miden-node-utils = { path = "../utils" }
 miden_objects = { workspace = true }
-miden_stdlib = { package = "miden-stdlib", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
-miden_vm = { package = "miden-vm", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
+miden_stdlib = { package = "miden-stdlib", git = "https://github.com/0xPolygonMiden/miden-vm", branch = "next", default-features = false }
+miden_vm = { package = "miden-vm", git = "https://github.com/0xPolygonMiden/miden-vm", branch = "next", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { version = "1.29", features = [
@@ -45,6 +45,6 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
-miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "bobbin-note-meta", default-features = false }
+miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
 once_cell = { version = "1.18" }
 winterfell = "0.7"
