@@ -110,7 +110,7 @@ where
 
         self.state_view.apply_block(block).await?;
 
-        info!("block #{block_num} built!");
+        info!(target: "miden-block-producer", block_num, "block is built!");
 
         Ok(())
     }

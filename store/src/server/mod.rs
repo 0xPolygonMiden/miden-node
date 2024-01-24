@@ -12,7 +12,7 @@ mod api;
 // STORE INITIALIZER
 // ================================================================================================
 
-#[instrument(skip(db), fields(COMPONENT = crate::COMPONENT))]
+#[instrument(target = "miden-store", skip(db))]
 pub async fn serve(
     config: StoreConfig,
     db: Db,
@@ -23,7 +23,7 @@ pub async fn serve(
     let state = Arc::new(State::load(db).await?);
     let store = api_server::ApiServer::new(api::StoreApi { state });
 
-    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
+    info!(target: "miden-store", host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
     Server::builder().add_service(store).serve(addrs[0]).await?;
 
     Ok(())

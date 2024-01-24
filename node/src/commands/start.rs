@@ -23,7 +23,7 @@ pub struct StartCommandConfig {
 // START
 // ===================================================================================================
 
-#[instrument]
+#[instrument(target = "miden-node")]
 pub async fn start_node(config_filepath: &Path) -> Result<()> {
     let config: StartCommandConfig = load_config(config_filepath).extract().map_err(|err| {
         anyhow!("failed to load config file `{}`: {err}", config_filepath.display())

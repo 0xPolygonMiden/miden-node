@@ -34,18 +34,19 @@ where
     T: TransactionQueue,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, err, fields(COMPONENT = crate::COMPONENT))]
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn submit_proven_transaction(
         &self,
         request: tonic::Request<SubmitProvenTransactionRequest>,
     ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
         let request = request.into_inner();
-        debug!(?request.transaction);
+        debug!(target: "miden-block-producer", tx = ?request.transaction);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
             .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
 
         info!(
+            target: "miden-block-producer",
             tx_id = %tx.id().inner(),
             account_id = ?tx.account_id(),
             initial_account_hash = %tx.initial_account_hash(),
@@ -55,7 +56,7 @@ where
             tx_script_root = %tx.tx_script_root().as_ref().map(ToString::to_string).unwrap_or("None".to_string()),
             block_ref = %tx.block_ref(),
         );
-        debug!(proof = ?tx.proof());
+        debug!(target: "miden-block-producer", proof = ?tx.proof());
 
         self.queue
             .add_transaction(Arc::new(tx))

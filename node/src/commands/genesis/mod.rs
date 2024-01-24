@@ -42,7 +42,7 @@ const DEFAULT_ACCOUNTS_DIR: &str = "accounts/";
 /// This function returns a `Result` type. On successful creation of the genesis file, it returns
 /// `Ok(())`. If it fails at any point, due to issues like file existence checks or read/write
 /// operations, it returns an `Err` with a detailed error message.
-#[instrument]
+#[instrument(target = "miden-node")]
 pub fn make_genesis(
     inputs_path: &PathBuf,
     output_path: &PathBuf,

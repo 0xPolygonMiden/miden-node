@@ -23,7 +23,7 @@ pub mod api;
 // ================================================================================================
 
 /// TODO: add comments
-#[instrument(fields(COMPONENT = crate::COMPONENT))]
+#[instrument(target = "miden-block-producer")]
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
@@ -54,18 +54,18 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(queue.clone()));
 
     tokio::spawn(async move {
-        let span = info_span!("transaction_queue_start", COMPONENT = crate::COMPONENT);
+        let span = info_span!(target: "miden-block-producer", "transaction_queue_start");
         let _guard = span.enter();
         queue.run().await
     });
 
     tokio::spawn(async move {
-        let span = info_span!("batch_builder_start", COMPONENT = crate::COMPONENT);
+        let span = info_span!(target: "miden-block-producer", "batch_builder_start");
         let _guard = span.enter();
         batch_builder.run().await
     });
 
-    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
+    info!(target: "miden-block-producer", host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
 
     Ok(())

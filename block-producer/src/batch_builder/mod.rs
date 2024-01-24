@@ -120,7 +120,7 @@ where
         let batch = Arc::new(TransactionBatch::new(txs)?);
         self.ready_batches.write().await.push(batch);
 
-        info!("batch built with {num_txs} txs");
+        info!(target: "miden-block-producer", num_txs, "batch built");
 
         Ok(())
     }

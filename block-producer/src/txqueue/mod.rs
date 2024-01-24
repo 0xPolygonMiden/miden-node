@@ -139,7 +139,7 @@ where
             let batch_builder = self.batch_builder.clone();
 
             tokio::spawn(async move {
-                let span = info_span!("batch_builder::build_batch", COMPONENT = crate::COMPONENT);
+                let span = info_span!(target: "miden-block-producer", "batch_builder::build_batch");
                 let _guard = span.enter();
                 match batch_builder.build_batch(txs.clone()).await {
                     Ok(_) => {
@@ -162,12 +162,12 @@ where
     BB: BatchBuilder,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, err(Debug))]
+    #[instrument(target = "miden-block-producer", skip_all, err(Debug))]
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,
     ) -> Result<(), AddTransactionError> {
-        info!(tx_id = %tx.id().inner());
+        info!(target: "miden-block-producer", tx_id = %tx.id().inner());
         self.tx_verifier
             .verify_tx(tx.clone())
             .await
