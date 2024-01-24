@@ -12,7 +12,7 @@ use miden_node_proto::{
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
-use tracing::{info, info_span};
+use tracing::{info, info_span, instrument};
 
 use self::errors::GenesisBlockError;
 use crate::{
@@ -20,7 +20,6 @@ use crate::{
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
     migrations,
     types::{AccountId, BlockNumber},
-    COMPONENT,
 };
 
 pub mod errors;
@@ -45,6 +44,7 @@ pub struct StateSyncUpdate {
 impl Db {
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
+    #[instrument(fields(COMPONENT = crate::COMPONENT))]
     pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
         if let Some(p) = config.database_filepath.parent() {
             create_dir_all(p)?;
@@ -80,7 +80,7 @@ impl Db {
 
         info!(
             sqlite = format!("{}", config.database_filepath.display()),
-            COMPONENT, "Connected to the DB"
+            "Connected to the DB"
         );
 
         let conn = pool.get().await?;
@@ -194,6 +194,7 @@ impl Db {
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
     /// the in-memory trees. Further details available on [super::state::State::apply_block].
+    #[instrument(skip_all)]
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,
@@ -207,8 +208,8 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let span = info_span!("writing new block data to DB", COMPONENT);
-                let guard = span.enter();
+                let span = info_span!("write_new_block_data_to_db", COMPONENT = crate::COMPONENT);
+                let _guard = span.enter();
 
                 let transaction = conn.transaction()?;
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
@@ -218,7 +219,6 @@ impl Db {
 
                 transaction.commit()?;
 
-                drop(guard);
                 Ok(())
             })
             .await
@@ -273,8 +273,9 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let span = info_span!("writing genesis block to DB", COMPONENT);
-                        let guard = span.enter();
+                        let span =
+                            info_span!("write_genesis_block_to_db", COMPONENT = crate::COMPONENT);
+                        let _guard = span.enter();
 
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt
@@ -291,7 +292,6 @@ impl Db {
 
                         transaction.commit()?;
 
-                        drop(guard);
                         Ok(())
                     })
                     .await

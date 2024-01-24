@@ -5,14 +5,14 @@ use miden_node_proto::store::api_server;
 use tonic::transport::Server;
 use tracing::{info, instrument};
 
-use crate::{config::StoreConfig, db::Db, state::State, COMPONENT};
+use crate::{config::StoreConfig, db::Db, state::State};
 
 mod api;
 
 // STORE INITIALIZER
 // ================================================================================================
 
-#[instrument(skip(config, db))]
+#[instrument(skip(db), fields(COMPONENT = crate::COMPONENT))]
 pub async fn serve(
     config: StoreConfig,
     db: Db,
@@ -23,12 +23,7 @@ pub async fn serve(
     let state = Arc::new(State::load(db).await?);
     let store = api_server::ApiServer::new(api::StoreApi { state });
 
-    info!(
-        host = config.endpoint.host,
-        port = config.endpoint.port,
-        COMPONENT,
-        "Server initialized",
-    );
+    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
     Server::builder().add_service(store).serve(addrs[0]).await?;
 
     Ok(())

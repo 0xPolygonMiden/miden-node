@@ -9,7 +9,7 @@ pub fn setup_logging() -> Result<()> {
         .with_level(true)
         .with_file(true)
         .with_line_number(true)
-        .with_target(false)
+        .with_target(true)
         .with_env_filter(
             EnvFilter::builder()
                 .with_default_directive(LevelFilter::INFO.into())

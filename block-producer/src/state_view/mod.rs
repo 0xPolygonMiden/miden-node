@@ -9,7 +9,7 @@ use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
     txqueue::{TransactionVerifier, VerifyTxError},
-    SharedProvenTx, COMPONENT,
+    SharedProvenTx,
 };
 
 #[cfg(test)]
@@ -46,7 +46,7 @@ where
 {
     // TODO: Verify proof as well
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, err(Debug), fields(COMPONENT = crate::COMPONENT))]
+    #[instrument(skip_all, err(Debug))]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,
@@ -54,7 +54,6 @@ where
         info!(
             tx_id = %candidate_tx.id().inner(),
             account_id = ?candidate_tx.account_id(),
-            COMPONENT,
         );
 
         // 1. soft-check if `tx` violates in-flight requirements.
@@ -140,7 +139,7 @@ where
 /// 1. the candidate transaction doesn't modify the same account as an existing in-flight transaction
 /// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained
 /// in `already_consumed_nullifiers`
-#[instrument(skip(candidate_tx), err(Debug), fields(COMPONENT = crate::COMPONENT))]
+#[instrument(skip(candidate_tx), err(Debug))]
 fn ensure_in_flight_constraints(
     candidate_tx: SharedProvenTx,
     accounts_in_flight: &BTreeSet<AccountId>,
@@ -172,7 +171,7 @@ fn ensure_in_flight_constraints(
     Ok(())
 }
 
-#[instrument(skip_all, err(Debug), fields(COMPONENT = crate::COMPONENT))]
+#[instrument(skip_all, err(Debug))]
 fn ensure_tx_inputs_constraints(
     candidate_tx: SharedProvenTx,
     tx_inputs: TxInputs,
@@ -182,7 +181,6 @@ fn ensure_tx_inputs_constraints(
         account_id = ?candidate_tx.account_id(),
         tx_inputs.account_hash = %tx_inputs.account_hash.as_ref().map(ToString::to_string).unwrap_or("None".to_string()),
         ?tx_inputs.nullifiers,
-        COMPONENT,
     );
 
     match tx_inputs.account_hash {

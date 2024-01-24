@@ -3,7 +3,7 @@ use std::{net::ToSocketAddrs, sync::Arc};
 use anyhow::Result;
 use miden_node_proto::{block_producer::api_server, store::api_client as store_client};
 use tonic::transport::Server;
-use tracing::info;
+use tracing::{info, info_span, instrument};
 
 use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
@@ -12,7 +12,7 @@ use crate::{
     state_view::DefaultStateView,
     store::DefaultStore,
     txqueue::{DefaultTransactionQueue, DefaultTransactionQueueOptions},
-    COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
+    SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
 };
 
@@ -23,6 +23,7 @@ pub mod api;
 // ================================================================================================
 
 /// TODO: add comments
+#[instrument(fields(COMPONENT = crate::COMPONENT))]
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
@@ -53,21 +54,18 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(queue.clone()));
 
     tokio::spawn(async move {
-        info!(COMPONENT, "transaction queue started");
+        let span = info_span!("transaction_queue_start", COMPONENT = crate::COMPONENT);
+        let _guard = span.enter();
         queue.run().await
     });
 
     tokio::spawn(async move {
-        info!(COMPONENT, "batch builder started");
+        let span = info_span!("batch_builder_start", COMPONENT = crate::COMPONENT);
+        let _guard = span.enter();
         batch_builder.run().await
     });
 
-    info!(
-        COMPONENT,
-        host = config.endpoint.host,
-        port = config.endpoint.port,
-        "Server initialized",
-    );
+    info!(host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
 
     Ok(())

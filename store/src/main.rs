@@ -14,9 +14,11 @@ use miden_node_proto::{
     store::api_client,
     tsmt::NullifierProof,
 };
+pub use miden_node_store::COMPONENT;
 use miden_node_store::{config::StoreTopLevelConfig, db::Db, server};
 use miden_node_utils::config::load_config;
 use miden_objects::BlockHeader;
+use tracing::instrument;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -39,6 +41,7 @@ async fn main() -> Result<()> {
 /// Sends a gRPC request as specified by `command`.
 ///
 /// The request is sent to the endpoint defined in `config`.
+#[instrument(fields(COMPONENT = crate::COMPONENT))]
 async fn query(
     config: StoreTopLevelConfig,
     command: Query,

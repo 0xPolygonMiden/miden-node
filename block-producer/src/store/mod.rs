@@ -13,7 +13,7 @@ use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
 use tracing::{info, instrument};
 
-use crate::{block::Block, SharedProvenTx, COMPONENT};
+use crate::{block::Block, SharedProvenTx};
 
 mod errors;
 pub use errors::{ApplyBlockError, BlockInputsError, TxInputsError};
@@ -96,7 +96,7 @@ impl ApplyBlock for DefaultStore {
 #[async_trait]
 impl Store for DefaultStore {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, err, fields(COMPONENT = crate::COMPONENT))]
+    #[instrument(skip_all, err)]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
@@ -110,7 +110,7 @@ impl Store for DefaultStore {
                 .collect(),
         };
 
-        info!(?message, COMPONENT);
+        info!(?message);
 
         let request = tonic::Request::new(message);
         let response = self
@@ -121,7 +121,7 @@ impl Store for DefaultStore {
             .map_err(|status| TxInputsError::GrpcClientError(status.message().to_string()))?
             .into_inner();
 
-        info!(?response, COMPONENT);
+        info!(?response);
 
         let account_hash = {
             let account_state = response
@@ -166,7 +166,6 @@ impl Store for DefaultStore {
         info!(
             account_hash = %account_hash.as_ref().map(ToString::to_string).unwrap_or("None".to_string()),
             ?nullifiers,
-            COMPONENT,
         );
 
         Ok(TxInputs {

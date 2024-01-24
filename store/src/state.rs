@@ -39,7 +39,6 @@ use crate::{
     db::{Db, StateSyncUpdate},
     errors::StateError,
     types::{AccountId, BlockNumber},
-    COMPONENT,
 };
 
 // STRUCTURES
@@ -172,6 +171,7 @@ impl State {
     /// - the DB transaction is committed, and requests that read only from the DB can proceed to
     ///   use the fresh data.
     /// - the in-memory structures are updated, and the lock is released.
+    #[instrument(skip_all)]
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,
@@ -202,7 +202,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = info_span!("updating in-memory data structures", COMPONENT);
+            let span = info_span!("update_in_memory_data_structures");
             let guard = span.enter();
 
             // nullifiers can be produced only once
@@ -304,6 +304,8 @@ impl State {
         // spawned.
         let db = self.db.clone();
         tokio::spawn(async move {
+            let span = info_span!("db::apply_block", COMPONENT = crate::COMPONENT);
+            let _guard = span.enter();
             db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
                 .await
         });
@@ -323,6 +325,7 @@ impl State {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
@@ -330,6 +333,7 @@ impl State {
         self.db.select_block_header_by_block_num(block_num).await
     }
 
+    #[instrument(skip(self))]
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
@@ -338,6 +342,7 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
     }
 
+    #[instrument(skip(self))]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
@@ -368,6 +373,7 @@ impl State {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
+    #[instrument(skip(self, _nullifiers))]
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
@@ -414,7 +420,7 @@ impl State {
         Ok((latest, peaks, account_states))
     }
 
-    #[instrument(skip(self), ret, err, fields(COMPONENT = crate::COMPONENT))]
+    #[instrument(skip(self), ret, err)]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
@@ -448,16 +454,19 @@ impl State {
         Ok((account, nullifier_blocks))
     }
 
+    #[instrument(skip(self))]
     pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
         let nullifiers = self.db.select_nullifiers().await?;
         Ok(nullifiers)
     }
 
+    #[instrument(skip(self))]
     pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
         let accounts = self.db.select_accounts().await?;
         Ok(accounts)
     }
 
+    #[instrument(skip(self))]
     pub async fn list_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
         let notes = self.db.select_notes().await?;
         Ok(notes)
@@ -473,6 +482,7 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
+#[instrument]
 pub fn build_notes_tree(
     notes: &[NoteCreated]
 ) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, anyhow::Error> {
@@ -503,12 +513,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifier_tree = TieredSmt::with_entries(leaves)?;
     let elapsed = now.elapsed().as_secs();
 
-    info!(
-        num_of_leaves = len,
-        tree_construction = elapsed,
-        COMPONENT,
-        "Loaded nullifier tree"
-    );
+    info!(num_of_leaves = len, tree_construction = elapsed, "Loaded nullifier tree");
     Ok(nullifier_tree)
 }
 
