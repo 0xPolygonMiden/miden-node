@@ -63,7 +63,8 @@ pub fn insert_nullifiers_for_block(
 pub fn select_nullifiers(
     conn: &mut Connection
 ) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
-    let mut stmt = conn.prepare("SELECT nullifier, block_number FROM nullifiers;")?;
+    let mut stmt =
+        conn.prepare("SELECT nullifier, block_number FROM nullifiers ORDER BY block_number ASC;")?;
     let mut rows = stmt.query([])?;
 
     let mut result = vec![];
@@ -83,7 +84,7 @@ pub fn select_nullifiers(
 ///
 /// A vector with notes, or an error.
 pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
-    let mut stmt = conn.prepare("SELECT * FROM notes")?;
+    let mut stmt = conn.prepare("SELECT * FROM notes ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
 
     let mut notes = vec![];
@@ -114,7 +115,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
 ///
 /// A vector with accounts, or an error.
 pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>, anyhow::Error> {
-    let mut stmt = conn.prepare("SELECT * FROM accounts")?;
+    let mut stmt = conn.prepare("SELECT * FROM accounts ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
 
     let mut accounts = vec![];
@@ -164,6 +165,8 @@ pub fn select_nullifiers_by_block_range(
             block_number > ?1 AND
             block_number <= ?2 AND
             nullifier_prefix IN rarray(?3)
+        ORDER BY
+            block_number ASC
     ",
     )?;
 
@@ -240,7 +243,8 @@ pub fn select_block_header_by_block_num(
 ///
 /// A vector of [BlockHeader] or an error.
 pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>, anyhow::Error> {
-    let mut stmt = conn.prepare("SELECT block_header FROM block_headers;")?;
+    let mut stmt =
+        conn.prepare("SELECT block_header FROM block_headers ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
     let mut result = vec![];
     while let Some(row) = rows.next()? {
@@ -436,6 +440,8 @@ pub fn select_accounts_by_block_range(
             block_num > ?1 AND
             block_num <= ?2 AND
             account_id IN rarray(?3)
+        ORDER BY
+            block_num ASC
     ",
     )?;
 
@@ -467,7 +473,8 @@ pub fn select_accounts_by_block_range(
 pub fn select_account_hashes(
     conn: &mut Connection
 ) -> Result<Vec<(AccountId, Digest)>, anyhow::Error> {
-    let mut stmt = conn.prepare("SELECT account_id, account_hash FROM accounts")?;
+    let mut stmt =
+        conn.prepare("SELECT account_id, account_hash FROM accounts ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
 
     let mut result = Vec::new();
