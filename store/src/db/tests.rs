@@ -10,7 +10,7 @@ use miden_objects::{crypto::merkle::SimpleSmt, notes::NOTE_LEAF_DEPTH, Felt, Fie
 use rusqlite::{vtab::array, Connection};
 
 use super::sql;
-use crate::migrations;
+use crate::db::migrations;
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
