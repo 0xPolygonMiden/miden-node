@@ -10,7 +10,6 @@ message Note {
     digest.Digest note_hash = 3;
     fixed64 sender  = 4;
     uint64 tag = 5;
-    uint32 num_assets = 6;
     merkle.MerklePath merkle_path = 7;
 }
 
@@ -20,7 +19,6 @@ message NoteSyncRecord {
     digest.Digest note_hash = 2;
     fixed64 sender  = 3;
     uint64 tag = 4;
-    uint32 num_assets = 5;
     merkle.MerklePath merkle_path = 6;
 }
 
@@ -30,5 +28,4 @@ message NoteCreated {
     digest.Digest note_hash = 2;
     fixed64 sender  = 3;
     uint64 tag = 4;
-    uint32 num_assets = 5;
 }
