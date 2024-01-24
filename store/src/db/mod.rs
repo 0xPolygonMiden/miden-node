@@ -18,12 +18,12 @@ use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
-    migrations,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
 
 pub mod errors;
+mod migrations;
 mod sql;
 
 #[cfg(test)]
