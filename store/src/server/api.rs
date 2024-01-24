@@ -20,9 +20,9 @@ use miden_node_proto::{
     tsmt::NullifierLeaf,
 };
 use tonic::{Response, Status};
-use tracing::instrument;
+use tracing::{info, instrument};
 
-use crate::state::State;
+use crate::{state::State, target};
 
 // STORE API
 // ================================================================================================
@@ -39,12 +39,15 @@ impl api_server::Api for StoreApi {
     /// Returns block header for the specified block number.
     ///
     /// If the block number is not provided, block header for the latest block is returned.
-    #[instrument(target = "miden-store", skip(self))]
+    #[instrument(target = "miden-store", skip(self, request))]
     async fn get_block_header_by_number(
         &self,
         request: tonic::Request<GetBlockHeaderByNumberRequest>,
     ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
         let request = request.into_inner();
+
+        info!(target: target!(), ?request);
+
         let block_header =
             self.state.get_block_header(request.block_num).await.map_err(internal_error)?;
 
@@ -55,13 +58,16 @@ impl api_server::Api for StoreApi {
     ///
     /// This endpoint also returns Merkle authentication path for each requested nullifier which can
     /// be verified against the latest root of the nullifier database.
-    #[instrument(target = "miden-store", skip(self))]
+    #[instrument(target = "miden-store", skip(self, request))]
     async fn check_nullifiers(
         &self,
         request: tonic::Request<CheckNullifiersRequest>,
     ) -> Result<Response<CheckNullifiersResponse>, Status> {
         // Validate the nullifiers and convert them to RpoDigest values. Stop on first error.
         let request = request.into_inner();
+
+        info!(target: target!(), ?request);
+
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
 
         // Query the state for the request's nullifiers
@@ -74,12 +80,14 @@ impl api_server::Api for StoreApi {
 
     /// Returns info which can be used by the client to sync up to the latest state of the chain
     /// for the objects the client is interested in.
-    #[instrument(target = "miden-store", skip(self))]
+    #[instrument(target = "miden-store", skip(self, request))]
     async fn sync_state(
         &self,
         request: tonic::Request<SyncStateRequest>,
     ) -> Result<Response<SyncStateResponse>, Status> {
         let request = request.into_inner();
+
+        info!(target: target!(), ?request);
 
         let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
 
@@ -104,12 +112,14 @@ impl api_server::Api for StoreApi {
     // --------------------------------------------------------------------------------------------
 
     /// Updates the local DB by inserting a new block header and the related data.
-    #[instrument(target = "miden-store", skip(self))]
+    #[instrument(target = "miden-store", skip(self, request))]
     async fn apply_block(
         &self,
         request: tonic::Request<ApplyBlockRequest>,
     ) -> Result<tonic::Response<ApplyBlockResponse>, tonic::Status> {
         let request = request.into_inner();
+
+        info!(target: target!(), ?request);
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let accounts = request
@@ -138,12 +148,14 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
-    #[instrument(target = "miden-store", skip(self))]
+    #[instrument(target = "miden-store", skip(self, request))]
     async fn get_block_inputs(
         &self,
         request: tonic::Request<GetBlockInputsRequest>,
     ) -> Result<Response<GetBlockInputsResponse>, Status> {
         let request = request.into_inner();
+
+        info!(target: target!(), ?request);
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
@@ -164,12 +176,14 @@ impl api_server::Api for StoreApi {
     }
 
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-store", skip(self), ret, err)]
+    #[instrument(target = "miden-store", skip(self, request), ret, err)]
     async fn get_transaction_inputs(
         &self,
         request: tonic::Request<GetTransactionInputsRequest>,
     ) -> Result<Response<GetTransactionInputsResponse>, Status> {
         let request = request.into_inner();
+
+        info!(target: target!(), ?request);
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;

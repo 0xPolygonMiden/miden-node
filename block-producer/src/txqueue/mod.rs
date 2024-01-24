@@ -5,9 +5,11 @@ use miden_objects::{
     accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
 };
 use tokio::{sync::RwLock, time};
-use tracing::{info, info_span, instrument};
+use tracing::{info_span, instrument, Instrument};
 
-use crate::{batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec};
+use crate::{
+    batch_builder::BatchBuilder, store::TxInputsError, target, SharedProvenTx, SharedRwVec,
+};
 
 #[cfg(test)]
 mod tests;
@@ -139,9 +141,11 @@ where
             let batch_builder = self.batch_builder.clone();
 
             tokio::spawn(async move {
-                let span = info_span!(target: "miden-block-producer", "batch_builder::build_batch");
-                let _guard = span.enter();
-                match batch_builder.build_batch(txs.clone()).await {
+                match batch_builder
+                    .build_batch(txs.clone())
+                    .instrument(info_span!(target: target!(), "batch_builder::build_batch"))
+                    .await
+                {
                     Ok(_) => {
                         // batch was successfully built, do nothing
                     },
@@ -162,12 +166,11 @@ where
     BB: BatchBuilder,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-block-producer", skip_all, err(Debug))]
+    #[instrument(target = "miden-block-producer", skip(self, tx), err(Debug), fields(tx_id = %tx.id().inner()))]
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,
     ) -> Result<(), AddTransactionError> {
-        info!(target: "miden-block-producer", tx_id = %tx.id().inner());
         self.tx_verifier
             .verify_tx(tx.clone())
             .await

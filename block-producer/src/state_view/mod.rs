@@ -1,9 +1,10 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
+use miden_node_utils::logging::format_opt;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
-use tracing::{info, instrument};
+use tracing::instrument;
 
 use crate::{
     block::Block,
@@ -46,17 +47,11 @@ where
 {
     // TODO: Verify proof as well
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip_all, err(Debug))]
+    #[instrument(skip(self, candidate_tx), err(Debug), fields(account_id = %candidate_tx.account_id().to_hex()))]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
-        info!(
-            target: "miden-block-producer",
-            tx_id = %candidate_tx.id().inner(),
-            account_id = ?candidate_tx.account_id(),
-        );
-
         // 1. soft-check if `tx` violates in-flight requirements.
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
@@ -172,19 +167,16 @@ fn ensure_in_flight_constraints(
     Ok(())
 }
 
-#[instrument(target = "miden-block-producer", skip_all, err(Debug))]
+#[instrument(
+    target = "miden-block-producer",
+    skip(candidate_tx, tx_inputs),
+    err(Debug),
+    fields(tx_inputs.account_hash = %format_opt(tx_inputs.account_hash.as_ref()), nullifiers = ?tx_inputs.nullifiers))
+]
 fn ensure_tx_inputs_constraints(
     candidate_tx: SharedProvenTx,
     tx_inputs: TxInputs,
 ) -> Result<(), VerifyTxError> {
-    info!(
-        target: "miden-block-producer",
-        tx_id = %candidate_tx.id().inner(),
-        account_id = ?candidate_tx.account_id(),
-        tx_inputs.account_hash = %tx_inputs.account_hash.as_ref().map(ToString::to_string).unwrap_or("None".to_string()),
-        ?tx_inputs.nullifiers,
-    );
-
     match tx_inputs.account_hash {
         Some(store_account_hash) => {
             if candidate_tx.initial_account_hash() != store_account_hash {

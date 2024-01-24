@@ -17,9 +17,9 @@ use tonic::{
     transport::{Channel, Error},
     Request, Response, Status,
 };
-use tracing::info;
+use tracing::{info, instrument};
 
-use crate::config::RpcConfig;
+use crate::{config::RpcConfig, target};
 
 // RPC API
 // ================================================================================================
@@ -32,12 +32,12 @@ pub struct RpcApi {
 impl RpcApi {
     pub(super) async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
         let store = store_client::ApiClient::connect(config.store_url.clone()).await?;
-        info!(target: "miden-rpc", store_endpoint = config.store_url, "Store client initialized");
+        info!(target: target!(), store_endpoint = config.store_url, "Store client initialized");
 
         let block_producer =
             block_producer_client::ApiClient::connect(config.block_producer_url.clone()).await?;
         info!(
-            target: "miden-rpc",
+            target: target!(),
             block_producer_endpoint = config.block_producer_url,
             "Block producer client initialized",
         );
@@ -51,6 +51,7 @@ impl RpcApi {
 
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
+    #[instrument(target = "miden-rpc", skip(self, request))]
     async fn check_nullifiers(
         &self,
         request: Request<CheckNullifiersRequest>,
@@ -65,6 +66,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().check_nullifiers(request).await
     }
 
+    #[instrument(target = "miden-rpc", skip(self, request))]
     async fn get_block_header_by_number(
         &self,
         request: Request<GetBlockHeaderByNumberRequest>,
@@ -72,6 +74,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().get_block_header_by_number(request).await
     }
 
+    #[instrument(target = "miden-rpc", skip(self, request))]
     async fn sync_state(
         &self,
         request: tonic::Request<SyncStateRequest>,
@@ -79,6 +82,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().sync_state(request).await
     }
 
+    #[instrument(target = "miden-rpc", skip(self, request))]
     async fn submit_proven_transaction(
         &self,
         request: Request<SubmitProvenTransactionRequest>,

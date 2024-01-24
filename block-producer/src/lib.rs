@@ -50,3 +50,10 @@ const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
 
 /// Maximum number of batches per block
 const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
+
+#[macro_export]
+macro_rules! target {
+    () => {
+        "miden-block-producer"
+    };
+}

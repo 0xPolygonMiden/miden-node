@@ -6,11 +6,12 @@ use miden_node_proto::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
     responses::SubmitProvenTransactionResponse,
 };
+use miden_node_utils::logging::{format_input_notes, format_opt, format_output_notes};
 use miden_objects::transaction::ProvenTransaction;
 use tonic::Status;
 use tracing::{debug, info, instrument};
 
-use crate::txqueue::TransactionQueue;
+use crate::{target, txqueue::TransactionQueue};
 
 // BLOCK PRODUCER
 // ================================================================================================
@@ -34,29 +35,29 @@ where
     T: TransactionQueue,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = "miden-block-producer", skip(self, request), err)]
     async fn submit_proven_transaction(
         &self,
         request: tonic::Request<SubmitProvenTransactionRequest>,
     ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
         let request = request.into_inner();
-        debug!(target: "miden-block-producer", tx = ?request.transaction);
+        debug!(target: target!(), tx = ?request.transaction);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
             .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
 
         info!(
-            target: "miden-block-producer",
+            target: target!(),
             tx_id = %tx.id().inner(),
-            account_id = ?tx.account_id(),
+            account_id = %tx.account_id(),
             initial_account_hash = %tx.initial_account_hash(),
             final_account_hash = %tx.final_account_hash(),
-            input_notes = ?tx.input_notes(),
-            output_notes = ?tx.output_notes(),
-            tx_script_root = %tx.tx_script_root().as_ref().map(ToString::to_string).unwrap_or("None".to_string()),
+            input_notes = %format_input_notes(tx.input_notes()),
+            output_notes = %format_output_notes(tx.output_notes()),
+            tx_script_root = %format_opt(tx.tx_script_root().as_ref()),
             block_ref = %tx.block_ref(),
         );
-        debug!(target: "miden-block-producer", proof = ?tx.proof());
+        debug!(target: target!(), proof = ?tx.proof());
 
         self.queue
             .add_transaction(Arc::new(tx))

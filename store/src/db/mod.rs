@@ -18,7 +18,7 @@ use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
-    migrations,
+    migrations, target,
     types::{AccountId, BlockNumber},
 };
 
@@ -44,8 +44,10 @@ pub struct StateSyncUpdate {
 impl Db {
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
-    #[instrument(target = "miden-store")]
+    #[instrument(target = "miden-store", skip(config))]
     pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
+        info!(target: target!(), ?config);
+
         if let Some(p) = config.database_filepath.parent() {
             create_dir_all(p)?;
         }
@@ -79,7 +81,7 @@ impl Db {
             .build()?;
 
         info!(
-            target: "miden-store",
+            target: target!(),
             sqlite = format!("{}", config.database_filepath.display()),
             "Connected to the DB"
         );
@@ -195,7 +197,10 @@ impl Db {
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
     /// the in-memory trees. Further details available on [super::state::State::apply_block].
-    #[instrument(target = "miden-store", skip_all)]
+    #[instrument(
+        target = "miden-store",
+        skip(self, allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
+    )]
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,
@@ -209,8 +214,7 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let span = info_span!(target: "miden-store", "write_new_block_data_to_db");
-                let _guard = span.enter();
+                let _guard = info_span!(target: target!(), "write_new_block_data_to_db").entered();
 
                 let transaction = conn.transaction()?;
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
@@ -274,8 +278,8 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let span = info_span!(target: "miden-store", "write_genesis_block_to_db");
-                        let _guard = span.enter();
+                        let _guard =
+                            info_span!(target: target!(), "write_genesis_block_to_db").entered();
 
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt

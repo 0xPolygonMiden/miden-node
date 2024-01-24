@@ -25,6 +25,7 @@ use miden_node_proto::{
         AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
     },
 };
+use miden_node_utils::logging::format_hashes;
 use miden_objects::{
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
     BlockHeader, ACCOUNT_TREE_DEPTH,
@@ -33,11 +34,12 @@ use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tracing::{info, info_span, instrument};
+use tracing::{info, info_span, instrument, Instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
     errors::StateError,
+    target,
     types::{AccountId, BlockNumber},
 };
 
@@ -171,7 +173,7 @@ impl State {
     /// - the DB transaction is committed, and requests that read only from the DB can proceed to
     ///   use the fresh data.
     /// - the in-memory structures are updated, and the lock is released.
-    #[instrument(target = "miden-store", skip_all)]
+    #[instrument(target = "miden-store", skip(self, block_header, nullifiers, accounts, notes))]
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,
@@ -202,8 +204,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = info_span!(target: "miden-store", "update_in_memory_data_structures");
-            let guard = span.enter();
+            let guard = info_span!(target: target!(), "update_in_memory_data_structures").entered();
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
@@ -304,9 +305,8 @@ impl State {
         // spawned.
         let db = self.db.clone();
         tokio::spawn(async move {
-            let span = info_span!(target: "miden-store", "db::apply_block");
-            let _guard = span.enter();
             db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
+                .instrument(info_span!(target: target!(), "db::apply_block"))
                 .await
         });
 
@@ -325,24 +325,31 @@ impl State {
         Ok(())
     }
 
-    #[instrument(target = "miden-store", skip(self))]
+    #[instrument(target = "miden-store", skip(self, block_num))]
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
     ) -> Result<Option<block_header::BlockHeader>, anyhow::Error> {
+        info!(target: target!(), ?block_num);
+
         self.db.select_block_header_by_block_num(block_num).await
     }
 
-    #[instrument(target = "miden-store", skip(self))]
+    #[instrument(target = "miden-store", skip(self, nullifiers))]
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
     ) -> Vec<TieredSmtProof> {
+        info!(target: target!(), nullifiers = %format_hashes(nullifiers));
+
         let inner = self.inner.read().await;
         nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
     }
 
-    #[instrument(target = "miden-store", skip(self))]
+    #[instrument(
+        target = "miden-store",
+        skip(self, block_num, account_ids, note_tag_prefixes, nullifier_prefixes)
+    )]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
@@ -350,6 +357,8 @@ impl State {
         note_tag_prefixes: &[u32],
         nullifier_prefixes: &[u32],
     ) -> Result<(StateSyncUpdate, MmrDelta, MerklePath), anyhow::Error> {
+        info!(target: target!(), ?block_num, ?account_ids, ?note_tag_prefixes, ?nullifier_prefixes);
+
         let inner = self.inner.read().await;
 
         let state_sync = self
@@ -373,13 +382,15 @@ impl State {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
-    #[instrument(target = "miden-store", skip(self, _nullifiers))]
+    #[instrument(target = "miden-store", skip(self, account_ids, _nullifiers))]
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
         _nullifiers: &[RpoDigest],
     ) -> Result<(block_header::BlockHeader, MmrPeaks, Vec<AccountStateWithProof>), anyhow::Error>
     {
+        info!(target: target!(), ?account_ids);
+
         let inner = self.inner.read().await;
 
         let latest = self
@@ -420,12 +431,14 @@ impl State {
         Ok((latest, peaks, account_states))
     }
 
-    #[instrument(target = "miden-store", skip(self), ret, err)]
+    #[instrument(target = "miden-store", skip(self, account_id, nullifiers), ret, err)]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
         nullifiers: &[RpoDigest],
     ) -> Result<(AccountState, Vec<NullifierStateForTransactionInput>), anyhow::Error> {
+        info!(target: target!(), account_id = format!("{:x}", account_id), nullifiers = %format_hashes(nullifiers));
+
         let inner = self.inner.read().await;
 
         let account = AccountState {
@@ -482,10 +495,12 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
-#[instrument(target = "miden-store")]
+#[instrument(target = "miden-store", skip(notes))]
 pub fn build_notes_tree(
     notes: &[NoteCreated]
 ) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, anyhow::Error> {
+    info!(target: target!(), ?notes);
+
     // TODO: create SimpleSmt without this allocation
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
@@ -513,7 +528,8 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifier_tree = TieredSmt::with_entries(leaves)?;
     let elapsed = now.elapsed().as_secs();
 
-    info!(target: "miden-store", num_of_leaves = len, tree_construction = elapsed, "Loaded nullifier tree");
+    info!(target: target!(), num_of_leaves = len, tree_construction = elapsed, "Loaded nullifier tree");
+
     Ok(nullifier_tree)
 }
 

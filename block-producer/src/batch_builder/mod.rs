@@ -5,7 +5,7 @@ use tokio::{sync::RwLock, time};
 use tracing::info;
 
 use self::errors::BuildBatchError;
-use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch};
+use crate::{block_builder::BlockBuilder, target, SharedProvenTx, SharedRwVec, SharedTxBatch};
 
 pub mod errors;
 #[cfg(test)]
@@ -120,7 +120,7 @@ where
         let batch = Arc::new(TransactionBatch::new(txs)?);
         self.ready_batches.write().await.push(batch);
 
-        info!(target: "miden-block-producer", num_txs, "batch built");
+        info!(target: target!(), num_txs, "batch built");
 
         Ok(())
     }

@@ -13,10 +13,11 @@ use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
 use tracing::{info, instrument};
 
-use crate::{block::Block, SharedProvenTx};
+use crate::{block::Block, target, SharedProvenTx};
 
 mod errors;
 pub use errors::{ApplyBlockError, BlockInputsError, TxInputsError};
+use miden_node_utils::logging::format_opt;
 
 // STORE TRAIT
 // ================================================================================================
@@ -96,7 +97,7 @@ impl ApplyBlock for DefaultStore {
 #[async_trait]
 impl Store for DefaultStore {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = "miden-block-producer", skip(self, proven_tx), err)]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
@@ -110,7 +111,7 @@ impl Store for DefaultStore {
                 .collect(),
         };
 
-        info!(target: "miden-block-producer", ?message);
+        info!(target: target!(), ?message);
 
         let request = tonic::Request::new(message);
         let response = self
@@ -121,7 +122,7 @@ impl Store for DefaultStore {
             .map_err(|status| TxInputsError::GrpcClientError(status.message().to_string()))?
             .into_inner();
 
-        info!(target: "miden-block-producer", ?response);
+        info!(target: target!(), ?response);
 
         let account_hash = {
             let account_state = response
@@ -164,8 +165,8 @@ impl Store for DefaultStore {
         };
 
         info!(
-            target: "miden-block-producer",
-            account_hash = %account_hash.as_ref().map(ToString::to_string).unwrap_or("None".to_string()),
+            target: target!(),
+            account_hash = %format_opt(account_hash.as_ref()),
             ?nullifiers,
         );
 
