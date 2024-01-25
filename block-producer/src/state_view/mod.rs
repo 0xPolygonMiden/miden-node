@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
-use tracing::{debug, info, instrument};
+use tracing::{debug, instrument};
 
 use crate::{
     block::Block,
