@@ -5,13 +5,13 @@ use tokio::{sync::RwLock, time};
 use tracing::{debug, info, instrument, Span};
 
 use self::errors::BuildBatchError;
-use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch, COMPONENT};
+use crate::{block_builder::BlockBuilder, ProvenTransaction, SharedRwVec, COMPONENT};
 
 pub mod errors;
 #[cfg(test)]
 mod tests;
 
-mod batch;
+pub mod batch;
 pub use batch::TransactionBatch;
 use miden_node_utils::logging::{format_array, format_blake3_digest};
 
@@ -32,7 +32,7 @@ pub trait BatchBuilder: Send + Sync + 'static {
     /// Start proving of a new batch.
     async fn build_batch(
         &self,
-        txs: Vec<SharedProvenTx>,
+        txs: Vec<ProvenTransaction>,
     ) -> Result<(), BuildBatchError>;
 }
 
@@ -50,7 +50,7 @@ pub struct DefaultBatchBuilderOptions {
 
 pub struct DefaultBatchBuilder<BB> {
     /// Batches ready to be included in a block
-    ready_batches: SharedRwVec<SharedTxBatch>,
+    ready_batches: SharedRwVec<TransactionBatch>,
 
     block_builder: Arc<BB>,
 
@@ -97,7 +97,7 @@ where
     /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
     /// A call to an empty `build_block()` indicates that an empty block should be created.
     async fn try_build_block(&self) {
-        let mut batches_in_block: Vec<SharedTxBatch> = {
+        let mut batches_in_block: Vec<TransactionBatch> = {
             let mut locked_ready_batches = self.ready_batches.write().await;
 
             let num_batches_in_block =
@@ -106,7 +106,7 @@ where
             locked_ready_batches.drain(..num_batches_in_block).collect()
         };
 
-        match self.block_builder.build_block(batches_in_block.clone()).await {
+        match self.block_builder.build_block(&batches_in_block).await {
             Ok(_) => {
                 // block successfully built, do nothing
             },
@@ -127,14 +127,14 @@ where
     #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
     async fn build_batch(
         &self,
-        txs: Vec<SharedProvenTx>,
+        txs: Vec<ProvenTransaction>,
     ) -> Result<(), BuildBatchError> {
         let num_txs = txs.len();
 
         info!(target: COMPONENT, num_txs, "Building a transaction batch");
         debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
 
-        let batch = Arc::new(TransactionBatch::new(txs)?);
+        let batch = TransactionBatch::new(txs)?;
 
         info!(target: COMPONENT, "Transaction batch built");
         Span::current().record("batch_id", format_blake3_digest(batch.id()));

@@ -10,7 +10,7 @@ use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
     txqueue::{TransactionVerifier, VerifyTxError},
-    SharedProvenTx, COMPONENT,
+    ProvenTransaction, COMPONENT,
 };
 
 #[cfg(test)]
@@ -50,21 +50,21 @@ where
     #[instrument(skip_all, err)]
     async fn verify_tx(
         &self,
-        candidate_tx: SharedProvenTx,
+        candidate_tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError> {
         // 1. soft-check if `tx` violates in-flight requirements.
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
         // to quickly reject clearly infracting transactions before hitting the store (slow).
         ensure_in_flight_constraints(
-            candidate_tx.clone(),
+            candidate_tx,
             &*self.accounts_in_flight.read().await,
             &*self.nullifiers_in_flight.read().await,
         )?;
 
         // 2. Fetch the transaction inputs from the store, and check tx input constraints
-        let tx_inputs = self.store.get_tx_inputs(candidate_tx.clone()).await?;
-        ensure_tx_inputs_constraints(candidate_tx.clone(), tx_inputs)?;
+        let tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
+        ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
 
         // 3. Re-check in-flight transaction constraints, and if verification passes, register
         //    transaction
@@ -76,7 +76,7 @@ where
             let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
 
             ensure_in_flight_constraints(
-                candidate_tx.clone(),
+                candidate_tx,
                 &locked_accounts_in_flight,
                 &locked_nullifiers_in_flight,
             )?;
@@ -138,7 +138,7 @@ where
 ///    `already_consumed_nullifiers`
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
-    candidate_tx: SharedProvenTx,
+    candidate_tx: &ProvenTransaction,
     accounts_in_flight: &BTreeSet<AccountId>,
     already_consumed_nullifiers: &BTreeSet<Digest>,
 ) -> Result<(), VerifyTxError> {
@@ -172,7 +172,7 @@ fn ensure_in_flight_constraints(
 
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_tx_inputs_constraints(
-    candidate_tx: SharedProvenTx,
+    candidate_tx: &ProvenTransaction,
     tx_inputs: TxInputs,
 ) -> Result<(), VerifyTxError> {
     debug!(target: COMPONENT, %tx_inputs);

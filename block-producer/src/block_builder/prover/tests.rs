@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use miden_crypto::{merkle::Mmr, ONE};
 use miden_mock::mock::block::mock_block_header;
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
@@ -14,14 +12,13 @@ use miden_vm::crypto::{MerklePath, SimpleSmt};
 
 use super::*;
 use crate::{
-    batch_builder::TransactionBatch,
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
     store::Store,
     test_utils::{
         block::{build_actual_block_header, build_expected_block_header, MockBlockBuilder},
         DummyProvenTxGenerator, MockStoreSuccessBuilder,
     },
-    SharedTxBatch,
+    TransactionBatch,
 };
 
 // BLOCK WITNESS TESTS
@@ -63,35 +60,35 @@ fn test_block_witness_validation_inconsistent_account_ids() {
         }
     };
 
-    let batches: Vec<SharedTxBatch> = {
+    let batches: Vec<TransactionBatch> = {
         let batch_1 = {
-            let tx = Arc::new(tx_gen.dummy_proven_tx_with_params(
+            let tx = tx_gen.dummy_proven_tx_with_params(
                 account_id_2,
                 Digest::default(),
                 Digest::default(),
                 InputNotes::new(Vec::new()).unwrap(),
                 OutputNotes::new(Vec::new()).unwrap(),
-            ));
+            );
 
-            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
+            TransactionBatch::new(vec![tx]).unwrap()
         };
 
         let batch_2 = {
-            let tx = Arc::new(tx_gen.dummy_proven_tx_with_params(
+            let tx = tx_gen.dummy_proven_tx_with_params(
                 account_id_3,
                 Digest::default(),
                 Digest::default(),
                 InputNotes::new(Vec::new()).unwrap(),
                 OutputNotes::new(Vec::new()).unwrap(),
-            ));
+            );
 
-            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
+            TransactionBatch::new(vec![tx]).unwrap()
         };
 
         vec![batch_1, batch_2]
     };
 
-    let block_witness_result = BlockWitness::new(block_inputs_from_store, batches);
+    let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
 
     assert_eq!(
         block_witness_result,
@@ -139,35 +136,35 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
         }
     };
 
-    let batches: Vec<SharedTxBatch> = {
+    let batches: Vec<TransactionBatch> = {
         let batch_1 = {
-            let tx = Arc::new(tx_gen.dummy_proven_tx_with_params(
+            let tx = tx_gen.dummy_proven_tx_with_params(
                 account_id_1,
                 account_1_hash_batches,
                 Digest::default(),
                 InputNotes::new(Vec::new()).unwrap(),
                 OutputNotes::new(Vec::new()).unwrap(),
-            ));
+            );
 
-            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
+            TransactionBatch::new(vec![tx]).unwrap()
         };
 
         let batch_2 = {
-            let tx = Arc::new(tx_gen.dummy_proven_tx_with_params(
+            let tx = tx_gen.dummy_proven_tx_with_params(
                 account_id_2,
                 Digest::default(),
                 Digest::default(),
                 InputNotes::new(Vec::new()).unwrap(),
                 OutputNotes::new(Vec::new()).unwrap(),
-            ));
+            );
 
-            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
+            TransactionBatch::new(vec![tx]).unwrap()
         };
 
         vec![batch_1, batch_2]
     };
 
-    let block_witness_result = BlockWitness::new(block_inputs_from_store, batches);
+    let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
 
     assert_eq!(
         block_witness_result,
@@ -230,28 +227,28 @@ async fn test_compute_account_root_success() {
     let block_inputs_from_store: BlockInputs =
         store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
 
-    let batches: Vec<SharedTxBatch> = {
+    let batches: Vec<TransactionBatch> = {
         let txs: Vec<_> = account_ids
             .iter()
             .enumerate()
             .map(|(idx, &account_id)| {
-                Arc::new(tx_gen.dummy_proven_tx_with_params(
+                tx_gen.dummy_proven_tx_with_params(
                     account_id,
                     account_initial_states[idx].into(),
                     account_final_states[idx].into(),
                     InputNotes::new(Vec::new()).unwrap(),
                     OutputNotes::new(Vec::new()).unwrap(),
-                ))
+                )
             })
             .collect();
 
-        let batch_1 = Arc::new(TransactionBatch::new(txs[..2].to_vec()).unwrap());
-        let batch_2 = Arc::new(TransactionBatch::new(txs[2..].to_vec()).unwrap());
+        let batch_1 = TransactionBatch::new(txs[..2].to_vec()).unwrap();
+        let batch_2 = TransactionBatch::new(txs[2..].to_vec()).unwrap();
 
         vec![batch_1, batch_2]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -315,7 +312,7 @@ async fn test_compute_account_root_empty_batches() {
         store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
 
     let batches = Vec::new();
-    let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -344,9 +341,9 @@ async fn test_compute_note_root_empty_batches_success() {
     let block_inputs_from_store: BlockInputs =
         store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
 
-    let batches: Vec<SharedTxBatch> = Vec::new();
+    let batches: Vec<TransactionBatch> = Vec::new();
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -373,12 +370,12 @@ async fn test_compute_note_root_empty_notes_success() {
     let block_inputs_from_store: BlockInputs =
         store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
 
-    let batches: Vec<SharedTxBatch> = {
-        let batch = Arc::new(TransactionBatch::new(Vec::new()).unwrap());
+    let batches: Vec<TransactionBatch> = {
+        let batch = TransactionBatch::new(Vec::new()).unwrap();
         vec![batch]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -425,28 +422,28 @@ async fn test_compute_note_root_success() {
     let block_inputs_from_store: BlockInputs =
         store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
 
-    let batches: Vec<SharedTxBatch> = {
+    let batches: Vec<TransactionBatch> = {
         let txs: Vec<_> = notes_created
             .iter()
             .zip(account_ids.iter())
             .map(|(note, &account_id)| {
-                Arc::new(tx_gen.dummy_proven_tx_with_params(
+                tx_gen.dummy_proven_tx_with_params(
                     account_id,
                     Digest::default(),
                     Digest::default(),
                     InputNotes::new(Vec::new()).unwrap(),
                     OutputNotes::new(vec![*note]).unwrap(),
-                ))
+                )
             })
             .collect();
 
-        let batch_1 = Arc::new(TransactionBatch::new(txs[..2].to_vec()).unwrap());
-        let batch_2 = Arc::new(TransactionBatch::new(txs[2..].to_vec()).unwrap());
+        let batch_1 = TransactionBatch::new(txs[..2].to_vec()).unwrap();
+        let batch_2 = TransactionBatch::new(txs[2..].to_vec()).unwrap();
 
         vec![batch_1, batch_2]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, batches).unwrap();
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();

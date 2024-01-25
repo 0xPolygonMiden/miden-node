@@ -6,7 +6,7 @@ use miden_vm::crypto::SimpleSmt;
 use tracing::instrument;
 
 use super::errors::BuildBatchError;
-use crate::{SharedProvenTx, CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH};
+use crate::{ProvenTransaction, CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH};
 
 pub type BatchId = Blake3Digest<32>;
 
@@ -17,7 +17,7 @@ pub type BatchId = Blake3Digest<32>;
 /// in the batch must be addressing that account (issue: #186).
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: BTreeMap<AccountId, AccountStates>,
@@ -39,7 +39,9 @@ impl TransactionBatch {
     ///
     /// TODO: enforce limit on the number of created nullifiers.
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
-    pub fn new(txs: Vec<SharedProvenTx>) -> Result<Self, BuildBatchError> {
+    pub fn new(txs: Vec<ProvenTransaction>) -> Result<Self, BuildBatchError> {
+        let id = Self::compute_id(&txs);
+
         let updated_accounts = txs
             .iter()
             .map(|tx| {
@@ -64,7 +66,7 @@ impl TransactionBatch {
                 txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
 
             if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
-                return Err(BuildBatchError::TooManyNotesCreated(created_notes.len()));
+                return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
             }
 
             // TODO: document under what circumstances SMT creating can fail
@@ -74,11 +76,10 @@ impl TransactionBatch {
                     created_notes.into_iter().flat_map(|note_envelope| {
                         [note_envelope.note_id().into(), note_envelope.metadata().into()]
                     }),
-                )?,
+                )
+                .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?,
             )
         };
-
-        let id = Self::compute_id(&txs);
 
         Ok(Self {
             id,
@@ -131,7 +132,7 @@ impl TransactionBatch {
     // HELPER FUNCTIONS
     // --------------------------------------------------------------------------------------------
 
-    fn compute_id(txs: &[SharedProvenTx]) -> BatchId {
+    fn compute_id(txs: &[ProvenTransaction]) -> BatchId {
         let mut buf = Vec::with_capacity(32 * txs.len());
         for tx in txs {
             buf.extend_from_slice(&tx.id().as_bytes());
@@ -144,7 +145,7 @@ impl TransactionBatch {
 /// account.
 ///
 /// TODO: should this be moved into domain objects?
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct AccountStates {
     initial_state: Digest,
     final_state: Digest,

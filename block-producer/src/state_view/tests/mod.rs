@@ -29,7 +29,7 @@ pub fn nullifier_by_index(index: u32) -> Nullifier {
 pub fn get_txs_and_accounts(
     tx_gen: &DummyProvenTxGenerator,
     num: u32,
-) -> impl Iterator<Item = (SharedProvenTx, MockPrivateAccount)> + '_ {
+) -> impl Iterator<Item = (ProvenTransaction, MockPrivateAccount)> + '_ {
     (0..num).map(|index| {
         let account = MockPrivateAccount::from(index);
         let tx = tx_gen.dummy_proven_tx_with_params(
@@ -40,6 +40,6 @@ pub fn get_txs_and_accounts(
             OutputNotes::new(Vec::new()).unwrap(),
         );
 
-        (Arc::new(tx), account)
+        (tx, account)
     })
 }
