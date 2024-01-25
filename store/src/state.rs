@@ -80,7 +80,7 @@ pub struct AccountStateWithProof {
 impl From<AccountStateWithProof> for AccountBlockInputRecord {
     fn from(value: AccountStateWithProof) -> Self {
         Self {
-            account_id: Some(value.account_id.0.into()),
+            account_id: Some(value.account_id.into()),
             account_hash: Some(value.account_hash.into()),
             proof: Some(value.merkle_path.into()),
         }
@@ -108,7 +108,7 @@ impl Debug for AccountState {
 impl From<AccountState> for AccountTransactionInputRecord {
     fn from(value: AccountState) -> Self {
         Self {
-            account_id: Some(value.account_id.0.into()),
+            account_id: Some(value.account_id.into()),
             account_hash: Some(value.account_hash.into()),
         }
     }
@@ -119,7 +119,7 @@ impl TryFrom<AccountUpdate> for AccountState {
 
     fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
         Ok(Self {
-            account_id: AccountId(value.account_id.ok_or(StateError::MissingAccountId)?.into()),
+            account_id: value.account_id.ok_or(StateError::MissingAccountId)?.into(),
             account_hash: value
                 .account_hash
                 .ok_or(StateError::MissingAccountHash)?
@@ -280,7 +280,7 @@ impl State {
             let mut account_tree = inner.account_tree.clone();
             for (account_id, account_hash) in accounts.iter() {
                 account_tree
-                    .insert(LeafIndex::new_max_depth(account_id.into()), account_hash.try_into()?);
+                    .insert(LeafIndex::new_max_depth(*account_id), account_hash.try_into()?);
             }
 
             if account_tree.root() != new_block.account_root() {
@@ -445,7 +445,7 @@ impl State {
                 let ValuePath {
                     value: account_hash,
                     path: merkle_path,
-                } = inner.account_tree.open(&LeafIndex::new_max_depth(account_id.into()));
+                } = inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
                 Ok(AccountStateWithProof {
                     account_id,
                     account_hash: account_hash.into(),
@@ -464,7 +464,7 @@ impl State {
         account_id: AccountId,
         nullifiers: &[RpoDigest],
     ) -> Result<(AccountState, Vec<NullifierStateForTransactionInput>), anyhow::Error> {
-        info!(target: target!(), ?account_id, nullifiers = %format_hashes(nullifiers));
+        info!(target: target!(), account_id = format!("{:x}", account_id), nullifiers = %format_hashes(nullifiers));
 
         let inner = self.inner.read().await;
 
@@ -472,7 +472,7 @@ impl State {
             account_id,
             account_hash: inner
                 .account_tree
-                .open(&LeafIndex::new_max_depth(account_id.into()))
+                .open(&LeafIndex::new_max_depth(account_id))
                 .value
                 .into(),
         };
@@ -579,7 +579,7 @@ async fn load_accounts(db: &mut Db) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>> {
         .select_account_hashes()
         .await?
         .into_iter()
-        .map(|(id, account_hash)| Ok((id.into(), account_hash.try_into()?)))
+        .map(|(id, account_hash)| Ok((id, account_hash.try_into()?)))
         .collect();
 
     let smt = SimpleSmt::with_leaves(account_data?)?;
