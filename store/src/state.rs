@@ -365,7 +365,7 @@ impl State {
         account_ids: &[AccountId],
         note_tag_prefixes: &[u32],
         nullifier_prefixes: &[u32],
-    ) -> Result<(StateSyncUpdate, MmrDelta, MerklePath), anyhow::Error> {
+    ) -> Result<(StateSyncUpdate, MmrDelta), anyhow::Error> {
         let inner = self.inner.read().await;
 
         let state_sync = self
@@ -373,19 +373,27 @@ impl State {
             .get_state_sync(block_num, account_ids, note_tag_prefixes, nullifier_prefixes)
             .await?;
 
-        let (delta, path) = {
-            let delta = inner
-                .chain_mmr
-                .get_delta(block_num as usize, state_sync.block_header.block_num as usize)?;
-
-            let proof = inner
-                .chain_mmr
-                .open(block_num as usize, state_sync.block_header.block_num as usize)?;
-
-            (delta, proof.merkle_path)
+        let delta = if block_num == state_sync.block_header.block_num {
+            // The client is in sync with the chain tip.
+            MmrDelta {
+                forest: block_num as usize,
+                data: vec![],
+            }
+        } else {
+            // Important notes about the boundary conditions:
+            //
+            // - The Mmr forest is 1-indexed whereas the block number is 0-indexed. The Mmr root
+            // contained in the block header always lag behind by one block, this is because the Mmr
+            // leaves are hashes of block headers, and we can't have self-referential hashes. These two
+            // points cancel out and don't require adjusting.
+            // - Mmr::get_delta is inclusive, whereas the sync_state request block_num is defined to be
+            // exclusive, so the from_forest has to be adjusted with a +1
+            let from_forest = (block_num + 1) as usize;
+            let to_forest = state_sync.block_header.block_num as usize;
+            inner.chain_mmr.get_delta(from_forest, to_forest)?
         };
 
-        Ok((state_sync, delta, path))
+        Ok((state_sync, delta))
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
