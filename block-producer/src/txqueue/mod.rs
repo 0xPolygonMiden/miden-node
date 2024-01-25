@@ -9,11 +9,9 @@ use miden_objects::{
     accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
 };
 use tokio::{sync::RwLock, time};
-use tracing::{info_span, instrument, Instrument};
+use tracing::instrument;
 
-use crate::{
-    batch_builder::BatchBuilder, store::TxInputsError, target, SharedProvenTx, SharedRwVec,
-};
+use crate::{batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec};
 
 #[cfg(test)]
 mod tests;
@@ -163,11 +161,7 @@ where
             let batch_builder = self.batch_builder.clone();
 
             tokio::spawn(async move {
-                match batch_builder
-                    .build_batch(txs.clone())
-                    .instrument(info_span!(target: target!(), "batch_builder::build_batch"))
-                    .await
-                {
+                match batch_builder.build_batch(txs.clone()).await {
                     Ok(_) => {
                         // batch was successfully built, do nothing
                     },

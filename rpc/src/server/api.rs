@@ -51,7 +51,6 @@ impl RpcApi {
 
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
-    #[instrument(target = "miden-rpc", skip(self, request))]
     async fn check_nullifiers(
         &self,
         request: Request<CheckNullifiersRequest>,
@@ -66,7 +65,6 @@ impl api_server::Api for RpcApi {
         self.store.clone().check_nullifiers(request).await
     }
 
-    #[instrument(target = "miden-rpc", skip(self, request))]
     async fn get_block_header_by_number(
         &self,
         request: Request<GetBlockHeaderByNumberRequest>,
@@ -74,7 +72,6 @@ impl api_server::Api for RpcApi {
         self.store.clone().get_block_header_by_number(request).await
     }
 
-    #[instrument(target = "miden-rpc", skip(self, request))]
     async fn sync_state(
         &self,
         request: tonic::Request<SyncStateRequest>,

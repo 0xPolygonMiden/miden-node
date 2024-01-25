@@ -12,7 +12,7 @@ use miden_node_proto::{
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
-use tracing::{info, info_span, instrument};
+use tracing::{info, instrument, span, Level};
 
 use self::errors::GenesisBlockError;
 use crate::{
@@ -20,6 +20,7 @@ use crate::{
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
     target,
     types::{AccountId, BlockNumber},
+    COMPONENT,
 };
 
 pub mod errors;
@@ -198,10 +199,6 @@ impl Db {
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
     /// the in-memory trees. Further details available on [super::state::State::apply_block].
-    #[instrument(
-        target = "miden-store",
-        skip(self, allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
-    )]
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,
@@ -215,7 +212,8 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let _guard = info_span!(target: target!(), "write_new_block_data_to_db").entered();
+                let span = span!(Level::INFO, COMPONENT, "writing new block data to DB");
+                let guard = span.enter();
 
                 let transaction = conn.transaction()?;
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
@@ -225,6 +223,7 @@ impl Db {
 
                 transaction.commit()?;
 
+                drop(guard);
                 Ok(())
             })
             .await
@@ -279,8 +278,8 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let _guard =
-                            info_span!(target: target!(), "write_genesis_block_to_db").entered();
+                        let span = span!(Level::INFO, COMPONENT, "writing genesis block to DB");
+                        let guard = span.enter();
 
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt
@@ -297,6 +296,7 @@ impl Db {
 
                         transaction.commit()?;
 
+                        drop(guard);
                         Ok(())
                     })
                     .await

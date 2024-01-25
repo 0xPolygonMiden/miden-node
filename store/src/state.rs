@@ -38,13 +38,14 @@ use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tracing::{info, info_span, instrument, Instrument};
+use tracing::{info, instrument, span, Level};
 
 use crate::{
     db::{Db, StateSyncUpdate},
     errors::StateError,
     target,
     types::{AccountId, BlockNumber},
+    COMPONENT,
 };
 
 // STRUCTURES
@@ -201,7 +202,6 @@ impl State {
     /// - the DB transaction is committed, and requests that read only from the DB can proceed to
     ///   use the fresh data.
     /// - the in-memory structures are updated, and the lock is released.
-    #[instrument(target = "miden-store", skip(self, block_header, nullifiers, accounts, notes))]
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,
@@ -232,7 +232,8 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let guard = info_span!(target: target!(), "update_in_memory_data_structures").entered();
+            let span = span!(Level::INFO, COMPONENT, "updating in-memory data structures");
+            let guard = span.enter();
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
@@ -333,7 +334,6 @@ impl State {
         let db = self.db.clone();
         tokio::spawn(async move {
             db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
-                .instrument(info_span!(target: target!(), "db::apply_block"))
                 .await
         });
 
@@ -352,31 +352,21 @@ impl State {
         Ok(())
     }
 
-    #[instrument(target = "miden-store", skip(self, block_num))]
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
     ) -> Result<Option<block_header::BlockHeader>, anyhow::Error> {
-        info!(target: target!(), ?block_num);
-
         self.db.select_block_header_by_block_num(block_num).await
     }
 
-    #[instrument(target = "miden-store", skip(self, nullifiers))]
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
     ) -> Vec<TieredSmtProof> {
-        info!(target: target!(), nullifiers = %format_hashes(nullifiers));
-
         let inner = self.inner.read().await;
         nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
     }
 
-    #[instrument(
-        target = "miden-store",
-        skip(self, block_num, account_ids, note_tag_prefixes, nullifier_prefixes)
-    )]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
@@ -384,8 +374,6 @@ impl State {
         note_tag_prefixes: &[u32],
         nullifier_prefixes: &[u32],
     ) -> Result<(StateSyncUpdate, MmrDelta, MerklePath), anyhow::Error> {
-        info!(target: target!(), ?block_num, ?account_ids, ?note_tag_prefixes, ?nullifier_prefixes);
-
         let inner = self.inner.read().await;
 
         let state_sync = self
@@ -409,15 +397,12 @@ impl State {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
-    #[instrument(target = "miden-store", skip(self, account_ids, _nullifiers))]
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
         _nullifiers: &[RpoDigest],
     ) -> Result<(block_header::BlockHeader, MmrPeaks, Vec<AccountStateWithProof>), anyhow::Error>
     {
-        info!(target: target!(), ?account_ids);
-
         let inner = self.inner.read().await;
 
         let latest = self
@@ -494,19 +479,16 @@ impl State {
         Ok((account, nullifier_blocks))
     }
 
-    #[instrument(target = "miden-store", skip(self))]
     pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
         let nullifiers = self.db.select_nullifiers().await?;
         Ok(nullifiers)
     }
 
-    #[instrument(target = "miden-store", skip(self))]
     pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
         let accounts = self.db.select_accounts().await?;
         Ok(accounts)
     }
 
-    #[instrument(target = "miden-store", skip(self))]
     pub async fn list_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
         let notes = self.db.select_notes().await?;
         Ok(notes)
@@ -522,12 +504,9 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
-#[instrument(target = "miden-store", skip(notes))]
 pub fn build_notes_tree(
     notes: &[NoteCreated]
 ) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, anyhow::Error> {
-    info!(target: target!(), ?notes);
-
     // TODO: create SimpleSmt without this allocation
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
@@ -543,7 +522,7 @@ pub fn build_notes_tree(
     Ok(SimpleSmt::with_leaves(entries)?)
 }
 
-#[instrument(target = "miden-store", skip(db))]
+#[instrument(skip(db))]
 async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
@@ -555,12 +534,16 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifier_tree = TieredSmt::with_entries(leaves)?;
     let elapsed = now.elapsed().as_secs();
 
-    info!(target: target!(), num_of_leaves = len, tree_construction = elapsed, "Loaded nullifier tree");
-
+    info!(
+        num_of_leaves = len,
+        tree_construction = elapsed,
+        COMPONENT,
+        "Loaded nullifier tree"
+    );
     Ok(nullifier_tree)
 }
 
-#[instrument(target = "miden-store", skip(db))]
+#[instrument(skip(db))]
 async fn load_mmr(db: &mut Db) -> Result<Mmr> {
     let block_hashes: Result<Vec<RpoDigest>, ParseError> = db
         .select_block_headers()
@@ -573,7 +556,7 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr> {
     Ok(mmr)
 }
 
-#[instrument(target = "miden-store", skip(db))]
+#[instrument(skip(db))]
 async fn load_accounts(db: &mut Db) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>> {
     let account_data: Result<Vec<(u64, Word)>> = db
         .select_account_hashes()

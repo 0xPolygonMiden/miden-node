@@ -57,3 +57,6 @@ macro_rules! target {
         "miden-block-producer"
     };
 }
+
+/// The name of the block producer component, will be substituted with `target!` macro
+pub const COMPONENT: &str = target!();

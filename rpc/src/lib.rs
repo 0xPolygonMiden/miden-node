@@ -7,3 +7,7 @@ macro_rules! target {
         "miden-rpc"
     };
 }
+
+// CONSTANTS
+// =================================================================================================
+pub const COMPONENT: &str = target!();

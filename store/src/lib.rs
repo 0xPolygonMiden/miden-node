@@ -12,3 +12,7 @@ macro_rules! target {
         "miden-store"
     };
 }
+
+// CONSTANTS
+// =================================================================================================
+pub const COMPONENT: &str = target!();

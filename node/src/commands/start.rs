@@ -7,7 +7,6 @@ use miden_node_store::{config::StoreConfig, db::Db, server as store_server};
 use miden_node_utils::config::load_config;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinSet;
-use tracing::instrument;
 
 // Top-level config
 // ================================================================================================
@@ -23,7 +22,6 @@ pub struct StartCommandConfig {
 // START
 // ===================================================================================================
 
-#[instrument(target = "miden-node")]
 pub async fn start_node(config_filepath: &Path) -> Result<()> {
     let config: StartCommandConfig = load_config(config_filepath).extract().map_err(|err| {
         anyhow!("failed to load config file `{}`: {err}", config_filepath.display())
