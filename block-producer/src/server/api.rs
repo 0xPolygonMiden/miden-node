@@ -38,7 +38,7 @@ where
     #[instrument(
         target = "miden-block-producer",
         name = "block_producer::submit_proven_transaction",
-        skip(self, request),
+        skip_all,
         err
     )]
     async fn submit_proven_transaction(

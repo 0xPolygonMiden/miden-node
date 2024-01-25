@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Formatter},
+};
 
 use async_trait::async_trait;
 use miden_node_proto::{
@@ -11,13 +14,13 @@ use miden_node_proto::{
 };
 use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::{block::Block, SharedProvenTx, COMPONENT};
 
 mod errors;
 pub use errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use miden_node_utils::logging::format_opt;
+use miden_node_utils::logging::{format_map, format_opt};
 
 // STORE TRAIT
 // ================================================================================================
@@ -54,6 +57,19 @@ pub struct TxInputs {
 
     /// Maps each consumed notes' nullifier to whether the note is already consumed
     pub nullifiers: BTreeMap<Digest, bool>,
+}
+
+impl Display for TxInputs {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{{ account_hash: {}, nullifiers: {} }}",
+            format_opt(self.account_hash.as_ref()),
+            format_map(&self.nullifiers)
+        ))
+    }
 }
 
 // DEFAULT STORE IMPLEMENTATION
@@ -97,7 +113,7 @@ impl ApplyBlock for DefaultStore {
 #[async_trait]
 impl Store for DefaultStore {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-block-producer", skip(self, proven_tx), err)]
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
@@ -111,7 +127,8 @@ impl Store for DefaultStore {
                 .collect(),
         };
 
-        info!(target: COMPONENT, ?message);
+        info!(target: COMPONENT, tx_id = %proven_tx.id().inner());
+        debug!(target: COMPONENT, ?message);
 
         let request = tonic::Request::new(message);
         let response = self
@@ -122,7 +139,7 @@ impl Store for DefaultStore {
             .map_err(|status| TxInputsError::GrpcClientError(status.message().to_string()))?
             .into_inner();
 
-        info!(target: COMPONENT, ?response);
+        debug!(target: COMPONENT, ?response);
 
         let account_hash = {
             let account_state = response
@@ -164,16 +181,14 @@ impl Store for DefaultStore {
             nullifiers.into_iter().collect()
         };
 
-        info!(
-            target: COMPONENT,
-            account_hash = %format_opt(account_hash.as_ref()),
-            ?nullifiers,
-        );
-
-        Ok(TxInputs {
+        let tx_inputs = TxInputs {
             account_hash,
             nullifiers,
-        })
+        };
+
+        debug!(target: COMPONENT, %tx_inputs);
+
+        Ok(tx_inputs)
     }
 
     async fn get_block_inputs(

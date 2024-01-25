@@ -31,7 +31,7 @@ pub fn setup_logging() -> Result<()> {
 }
 
 pub fn format_opt<T: Display>(opt: Option<&T>) -> String {
-    opt.map(ToString::to_string).unwrap_or("None".to_string())
+    opt.map(ToString::to_string).unwrap_or("None".to_owned())
 }
 
 pub fn format_hashes(hashes: &[RpoDigest]) -> String {
@@ -39,28 +39,37 @@ pub fn format_hashes(hashes: &[RpoDigest]) -> String {
 }
 
 pub fn format_input_notes(notes: &InputNotes<Nullifier>) -> String {
-    format!(
-        "{{ notes: [{}], commitment: {} }}",
-        notes.iter().map(Nullifier::to_hex).join(", "),
-        notes.commitment()
-    )
+    format_array(notes.iter().map(Nullifier::to_hex))
 }
 
 pub fn format_output_notes(notes: &OutputNotes<NoteEnvelope>) -> String {
-    format!(
-        "{{ notes: [{}], commitment: {} }}",
-        notes
-            .iter()
-            .map(|envelope| {
-                let metadata = envelope.metadata();
-                format!(
-                    "{{ note_id: {}, note_metadata: {{sender: {}, tag: {} }}}}",
-                    envelope.note_id().inner(),
-                    metadata.sender(),
-                    metadata.tag(),
-                )
-            })
-            .join(", "),
-        notes.commitment()
-    )
+    format_array(notes.iter().map(|envelope| {
+        let metadata = envelope.metadata();
+        format!(
+            "{{ note_id: {}, note_metadata: {{sender: {}, tag: {} }}}}",
+            envelope.note_id().inner(),
+            metadata.sender(),
+            metadata.tag(),
+        )
+    }))
+}
+
+pub fn format_map<'a, K: Display + 'a, V: Display + 'a>(
+    map: impl IntoIterator<Item = (&'a K, &'a V)>
+) -> String {
+    let map_str = map.into_iter().map(|(k, v)| format!("{k}: {v}")).join(", ");
+    if map_str.is_empty() {
+        "None".to_owned()
+    } else {
+        format!("{{ {} }}", map_str)
+    }
+}
+
+pub fn format_array(mut iter: impl Iterator<Item = impl Display>) -> String {
+    let comma_separated = iter.join(", ");
+    if comma_separated.is_empty() {
+        "None".to_owned()
+    } else {
+        format!("[{}]", comma_separated)
+    }
 }

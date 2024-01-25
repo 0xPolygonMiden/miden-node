@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
 /// Sends a gRPC request as specified by `command`.
 ///
 /// The request is sent to the endpoint defined in `config`.
-#[instrument(target = "miden-store", skip(config, command))]
+#[instrument(target = "miden-store", skip_all)]
 async fn query(
     config: StoreTopLevelConfig,
     command: Query,

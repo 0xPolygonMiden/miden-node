@@ -184,19 +184,25 @@ where
     BB: BatchBuilder,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-block-producer", skip(self, tx), err)]
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,
     ) -> Result<(), AddTransactionError> {
-        info!(target: COMPONENT, tx_id = %tx.id().inner());
+        info!(target: COMPONENT, tx_id = %tx.id().inner(), account_id = %tx.account_id());
 
         self.tx_verifier
             .verify_tx(tx.clone())
             .await
             .map_err(AddTransactionError::VerificationFailed)?;
 
-        self.ready_queue.write().await.push(tx);
+        let queue_len = {
+            let mut queue_write_guard = self.ready_queue.write().await;
+            queue_write_guard.push(tx);
+            queue_write_guard.len()
+        };
+
+        info!(target: COMPONENT, queue_len, "Transaction has been added to `ready_queue`");
 
         Ok(())
     }

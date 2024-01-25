@@ -442,7 +442,7 @@ impl State {
         Ok((latest, peaks, account_states))
     }
 
-    #[instrument(target = "miden-store", skip(self, account_id, nullifiers), ret, err)]
+    #[instrument(target = "miden-store", skip_all, ret, err)]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,

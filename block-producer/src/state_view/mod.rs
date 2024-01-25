@@ -1,7 +1,6 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
-use miden_node_utils::logging::format_opt;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
 use tracing::{debug, info, instrument};
@@ -47,13 +46,11 @@ where
 {
     // TODO: Verify proof as well
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip(self, candidate_tx), err)]
+    #[instrument(skip_all, err)]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
-        info!(target: COMPONENT, account_id = %candidate_tx.account_id().to_hex());
-
         // 1. soft-check if `tx` violates in-flight requirements.
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
@@ -137,11 +134,7 @@ where
 /// 1. the candidate transaction doesn't modify the same account as an existing in-flight transaction
 /// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained
 /// in `already_consumed_nullifiers`
-#[instrument(
-    target = "miden-block-producer",
-    skip(candidate_tx, accounts_in_flight, already_consumed_nullifiers),
-    err
-)]
+#[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
     candidate_tx: SharedProvenTx,
     accounts_in_flight: &BTreeSet<AccountId>,
@@ -175,16 +168,13 @@ fn ensure_in_flight_constraints(
     Ok(())
 }
 
-#[instrument(
-    target = "miden-block-producer",
-    skip(candidate_tx, tx_inputs),
-    err,
-    fields(tx_inputs.account_hash = %format_opt(tx_inputs.account_hash.as_ref()), nullifiers = ?tx_inputs.nullifiers))
-]
+#[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_tx_inputs_constraints(
     candidate_tx: SharedProvenTx,
     tx_inputs: TxInputs,
 ) -> Result<(), VerifyTxError> {
+    debug!(target: COMPONENT, %tx_inputs);
+
     match tx_inputs.account_hash {
         Some(store_account_hash) => {
             if candidate_tx.initial_account_hash() != store_account_hash {

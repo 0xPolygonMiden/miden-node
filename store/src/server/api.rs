@@ -20,7 +20,7 @@ use miden_node_proto::{
     tsmt::NullifierLeaf,
 };
 use tonic::{Response, Status};
-use tracing::{info, instrument};
+use tracing::{debug, instrument};
 
 use crate::{state::State, COMPONENT};
 
@@ -162,8 +162,8 @@ impl api_server::Api for StoreApi {
     #[instrument(
         target = "miden-store",
         name = "store::get_transaction_inputs",
-        skip(self, request),
-        ret,
+        skip_all,
+        ret(level = "debug"),
         err
     )]
     async fn get_transaction_inputs(
@@ -172,7 +172,7 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<GetTransactionInputsResponse>, Status> {
         let request = request.into_inner();
 
-        info!(target: COMPONENT, ?request);
+        debug!(target: COMPONENT, ?request);
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
