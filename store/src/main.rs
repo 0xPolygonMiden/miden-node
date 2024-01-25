@@ -14,10 +14,10 @@ use miden_node_proto::{
     store::api_client,
     tsmt::NullifierProof,
 };
-use miden_node_store::{config::StoreTopLevelConfig, db::Db, server};
+use miden_node_store::{config::StoreTopLevelConfig, db::Db, server, COMPONENT};
 use miden_node_utils::config::load_config;
 use miden_objects::BlockHeader;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -40,11 +40,13 @@ async fn main() -> Result<()> {
 /// Sends a gRPC request as specified by `command`.
 ///
 /// The request is sent to the endpoint defined in `config`.
-#[instrument(target = "miden-store")]
+#[instrument(target = "miden-store", skip(config, command))]
 async fn query(
     config: StoreTopLevelConfig,
     command: Query,
 ) -> Result<()> {
+    info!(target: COMPONENT, ?config, ?command);
+
     let endpoint = format!("http://{}:{}", config.store.endpoint.host, config.store.endpoint.port);
     let mut client = api_client::ApiClient::connect(endpoint).await?;
 

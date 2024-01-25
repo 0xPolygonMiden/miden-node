@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use miden_node_utils::logging::format_opt;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
-use tracing::{debug, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::{
     block::Block,
@@ -47,11 +47,13 @@ where
 {
     // TODO: Verify proof as well
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip(self, candidate_tx), err, fields(account_id = %candidate_tx.account_id().to_hex()))]
+    #[instrument(skip(self, candidate_tx), err)]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,
     ) -> Result<(), VerifyTxError> {
+        info!(target: COMPONENT, account_id = %candidate_tx.account_id().to_hex());
+
         // 1. soft-check if `tx` violates in-flight requirements.
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check

@@ -11,8 +11,10 @@ mod api;
 
 // RPC INITIALIZER
 // ================================================================================================
-#[instrument(target = "miden-rpc")]
+#[instrument(target = "miden-rpc", skip(config))]
 pub async fn serve(config: RpcConfig) -> Result<()> {
+    info!(target: COMPONENT, ?config);
+
     let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
 
