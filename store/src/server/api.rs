@@ -159,7 +159,13 @@ impl api_server::Api for StoreApi {
     }
 
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-store", skip(self, request), ret, err)]
+    #[instrument(
+        target = "miden-store",
+        name = "store::get_transaction_inputs",
+        skip(self, request),
+        ret,
+        err
+    )]
     async fn get_transaction_inputs(
         &self,
         request: tonic::Request<GetTransactionInputsRequest>,

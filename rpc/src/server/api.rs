@@ -79,7 +79,11 @@ impl api_server::Api for RpcApi {
         self.store.clone().sync_state(request).await
     }
 
-    #[instrument(target = "miden-rpc", skip(self, request))]
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc::submit_proven_transaction",
+        skip(self, request)
+    )]
     async fn submit_proven_transaction(
         &self,
         request: Request<SubmitProvenTransactionRequest>,
