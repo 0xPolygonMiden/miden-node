@@ -18,7 +18,7 @@ pub struct DefaultStateView<S> {
     store: Arc<S>,
 
     /// The account ID of accounts being modified by transactions currently in the block production
-    /// pipeline. We currently ensure that only 1 tx/block modifies any given account.
+    /// pipeline. We currently ensure that only 1 tx/block modifies any given account (issue: #186).
     accounts_in_flight: Arc<RwLock<BTreeSet<AccountId>>>,
 
     /// The nullifiers of notes consumed by transactions currently in the block production pipeline.
@@ -128,9 +128,10 @@ where
 // -------------------------------------------------------------------------------------------------
 
 /// Ensures the constraints related to in-flight transactions:
-/// 1. the candidate transaction doesn't modify the same account as an existing in-flight transaction
-/// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained
-/// in `already_consumed_nullifiers`
+/// 1. the candidate transaction doesn't modify the same account as an existing in-flight
+///    transaction (issue: #186)
+/// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained in
+///    `already_consumed_nullifiers`
 fn ensure_in_flight_constraints(
     candidate_tx: SharedProvenTx,
     accounts_in_flight: &BTreeSet<AccountId>,
