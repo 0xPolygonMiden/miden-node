@@ -43,7 +43,6 @@ use tracing::{info, instrument, span, Level};
 use crate::{
     db::{Db, StateSyncUpdate},
     errors::StateError,
-    target,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -449,7 +448,7 @@ impl State {
         account_id: AccountId,
         nullifiers: &[RpoDigest],
     ) -> Result<(AccountState, Vec<NullifierStateForTransactionInput>), anyhow::Error> {
-        info!(target: target!(), account_id = format!("{:x}", account_id), nullifiers = %format_hashes(nullifiers));
+        info!(target: COMPONENT, account_id = %format!("{:x}", account_id), nullifiers = %format_hashes(nullifiers));
 
         let inner = self.inner.read().await;
 

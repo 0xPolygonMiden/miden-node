@@ -5,7 +5,7 @@ use miden_node_proto::rpc::api_server;
 use tonic::transport::Server;
 use tracing::{info, instrument};
 
-use crate::{config::RpcConfig, target};
+use crate::{config::RpcConfig, COMPONENT};
 
 mod api;
 
@@ -19,7 +19,7 @@ pub async fn serve(config: RpcConfig) -> Result<()> {
     let api = api::RpcApi::from_config(&config).await?;
     let rpc = api_server::ApiServer::new(api);
 
-    info!(target: target!(), host = config.endpoint.host, port = config.endpoint.port, "Server initialized");
+    info!(target: COMPONENT, host = config.endpoint.host, port = config.endpoint.port, "Server initialized");
 
     Server::builder().add_service(rpc).serve(addrs[0]).await?;
 

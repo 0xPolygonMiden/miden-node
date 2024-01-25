@@ -9,9 +9,8 @@ use tracing::{debug, instrument};
 use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
-    target,
     txqueue::{TransactionVerifier, VerifyTxError},
-    SharedProvenTx,
+    SharedProvenTx, COMPONENT,
 };
 
 #[cfg(test)]
@@ -146,7 +145,7 @@ fn ensure_in_flight_constraints(
     accounts_in_flight: &BTreeSet<AccountId>,
     already_consumed_nullifiers: &BTreeSet<Digest>,
 ) -> Result<(), VerifyTxError> {
-    debug!(target: target!(), ?candidate_tx, ?accounts_in_flight, ?already_consumed_nullifiers);
+    debug!(target: COMPONENT, ?candidate_tx, ?accounts_in_flight, ?already_consumed_nullifiers);
 
     // 1. Check account id hasn't been modified yet
     if accounts_in_flight.contains(&candidate_tx.account_id()) {

@@ -11,7 +11,7 @@ use miden_objects::transaction::ProvenTransaction;
 use tonic::Status;
 use tracing::{debug, info, instrument};
 
-use crate::{target, txqueue::TransactionQueue};
+use crate::{txqueue::TransactionQueue, COMPONENT};
 
 // BLOCK PRODUCER
 // ================================================================================================
@@ -41,13 +41,13 @@ where
         request: tonic::Request<SubmitProvenTransactionRequest>,
     ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
         let request = request.into_inner();
-        debug!(target: target!(), tx = ?request.transaction);
+        debug!(target: COMPONENT, tx = ?request.transaction);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
             .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
 
         info!(
-            target: target!(),
+            target: COMPONENT,
             tx_id = %tx.id().inner(),
             account_id = %tx.account_id(),
             initial_account_hash = %tx.initial_account_hash(),
@@ -58,7 +58,7 @@ where
             block_ref = %tx.block_ref(),
             "Deserialized transaction"
         );
-        debug!(target: target!(), proof = ?tx.proof());
+        debug!(target: COMPONENT, proof = ?tx.proof());
 
         self.queue
             .add_transaction(Arc::new(tx))

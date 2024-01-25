@@ -13,7 +13,7 @@ use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
 use tracing::{info, instrument};
 
-use crate::{block::Block, target, SharedProvenTx};
+use crate::{block::Block, SharedProvenTx, COMPONENT};
 
 mod errors;
 pub use errors::{ApplyBlockError, BlockInputsError, TxInputsError};
@@ -111,7 +111,7 @@ impl Store for DefaultStore {
                 .collect(),
         };
 
-        info!(target: target!(), ?message);
+        info!(target: COMPONENT, ?message);
 
         let request = tonic::Request::new(message);
         let response = self
@@ -122,7 +122,7 @@ impl Store for DefaultStore {
             .map_err(|status| TxInputsError::GrpcClientError(status.message().to_string()))?
             .into_inner();
 
-        info!(target: target!(), ?response);
+        info!(target: COMPONENT, ?response);
 
         let account_hash = {
             let account_state = response
@@ -165,7 +165,7 @@ impl Store for DefaultStore {
         };
 
         info!(
-            target: target!(),
+            target: COMPONENT,
             account_hash = %format_opt(account_hash.as_ref()),
             ?nullifiers,
         );

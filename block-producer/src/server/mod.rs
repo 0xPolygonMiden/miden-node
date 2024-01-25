@@ -11,9 +11,8 @@ use crate::{
     config::BlockProducerConfig,
     state_view::DefaultStateView,
     store::DefaultStore,
-    target,
     txqueue::{DefaultTransactionQueue, DefaultTransactionQueueOptions},
-    SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
+    COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
 };
 
@@ -26,7 +25,7 @@ pub mod api;
 /// TODO: add comments
 #[instrument(target = "miden-block-producer", skip(config))]
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
-    info!(target: target!(), ?config);
+    info!(target: COMPONENT, ?config);
 
     let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
@@ -59,18 +58,18 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     tokio::spawn(async move {
         queue
             .run()
-            .instrument(info_span!(target: target!(), "transaction_queue_start"))
+            .instrument(info_span!(target: COMPONENT, "transaction_queue_start"))
             .await
     });
 
     tokio::spawn(async move {
         batch_builder
             .run()
-            .instrument(info_span!(target: target!(), "batch_builder_start"))
+            .instrument(info_span!(target: COMPONENT, "batch_builder_start"))
             .await
     });
 
-    info!(target: target!(), host = config.endpoint.host, port = config.endpoint.port, "Server initialized");
+    info!(target: COMPONENT, host = config.endpoint.host, port = config.endpoint.port, "Server initialized");
 
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
 

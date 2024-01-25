@@ -22,7 +22,7 @@ use miden_node_proto::{
 use tonic::{Response, Status};
 use tracing::{info, instrument};
 
-use crate::{state::State, target};
+use crate::{state::State, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -166,7 +166,7 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<GetTransactionInputsResponse>, Status> {
         let request = request.into_inner();
 
-        info!(target: target!(), ?request);
+        info!(target: COMPONENT, ?request);
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;

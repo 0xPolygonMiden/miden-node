@@ -29,6 +29,9 @@ pub(crate) type SharedRwVec<T> = Arc<RwLock<Vec<T>>>;
 // CONSTANTS
 // =================================================================================================
 
+/// The name of the block producer component
+pub const COMPONENT: &str = "miden-block-producer";
+
 /// The depth of the SMT for created notes
 const CREATED_NOTES_SMT_DEPTH: u8 = 13;
 
@@ -50,13 +53,3 @@ const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
 
 /// Maximum number of batches per block
 const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
-
-#[macro_export]
-macro_rules! target {
-    () => {
-        "miden-block-producer"
-    };
-}
-
-/// The name of the block producer component, will be substituted with `target!` macro
-pub const COMPONENT: &str = target!();

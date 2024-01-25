@@ -5,7 +5,7 @@ use miden_node_proto::store::api_server;
 use tonic::transport::Server;
 use tracing::{info, instrument};
 
-use crate::{config::StoreConfig, db::Db, state::State, target};
+use crate::{config::StoreConfig, db::Db, state::State, COMPONENT};
 
 mod api;
 
@@ -17,7 +17,7 @@ pub async fn serve(
     config: StoreConfig,
     db: Db,
 ) -> Result<()> {
-    info!(target: target!(), ?config);
+    info!(target: COMPONENT, ?config);
 
     let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
@@ -25,7 +25,7 @@ pub async fn serve(
     let state = Arc::new(State::load(db).await?);
     let store = api_server::ApiServer::new(api::StoreApi { state });
 
-    info!(target: target!(), host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
+    info!(target: COMPONENT, host = config.endpoint.host, port = config.endpoint.port, "Server initialized",);
     Server::builder().add_service(store).serve(addrs[0]).await?;
 
     Ok(())

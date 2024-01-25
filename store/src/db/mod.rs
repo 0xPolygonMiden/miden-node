@@ -18,7 +18,6 @@ use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
-    target,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -48,7 +47,7 @@ impl Db {
     /// is as expected and present in the database.
     #[instrument(target = "miden-store", skip(config))]
     pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
-        info!(target: target!(), ?config);
+        info!(target: COMPONENT, ?config);
 
         if let Some(p) = config.database_filepath.parent() {
             create_dir_all(p)?;
@@ -83,7 +82,7 @@ impl Db {
             .build()?;
 
         info!(
-            target: target!(),
+            target: COMPONENT,
             sqlite = format!("{}", config.database_filepath.display()),
             "Connected to the DB"
         );
