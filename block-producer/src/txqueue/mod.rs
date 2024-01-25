@@ -1,4 +1,8 @@
-use std::{fmt::Debug, sync::Arc, time::Duration};
+use std::{
+    fmt::{Debug, Display, Formatter},
+    sync::Arc,
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use miden_objects::{
@@ -41,6 +45,15 @@ pub enum VerifyTxError {
     TransactionInputError(TransactionInputError),
 }
 
+impl Display for VerifyTxError {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
 impl From<TxInputsError> for VerifyTxError {
     fn from(err: TxInputsError) -> Self {
         Self::StoreConnectionFailed(err)
@@ -64,6 +77,15 @@ pub trait TransactionVerifier: Send + Sync + 'static {
 #[derive(Debug)]
 pub enum AddTransactionError {
     VerificationFailed(VerifyTxError),
+}
+
+impl Display for AddTransactionError {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
 }
 
 // TRANSACTION QUEUE
@@ -166,7 +188,7 @@ where
     BB: BatchBuilder,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-block-producer", skip(self, tx), err(Debug), fields(tx_id = %tx.id().inner()))]
+    #[instrument(target = "miden-block-producer", skip(self, tx), err, fields(tx_id = %tx.id().inner()))]
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,

@@ -4,11 +4,12 @@ use async_trait::async_trait;
 use miden_node_utils::logging::format_opt;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
-use tracing::instrument;
+use tracing::{debug, instrument};
 
 use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
+    target,
     txqueue::{TransactionVerifier, VerifyTxError},
     SharedProvenTx,
 };
@@ -47,7 +48,7 @@ where
 {
     // TODO: Verify proof as well
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(skip(self, candidate_tx), err(Debug), fields(account_id = %candidate_tx.account_id().to_hex()))]
+    #[instrument(skip(self, candidate_tx), err, fields(account_id = %candidate_tx.account_id().to_hex()))]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,
@@ -135,12 +136,18 @@ where
 /// 1. the candidate transaction doesn't modify the same account as an existing in-flight transaction
 /// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained
 /// in `already_consumed_nullifiers`
-#[instrument(target = "miden-block-producer", skip(candidate_tx), err(Debug))]
+#[instrument(
+    target = "miden-block-producer",
+    skip(candidate_tx, accounts_in_flight, already_consumed_nullifiers),
+    err
+)]
 fn ensure_in_flight_constraints(
     candidate_tx: SharedProvenTx,
     accounts_in_flight: &BTreeSet<AccountId>,
     already_consumed_nullifiers: &BTreeSet<Digest>,
 ) -> Result<(), VerifyTxError> {
+    debug!(target: target!(), ?candidate_tx, ?accounts_in_flight, ?already_consumed_nullifiers);
+
     // 1. Check account id hasn't been modified yet
     if accounts_in_flight.contains(&candidate_tx.account_id()) {
         return Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(candidate_tx.account_id()));
@@ -170,7 +177,7 @@ fn ensure_in_flight_constraints(
 #[instrument(
     target = "miden-block-producer",
     skip(candidate_tx, tx_inputs),
-    err(Debug),
+    err,
     fields(tx_inputs.account_hash = %format_opt(tx_inputs.account_hash.as_ref()), nullifiers = ?tx_inputs.nullifiers))
 ]
 fn ensure_tx_inputs_constraints(

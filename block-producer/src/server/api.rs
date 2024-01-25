@@ -56,6 +56,7 @@ where
             output_notes = %format_output_notes(tx.output_notes()),
             tx_script_root = %format_opt(tx.tx_script_root().as_ref()),
             block_ref = %tx.block_ref(),
+            "Deserialized transaction"
         );
         debug!(target: target!(), proof = ?tx.proof());
 
