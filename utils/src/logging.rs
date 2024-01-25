@@ -54,11 +54,10 @@ pub fn format_output_notes(notes: &OutputNotes<NoteEnvelope>) -> String {
             .map(|envelope| {
                 let metadata = envelope.metadata();
                 format!(
-                    "{{ note_id: {}, note_metadata: {{sender: {}, tag: {}, num_assets: {} }}}}",
+                    "{{ note_id: {}, note_metadata: {{sender: {}, tag: {} }}}}",
                     envelope.note_id().inner(),
                     metadata.sender(),
                     metadata.tag(),
-                    metadata.num_assets()
                 )
             })
             .join(", "),
