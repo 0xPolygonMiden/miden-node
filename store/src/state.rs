@@ -87,10 +87,22 @@ impl From<AccountStateWithProof> for AccountBlockInputRecord {
     }
 }
 
-#[derive(Debug)]
 pub struct AccountState {
     account_id: AccountId,
     account_hash: Word,
+}
+
+impl Debug for AccountState {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{{ account_id: {}, account_hash: {} }}",
+            self.account_id,
+            RpoDigest::from(self.account_hash),
+        ))
+    }
 }
 
 impl From<AccountState> for AccountTransactionInputRecord {
@@ -129,6 +141,18 @@ impl TryFrom<&AccountUpdate> for AccountState {
 pub struct NullifierStateForTransactionInput {
     nullifier: RpoDigest,
     block_num: u32,
+}
+
+impl Display for NullifierStateForTransactionInput {
+    fn fmt(
+        &self,
+        formatter: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        formatter.write_fmt(format_args!(
+            "{{ nullifier: {}, block_num: {} }}",
+            self.nullifier, self.block_num
+        ))
+    }
 }
 
 impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord {
