@@ -284,7 +284,9 @@ impl Db {
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt
                             .leaves()
-                            .map(|(account_id, state_hash)| (account_id, Digest::from(state_hash)))
+                            .map(|(account_id, state_hash)| {
+                                (account_id.into(), Digest::from(state_hash))
+                            })
                             .collect();
                         sql::apply_block(
                             &transaction,

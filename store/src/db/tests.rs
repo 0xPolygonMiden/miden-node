@@ -10,7 +10,7 @@ use miden_objects::{crypto::merkle::SimpleSmt, notes::NOTE_LEAF_DEPTH, Felt, Fie
 use rusqlite::{vtab::array, Connection};
 
 use super::sql;
-use crate::migrations;
+use crate::{migrations, types::AccountId};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -213,13 +213,20 @@ fn test_db_account() {
     let mut conn = create_db();
 
     // test empty table
-    let account_ids = vec![0, 1, 2, 3, 4, 5];
+    let account_ids = vec![
+        AccountId(0),
+        AccountId(1),
+        AccountId(2),
+        AccountId(3),
+        AccountId(4),
+        AccountId(5),
+    ];
     let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert!(res.is_empty());
 
     // test insertion
     let block_num = 1;
-    let account_id = 0;
+    let account_id = AccountId(0);
     let account_hash = num_to_protobuf_digest(0);
 
     let transaction = conn.transaction().unwrap();
@@ -238,7 +245,7 @@ fn test_db_account() {
     assert_eq!(
         res,
         vec![AccountHashUpdate {
-            account_id: Some(account_id.into()),
+            account_id: Some(account_id.0.into()),
             account_hash: Some(account_hash),
             block_num
         }]
@@ -250,8 +257,13 @@ fn test_db_account() {
     assert!(res.is_empty());
 
     // test query with unknown accounts
-    let res = sql::select_accounts_by_block_range(&mut conn, block_num + 1, u32::MAX, &[6, 7, 8])
-        .unwrap();
+    let res = sql::select_accounts_by_block_range(
+        &mut conn,
+        block_num + 1,
+        u32::MAX,
+        &[AccountId(6), AccountId(7), AccountId(8)],
+    )
+    .unwrap();
     assert!(res.is_empty());
 }
 

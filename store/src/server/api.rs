@@ -22,7 +22,7 @@ use miden_node_proto::{
 use tonic::{Response, Status};
 use tracing::{info, instrument};
 
-use crate::{state::State, target};
+use crate::{state::State, target, types::AccountId};
 
 // STORE API
 // ================================================================================================
@@ -89,7 +89,7 @@ impl api_server::Api for StoreApi {
 
         info!(target: target!(), ?request);
 
-        let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
+        let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id.into()).collect();
 
         let (state, delta, path) = self
             .state
@@ -134,7 +134,7 @@ impl api_server::Api for StoreApi {
                     .account_hash
                     .clone()
                     .ok_or(invalid_argument("Account update missing account hash"))?;
-                Ok((account_id.id, account_hash))
+                Ok((account_id.id.into(), account_hash))
             })
             .collect::<Result<Vec<_>, Status>>()?;
 
@@ -158,7 +158,7 @@ impl api_server::Api for StoreApi {
         info!(target: target!(), ?request);
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
+        let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id.into()).collect();
 
         let (latest, accumulator, account_states) = self
             .state
@@ -186,7 +186,8 @@ impl api_server::Api for StoreApi {
         info!(target: target!(), ?request);
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
+        let account_id =
+            request.account_id.ok_or(invalid_argument("Account_id missing"))?.id.into();
 
         let (account, nullifiers_blocks) = self
             .state

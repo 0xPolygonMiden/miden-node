@@ -323,7 +323,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
     block_num: BlockNumber,
 ) -> Result<Vec<Note>, anyhow::Error> {
     let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
-    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
+    let account_ids: Vec<Value> =
+        account_ids.iter().copied().map(u64::from).map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
         "
@@ -404,7 +405,7 @@ pub fn upsert_accounts_with_blocknum(
     let mut count = 0;
     for (account_id, account_hash) in accounts.iter() {
         count += stmt.execute(params![
-            u64_to_value(*account_id),
+            u64_to_value(account_id.into()),
             account_hash.encode_to_vec(),
             block_num
         ])?
@@ -424,7 +425,8 @@ pub fn select_accounts_by_block_range(
     block_end: BlockNumber,
     account_ids: &[AccountId],
 ) -> Result<Vec<AccountHashUpdate>, anyhow::Error> {
-    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
+    let account_ids: Vec<Value> =
+        account_ids.iter().copied().map(u64::from).map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
         "
@@ -476,7 +478,7 @@ pub fn select_account_hashes(
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = Digest::decode(account_hash_data)?;
 
-        result.push((account_id, account_hash));
+        result.push((account_id.into(), account_hash));
     }
 
     Ok(result)
