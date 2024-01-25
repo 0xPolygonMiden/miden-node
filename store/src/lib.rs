@@ -6,8 +6,6 @@ pub mod server;
 pub mod state;
 pub mod types;
 
-mod migrations;
-
 #[macro_export]
 macro_rules! target {
     () => {

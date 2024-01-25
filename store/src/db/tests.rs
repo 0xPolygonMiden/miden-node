@@ -10,7 +10,7 @@ use miden_objects::{crypto::merkle::SimpleSmt, notes::NOTE_LEAF_DEPTH, Felt, Fie
 use rusqlite::{vtab::array, Connection};
 
 use super::sql;
-use crate::{migrations, types::AccountId};
+use crate::{db::migrations, types::AccountId};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -298,7 +298,6 @@ fn test_notes() {
         note_hash: Some(num_to_protobuf_digest(3)),
         sender: 4,
         tag,
-        num_assets: 6,
         merkle_path: Some(MerklePath {
             siblings: merkle_path.clone(),
         }),
@@ -339,7 +338,6 @@ fn test_notes() {
         note_hash: Some(num_to_protobuf_digest(3)),
         sender: note.sender,
         tag: note.tag,
-        num_assets: note.num_assets,
         merkle_path: Some(MerklePath {
             siblings: merkle_path,
         }),

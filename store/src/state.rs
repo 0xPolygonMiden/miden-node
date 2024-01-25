@@ -313,7 +313,6 @@ impl State {
                         sender: note.sender,
                         note_index: note.note_index,
                         tag: note.tag,
-                        num_assets: note.num_assets,
                         merkle_path: Some(merkle_path.into()),
                     })
                 })
@@ -535,7 +534,7 @@ pub fn build_notes_tree(
     for note in notes.iter() {
         let note_hash = note.note_hash.clone().ok_or(StateError::MissingNoteHash)?;
         let account_id = note.sender.try_into().or(Err(StateError::InvalidAccountId))?;
-        let note_metadata = NoteMetadata::new(account_id, note.tag.into(), note.num_assets.into());
+        let note_metadata = NoteMetadata::new(account_id, note.tag.into());
         let index = note.note_index as u64;
         entries.push((index, note_hash.try_into()?));
         entries.push((index + 1, note_metadata.into()));
