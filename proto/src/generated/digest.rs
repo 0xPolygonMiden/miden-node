@@ -2,6 +2,7 @@
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
 pub struct Digest {
     #[prost(fixed64, tag = "1")]
     pub d0: u64,

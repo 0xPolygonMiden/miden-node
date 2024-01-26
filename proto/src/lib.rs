@@ -1,11 +1,11 @@
 pub mod conversion;
 pub mod domain;
 pub mod error;
+mod formatting;
+pub mod hex;
 
 #[rustfmt::skip]
 mod generated;
-
-pub mod hex;
 
 // RE-EXPORTS
 // ------------------------------------------------------------------------------------------------

@@ -20,8 +20,9 @@ use miden_node_proto::{
     tsmt::NullifierLeaf,
 };
 use tonic::{Response, Status};
+use tracing::{debug, instrument};
 
-use crate::state::State;
+use crate::{state::State, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -156,11 +157,21 @@ impl api_server::Api for StoreApi {
         }))
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-store",
+        name = "store::get_transaction_inputs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn get_transaction_inputs(
         &self,
         request: tonic::Request<GetTransactionInputsRequest>,
     ) -> Result<Response<GetTransactionInputsResponse>, Status> {
         let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;

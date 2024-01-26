@@ -1,12 +1,19 @@
-use std::{fmt::Debug, sync::Arc, time::Duration};
+use std::{
+    fmt::{Debug, Display, Formatter},
+    sync::Arc,
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use miden_objects::{
     accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
 };
 use tokio::{sync::RwLock, time};
+use tracing::{info, instrument};
 
-use crate::{batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec};
+use crate::{
+    batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec, COMPONENT,
+};
 
 #[cfg(test)]
 mod tests;
@@ -36,6 +43,15 @@ pub enum VerifyTxError {
     StoreConnectionFailed(TxInputsError),
 
     TransactionInputError(TransactionInputError),
+}
+
+impl Display for VerifyTxError {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
 }
 
 impl From<TxInputsError> for VerifyTxError {
@@ -74,6 +90,15 @@ pub trait TransactionVerifier: Send + Sync + 'static {
 #[derive(Debug)]
 pub enum AddTransactionError {
     VerificationFailed(VerifyTxError),
+}
+
+impl Display for AddTransactionError {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
 }
 
 // TRANSACTION QUEUE
@@ -171,16 +196,26 @@ where
     TV: TransactionVerifier,
     BB: BatchBuilder,
 {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn add_transaction(
         &self,
         tx: SharedProvenTx,
     ) -> Result<(), AddTransactionError> {
+        info!(target: COMPONENT, tx_id = %tx.id().to_hex(), account_id = %tx.account_id().to_hex());
+
         self.tx_verifier
             .verify_tx(tx.clone())
             .await
             .map_err(AddTransactionError::VerificationFailed)?;
 
-        self.ready_queue.write().await.push(tx);
+        let queue_len = {
+            let mut queue_write_guard = self.ready_queue.write().await;
+            queue_write_guard.push(tx);
+            queue_write_guard.len()
+        };
+
+        info!(target: COMPONENT, queue_len, "Transaction added to tx queue");
 
         Ok(())
     }

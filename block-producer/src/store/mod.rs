@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Formatter},
+};
 
 use async_trait::async_trait;
 use miden_node_proto::{
@@ -11,11 +14,13 @@ use miden_node_proto::{
 };
 use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
+use tracing::{debug, info, instrument};
 
-use crate::{block::Block, SharedProvenTx};
+use crate::{block::Block, SharedProvenTx, COMPONENT};
 
 mod errors;
 pub use errors::{ApplyBlockError, BlockInputsError, TxInputsError};
+use miden_node_utils::logging::{format_map, format_opt};
 
 // STORE TRAIT
 // ================================================================================================
@@ -45,12 +50,26 @@ pub trait ApplyBlock: Send + Sync + 'static {
 }
 
 /// Information needed from the store to verify a transaction.
+#[derive(Debug)]
 pub struct TxInputs {
     /// The account hash in the store corresponding to tx's account ID
     pub account_hash: Option<Digest>,
 
     /// Maps each consumed notes' nullifier to whether the note is already consumed
     pub nullifiers: BTreeMap<Digest, bool>,
+}
+
+impl Display for TxInputs {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{{ account_hash: {}, nullifiers: {} }}",
+            format_opt(self.account_hash.as_ref()),
+            format_map(&self.nullifiers)
+        ))
+    }
 }
 
 // DEFAULT STORE IMPLEMENTATION
@@ -93,18 +112,25 @@ impl ApplyBlock for DefaultStore {
 
 #[async_trait]
 impl Store for DefaultStore {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn get_tx_inputs(
         &self,
         proven_tx: SharedProvenTx,
     ) -> Result<TxInputs, TxInputsError> {
-        let request = tonic::Request::new(GetTransactionInputsRequest {
+        let message = GetTransactionInputsRequest {
             account_id: Some(proven_tx.account_id().into()),
             nullifiers: proven_tx
                 .input_notes()
                 .iter()
                 .map(|nullifier| (*nullifier).into())
                 .collect(),
-        });
+        };
+
+        info!(target: COMPONENT, tx_id = %proven_tx.id().to_hex());
+        debug!(target: COMPONENT, ?message);
+
+        let request = tonic::Request::new(message);
         let response = self
             .store
             .clone()
@@ -112,6 +138,8 @@ impl Store for DefaultStore {
             .await
             .map_err(|status| TxInputsError::GrpcClientError(status.message().to_string()))?
             .into_inner();
+
+        debug!(target: COMPONENT, ?response);
 
         let account_hash = {
             let account_state = response
@@ -153,10 +181,14 @@ impl Store for DefaultStore {
             nullifiers.into_iter().collect()
         };
 
-        Ok(TxInputs {
+        let tx_inputs = TxInputs {
             account_hash,
             nullifiers,
-        })
+        };
+
+        debug!(target: COMPONENT, %tx_inputs);
+
+        Ok(tx_inputs)
     }
 
     async fn get_block_inputs(

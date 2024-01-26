@@ -43,8 +43,7 @@ async fn query(
     config: StoreTopLevelConfig,
     command: Query,
 ) -> Result<()> {
-    let endpoint = format!("http://{}:{}", config.store.endpoint.host, config.store.endpoint.port);
-    let mut client = api_client::ApiClient::connect(endpoint).await?;
+    let mut client = api_client::ApiClient::connect(config.store.endpoint.to_string()).await?;
 
     match command {
         Query::GetBlockHeaderByNumber(args) => {

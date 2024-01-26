@@ -17,7 +17,7 @@ use tonic::{
     transport::{Channel, Error},
     Request, Response, Status,
 };
-use tracing::info;
+use tracing::{info, instrument};
 
 use crate::{config::RpcConfig, COMPONENT};
 
@@ -32,12 +32,12 @@ pub struct RpcApi {
 impl RpcApi {
     pub(super) async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
         let store = store_client::ApiClient::connect(config.store_url.clone()).await?;
-        info!(COMPONENT, store_endpoint = config.store_url, "Store client initialized");
+        info!(target: COMPONENT, store_endpoint = config.store_url, "Store client initialized");
 
         let block_producer =
             block_producer_client::ApiClient::connect(config.block_producer_url.clone()).await?;
         info!(
-            COMPONENT,
+            target: COMPONENT,
             block_producer_endpoint = config.block_producer_url,
             "Block producer client initialized",
         );
@@ -79,6 +79,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().sync_state(request).await
     }
 
+    #[instrument(target = "miden-rpc", name = "rpc::submit_proven_transaction", skip_all)]
     async fn submit_proven_transaction(
         &self,
         request: Request<SubmitProvenTransactionRequest>,

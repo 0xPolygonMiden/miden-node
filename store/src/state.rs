@@ -2,7 +2,11 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{mem, sync::Arc};
+use std::{
+    fmt::{Debug, Display, Formatter},
+    mem,
+    sync::Arc,
+};
 
 use anyhow::{anyhow, bail, Result};
 use miden_crypto::{
@@ -25,6 +29,7 @@ use miden_node_proto::{
         AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
     },
 };
+use miden_node_utils::logging::{format_account_id, format_array};
 use miden_objects::{
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
     BlockHeader, ACCOUNT_TREE_DEPTH,
@@ -87,6 +92,28 @@ pub struct AccountState {
     account_hash: Word,
 }
 
+impl Debug for AccountState {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{{ account_id: {}, account_hash: {} }}",
+            format_account_id(self.account_id),
+            RpoDigest::from(self.account_hash),
+        ))
+    }
+}
+
+impl Display for AccountState {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
 impl From<AccountState> for AccountTransactionInputRecord {
     fn from(value: AccountState) -> Self {
         Self {
@@ -119,9 +146,22 @@ impl TryFrom<&AccountUpdate> for AccountState {
     }
 }
 
+#[derive(Debug)]
 pub struct NullifierStateForTransactionInput {
     nullifier: RpoDigest,
     block_num: u32,
+}
+
+impl Display for NullifierStateForTransactionInput {
+    fn fmt(
+        &self,
+        formatter: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        formatter.write_fmt(format_args!(
+            "{{ nullifier: {}, block_num: {} }}",
+            self.nullifier, self.block_num
+        ))
+    }
 }
 
 impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord {
@@ -135,7 +175,7 @@ impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord
 
 impl State {
     /// Loads the state from the `db`.
-    #[instrument(skip(db))]
+    #[instrument(target = "miden-store", skip_all)]
     pub async fn load(mut db: Db) -> Result<Self, anyhow::Error> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
@@ -444,11 +484,14 @@ impl State {
     }
 
     /// Returns data needed by the block producer to verify transactions validity.
+    #[instrument(target = "miden-store", skip_all, ret, err)]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
         nullifiers: &[RpoDigest],
     ) -> Result<(AccountState, Vec<NullifierStateForTransactionInput>), anyhow::Error> {
+        info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
+
         let inner = self.inner.read().await;
 
         let account = AccountState {
