@@ -12,7 +12,7 @@ use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
     txqueue::{TransactionValidator, VerifyTxError},
-    SharedProvenTx, COMPONENT
+    SharedProvenTx, COMPONENT,
 };
 
 #[cfg(test)]
