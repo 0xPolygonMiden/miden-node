@@ -50,8 +50,21 @@ impl From<TransactionInputError> for VerifyTxError {
     }
 }
 
+/// Implementations are responsible to track in-flight transactions and verify that new transactions
+/// added to the queue are not conflicting.
+///
+/// See [crate::store::ApplyBlock], that trait's `apply_block` is called when a block is sealed, and
+/// it can determine when transactions are no longer in-flight.
 #[async_trait]
 pub trait TransactionVerifier: Send + Sync + 'static {
+    /// Method to receive a `tx` for processing.
+    ///
+    /// This method should:
+    ///
+    /// 1. Verify the transaction is valid, against the current's rollup state, and also against
+    ///    in-flight transactions.
+    /// 2. Track the necessary state of the transaction until it is commited to the `store`, to
+    ///    perform the check above.
     async fn verify_tx(
         &self,
         tx: SharedProvenTx,
