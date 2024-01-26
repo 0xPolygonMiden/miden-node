@@ -1,6 +1,9 @@
 use std::{
     fmt::{Display, Formatter},
+    io,
+    net::{SocketAddr, ToSocketAddrs},
     path::Path,
+    vec,
 };
 
 use figment::{
@@ -16,6 +19,13 @@ pub struct Endpoint {
     pub host: String,
     /// Port number used by the store.
     pub port: u16,
+}
+
+impl ToSocketAddrs for Endpoint {
+    type Iter = vec::IntoIter<SocketAddr>;
+    fn to_socket_addrs(&self) -> io::Result<Self::Iter> {
+        (self.host.as_ref(), self.port).to_socket_addrs()
+    }
 }
 
 impl Display for Endpoint {
