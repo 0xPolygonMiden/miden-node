@@ -1,6 +1,6 @@
 use std::{net::ToSocketAddrs, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use miden_node_proto::{block_producer::api_server, store::api_client as store_client};
 use tonic::transport::Server;
 use tracing::info;
@@ -24,9 +24,6 @@ pub mod api;
 
 /// TODO: add comments
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
-    let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
-    let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
-
     let store = Arc::new(DefaultStore::new(
         store_client::ApiClient::connect(config.store_url.to_string()).await?,
     ));
@@ -68,7 +65,12 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
         port = config.endpoint.port,
         "Server initialized",
     );
-    Server::builder().add_service(block_producer).serve(addrs[0]).await?;
+    let addr = config
+        .endpoint
+        .to_socket_addrs()?
+        .next()
+        .ok_or(anyhow!("Couldn't resolve server address"))?;
+    Server::builder().add_service(block_producer).serve(addr).await?;
 
     Ok(())
 }
