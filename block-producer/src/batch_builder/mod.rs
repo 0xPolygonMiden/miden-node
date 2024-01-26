@@ -17,9 +17,18 @@ pub use batch::TransactionBatch;
 // BATCH BUILDER
 // ================================================================================================
 
+/// Abstraction over batch proving of transactions.
+///
+/// Transactions are aggregated into batches prior to being added to blocks. This trait abstracts
+/// over this responsibility. The trait's goal is to be implementation agnostic, allowing for
+/// multiple implementations, e.g.:
+///
+/// - in-process cpu based prover
+/// - out-of-process gpu based prover
+/// - distributed prover on another machine
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {
-    /// TODO: add doc comments
+    /// Start proving of a new batch.
     async fn build_batch(
         &self,
         txs: Vec<SharedProvenTx>,
