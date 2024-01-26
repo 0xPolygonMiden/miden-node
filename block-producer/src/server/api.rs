@@ -53,8 +53,8 @@ where
 
         info!(
             target: COMPONENT,
-            tx_id = %tx.id().inner(),
-            account_id = %tx.account_id(),
+            tx_id = %tx.id().to_hex(),
+            account_id = %tx.account_id().to_hex(),
             initial_account_hash = %tx.initial_account_hash(),
             final_account_hash = %tx.final_account_hash(),
             input_notes = %format_input_notes(tx.input_notes()),

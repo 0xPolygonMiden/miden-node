@@ -29,7 +29,7 @@ use miden_node_proto::{
         AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
     },
 };
-use miden_node_utils::logging::format_hashes;
+use miden_node_utils::logging::{format_account_id, format_array};
 use miden_objects::{
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
     BlockHeader, ACCOUNT_TREE_DEPTH,
@@ -99,9 +99,18 @@ impl Debug for AccountState {
     ) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{{ account_id: {}, account_hash: {} }}",
-            self.account_id,
+            format_account_id(self.account_id),
             RpoDigest::from(self.account_hash),
         ))
+    }
+}
+
+impl Display for AccountState {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        Debug::fmt(self, f)
     }
 }
 
@@ -448,7 +457,7 @@ impl State {
         account_id: AccountId,
         nullifiers: &[RpoDigest],
     ) -> Result<(AccountState, Vec<NullifierStateForTransactionInput>), anyhow::Error> {
-        info!(target: COMPONENT, account_id = %format!("{:x}", account_id), nullifiers = %format_hashes(nullifiers));
+        info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
 

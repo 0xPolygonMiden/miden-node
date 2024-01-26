@@ -1,4 +1,7 @@
-use std::path::Path;
+use std::{
+    fmt::{Display, Formatter},
+    path::Path,
+};
 
 use figment::{
     providers::{Format, Toml},
@@ -13,6 +16,15 @@ pub struct Endpoint {
     pub host: String,
     /// Port number used by the store.
     pub port: u16,
+}
+
+impl Display for Endpoint {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!("http://{}:{}", self.host, self.port))
+    }
 }
 
 /// Loads the user configuration.

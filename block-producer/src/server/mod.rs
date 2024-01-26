@@ -23,9 +23,9 @@ pub mod api;
 // ================================================================================================
 
 /// TODO: add comments
-#[instrument(target = "miden-block-producer", skip(config))]
+#[instrument(target = "miden-block-producer", skip_all)]
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
-    info!(target: COMPONENT, ?config);
+    info!(target: COMPONENT, %config);
 
     let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
@@ -69,7 +69,7 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
             .await
     });
 
-    info!(target: COMPONENT, host = config.endpoint.host, port = config.endpoint.port, "Server initialized");
+    info!(target: COMPONENT, %config, "Server initialized");
 
     Server::builder().add_service(block_producer).serve(addrs[0]).await?;
 

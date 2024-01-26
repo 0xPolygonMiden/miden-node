@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 use miden_node_utils::config::Endpoint;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +19,19 @@ pub struct BlockProducerConfig {
 
 impl BlockProducerConfig {
     pub fn as_url(&self) -> String {
-        format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
+        self.endpoint.to_string()
+    }
+}
+
+impl Display for BlockProducerConfig {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{{ endpoint: \"{}\", store_url: \"{}\" }}",
+            self.endpoint, self.store_url
+        ))
     }
 }
 

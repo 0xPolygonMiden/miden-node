@@ -189,7 +189,7 @@ where
         &self,
         tx: SharedProvenTx,
     ) -> Result<(), AddTransactionError> {
-        info!(target: COMPONENT, tx_id = %tx.id().inner(), account_id = %tx.account_id());
+        info!(target: COMPONENT, tx_id = %tx.id().to_hex(), account_id = %tx.account_id().to_hex());
 
         self.tx_verifier
             .verify_tx(tx.clone())
@@ -202,7 +202,7 @@ where
             queue_write_guard.len()
         };
 
-        info!(target: COMPONENT, queue_len, "Transaction has been added to `ready_queue`");
+        info!(target: COMPONENT, queue_len, "Transaction added to tx queue");
 
         Ok(())
     }

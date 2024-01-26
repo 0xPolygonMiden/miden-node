@@ -14,10 +14,10 @@ use miden_node_proto::{
     store::api_client,
     tsmt::NullifierProof,
 };
-use miden_node_store::{config::StoreTopLevelConfig, db::Db, server, COMPONENT};
+use miden_node_store::{config::StoreTopLevelConfig, db::Db, server};
 use miden_node_utils::config::load_config;
 use miden_objects::BlockHeader;
-use tracing::{info, instrument};
+use tracing::instrument;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -45,10 +45,7 @@ async fn query(
     config: StoreTopLevelConfig,
     command: Query,
 ) -> Result<()> {
-    info!(target: COMPONENT, ?config, ?command);
-
-    let endpoint = format!("http://{}:{}", config.store.endpoint.host, config.store.endpoint.port);
-    let mut client = api_client::ApiClient::connect(endpoint).await?;
+    let mut client = api_client::ApiClient::connect(config.store.endpoint.to_string()).await?;
 
     match command {
         Query::GetBlockHeaderByNumber(args) => {

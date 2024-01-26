@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use anyhow::Result;
 use itertools::Itertools;
-use miden_crypto::hash::rpo::RpoDigest;
 use miden_objects::{
     notes::{NoteEnvelope, Nullifier},
     transaction::{InputNotes, OutputNotes},
@@ -30,12 +29,12 @@ pub fn setup_logging() -> Result<()> {
     Ok(())
 }
 
-pub fn format_opt<T: Display>(opt: Option<&T>) -> String {
-    opt.map(ToString::to_string).unwrap_or("None".to_owned())
+pub fn format_account_id(id: u64) -> String {
+    format!("0x{id:x}")
 }
 
-pub fn format_hashes(hashes: &[RpoDigest]) -> String {
-    format!("[{}]", hashes.iter().map(RpoDigest::to_hex).join(", "))
+pub fn format_opt<T: Display>(opt: Option<&T>) -> String {
+    opt.map(ToString::to_string).unwrap_or("None".to_owned())
 }
 
 pub fn format_input_notes(notes: &InputNotes<Nullifier>) -> String {
@@ -65,8 +64,8 @@ pub fn format_map<'a, K: Display + 'a, V: Display + 'a>(
     }
 }
 
-pub fn format_array(mut iter: impl Iterator<Item = impl Display>) -> String {
-    let comma_separated = iter.join(", ");
+pub fn format_array(list: impl IntoIterator<Item = impl Display>) -> String {
+    let comma_separated = list.into_iter().join(", ");
     if comma_separated.is_empty() {
         "None".to_owned()
     } else {

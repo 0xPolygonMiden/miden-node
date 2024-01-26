@@ -1,6 +1,7 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
+use miden_node_utils::logging::format_array;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
 use tracing::{debug, instrument};
@@ -140,7 +141,7 @@ fn ensure_in_flight_constraints(
     accounts_in_flight: &BTreeSet<AccountId>,
     already_consumed_nullifiers: &BTreeSet<Digest>,
 ) -> Result<(), VerifyTxError> {
-    debug!(target: COMPONENT, ?candidate_tx, ?accounts_in_flight, ?already_consumed_nullifiers);
+    debug!(target: COMPONENT, accounts_in_flight = %format_array(accounts_in_flight), already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
 
     // 1. Check account id hasn't been modified yet
     if accounts_in_flight.contains(&candidate_tx.account_id()) {
