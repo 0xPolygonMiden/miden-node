@@ -10,7 +10,7 @@ use crate::{SharedProvenTx, CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_B
 // ================================================================================================
 
 /// A batch of transactions that share a common proof. For any given account, at most 1 transaction
-/// in the batch must be addressing that account.
+/// in the batch must be addressing that account (issue: #186).
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
 #[derive(Debug)]

@@ -13,7 +13,7 @@ pub const CONFIG_FILENAME: &str = "miden-store.toml";
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct StoreConfig {
-    /// Defines the lisening socket.
+    /// Defines the listening socket.
     pub endpoint: Endpoint,
     /// SQLite database file
     pub database_filepath: PathBuf,

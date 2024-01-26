@@ -1,5 +1,6 @@
 use miden_crypto::{hash::rpo::RpoDigest, merkle::LeafIndex, StarkField};
 use miden_node_proto::{
+    account::{AccountId, AccountInfo},
     block_header::BlockHeader as ProtobufBlockHeader,
     digest::Digest as ProtobufDigest,
     merkle::MerklePath,
@@ -20,27 +21,152 @@ fn create_db() -> Connection {
 }
 
 #[test]
-fn test_db_nullifiers() {
+fn test_sql_insert_nullifiers_for_block() {
+    let mut conn = create_db();
+
+    let nullifiers = [num_to_rpo_digest(1 << 48)];
+    let block_num = 1;
+
+    // Insert a new nullifier succeeds
+    {
+        let transaction = conn.transaction().unwrap();
+        let res = sql::insert_nullifiers_for_block(&transaction, &nullifiers, block_num);
+        assert_eq!(res.unwrap(), nullifiers.len(), "There should be one entry");
+        transaction.commit().unwrap();
+    }
+
+    // Inserting the nullifier twice is an error
+    {
+        let transaction = conn.transaction().unwrap();
+        let res = sql::insert_nullifiers_for_block(&transaction, &nullifiers, block_num);
+        assert!(res.is_err(), "Inserting the same nullifier twice is an error");
+    }
+
+    // even if the block number is different
+    {
+        let transaction = conn.transaction().unwrap();
+        let res = sql::insert_nullifiers_for_block(&transaction, &nullifiers, block_num + 1);
+        transaction.commit().unwrap();
+        assert!(
+            res.is_err(),
+            "Inserting the same nullifier twice is an error, even if with a different block number"
+        );
+    }
+
+    // test inserting multiple nullifiers
+    {
+        let nullifiers: Vec<_> = (0..10).map(num_to_rpo_digest).collect();
+        let block_num = 1;
+        let transaction = conn.transaction().unwrap();
+        let res = sql::insert_nullifiers_for_block(&transaction, &nullifiers, block_num);
+        transaction.commit().unwrap();
+        assert_eq!(res.unwrap(), nullifiers.len(), "There should be 10 entries");
+    }
+}
+
+#[test]
+fn test_sql_select_nullifiers() {
     let mut conn = create_db();
 
     // test querying empty table
     let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
     assert!(nullifiers.is_empty());
 
+    // test multiple entries
+    let block_num = 1;
+    let mut state = vec![];
+    for i in 0..10 {
+        let nullifier = num_to_rpo_digest(i);
+        state.push((nullifier, block_num));
+
+        let transaction = conn.transaction().unwrap();
+        let res = sql::insert_nullifiers_for_block(&transaction, &[nullifier], block_num);
+        assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+        transaction.commit().unwrap();
+        let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
+        assert_eq!(nullifiers, state);
+    }
+}
+
+#[test]
+fn test_sql_select_notes() {
+    let mut conn = create_db();
+
+    // test querying empty table
+    let notes = sql::select_notes(&mut conn).unwrap();
+    assert!(notes.is_empty());
+
+    // test multiple entries
+    let block_num = 1;
+    let mut state = vec![];
+    for i in 0..10 {
+        let note = Note {
+            block_num,
+            note_index: i,
+            note_hash: Some(num_to_protobuf_digest(i.into())),
+            sender: i.into(),
+            tag: i.into(),
+            merkle_path: Some(MerklePath { siblings: vec![] }),
+        };
+        state.push(note.clone());
+
+        let transaction = conn.transaction().unwrap();
+        let res = sql::insert_notes(&transaction, &[note]);
+        assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+        transaction.commit().unwrap();
+        let notes = sql::select_notes(&mut conn).unwrap();
+        assert_eq!(notes, state);
+    }
+}
+
+#[test]
+fn test_sql_select_accounts() {
+    let mut conn = create_db();
+
+    // test querying empty table
+    let accounts = sql::select_accounts(&mut conn).unwrap();
+    assert!(accounts.is_empty());
+
+    // test multiple entries
+    let block_num = 1;
+    let mut state = vec![];
+    for i in 0..10 {
+        let account = i;
+        let digest = num_to_rpo_digest(i);
+        state.push(AccountInfo {
+            account_id: Some(AccountId { id: account }),
+            account_hash: Some(digest.into()),
+            block_num,
+        });
+
+        let transaction = conn.transaction().unwrap();
+        let res = sql::upsert_accounts_with_blocknum(
+            &transaction,
+            &[(account, digest.into())],
+            block_num,
+        );
+        assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+        transaction.commit().unwrap();
+        let accounts = sql::select_accounts(&mut conn).unwrap();
+        assert_eq!(accounts, state);
+    }
+}
+
+#[test]
+fn test_sql_select_nullifiers_by_block_range() {
+    let mut conn = create_db();
+
+    // test empty table
     let nullifiers = sql::select_nullifiers_by_block_range(&mut conn, 0, u32::MAX, &[]).unwrap();
     assert!(nullifiers.is_empty());
 
-    // test inserion
+    // test single item
     let nullifier1 = num_to_rpo_digest(1 << 48);
     let block_number1 = 1;
 
     let transaction = conn.transaction().unwrap();
     sql::insert_nullifiers_for_block(&transaction, &[nullifier1], block_number1).unwrap();
     transaction.commit().unwrap();
-
-    // test load
-    let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
-    assert_eq!(nullifiers, vec![(nullifier1, block_number1)]);
 
     let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
@@ -57,7 +183,7 @@ fn test_db_nullifiers() {
         }]
     );
 
-    // test additional element
+    // test two elements
     let nullifier2 = num_to_rpo_digest(2 << 48);
     let block_number2 = 2;
 
@@ -135,6 +261,20 @@ fn test_db_nullifiers() {
             block_num: block_number2
         }]
     );
+
+    // When block start and end are the same, no nullifiers should be returned. This case happens
+    // when the client requests a sync update and it is already tracking the chain tip.
+    let nullifiers = sql::select_nullifiers_by_block_range(
+        &mut conn,
+        2,
+        2,
+        &[
+            sql::u64_to_prefix(nullifier1[0].as_int()),
+            sql::u64_to_prefix(nullifier2[0].as_int()),
+        ],
+    )
+    .unwrap();
+    assert!(nullifiers.is_empty());
 }
 
 #[test]
