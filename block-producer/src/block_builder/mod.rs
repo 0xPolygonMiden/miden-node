@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use miden_objects::{accounts::AccountId, Digest};
-use tracing::info;
+use tracing::{debug, info, instrument};
 
 use crate::{
     block::Block,
@@ -67,10 +67,14 @@ where
     S: Store,
     A: ApplyBlock,
 {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-block-producer", skip_all, err(level = "warn"))]
     async fn build_block(
         &self,
         batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
+        info!(target: COMPONENT, num_batches = batches.len());
+
         let account_updates: Vec<(AccountId, Digest)> =
             batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
         let created_notes = batches
@@ -108,9 +112,12 @@ where
             produced_nullifiers,
         };
 
+        info!(target: COMPONENT, block_num, "block is built");
+        debug!(target: COMPONENT, ?block);
+
         self.state_view.apply_block(block).await?;
 
-        info!(COMPONENT, "block #{block_num} built!");
+        info!(target: COMPONENT, block_num, "block is applied!");
 
         Ok(())
     }

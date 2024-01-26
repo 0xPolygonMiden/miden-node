@@ -100,11 +100,15 @@ impl api_server::Api for StoreApi {
     // --------------------------------------------------------------------------------------------
 
     /// Updates the local DB by inserting a new block header and the related data.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", name = "store::apply_block", skip_all, err)]
     async fn apply_block(
         &self,
         request: tonic::Request<ApplyBlockRequest>,
     ) -> Result<tonic::Response<ApplyBlockResponse>, tonic::Status> {
         let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let accounts = request
@@ -238,6 +242,7 @@ fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
     Status::invalid_argument(format!("{:?}", err))
 }
 
+#[instrument(target = "miden-store", skip_all, err)]
 fn validate_nullifiers(nullifiers: &[Digest]) -> Result<Vec<RpoDigest>, Status> {
     nullifiers
         .iter()

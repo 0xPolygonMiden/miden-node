@@ -12,7 +12,7 @@ use miden_node_proto::{
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
-use tracing::{info, instrument, span, Level};
+use tracing::{info, info_span, instrument, span, Level};
 
 use self::errors::GenesisBlockError;
 use crate::{
@@ -198,6 +198,7 @@ impl Db {
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
     /// the in-memory trees. Further details available on [super::state::State::apply_block].
+    #[instrument(target = "miden-store", skip_all, err)]
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,
@@ -211,8 +212,8 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let span = span!(Level::INFO, COMPONENT, "writing new block data to DB");
-                let guard = span.enter();
+                let _span =
+                    info_span!(target: COMPONENT, "Writing new block data to database").entered();
 
                 let transaction = conn.transaction()?;
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
@@ -222,7 +223,6 @@ impl Db {
 
                 transaction.commit()?;
 
-                drop(guard);
                 Ok(())
             })
             .await

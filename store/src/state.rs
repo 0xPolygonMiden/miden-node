@@ -38,7 +38,7 @@ use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tracing::{info, instrument, span, Level};
+use tracing::{info, info_span, instrument, Instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
@@ -211,6 +211,7 @@ impl State {
     /// - the DB transaction is committed, and requests that read only from the DB can proceed to
     ///   use the fresh data.
     /// - the in-memory structures are updated, and the lock is released.
+    #[instrument(target = "miden-store", skip_all, err)]
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,
@@ -241,8 +242,8 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = span!(Level::INFO, COMPONENT, "updating in-memory data structures");
-            let guard = span.enter();
+            let span =
+                info_span!(target: COMPONENT, "updating in-memory data structures").entered();
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
@@ -303,7 +304,7 @@ impl State {
                 return Err(StateError::NewBlockInvalidNoteRoot.into());
             }
 
-            drop(guard);
+            drop(span);
 
             let notes = notes
                 .iter()
@@ -341,10 +342,20 @@ impl State {
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
         let db = self.db.clone();
-        tokio::spawn(async move {
-            db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
+        tokio::spawn(
+            async move {
+                db.apply_block(
+                    allow_acquire,
+                    acquire_done,
+                    block_header,
+                    notes,
+                    nullifiers,
+                    accounts,
+                )
                 .await
-        });
+            }
+            .instrument(info_span!(target: COMPONENT, "db::apply_block")),
+        );
 
         acquired_allowed.await?;
 
