@@ -23,7 +23,7 @@ pub mod api;
 // ================================================================================================
 
 /// TODO: add comments
-#[instrument(target = "miden-block-producer", skip_all)]
+#[instrument(target = "miden-block-producer", name = "block_producer::serve", skip_all)]
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     info!(target: COMPONENT, %config, "Initializing server");
 
@@ -52,19 +52,15 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
 
     let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(queue.clone()));
 
-    tokio::spawn(async move {
-        queue
-            .run()
-            .instrument(info_span!(target: COMPONENT, "transaction_queue_start"))
-            .await
-    });
+    tokio::spawn(
+        async move { queue.run().await }
+            .instrument(info_span!(target: COMPONENT, "transaction_queue")),
+    );
 
-    tokio::spawn(async move {
-        batch_builder
-            .run()
-            .instrument(info_span!(target: COMPONENT, "batch_builder_start"))
-            .await
-    });
+    tokio::spawn(
+        async move { batch_builder.run().await }
+            .instrument(info_span!(target: COMPONENT, "batch_builder")),
+    );
 
     info!(target: COMPONENT, "Server initialized");
 

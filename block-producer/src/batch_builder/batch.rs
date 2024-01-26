@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
 use miden_vm::crypto::SimpleSmt;
+use tracing::instrument;
 
 use super::errors::BuildBatchError;
 use crate::{SharedProvenTx, CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH};
@@ -33,6 +34,7 @@ impl TransactionBatch {
     /// - The number of created notes across all transactions exceeds 4096.
     ///
     /// TODO: enforce limit on the number of created nullifiers.
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     pub fn new(txs: Vec<SharedProvenTx>) -> Result<Self, BuildBatchError> {
         let updated_accounts = txs
             .iter()

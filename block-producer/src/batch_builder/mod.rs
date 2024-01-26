@@ -2,7 +2,7 @@ use std::{cmp::min, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use tokio::{sync::RwLock, time};
-use tracing::info;
+use tracing::{debug, info, instrument};
 
 use self::errors::BuildBatchError;
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch, COMPONENT};
@@ -13,6 +13,7 @@ mod tests;
 
 mod batch;
 pub use batch::TransactionBatch;
+use miden_node_utils::logging::format_array;
 
 // BATCH BUILDER
 // ================================================================================================
@@ -111,16 +112,18 @@ impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
 {
+    #[instrument(target = "miden-block-producer", skip_all)]
     async fn build_batch(
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
         let num_txs = txs.len();
 
+        info!(target: COMPONENT, num_txs, "Batch building started");
+        debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
+
         let batch = Arc::new(TransactionBatch::new(txs)?);
         self.ready_batches.write().await.push(batch);
-
-        info!(COMPONENT, "batch built with {num_txs} txs");
 
         Ok(())
     }
