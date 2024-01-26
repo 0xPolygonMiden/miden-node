@@ -46,7 +46,7 @@ pub fn format_output_notes(notes: &OutputNotes<NoteEnvelope>) -> String {
         let metadata = envelope.metadata();
         format!(
             "{{ note_id: {}, note_metadata: {{sender: {}, tag: {} }}}}",
-            envelope.note_id().inner(),
+            envelope.note_id().to_hex(),
             metadata.sender(),
             metadata.tag(),
         )

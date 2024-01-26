@@ -17,7 +17,7 @@ pub async fn serve(
     config: StoreConfig,
     db: Db,
 ) -> Result<()> {
-    info!(target: COMPONENT, %config);
+    info!(target: COMPONENT, %config, "Initializing server");
 
     let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
     let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
@@ -25,7 +25,7 @@ pub async fn serve(
     let state = Arc::new(State::load(db).await?);
     let store = api_server::ApiServer::new(api::StoreApi { state });
 
-    info!(target: COMPONENT, %config, "Server initialized");
+    info!(target: COMPONENT, "Server initialized");
 
     Server::builder().add_service(store).serve(addrs[0]).await?;
 

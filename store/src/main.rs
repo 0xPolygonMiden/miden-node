@@ -17,7 +17,6 @@ use miden_node_proto::{
 use miden_node_store::{config::StoreTopLevelConfig, db::Db, server};
 use miden_node_utils::config::load_config;
 use miden_objects::BlockHeader;
-use tracing::instrument;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -40,7 +39,6 @@ async fn main() -> Result<()> {
 /// Sends a gRPC request as specified by `command`.
 ///
 /// The request is sent to the endpoint defined in `config`.
-#[instrument(target = "miden-store", skip_all)]
 async fn query(
     config: StoreTopLevelConfig,
     command: Query,

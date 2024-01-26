@@ -47,7 +47,7 @@ impl Db {
     /// is as expected and present in the database.
     #[instrument(target = "miden-store", skip_all)]
     pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
-        info!(target: COMPONENT, %config);
+        info!(target: COMPONENT, %config, "Connecting to the database");
 
         if let Some(p) = config.database_filepath.parent() {
             create_dir_all(p)?;
@@ -84,7 +84,7 @@ impl Db {
         info!(
             target: COMPONENT,
             sqlite = format!("{}", config.database_filepath.display()),
-            "Connected to the DB"
+            "Connected to the database"
         );
 
         let conn = pool.get().await?;
