@@ -38,18 +38,37 @@ pub struct GetBlockHeaderByNumberRequest {
     pub block_num: ::core::option::Option<u32>,
 }
 /// State synchronization request.
+///
+/// Specifies state updates the client is intersted in. The server will return the first block which
+/// contains a note matching `note_tags` or the chain tip. And the corresponding updates to
+/// `nullifiers` and `account_ids` for that block range.
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateRequest {
-    /// Send updates to the client starting at this block.
+    /// Last block known by the client. The response will contain data starting from the next block,
+    /// until the first block which contains a note of matching the requested tag, or the chain tip
+    /// if there are no notes.
     #[prost(uint32, tag = "1")]
     pub block_num: u32,
+    /// Accounts' hash to include in the response.
+    ///
+    /// An account hash will be included if-and-only-if it is the latest update. Meaning it is
+    /// possible there was an update to the account for the given range, but if it is not the latest,
+    /// it won't be included in the response.
     #[prost(message, repeated, tag = "2")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Tags and nullifiers are filters, both filters correspond to the high 16 bits of the real values.
+    /// Determines the tags which the client is interested in. These are only the 16high bits of the
+    /// note's complete tag.
+    ///
+    /// The above means it is not possible to request an specific note, but only a "note family",
+    /// this is done to increase the privacy of the client, by hiding the note's the client is
+    /// intereted on.
     #[prost(uint32, repeated, tag = "3")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
+    /// Determines the nullifiers the client is interested in.
+    ///
+    /// Similarly to the note_tags, this determins only the 16high bits of the target nullifier.
     #[prost(uint32, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
 }

@@ -409,10 +409,7 @@ async fn test_compute_note_root_success() {
     .into_iter()
     .zip(account_ids.iter())
     .map(|(note_digest, &account_id)| {
-        NoteEnvelope::new(
-            note_digest.into(),
-            NoteMetadata::new(account_id, Felt::from(1u64), Felt::from(0u64)),
-        )
+        NoteEnvelope::new(note_digest.into(), NoteMetadata::new(account_id, Felt::from(1u64)))
     })
     .collect();
 

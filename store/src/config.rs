@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    fmt::{Display, Formatter},
+    path::PathBuf,
+};
 
 use miden_node_utils::config::Endpoint;
 use serde::{Deserialize, Serialize};
@@ -10,7 +13,7 @@ pub const CONFIG_FILENAME: &str = "miden-store.toml";
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct StoreConfig {
-    /// Defines the lisening socket.
+    /// Defines the listening socket.
     pub endpoint: Endpoint,
     /// SQLite database file
     pub database_filepath: PathBuf,
@@ -20,7 +23,19 @@ pub struct StoreConfig {
 
 impl StoreConfig {
     pub fn as_url(&self) -> String {
-        format!("http://{}:{}", self.endpoint.host, self.endpoint.port)
+        self.endpoint.to_string()
+    }
+}
+
+impl Display for StoreConfig {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{{ endpoint: \"{}\",  database_filepath: {:?}, genesis_filepath: {:?} }}",
+            self.endpoint, self.database_filepath, self.genesis_filepath
+        ))
     }
 }
 

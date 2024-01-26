@@ -1,16 +1,18 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
+use miden_node_utils::logging::format_array;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 #[cfg(not(test))]
 use miden_tx::TransactionVerifier;
 use tokio::sync::RwLock;
+use tracing::{debug, instrument};
 
 use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
     txqueue::{TransactionValidator, VerifyTxError},
-    SharedProvenTx,
+    SharedProvenTx, COMPONENT
 };
 
 #[cfg(test)]
@@ -20,7 +22,7 @@ pub struct DefaultStateView<S> {
     store: Arc<S>,
 
     /// The account ID of accounts being modified by transactions currently in the block production
-    /// pipeline. We currently ensure that only 1 tx/block modifies any given account.
+    /// pipeline. We currently ensure that only 1 tx/block modifies any given account (issue: #186).
     accounts_in_flight: Arc<RwLock<BTreeSet<AccountId>>>,
 
     /// The nullifiers of notes consumed by transactions currently in the block production pipeline.
@@ -46,6 +48,8 @@ where
     S: Store,
 {
     // TODO: Verify proof as well
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(skip_all, err)]
     async fn verify_tx(
         &self,
         candidate_tx: SharedProvenTx,
@@ -145,14 +149,18 @@ where
 // -------------------------------------------------------------------------------------------------
 
 /// Ensures the constraints related to in-flight transactions:
-/// 1. the candidate transaction doesn't modify the same account as an existing in-flight transaction
-/// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained
-/// in `already_consumed_nullifiers`
+/// 1. the candidate transaction doesn't modify the same account as an existing in-flight
+///    transaction (issue: #186)
+/// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained in
+///    `already_consumed_nullifiers`
+#[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
     candidate_tx: SharedProvenTx,
     accounts_in_flight: &BTreeSet<AccountId>,
     already_consumed_nullifiers: &BTreeSet<Digest>,
 ) -> Result<(), VerifyTxError> {
+    debug!(target: COMPONENT, accounts_in_flight = %format_array(accounts_in_flight), already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
+
     // 1. Check account id hasn't been modified yet
     if accounts_in_flight.contains(&candidate_tx.account_id()) {
         return Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(candidate_tx.account_id()));
@@ -179,10 +187,13 @@ fn ensure_in_flight_constraints(
     Ok(())
 }
 
+#[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_tx_inputs_constraints(
     candidate_tx: SharedProvenTx,
     tx_inputs: TxInputs,
 ) -> Result<(), VerifyTxError> {
+    debug!(target: COMPONENT, %tx_inputs);
+
     match tx_inputs.account_hash {
         Some(store_account_hash) => {
             if candidate_tx.initial_account_hash() != store_account_hash {

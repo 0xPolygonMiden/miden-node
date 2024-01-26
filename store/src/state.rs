@@ -2,7 +2,11 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{mem, sync::Arc};
+use std::{
+    fmt::{Debug, Display, Formatter},
+    mem,
+    sync::Arc,
+};
 
 use anyhow::{anyhow, bail, Result};
 use miden_crypto::{
@@ -25,6 +29,7 @@ use miden_node_proto::{
         AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
     },
 };
+use miden_node_utils::logging::{format_account_id, format_array};
 use miden_objects::{
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
     BlockHeader, ACCOUNT_TREE_DEPTH,
@@ -87,6 +92,28 @@ pub struct AccountState {
     account_hash: Word,
 }
 
+impl Debug for AccountState {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{{ account_id: {}, account_hash: {} }}",
+            format_account_id(self.account_id),
+            RpoDigest::from(self.account_hash),
+        ))
+    }
+}
+
+impl Display for AccountState {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
 impl From<AccountState> for AccountTransactionInputRecord {
     fn from(value: AccountState) -> Self {
         Self {
@@ -119,9 +146,22 @@ impl TryFrom<&AccountUpdate> for AccountState {
     }
 }
 
+#[derive(Debug)]
 pub struct NullifierStateForTransactionInput {
     nullifier: RpoDigest,
     block_num: u32,
+}
+
+impl Display for NullifierStateForTransactionInput {
+    fn fmt(
+        &self,
+        formatter: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        formatter.write_fmt(format_args!(
+            "{{ nullifier: {}, block_num: {} }}",
+            self.nullifier, self.block_num
+        ))
+    }
 }
 
 impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord {
@@ -134,7 +174,8 @@ impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord
 }
 
 impl State {
-    #[instrument(skip(db))]
+    /// Loads the state from the `db`.
+    #[instrument(target = "miden-store", skip_all)]
     pub async fn load(mut db: Db) -> Result<Self, anyhow::Error> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
@@ -282,7 +323,6 @@ impl State {
                         sender: note.sender,
                         note_index: note.note_index,
                         tag: note.tag,
-                        num_assets: note.num_assets,
                         merkle_path: Some(merkle_path.into()),
                     })
                 })
@@ -321,6 +361,9 @@ impl State {
         Ok(())
     }
 
+    /// Queries a [BlockHeader] from the database.
+    ///
+    /// If [None] is given as the value of `block_num`, the latest [BlockHeader] is returned.
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
@@ -328,6 +371,10 @@ impl State {
         self.db.select_block_header_by_block_num(block_num).await
     }
 
+    /// Generates membership proofs for each one of the `nullifiers` against the latest nullifier
+    /// tree.
+    ///
+    /// Note: these proofs are invalidated once the nullifier tree is modified, i.e. on a new block.
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
@@ -336,13 +383,29 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
     }
 
+    /// Loads data to synchronize a client.
+    ///
+    /// The client's request contains a list of tag prefixes, this method will return the first
+    /// block with a matching tag, or the chain tip. All the other values are filter based on this
+    /// block range.
+    ///
+    /// # Arguments
+    ///
+    /// - `block_num`: The last block *know* by the client, updates start from the next block.
+    /// - `account_ids`: Include the account's hash if their _last change_ was in the result's block
+    ///   range.
+    /// - `note_tag_prefixes`: Only the 16 high bits of the tags the client is interested in, result
+    ///   will include notes with matching prefixes, the first block with a matching note determines
+    ///   the block range.
+    /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is intersted in,
+    ///   results will cinlude nullifiers matching prefixes produced in the given block range.
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tag_prefixes: &[u32],
         nullifier_prefixes: &[u32],
-    ) -> Result<(StateSyncUpdate, MmrDelta, MerklePath), anyhow::Error> {
+    ) -> Result<(StateSyncUpdate, MmrDelta), anyhow::Error> {
         let inner = self.inner.read().await;
 
         let state_sync = self
@@ -350,19 +413,27 @@ impl State {
             .get_state_sync(block_num, account_ids, note_tag_prefixes, nullifier_prefixes)
             .await?;
 
-        let (delta, path) = {
-            let delta = inner
-                .chain_mmr
-                .get_delta(block_num as usize, state_sync.block_header.block_num as usize)?;
-
-            let proof = inner
-                .chain_mmr
-                .open(block_num as usize, state_sync.block_header.block_num as usize)?;
-
-            (delta, proof.merkle_path)
+        let delta = if block_num == state_sync.block_header.block_num {
+            // The client is in sync with the chain tip.
+            MmrDelta {
+                forest: block_num as usize,
+                data: vec![],
+            }
+        } else {
+            // Important notes about the boundary conditions:
+            //
+            // - The Mmr forest is 1-indexed whereas the block number is 0-indexed. The Mmr root
+            // contained in the block header always lag behind by one block, this is because the Mmr
+            // leaves are hashes of block headers, and we can't have self-referential hashes. These two
+            // points cancel out and don't require adjusting.
+            // - Mmr::get_delta is inclusive, whereas the sync_state request block_num is defined to be
+            // exclusive, so the from_forest has to be adjusted with a +1
+            let from_forest = (block_num + 1) as usize;
+            let to_forest = state_sync.block_header.block_num as usize;
+            inner.chain_mmr.get_delta(from_forest, to_forest)?
         };
 
-        Ok((state_sync, delta, path))
+        Ok((state_sync, delta))
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
@@ -412,11 +483,15 @@ impl State {
         Ok((latest, peaks, account_states))
     }
 
+    /// Returns data needed by the block producer to verify transactions validity.
+    #[instrument(target = "miden-store", skip_all, ret, err)]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
         nullifiers: &[RpoDigest],
     ) -> Result<(AccountState, Vec<NullifierStateForTransactionInput>), anyhow::Error> {
+        info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
+
         let inner = self.inner.read().await;
 
         let account = AccountState {
@@ -445,16 +520,20 @@ impl State {
         Ok((account, nullifier_blocks))
     }
 
+    /// Lists all known nullifiers with their inclusion blocks, intended for testing.
     pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
         let nullifiers = self.db.select_nullifiers().await?;
         Ok(nullifiers)
     }
 
+    /// Lists all known accounts, with their ids, latest state hash, and block at which the account was last
+    /// modified, intended for testing.
     pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
         let accounts = self.db.select_accounts().await?;
         Ok(accounts)
     }
 
+    /// Lists all known notes, intended for testing.
     pub async fn list_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
         let notes = self.db.select_notes().await?;
         Ok(notes)
@@ -479,7 +558,7 @@ pub fn build_notes_tree(
     for note in notes.iter() {
         let note_hash = note.note_hash.clone().ok_or(StateError::MissingNoteHash)?;
         let account_id = note.sender.try_into().or(Err(StateError::InvalidAccountId))?;
-        let note_metadata = NoteMetadata::new(account_id, note.tag.into(), note.num_assets.into());
+        let note_metadata = NoteMetadata::new(account_id, note.tag.into());
         let index = note.note_index as u64;
         entries.push((index, note_hash.try_into()?));
         entries.push((index + 1, note_metadata.into()));

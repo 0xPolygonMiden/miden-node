@@ -1,9 +1,9 @@
 use std::{net::ToSocketAddrs, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use miden_node_proto::{block_producer::api_server, store::api_client as store_client};
 use tonic::transport::Server;
-use tracing::info;
+use tracing::{info, info_span, instrument, Instrument};
 
 use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
@@ -23,9 +23,9 @@ pub mod api;
 // ================================================================================================
 
 /// TODO: add comments
+#[instrument(target = "miden-block-producer", skip_all)]
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
-    let endpoint = (config.endpoint.host.as_ref(), config.endpoint.port);
-    let addrs: Vec<_> = endpoint.to_socket_addrs()?.collect();
+    info!(target: COMPONENT, %config, "Initializing server");
 
     let store = Arc::new(DefaultStore::new(
         store_client::ApiClient::connect(config.store_url.to_string()).await?,
@@ -53,22 +53,27 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(queue.clone()));
 
     tokio::spawn(async move {
-        info!(COMPONENT, "transaction queue started");
-        queue.run().await
+        queue
+            .run()
+            .instrument(info_span!(target: COMPONENT, "transaction_queue_start"))
+            .await
     });
 
     tokio::spawn(async move {
-        info!(COMPONENT, "batch builder started");
-        batch_builder.run().await
+        batch_builder
+            .run()
+            .instrument(info_span!(target: COMPONENT, "batch_builder_start"))
+            .await
     });
 
-    info!(
-        COMPONENT,
-        host = config.endpoint.host,
-        port = config.endpoint.port,
-        "Server initialized",
-    );
-    Server::builder().add_service(block_producer).serve(addrs[0]).await?;
+    info!(target: COMPONENT, "Server initialized");
+
+    let addr = config
+        .endpoint
+        .to_socket_addrs()?
+        .next()
+        .ok_or(anyhow!("Couldn't resolve server address"))?;
+    Server::builder().add_service(block_producer).serve(addr).await?;
 
     Ok(())
 }

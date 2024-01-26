@@ -12,18 +12,18 @@ use miden_node_proto::{
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
-use tracing::{info, span, Level};
+use tracing::{info, instrument, span, Level};
 
 use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
-    migrations,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
 
 pub mod errors;
+mod migrations;
 mod sql;
 
 #[cfg(test)]
@@ -45,7 +45,10 @@ pub struct StateSyncUpdate {
 impl Db {
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
+    #[instrument(target = "miden-store", skip_all)]
     pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
+        info!(target: COMPONENT, %config, "Connecting to the database");
+
         if let Some(p) = config.database_filepath.parent() {
             create_dir_all(p)?;
         }
@@ -79,8 +82,9 @@ impl Db {
             .build()?;
 
         info!(
+            target: COMPONENT,
             sqlite = format!("{}", config.database_filepath.display()),
-            COMPONENT, "Connected to the DB"
+            "Connected to the database"
         );
 
         let conn = pool.get().await?;
