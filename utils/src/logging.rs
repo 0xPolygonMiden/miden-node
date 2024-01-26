@@ -56,7 +56,7 @@ pub fn format_output_notes(notes: &OutputNotes<NoteEnvelope>) -> String {
 pub fn format_map<'a, K: Display + 'a, V: Display + 'a>(
     map: impl IntoIterator<Item = (&'a K, &'a V)>
 ) -> String {
-    let map_str = map.into_iter().map(|(k, v)| format!("{k}: {v}")).join(", ");
+    let map_str = map.into_iter().map(|(key, val)| format!("{key}: {val}")).join(", ");
     if map_str.is_empty() {
         "None".to_owned()
     } else {
