@@ -17,7 +17,7 @@ use tonic::{
     transport::{Channel, Error},
     Request, Response, Status,
 };
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::{config::RpcConfig, COMPONENT};
 
@@ -51,10 +51,20 @@ impl RpcApi {
 
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc::check_nullifiers",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn check_nullifiers(
         &self,
         request: Request<CheckNullifiersRequest>,
     ) -> Result<Response<CheckNullifiersResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
         // validate all the nullifiers from the user request
         for nullifier in request.get_ref().nullifiers.iter() {
             let _: RpoDigest = nullifier
@@ -65,25 +75,48 @@ impl api_server::Api for RpcApi {
         self.store.clone().check_nullifiers(request).await
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc::get_block_header_by_number",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn get_block_header_by_number(
         &self,
         request: Request<GetBlockHeaderByNumberRequest>,
     ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
+        info!(target: COMPONENT, request = ?request.get_ref());
+
         self.store.clone().get_block_header_by_number(request).await
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc::sync_state",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn sync_state(
         &self,
-        request: tonic::Request<SyncStateRequest>,
+        request: Request<SyncStateRequest>,
     ) -> Result<Response<SyncStateResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
         self.store.clone().sync_state(request).await
     }
 
-    #[instrument(target = "miden-rpc", name = "rpc::submit_proven_transaction", skip_all)]
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-rpc", name = "rpc::submit_proven_transaction", skip_all, err)]
     async fn submit_proven_transaction(
         &self,
         request: Request<SubmitProvenTransactionRequest>,
-    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
+    ) -> Result<Response<SubmitProvenTransactionResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
         self.block_producer.clone().submit_proven_transaction(request).await
     }
 }

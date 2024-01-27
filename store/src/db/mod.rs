@@ -101,6 +101,8 @@ impl Db {
     }
 
     /// Loads all the nullifiers from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
         self.pool
             .get()
@@ -111,6 +113,8 @@ impl Db {
     }
 
     /// Loads all the notes from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
         self.pool
             .get()
@@ -121,6 +125,8 @@ impl Db {
     }
 
     /// Loads all the accounts from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
         self.pool
             .get()
@@ -133,6 +139,8 @@ impl Db {
     /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_block_header_by_block_num(
         &self,
         block_number: Option<BlockNumber>,
@@ -146,6 +154,8 @@ impl Db {
     }
 
     /// Loads all the block headers from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_block_headers(
         &self
     ) -> Result<Vec<block_header::BlockHeader>, anyhow::Error> {
@@ -158,6 +168,8 @@ impl Db {
     }
 
     /// Loads all the account hashes from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_account_hashes(&self) -> Result<Vec<(AccountId, Digest)>, anyhow::Error> {
         self.pool
             .get()
@@ -167,6 +179,8 @@ impl Db {
             .map_err(|_| anyhow!("Get account hashes task failed with a panic"))?
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn get_state_sync(
         &self,
         block_num: BlockNumber,
@@ -198,6 +212,7 @@ impl Db {
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
     /// the in-memory trees. Further details available on [super::state::State::apply_block].
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, err)]
     pub async fn apply_block(
         &self,
@@ -237,6 +252,8 @@ impl Db {
     /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that the
     /// genesis block in the database is consistent with the genesis block data in the genesis JSON
     /// file.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, err)]
     async fn ensure_genesis_block(
         &self,
         genesis_filepath: &str,

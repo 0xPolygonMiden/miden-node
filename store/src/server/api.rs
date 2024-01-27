@@ -20,7 +20,7 @@ use miden_node_proto::{
     tsmt::NullifierLeaf,
 };
 use tonic::{Response, Status};
-use tracing::{debug, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::{state::State, COMPONENT};
 
@@ -39,10 +39,20 @@ impl api_server::Api for StoreApi {
     /// Returns block header for the specified block number.
     ///
     /// If the block number is not provided, block header for the latest block is returned.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-store",
+        name = "store::get_block_header_by_number",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn get_block_header_by_number(
         &self,
         request: tonic::Request<GetBlockHeaderByNumberRequest>,
     ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
+        info!(target: COMPONENT, ?request);
+
         let request = request.into_inner();
         let block_header =
             self.state.get_block_header(request.block_num).await.map_err(internal_error)?;
