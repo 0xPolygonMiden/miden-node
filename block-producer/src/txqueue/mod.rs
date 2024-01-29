@@ -9,7 +9,7 @@ use miden_objects::{
     accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
 };
 use tokio::{sync::RwLock, time};
-use tracing::{info, instrument};
+use tracing::{info, info_span, instrument, Instrument};
 
 use crate::{
     batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec, COMPONENT,
@@ -148,6 +148,7 @@ where
         }
     }
 
+    #[instrument(target = "miden-block-producer", name = "block_producer" skip_all)]
     pub async fn run(self: Arc<Self>) {
         let mut interval = time::interval(self.options.build_batch_frequency);
 
@@ -176,17 +177,20 @@ where
             let ready_queue = self.ready_queue.clone();
             let batch_builder = self.batch_builder.clone();
 
-            tokio::spawn(async move {
-                match batch_builder.build_batch(txs.clone()).await {
-                    Ok(_) => {
-                        // batch was successfully built, do nothing
-                    },
-                    Err(_) => {
-                        // batch building failed, add txs back at the end of the queue
-                        ready_queue.write().await.append(&mut txs);
-                    },
+            tokio::spawn(
+                async move {
+                    match batch_builder.build_batch(txs.clone()).await {
+                        Ok(_) => {
+                            // batch was successfully built, do nothing
+                        },
+                        Err(_) => {
+                            // batch building failed, add txs back at the end of the queue
+                            ready_queue.write().await.append(&mut txs);
+                        },
+                    }
                 }
-            });
+                .instrument(info_span!(target: COMPONENT, "block_producer")),
+            );
         }
     }
 }
