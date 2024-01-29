@@ -2,7 +2,7 @@ use std::{cmp::min, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use tokio::{sync::RwLock, time};
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, Span};
 
 use self::errors::BuildBatchError;
 use crate::{block_builder::BlockBuilder, SharedProvenTx, SharedRwVec, SharedTxBatch, COMPONENT};
@@ -13,7 +13,7 @@ mod tests;
 
 mod batch;
 pub use batch::TransactionBatch;
-use miden_node_utils::logging::format_array;
+use miden_node_utils::logging::{format_array, format_blake3_digest};
 
 // BATCH BUILDER
 // ================================================================================================
@@ -112,17 +112,22 @@ impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
 {
-    #[instrument(target = "miden-block-producer", skip_all)]
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
     async fn build_batch(
         &self,
         txs: Vec<SharedProvenTx>,
     ) -> Result<(), BuildBatchError> {
         let num_txs = txs.len();
 
-        info!(target: COMPONENT, num_txs, "Batch building started");
+        info!(target: COMPONENT, num_txs, "Building a transaction batch");
         debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
 
         let batch = Arc::new(TransactionBatch::new(txs)?);
+
+        info!(target: COMPONENT, "Transaction batch built");
+        Span::current().record("batch_id", format_blake3_digest(batch.id()));
+
         self.ready_batches.write().await.push(batch);
 
         Ok(())
