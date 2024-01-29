@@ -81,10 +81,10 @@ async fn test_build_batch_success() {
 
     let batch_builder = Arc::new(BatchBuilderSuccess::default());
 
-    let tx_queue = DefaultTransactionQueue::new(
+    let tx_queue = TransactionQueue::new(
         Arc::new(TransactionVerifierSuccess),
         batch_builder.clone(),
-        DefaultTransactionQueueOptions {
+        TransactionQueueOptions {
             build_batch_frequency,
             batch_size,
         },
@@ -117,10 +117,10 @@ async fn test_tx_verify_failure() {
 
     let batch_builder = Arc::new(BatchBuilderSuccess::default());
 
-    let tx_queue = DefaultTransactionQueue::new(
+    let tx_queue = TransactionQueue::new(
         Arc::new(TransactionVerifierFailure),
         batch_builder.clone(),
-        DefaultTransactionQueueOptions {
+        TransactionQueueOptions {
             build_batch_frequency,
             batch_size,
         },
@@ -155,10 +155,10 @@ async fn test_build_batch_failure() {
 
     let batch_builder = Arc::new(BatchBuilderFailure);
 
-    let tx_queue = DefaultTransactionQueue::new(
+    let tx_queue = TransactionQueue::new(
         Arc::new(TransactionVerifierSuccess),
         batch_builder.clone(),
-        DefaultTransactionQueueOptions {
+        TransactionQueueOptions {
             build_batch_frequency,
             batch_size,
         },

@@ -11,28 +11,30 @@ use miden_objects::transaction::ProvenTransaction;
 use tonic::Status;
 use tracing::{debug, info, instrument};
 
-use crate::{txqueue::TransactionQueue, COMPONENT};
+use crate::{
+    batch_builder::BatchBuilder,
+    txqueue::{TransactionQueue, TransactionVerifier},
+    COMPONENT,
+};
 
 // BLOCK PRODUCER
 // ================================================================================================
 
-pub struct BlockProducerApi<T> {
-    queue: Arc<T>,
+pub struct BlockProducerApi<BB, TV> {
+    queue: Arc<TransactionQueue<BB, TV>>,
 }
 
-impl<T> BlockProducerApi<T>
-where
-    T: TransactionQueue,
-{
-    pub fn new(queue: Arc<T>) -> Self {
+impl<BB, TV> BlockProducerApi<BB, TV> {
+    pub fn new(queue: Arc<TransactionQueue<BB, TV>>) -> Self {
         Self { queue }
     }
 }
 
 #[tonic::async_trait]
-impl<T> api_server::Api for BlockProducerApi<T>
+impl<BB, TV> api_server::Api for BlockProducerApi<BB, TV>
 where
-    T: TransactionQueue,
+    TV: TransactionVerifier,
+    BB: BatchBuilder,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
