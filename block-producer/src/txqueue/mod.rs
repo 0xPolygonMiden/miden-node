@@ -189,7 +189,7 @@ where
                         },
                     }
                 }
-                .instrument(info_span!(target: COMPONENT, "block_producer")),
+                .instrument(info_span!(target: COMPONENT, "batch_builder")),
             );
         }
     }
