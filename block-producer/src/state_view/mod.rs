@@ -179,13 +179,17 @@ fn ensure_tx_inputs_constraints(
 
     match tx_inputs.account_hash {
         Some(store_account_hash) => {
-            if candidate_tx.initial_account_hash() != store_account_hash
-                && store_account_hash != Digest::default()
-            {
-                return Err(VerifyTxError::IncorrectAccountInitialHash {
-                    tx_initial_account_hash: candidate_tx.initial_account_hash(),
-                    store_account_hash: Some(store_account_hash),
-                });
+            if candidate_tx.initial_account_hash() != store_account_hash {
+                // Prevents this check from returning an Err() in case a new account
+                // that has not yet been stored in the DB submits a transaction. By default
+                // the `store_account_hash` of a new account would be `Digest::default()`
+                if store_account_hash == Digest::default() {
+                } else {
+                    return Err(VerifyTxError::IncorrectAccountInitialHash {
+                        tx_initial_account_hash: candidate_tx.initial_account_hash(),
+                        store_account_hash: Some(store_account_hash),
+                    });
+                }
             }
         },
         None => {
