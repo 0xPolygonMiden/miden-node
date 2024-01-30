@@ -79,7 +79,7 @@ jobs:
         with:
           command: doc
           args: ${{matrix.args}}
-  
+
   test:
     name: test ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
     runs-on: ${{matrix.os}}-latest
@@ -102,3 +102,12 @@ jobs:
         with:
           command: test
           args: ${{matrix.args}}
+      - name: Test repeat
+        shell: bash
+        run: |
+          for i in $(seq 100); do
+            cargo test --all-features || {
+              echo "FAILURE";
+              break
+            };
+          done
