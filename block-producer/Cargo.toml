@@ -48,3 +48,4 @@ figment = { version = "0.10", features = ["toml", "env", "test"] }
 miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
 once_cell = { version = "1.18" }
 winterfell = "0.7"
+tokio = { version = "1.29", features = ["test-util" ] }
