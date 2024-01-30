@@ -101,7 +101,7 @@ impl api_server::Api for StoreApi {
 
     /// Updates the local DB by inserting a new block header and the related data.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-store", name = "store::apply_block", skip_all, err)]
+    #[instrument(target = "miden-store", name = "store:apply_block", skip_all, err)]
     async fn apply_block(
         &self,
         request: tonic::Request<ApplyBlockRequest>,
@@ -164,7 +164,7 @@ impl api_server::Api for StoreApi {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
-        name = "store::get_transaction_inputs",
+        name = "store:get_transaction_inputs",
         skip_all,
         ret(level = "debug"),
         err

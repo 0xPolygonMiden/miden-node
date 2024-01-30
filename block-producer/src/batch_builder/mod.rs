@@ -71,7 +71,6 @@ where
     // --------------------------------------------------------------------------------------------
 
     /// TODO: add comments
-    #[instrument(target = "miden-block-producer", skip_all)]
     pub async fn run(self: Arc<Self>) {
         let mut interval = time::interval(self.options.block_frequency);
 

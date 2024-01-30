@@ -45,7 +45,7 @@ pub struct StateSyncUpdate {
 impl Db {
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
-    #[instrument(target = "miden-store", name = "store::setup", skip_all)]
+    #[instrument(target = "miden-store", name = "store:setup", skip_all)]
     pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
         info!(target: COMPONENT, %config, "Connecting to the database");
 
