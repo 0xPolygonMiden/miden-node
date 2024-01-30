@@ -134,8 +134,7 @@ impl TransactionBatch {
     fn compute_id(txs: &[SharedProvenTx]) -> BatchId {
         let mut buf = Vec::with_capacity(32 * txs.len());
         for tx in txs {
-            let mut tx_id = tx.id().as_bytes().to_vec();
-            buf.append(&mut tx_id);
+            buf.extend_from_slice(&tx.id().as_bytes());
         }
         Blake3_256::hash(&buf)
     }
