@@ -5,9 +5,10 @@ use miden_objects::{accounts::AccountId, Digest};
 use tracing::info;
 
 use crate::{
+    batch_builder::batch::TransactionBatch,
     block::Block,
     store::{ApplyBlock, Store},
-    SharedTxBatch, COMPONENT, MAX_NUM_CREATED_NOTES_PER_BATCH,
+    COMPONENT, MAX_NUM_CREATED_NOTES_PER_BATCH,
 };
 
 pub mod errors;
@@ -33,7 +34,7 @@ pub trait BlockBuilder: Send + Sync + 'static {
     /// block. In other words, if `build_block()` is never called, then no blocks are produced.
     async fn build_block(
         &self,
-        batches: Vec<SharedTxBatch>,
+        batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError>;
 }
 
@@ -69,7 +70,7 @@ where
 {
     async fn build_block(
         &self,
-        batches: Vec<SharedTxBatch>,
+        batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError> {
         let account_updates: Vec<(AccountId, Digest)> =
             batches.iter().flat_map(|batch| batch.updated_accounts()).collect();

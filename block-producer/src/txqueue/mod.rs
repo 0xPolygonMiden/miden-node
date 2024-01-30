@@ -12,7 +12,7 @@ use tokio::{sync::RwLock, time};
 use tracing::{info, info_span, instrument, Instrument};
 
 use crate::{
-    batch_builder::BatchBuilder, store::TxInputsError, SharedProvenTx, SharedRwVec, COMPONENT,
+    batch_builder::BatchBuilder, store::TxInputsError, ProvenTransaction, SharedRwVec, COMPONENT,
 };
 
 #[cfg(test)]
@@ -83,7 +83,7 @@ pub trait TransactionVerifier: Send + Sync + 'static {
     ///    perform the check above.
     async fn verify_tx(
         &self,
-        tx: SharedProvenTx,
+        tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError>;
 }
 
@@ -113,7 +113,7 @@ pub struct TransactionQueueOptions {
 }
 
 pub struct TransactionQueue<BB, TV> {
-    ready_queue: SharedRwVec<SharedProvenTx>,
+    ready_queue: SharedRwVec<ProvenTransaction>,
     tx_verifier: Arc<TV>,
     batch_builder: Arc<BB>,
     options: TransactionQueueOptions,
@@ -152,7 +152,7 @@ where
     /// Divides the queue in groups to be batched; those that failed are appended back on the queue
     #[instrument(target = "miden-block-producer", skip_all)]
     async fn try_build_batches(&self) {
-        let txs: Vec<SharedProvenTx> = {
+        let txs: Vec<ProvenTransaction> = {
             let mut locked_ready_queue = self.ready_queue.write().await;
 
             if locked_ready_queue.is_empty() {
@@ -164,19 +164,19 @@ where
 
         let tx_groups = txs.chunks(self.options.batch_size).map(|txs| txs.to_vec());
 
-        for mut txs in tx_groups {
+        for txs in tx_groups {
             let ready_queue = self.ready_queue.clone();
             let batch_builder = self.batch_builder.clone();
 
             tokio::spawn(
                 async move {
-                    match batch_builder.build_batch(txs.clone()).await {
+                    match batch_builder.build_batch(txs).await {
                         Ok(_) => {
                             // batch was successfully built, do nothing
                         },
-                        Err(_) => {
+                        Err(e) => {
                             // batch building failed, add txs back at the end of the queue
-                            ready_queue.write().await.append(&mut txs);
+                            ready_queue.write().await.append(&mut e.into_transactions());
                         },
                     }
                 }
@@ -193,12 +193,12 @@ where
     #[instrument(target = "miden-block-producer", skip_all, err)]
     pub async fn add_transaction(
         &self,
-        tx: SharedProvenTx,
+        tx: ProvenTransaction,
     ) -> Result<(), AddTransactionError> {
         info!(target: COMPONENT, tx_id = %tx.id().to_hex(), account_id = %tx.account_id().to_hex());
 
         self.tx_verifier
-            .verify_tx(tx.clone())
+            .verify_tx(&tx)
             .await
             .map_err(AddTransactionError::VerificationFailed)?;
 

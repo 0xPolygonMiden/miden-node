@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use crate::{batch_builder::TransactionBatch, test_utils::MockProvenTxBuilder};
+use crate::{test_utils::MockProvenTxBuilder, TransactionBatch};
 
 pub trait TransactionBatchConstructor {
     /// Returns a `TransactionBatch` with `notes_per_tx.len()` transactions, where the i'th
@@ -16,17 +14,14 @@ impl TransactionBatchConstructor for TransactionBatch {
         let txs: Vec<_> = notes_per_tx
             .iter()
             .map(|&num_notes| MockProvenTxBuilder::new().num_notes_created(num_notes).build())
-            .map(Arc::new)
             .collect();
 
         Self::new(txs).unwrap()
     }
 
     fn from_txs(num_txs_in_batch: u64) -> Self {
-        let txs: Vec<_> = (0..num_txs_in_batch)
-            .map(|_| MockProvenTxBuilder::new().build())
-            .map(Arc::new)
-            .collect();
+        let txs: Vec<_> =
+            (0..num_txs_in_batch).map(|_| MockProvenTxBuilder::new().build()).collect();
 
         Self::new(txs).unwrap()
     }

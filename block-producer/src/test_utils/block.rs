@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
@@ -9,10 +9,10 @@ use miden_vm::crypto::SimpleSmt;
 
 use super::MockStoreSuccess;
 use crate::{
-    batch_builder::TransactionBatch,
     block::Block,
     block_builder::prover::{block_witness::BlockWitness, BlockProver},
     store::Store,
+    TransactionBatch,
 };
 
 /// Constructs the block we expect to be built given the store state, and a set of transaction
@@ -85,9 +85,7 @@ pub async fn build_actual_block_header(
         .await
         .unwrap();
 
-    let block_witness =
-        BlockWitness::new(block_inputs_from_store, batches.into_iter().map(Arc::new).collect())
-            .unwrap();
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     BlockProver::new().prove(block_witness).unwrap()
 }

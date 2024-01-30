@@ -34,7 +34,7 @@ async fn test_apply_block_ab1() {
     let state_view = DefaultStateView::new(store.clone());
 
     // Verify transaction so it can be tracked in state view
-    let verify_tx_res = state_view.verify_tx(tx.into()).await;
+    let verify_tx_res = state_view.verify_tx(&tx).await;
     assert!(verify_tx_res.is_ok());
 
     let block = MockBlockBuilder::new(&store)
@@ -74,7 +74,7 @@ async fn test_apply_block_ab2() {
 
     // Verify transactions so it can be tracked in state view
     for tx in txs {
-        let verify_tx_res = state_view.verify_tx(tx).await;
+        let verify_tx_res = state_view.verify_tx(&tx).await;
         assert!(verify_tx_res.is_ok());
     }
 
@@ -123,7 +123,7 @@ async fn test_apply_block_ab3() {
 
     // Verify transactions so it can be tracked in state view
     for tx in txs.clone() {
-        let verify_tx_res = state_view.verify_tx(tx).await;
+        let verify_tx_res = state_view.verify_tx(&tx).await;
         assert!(verify_tx_res.is_ok());
     }
 
@@ -151,7 +151,7 @@ async fn test_apply_block_ab3() {
         OutputNotes::new(Vec::new()).unwrap(),
     );
 
-    let verify_tx_res = state_view.verify_tx(tx_new.into()).await;
+    let verify_tx_res = state_view.verify_tx(&tx_new).await;
     assert_eq!(
         verify_tx_res,
         Err(VerifyTxError::InputNotesAlreadyConsumed(txs[0].input_notes().clone()))

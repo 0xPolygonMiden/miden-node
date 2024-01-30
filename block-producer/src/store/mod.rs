@@ -16,7 +16,7 @@ use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
-use crate::{block::Block, SharedProvenTx, COMPONENT};
+use crate::{block::Block, ProvenTransaction, COMPONENT};
 
 mod errors;
 pub use errors::{ApplyBlockError, BlockInputsError, TxInputsError};
@@ -30,7 +30,7 @@ pub trait Store: ApplyBlock {
     /// TODO: add comments
     async fn get_tx_inputs(
         &self,
-        proven_tx: SharedProvenTx,
+        proven_tx: &ProvenTransaction,
     ) -> Result<TxInputs, TxInputsError>;
 
     /// TODO: add comments
@@ -116,7 +116,7 @@ impl Store for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn get_tx_inputs(
         &self,
-        proven_tx: SharedProvenTx,
+        proven_tx: &ProvenTransaction,
     ) -> Result<TxInputs, TxInputsError> {
         let message = GetTransactionInputsRequest {
             account_id: Some(proven_tx.account_id().into()),

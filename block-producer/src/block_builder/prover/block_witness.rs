@@ -11,7 +11,7 @@ use miden_vm::{crypto::MerklePath, AdviceInputs, StackInputs};
 
 use crate::{
     block_builder::errors::{BlockProverError, BuildBlockError},
-    SharedTxBatch, CREATED_NOTES_SMT_DEPTH,
+    TransactionBatch, CREATED_NOTES_SMT_DEPTH,
 };
 
 // CONSTANTS
@@ -43,9 +43,9 @@ pub struct BlockWitness {
 impl BlockWitness {
     pub fn new(
         block_inputs: BlockInputs,
-        batches: Vec<SharedTxBatch>,
+        batches: &[TransactionBatch],
     ) -> Result<Self, BuildBlockError> {
-        Self::validate_inputs(&block_inputs, &batches)?;
+        Self::validate_inputs(&block_inputs, batches)?;
 
         let updated_accounts = {
             let mut account_initial_states: BTreeMap<AccountId, Digest> =
@@ -117,10 +117,11 @@ impl BlockWitness {
             // Notes stack inputs
             {
                 let num_created_notes_roots = self.batch_created_notes_roots.len();
-                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots {
-                    stack_inputs.extend(batch_created_notes_root);
+                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter()
+                {
+                    stack_inputs.extend(batch_created_notes_root.iter());
 
-                    let batch_index = u64::try_from(batch_index)
+                    let batch_index = u64::try_from(*batch_index)
                         .expect("can't be more than 2^64 - 1 notes created");
                     stack_inputs.push(Felt::from(batch_index));
                 }
@@ -181,7 +182,7 @@ impl BlockWitness {
 
     fn validate_inputs(
         block_inputs: &BlockInputs,
-        batches: &[SharedTxBatch],
+        batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError> {
         // TODO:
         // - Block height returned for each nullifier is 0.
@@ -199,7 +200,7 @@ impl BlockWitness {
     /// states returned from the store
     fn validate_account_states(
         block_inputs: &BlockInputs,
-        batches: &[SharedTxBatch],
+        batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError> {
         let batches_initial_states: BTreeMap<AccountId, Digest> =
             batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
