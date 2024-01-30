@@ -78,7 +78,7 @@ impl TransactionBatch {
             )
         };
 
-        let id = Self::calc_id(&txs);
+        let id = Self::compute_id(&txs);
 
         Ok(Self {
             id,
@@ -128,11 +128,14 @@ impl TransactionBatch {
         self.created_notes_smt.root()
     }
 
-    fn calc_id(txs: &[SharedProvenTx]) -> BatchId {
+    // HELPER FUNCTIONS
+    // --------------------------------------------------------------------------------------------
+
+    fn compute_id(txs: &[SharedProvenTx]) -> BatchId {
         let mut result = BatchId::default();
 
         for tx in txs {
-            let tx_hash = Blake3_256::hash_elements(tx.id().inner().as_elements());
+            let tx_hash = Blake3_256::hash(&tx.id().as_bytes());
             result = Blake3_256::merge(&[result, tx_hash]);
         }
 

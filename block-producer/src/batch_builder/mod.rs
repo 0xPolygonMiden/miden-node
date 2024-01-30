@@ -128,7 +128,13 @@ where
         info!(target: COMPONENT, "Transaction batch built");
         Span::current().record("batch_id", format_blake3_digest(batch.id()));
 
-        self.ready_batches.write().await.push(batch);
+        let num_batches = {
+            let mut write_guard = self.ready_batches.write().await;
+            write_guard.push(batch);
+            write_guard.len()
+        };
+
+        info!(target: COMPONENT, num_batches, "Transaction batch added to the batch queue");
 
         Ok(())
     }
