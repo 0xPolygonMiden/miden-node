@@ -2,9 +2,7 @@ use tokio::time;
 
 use super::*;
 use crate::{
-    batch_builder::{errors::BuildBatchError, TransactionBatch},
-    test_utils::DummyProvenTxGenerator,
-    SharedTxBatch,
+    batch_builder::errors::BuildBatchError, test_utils::DummyProvenTxGenerator, TransactionBatch,
 };
 
 // STRUCTS
@@ -17,7 +15,7 @@ struct TransactionVerifierSuccess;
 impl TransactionVerifier for TransactionVerifierSuccess {
     async fn verify_tx(
         &self,
-        _tx: SharedProvenTx,
+        _tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError> {
         Ok(())
     }
@@ -30,7 +28,7 @@ struct TransactionVerifierFailure;
 impl TransactionVerifier for TransactionVerifierFailure {
     async fn verify_tx(
         &self,
-        tx: SharedProvenTx,
+        tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError> {
         Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(tx.account_id()))
     }
@@ -39,17 +37,16 @@ impl TransactionVerifier for TransactionVerifierFailure {
 /// Records all batches built in `ready_batches`
 #[derive(Default)]
 struct BatchBuilderSuccess {
-    ready_batches: SharedRwVec<SharedTxBatch>,
+    ready_batches: SharedRwVec<TransactionBatch>,
 }
 
 #[async_trait]
 impl BatchBuilder for BatchBuilderSuccess {
     async fn build_batch(
         &self,
-        txs: Vec<SharedProvenTx>,
+        txs: Vec<ProvenTransaction>,
     ) -> Result<(), BuildBatchError> {
-        let batch = Arc::new(TransactionBatch::new(txs).unwrap());
-        self.ready_batches.write().await.push(batch);
+        self.ready_batches.write().await.push(TransactionBatch::new(txs).unwrap());
 
         Ok(())
     }
@@ -63,9 +60,9 @@ struct BatchBuilderFailure;
 impl BatchBuilder for BatchBuilderFailure {
     async fn build_batch(
         &self,
-        _txs: Vec<SharedProvenTx>,
+        txs: Vec<ProvenTransaction>,
     ) -> Result<(), BuildBatchError> {
-        Err(BuildBatchError::TooManyNotesCreated(0))
+        Err(BuildBatchError::TooManyNotesCreated(0, txs))
     }
 }
 
@@ -94,10 +91,7 @@ async fn test_build_batch_success() {
 
     // Add enough transactions so that we have 3 batches
     for _i in 0..(2 * batch_size + 1) {
-        tx_queue
-            .add_transaction(Arc::new(proven_tx_generator.dummy_proven_tx()))
-            .await
-            .unwrap();
+        tx_queue.add_transaction(proven_tx_generator.dummy_proven_tx()).await.unwrap();
     }
 
     // Start the queue
@@ -132,7 +126,7 @@ async fn test_tx_verify_failure() {
 
     // Add a bunch of transactions that will all fail tx verification
     for _i in 0..(3 * batch_size) {
-        let r = tx_queue.add_transaction(Arc::new(proven_tx_generator.dummy_proven_tx())).await;
+        let r = tx_queue.add_transaction(proven_tx_generator.dummy_proven_tx()).await;
 
         assert!(matches!(r, Err(AddTransactionError::VerificationFailed(_))));
     }
@@ -170,10 +164,7 @@ async fn test_build_batch_failure() {
 
     // Add enough transactions so that we have 1 batch
     for _i in 0..batch_size {
-        tx_queue
-            .add_transaction(Arc::new(proven_tx_generator.dummy_proven_tx()))
-            .await
-            .unwrap();
+        tx_queue.add_transaction(proven_tx_generator.dummy_proven_tx()).await.unwrap();
     }
 
     // Start the queue

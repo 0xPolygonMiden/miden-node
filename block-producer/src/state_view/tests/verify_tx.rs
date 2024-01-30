@@ -23,7 +23,7 @@ use crate::test_utils::MockStoreSuccessBuilder;
 #[tokio::test]
 async fn test_verify_tx_happy_path() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let (txs, accounts): (Vec<SharedProvenTx>, Vec<MockPrivateAccount>) =
+    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(
@@ -39,7 +39,7 @@ async fn test_verify_tx_happy_path() {
     let state_view = DefaultStateView::new(store);
 
     for tx in txs {
-        state_view.verify_tx(tx).await.unwrap();
+        state_view.verify_tx(&tx).await.unwrap();
     }
 }
 
@@ -50,7 +50,7 @@ async fn test_verify_tx_happy_path() {
 #[tokio::test]
 async fn test_verify_tx_happy_path_concurrent() {
     let tx_gen = DummyProvenTxGenerator::new();
-    let (txs, accounts): (Vec<SharedProvenTx>, Vec<MockPrivateAccount>) =
+    let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(&tx_gen, 3).unzip();
 
     let store = Arc::new(
@@ -69,7 +69,7 @@ async fn test_verify_tx_happy_path_concurrent() {
 
     for tx in txs {
         let state_view = state_view.clone();
-        set.spawn(async move { state_view.verify_tx(tx).await });
+        set.spawn(async move { state_view.verify_tx(&tx).await });
     }
 
     while let Some(res) = set.join_next().await {
@@ -102,7 +102,7 @@ async fn test_verify_tx_vt1() {
 
     let state_view = DefaultStateView::new(store);
 
-    let verify_tx_result = state_view.verify_tx(tx.into()).await;
+    let verify_tx_result = state_view.verify_tx(&tx).await;
 
     assert_eq!(
         verify_tx_result,
@@ -133,7 +133,7 @@ async fn test_verify_tx_vt2() {
 
     let state_view = DefaultStateView::new(store);
 
-    let verify_tx_result = state_view.verify_tx(tx.into()).await;
+    let verify_tx_result = state_view.verify_tx(&tx).await;
 
     assert_eq!(
         verify_tx_result,
@@ -171,7 +171,7 @@ async fn test_verify_tx_vt3() {
 
     let state_view = DefaultStateView::new(store);
 
-    let verify_tx_result = state_view.verify_tx(tx.into()).await;
+    let verify_tx_result = state_view.verify_tx(&tx).await;
 
     assert_eq!(
         verify_tx_result,
@@ -214,10 +214,10 @@ async fn test_verify_tx_vt4() {
 
     let state_view = DefaultStateView::new(store);
 
-    let verify_tx1_result = state_view.verify_tx(tx1.into()).await;
+    let verify_tx1_result = state_view.verify_tx(&tx1).await;
     assert!(verify_tx1_result.is_ok());
 
-    let verify_tx2_result = state_view.verify_tx(tx2.into()).await;
+    let verify_tx2_result = state_view.verify_tx(&tx2).await;
     assert_eq!(
         verify_tx2_result,
         Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(account.id))
@@ -264,10 +264,10 @@ async fn test_verify_tx_vt5() {
 
     let state_view = DefaultStateView::new(store);
 
-    let verify_tx1_result = state_view.verify_tx(tx1.into()).await;
+    let verify_tx1_result = state_view.verify_tx(&tx1).await;
     assert!(verify_tx1_result.is_ok());
 
-    let verify_tx2_result = state_view.verify_tx(tx2.into()).await;
+    let verify_tx2_result = state_view.verify_tx(&tx2).await;
     assert_eq!(
         verify_tx2_result,
         Err(VerifyTxError::InputNotesAlreadyConsumed(

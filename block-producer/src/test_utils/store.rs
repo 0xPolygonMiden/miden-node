@@ -8,7 +8,7 @@ use super::*;
 use crate::{
     block::Block,
     store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputs, TxInputsError},
-    SharedProvenTx,
+    ProvenTransaction,
 };
 
 /// Builds a [`MockStoreSuccess`]
@@ -157,7 +157,7 @@ impl ApplyBlock for MockStoreSuccess {
 impl Store for MockStoreSuccess {
     async fn get_tx_inputs(
         &self,
-        proven_tx: SharedProvenTx,
+        proven_tx: &ProvenTransaction,
     ) -> Result<TxInputs, TxInputsError> {
         let locked_accounts = self.accounts.read().await;
         let locked_consumed_nullifiers = self.consumed_nullifiers.read().await;
@@ -242,7 +242,7 @@ impl ApplyBlock for MockStoreFailure {
 impl Store for MockStoreFailure {
     async fn get_tx_inputs(
         &self,
-        _proven_tx: SharedProvenTx,
+        _proven_tx: &ProvenTransaction,
     ) -> Result<TxInputs, TxInputsError> {
         Err(TxInputsError::Dummy)
     }

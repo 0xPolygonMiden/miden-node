@@ -5,8 +5,8 @@ use miden_objects::transaction::{InputNotes, OutputNotes};
 // 1. `apply_block()` is called
 use super::*;
 use crate::{
-    batch_builder::TransactionBatch,
     test_utils::{DummyProvenTxGenerator, MockStoreFailure, MockStoreSuccessBuilder},
+    TransactionBatch,
 };
 
 /// Tests that `build_block()` succeeds when the transaction batches are not empty
@@ -24,22 +24,22 @@ async fn test_apply_block_called_nonempty_batches() {
 
     let block_builder = DefaultBlockBuilder::new(store.clone(), store.clone());
 
-    let batches: Vec<SharedTxBatch> = {
+    let batches: Vec<TransactionBatch> = {
         let batch_1 = {
-            let tx = Arc::new(tx_gen.dummy_proven_tx_with_params(
+            let tx = tx_gen.dummy_proven_tx_with_params(
                 account_id,
                 account_initial_hash,
                 [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)].into(),
                 InputNotes::new(Vec::new()).unwrap(),
                 OutputNotes::new(Vec::new()).unwrap(),
-            ));
+            );
 
-            Arc::new(TransactionBatch::new(vec![tx]).unwrap())
+            TransactionBatch::new(vec![tx]).unwrap()
         };
 
         vec![batch_1]
     };
-    block_builder.build_block(batches).await.unwrap();
+    block_builder.build_block(&batches).await.unwrap();
 
     // Ensure that the store's `apply_block()` was called
     assert_eq!(*store.num_apply_block_called.read().await, 1);
@@ -59,7 +59,7 @@ async fn test_apply_block_called_empty_batches() {
 
     let block_builder = DefaultBlockBuilder::new(store.clone(), store.clone());
 
-    block_builder.build_block(Vec::new()).await.unwrap();
+    block_builder.build_block(&Vec::new()).await.unwrap();
 
     // Ensure that the store's `apply_block()` was called
     assert_eq!(*store.num_apply_block_called.read().await, 1);
@@ -72,7 +72,7 @@ async fn test_build_block_failure() {
 
     let block_builder = DefaultBlockBuilder::new(store.clone(), store.clone());
 
-    let result = block_builder.build_block(Vec::new()).await;
+    let result = block_builder.build_block(&Vec::new()).await;
 
     // Ensure that the store's `apply_block()` was called
     assert!(matches!(result, Err(BuildBlockError::GetBlockInputsFailed(_))));

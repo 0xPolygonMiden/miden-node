@@ -68,7 +68,7 @@ where
         debug!(target: COMPONENT, proof = ?tx.proof());
 
         self.queue
-            .add_transaction(Arc::new(tx))
+            .add_transaction(tx)
             .await
             .map_err(|err| Status::invalid_argument(format!("{:?}", err)))?;
 

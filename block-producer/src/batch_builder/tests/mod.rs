@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    block_builder::errors::BuildBlockError, test_utils::DummyProvenTxGenerator, SharedTxBatch,
+    block_builder::errors::BuildBlockError, test_utils::DummyProvenTxGenerator, TransactionBatch,
 };
 
 // STRUCTS
@@ -8,7 +8,7 @@ use crate::{
 
 #[derive(Default)]
 struct BlockBuilderSuccess {
-    batch_groups: SharedRwVec<Vec<SharedTxBatch>>,
+    batch_groups: SharedRwVec<Vec<TransactionBatch>>,
     num_empty_batches_received: Arc<RwLock<usize>>,
 }
 
@@ -16,12 +16,12 @@ struct BlockBuilderSuccess {
 impl BlockBuilder for BlockBuilderSuccess {
     async fn build_block(
         &self,
-        batches: Vec<SharedTxBatch>,
+        batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError> {
         if batches.is_empty() {
             *self.num_empty_batches_received.write().await += 1;
         } else {
-            self.batch_groups.write().await.push(batches);
+            self.batch_groups.write().await.push(batches.to_vec());
         }
 
         Ok(())
@@ -35,7 +35,7 @@ struct BlockBuilderFailure;
 impl BlockBuilder for BlockBuilderFailure {
     async fn build_block(
         &self,
-        _batches: Vec<SharedTxBatch>,
+        _batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError> {
         Err(BuildBlockError::TooManyBatchesInBlock(0))
     }
@@ -163,8 +163,7 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
 fn dummy_tx_batch(
     tx_gen: &DummyProvenTxGenerator,
     num_txs_in_batch: usize,
-) -> SharedTxBatch {
-    let txs: Vec<_> = (0..num_txs_in_batch).map(|_| Arc::new(tx_gen.dummy_proven_tx())).collect();
-
-    Arc::new(TransactionBatch::new(txs).unwrap())
+) -> TransactionBatch {
+    let txs: Vec<_> = (0..num_txs_in_batch).map(|_| tx_gen.dummy_proven_tx()).collect();
+    TransactionBatch::new(txs).unwrap()
 }
