@@ -11,6 +11,7 @@ use crate::{
 
 /// Tests that `build_block()` succeeds when the transaction batches are not empty
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_apply_block_called_nonempty_batches() {
     let tx_gen = DummyProvenTxGenerator::new();
     let account_id = AccountId::new_unchecked(42u64.into());
@@ -47,6 +48,7 @@ async fn test_apply_block_called_nonempty_batches() {
 
 /// Tests that `build_block()` succeeds when the transaction batches are empty
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_apply_block_called_empty_batches() {
     let account_id = AccountId::new_unchecked(42u64.into());
     let account_hash: Digest =
@@ -67,6 +69,7 @@ async fn test_apply_block_called_empty_batches() {
 
 /// Tests that `build_block()` fails when `get_block_inputs()` fails
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_build_block_failure() {
     let store = Arc::new(MockStoreFailure);
 

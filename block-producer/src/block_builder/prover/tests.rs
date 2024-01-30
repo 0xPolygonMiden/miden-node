@@ -180,6 +180,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 ///
 /// We assume an initial store with 5 accounts, and all will be updated.
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_account_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -274,6 +275,7 @@ async fn test_compute_account_root_success() {
 
 /// Test that the current account root is returned if the batches are empty
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_account_root_empty_batches() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
@@ -329,6 +331,7 @@ async fn test_compute_account_root_empty_batches() {
 /// Tests that the block kernel returns the empty tree (depth 20) if no notes were created, and
 /// contains no batches
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_empty_batches_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
@@ -358,6 +361,7 @@ async fn test_compute_note_root_empty_batches_success() {
 /// Tests that the block kernel returns the empty tree (depth 20) if no notes were created, but
 /// which contains at least 1 batch.
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_empty_notes_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
@@ -390,6 +394,7 @@ async fn test_compute_note_root_empty_notes_success() {
 /// Tests that the block kernel returns the expected tree when multiple notes were created across
 /// many batches.
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -678,6 +683,7 @@ async fn test_compute_nullifier_root_success() {
 
 /// Test that the chain mmr root is as expected if the batches are empty
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_chain_mmr_root_empty_mmr() {
     let store = MockStoreSuccessBuilder::new().build();
 
@@ -689,6 +695,7 @@ async fn test_compute_chain_mmr_root_empty_mmr() {
 
 /// add header to non-empty MMR (1 peak), and check that we get the expected commitment
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_chain_mmr_root_mmr_1_peak() {
     let initial_chain_mmr = {
         let mut mmr = Mmr::new();
@@ -707,6 +714,7 @@ async fn test_compute_chain_mmr_root_mmr_1_peak() {
 
 /// add header to an MMR with 17 peaks, and check that we get the expected commitment
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_chain_mmr_root_mmr_17_peaks() {
     let initial_chain_mmr = {
         let mut mmr = Mmr::new();

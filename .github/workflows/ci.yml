@@ -79,7 +79,7 @@ jobs:
         with:
           command: doc
           args: ${{matrix.args}}
-  
+
   test:
     name: test ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
     runs-on: ${{matrix.os}}-latest
@@ -101,4 +101,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: ${{matrix.args}}
+          args: ${{matrix.args}} -- --nocapture

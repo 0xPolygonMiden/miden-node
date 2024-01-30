@@ -1,9 +1,18 @@
 use anyhow::Result;
-use tracing::{level_filters::LevelFilter, subscriber};
-use tracing_subscriber::{self, fmt::format::FmtSpan, EnvFilter};
+use tracing::subscriber::{self, Subscriber};
 
 pub fn setup_logging() -> Result<()> {
-    let subscriber = tracing_subscriber::fmt()
+    subscriber::set_global_default(subscriber())?;
+
+    Ok(())
+}
+
+#[cfg(not(feature = "tracing-forest"))]
+pub fn subscriber() -> impl Subscriber + core::fmt::Debug {
+    use tracing::level_filters::LevelFilter;
+    use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
+
+    tracing_subscriber::fmt()
         .pretty()
         .compact()
         .with_level(true)
@@ -16,8 +25,13 @@ pub fn setup_logging() -> Result<()> {
                 .from_env_lossy(),
         )
         .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-        .finish();
-    subscriber::set_global_default(subscriber)?;
+        .finish()
+}
 
-    Ok(())
+#[cfg(feature = "tracing-forest")]
+pub fn subscriber() -> impl Subscriber + core::fmt::Debug {
+    pub use tracing_forest::ForestLayer;
+    pub use tracing_subscriber::{layer::SubscriberExt, Registry};
+
+    Registry::default().with(ForestLayer::default())
 }
