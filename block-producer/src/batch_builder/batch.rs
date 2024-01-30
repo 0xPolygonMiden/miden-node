@@ -1,10 +1,14 @@
 use std::collections::BTreeMap;
 
+use miden_crypto::hash::blake::{Blake3Digest, Blake3_256};
 use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
 use miden_vm::crypto::SimpleSmt;
+use tracing::instrument;
 
 use super::errors::BuildBatchError;
 use crate::{SharedProvenTx, CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH};
+
+pub type BatchId = Blake3Digest<32>;
 
 // TRANSACTION BATCH
 // ================================================================================================
@@ -15,6 +19,7 @@ use crate::{SharedProvenTx, CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_B
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
 #[derive(Debug)]
 pub struct TransactionBatch {
+    id: BatchId,
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Digest>,
     created_notes_smt: SimpleSmt<CREATED_NOTES_SMT_DEPTH>,
@@ -33,6 +38,7 @@ impl TransactionBatch {
     /// - The number of created notes across all transactions exceeds 4096.
     ///
     /// TODO: enforce limit on the number of created nullifiers.
+    #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
     pub fn new(txs: Vec<SharedProvenTx>) -> Result<Self, BuildBatchError> {
         let updated_accounts = txs
             .iter()
@@ -72,7 +78,10 @@ impl TransactionBatch {
             )
         };
 
+        let id = Self::compute_id(&txs);
+
         Ok(Self {
+            id,
             updated_accounts,
             produced_nullifiers,
             created_notes_smt,
@@ -82,6 +91,11 @@ impl TransactionBatch {
 
     // PUBLIC ACCESSORS
     // --------------------------------------------------------------------------------------------
+
+    /// Returns the batch ID.
+    pub fn id(&self) -> BatchId {
+        self.id
+    }
 
     /// Returns an iterator over (account_id, init_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
@@ -112,6 +126,17 @@ impl TransactionBatch {
     /// Returns the root of the created notes SMT.
     pub fn created_notes_root(&self) -> Digest {
         self.created_notes_smt.root()
+    }
+
+    // HELPER FUNCTIONS
+    // --------------------------------------------------------------------------------------------
+
+    fn compute_id(txs: &[SharedProvenTx]) -> BatchId {
+        let mut buf = Vec::with_capacity(32 * txs.len());
+        for tx in txs {
+            buf.extend_from_slice(&tx.id().as_bytes());
+        }
+        Blake3_256::hash(&buf)
     }
 }
 

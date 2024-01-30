@@ -12,7 +12,7 @@ mod api;
 // STORE INITIALIZER
 // ================================================================================================
 
-#[instrument(target = "miden-store", skip_all)]
+#[instrument(target = "miden-store", name = "store", skip_all)]
 pub async fn serve(
     config: StoreConfig,
     db: Db,

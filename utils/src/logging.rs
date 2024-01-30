@@ -2,6 +2,10 @@ use std::fmt::Display;
 
 use anyhow::Result;
 use itertools::Itertools;
+use miden_crypto::{
+    hash::{blake::Blake3Digest, Digest},
+    utils::bytes_to_hex_string,
+};
 use miden_objects::{
     notes::{NoteEnvelope, Nullifier},
     transaction::{InputNotes, OutputNotes},
@@ -71,4 +75,8 @@ pub fn format_array(list: impl IntoIterator<Item = impl Display>) -> String {
     } else {
         format!("[{}]", comma_separated)
     }
+}
+
+pub fn format_blake3_digest(digest: Blake3Digest<32>) -> String {
+    bytes_to_hex_string(digest.as_bytes())
 }

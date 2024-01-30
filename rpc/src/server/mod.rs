@@ -11,7 +11,7 @@ mod api;
 
 // RPC INITIALIZER
 // ================================================================================================
-#[instrument(target = "miden-rpc", skip_all)]
+#[instrument(target = "miden-rpc", name = "rpc", skip_all)]
 pub async fn serve(config: RpcConfig) -> Result<()> {
     info!(target: COMPONENT, %config, "Initializing server");
 
