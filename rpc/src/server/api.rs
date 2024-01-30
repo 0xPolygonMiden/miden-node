@@ -54,7 +54,7 @@ impl api_server::Api for RpcApi {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-rpc",
-        name = "rpc::check_nullifiers",
+        name = "rpc:check_nullifiers",
         skip_all,
         ret(level = "debug"),
         err
@@ -78,7 +78,7 @@ impl api_server::Api for RpcApi {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-rpc",
-        name = "rpc::get_block_header_by_number",
+        name = "rpc:get_block_header_by_number",
         skip_all,
         ret(level = "debug"),
         err
@@ -95,7 +95,7 @@ impl api_server::Api for RpcApi {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-rpc",
-        name = "rpc::sync_state",
+        name = "rpc:sync_state",
         skip_all,
         ret(level = "debug"),
         err
@@ -110,7 +110,7 @@ impl api_server::Api for RpcApi {
     }
 
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-rpc", name = "rpc::submit_proven_transaction", skip_all, err)]
+    #[instrument(target = "miden-rpc", name = "rpc:submit_proven_transaction", skip_all, err)]
     async fn submit_proven_transaction(
         &self,
         request: Request<SubmitProvenTransactionRequest>,

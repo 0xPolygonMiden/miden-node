@@ -37,7 +37,7 @@ where
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-block-producer",
-        name = "block_producer::submit_proven_transaction",
+        name = "block_producer:submit_proven_transaction",
         skip_all,
         err
     )]

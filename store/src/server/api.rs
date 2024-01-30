@@ -42,7 +42,7 @@ impl api_server::Api for StoreApi {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
-        name = "store::get_block_header_by_number",
+        name = "store:get_block_header_by_number",
         skip_all,
         ret(level = "debug"),
         err
@@ -64,6 +64,14 @@ impl api_server::Api for StoreApi {
     ///
     /// This endpoint also returns Merkle authentication path for each requested nullifier which can
     /// be verified against the latest root of the nullifier database.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-store",
+        name = "store:check_nullifiers",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn check_nullifiers(
         &self,
         request: tonic::Request<CheckNullifiersRequest>,
@@ -82,6 +90,14 @@ impl api_server::Api for StoreApi {
 
     /// Returns info which can be used by the client to sync up to the latest state of the chain
     /// for the objects the client is interested in.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-store",
+        name = "store:sync_state",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn sync_state(
         &self,
         request: tonic::Request<SyncStateRequest>,
@@ -111,7 +127,13 @@ impl api_server::Api for StoreApi {
 
     /// Updates the local DB by inserting a new block header and the related data.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-store", name = "store:apply_block", skip_all, err)]
+    #[instrument(
+        target = "miden-store",
+        name = "store:apply_block",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn apply_block(
         &self,
         request: tonic::Request<ApplyBlockRequest>,
@@ -147,6 +169,14 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_block_inputs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn get_block_inputs(
         &self,
         request: tonic::Request<GetBlockInputsRequest>,
@@ -206,6 +236,14 @@ impl api_server::Api for StoreApi {
     // --------------------------------------------------------------------------------------------
 
     /// Returns a list of all nullifiers
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-store",
+        name = "store:list_nullifiers",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn list_nullifiers(
         &self,
         _request: tonic::Request<ListNullifiersRequest>,
@@ -222,6 +260,14 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns a list of all notes
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-store",
+        name = "store:list_notes",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn list_notes(
         &self,
         _request: tonic::Request<ListNotesRequest>,
@@ -231,6 +277,14 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns a list of all accounts
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(
+        target = "miden-store",
+        name = "store:list_accounts",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
     async fn list_accounts(
         &self,
         _request: tonic::Request<ListAccountsRequest>,

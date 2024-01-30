@@ -12,7 +12,7 @@ use miden_node_proto::{
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
-use tracing::{info, info_span, instrument, span, Level};
+use tracing::{info, info_span, instrument};
 
 use self::errors::GenesisBlockError;
 use crate::{
@@ -294,7 +294,7 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let span = span!(Level::INFO, COMPONENT, "writing genesis block to DB");
+                        let span = info_span!(target: COMPONENT, "writing genesis block to DB");
                         let guard = span.enter();
 
                         let transaction = conn.transaction()?;
