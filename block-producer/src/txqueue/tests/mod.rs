@@ -83,6 +83,7 @@ impl BatchBuilder for BatchBuilderFailure {
 /// Tests that when the internal "build batch timer" hits, all transactions in the queue are sent to
 /// be built in some batch
 #[tokio::test(start_paused = true)]
+#[miden_node_utils::enable_logging]
 async fn test_build_batch_success() {
     let build_batch_frequency = Duration::from_millis(5);
     let batch_size = 3;
@@ -176,6 +177,7 @@ async fn test_build_batch_success() {
 
 /// Tests that when transactions fail to verify, they are not added to the queue
 #[tokio::test(start_paused = true)]
+#[miden_node_utils::enable_logging]
 async fn test_tx_verify_failure() {
     let build_batch_frequency = Duration::from_millis(5);
     let batch_size = 3;
@@ -211,6 +213,7 @@ async fn test_tx_verify_failure() {
 
 /// Tests that when batch building fails, transactions are added back to the ready queue
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_build_batch_failure() {
     let build_batch_frequency = Duration::from_millis(30);
     let batch_size = 3;

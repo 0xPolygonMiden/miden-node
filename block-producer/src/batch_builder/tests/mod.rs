@@ -46,6 +46,7 @@ impl BlockBuilder for BlockBuilderFailure {
 
 /// Tests that the number of batches in a block doesn't exceed `max_batches_per_block`
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_block_size_doesnt_exceed_limit() {
     let block_frequency = Duration::from_millis(20);
     let max_batches_per_block = 2;
@@ -91,6 +92,7 @@ async fn test_block_size_doesnt_exceed_limit() {
 
 /// Tests that `BlockBuilder::build_block()` is still called when there are no transactions
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_build_block_called_when_no_batches() {
     let block_frequency = Duration::from_millis(20);
     let max_batches_per_block = 2;
@@ -118,6 +120,7 @@ async fn test_build_block_called_when_no_batches() {
 
 /// Tests that if `BlockBuilder::build_block()` fails, then batches are added back on the queue
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_batches_added_back_to_queue_on_block_build_failure() {
     let block_frequency = Duration::from_millis(20);
     let max_batches_per_block = 2;

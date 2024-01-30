@@ -21,6 +21,7 @@ use crate::test_utils::MockStoreSuccessBuilder;
 /// Tests the happy path where 3 transactions who modify different accounts and consume different
 /// notes all verify successfully
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_verify_tx_happy_path() {
     let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
@@ -48,6 +49,7 @@ async fn test_verify_tx_happy_path() {
 ///
 /// In this test, all calls to `verify_tx()` are concurrent
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_verify_tx_happy_path_concurrent() {
     let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
@@ -79,6 +81,7 @@ async fn test_verify_tx_happy_path_concurrent() {
 
 /// Verifies requirement VT1
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_verify_tx_vt1() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -115,6 +118,7 @@ async fn test_verify_tx_vt1() {
 
 /// Verifies requirement VT2
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_verify_tx_vt2() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -146,6 +150,7 @@ async fn test_verify_tx_vt2() {
 
 /// Verifies requirement VT3
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_verify_tx_vt3() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -183,6 +188,7 @@ async fn test_verify_tx_vt3() {
 
 /// Verifies requirement VT4
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_verify_tx_vt4() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -226,6 +232,7 @@ async fn test_verify_tx_vt4() {
 
 /// Verifies requirement VT5
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_verify_tx_vt5() {
     let tx_gen = DummyProvenTxGenerator::new();
 

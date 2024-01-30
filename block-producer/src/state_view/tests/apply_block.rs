@@ -13,6 +13,7 @@ use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 
 /// Tests requirement AB1
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_apply_block_ab1() {
     let tx_gen = DummyProvenTxGenerator::new();
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
@@ -54,6 +55,7 @@ async fn test_apply_block_ab1() {
 
 /// Tests requirement AB2
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_apply_block_ab2() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -103,6 +105,7 @@ async fn test_apply_block_ab2() {
 
 /// Tests requirement AB3
 #[tokio::test]
+#[miden_node_utils::enable_logging]
 async fn test_apply_block_ab3() {
     let tx_gen = DummyProvenTxGenerator::new();
 

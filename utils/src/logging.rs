@@ -10,11 +10,18 @@ use miden_objects::{
     notes::{NoteEnvelope, Nullifier},
     transaction::{InputNotes, OutputNotes},
 };
-use tracing::{level_filters::LevelFilter, subscriber};
+use tracing::{level_filters::LevelFilter, subscriber::Subscriber};
+pub use tracing::{span, subscriber, Level};
 use tracing_subscriber::{self, fmt::format::FmtSpan, EnvFilter};
 
 pub fn setup_logging() -> Result<()> {
-    let subscriber = tracing_subscriber::fmt()
+    subscriber::set_global_default(subscriber())?;
+
+    Ok(())
+}
+
+pub fn subscriber() -> impl Subscriber + core::fmt::Debug {
+    tracing_subscriber::fmt()
         .pretty()
         .compact()
         .with_level(true)
@@ -27,10 +34,7 @@ pub fn setup_logging() -> Result<()> {
                 .from_env_lossy(),
         )
         .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-        .finish();
-    subscriber::set_global_default(subscriber)?;
-
-    Ok(())
+        .finish()
 }
 
 pub fn format_account_id(id: u64) -> String {
