@@ -155,6 +155,8 @@ where
         let txs: Vec<ProvenTransaction> = {
             let mut locked_ready_queue = self.ready_queue.write().await;
 
+            // If there are no transactions in the queue, this call is a no-op. The [BatchBuilder]
+            // will produce empty blocks if necessary.
             if locked_ready_queue.is_empty() {
                 return;
             }
