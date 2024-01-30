@@ -179,7 +179,9 @@ fn ensure_tx_inputs_constraints(
 
     match tx_inputs.account_hash {
         Some(store_account_hash) => {
-            if candidate_tx.initial_account_hash() != store_account_hash {
+            if candidate_tx.initial_account_hash() != store_account_hash
+                && store_account_hash != Digest::default()
+            {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
                     tx_initial_account_hash: candidate_tx.initial_account_hash(),
                     store_account_hash: Some(store_account_hash),
