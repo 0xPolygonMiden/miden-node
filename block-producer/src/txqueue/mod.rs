@@ -104,18 +104,7 @@ impl Display for AddTransactionError {
 // TRANSACTION QUEUE
 // ================================================================================================
 
-#[async_trait]
-pub trait TransactionQueue: Send + Sync + 'static {
-    async fn add_transaction(
-        &self,
-        tx: SharedProvenTx,
-    ) -> Result<(), AddTransactionError>;
-}
-
-// DEFAULT TRANSACTION QUEUE
-// ================================================================================================
-
-pub struct DefaultTransactionQueueOptions {
+pub struct TransactionQueueOptions {
     /// The frequency at which we try to build batches from transactions in the queue
     pub build_batch_frequency: Duration,
 
@@ -123,14 +112,14 @@ pub struct DefaultTransactionQueueOptions {
     pub batch_size: usize,
 }
 
-pub struct DefaultTransactionQueue<BB, TV> {
+pub struct TransactionQueue<BB, TV> {
     ready_queue: SharedRwVec<SharedProvenTx>,
     tx_verifier: Arc<TV>,
     batch_builder: Arc<BB>,
-    options: DefaultTransactionQueueOptions,
+    options: TransactionQueueOptions,
 }
 
-impl<BB, TV> DefaultTransactionQueue<BB, TV>
+impl<BB, TV> TransactionQueue<BB, TV>
 where
     TV: TransactionVerifier,
     BB: BatchBuilder,
@@ -138,7 +127,7 @@ where
     pub fn new(
         tx_verifier: Arc<TV>,
         batch_builder: Arc<BB>,
-        options: DefaultTransactionQueueOptions,
+        options: TransactionQueueOptions,
     ) -> Self {
         Self {
             ready_queue: Arc::new(RwLock::new(Vec::new())),
@@ -195,17 +184,14 @@ where
             );
         }
     }
-}
 
-#[async_trait]
-impl<BB, TV> TransactionQueue for DefaultTransactionQueue<BB, TV>
-where
-    TV: TransactionVerifier,
-    BB: BatchBuilder,
-{
+    /// Queues `tx` to be added in a batch and subsequently into a block.
+    ///
+    /// This method will validate the `tx` and ensure it is valid w.r.t. the rollup state, and the
+    /// current in-flight transactions.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn add_transaction(
+    pub async fn add_transaction(
         &self,
         tx: SharedProvenTx,
     ) -> Result<(), AddTransactionError> {

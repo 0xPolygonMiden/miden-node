@@ -3,7 +3,7 @@ use std::{net::ToSocketAddrs, sync::Arc};
 use anyhow::{anyhow, Result};
 use miden_node_proto::{block_producer::api_server, store::api_client as store_client};
 use tonic::transport::Server;
-use tracing::{info, info_span, instrument, Instrument};
+use tracing::{info, instrument};
 
 use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
@@ -11,7 +11,7 @@ use crate::{
     config::BlockProducerConfig,
     state_view::DefaultStateView,
     store::DefaultStore,
-    txqueue::{DefaultTransactionQueue, DefaultTransactionQueueOptions},
+    txqueue::{TransactionQueue, TransactionQueueOptions},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
 };
@@ -40,11 +40,11 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let batch_builder =
         Arc::new(DefaultBatchBuilder::new(Arc::new(block_builder), batch_builder_options));
 
-    let transaction_queue_options = DefaultTransactionQueueOptions {
+    let transaction_queue_options = TransactionQueueOptions {
         build_batch_frequency: SERVER_BUILD_BATCH_FREQUENCY,
         batch_size: SERVER_BATCH_SIZE,
     };
-    let queue = Arc::new(DefaultTransactionQueue::new(
+    let queue = Arc::new(TransactionQueue::new(
         state_view,
         batch_builder.clone(),
         transaction_queue_options,
