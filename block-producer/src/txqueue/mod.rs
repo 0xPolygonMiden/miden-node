@@ -152,6 +152,8 @@ where
     pub async fn run(self: Arc<Self>) {
         let mut interval = time::interval(self.options.build_batch_frequency);
 
+        info!(target: COMPONENT, period_ms = interval.period().as_millis(), "Transaction queue started");
+
         loop {
             interval.tick().await;
             self.try_build_batches().await;

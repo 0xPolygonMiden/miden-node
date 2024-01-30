@@ -74,6 +74,8 @@ where
     pub async fn run(self: Arc<Self>) {
         let mut interval = time::interval(self.options.block_frequency);
 
+        info!(target: COMPONENT, period_ms = interval.period().as_millis(), "Batch builder started");
+
         loop {
             interval.tick().await;
             self.try_build_block().await;
