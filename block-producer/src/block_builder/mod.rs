@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use miden_node_utils::logging::{format_array, format_blake3_digest};
 use miden_objects::{accounts::AccountId, Digest};
 use tracing::{debug, info, instrument};
 
@@ -73,7 +74,7 @@ where
         &self,
         batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
-        info!(target: COMPONENT, num_batches = batches.len());
+        info!(target: COMPONENT, num_batches = batches.len(), batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))));
 
         let account_updates: Vec<(AccountId, Digest)> =
             batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
@@ -112,12 +113,15 @@ where
             produced_nullifiers,
         };
 
-        info!(target: COMPONENT, block_num, "block is built");
+        // TODO: Change to block.hash(), once it implemented
+        let block_hash = block.header.hash();
+
+        info!(target: COMPONENT, block_num, %block_hash, "block is built");
         debug!(target: COMPONENT, ?block);
 
         self.state_view.apply_block(block).await?;
 
-        info!(target: COMPONENT, block_num, "block is applied!");
+        info!(target: COMPONENT, block_num, %block_hash, "block is applied!");
 
         Ok(())
     }
