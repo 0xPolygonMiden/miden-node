@@ -19,6 +19,7 @@ use miden_node_proto::{
     store::api_server,
     tsmt::NullifierLeaf,
 };
+use miden_objects::BlockHeader;
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -141,6 +142,13 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
+        let block = request.block.ok_or(invalid_argument("Apply block missing block header"))?;
+        let header_base: BlockHeader = block
+            .clone()
+            .try_into()
+            .map_err(|err: ParseError| tonic::Status::invalid_argument(err.to_string()))?;
+
+        info!(target: COMPONENT, block_hash = %header_base.hash(), "Apply block");
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let accounts = request
@@ -158,8 +166,6 @@ impl api_server::Api for StoreApi {
                 Ok((account_id.id, account_hash))
             })
             .collect::<Result<Vec<_>, Status>>()?;
-
-        let block = request.block.ok_or(invalid_argument("Apply block missing block header"))?;
 
         let notes = request.notes;
 

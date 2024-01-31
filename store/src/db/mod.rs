@@ -213,7 +213,7 @@ impl Db {
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
     /// the in-memory trees. Further details available on [super::state::State::apply_block].
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-store", skip_all, err)]
+    #[instrument(target = "miden-store", "store:db:apply_block" skip_all, err)]
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,
@@ -228,7 +228,7 @@ impl Db {
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
                 let _span =
-                    info_span!(target: COMPONENT, "Writing new block data to database").entered();
+                    info_span!(target: COMPONENT, "store:db:apply_block:Writing new block data to database").entered();
 
                 let transaction = conn.transaction()?;
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
@@ -294,7 +294,7 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let span = info_span!(target: COMPONENT, "writing genesis block to DB");
+                        let span = info_span!(target: COMPONENT, "setup:ensure_genesis_block:writing genesis block to DB");
                         let guard = span.enter();
 
                         let transaction = conn.transaction()?;
