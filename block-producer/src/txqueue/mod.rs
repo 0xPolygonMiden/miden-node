@@ -9,7 +9,7 @@ use miden_objects::{
     accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
 };
 use tokio::{sync::RwLock, time};
-use tracing::{info, info_span, instrument, Instrument};
+use tracing::{debug, info, info_span, instrument, Instrument};
 
 use crate::{
     batch_builder::BatchBuilder, store::TxInputsError, ProvenTransaction, SharedRwVec, COMPONENT,
@@ -158,6 +158,7 @@ where
             // If there are no transactions in the queue, this call is a no-op. The [BatchBuilder]
             // will produce empty blocks if necessary.
             if locked_ready_queue.is_empty() {
+                debug!(target: COMPONENT, "Transaction queue empty");
                 return;
             }
 

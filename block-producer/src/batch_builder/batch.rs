@@ -17,7 +17,7 @@ pub type BatchId = Blake3Digest<32>;
 /// in the batch must be addressing that account (issue: #186).
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: BTreeMap<AccountId, AccountStates>,
