@@ -120,12 +120,12 @@ where
         // TODO: Change to block.hash(), once it implemented
         let block_hash = block.header.hash();
 
-        info!(target: COMPONENT, block_num, %block_hash, "built block");
+        info!(target: COMPONENT, block_num, %block_hash, "block built");
         debug!(target: COMPONENT, ?block);
 
         self.state_view.apply_block(block).await?;
 
-        info!(target: COMPONENT, block_num, %block_hash, "block is applied!");
+        info!(target: COMPONENT, block_num, %block_hash, "block committed");
 
         Ok(())
     }
