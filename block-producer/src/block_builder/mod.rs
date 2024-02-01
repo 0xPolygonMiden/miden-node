@@ -69,12 +69,16 @@ where
     A: ApplyBlock,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-block-producer", skip_all, err(level = "warn"))]
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn build_block(
         &self,
         batches: Vec<SharedTxBatch>,
     ) -> Result<(), BuildBlockError> {
-        info!(target: COMPONENT, num_batches = batches.len(), batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))));
+        info!(
+            target: COMPONENT,
+            num_batches = batches.len(),
+            batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))),
+        );
 
         let account_updates: Vec<(AccountId, Digest)> =
             batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
@@ -116,7 +120,7 @@ where
         // TODO: Change to block.hash(), once it implemented
         let block_hash = block.header.hash();
 
-        info!(target: COMPONENT, block_num, %block_hash, "block is built");
+        info!(target: COMPONENT, block_num, %block_hash, "built block");
         debug!(target: COMPONENT, ?block);
 
         self.state_view.apply_block(block).await?;

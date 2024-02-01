@@ -227,8 +227,8 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let _span =
-                    info_span!(target: COMPONENT, "store:db:apply_block:Writing new block data to database").entered();
+                let _span = info_span!(target: COMPONENT, "store:db:apply_block:write_block_to_db")
+                    .entered();
 
                 let transaction = conn.transaction()?;
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
@@ -294,7 +294,7 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let span = info_span!(target: COMPONENT, "setup:ensure_genesis_block:writing genesis block to DB");
+                        let span = info_span!(target: COMPONENT, "setup:ensure_genesis_block:write_genesis_block_to_db");
                         let guard = span.enter();
 
                         let transaction = conn.transaction()?;

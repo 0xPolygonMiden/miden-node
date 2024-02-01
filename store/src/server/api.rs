@@ -146,9 +146,9 @@ impl api_server::Api for StoreApi {
         let header_base: BlockHeader = block
             .clone()
             .try_into()
-            .map_err(|err: ParseError| tonic::Status::invalid_argument(err.to_string()))?;
+            .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?;
 
-        info!(target: COMPONENT, block_hash = %header_base.hash(), "Apply block");
+        info!(target: COMPONENT, block_num = block.block_num, block_hash = %header_base.hash());
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let accounts = request

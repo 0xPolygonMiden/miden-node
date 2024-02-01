@@ -242,8 +242,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span =
-                info_span!(target: COMPONENT, "updating in-memory data structures").entered();
+            let span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
