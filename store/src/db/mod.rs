@@ -1,6 +1,5 @@
 use std::fs::{self, create_dir_all};
 
-use anyhow::anyhow;
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use miden_node_proto::{
@@ -17,6 +16,7 @@ use tracing::{info, info_span, instrument};
 use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
+    db::errors::DbError,
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
     types::{AccountId, BlockNumber},
     COMPONENT,
@@ -28,6 +28,8 @@ mod sql;
 
 #[cfg(test)]
 mod tests;
+
+pub type Result<T> = std::result::Result<T, DbError>;
 
 pub struct Db {
     pool: Pool,
@@ -47,7 +49,7 @@ impl Db {
     /// is as expected and present in the database.
     // TODO: This span is logged in a root span, we should connect it to the parent one.
     #[instrument(target = "miden-store", skip_all)]
-    pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
+    pub async fn setup(config: StoreConfig) -> Result<Self> {
         info!(target: COMPONENT, %config, "Connecting to the database");
 
         if let Some(p) = config.database_filepath.parent() {
@@ -55,7 +57,8 @@ impl Db {
         }
 
         let pool = SqliteConfig::new(config.database_filepath.clone())
-            .builder(Runtime::Tokio1)?
+            .builder(Runtime::Tokio1)
+            .expect("Infallible")
             .post_create(Hook::async_fn(move |conn, _| {
                 Box::pin(async move {
                     let _ = conn
@@ -75,7 +78,9 @@ impl Db {
                             conn.execute("PRAGMA foreign_keys = ON;", ())
                         })
                         .await
-                        .map_err(|_| HookError::StaticMessage("Loading carray module failed"))?;
+                        .map_err(|e| {
+                            HookError::Message(format!("Loading carray module failed: {e}"))
+                        })?;
 
                     Ok(())
                 })
@@ -92,7 +97,7 @@ impl Db {
 
         conn.interact(|conn| migrations::MIGRATIONS.to_latest(conn))
             .await
-            .map_err(|_| anyhow!("Migration task failed with a panic"))??;
+            .map_err(|err| DbError::MigrationTaskFailed(err.to_string()))??;
 
         let db = Db { pool };
         db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy())
@@ -104,37 +109,37 @@ impl Db {
     /// Loads all the nullifiers from the DB.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
+    pub async fn select_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>> {
         self.pool
             .get()
             .await?
             .interact(sql::select_nullifiers)
             .await
-            .map_err(|_| anyhow!("Get nullifiers task failed with a panic"))?
+            .map_err(|err| DbError::SqlitePoolInteractTaskFailed(err.to_string()))?
     }
 
     /// Loads all the notes from the DB.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
+    pub async fn select_notes(&self) -> Result<Vec<Note>> {
         self.pool
             .get()
             .await?
             .interact(sql::select_notes)
             .await
-            .map_err(|_| anyhow!("Get notes task failed with a panic"))?
+            .map_err(|err| DbError::SqlitePoolInteractTaskFailed(err.to_string()))?
     }
 
     /// Loads all the accounts from the DB.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
+    pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>> {
         self.pool
             .get()
             .await?
             .interact(sql::select_accounts)
             .await
-            .map_err(|_| anyhow!("Get accounts task failed with a panic"))?
+            .map_err(|err| DbError::SqlitePoolInteractTaskFailed(err.to_string()))?
     }
 
     /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.
@@ -145,39 +150,37 @@ impl Db {
     pub async fn select_block_header_by_block_num(
         &self,
         block_number: Option<BlockNumber>,
-    ) -> Result<Option<block_header::BlockHeader>, anyhow::Error> {
+    ) -> Result<Option<block_header::BlockHeader>> {
         self.pool
             .get()
             .await?
             .interact(move |conn| sql::select_block_header_by_block_num(conn, block_number))
             .await
-            .map_err(|_| anyhow!("Get block header task failed with a panic"))?
+            .map_err(|err| DbError::SqlitePoolInteractTaskFailed(err.to_string()))?
     }
 
     /// Loads all the block headers from the DB.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_block_headers(
-        &self
-    ) -> Result<Vec<block_header::BlockHeader>, anyhow::Error> {
+    pub async fn select_block_headers(&self) -> Result<Vec<block_header::BlockHeader>> {
         self.pool
             .get()
             .await?
             .interact(sql::select_block_headers)
             .await
-            .map_err(|_| anyhow!("Get block headers task failed with a panic"))?
+            .map_err(|err| DbError::SqlitePoolInteractTaskFailed(err.to_string()))?
     }
 
     /// Loads all the account hashes from the DB.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_account_hashes(&self) -> Result<Vec<(AccountId, Digest)>, anyhow::Error> {
+    pub async fn select_account_hashes(&self) -> Result<Vec<(AccountId, Digest)>> {
         self.pool
             .get()
             .await?
             .interact(sql::select_account_hashes)
             .await
-            .map_err(|_| anyhow!("Get account hashes task failed with a panic"))?
+            .map_err(|err| DbError::SqlitePoolInteractTaskFailed(err.to_string()))?
     }
 
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
@@ -188,7 +191,7 @@ impl Db {
         account_ids: &[AccountId],
         note_tag_prefixes: &[u32],
         nullifier_prefixes: &[u32],
-    ) -> Result<StateSyncUpdate, anyhow::Error> {
+    ) -> Result<StateSyncUpdate> {
         let account_ids = account_ids.to_vec();
         let note_tag_prefixes = note_tag_prefixes.to_vec();
         let nullifier_prefixes = nullifier_prefixes.to_vec();
@@ -206,7 +209,7 @@ impl Db {
                 )
             })
             .await
-            .map_err(|_| anyhow!("Get account hashes task failed with a panic"))?
+            .map_err(|err| DbError::SqlitePoolInteractTaskFailed(err.to_string()))?
     }
 
     /// Inserts the data of a new block into the DB.
@@ -225,11 +228,11 @@ impl Db {
         notes: Vec<Note>,
         nullifiers: Vec<RpoDigest>,
         accounts: Vec<(AccountId, Digest)>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<()> {
         self.pool
             .get()
             .await?
-            .interact(move |conn| -> anyhow::Result<()> {
+            .interact(move |conn| -> Result<()> {
                 // TODO: This span is logged in a root span, we should connect it to the parent one.
                 let _span = info_span!(target: COMPONENT, "write_block_to_db").entered();
 
@@ -237,14 +240,16 @@ impl Db {
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
 
                 let _ = allow_acquire.send(());
-                acquire_done.blocking_recv()?;
+                acquire_done
+                    .blocking_recv()
+                    .map_err(DbError::BlockApplyingBrokenBecauseOfClosedChannel)?;
 
                 transaction.commit()?;
 
                 Ok(())
             })
             .await
-            .map_err(|_| anyhow!("Apply block task failed with a panic"))??;
+            .map_err(|err| DbError::SqlitePoolInteractTaskFailed(err.to_string()))??;
 
         Ok(())
     }
@@ -260,7 +265,7 @@ impl Db {
     async fn ensure_genesis_block(
         &self,
         genesis_filepath: &str,
-    ) -> Result<(), GenesisBlockError> {
+    ) -> Result<()> {
         let (expected_genesis_header, account_smt) = {
             let file_contents = fs::read(genesis_filepath).map_err(|error| {
                 GenesisBlockError::FailedToReadGenesisFile {
@@ -271,7 +276,9 @@ impl Db {
 
             let genesis_state = GenesisState::read_from_bytes(&file_contents)
                 .map_err(GenesisBlockError::GenesisFileDeserializationError)?;
-            let (block_header, account_smt) = genesis_state.into_block_parts()?;
+            let (block_header, account_smt) = genesis_state
+                .into_block_parts()
+                .map_err(GenesisBlockError::MalconstructedGenesisState)?;
 
             (block_header.into(), account_smt)
         };
@@ -279,16 +286,16 @@ impl Db {
         let maybe_block_header_in_store = self
             .select_block_header_by_block_num(Some(GENESIS_BLOCK_NUM))
             .await
-            .map_err(|err| GenesisBlockError::SelectBlockHeaderByBlockNumError(err.to_string()))?;
+            .map_err(|err| GenesisBlockError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {
                 // ensure that expected header is what's also in the store
                 if expected_genesis_header != block_header_in_store {
-                    return Err(GenesisBlockError::GenesisBlockHeaderMismatch {
+                    Err(GenesisBlockError::GenesisBlockHeaderMismatch {
                         expected_genesis_header: Box::new(expected_genesis_header),
                         block_header_in_store: Box::new(block_header_in_store),
-                    });
+                    })?;
                 }
             },
             None => {
@@ -296,7 +303,7 @@ impl Db {
                 self.pool
                     .get()
                     .await?
-                    .interact(move |conn| -> anyhow::Result<()> {
+                    .interact(move |conn| -> Result<()> {
                         // TODO: This span is logged in a root span, we should connect it to the parent one.
                         let span = info_span!(target: COMPONENT, "write_genesis_block_to_db");
                         let guard = span.enter();
@@ -320,8 +327,7 @@ impl Db {
                         Ok(())
                     })
                     .await
-                    .map_err(|err| GenesisBlockError::ApplyBlockFailed(err.to_string()))?
-                    .map_err(|err| GenesisBlockError::ApplyBlockFailed(err.to_string()))?;
+                    .map_err(|err| GenesisBlockError::ApplyBlockFailed(err.to_string()))??;
             },
         }
 
