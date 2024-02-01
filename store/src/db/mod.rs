@@ -45,7 +45,8 @@ pub struct StateSyncUpdate {
 impl Db {
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
-    #[instrument(target = "miden-store", name = "store::setup", skip_all)]
+    // TODO: This span is logged in a root span, we should connect it to the parent one.
+    #[instrument(target = "miden-store", skip_all)]
     pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
         info!(target: COMPONENT, %config, "Connecting to the database");
 
@@ -212,8 +213,10 @@ impl Db {
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
     /// the in-memory trees. Further details available on [super::state::State::apply_block].
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
-    #[instrument(target = "miden-store", "store:db:apply_block" skip_all, err)]
+    #[allow(clippy::blocks_in_conditions)]
+    // Workaround of `instrument` issue
+    // TODO: This span is logged in a root span, we should connect it to the parent one.
+    #[instrument(target = "miden-store", skip_all, err)]
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,
@@ -227,8 +230,8 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let _span = info_span!(target: COMPONENT, "store:db:apply_block:write_block_to_db")
-                    .entered();
+                // TODO: This span is logged in a root span, we should connect it to the parent one.
+                let _span = info_span!(target: COMPONENT, "write_block_to_db").entered();
 
                 let transaction = conn.transaction()?;
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
@@ -294,7 +297,8 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let span = info_span!(target: COMPONENT, "setup:ensure_genesis_block:write_genesis_block_to_db");
+                        // TODO: This span is logged in a root span, we should connect it to the parent one.
+                        let span = info_span!(target: COMPONENT, "write_genesis_block_to_db");
                         let guard = span.enter();
 
                         let transaction = conn.transaction()?;

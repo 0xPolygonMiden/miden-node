@@ -211,7 +211,8 @@ impl State {
     /// - the DB transaction is committed, and requests that read only from the DB can proceed to
     ///   use the fresh data.
     /// - the in-memory structures are updated, and the lock is released.
-    #[instrument(target = "miden-store", name = "db:apply_block" skip_all, err)]
+    // TODO: This span is logged in a root span, we should connect it to the parent span.
+    #[instrument(target = "miden-store", skip_all, err)]
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,

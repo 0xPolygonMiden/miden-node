@@ -3,7 +3,7 @@ use std::{net::ToSocketAddrs, sync::Arc};
 use anyhow::{anyhow, Result};
 use miden_node_proto::{block_producer::api_server, store::api_client as store_client};
 use tonic::transport::Server;
-use tracing::{info, info_span, instrument, Instrument};
+use tracing::{info, instrument};
 
 use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
@@ -53,11 +53,7 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(queue.clone()));
 
     tokio::spawn(async move { queue.run().await });
-
-    tokio::spawn(
-        async move { batch_builder.run().await }
-            .instrument(info_span!(target: COMPONENT, "batch_builder")),
-    );
+    tokio::spawn(async move { batch_builder.run().await });
 
     info!(target: COMPONENT, "Server initialized");
 
