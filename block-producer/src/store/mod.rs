@@ -191,9 +191,9 @@ impl Store for DefaultStore {
                 nullifiers,
             },
             None => {
-                return Err(TxInputsError::MalformedResponse(format!(
-                    "incorrect account hash returned from the store. Got None.",
-                )))
+                return Err(TxInputsError::MalformedResponse(
+                    "incorrect account hash returned from the store. Got None.".to_string(),
+                ))
             },
         };
 
