@@ -98,6 +98,8 @@ impl<S> ApplyBlock for DefaultStateView<S>
 where
     S: Store,
 {
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn apply_block(
         &self,
         block: Block,

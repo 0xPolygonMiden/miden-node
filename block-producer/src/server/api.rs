@@ -39,7 +39,7 @@ where
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-block-producer",
-        name = "block_producer::submit_proven_transaction",
+        name = "block_producer:submit_proven_transaction",
         skip_all,
         err
     )]
@@ -48,7 +48,7 @@ where
         request: tonic::Request<SubmitProvenTransactionRequest>,
     ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
         let request = request.into_inner();
-        debug!(target: COMPONENT, tx = ?request.transaction);
+        debug!(target: COMPONENT, ?request);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
             .map_err(|_| Status::invalid_argument("Invalid transaction"))?;

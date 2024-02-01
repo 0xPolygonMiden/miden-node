@@ -12,7 +12,7 @@ use miden_node_proto::{
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
-use tracing::{info, instrument, span, Level};
+use tracing::{info, info_span, instrument};
 
 use self::errors::GenesisBlockError;
 use crate::{
@@ -45,7 +45,8 @@ pub struct StateSyncUpdate {
 impl Db {
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
-    #[instrument(target = "miden-store", name = "store::setup", skip_all)]
+    // TODO: This span is logged in a root span, we should connect it to the parent one.
+    #[instrument(target = "miden-store", skip_all)]
     pub async fn setup(config: StoreConfig) -> Result<Self, anyhow::Error> {
         info!(target: COMPONENT, %config, "Connecting to the database");
 
@@ -101,6 +102,8 @@ impl Db {
     }
 
     /// Loads all the nullifiers from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
         self.pool
             .get()
@@ -111,6 +114,8 @@ impl Db {
     }
 
     /// Loads all the notes from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
         self.pool
             .get()
@@ -121,6 +126,8 @@ impl Db {
     }
 
     /// Loads all the accounts from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
         self.pool
             .get()
@@ -133,6 +140,8 @@ impl Db {
     /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_block_header_by_block_num(
         &self,
         block_number: Option<BlockNumber>,
@@ -146,6 +155,8 @@ impl Db {
     }
 
     /// Loads all the block headers from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_block_headers(
         &self
     ) -> Result<Vec<block_header::BlockHeader>, anyhow::Error> {
@@ -158,6 +169,8 @@ impl Db {
     }
 
     /// Loads all the account hashes from the DB.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_account_hashes(&self) -> Result<Vec<(AccountId, Digest)>, anyhow::Error> {
         self.pool
             .get()
@@ -167,6 +180,8 @@ impl Db {
             .map_err(|_| anyhow!("Get account hashes task failed with a panic"))?
     }
 
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn get_state_sync(
         &self,
         block_num: BlockNumber,
@@ -198,6 +213,10 @@ impl Db {
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
     /// the in-memory trees. Further details available on [super::state::State::apply_block].
+    #[allow(clippy::blocks_in_conditions)]
+    // Workaround of `instrument` issue
+    // TODO: This span is logged in a root span, we should connect it to the parent one.
+    #[instrument(target = "miden-store", skip_all, err)]
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,
@@ -211,8 +230,8 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| -> anyhow::Result<()> {
-                let span = span!(Level::INFO, COMPONENT, "writing new block data to DB");
-                let guard = span.enter();
+                // TODO: This span is logged in a root span, we should connect it to the parent one.
+                let _span = info_span!(target: COMPONENT, "write_block_to_db").entered();
 
                 let transaction = conn.transaction()?;
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
@@ -222,7 +241,6 @@ impl Db {
 
                 transaction.commit()?;
 
-                drop(guard);
                 Ok(())
             })
             .await
@@ -237,6 +255,8 @@ impl Db {
     /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that the
     /// genesis block in the database is consistent with the genesis block data in the genesis JSON
     /// file.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, err)]
     async fn ensure_genesis_block(
         &self,
         genesis_filepath: &str,
@@ -277,7 +297,8 @@ impl Db {
                     .get()
                     .await?
                     .interact(move |conn| -> anyhow::Result<()> {
-                        let span = span!(Level::INFO, COMPONENT, "writing genesis block to DB");
+                        // TODO: This span is logged in a root span, we should connect it to the parent one.
+                        let span = info_span!(target: COMPONENT, "write_genesis_block_to_db");
                         let guard = span.enter();
 
                         let transaction = conn.transaction()?;
