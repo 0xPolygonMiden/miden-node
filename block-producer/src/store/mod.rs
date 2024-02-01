@@ -186,9 +186,14 @@ impl Store for DefaultStore {
                 account_hash: None,
                 nullifiers,
             },
-            _ => TxInputs {
-                account_hash,
+            Some(hash) => TxInputs {
+                account_hash: Some(hash),
                 nullifiers,
+            },
+            None => {
+                return Err(TxInputsError::MalformedResponse(format!(
+                    "incorrect account hash returned from the store. Got None.",
+                )))
             },
         };
 
