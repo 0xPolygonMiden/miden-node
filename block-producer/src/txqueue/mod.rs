@@ -44,7 +44,7 @@ pub enum VerifyTxError {
     #[error("Failed to retrieve transaction inputs from the store: {0}")]
     StoreConnectionFailed(#[from] TxInputsError),
 
-    #[error("Transaction input error")]
+    #[error("Transaction input error: {0}")]
     TransactionInputError(#[from] TransactionInputError),
 }
 
