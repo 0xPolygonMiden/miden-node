@@ -178,25 +178,20 @@ fn ensure_tx_inputs_constraints(
     debug!(target: COMPONENT, %tx_inputs);
 
     match tx_inputs.account_hash {
+        // Having `Some(store_account_hash)` here signifies that we are operating
+        // on the state of an existing account.
         Some(store_account_hash) => {
             if candidate_tx.initial_account_hash() != store_account_hash {
-                // Prevents this check from returning an Err() in case a new account
-                // that has not yet been stored in the DB submits a transaction. By default
-                // the `store_account_hash` of a new account would be `Digest::default()`
-                if store_account_hash == Digest::default() {
-                } else {
-                    return Err(VerifyTxError::IncorrectAccountInitialHash {
-                        tx_initial_account_hash: candidate_tx.initial_account_hash(),
-                        store_account_hash: Some(store_account_hash),
-                    });
-                }
+                return Err(VerifyTxError::IncorrectAccountInitialHash {
+                    tx_initial_account_hash: candidate_tx.initial_account_hash(),
+                    store_account_hash: Some(store_account_hash),
+                });
             }
         },
+        // Having `None` here signifies that we are operating
+        // on the state of a new account
         None => {
-            return Err(VerifyTxError::IncorrectAccountInitialHash {
-                tx_initial_account_hash: candidate_tx.initial_account_hash(),
-                store_account_hash: None,
-            })
+            // TODO: check if the transaction was executed against new account
         },
     }
 

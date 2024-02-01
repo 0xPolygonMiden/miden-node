@@ -181,9 +181,15 @@ impl Store for DefaultStore {
             nullifiers.into_iter().collect()
         };
 
-        let tx_inputs = TxInputs {
-            account_hash,
-            nullifiers,
+        let tx_inputs = match account_hash {
+            Some(hash) if hash == Digest::default() => TxInputs {
+                account_hash: None,
+                nullifiers,
+            },
+            _ => TxInputs {
+                account_hash,
+                nullifiers,
+            },
         };
 
         debug!(target: COMPONENT, %tx_inputs);
