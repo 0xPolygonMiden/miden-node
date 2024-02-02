@@ -12,7 +12,7 @@ pub enum ParseError {
     #[error("Tiered sparse merkle tree proof missing key")]
     MissingLeafKey,
     #[error("MmrPeaks error: {0}")]
-    MmrPeaksError(#[from] MmrError),
+    MmrPeaksError(MmrError),
     #[error("Number of MmrPeaks doesn't fit into memory")]
     TooManyMmrPeaks,
     #[error("Value is not in the range 0..MODULUS")]
