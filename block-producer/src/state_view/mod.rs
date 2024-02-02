@@ -178,8 +178,8 @@ fn ensure_tx_inputs_constraints(
     debug!(target: COMPONENT, %tx_inputs);
 
     match tx_inputs.account_hash {
-        // Having `Some(store_account_hash)` here signifies that we are operating
-        // on the state of an existing account.
+        // if the account is present in the Store, make sure that the account state hash
+        // from the received transaction is the same as the one from the Store
         Some(store_account_hash) => {
             if candidate_tx.initial_account_hash() != store_account_hash {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
@@ -188,8 +188,7 @@ fn ensure_tx_inputs_constraints(
                 });
             }
         },
-        // Having `None` here signifies that we are operating
-        // on the state of a new account
+        // if the account is not present in the Store, it must be a new account
         None => {
             // TODO: check if the transaction was executed against new account
         },
