@@ -41,7 +41,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
-    errors::StateError,
+    errors::{ApplyBlockError, StateError},
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -223,8 +223,8 @@ impl State {
         nullifiers: Vec<RpoDigest>,
         accounts: Vec<(AccountId, Digest)>,
         notes: Vec<NoteCreated>,
-    ) -> Result<()> {
-        let _ = self.writer.try_lock().map_err(|_| StateError::ConcurrentWrite)?;
+    ) -> Result<(), ApplyBlockError> {
+        let _ = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
 
         let new_block: BlockHeader = block_header.clone().try_into()?;
 
@@ -237,10 +237,10 @@ impl State {
             .try_into()?;
 
         if new_block.block_num() != prev_block.block_num() + 1 {
-            return Err(StateError::NewBlockInvalidBlockNum);
+            return Err(ApplyBlockError::NewBlockInvalidBlockNum);
         }
         if new_block.prev_hash() != prev_block.hash() {
-            return Err(StateError::NewBlockInvalidPrevHash);
+            return Err(ApplyBlockError::NewBlockInvalidPrevHash);
         }
 
         // scope to read in-memory data, validate the request, and compute intermediary values
@@ -256,7 +256,7 @@ impl State {
                 .cloned()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
-                return Err(StateError::DuplicatedNullifiers(duplicate_nullifiers));
+                return Err(ApplyBlockError::DuplicatedNullifiers(duplicate_nullifiers));
             }
 
             // update the in-memory data structures and compute the new block header. Important, the
@@ -274,7 +274,7 @@ impl State {
                     }
                 })?;
                 if peaks.hash_peaks() != new_block.chain_root() {
-                    return Err(StateError::NewBlockInvalidChainRoot);
+                    return Err(ApplyBlockError::NewBlockInvalidChainRoot);
                 }
 
                 chain_mmr.add(new_block.hash());
@@ -304,13 +304,13 @@ impl State {
             }
 
             if account_tree.root() != new_block.account_root() {
-                return Err(StateError::NewBlockInvalidAccountRoot);
+                return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
             }
 
             // build notes tree
             let note_tree = build_notes_tree(&notes)?;
             if note_tree.root() != new_block.note_root() {
-                return Err(StateError::NewBlockInvalidNoteRoot);
+                return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
             }
 
             drop(span);
@@ -320,9 +320,8 @@ impl State {
                 .map(|note| {
                     // Safety: This should never happen, the note_tree is created directly form
                     // this list of notes
-                    let leaf_index: LeafIndex<NOTE_LEAF_DEPTH> =
-                        LeafIndex::new(note.note_index as u64)
-                            .map_err(StateError::UnableToCreateProofForNote)?;
+                    let leaf_index = LeafIndex::<NOTE_LEAF_DEPTH>::new(note.note_index as u64)
+                        .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
 
                     let merkle_path = note_tree.open(&leaf_index).path;
 
@@ -335,7 +334,7 @@ impl State {
                         merkle_path: Some(merkle_path.into()),
                     })
                 })
-                .collect::<Result<Vec<_>>>()?;
+                .collect::<Result<Vec<_>, ApplyBlockError>>()?;
 
             (account_tree, chain_mmr, nullifier_tree, notes)
         };
@@ -357,7 +356,7 @@ impl State {
 
         acquired_allowed
             .await
-            .map_err(StateError::BlockApplyingBrokenBecauseOfClosedChannel)?;
+            .map_err(ApplyBlockError::BlockApplyingBrokenBecauseOfClosedChannel)?;
 
         // scope to update the in-memory data
         {
@@ -569,20 +568,22 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 
 /// Creates a [SimpleSmt] tree from the `notes`.
 #[instrument(target = "miden-store", skip_all)]
-pub fn build_notes_tree(notes: &[NoteCreated]) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>> {
+pub fn build_notes_tree(
+    notes: &[NoteCreated]
+) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, ApplyBlockError> {
     // TODO: create SimpleSmt without this allocation
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
-        let note_hash = note.note_hash.clone().ok_or(StateError::MissingNoteHash)?;
-        let account_id = note.sender.try_into().or(Err(StateError::InvalidAccountId))?;
+        let note_hash = note.note_hash.clone().ok_or(ApplyBlockError::MissingNoteHash)?;
+        let account_id = note.sender.try_into().or(Err(ApplyBlockError::InvalidAccountId))?;
         let note_metadata = NoteMetadata::new(account_id, note.tag.into());
         let index = note.note_index as u64;
         entries.push((index, note_hash.try_into()?));
         entries.push((index + 1, note_metadata.into()));
     }
 
-    SimpleSmt::with_leaves(entries).map_err(StateError::FailedToCreateNotesTree)
+    SimpleSmt::with_leaves(entries).map_err(ApplyBlockError::FailedToCreateNotesTree)
 }
 
 #[instrument(target = "miden-store", skip_all)]
