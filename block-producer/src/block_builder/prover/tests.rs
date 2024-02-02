@@ -3,7 +3,9 @@ use miden_crypto::{
     ONE,
 };
 use miden_mock::mock::block::mock_block_header;
-use miden_node_proto::domain::{AccountInputRecord, BlockInputs, NullifierInputRecord};
+use miden_node_proto::domain::{
+    account_input_record::AccountInputRecord, block_inputs::BlockInputs,
+};
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MmrPeaks},

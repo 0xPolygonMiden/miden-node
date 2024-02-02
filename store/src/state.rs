@@ -16,11 +16,11 @@ use miden_crypto::{
 use miden_node_proto::{
     account::AccountInfo,
     block_header,
-    conversion::nullifier_value_to_blocknum,
     digest::Digest,
     domain::NullifierInputRecord,
     errors::ParseError,
     note::{Note, NoteCreated},
+    nullifier_value_to_blocknum,
     requests::AccountUpdate,
     responses::{
         AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,

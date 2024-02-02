@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use miden_node_proto::domain::BlockInputs;
+use miden_node_proto::domain::block_inputs::BlockInputs;
 use miden_objects::{
     accounts::AccountId, crypto::merkle::Mmr, notes::NoteEnvelope, BlockHeader, Digest,
     ACCOUNT_TREE_DEPTH, ONE, ZERO,

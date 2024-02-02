@@ -1,31 +1,43 @@
-use miden_crypto::merkle::{MerklePath, MmrPeaks, SmtProof};
-use miden_objects::{accounts::AccountId, BlockHeader, Digest};
+use miden_crypto::{StarkField, Word};
 
-#[derive(Clone, Debug)]
-pub struct AccountInputRecord {
-    pub account_id: AccountId,
-    pub account_hash: Digest,
-    pub proof: MerklePath,
+pub mod account_block_input_record;
+pub mod account_id;
+pub mod account_input_record;
+pub mod account_update;
+pub mod block_header;
+pub mod block_inputs;
+pub mod digest;
+pub mod merkle_path;
+pub mod mmr_delta;
+pub mod note;
+pub mod note_created;
+pub mod nullifier_input_record;
+pub mod nullifier_leaf;
+pub mod nullifier_proof;
+
+// UTILITIES
+// ================================================================================================
+
+pub fn convert<T, From, To>(from: T) -> Vec<To>
+where
+    T: IntoIterator<Item = From>,
+    From: Into<To>,
+{
+    from.into_iter().map(|e| e.into()).collect()
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NullifierInputRecord {
-    pub nullifier: Digest,
-    pub proof: SmtProof,
+pub fn try_convert<T, E, From, To>(from: T) -> Result<Vec<To>, E>
+where
+    T: IntoIterator<Item = From>,
+    From: TryInto<To, Error = E>,
+{
+    from.into_iter().map(|e| e.try_into()).collect()
 }
 
-/// Information needed from the store to build a block
-#[derive(Clone, Debug)]
-pub struct BlockInputs {
-    /// Previous block header
-    pub block_header: BlockHeader,
-
-    /// MMR peaks for the current chain state
-    pub chain_peaks: MmrPeaks,
-
-    /// The hashes of the requested accounts and their authentication paths
-    pub account_states: Vec<AccountInputRecord>,
-
-    /// The requested nullifiers and their authentication paths
-    pub nullifiers: Vec<NullifierInputRecord>,
+/// Given the leaf value of the nullifier TSMT, returns the nullifier's block number.
+///
+/// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
+/// of a value.
+pub fn nullifier_value_to_blocknum(value: Word) -> u32 {
+    value[3].as_int().try_into().expect("invalid block number found in store")
 }

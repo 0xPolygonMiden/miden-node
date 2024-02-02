@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use miden_crypto::{hash::rpo::RpoDigest, Felt, ZERO};
 use miden_node_proto::{
-    conversion::convert,
+    convert,
     digest::Digest,
     errors::ParseError,
     requests::{
