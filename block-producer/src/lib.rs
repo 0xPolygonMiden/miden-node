@@ -8,7 +8,8 @@ use tokio::sync::RwLock;
 pub mod test_utils;
 
 mod batch_builder;
-mod block_builder;
+pub(crate) mod block_builder;
+mod errors;
 mod state_view;
 mod store;
 mod txqueue;

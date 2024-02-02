@@ -10,7 +10,7 @@ use miden_objects::{
 use miden_vm::{crypto::MerklePath, AdviceInputs, StackInputs};
 
 use crate::{
-    block_builder::errors::{BlockProverError, BuildBlockError},
+    errors::{BlockProverError, BuildBlockError},
     TransactionBatch, CREATED_NOTES_SMT_DEPTH,
 };
 

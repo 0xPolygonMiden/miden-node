@@ -5,7 +5,7 @@ use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::{
     conversion::convert,
     digest::Digest,
-    error::ParseError,
+    errors::ParseError,
     requests::{
         ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
         GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,

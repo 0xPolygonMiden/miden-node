@@ -1,16 +1,13 @@
-use std::{fmt::Debug, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_node_utils::formatting::format_opt;
-use miden_objects::{
-    accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
-};
-use thiserror::Error;
 use tokio::{sync::RwLock, time};
 use tracing::{debug, info, info_span, instrument, Instrument};
 
 use crate::{
-    batch_builder::BatchBuilder, store::TxInputsError, ProvenTransaction, SharedRwVec, COMPONENT,
+    batch_builder::BatchBuilder,
+    errors::{AddTransactionError, VerifyTxError},
+    ProvenTransaction, SharedRwVec, COMPONENT,
 };
 
 #[cfg(test)]
@@ -18,35 +15,6 @@ mod tests;
 
 // TRANSACTION VERIFIER
 // ================================================================================================
-
-#[derive(Error, Debug, PartialEq)]
-pub enum VerifyTxError {
-    /// The account that the transaction modifies has already been modified and isn't yet committed
-    /// to a block
-    #[error("Account {0} was already modified by other transaction")]
-    AccountAlreadyModifiedByOtherTx(AccountId),
-
-    /// Another transaction already consumed the notes with given nullifiers
-    #[error("Input notes with given nullifier were already consumed by another transaction")]
-    InputNotesAlreadyConsumed(InputNotes<Nullifier>),
-
-    /// The account's initial hash did not match the current account's hash
-    #[error("Incorrect account's initial hash ({tx_initial_account_hash}, stored: {})", format_opt(.store_account_hash.as_ref()))]
-    IncorrectAccountInitialHash {
-        tx_initial_account_hash: Digest,
-        store_account_hash: Option<Digest>,
-    },
-
-    /// Failed to retrieve transaction inputs from the store
-    ///
-    /// TODO: Make this an "internal error". Q: Should we have a single `InternalError` enum for all
-    /// internal errors that can occur across the system?
-    #[error("Failed to retrieve transaction inputs from the store: {0}")]
-    StoreConnectionFailed(#[from] TxInputsError),
-
-    #[error("Transaction input error: {0}")]
-    TransactionInputError(#[from] TransactionInputError),
-}
 
 /// Implementations are responsible to track in-flight transactions and verify that new transactions
 /// added to the queue are not conflicting.
@@ -67,12 +35,6 @@ pub trait TransactionVerifier: Send + Sync + 'static {
         &self,
         tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError>;
-}
-
-#[derive(Error, Debug)]
-pub enum AddTransactionError {
-    #[error("Transaction verification failed: {0}")]
-    VerificationFailed(#[from] VerifyTxError),
 }
 
 // TRANSACTION QUEUE

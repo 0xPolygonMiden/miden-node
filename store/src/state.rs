@@ -21,7 +21,7 @@ use miden_node_proto::{
     block_header,
     conversion::nullifier_value_to_blocknum,
     digest::Digest,
-    error::ParseError,
+    errors::ParseError,
     note::{Note, NoteCreated},
     requests::AccountUpdate,
     responses::{

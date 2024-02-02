@@ -8,8 +8,9 @@ use tracing::{debug, instrument};
 
 use crate::{
     block::Block,
+    errors::VerifyTxError,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
-    txqueue::{TransactionVerifier, VerifyTxError},
+    txqueue::TransactionVerifier,
     ProvenTransaction, COMPONENT,
 };
 

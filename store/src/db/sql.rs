@@ -18,8 +18,7 @@ use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{Result, StateSyncUpdate};
 use crate::{
-    db::errors::DbError,
-    errors::StateError,
+    errors::{DbError, StateError},
     types::{AccountId, BlockNumber},
 };
 

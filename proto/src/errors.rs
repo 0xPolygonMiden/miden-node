@@ -1,7 +1,7 @@
 use miden_crypto::merkle::MmrError;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, Clone, PartialEq)]
 pub enum ParseError {
     #[error("Hex error: {0}")]
     HexError(#[from] hex::FromHexError),

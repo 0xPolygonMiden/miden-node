@@ -13,16 +13,14 @@ use rusqlite::vtab::array;
 use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
-use self::errors::GenesisBlockError;
 use crate::{
     config::StoreConfig,
-    db::errors::{DbError, InteractionTaskError},
+    errors::{DbError, GenesisBlockError, InteractionTaskError},
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
 
-pub mod errors;
 mod migrations;
 mod sql;
 
