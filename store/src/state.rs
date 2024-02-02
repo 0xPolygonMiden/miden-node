@@ -38,7 +38,7 @@ use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tracing::{info, instrument, span, Level};
+use tracing::{info, info_span, instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
@@ -211,6 +211,8 @@ impl State {
     /// - the DB transaction is committed, and requests that read only from the DB can proceed to
     ///   use the fresh data.
     /// - the in-memory structures are updated, and the lock is released.
+    // TODO: This span is logged in a root span, we should connect it to the parent span.
+    #[instrument(target = "miden-store", skip_all, err)]
     pub async fn apply_block(
         &self,
         block_header: block_header::BlockHeader,
@@ -241,8 +243,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let span = span!(Level::INFO, COMPONENT, "updating in-memory data structures");
-            let guard = span.enter();
+            let span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
@@ -303,7 +304,7 @@ impl State {
                 return Err(StateError::NewBlockInvalidNoteRoot.into());
             }
 
-            drop(guard);
+            drop(span);
 
             let notes = notes
                 .iter()
@@ -364,6 +365,8 @@ impl State {
     /// Queries a [BlockHeader] from the database.
     ///
     /// If [None] is given as the value of `block_num`, the latest [BlockHeader] is returned.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
@@ -375,6 +378,7 @@ impl State {
     /// tree.
     ///
     /// Note: these proofs are invalidated once the nullifier tree is modified, i.e. on a new block.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"))]
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
@@ -399,6 +403,8 @@ impl State {
     ///   the block range.
     /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is intersted in,
     ///   results will cinlude nullifiers matching prefixes produced in the given block range.
+    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
@@ -549,6 +555,7 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
+#[instrument(target = "miden-store", skip_all)]
 pub fn build_notes_tree(
     notes: &[NoteCreated]
 ) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, anyhow::Error> {
@@ -567,7 +574,7 @@ pub fn build_notes_tree(
     Ok(SimpleSmt::with_leaves(entries)?)
 }
 
-#[instrument(skip(db))]
+#[instrument(target = "miden-store", skip_all)]
 async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
@@ -588,7 +595,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
     Ok(nullifier_tree)
 }
 
-#[instrument(skip(db))]
+#[instrument(target = "miden-store", skip_all)]
 async fn load_mmr(db: &mut Db) -> Result<Mmr> {
     let block_hashes: Result<Vec<RpoDigest>, ParseError> = db
         .select_block_headers()
@@ -601,7 +608,7 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr> {
     Ok(mmr)
 }
 
-#[instrument(skip(db))]
+#[instrument(target = "miden-store", skip_all)]
 async fn load_accounts(db: &mut Db) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>> {
     let account_data: Result<Vec<(u64, Word)>> = db
         .select_account_hashes()

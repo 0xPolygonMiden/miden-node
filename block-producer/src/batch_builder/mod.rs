@@ -80,6 +80,7 @@ where
     // --------------------------------------------------------------------------------------------
 
     /// TODO: add comments
+    #[instrument(target = "miden-block-producer", name = "block_producer" skip_all)]
     pub async fn run(self: Arc<Self>) {
         let mut interval = time::interval(self.options.block_frequency);
 
@@ -96,6 +97,7 @@ where
 
     /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
     /// A call to an empty `build_block()` indicates that an empty block should be created.
+    #[instrument(target = "miden-block-producer", skip_all)]
     async fn try_build_block(&self) {
         let mut batches_in_block: Vec<TransactionBatch> = {
             let mut locked_ready_batches = self.ready_batches.write().await;

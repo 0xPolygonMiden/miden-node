@@ -53,7 +53,6 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(queue.clone()));
 
     tokio::spawn(async move { queue.run().await });
-
     tokio::spawn(async move { batch_builder.run().await });
 
     info!(target: COMPONENT, "Server initialized");
