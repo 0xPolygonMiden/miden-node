@@ -49,7 +49,7 @@ use crate::{
 // TYPES
 // ================================================================================================
 
-pub type Result<T> = std::result::Result<T, StateError>;
+pub type Result<T, E = StateError> = std::result::Result<T, E>;
 
 // STRUCTURES
 // ================================================================================================
@@ -130,7 +130,7 @@ impl From<AccountState> for AccountTransactionInputRecord {
 impl TryFrom<AccountUpdate> for AccountState {
     type Error = StateError;
 
-    fn try_from(value: AccountUpdate) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
         Ok(Self {
             account_id: value.account_id.ok_or(StateError::MissingAccountId)?.into(),
             account_hash: value
@@ -145,7 +145,7 @@ impl TryFrom<AccountUpdate> for AccountState {
 impl TryFrom<&AccountUpdate> for AccountState {
     type Error = StateError;
 
-    fn try_from(value: &AccountUpdate) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &AccountUpdate) -> Result<Self, Self::Error> {
         value.clone().try_into()
     }
 }
@@ -609,7 +609,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
 
 #[instrument(target = "miden-store", skip_all)]
 async fn load_mmr(db: &mut Db) -> Result<Mmr> {
-    let block_hashes: std::result::Result<Vec<RpoDigest>, ParseError> = db
+    let block_hashes: Result<Vec<RpoDigest>, ParseError> = db
         .select_block_headers()
         .await?
         .into_iter()

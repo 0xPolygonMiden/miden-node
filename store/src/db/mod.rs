@@ -29,7 +29,7 @@ mod sql;
 #[cfg(test)]
 mod tests;
 
-pub type Result<T> = std::result::Result<T, DbError>;
+pub type Result<T, E = DbError> = std::result::Result<T, E>;
 
 pub struct Db {
     pool: Pool,
