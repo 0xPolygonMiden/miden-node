@@ -13,7 +13,7 @@ mod tests;
 
 pub mod batch;
 pub use batch::TransactionBatch;
-use miden_node_utils::logging::{format_array, format_blake3_digest};
+use miden_node_utils::formatting::{format_array, format_blake3_digest};
 
 // BATCH BUILDER
 // ================================================================================================

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use miden_node_utils::logging::{format_array, format_blake3_digest};
+use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{accounts::AccountId, Digest};
 use tracing::{debug, info, instrument};
 

@@ -28,7 +28,7 @@ use miden_node_proto::{
         AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
     },
 };
-use miden_node_utils::logging::{format_account_id, format_array};
+use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
     BlockHeader, ACCOUNT_TREE_DEPTH,

@@ -20,7 +20,7 @@ use crate::{block::Block, ProvenTransaction, COMPONENT};
 
 mod errors;
 pub use errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use miden_node_utils::logging::{format_map, format_opt};
+use miden_node_utils::formatting::{format_map, format_opt};
 
 // STORE TRAIT
 // ================================================================================================
