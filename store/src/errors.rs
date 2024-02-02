@@ -100,14 +100,11 @@ pub enum StateError {
     DigestError(#[from] ParseError),
     #[error("Database doesnt have any block header data")]
     DbBlockHeaderEmpty,
-    #[error("Missing `account_hash`")]
-    MissingAccountHash,
-    #[error("Missing `account_id`")]
-    MissingAccountId,
-    #[error("Note message is missing the note's hash")]
-    NoteMissingHash,
-    #[error("Note message is missing the merkle path")]
-    NoteMissingMerklePath,
+    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
+    MissingFieldInProtobufRepresentation {
+        entity: &'static str,
+        field_name: &'static str,
+    },
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
     #[error("Failed to get MMR delta: {0}")]

@@ -132,10 +132,19 @@ impl TryFrom<AccountUpdate> for AccountState {
 
     fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
         Ok(Self {
-            account_id: value.account_id.ok_or(StateError::MissingAccountId)?.into(),
+            account_id: value
+                .account_id
+                .ok_or(StateError::MissingFieldInProtobufRepresentation {
+                    entity: "account update",
+                    field_name: "account_id",
+                })?
+                .into(),
             account_hash: value
                 .account_hash
-                .ok_or(StateError::MissingAccountHash)?
+                .ok_or(StateError::MissingFieldInProtobufRepresentation {
+                    entity: "account update",
+                    field_name: "account_hash",
+                })?
                 .try_into()
                 .map_err(StateError::DigestError)?,
         })

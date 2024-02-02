@@ -289,12 +289,21 @@ pub fn insert_notes(
         count += stmt.execute(params![
             note.block_num,
             note.note_index,
-            note.note_hash.clone().ok_or(StateError::NoteMissingHash)?.encode_to_vec(),
+            note.note_hash
+                .clone()
+                .ok_or(StateError::MissingFieldInProtobufRepresentation {
+                    entity: "note",
+                    field_name: "note_hash"
+                })?
+                .encode_to_vec(),
             u64_to_value(note.sender),
             u64_to_value(note.tag),
             note.merkle_path
                 .clone()
-                .ok_or(StateError::NoteMissingMerklePath)?
+                .ok_or(StateError::MissingFieldInProtobufRepresentation {
+                    entity: "note",
+                    field_name: "merkle_path"
+                })?
                 .encode_to_vec(),
         ])?;
     }
