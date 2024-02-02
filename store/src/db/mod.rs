@@ -113,7 +113,7 @@ impl Db {
             .await?
             .interact(sql::select_nullifiers)
             .await
-            .map_err(|err| InteractionTaskError::GetNullifiersTaskFailed(err.to_string()))?
+            .map_err(|err| InteractionTaskError::SelectNullifiersTaskFailed(err.to_string()))?
     }
 
     /// Loads all the notes from the DB.
@@ -125,7 +125,7 @@ impl Db {
             .await?
             .interact(sql::select_notes)
             .await
-            .map_err(|err| InteractionTaskError::GetNotesTaskFailed(err.to_string()))?
+            .map_err(|err| InteractionTaskError::SelectNotesTaskFailed(err.to_string()))?
     }
 
     /// Loads all the accounts from the DB.
@@ -137,7 +137,7 @@ impl Db {
             .await?
             .interact(sql::select_accounts)
             .await
-            .map_err(|err| InteractionTaskError::GetAccountsTaskFailed(err.to_string()))?
+            .map_err(|err| InteractionTaskError::SelectAccountsTaskFailed(err.to_string()))?
     }
 
     /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.
@@ -154,7 +154,7 @@ impl Db {
             .await?
             .interact(move |conn| sql::select_block_header_by_block_num(conn, block_number))
             .await
-            .map_err(|err| InteractionTaskError::GetBlockHeaderTaskFailed(err.to_string()))?
+            .map_err(|err| InteractionTaskError::SelectBlockHeaderTaskFailed(err.to_string()))?
     }
 
     /// Loads all the block headers from the DB.
@@ -166,7 +166,7 @@ impl Db {
             .await?
             .interact(sql::select_block_headers)
             .await
-            .map_err(|err| InteractionTaskError::GetBlockHeadersTaskFailed(err.to_string()))?
+            .map_err(|err| InteractionTaskError::SelectBlockHeadersTaskFailed(err.to_string()))?
     }
 
     /// Loads all the account hashes from the DB.
@@ -178,7 +178,7 @@ impl Db {
             .await?
             .interact(sql::select_account_hashes)
             .await
-            .map_err(|err| InteractionTaskError::GetAccountHashesTaskFailed(err.to_string()))?
+            .map_err(|err| InteractionTaskError::SelectAccountHashesTaskFailed(err.to_string()))?
     }
 
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
@@ -207,7 +207,7 @@ impl Db {
                 )
             })
             .await
-            .map_err(|err| InteractionTaskError::GetAccountHashesTaskFailed(err.to_string()))?
+            .map_err(|err| InteractionTaskError::GetStateSyncTaskFailed(err.to_string()))?
     }
 
     /// Inserts the data of a new block into the DB.

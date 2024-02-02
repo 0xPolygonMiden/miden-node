@@ -52,20 +52,20 @@ impl From<StateError> for DbError {
 pub enum InteractionTaskError {
     #[error("Migration task failed: {0}")]
     MigrationTaskFailed(String),
+    #[error("Select nullifiers task failed: {0}")]
+    SelectNullifiersTaskFailed(String),
+    #[error("Select notes task failed: {0}")]
+    SelectNotesTaskFailed(String),
+    #[error("Select accounts task failed: {0}")]
+    SelectAccountsTaskFailed(String),
+    #[error("Select block header task failed: {0}")]
+    SelectBlockHeaderTaskFailed(String),
     #[error("Select block headers task failed: {0}")]
     SelectBlockHeadersTaskFailed(String),
-    #[error("Get nullifiers task failed: {0}")]
-    GetNullifiersTaskFailed(String),
-    #[error("Get notes task failed: {0}")]
-    GetNotesTaskFailed(String),
-    #[error("Get accounts task failed: {0}")]
-    GetAccountsTaskFailed(String),
-    #[error("Get block header task failed: {0}")]
-    GetBlockHeaderTaskFailed(String),
-    #[error("Get block headers task failed: {0}")]
-    GetBlockHeadersTaskFailed(String),
-    #[error("Get account hashes task failed: {0}")]
-    GetAccountHashesTaskFailed(String),
+    #[error("Select account hashes task failed: {0}")]
+    SelectAccountHashesTaskFailed(String),
+    #[error("Get state sync task failed: {0}")]
+    GetStateSyncTaskFailed(String),
     #[error("Apply block task failed: {0}")]
     ApplyBlockTaskFailed(String),
 }
