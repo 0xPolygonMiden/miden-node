@@ -544,6 +544,10 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
     );
 }
 
+// TODO tests:
+// - compare root when no nullifiers (`Smt` vs block kernel)
+// - compare root with 3 nullifiers (`Smt` vs block kernel)
+
 // CHAIN MMR ROOT TESTS
 // =================================================================================================
 
