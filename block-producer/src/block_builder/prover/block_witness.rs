@@ -36,7 +36,7 @@ pub struct BlockWitness {
     pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     /// (batch_index, created_notes_root) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
-    pub(super) produced_nullifiers: BTreeSet<Digest>,
+    pub(super) produced_nullifiers: BTreeMap<Digest, MerklePath>,
     pub(super) chain_peaks: MmrPeaks,
     pub(super) prev_header: BlockHeader,
 }
@@ -95,8 +95,8 @@ impl BlockWitness {
 
         let produced_nullifiers = block_inputs
             .nullifiers
-            .iter()
-            .map(|nullifier_record| nullifier_record.nullifier)
+            .into_iter()
+            .map(|nullifier_record| (nullifier_record.nullifier, nullifier_record.proof))
             .collect();
 
         Ok(Self {
@@ -176,6 +176,14 @@ impl BlockWitness {
                         },
                     )| { (u64::from(account_id), initial_state_hash, proof) },
                 ))
+                .map_err(BlockProverError::InvalidMerklePaths)?;
+
+            // add nullifiers merkle paths
+            merkle_store
+                .add_merkle_paths(self.produced_nullifiers.into_iter().map(|(nullifier, proof)| {
+                    // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
+                    (u64::from(nullifier[3]), Digest::default(), proof)
+                }))
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 
             let mut advice_inputs = AdviceInputs::default().with_merkle_store(merkle_store);

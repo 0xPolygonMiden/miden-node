@@ -8,7 +8,7 @@ pub struct AccountInputRecord {
     pub proof: MerklePath,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NullifierInputRecord {
     pub nullifier: Digest,
     pub proof: MerklePath,
