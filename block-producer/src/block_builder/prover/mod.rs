@@ -31,6 +31,7 @@ mod tests;
 /// Stack inputs: [num_accounts_updated, OLD_ACCOUNT_ROOT, NEW_ACCOUNT_HASH_0, account_id_0, ... ,
 /// NEW_ACCOUNT_HASH_n, account_id_n]
 const BLOCK_KERNEL_MASM: &str = "
+use.std::collections::smt
 use.std::collections::smt64
 use.std::collections::mmr
 
@@ -111,8 +112,31 @@ end
 #! Stack: [num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_0, ..., NULLIFIER_n]
 #! Output: [NULLIFIER_ROOT]
 proc.compute_nullifier_root
-    # TODO
-    push.1 assertz
+    # assess if we should loop
+    dup neq.0
+    #=> [0 or 1, num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_0, ..., NULLIFIER_n ]
+    
+    while.true
+        #=> [num_nullifiers_left_to_update, ROOT_i, NULLIFIER_i, ... ]
+
+        # Prepare stack for `smt::set`
+        movdn.8 swapw push.0.0.0.1
+        #=> [1 (as word), NULLIFIER_i, ROOT_i, num_nullifiers_left_to_update, ... ]
+
+        exec.smt::set
+        #=> [OLD_VALUE, ROOT_{i+1}, num_nullifiers_left_to_update, ... ]
+
+        # Check that OLD_VALUE == 0 (i.e. that nullifier was indeed not previously produced)
+        padw assert_eqw
+        #=> [ROOT_{i+1}, num_nullifiers_left_to_update, ... ]
+
+        # loop counter
+        movup.4 sub.1 dup neq.0
+        #=> [0 or 1, num_nullifiers_left_to_update - 1, ROOT_{i+1}, ... ]
+    end
+
+    drop
+    # => [ROOT_{n-1}]
 end
 
 #! Compute the chain MMR root
