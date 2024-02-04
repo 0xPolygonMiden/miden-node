@@ -1,4 +1,4 @@
-use miden_objects::accounts::AccountId;
+use miden_objects::{accounts::AccountId, Digest};
 use miden_vm::{crypto::MerkleError, ExecutionError};
 use thiserror::Error;
 
@@ -17,6 +17,8 @@ pub enum BuildBlockError {
     InconsistentAccountIds(Vec<AccountId>),
     #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
     InconsistentAccountStates(Vec<AccountId>),
+    #[error("transaction batches and store don't produce the same nullifiers. Offending nullifiers: {0:?}")]
+    InconsistentNullifiers(Vec<Digest>),
     #[error(
         "too many batches in block. Got: {0}, max: 2^{}",
         CREATED_NOTES_TREE_INSERTION_DEPTH

@@ -36,6 +36,7 @@ pub struct BlockWitness {
     pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     /// (batch_index, created_notes_root) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
+    pub(super) produced_nullifiers: BTreeSet<Digest>,
     pub(super) chain_peaks: MmrPeaks,
     pub(super) prev_header: BlockHeader,
 }
@@ -92,9 +93,16 @@ impl BlockWitness {
             })
             .collect();
 
+        let produced_nullifiers = block_inputs
+            .nullifiers
+            .iter()
+            .map(|nullifier_record| nullifier_record.nullifier)
+            .collect();
+
         Ok(Self {
             updated_accounts,
             batch_created_notes_roots,
+            produced_nullifiers,
             chain_peaks: block_inputs.chain_peaks,
             prev_header: block_inputs.block_header,
         })
@@ -155,6 +163,8 @@ impl BlockWitness {
 
         let advice_inputs = {
             let mut merkle_store = MerkleStore::default();
+
+            // add accounts merkle paths
             merkle_store
                 .add_merkle_paths(self.updated_accounts.into_iter().map(
                     |(
@@ -192,11 +202,12 @@ impl BlockWitness {
         }
 
         Self::validate_account_states(block_inputs, batches)?;
+        Self::validate_nullifiers(block_inputs, batches)?;
 
         Ok(())
     }
 
-    /// Validate that initial account states coming from the batches are the same as the account
+    /// Validates that initial account states coming from the batches are the same as the account
     /// states returned from the store
     fn validate_account_states(
         block_inputs: &BlockInputs,
@@ -247,6 +258,33 @@ impl BlockWitness {
             let difference: Vec<AccountId> = union.difference(&intersection).cloned().collect();
 
             Err(BuildBlockError::InconsistentAccountIds(difference))
+        }
+    }
+
+    /// Validates that the nullifiers returned from the store are the same the produced nullifiers in the batches.
+    /// Note that validation that the value of the nullifiers is `0` will be done in MASM.
+    fn validate_nullifiers(
+        block_inputs: &BlockInputs,
+        batches: &[TransactionBatch],
+    ) -> Result<(), BuildBlockError> {
+        let produced_nullifiers_from_store: BTreeSet<Digest> = block_inputs
+            .nullifiers
+            .iter()
+            .map(|nullifier_record| nullifier_record.nullifier)
+            .collect();
+
+        let produced_nullifiers_from_batches: BTreeSet<Digest> =
+            batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+
+        if produced_nullifiers_from_store == produced_nullifiers_from_batches {
+            Ok(())
+        } else {
+            let differing_nulliers: Vec<Digest> = produced_nullifiers_from_store
+                .symmetric_difference(&produced_nullifiers_from_batches)
+                .copied()
+                .collect();
+
+            Err(BuildBlockError::InconsistentNullifiers(differing_nulliers))
         }
     }
 }

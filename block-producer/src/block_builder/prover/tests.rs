@@ -473,6 +473,12 @@ async fn test_compute_note_root_success() {
     assert_eq!(block_header.note_root(), notes_smt.root());
 }
 
+// NULLIFIER ROOT TESTS
+// =================================================================================================
+
+// TODO:
+// 1. check validation: InconsistentNullifiers error
+
 // CHAIN MMR ROOT TESTS
 // =================================================================================================
 
