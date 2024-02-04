@@ -183,10 +183,14 @@ impl Store for DefaultStore {
             nullifiers.into_iter().collect()
         };
 
-        // We are matching the received account_hash from the Store here to check for different cases:
-        // 1. If the hash is equal to `Digest::default()`, it signifies that this is a new account that has not yet interacted with the Store.
-        // 2. If the hash is not equal to `Digest::default()`, it signifies that it is a known account.
-        // 3. If the hash is `None`, it means there has been an error in the processing of the account hash from the Store.
+        // We are matching the received account_hash from the Store here to check for different
+        // cases:
+        // 1. If the hash is equal to `Digest::default()`, it signifies that this is a new account
+        //    which is not yet present in the Store.
+        // 2. If the hash is not equal to `Digest::default()`, it signifies that it is an exiting
+        //    account (i.e., known to the Store).
+        // 3. If the hash is `None`, it means there has been an error in the processing of the
+        //    account hash from the Store.
         let account_hash = match account_hash {
             Some(hash) if hash == Digest::default() => None,
             Some(hash) => Some(hash),
