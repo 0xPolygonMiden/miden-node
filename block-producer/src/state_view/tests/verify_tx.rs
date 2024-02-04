@@ -2,7 +2,7 @@
 //!
 //! Store-related requirements
 //! VT1: `tx.initial_account_hash` must match the account hash in store
-//! VT2: If store doesn't contain account, `verify_tx` must fail
+//! VT2: If store doesn't contain account, `verify_tx` should check that it is a new account ( TODO ) and succeed
 //! VT3: If `tx` consumes an already-consumed note in the store, `verify_tx` must fail
 //!
 //! in-flight related requirements
@@ -113,6 +113,7 @@ async fn test_verify_tx_vt1() {
     );
 }
 
+/// TODO: Add new_account checks from the ProvenTransaction
 /// Verifies requirement VT2
 #[tokio::test]
 async fn test_verify_tx_vt2() {
@@ -135,13 +136,7 @@ async fn test_verify_tx_vt2() {
 
     let verify_tx_result = state_view.verify_tx(&tx).await;
 
-    assert_eq!(
-        verify_tx_result,
-        Err(VerifyTxError::IncorrectAccountInitialHash {
-            tx_initial_account_hash: account_not_in_store.states[0],
-            store_account_hash: None
-        })
-    );
+    assert!(verify_tx_result.is_ok());
 }
 
 /// Verifies requirement VT3

@@ -19,6 +19,10 @@ Cargo.lock
 # VS Code
 .vscode/
 
+# Genesis files
+/accounts
+genesis.dat
+
 # Sqlite db files
 *.sqlite3
 *.sqlite3-shm
