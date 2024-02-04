@@ -122,6 +122,25 @@ impl BlockWitness {
                 stack_inputs.extend(self.chain_peaks.hash_peaks());
             }
 
+            // Nullifiers stack inputs
+            {
+                let num_produced_nullifiers: u64 = self
+                    .produced_nullifiers
+                    .len()
+                    .try_into()
+                    .expect("can't be more than 2^64 - 1 nullifiers");
+
+                for nullifier in self.produced_nullifiers.iter().map(|(nullifier, _)| nullifier) {
+                    stack_inputs.extend(*nullifier);
+                }
+
+                // append initial nullifier root
+                stack_inputs.extend(self.prev_header.nullifier_root());
+
+                // append number of nullifiers
+                stack_inputs.push(num_produced_nullifiers.into());
+            }
+
             // Notes stack inputs
             {
                 let num_created_notes_roots = self.batch_created_notes_roots.len();
