@@ -1,6 +1,6 @@
 use miden_crypto::{merkle::Mmr, ONE};
 use miden_mock::mock::block::mock_block_header;
-use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
+use miden_node_proto::domain::{AccountInputRecord, BlockInputs, NullifierInputRecord};
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MmrPeaks},
@@ -16,7 +16,7 @@ use crate::{
     store::Store,
     test_utils::{
         block::{build_actual_block_header, build_expected_block_header, MockBlockBuilder},
-        DummyProvenTxGenerator, MockStoreSuccessBuilder,
+        DummyProvenTxGenerator, MockProvenTxBuilder, MockStoreSuccessBuilder,
     },
     TransactionBatch,
 };
@@ -476,8 +476,73 @@ async fn test_compute_note_root_success() {
 // NULLIFIER ROOT TESTS
 // =================================================================================================
 
-// TODO:
-// 1. check validation: InconsistentNullifiers error
+/// Tests that `BlockWitness` constructor fails if the store and transaction batches contain a
+/// different set of nullifiers.
+///
+/// The transaction batches will contain nullifiers 1 & 2, while the store will contain 2 & 3.
+#[test]
+fn test_block_witness_validation_inconsistent_nullifiers() {
+    let batches: Vec<TransactionBatch> = {
+        let batch_1 = {
+            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        let batch_2 = {
+            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        vec![batch_1, batch_2]
+    };
+
+    let nullifier_1 = batches[0].produced_nullifiers().next().unwrap();
+    let nullifier_2 = batches[1].produced_nullifiers().next().unwrap();
+    let nullifier_3 =
+        Digest::from([101_u64.into(), 102_u64.into(), 103_u64.into(), 104_u64.into()]);
+
+    let block_inputs_from_store: BlockInputs = {
+        let block_header = mock_block_header(0, None, None, &[]);
+        let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+
+        let nullifiers = vec![
+            NullifierInputRecord {
+                nullifier: nullifier_2,
+                proof: MerklePath::default(),
+            },
+            NullifierInputRecord {
+                nullifier: nullifier_3,
+                proof: MerklePath::default(),
+            },
+        ];
+
+        let account_states = batches
+            .iter()
+            .flat_map(|batch| batch.account_initial_states())
+            .map(|(account_id, account_hash)| AccountInputRecord {
+                account_id,
+                account_hash,
+                proof: MerklePath::default(),
+            })
+            .collect();
+
+        BlockInputs {
+            block_header,
+            chain_peaks,
+            account_states,
+            nullifiers,
+        }
+    };
+
+    let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
+
+    assert_eq!(
+        block_witness_result,
+        Err(BuildBlockError::InconsistentNullifiers(vec![nullifier_1, nullifier_3]))
+    );
+}
 
 // CHAIN MMR ROOT TESTS
 // =================================================================================================

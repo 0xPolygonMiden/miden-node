@@ -30,9 +30,13 @@ static NUM_ACCOUNTS_CREATED: Lazy<Arc<Mutex<u32>>> = Lazy::new(|| Arc::new(Mutex
 /// Keeps track how many accounts were created as a source of randomness
 static NUM_NOTES_CREATED: Lazy<Arc<Mutex<u64>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
 
+/// Keeps track how many input notes were created as a source of randomness
+static NUM_INPUT_NOTES: Lazy<Arc<Mutex<u64>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
+
 pub struct MockProvenTxBuilder {
     mock_account: MockPrivateAccount,
     notes_created: Option<Vec<NoteEnvelope>>,
+    nullifiers: Option<Vec<Nullifier>>,
 }
 
 impl MockProvenTxBuilder {
@@ -49,6 +53,7 @@ impl MockProvenTxBuilder {
         Self {
             mock_account: account_index.into(),
             notes_created: None,
+            nullifiers: None,
         }
     }
 
@@ -74,12 +79,38 @@ impl MockProvenTxBuilder {
         self
     }
 
+    pub fn num_nullifiers(
+        mut self,
+        num_nullifiers_in_tx: u64,
+    ) -> Self {
+        let mut locked_num_input_notes = NUM_INPUT_NOTES.lock().unwrap();
+
+        let nullifiers: Vec<Nullifier> = (0..num_nullifiers_in_tx)
+            .map(|_| {
+                *locked_num_input_notes += 1;
+
+                let nullifier = Digest::from([
+                    BaseElement::new(1),
+                    BaseElement::new(1),
+                    BaseElement::new(1),
+                    BaseElement::new(*locked_num_input_notes),
+                ]);
+
+                Nullifier::from(nullifier)
+            })
+            .collect();
+
+        self.nullifiers = Some(nullifiers);
+
+        self
+    }
+
     pub fn build(self) -> ProvenTransaction {
         ProvenTransaction::new(
             self.mock_account.id,
             self.mock_account.states[0],
             self.mock_account.states[1],
-            InputNotes::new(Vec::new()).unwrap(),
+            InputNotes::new(self.nullifiers.unwrap_or_default()).unwrap(),
             OutputNotes::new(self.notes_created.unwrap_or_default()).unwrap(),
             None,
             Digest::default(),
