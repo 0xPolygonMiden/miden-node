@@ -130,7 +130,7 @@ impl BlockWitness {
                     .try_into()
                     .expect("can't be more than 2^64 - 1 nullifiers");
 
-                for nullifier in self.produced_nullifiers.iter().map(|(nullifier, _)| nullifier) {
+                for nullifier in self.produced_nullifiers.keys() {
                     stack_inputs.extend(*nullifier);
                 }
 
