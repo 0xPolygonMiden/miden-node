@@ -6,7 +6,10 @@ use std::{mem, sync::Arc};
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, TieredSmt, TieredSmtProof, ValuePath},
+    merkle::{
+        LeafIndex, MerkleError, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtLeaf,
+        ValuePath,
+    },
     Felt, FieldElement, Word, EMPTY_WORD,
 };
 use miden_node_proto::{
@@ -278,7 +281,7 @@ impl State {
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
-    ) -> Vec<SmtProof> {
+    ) -> Vec<(MerklePath, SmtLeaf)> {
         let inner = self.inner.read().await;
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
@@ -391,7 +394,8 @@ impl State {
         let nullifier_input_records: Vec<NullifierInputRecord> = nullifiers
             .iter()
             .map(|nullifier| {
-                let proof = inner.nullifier_tree.open(nullifier);
+                let value = inner.nullifier_tree.get_value(&nullifier);
+                let block_num = nullifier_value_to_blocknum(value);
 
                 NullifierInputRecord {
                     nullifier: *nullifier,
@@ -487,7 +491,7 @@ pub fn build_notes_tree(
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_nullifier_tree(db: &mut Db) -> Result<Smt, StateInitializationError> {
+async fn load_nullifier_tree(db: &mut Db) -> Result<Smt> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
     let leaves = nullifiers
@@ -495,8 +499,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<Smt, StateInitializationErro
         .map(|(nullifier, block)| (nullifier, block_to_nullifier_data(block)));
 
     let now = Instant::now();
-    let nullifier_tree = Smt::with_entries(leaves)
-        .map_err(StateInitializationError::FailedToCreateNullifiersTree)?;
+    let nullifier_tree = Smt::with_entries(leaves)?;
     let elapsed = now.elapsed().as_secs();
 
     info!(
