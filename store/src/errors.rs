@@ -39,7 +39,7 @@ pub enum DbError {
     #[error("Decoding nullifier from database failed: {0}")]
     NullifierDecodingError(DeserializationError),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
-    BlockApplyingBrokenBecauseOfClosedChannel(RecvError),
+    ApplyBlockFailedClosedChannel(RecvError),
 }
 
 impl From<StateError> for DbError {

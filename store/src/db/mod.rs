@@ -238,9 +238,7 @@ impl Db {
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
 
                 let _ = allow_acquire.send(());
-                acquire_done
-                    .blocking_recv()
-                    .map_err(DbError::BlockApplyingBrokenBecauseOfClosedChannel)?;
+                acquire_done.blocking_recv().map_err(DbError::ApplyBlockFailedClosedChannel)?;
 
                 transaction.commit()?;
 
