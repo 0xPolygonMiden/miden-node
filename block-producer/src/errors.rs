@@ -13,6 +13,9 @@ use thiserror::Error;
 
 use crate::{CREATED_NOTES_TREE_INSERTION_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH};
 
+// Transaction verification errors
+// =================================================================================================
+
 #[derive(Error, Debug, PartialEq)]
 pub enum VerifyTxError {
     /// The account that the transaction modifies has already been modified and isn't yet committed
@@ -42,11 +45,17 @@ pub enum VerifyTxError {
     TransactionInputError(#[from] TransactionInputError),
 }
 
+// Transaction adding errors
+// =================================================================================================
+
 #[derive(Error, Debug)]
 pub enum AddTransactionError {
     #[error("Transaction verification failed: {0}")]
     VerificationFailed(#[from] VerifyTxError),
 }
+
+// Batch building errors
+// =================================================================================================
 
 /// Error that may happen while building a transaction batch.
 ///
@@ -74,6 +83,9 @@ impl BuildBatchError {
     }
 }
 
+// Block prover errors
+// =================================================================================================
+
 #[derive(Error, Debug, PartialEq)]
 pub enum BlockProverError {
     #[error("Received invalid merkle path")]
@@ -84,6 +96,9 @@ pub enum BlockProverError {
     InvalidRootOutput(String),
 }
 
+// Block inputs errors
+// =================================================================================================
+
 #[derive(Debug, PartialEq, Error)]
 pub enum BlockInputsError {
     #[error("failed to parse protobuf message: {0}")]
@@ -92,11 +107,17 @@ pub enum BlockInputsError {
     GrpcClientError(String),
 }
 
+// Block applying errors
+// =================================================================================================
+
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ApplyBlockError {
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
 }
+
+// Block building errors
+// =================================================================================================
 
 #[derive(Debug, Error, PartialEq)]
 pub enum BuildBlockError {
@@ -116,6 +137,9 @@ pub enum BuildBlockError {
     )]
     TooManyBatchesInBlock(usize),
 }
+
+// Transaction inputs errors
+// =================================================================================================
 
 #[derive(Debug, PartialEq, Error)]
 pub enum TxInputsError {

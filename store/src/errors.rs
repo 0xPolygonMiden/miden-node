@@ -12,6 +12,23 @@ use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 
+// Conversion errors
+// =================================================================================================
+
+#[derive(Error, Debug)]
+pub enum ConversionError {
+    #[error("Parse error: {0}")]
+    ParseError(#[from] ParseError),
+    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
+    MissingFieldInProtobufRepresentation {
+        entity: &'static str,
+        field_name: &'static str,
+    },
+}
+
+// Error type from Deadpool's `interaction` task errors
+// =================================================================================================
+
 #[derive(Debug, Error)]
 pub enum InteractionTaskError {
     #[error("Migration task failed: {0}")]
@@ -33,6 +50,9 @@ pub enum InteractionTaskError {
     #[error("Apply block task failed: {0}")]
     ApplyBlockTaskFailed(String),
 }
+
+// Database errors
+// =================================================================================================
 
 #[derive(Debug, Error)]
 pub enum DbError {
@@ -70,6 +90,9 @@ impl From<StateError> for DbError {
     }
 }
 
+// Genesis errors
+// =================================================================================================
+
 #[derive(Debug, Error)]
 pub enum GenesisError {
     #[error("Apply block failed: {0}")]
@@ -92,16 +115,8 @@ pub enum GenesisError {
     SelectBlockHeaderByBlockNumError(Box<DbError>),
 }
 
-#[derive(Error, Debug)]
-pub enum ConversionError {
-    #[error("Parse error: {0}")]
-    ParseError(#[from] ParseError),
-    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
-    MissingFieldInProtobufRepresentation {
-        entity: &'static str,
-        field_name: &'static str,
-    },
-}
+// State errors
+// =================================================================================================
 
 #[derive(Error, Debug)]
 pub enum StateError {
@@ -138,6 +153,9 @@ pub enum StateSyncError {
     #[error("Failed to get MMR delta: {0}")]
     FailedToGetMmrDelta(MmrError),
 }
+
+// Block applying errors
+// =================================================================================================
 
 #[derive(Error, Debug)]
 pub enum ApplyBlockError {
