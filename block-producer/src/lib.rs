@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 pub mod test_utils;
 
 mod batch_builder;
-pub(crate) mod block_builder;
+mod block_builder;
 mod errors;
 mod state_view;
 mod store;
@@ -52,3 +52,6 @@ const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
 
 /// Maximum number of batches per block
 const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
+
+/// The depth at which we insert roots from the batches.
+const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;

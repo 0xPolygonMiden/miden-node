@@ -11,10 +11,7 @@ use miden_objects::{
 use miden_vm::ExecutionError;
 use thiserror::Error;
 
-use crate::{
-    block_builder::prover::block_witness::CREATED_NOTES_TREE_INSERTION_DEPTH,
-    MAX_NUM_CREATED_NOTES_PER_BATCH,
-};
+use crate::{CREATED_NOTES_TREE_INSERTION_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum VerifyTxError {
