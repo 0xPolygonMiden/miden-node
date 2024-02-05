@@ -13,6 +13,28 @@ use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 
 #[derive(Debug, Error)]
+pub enum InteractionTaskError {
+    #[error("Migration task failed: {0}")]
+    MigrationTaskFailed(String),
+    #[error("Select nullifiers task failed: {0}")]
+    SelectNullifiersTaskFailed(String),
+    #[error("Select notes task failed: {0}")]
+    SelectNotesTaskFailed(String),
+    #[error("Select accounts task failed: {0}")]
+    SelectAccountsTaskFailed(String),
+    #[error("Select block header task failed: {0}")]
+    SelectBlockHeaderTaskFailed(String),
+    #[error("Select block headers task failed: {0}")]
+    SelectBlockHeadersTaskFailed(String),
+    #[error("Select account hashes task failed: {0}")]
+    SelectAccountHashesTaskFailed(String),
+    #[error("Get state sync task failed: {0}")]
+    GetStateSyncTaskFailed(String),
+    #[error("Apply block task failed: {0}")]
+    ApplyBlockTaskFailed(String),
+}
+
+#[derive(Debug, Error)]
 pub enum DbError {
     #[error("Missing database connection: {0}")]
     MissingDbConnection(#[from] PoolError),
@@ -36,8 +58,6 @@ pub enum DbError {
     StateError(Box<StateError>),
     #[error("Conversion error: {0}")]
     ConversionError(#[from] ConversionError),
-    #[error("Block database is empty")]
-    BlockDbIsEmpty,
     #[error("Decoding nullifier from database failed: {0}")]
     NullifierDecodingError(DeserializationError),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
@@ -48,28 +68,6 @@ impl From<StateError> for DbError {
     fn from(value: StateError) -> Self {
         Self::StateError(Box::new(value))
     }
-}
-
-#[derive(Debug, Error)]
-pub enum InteractionTaskError {
-    #[error("Migration task failed: {0}")]
-    MigrationTaskFailed(String),
-    #[error("Select nullifiers task failed: {0}")]
-    SelectNullifiersTaskFailed(String),
-    #[error("Select notes task failed: {0}")]
-    SelectNotesTaskFailed(String),
-    #[error("Select accounts task failed: {0}")]
-    SelectAccountsTaskFailed(String),
-    #[error("Select block header task failed: {0}")]
-    SelectBlockHeaderTaskFailed(String),
-    #[error("Select block headers task failed: {0}")]
-    SelectBlockHeadersTaskFailed(String),
-    #[error("Select account hashes task failed: {0}")]
-    SelectAccountHashesTaskFailed(String),
-    #[error("Get state sync task failed: {0}")]
-    GetStateSyncTaskFailed(String),
-    #[error("Apply block task failed: {0}")]
-    ApplyBlockTaskFailed(String),
 }
 
 #[derive(Debug, Error)]
@@ -115,8 +113,6 @@ pub enum StateError {
     DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
-    #[error("Failed to get MMR delta: {0}")]
-    FailedToGetMmrDelta(MmrError),
     #[error("Chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {forest}, block num: {block_num}")]
     IncorrectChainMmrForestNumber { forest: usize, block_num: u32 },
 }
@@ -131,6 +127,16 @@ pub enum StateInitializationError {
     FailedToCreateNullifiersTree(MerkleError),
     #[error("Failed to create accounts tree: {0}")]
     FailedToCreateAccountsTree(MerkleError),
+}
+
+#[derive(Error, Debug)]
+pub enum StateSyncError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DbError),
+    #[error("Block database is empty")]
+    BlockDbIsEmpty,
+    #[error("Failed to get MMR delta: {0}")]
+    FailedToGetMmrDelta(MmrError),
 }
 
 #[derive(Error, Debug)]

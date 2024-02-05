@@ -18,7 +18,7 @@ use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{Result, StateSyncUpdate};
 use crate::{
-    errors::{ConversionError, DbError},
+    errors::{ConversionError, DbError, StateSyncError},
     types::{AccountId, BlockNumber},
 };
 
@@ -494,7 +494,7 @@ pub fn get_state_sync(
     account_ids: &[AccountId],
     note_tag_prefixes: &[u32],
     nullifier_prefixes: &[u32],
-) -> Result<StateSyncUpdate> {
+) -> Result<StateSyncUpdate, StateSyncError> {
     let notes = select_notes_since_block_by_tag_and_sender(
         conn,
         note_tag_prefixes,
@@ -504,13 +504,14 @@ pub fn get_state_sync(
 
     let (block_header, chain_tip) = if !notes.is_empty() {
         let block_header = select_block_header_by_block_num(conn, Some(notes[0].block_num))?
-            .ok_or(DbError::BlockDbIsEmpty)?;
-        let tip = select_block_header_by_block_num(conn, None)?.ok_or(DbError::BlockDbIsEmpty)?;
+            .ok_or(StateSyncError::BlockDbIsEmpty)?;
+        let tip =
+            select_block_header_by_block_num(conn, None)?.ok_or(StateSyncError::BlockDbIsEmpty)?;
 
         (block_header, tip.block_num)
     } else {
         let block_header =
-            select_block_header_by_block_num(conn, None)?.ok_or(DbError::BlockDbIsEmpty)?;
+            select_block_header_by_block_num(conn, None)?.ok_or(StateSyncError::BlockDbIsEmpty)?;
 
         let block_num = block_header.block_num;
         (block_header, block_num)

@@ -15,7 +15,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     config::StoreConfig,
-    errors::{DbError, GenesisError, InteractionTaskError},
+    errors::{DbError, GenesisError, InteractionTaskError, StateSyncError},
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
     types::{AccountId, BlockNumber},
     COMPONENT,
@@ -189,14 +189,15 @@ impl Db {
         account_ids: &[AccountId],
         note_tag_prefixes: &[u32],
         nullifier_prefixes: &[u32],
-    ) -> Result<StateSyncUpdate> {
+    ) -> Result<StateSyncUpdate, StateSyncError> {
         let account_ids = account_ids.to_vec();
         let note_tag_prefixes = note_tag_prefixes.to_vec();
         let nullifier_prefixes = nullifier_prefixes.to_vec();
 
         self.pool
             .get()
-            .await?
+            .await
+            .map_err(DbError::MissingDbConnection)?
             .interact(move |conn| {
                 sql::get_state_sync(
                     conn,
@@ -207,7 +208,11 @@ impl Db {
                 )
             })
             .await
-            .map_err(|err| InteractionTaskError::GetStateSyncTaskFailed(err.to_string()))?
+            .map_err(|err| {
+                DbError::InteractionTaskError(InteractionTaskError::GetStateSyncTaskFailed(
+                    err.to_string(),
+                ))
+            })?
     }
 
     /// Inserts the data of a new block into the DB.

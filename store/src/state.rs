@@ -41,7 +41,10 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
-    errors::{ApplyBlockError, ConversionError, DbError, StateError, StateInitializationError},
+    errors::{
+        ApplyBlockError, ConversionError, DbError, StateError, StateInitializationError,
+        StateSyncError,
+    },
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -428,7 +431,7 @@ impl State {
         account_ids: &[AccountId],
         note_tag_prefixes: &[u32],
         nullifier_prefixes: &[u32],
-    ) -> Result<(StateSyncUpdate, MmrDelta)> {
+    ) -> Result<(StateSyncUpdate, MmrDelta), StateSyncError> {
         let inner = self.inner.read().await;
 
         let state_sync = self
@@ -456,7 +459,7 @@ impl State {
             inner
                 .chain_mmr
                 .get_delta(from_forest, to_forest)
-                .map_err(StateError::FailedToGetMmrDelta)?
+                .map_err(StateSyncError::FailedToGetMmrDelta)?
         };
 
         Ok((state_sync, delta))
