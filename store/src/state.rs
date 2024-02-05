@@ -41,7 +41,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
-    errors::{ApplyBlockError, StateError},
+    errors::{ApplyBlockError, ConversionError, DbError, StateError, StateInitializationError},
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -128,31 +128,30 @@ impl From<AccountState> for AccountTransactionInputRecord {
 }
 
 impl TryFrom<AccountUpdate> for AccountState {
-    type Error = StateError;
+    type Error = ConversionError;
 
     fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
         Ok(Self {
             account_id: value
                 .account_id
-                .ok_or(StateError::MissingFieldInProtobufRepresentation {
+                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
                     entity: "account update",
                     field_name: "account_id",
                 })?
                 .into(),
             account_hash: value
                 .account_hash
-                .ok_or(StateError::MissingFieldInProtobufRepresentation {
+                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
                     entity: "account update",
                     field_name: "account_hash",
                 })?
-                .try_into()
-                .map_err(StateError::DigestError)?,
+                .try_into()?,
         })
     }
 }
 
 impl TryFrom<&AccountUpdate> for AccountState {
-    type Error = StateError;
+    type Error = ConversionError;
 
     fn try_from(value: &AccountUpdate) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -189,7 +188,7 @@ impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord
 impl State {
     /// Loads the state from the `db`.
     #[instrument(target = "miden-store", skip_all)]
-    pub async fn load(mut db: Db) -> Result<Self> {
+    pub async fn load(mut db: Db) -> Result<Self, StateInitializationError> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
         let account_tree = load_accounts(&mut db).await?;
@@ -551,19 +550,19 @@ impl State {
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
-    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>> {
-        Ok(self.db.select_nullifiers().await?)
+    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, DbError> {
+        self.db.select_nullifiers().await
     }
 
     /// Lists all known accounts, with their ids, latest state hash, and block at which the account was last
     /// modified, intended for testing.
-    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>> {
-        Ok(self.db.select_accounts().await?)
+    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, DbError> {
+        self.db.select_accounts().await
     }
 
     /// Lists all known notes, intended for testing.
-    pub async fn list_notes(&self) -> Result<Vec<Note>> {
-        Ok(self.db.select_notes().await?)
+    pub async fn list_notes(&self) -> Result<Vec<Note>, DbError> {
+        self.db.select_notes().await
     }
 }
 
@@ -584,7 +583,12 @@ pub fn build_notes_tree(
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
-        let note_hash = note.note_hash.clone().ok_or(ApplyBlockError::MissingNoteHash)?;
+        let note_hash = note.note_hash.clone().ok_or(
+            ConversionError::MissingFieldInProtobufRepresentation {
+                entity: "note",
+                field_name: "note_hash",
+            },
+        )?;
         let account_id = note.sender.try_into().or(Err(ApplyBlockError::InvalidAccountId))?;
         let note_metadata = NoteMetadata::new(account_id, note.tag.into());
         let index = note.note_index as u64;
@@ -596,7 +600,7 @@ pub fn build_notes_tree(
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
+async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt, StateInitializationError> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
     let leaves = nullifiers
@@ -604,8 +608,8 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
         .map(|(nullifier, block)| (nullifier, block_to_nullifier_data(block)));
 
     let now = Instant::now();
-    let nullifier_tree =
-        TieredSmt::with_entries(leaves).map_err(StateError::FailedToCreateNullifiersTree)?;
+    let nullifier_tree = TieredSmt::with_entries(leaves)
+        .map_err(StateInitializationError::FailedToCreateNullifiersTree)?;
     let elapsed = now.elapsed().as_secs();
 
     info!(
@@ -618,7 +622,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_mmr(db: &mut Db) -> Result<Mmr> {
+async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
     let block_hashes: Result<Vec<RpoDigest>, ParseError> = db
         .select_block_headers()
         .await?
@@ -626,18 +630,21 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr> {
         .map(|b| b.try_into().map(|b: BlockHeader| b.hash()))
         .collect();
 
-    let mmr: Mmr = block_hashes?.into();
+    let mmr: Mmr = block_hashes.map_err(ConversionError::ParseError)?.into();
     Ok(mmr)
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_accounts(db: &mut Db) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>> {
-    let account_data: Result<Vec<_>> = db
+async fn load_accounts(
+    db: &mut Db
+) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
+    let account_data: Result<Vec<_>, ConversionError> = db
         .select_account_hashes()
         .await?
         .into_iter()
         .map(|(id, account_hash)| Ok((id, account_hash.try_into()?)))
         .collect();
 
-    SimpleSmt::with_leaves(account_data?).map_err(StateError::FailedToCreateAccountsTree)
+    SimpleSmt::with_leaves(account_data?)
+        .map_err(StateInitializationError::FailedToCreateAccountsTree)
 }

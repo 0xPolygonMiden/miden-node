@@ -18,7 +18,7 @@ use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{Result, StateSyncUpdate};
 use crate::{
-    errors::{DbError, StateError},
+    errors::{ConversionError, DbError},
     types::{AccountId, BlockNumber},
 };
 
@@ -291,7 +291,7 @@ pub fn insert_notes(
             note.note_index,
             note.note_hash
                 .clone()
-                .ok_or(StateError::MissingFieldInProtobufRepresentation {
+                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
                     entity: "note",
                     field_name: "note_hash"
                 })?
@@ -300,7 +300,7 @@ pub fn insert_notes(
             u64_to_value(note.tag),
             note.merkle_path
                 .clone()
-                .ok_or(StateError::MissingFieldInProtobufRepresentation {
+                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
                     entity: "note",
                     field_name: "merkle_path"
                 })?

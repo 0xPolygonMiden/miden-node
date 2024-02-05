@@ -34,6 +34,8 @@ pub enum DbError {
     GenesisBlockError(#[from] GenesisError),
     #[error("State error: {0}")]
     StateError(Box<StateError>),
+    #[error("Conversion error: {0}")]
+    ConversionError(#[from] ConversionError),
     #[error("Block database is empty")]
     BlockDbIsEmpty,
     #[error("Decoding nullifier from database failed: {0}")]
@@ -93,38 +95,52 @@ pub enum GenesisError {
 }
 
 #[derive(Error, Debug)]
-pub enum StateError {
-    #[error("Database error: {0}")]
-    DatabaseError(#[from] DbError),
-    #[error("Digest error: {0:?}")]
-    DigestError(#[from] ParseError),
-    #[error("Database doesnt have any block header data")]
-    DbBlockHeaderEmpty,
+pub enum ConversionError {
+    #[error("Parse error: {0}")]
+    ParseError(#[from] ParseError),
     #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
     MissingFieldInProtobufRepresentation {
         entity: &'static str,
         field_name: &'static str,
     },
+}
+
+#[derive(Error, Debug)]
+pub enum StateError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DbError),
+    #[error("Conversion error: {0}")]
+    ConversionError(#[from] ConversionError),
+    #[error("Database doesnt have any block header data")]
+    DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
     #[error("Failed to get MMR delta: {0}")]
     FailedToGetMmrDelta(MmrError),
     #[error("Chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {forest}, block num: {block_num}")]
     IncorrectChainMmrForestNumber { forest: usize, block_num: u32 },
-    #[error("Failed to create accounts tree: {0}")]
-    FailedToCreateAccountsTree(MerkleError),
+}
+
+#[derive(Error, Debug)]
+pub enum StateInitializationError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DbError),
+    #[error("Conversion error: {0}")]
+    ConversionError(#[from] ConversionError),
     #[error("Failed to create nullifiers tree: {0}")]
     FailedToCreateNullifiersTree(MerkleError),
+    #[error("Failed to create accounts tree: {0}")]
+    FailedToCreateAccountsTree(MerkleError),
 }
 
 #[derive(Error, Debug)]
 pub enum ApplyBlockError {
-    #[error("Parse error: {0}")]
-    ParseError(#[from] ParseError),
     #[error("Database error: {0}")]
     DatabaseError(#[from] DbError),
     #[error("State error: {0}")]
     StateError(#[from] StateError),
+    #[error("Conversion error: {0}")]
+    ConversionError(#[from] ConversionError),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
     #[error("New block number must be 1 greater than the current block number")]
@@ -147,8 +163,12 @@ pub enum ApplyBlockError {
     FailedToCreateNotesTree(MerkleError),
     #[error("Received invalid account id")]
     InvalidAccountId,
-    #[error("Missing `note_hash`")]
-    MissingNoteHash,
     #[error("Received invalid nullifier tree root")]
     NewBlockInvalidNullifierRoot,
+}
+
+impl From<ParseError> for ApplyBlockError {
+    fn from(err: ParseError) -> Self {
+        ApplyBlockError::ConversionError(err.into())
+    }
 }
