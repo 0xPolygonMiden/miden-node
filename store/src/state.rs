@@ -12,8 +12,8 @@ use anyhow::{anyhow, bail, Result};
 use miden_crypto::{
     hash::rpo::RpoDigest,
     merkle::{
-        LeafIndex, MerkleError, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, TieredSmt,
-        TieredSmtProof, ValuePath,
+        LeafIndex, MerkleError, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtLeaf,
+        ValuePath,
     },
     Felt, FieldElement, Word, EMPTY_WORD,
 };
@@ -52,7 +52,7 @@ use crate::{
 
 /// Container for state that needs to be updated atomically.
 struct InnerState {
-    nullifier_tree: TieredSmt,
+    nullifier_tree: Smt,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
 }
@@ -248,7 +248,7 @@ impl State {
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
                 .iter()
-                .filter(|&&n| inner.nullifier_tree.get_value(n) != EMPTY_WORD)
+                .filter(|&n| inner.nullifier_tree.get_value(n) != EMPTY_WORD)
                 .cloned()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
@@ -382,9 +382,9 @@ impl State {
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
-    ) -> Vec<TieredSmtProof> {
+    ) -> Vec<(MerklePath, SmtLeaf)> {
         let inner = self.inner.read().await;
-        nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
+        nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
     /// Loads data to synchronize a client.
@@ -513,7 +513,7 @@ impl State {
             .iter()
             .cloned()
             .map(|nullifier| {
-                let value = inner.nullifier_tree.get_value(nullifier);
+                let value = inner.nullifier_tree.get_value(&nullifier);
                 let block_num = nullifier_value_to_blocknum(value);
 
                 NullifierStateForTransactionInput {
@@ -575,7 +575,7 @@ pub fn build_notes_tree(
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
+async fn load_nullifier_tree(db: &mut Db) -> Result<Smt> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
     let leaves = nullifiers
@@ -583,7 +583,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt> {
         .map(|(nullifier, block)| (nullifier, block_to_nullifier_data(block)));
 
     let now = Instant::now();
-    let nullifier_tree = TieredSmt::with_entries(leaves)?;
+    let nullifier_tree = Smt::with_entries(leaves)?;
     let elapsed = now.elapsed().as_secs();
 
     info!(
