@@ -31,7 +31,7 @@ pub enum DbError {
     #[error("SQLite pool interaction task failed: {0}")]
     InteractionTaskError(#[from] InteractionTaskError),
     #[error("Genesis block error: {0}")]
-    GenesisBlockError(#[from] GenesisBlockError),
+    GenesisBlockError(#[from] GenesisError),
     #[error("State error: {0}")]
     StateError(Box<StateError>),
     #[error("Block database is empty")]
@@ -71,7 +71,7 @@ pub enum InteractionTaskError {
 }
 
 #[derive(Debug, Error)]
-pub enum GenesisBlockError {
+pub enum GenesisError {
     #[error("Apply block failed: {0}")]
     ApplyBlockFailed(String),
     #[error("Failed to read genesis file \"{genesis_filepath}\": {error}")]

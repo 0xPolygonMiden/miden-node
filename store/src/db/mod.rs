@@ -15,7 +15,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     config::StoreConfig,
-    errors::{DbError, GenesisBlockError, InteractionTaskError},
+    errors::{DbError, GenesisError, InteractionTaskError},
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
     types::{AccountId, BlockNumber},
     COMPONENT,
@@ -266,17 +266,17 @@ impl Db {
     ) -> Result<()> {
         let (expected_genesis_header, account_smt) = {
             let file_contents = fs::read(genesis_filepath).map_err(|error| {
-                GenesisBlockError::FailedToReadGenesisFile {
+                GenesisError::FailedToReadGenesisFile {
                     genesis_filepath: genesis_filepath.to_string(),
                     error,
                 }
             })?;
 
             let genesis_state = GenesisState::read_from_bytes(&file_contents)
-                .map_err(GenesisBlockError::GenesisFileDeserializationError)?;
+                .map_err(GenesisError::GenesisFileDeserializationError)?;
             let (block_header, account_smt) = genesis_state
                 .into_block_parts()
-                .map_err(GenesisBlockError::MalconstructedGenesisState)?;
+                .map_err(GenesisError::MalconstructedGenesisState)?;
 
             (block_header.into(), account_smt)
         };
@@ -284,13 +284,13 @@ impl Db {
         let maybe_block_header_in_store = self
             .select_block_header_by_block_num(Some(GENESIS_BLOCK_NUM))
             .await
-            .map_err(|err| GenesisBlockError::SelectBlockHeaderByBlockNumError(err.into()))?;
+            .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {
                 // ensure that expected header is what's also in the store
                 if expected_genesis_header != block_header_in_store {
-                    Err(GenesisBlockError::GenesisBlockHeaderMismatch {
+                    Err(GenesisError::GenesisBlockHeaderMismatch {
                         expected_genesis_header: Box::new(expected_genesis_header),
                         block_header_in_store: Box::new(block_header_in_store),
                     })?;
@@ -325,7 +325,7 @@ impl Db {
                         Ok(())
                     })
                     .await
-                    .map_err(|err| GenesisBlockError::ApplyBlockFailed(err.to_string()))??;
+                    .map_err(|err| GenesisError::ApplyBlockFailed(err.to_string()))??;
             },
         }
 
