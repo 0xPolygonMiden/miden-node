@@ -42,7 +42,7 @@ use tracing::{info, info_span, instrument};
 use crate::{
     db::{Db, StateSyncUpdate},
     errors::{
-        ApplyBlockError, ConversionError, DbError, StateError, StateInitializationError,
+        ApplyBlockError, ConversionError, DatabaseError, StateError, StateInitializationError,
         StateSyncError,
     },
     types::{AccountId, BlockNumber},
@@ -459,7 +459,7 @@ impl State {
             inner
                 .chain_mmr
                 .get_delta(from_forest, to_forest)
-                .map_err(StateSyncError::FailedToGetMmrDelta)?
+                .map_err(StateSyncError::FailedToBuildMmrDelta)?
         };
 
         Ok((state_sync, delta))
@@ -553,18 +553,18 @@ impl State {
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
-    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, DbError> {
+    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, DatabaseError> {
         self.db.select_nullifiers().await
     }
 
     /// Lists all known accounts, with their ids, latest state hash, and block at which the account was last
     /// modified, intended for testing.
-    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, DbError> {
+    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, DatabaseError> {
         self.db.select_accounts().await
     }
 
     /// Lists all known notes, intended for testing.
-    pub async fn list_notes(&self) -> Result<Vec<Note>, DbError> {
+    pub async fn list_notes(&self) -> Result<Vec<Note>, DatabaseError> {
         self.db.select_notes().await
     }
 }
@@ -633,8 +633,9 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
         .map(|b| b.try_into().map(|b: BlockHeader| b.hash()))
         .collect();
 
-    let mmr: Mmr = block_hashes.map_err(ConversionError::ParseError)?.into();
-    Ok(mmr)
+    block_hashes
+        .map(Into::into)
+        .map_err(StateInitializationError::FailedToCreateChainMmr)
 }
 
 #[instrument(target = "miden-store", skip_all)]

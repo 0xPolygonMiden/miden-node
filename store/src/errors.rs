@@ -55,27 +55,19 @@ pub enum InteractionTaskError {
 // =================================================================================================
 
 #[derive(Debug, Error)]
-pub enum DbError {
+pub enum DatabaseError {
     #[error("Missing database connection: {0}")]
     MissingDbConnection(#[from] PoolError),
     #[error("SQLite error: {0}")]
     SqliteError(#[from] rusqlite::Error),
     #[error("SQLite error: {0}")]
     FromSqlError(#[from] FromSqlError),
-    #[error("SQLite migration error: {0}")]
-    SqliteMigrationError(#[from] rusqlite_migration::Error),
-    #[error("Pool build error: {0}")]
-    PoolBuildError(#[from] deadpool_sqlite::BuildError),
     #[error("I/O error: {0}")]
     IoError(#[from] io::Error),
     #[error("Prost decode error: {0}")]
     DecodeError(#[from] DecodeError),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractionTaskError(#[from] InteractionTaskError),
-    #[error("Genesis block error: {0}")]
-    GenesisBlockError(#[from] GenesisError),
-    #[error("State error: {0}")]
-    StateError(Box<StateError>),
     #[error("Conversion error: {0}")]
     ConversionError(#[from] ConversionError),
     #[error("Decoding nullifier from database failed: {0}")]
@@ -84,10 +76,16 @@ pub enum DbError {
     ApplyBlockFailedClosedChannel(RecvError),
 }
 
-impl From<StateError> for DbError {
-    fn from(value: StateError) -> Self {
-        Self::StateError(Box::new(value))
-    }
+#[derive(Debug, Error)]
+pub enum DatabaseSetupError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
+    #[error("Genesis block error: {0}")]
+    GenesisBlockError(#[from] GenesisError),
+    #[error("Pool build error: {0}")]
+    PoolBuildError(#[from] deadpool_sqlite::BuildError),
+    #[error("SQLite migration error: {0}")]
+    SqliteMigrationError(#[from] rusqlite_migration::Error),
 }
 
 // Genesis errors
@@ -95,6 +93,8 @@ impl From<StateError> for DbError {
 
 #[derive(Debug, Error)]
 pub enum GenesisError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
     #[error("Apply block failed: {0}")]
     ApplyBlockFailed(String),
     #[error("Failed to read genesis file \"{genesis_filepath}\": {error}")]
@@ -112,7 +112,7 @@ pub enum GenesisError {
     #[error("Malconstructed genesis state: {0}")]
     MalconstructedGenesisState(MerkleError),
     #[error("Retrieving genesis block header failed: {0}")]
-    SelectBlockHeaderByBlockNumError(Box<DbError>),
+    SelectBlockHeaderByBlockNumError(Box<DatabaseError>),
 }
 
 // State errors
@@ -121,7 +121,7 @@ pub enum GenesisError {
 #[derive(Error, Debug)]
 pub enum StateError {
     #[error("Database error: {0}")]
-    DatabaseError(#[from] DbError),
+    DatabaseError(#[from] DatabaseError),
     #[error("Conversion error: {0}")]
     ConversionError(#[from] ConversionError),
     #[error("Database doesnt have any block header data")]
@@ -135,23 +135,25 @@ pub enum StateError {
 #[derive(Error, Debug)]
 pub enum StateInitializationError {
     #[error("Database error: {0}")]
-    DatabaseError(#[from] DbError),
+    DatabaseError(#[from] DatabaseError),
     #[error("Conversion error: {0}")]
     ConversionError(#[from] ConversionError),
     #[error("Failed to create nullifiers tree: {0}")]
     FailedToCreateNullifiersTree(MerkleError),
     #[error("Failed to create accounts tree: {0}")]
     FailedToCreateAccountsTree(MerkleError),
+    #[error("Failed to create chain MMR: {0}")]
+    FailedToCreateChainMmr(ParseError),
 }
 
 #[derive(Error, Debug)]
 pub enum StateSyncError {
     #[error("Database error: {0}")]
-    DatabaseError(#[from] DbError),
-    #[error("Block database is empty")]
-    BlockDbIsEmpty,
-    #[error("Failed to get MMR delta: {0}")]
-    FailedToGetMmrDelta(MmrError),
+    DatabaseError(#[from] DatabaseError),
+    #[error("Block headers table is empty")]
+    EmptyBlockHeadersTable,
+    #[error("Failed to build MMR delta: {0}")]
+    FailedToBuildMmrDelta(MmrError),
 }
 
 // Block applying errors
@@ -160,7 +162,7 @@ pub enum StateSyncError {
 #[derive(Error, Debug)]
 pub enum ApplyBlockError {
     #[error("Database error: {0}")]
-    DatabaseError(#[from] DbError),
+    DatabaseError(#[from] DatabaseError),
     #[error("State error: {0}")]
     StateError(#[from] StateError),
     #[error("Conversion error: {0}")]
@@ -171,14 +173,14 @@ pub enum ApplyBlockError {
     NewBlockInvalidBlockNum,
     #[error("New block `prev_hash` must match the chain's tip")]
     NewBlockInvalidPrevHash,
-    #[error("Duplicated nullifiers {0:?}")]
-    DuplicatedNullifiers(Vec<RpoDigest>),
     #[error("New block chain root is not consistent with chain MMR")]
     NewBlockInvalidChainRoot,
     #[error("Received invalid account tree root")]
     NewBlockInvalidAccountRoot,
     #[error("Received invalid note root")]
     NewBlockInvalidNoteRoot,
+    #[error("Duplicated nullifiers {0:?}")]
+    DuplicatedNullifiers(Vec<RpoDigest>),
     #[error("Unable to create proof for note: {0}")]
     UnableToCreateProofForNote(MerkleError),
     #[error("Block applying was broken because of closed channel on database side: {0}")]
@@ -187,8 +189,6 @@ pub enum ApplyBlockError {
     FailedToCreateNotesTree(MerkleError),
     #[error("Received invalid account id")]
     InvalidAccountId,
-    #[error("Received invalid nullifier tree root")]
-    NewBlockInvalidNullifierRoot,
 }
 
 impl From<ParseError> for ApplyBlockError {

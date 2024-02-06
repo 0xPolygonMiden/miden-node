@@ -15,7 +15,9 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     config::StoreConfig,
-    errors::{DbError, GenesisError, InteractionTaskError, StateSyncError},
+    errors::{
+        DatabaseError, DatabaseSetupError, GenesisError, InteractionTaskError, StateSyncError,
+    },
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
     types::{AccountId, BlockNumber},
     COMPONENT,
@@ -27,7 +29,7 @@ mod sql;
 #[cfg(test)]
 mod tests;
 
-pub type Result<T, E = DbError> = std::result::Result<T, E>;
+pub type Result<T, E = DatabaseError> = std::result::Result<T, E>;
 
 pub struct Db {
     pool: Pool,
@@ -47,11 +49,11 @@ impl Db {
     /// is as expected and present in the database.
     // TODO: This span is logged in a root span, we should connect it to the parent one.
     #[instrument(target = "miden-store", skip_all)]
-    pub async fn setup(config: StoreConfig) -> Result<Self> {
+    pub async fn setup(config: StoreConfig) -> Result<Self, DatabaseSetupError> {
         info!(target: COMPONENT, %config, "Connecting to the database");
 
         if let Some(p) = config.database_filepath.parent() {
-            create_dir_all(p)?;
+            create_dir_all(p).map_err(DatabaseError::IoError)?;
         }
 
         let pool = SqliteConfig::new(config.database_filepath.clone())
@@ -91,11 +93,15 @@ impl Db {
             "Connected to the database"
         );
 
-        let conn = pool.get().await?;
+        let conn = pool.get().await.map_err(DatabaseError::MissingDbConnection)?;
 
         conn.interact(|conn| migrations::MIGRATIONS.to_latest(conn))
             .await
-            .map_err(|err| InteractionTaskError::MigrationTaskFailed(err.to_string()))??;
+            .map_err(|err| {
+                DatabaseError::InteractionTaskError(InteractionTaskError::MigrationTaskFailed(
+                    err.to_string(),
+                ))
+            })??;
 
         let db = Db { pool };
         db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy())
@@ -197,7 +203,7 @@ impl Db {
         self.pool
             .get()
             .await
-            .map_err(DbError::MissingDbConnection)?
+            .map_err(DatabaseError::MissingDbConnection)?
             .interact(move |conn| {
                 sql::get_state_sync(
                     conn,
@@ -209,7 +215,7 @@ impl Db {
             })
             .await
             .map_err(|err| {
-                DbError::InteractionTaskError(InteractionTaskError::GetStateSyncTaskFailed(
+                DatabaseError::InteractionTaskError(InteractionTaskError::GetStateSyncTaskFailed(
                     err.to_string(),
                 ))
             })?
@@ -243,7 +249,9 @@ impl Db {
                 sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
 
                 let _ = allow_acquire.send(());
-                acquire_done.blocking_recv().map_err(DbError::ApplyBlockFailedClosedChannel)?;
+                acquire_done
+                    .blocking_recv()
+                    .map_err(DatabaseError::ApplyBlockFailedClosedChannel)?;
 
                 transaction.commit()?;
 
@@ -266,7 +274,7 @@ impl Db {
     async fn ensure_genesis_block(
         &self,
         genesis_filepath: &str,
-    ) -> Result<()> {
+    ) -> Result<(), GenesisError> {
         let (expected_genesis_header, account_smt) = {
             let file_contents = fs::read(genesis_filepath).map_err(|error| {
                 GenesisError::FailedToReadGenesisFile {
@@ -303,7 +311,8 @@ impl Db {
                 // add genesis header to store
                 self.pool
                     .get()
-                    .await?
+                    .await
+                    .map_err(DatabaseError::MissingDbConnection)?
                     .interact(move |conn| -> Result<()> {
                         // TODO: This span is logged in a root span, we should connect it to the parent one.
                         let span = info_span!(target: COMPONENT, "write_genesis_block_to_db");

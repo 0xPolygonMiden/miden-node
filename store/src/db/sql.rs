@@ -18,7 +18,7 @@ use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{Result, StateSyncUpdate};
 use crate::{
-    errors::{ConversionError, DbError, StateSyncError},
+    errors::{ConversionError, DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
 };
 
@@ -504,14 +504,14 @@ pub fn get_state_sync(
 
     let (block_header, chain_tip) = if !notes.is_empty() {
         let block_header = select_block_header_by_block_num(conn, Some(notes[0].block_num))?
-            .ok_or(StateSyncError::BlockDbIsEmpty)?;
-        let tip =
-            select_block_header_by_block_num(conn, None)?.ok_or(StateSyncError::BlockDbIsEmpty)?;
+            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
+        let tip = select_block_header_by_block_num(conn, None)?
+            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
 
         (block_header, tip.block_num)
     } else {
-        let block_header =
-            select_block_header_by_block_num(conn, None)?.ok_or(StateSyncError::BlockDbIsEmpty)?;
+        let block_header = select_block_header_by_block_num(conn, None)?
+            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
 
         let block_num = block_header.block_num;
         (block_header, block_num)
@@ -568,7 +568,7 @@ fn decode_protobuf_digest(data: &[u8]) -> Result<Digest> {
 /// Decodes a blob from the database into a [RpoDigest].
 fn decode_rpo_digest(data: &[u8]) -> Result<RpoDigest> {
     let mut reader = SliceReader::new(data);
-    RpoDigest::read_from(&mut reader).map_err(DbError::NullifierDecodingError)
+    RpoDigest::read_from(&mut reader).map_err(DatabaseError::NullifierDecodingError)
 }
 
 /// Returns the high bits of the `u64` value used during searches.
