@@ -281,7 +281,7 @@ impl State {
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
-    ) -> Vec<(MerklePath, SmtLeaf)> {
+    ) -> Vec<SmtProof> {
         let inner = self.inner.read().await;
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
