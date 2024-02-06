@@ -1,4 +1,7 @@
-use miden_crypto::{merkle::Mmr, ONE};
+use miden_crypto::{
+    merkle::{LeafIndex, Mmr, SmtLeaf, SmtProof},
+    ONE,
+};
 use miden_mock::mock::block::mock_block_header;
 use miden_node_proto::domain::{AccountInputRecord, BlockInputs, NullifierInputRecord};
 use miden_objects::{
@@ -510,11 +513,17 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
         let nullifiers = vec![
             NullifierInputRecord {
                 nullifier: nullifier_2,
-                proof: MerklePath::default(),
+                proof: SmtProof::new(
+                    MerklePath::default(),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_2[3].into())),
+                ).unwrap(),
             },
             NullifierInputRecord {
                 nullifier: nullifier_3,
-                proof: MerklePath::default(),
+                proof: SmtProof::new(
+                    MerklePath::default(),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_3[3].into())),
+                ).unwrap(),
             },
         ];
 
