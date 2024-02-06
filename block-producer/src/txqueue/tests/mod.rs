@@ -4,9 +4,7 @@ use tokio::{
 };
 
 use super::*;
-use crate::{
-    batch_builder::errors::BuildBatchError, test_utils::DummyProvenTxGenerator, TransactionBatch,
-};
+use crate::{errors::BuildBatchError, test_utils::DummyProvenTxGenerator, TransactionBatch};
 
 // STRUCTS
 // ================================================================================================

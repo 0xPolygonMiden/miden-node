@@ -7,7 +7,7 @@ use miden_stdlib::StdLibrary;
 use miden_vm::{execute, DefaultHost, MemAdviceProvider, Program};
 
 use self::block_witness::BlockWitness;
-use super::{errors::BlockProverError, BuildBlockError};
+use crate::errors::{BlockProverError, BuildBlockError};
 
 /// The index of the word at which the account root is stored on the output stack.
 pub const ACCOUNT_ROOT_WORD_IDX: usize = 0;

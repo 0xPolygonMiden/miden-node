@@ -4,16 +4,16 @@ use async_trait::async_trait;
 use tokio::{sync::RwLock, time};
 use tracing::{debug, info, instrument, Span};
 
-use self::errors::BuildBatchError;
 use crate::{block_builder::BlockBuilder, ProvenTransaction, SharedRwVec, COMPONENT};
 
-pub mod errors;
 #[cfg(test)]
 mod tests;
 
 pub mod batch;
 pub use batch::TransactionBatch;
-use miden_node_utils::logging::{format_array, format_blake3_digest};
+use miden_node_utils::formatting::{format_array, format_blake3_digest};
+
+use crate::errors::BuildBatchError;
 
 // BATCH BUILDER
 // ================================================================================================

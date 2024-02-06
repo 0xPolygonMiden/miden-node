@@ -1,24 +1,20 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use miden_node_utils::logging::{format_array, format_blake3_digest};
+use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{accounts::AccountId, Digest};
 use tracing::{debug, info, instrument};
 
 use crate::{
     batch_builder::batch::TransactionBatch,
     block::Block,
+    errors::BuildBlockError,
     store::{ApplyBlock, Store},
     COMPONENT, MAX_NUM_CREATED_NOTES_PER_BATCH,
 };
 
-pub mod errors;
-
 pub(crate) mod prover;
-use self::{
-    errors::BuildBlockError,
-    prover::{block_witness::BlockWitness, BlockProver},
-};
+use self::prover::{block_witness::BlockWitness, BlockProver};
 
 #[cfg(test)]
 mod tests;

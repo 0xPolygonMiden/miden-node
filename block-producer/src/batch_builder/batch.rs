@@ -5,8 +5,10 @@ use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
 use miden_vm::crypto::SimpleSmt;
 use tracing::instrument;
 
-use super::errors::BuildBatchError;
-use crate::{ProvenTransaction, CREATED_NOTES_SMT_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH};
+use crate::{
+    errors::BuildBatchError, ProvenTransaction, CREATED_NOTES_SMT_DEPTH,
+    MAX_NUM_CREATED_NOTES_PER_BATCH,
+};
 
 pub type BatchId = Blake3Digest<32>;
 
