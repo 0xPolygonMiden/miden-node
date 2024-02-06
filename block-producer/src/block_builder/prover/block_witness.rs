@@ -307,12 +307,12 @@ impl BlockWitness {
         if produced_nullifiers_from_store == produced_nullifiers_from_batches {
             Ok(())
         } else {
-            let differing_nulliers: Vec<Digest> = produced_nullifiers_from_store
+            let differing_nullifiers: Vec<Digest> = produced_nullifiers_from_store
                 .symmetric_difference(&produced_nullifiers_from_batches)
                 .copied()
                 .collect();
 
-            Err(BuildBlockError::InconsistentNullifiers(differing_nulliers))
+            Err(BuildBlockError::InconsistentNullifiers(differing_nullifiers))
         }
     }
 }

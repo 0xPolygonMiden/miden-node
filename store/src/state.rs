@@ -10,7 +10,7 @@ use std::{
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    merkle::{LeafIndex, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtLeaf, ValuePath},
+    merkle::{LeafIndex, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtProof, ValuePath},
     Felt, FieldElement, Word, EMPTY_WORD,
 };
 use miden_node_proto::{
@@ -394,7 +394,7 @@ impl State {
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
-    ) -> Vec<(MerklePath, SmtLeaf)> {
+    ) -> Vec<SmtProof> {
         let inner = self.inner.read().await;
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }

@@ -1,5 +1,5 @@
 use miden_crypto::{
-    merkle::{MerklePath, MmrDelta, MmrPeaks, SmtLeaf, TieredSmtProof},
+    merkle::{MerklePath, MmrDelta, MmrPeaks, SmtProof, TieredSmtProof},
     Felt, FieldElement, StarkField, Word,
 };
 use miden_objects::{
@@ -72,8 +72,9 @@ impl From<digest::Digest> for [u64; 4] {
     }
 }
 
-impl From<(MerklePath, SmtLeaf)> for tsmt::NullifierProof {
-    fn from((path, smt_leaf): (MerklePath, SmtLeaf)) -> Self {
+impl From<SmtProof> for tsmt::NullifierProof {
+    fn from(smt_proof: SmtProof) -> Self {
+        let (path, smt_leaf) = smt_proof.into_parts();
         tsmt::NullifierProof {
             merkle_path: convert(path),
             leaves: convert(smt_leaf.entries()),
