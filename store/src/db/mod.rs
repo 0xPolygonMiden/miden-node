@@ -15,9 +15,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     config::StoreConfig,
-    errors::{
-        DatabaseError, DatabaseSetupError, GenesisError, InteractionTaskError, StateSyncError,
-    },
+    errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
     genesis::{GenesisState, GENESIS_BLOCK_NUM},
     types::{AccountId, BlockNumber},
     COMPONENT,
@@ -98,9 +96,7 @@ impl Db {
         conn.interact(|conn| migrations::MIGRATIONS.to_latest(conn))
             .await
             .map_err(|err| {
-                DatabaseError::InteractionTaskError(InteractionTaskError::MigrationTaskFailed(
-                    err.to_string(),
-                ))
+                DatabaseError::InteractError(format!("Migration task failed: {err}"))
             })??;
 
         let db = Db { pool };
@@ -114,36 +110,27 @@ impl Db {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>> {
-        self.pool
-            .get()
-            .await?
-            .interact(sql::select_nullifiers)
-            .await
-            .map_err(|err| InteractionTaskError::SelectNullifiersTaskFailed(err.to_string()))?
+        self.pool.get().await?.interact(sql::select_nullifiers).await.map_err(|err| {
+            DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
+        })?
     }
 
     /// Loads all the notes from the DB.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_notes(&self) -> Result<Vec<Note>> {
-        self.pool
-            .get()
-            .await?
-            .interact(sql::select_notes)
-            .await
-            .map_err(|err| InteractionTaskError::SelectNotesTaskFailed(err.to_string()))?
+        self.pool.get().await?.interact(sql::select_notes).await.map_err(|err| {
+            DatabaseError::InteractError(format!("Select notes task failed: {err}"))
+        })?
     }
 
     /// Loads all the accounts from the DB.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>> {
-        self.pool
-            .get()
-            .await?
-            .interact(sql::select_accounts)
-            .await
-            .map_err(|err| InteractionTaskError::SelectAccountsTaskFailed(err.to_string()))?
+        self.pool.get().await?.interact(sql::select_accounts).await.map_err(|err| {
+            DatabaseError::InteractError(format!("Select accounts task failed: {err}"))
+        })?
     }
 
     /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.
@@ -160,7 +147,9 @@ impl Db {
             .await?
             .interact(move |conn| sql::select_block_header_by_block_num(conn, block_number))
             .await
-            .map_err(|err| InteractionTaskError::SelectBlockHeaderTaskFailed(err.to_string()))?
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Select block header task failed: {err}"))
+            })?
     }
 
     /// Loads all the block headers from the DB.
@@ -172,7 +161,9 @@ impl Db {
             .await?
             .interact(sql::select_block_headers)
             .await
-            .map_err(|err| InteractionTaskError::SelectBlockHeadersTaskFailed(err.to_string()))?
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Select block headers task failed: {err}"))
+            })?
     }
 
     /// Loads all the account hashes from the DB.
@@ -184,7 +175,9 @@ impl Db {
             .await?
             .interact(sql::select_account_hashes)
             .await
-            .map_err(|err| InteractionTaskError::SelectAccountHashesTaskFailed(err.to_string()))?
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Select account hashes task failed: {err}"))
+            })?
     }
 
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
@@ -215,9 +208,7 @@ impl Db {
             })
             .await
             .map_err(|err| {
-                DatabaseError::InteractionTaskError(InteractionTaskError::GetStateSyncTaskFailed(
-                    err.to_string(),
-                ))
+                DatabaseError::InteractError(format!("Get state sync task failed: {err}"))
             })?
     }
 
@@ -258,7 +249,9 @@ impl Db {
                 Ok(())
             })
             .await
-            .map_err(|err| InteractionTaskError::ApplyBlockTaskFailed(err.to_string()))??;
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Apply block task failed: {err}"))
+            })??;
 
         Ok(())
     }
@@ -285,9 +278,8 @@ impl Db {
 
             let genesis_state = GenesisState::read_from_bytes(&file_contents)
                 .map_err(GenesisError::GenesisFileDeserializationError)?;
-            let (block_header, account_smt) = genesis_state
-                .into_block_parts()
-                .map_err(GenesisError::MalconstructedGenesisState)?;
+            let (block_header, account_smt) =
+                genesis_state.into_block_parts().map_err(GenesisError::MalformedGenesisState)?;
 
             (block_header.into(), account_smt)
         };

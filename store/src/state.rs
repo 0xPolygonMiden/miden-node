@@ -416,8 +416,8 @@ impl State {
     /// - `note_tag_prefixes`: Only the 16 high bits of the tags the client is interested in, result
     ///   will include notes with matching prefixes, the first block with a matching note determines
     ///   the block range.
-    /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is intersted in,
-    ///   results will cinlude nullifiers matching prefixes produced in the given block range.
+    /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is interested in,
+    ///   results will include nullifiers matching prefixes produced in the given block range.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn sync_state(
