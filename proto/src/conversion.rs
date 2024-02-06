@@ -108,6 +108,19 @@ impl TryFrom<smt::SmtLeafEntry> for (RpoDigest, Word) {
     }
 }
 
+impl TryFrom<smt::SmtOpening> for SmtProof {
+    type Error = errors::ParseError;
+
+    fn try_from(opening: smt::SmtOpening) -> Result<Self, Self::Error> {
+        let path: MerklePath =
+            opening.path.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?;
+        let leaf: SmtLeaf =
+            opening.leaf.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?;
+
+        Ok(SmtProof::new(path, leaf)?)
+    }
+}
+
 impl From<&(RpoDigest, Word)> for tsmt::NullifierLeaf {
     fn from(value: &(RpoDigest, Word)) -> Self {
         let (key, value) = value;
@@ -348,7 +361,7 @@ impl TryFrom<responses::NullifierBlockInputRecord> for NullifierInputRecord {
                 .ok_or(errors::ParseError::ProtobufMissingData)?
                 .try_into()?,
             proof: nullifier_input_record
-                .proof
+                .opening
                 .ok_or(errors::ParseError::ProtobufMissingData)?
                 .try_into()?,
         })
