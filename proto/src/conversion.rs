@@ -131,6 +131,18 @@ impl From<&(RpoDigest, Word)> for tsmt::NullifierLeaf {
     }
 }
 
+impl From<SmtProof> for tsmt::NullifierProof {
+    fn from(smt_proof: SmtProof) -> Self {
+        let (path, leaf) = smt_proof.into_parts();
+        let raw_path: merkle::MerklePath = path.into();
+
+        Self {
+            leaves: convert(leaf.entries()),
+            merkle_path: raw_path.siblings,
+        }
+    }
+}
+
 impl TryFrom<tsmt::NullifierProof> for TieredSmtProof {
     type Error = errors::ParseError;
 
