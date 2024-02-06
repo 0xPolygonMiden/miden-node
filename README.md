@@ -67,13 +67,13 @@ By default this will generate 1 file and 1 folder in the current directory:
 
 ### Running the node
 
-To run the node you will need to provide a configuration file. We have an example config file in [node/miden.toml](/node/miden.toml). Then, to run the node, run:
+To run the node you will need to provide a configuration file. We have an example config file in [node/node.toml](/node/node.toml). Then, to run the node, run:
 
 ```sh
 miden-node start --config <path-to-config-file>
 ```
 
-Or, if your config file is named `miden.toml` and is in the current directory, you can simply run:
+Or, if your config file is named `node.toml` and is in the current directory, you can simply run:
 ```sh
 miden-node start
 ```
