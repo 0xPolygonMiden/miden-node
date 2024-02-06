@@ -12,15 +12,13 @@ use miden_node_proto::{
     requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
     store::api_client as store_client,
 };
+use miden_node_utils::formatting::{format_map, format_opt};
 use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
+pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
 use crate::{block::Block, ProvenTransaction, COMPONENT};
-
-mod errors;
-pub use errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use miden_node_utils::logging::{format_map, format_opt};
 
 // STORE TRAIT
 // ================================================================================================

@@ -1,18 +1,13 @@
-use std::{
-    fmt::{Debug, Display, Formatter},
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_objects::{
-    accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest, TransactionInputError,
-};
 use tokio::{sync::RwLock, time};
 use tracing::{debug, info, info_span, instrument, Instrument};
 
 use crate::{
-    batch_builder::BatchBuilder, store::TxInputsError, ProvenTransaction, SharedRwVec, COMPONENT,
+    batch_builder::BatchBuilder,
+    errors::{AddTransactionError, VerifyTxError},
+    ProvenTransaction, SharedRwVec, COMPONENT,
 };
 
 #[cfg(test)]
@@ -20,51 +15,6 @@ mod tests;
 
 // TRANSACTION VERIFIER
 // ================================================================================================
-
-#[derive(Debug, PartialEq)]
-pub enum VerifyTxError {
-    /// The account that the transaction modifies has already been modified and isn't yet committed
-    /// to a block
-    AccountAlreadyModifiedByOtherTx(AccountId),
-
-    /// Another transaction already consumed the notes with given nullifiers
-    InputNotesAlreadyConsumed(InputNotes<Nullifier>),
-
-    /// The account's initial hash did not match the current account's hash
-    IncorrectAccountInitialHash {
-        tx_initial_account_hash: Digest,
-        store_account_hash: Option<Digest>,
-    },
-
-    /// Failed to retrieve transaction inputs from the store
-    ///
-    /// TODO: Make this an "internal error". Q: Should we have a single `InternalError` enum for all
-    /// internal errors that can occur across the system?
-    StoreConnectionFailed(TxInputsError),
-
-    TransactionInputError(TransactionInputError),
-}
-
-impl Display for VerifyTxError {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
-        Debug::fmt(self, f)
-    }
-}
-
-impl From<TxInputsError> for VerifyTxError {
-    fn from(err: TxInputsError) -> Self {
-        Self::StoreConnectionFailed(err)
-    }
-}
-
-impl From<TransactionInputError> for VerifyTxError {
-    fn from(value: TransactionInputError) -> Self {
-        Self::TransactionInputError(value)
-    }
-}
 
 /// Implementations are responsible to track in-flight transactions and verify that new transactions
 /// added to the queue are not conflicting.
@@ -85,20 +35,6 @@ pub trait TransactionVerifier: Send + Sync + 'static {
         &self,
         tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError>;
-}
-
-#[derive(Debug)]
-pub enum AddTransactionError {
-    VerificationFailed(VerifyTxError),
-}
-
-impl Display for AddTransactionError {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
-        Debug::fmt(self, f)
-    }
 }
 
 // TRANSACTION QUEUE

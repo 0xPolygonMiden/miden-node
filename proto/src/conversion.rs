@@ -12,7 +12,7 @@ use crate::{
     account, block_header,
     digest::{self, Digest},
     domain::{AccountInputRecord, BlockInputs, NullifierInputRecord},
-    error, merkle, mmr, note, requests, responses, tsmt,
+    errors, merkle, mmr, note, requests, responses, tsmt,
 };
 
 impl From<[u64; 4]> for digest::Digest {
@@ -92,7 +92,7 @@ impl From<&(RpoDigest, Word)> for tsmt::NullifierLeaf {
 }
 
 impl TryFrom<tsmt::NullifierProof> for TieredSmtProof {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(value: tsmt::NullifierProof) -> Result<Self, Self::Error> {
         let path = MerklePath::new(try_convert(value.merkle_path)?);
@@ -100,26 +100,26 @@ impl TryFrom<tsmt::NullifierProof> for TieredSmtProof {
             .leaves
             .into_iter()
             .map(|leaf| {
-                let key = leaf.key.ok_or(error::ParseError::MissingLeafKey)?.try_into()?;
+                let key = leaf.key.ok_or(errors::ParseError::MissingLeafKey)?.try_into()?;
                 let value = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::from(leaf.block_num)];
                 let result = (key, value);
 
                 Ok(result)
             })
             .collect::<Result<Vec<(RpoDigest, Word)>, Self::Error>>()?;
-        TieredSmtProof::new(path, entries).or(Err(error::ParseError::InvalidProof))
+        TieredSmtProof::new(path, entries).or(Err(errors::ParseError::InvalidProof))
     }
 }
 
 impl TryFrom<digest::Digest> for [Felt; 4] {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         if ![value.d0, value.d1, value.d2, value.d3]
             .iter()
             .all(|v| *v < <Felt as StarkField>::MODULUS)
         {
-            Err(error::ParseError::NotAValidFelt)
+            Err(errors::ParseError::NotAValidFelt)
         } else {
             Ok([
                 Felt::new(value.d0),
@@ -132,7 +132,7 @@ impl TryFrom<digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<digest::Digest> for RpoDigest {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         Ok(Self::new(value.try_into()?))
@@ -140,7 +140,7 @@ impl TryFrom<digest::Digest> for RpoDigest {
 }
 
 impl TryFrom<&digest::Digest> for [Felt; 4] {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -148,7 +148,7 @@ impl TryFrom<&digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<&digest::Digest> for RpoDigest {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -156,18 +156,21 @@ impl TryFrom<&digest::Digest> for RpoDigest {
 }
 
 impl TryFrom<block_header::BlockHeader> for BlockHeader {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(value: block_header::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(
-            value.prev_hash.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.prev_hash.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?,
             value.block_num,
-            value.chain_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.account_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.nullifier_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.note_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.batch_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.proof_hash.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.chain_root.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?,
+            value.account_root.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?,
+            value
+                .nullifier_root
+                .ok_or(errors::ParseError::ProtobufMissingData)?
+                .try_into()?,
+            value.note_root.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?,
+            value.batch_root.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?,
+            value.proof_hash.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?,
             value.version.into(),
             value.timestamp.into(),
         ))
@@ -175,7 +178,7 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
 }
 
 impl TryFrom<&block_header::BlockHeader> for BlockHeader {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(value: &block_header::BlockHeader) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -204,10 +207,10 @@ impl From<BlockHeader> for block_header::BlockHeader {
 }
 
 impl TryFrom<mmr::MmrDelta> for MmrDelta {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(value: mmr::MmrDelta) -> Result<Self, Self::Error> {
-        let data: Result<Vec<RpoDigest>, error::ParseError> =
+        let data: Result<Vec<RpoDigest>, errors::ParseError> =
             value.data.into_iter().map(|v| v.try_into()).collect();
 
         Ok(MmrDelta {
@@ -236,7 +239,7 @@ impl From<MerklePath> for merkle::MerklePath {
 }
 
 impl TryFrom<merkle::MerklePath> for MerklePath {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(merkle_path: merkle::MerklePath) -> Result<Self, Self::Error> {
         merkle_path.siblings.into_iter().map(|v| v.try_into()).collect()
@@ -276,15 +279,15 @@ impl From<AccountId> for account::AccountId {
 }
 
 impl TryFrom<account::AccountId> for AccountId {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(account_id: account::AccountId) -> Result<Self, Self::Error> {
-        account_id.id.try_into().map_err(|_| error::ParseError::NotAValidFelt)
+        account_id.id.try_into().map_err(|_| errors::ParseError::NotAValidFelt)
     }
 }
 
 impl TryFrom<responses::AccountBlockInputRecord> for AccountInputRecord {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(
         account_input_record: responses::AccountBlockInputRecord
@@ -292,22 +295,22 @@ impl TryFrom<responses::AccountBlockInputRecord> for AccountInputRecord {
         Ok(Self {
             account_id: account_input_record
                 .account_id
-                .ok_or(error::ParseError::ProtobufMissingData)?
+                .ok_or(errors::ParseError::ProtobufMissingData)?
                 .try_into()?,
             account_hash: account_input_record
                 .account_hash
-                .ok_or(error::ParseError::ProtobufMissingData)?
+                .ok_or(errors::ParseError::ProtobufMissingData)?
                 .try_into()?,
             proof: account_input_record
                 .proof
-                .ok_or(error::ParseError::ProtobufMissingData)?
+                .ok_or(errors::ParseError::ProtobufMissingData)?
                 .try_into()?,
         })
     }
 }
 
 impl TryFrom<responses::NullifierBlockInputRecord> for NullifierInputRecord {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(
         nullifier_input_record: responses::NullifierBlockInputRecord
@@ -315,23 +318,23 @@ impl TryFrom<responses::NullifierBlockInputRecord> for NullifierInputRecord {
         Ok(Self {
             nullifier: nullifier_input_record
                 .nullifier
-                .ok_or(error::ParseError::ProtobufMissingData)?
+                .ok_or(errors::ParseError::ProtobufMissingData)?
                 .try_into()?,
             proof: nullifier_input_record
                 .proof
-                .ok_or(error::ParseError::ProtobufMissingData)?
+                .ok_or(errors::ParseError::ProtobufMissingData)?
                 .try_into()?,
         })
     }
 }
 
 impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
-    type Error = error::ParseError;
+    type Error = errors::ParseError;
 
     fn try_from(get_block_inputs: responses::GetBlockInputsResponse) -> Result<Self, Self::Error> {
         let block_header: BlockHeader = get_block_inputs
             .block_header
-            .ok_or(error::ParseError::ProtobufMissingData)?
+            .ok_or(errors::ParseError::ProtobufMissingData)?
             .try_into()?;
 
         let chain_peaks = {

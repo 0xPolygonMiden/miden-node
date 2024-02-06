@@ -10,15 +10,12 @@ use miden_objects::{
 use miden_vm::{crypto::MerklePath, AdviceInputs, StackInputs};
 
 use crate::{
-    block_builder::errors::{BlockProverError, BuildBlockError},
-    TransactionBatch, CREATED_NOTES_SMT_DEPTH,
+    errors::{BlockProverError, BuildBlockError},
+    TransactionBatch, CREATED_NOTES_SMT_DEPTH, CREATED_NOTES_TREE_INSERTION_DEPTH,
 };
 
 // CONSTANTS
 // =================================================================================================
-
-/// The depth at which we insert roots from the batches.
-pub(crate) const CREATED_NOTES_TREE_INSERTION_DEPTH: u8 = 8;
 
 /// The depth of the created notes tree in the block.
 pub(crate) const CREATED_NOTES_TREE_DEPTH: u8 =

@@ -8,13 +8,9 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, bail, Result};
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    merkle::{
-        LeafIndex, MerkleError, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtLeaf,
-        ValuePath,
-    },
+    merkle::{LeafIndex, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtLeaf, ValuePath},
     Felt, FieldElement, Word, EMPTY_WORD,
 };
 use miden_node_proto::{
@@ -22,14 +18,14 @@ use miden_node_proto::{
     block_header,
     conversion::nullifier_value_to_blocknum,
     digest::Digest,
-    error::ParseError,
+    errors::ParseError,
     note::{Note, NoteCreated},
     requests::AccountUpdate,
     responses::{
         AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
     },
 };
-use miden_node_utils::logging::{format_account_id, format_array};
+use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
     BlockHeader, ACCOUNT_TREE_DEPTH,
@@ -42,7 +38,10 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
-    errors::StateError,
+    errors::{
+        ApplyBlockError, ConversionError, DatabaseError, GetBlockInputsError,
+        StateInitializationError, StateSyncError,
+    },
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -124,22 +123,30 @@ impl From<AccountState> for AccountTransactionInputRecord {
 }
 
 impl TryFrom<AccountUpdate> for AccountState {
-    type Error = StateError;
+    type Error = ConversionError;
 
     fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
         Ok(Self {
-            account_id: value.account_id.ok_or(StateError::MissingAccountId)?.into(),
+            account_id: value
+                .account_id
+                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
+                    entity: "account update",
+                    field_name: "account_id",
+                })?
+                .into(),
             account_hash: value
                 .account_hash
-                .ok_or(StateError::MissingAccountHash)?
-                .try_into()
-                .map_err(StateError::DigestError)?,
+                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
+                    entity: "account update",
+                    field_name: "account_hash",
+                })?
+                .try_into()?,
         })
     }
 }
 
 impl TryFrom<&AccountUpdate> for AccountState {
-    type Error = StateError;
+    type Error = ConversionError;
 
     fn try_from(value: &AccountUpdate) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -176,7 +183,7 @@ impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord
 impl State {
     /// Loads the state from the `db`.
     #[instrument(target = "miden-store", skip_all)]
-    pub async fn load(mut db: Db) -> Result<Self, anyhow::Error> {
+    pub async fn load(mut db: Db) -> Result<Self, StateInitializationError> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
         let account_tree = load_accounts(&mut db).await?;
@@ -219,8 +226,8 @@ impl State {
         nullifiers: Vec<RpoDigest>,
         accounts: Vec<(AccountId, Digest)>,
         notes: Vec<NoteCreated>,
-    ) -> Result<(), anyhow::Error> {
-        let _ = self.writer.try_lock().map_err(|_| StateError::ConcurrentWrite)?;
+    ) -> Result<(), ApplyBlockError> {
+        let _ = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
 
         let new_block: BlockHeader = block_header.clone().try_into()?;
 
@@ -229,14 +236,14 @@ impl State {
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .ok_or(StateError::DbBlockHeaderEmpty)?
+            .ok_or(ApplyBlockError::DbBlockHeaderEmpty)?
             .try_into()?;
 
         if new_block.block_num() != prev_block.block_num() + 1 {
-            return Err(StateError::NewBlockInvalidBlockNum.into());
+            return Err(ApplyBlockError::NewBlockInvalidBlockNum);
         }
         if new_block.prev_hash() != prev_block.hash() {
-            return Err(StateError::NewBlockInvalidPrevHash.into());
+            return Err(ApplyBlockError::NewBlockInvalidPrevHash);
         }
 
         // scope to read in-memory data, validate the request, and compute intermediary values
@@ -252,7 +259,7 @@ impl State {
                 .cloned()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
-                return Err(StateError::DuplicatedNullifiers(duplicate_nullifiers).into());
+                return Err(ApplyBlockError::DuplicatedNullifiers(duplicate_nullifiers));
             }
 
             // update the in-memory data structures and compute the new block header. Important, the
@@ -263,9 +270,14 @@ impl State {
                 let mut chain_mmr = inner.chain_mmr.clone();
 
                 // new_block.chain_root must be equal to the chain MMR root prior to the update
-                let peaks = chain_mmr.peaks(chain_mmr.forest())?;
+                let peaks = chain_mmr.peaks(chain_mmr.forest()).map_err(|error| {
+                    ApplyBlockError::FailedToGetMmrPeaksForForest {
+                        forest: chain_mmr.forest(),
+                        error,
+                    }
+                })?;
                 if peaks.hash_peaks() != new_block.chain_root() {
-                    return Err(StateError::NewBlockInvalidChainRoot.into());
+                    return Err(ApplyBlockError::NewBlockInvalidChainRoot);
                 }
 
                 chain_mmr.add(new_block.hash());
@@ -282,7 +294,7 @@ impl State {
 
                 // FIXME: Re-add when nullifiers start getting updated
                 // if nullifier_tree.root() != new_block.nullifier_root() {
-                //     return Err(StateError::NewBlockInvalidNullifierRoot.into());
+                //     return Err(StateError::NewBlockInvalidNullifierRoot);
                 // }
                 nullifier_tree
             };
@@ -295,13 +307,13 @@ impl State {
             }
 
             if account_tree.root() != new_block.account_root() {
-                return Err(StateError::NewBlockInvalidAccountRoot.into());
+                return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
             }
 
             // build notes tree
             let note_tree = build_notes_tree(&notes)?;
             if note_tree.root() != new_block.note_root() {
-                return Err(StateError::NewBlockInvalidNoteRoot.into());
+                return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
             }
 
             drop(span);
@@ -311,10 +323,8 @@ impl State {
                 .map(|note| {
                     // Safety: This should never happen, the note_tree is created directly form
                     // this list of notes
-                    let leaf_index: LeafIndex<NOTE_LEAF_DEPTH> =
-                        LeafIndex::new(note.note_index as u64).map_err(|_| {
-                            anyhow!("Internal server error, unable to created proof for note")
-                        })?;
+                    let leaf_index = LeafIndex::<NOTE_LEAF_DEPTH>::new(note.note_index as u64)
+                        .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
 
                     let merkle_path = note_tree.open(&leaf_index).path;
 
@@ -327,7 +337,7 @@ impl State {
                         merkle_path: Some(merkle_path.into()),
                     })
                 })
-                .collect::<Result<Vec<_>, anyhow::Error>>()?;
+                .collect::<Result<Vec<_>, ApplyBlockError>>()?;
 
             (account_tree, chain_mmr, nullifier_tree, notes)
         };
@@ -347,7 +357,9 @@ impl State {
                 .await
         });
 
-        acquired_allowed.await?;
+        acquired_allowed
+            .await
+            .map_err(ApplyBlockError::BlockApplyingBrokenBecauseOfClosedChannel)?;
 
         // scope to update the in-memory data
         {
@@ -370,7 +382,7 @@ impl State {
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
-    ) -> Result<Option<block_header::BlockHeader>, anyhow::Error> {
+    ) -> Result<Option<block_header::BlockHeader>, DatabaseError> {
         self.db.select_block_header_by_block_num(block_num).await
     }
 
@@ -401,8 +413,8 @@ impl State {
     /// - `note_tag_prefixes`: Only the 16 high bits of the tags the client is interested in, result
     ///   will include notes with matching prefixes, the first block with a matching note determines
     ///   the block range.
-    /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is intersted in,
-    ///   results will cinlude nullifiers matching prefixes produced in the given block range.
+    /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is interested in,
+    ///   results will include nullifiers matching prefixes produced in the given block range.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn sync_state(
@@ -411,7 +423,7 @@ impl State {
         account_ids: &[AccountId],
         note_tag_prefixes: &[u32],
         nullifier_prefixes: &[u32],
-    ) -> Result<(StateSyncUpdate, MmrDelta), anyhow::Error> {
+    ) -> Result<(StateSyncUpdate, MmrDelta), StateSyncError> {
         let inner = self.inner.read().await;
 
         let state_sync = self
@@ -436,7 +448,10 @@ impl State {
             // exclusive, so the from_forest has to be adjusted with a +1
             let from_forest = (block_num + 1) as usize;
             let to_forest = state_sync.block_header.block_num as usize;
-            inner.chain_mmr.get_delta(from_forest, to_forest)?
+            inner
+                .chain_mmr
+                .get_delta(from_forest, to_forest)
+                .map_err(StateSyncError::FailedToBuildMmrDelta)?
         };
 
         Ok((state_sync, delta))
@@ -447,28 +462,34 @@ impl State {
         &self,
         account_ids: &[AccountId],
         _nullifiers: &[RpoDigest],
-    ) -> Result<(block_header::BlockHeader, MmrPeaks, Vec<AccountStateWithProof>), anyhow::Error>
-    {
+    ) -> Result<
+        (block_header::BlockHeader, MmrPeaks, Vec<AccountStateWithProof>),
+        GetBlockInputsError,
+    > {
         let inner = self.inner.read().await;
 
         let latest = self
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .ok_or(StateError::DbBlockHeaderEmpty)?;
+            .ok_or(GetBlockInputsError::DbBlockHeaderEmpty)?;
 
         // sanity check
         if inner.chain_mmr.forest() != latest.block_num as usize + 1 {
-            bail!(
-                "chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {}, block num: {}",
-                inner.chain_mmr.forest(),
-                latest.block_num
-            );
+            return Err(GetBlockInputsError::IncorrectChainMmrForestNumber {
+                forest: inner.chain_mmr.forest(),
+                block_num: latest.block_num,
+            });
         }
 
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
-        let peaks = inner.chain_mmr.peaks(latest.block_num as usize)?;
+        let peaks = inner.chain_mmr.peaks(latest.block_num as usize).map_err(|error| {
+            GetBlockInputsError::FailedToGetMmrPeaksForForest {
+                forest: latest.block_num as usize,
+                error,
+            }
+        })?;
         let account_states = account_ids
             .iter()
             .cloned()
@@ -477,25 +498,25 @@ impl State {
                     value: account_hash,
                     path: merkle_path,
                 } = inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
-                Ok(AccountStateWithProof {
+                AccountStateWithProof {
                     account_id,
                     account_hash: account_hash.into(),
                     merkle_path,
-                })
+                }
             })
-            .collect::<Result<Vec<AccountStateWithProof>, MerkleError>>()?;
+            .collect();
 
         // TODO: add nullifiers
         Ok((latest, peaks, account_states))
     }
 
     /// Returns data needed by the block producer to verify transactions validity.
-    #[instrument(target = "miden-store", skip_all, ret, err)]
+    #[instrument(target = "miden-store", skip_all, ret)]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
         nullifiers: &[RpoDigest],
-    ) -> Result<(AccountState, Vec<NullifierStateForTransactionInput>), anyhow::Error> {
+    ) -> (AccountState, Vec<NullifierStateForTransactionInput>) {
         info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
@@ -523,26 +544,23 @@ impl State {
             })
             .collect();
 
-        Ok((account, nullifier_blocks))
+        (account, nullifier_blocks)
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
-    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, anyhow::Error> {
-        let nullifiers = self.db.select_nullifiers().await?;
-        Ok(nullifiers)
+    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, DatabaseError> {
+        self.db.select_nullifiers().await
     }
 
     /// Lists all known accounts, with their ids, latest state hash, and block at which the account was last
     /// modified, intended for testing.
-    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, anyhow::Error> {
-        let accounts = self.db.select_accounts().await?;
-        Ok(accounts)
+    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, DatabaseError> {
+        self.db.select_accounts().await
     }
 
     /// Lists all known notes, intended for testing.
-    pub async fn list_notes(&self) -> Result<Vec<Note>, anyhow::Error> {
-        let notes = self.db.select_notes().await?;
-        Ok(notes)
+    pub async fn list_notes(&self) -> Result<Vec<Note>, DatabaseError> {
+        self.db.select_notes().await
     }
 }
 
@@ -558,24 +576,29 @@ fn block_to_nullifier_data(block: BlockNumber) -> Word {
 #[instrument(target = "miden-store", skip_all)]
 pub fn build_notes_tree(
     notes: &[NoteCreated]
-) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, anyhow::Error> {
+) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, ApplyBlockError> {
     // TODO: create SimpleSmt without this allocation
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
-        let note_hash = note.note_hash.clone().ok_or(StateError::MissingNoteHash)?;
-        let account_id = note.sender.try_into().or(Err(StateError::InvalidAccountId))?;
+        let note_hash = note.note_hash.clone().ok_or(
+            ConversionError::MissingFieldInProtobufRepresentation {
+                entity: "note",
+                field_name: "note_hash",
+            },
+        )?;
+        let account_id = note.sender.try_into().or(Err(ApplyBlockError::InvalidAccountId))?;
         let note_metadata = NoteMetadata::new(account_id, note.tag.into());
         let index = note.note_index as u64;
         entries.push((index, note_hash.try_into()?));
         entries.push((index + 1, note_metadata.into()));
     }
 
-    Ok(SimpleSmt::with_leaves(entries)?)
+    SimpleSmt::with_leaves(entries).map_err(ApplyBlockError::FailedToCreateNotesTree)
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_nullifier_tree(db: &mut Db) -> Result<Smt> {
+async fn load_nullifier_tree(db: &mut Db) -> Result<Smt, StateInitializationError> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
     let leaves = nullifiers
@@ -583,7 +606,8 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<Smt> {
         .map(|(nullifier, block)| (nullifier, block_to_nullifier_data(block)));
 
     let now = Instant::now();
-    let nullifier_tree = Smt::with_entries(leaves)?;
+    let nullifier_tree = Smt::with_entries(leaves)
+        .map_err(StateInitializationError::FailedToCreateNullifiersTree)?;
     let elapsed = now.elapsed().as_secs();
 
     info!(
@@ -596,7 +620,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<Smt> {
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_mmr(db: &mut Db) -> Result<Mmr> {
+async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
     let block_hashes: Result<Vec<RpoDigest>, ParseError> = db
         .select_block_headers()
         .await?
@@ -604,20 +628,22 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr> {
         .map(|b| b.try_into().map(|b: BlockHeader| b.hash()))
         .collect();
 
-    let mmr: Mmr = block_hashes?.into();
-    Ok(mmr)
+    block_hashes
+        .map(Into::into)
+        .map_err(StateInitializationError::FailedToCreateChainMmr)
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_accounts(db: &mut Db) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>> {
-    let account_data: Result<Vec<(u64, Word)>> = db
+async fn load_accounts(
+    db: &mut Db
+) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
+    let account_data: Result<Vec<_>, ConversionError> = db
         .select_account_hashes()
         .await?
         .into_iter()
         .map(|(id, account_hash)| Ok((id, account_hash.try_into()?)))
         .collect();
 
-    let smt = SimpleSmt::with_leaves(account_data?)?;
-
-    Ok(smt)
+    SimpleSmt::with_leaves(account_data?)
+        .map_err(StateInitializationError::FailedToCreateAccountsTree)
 }
