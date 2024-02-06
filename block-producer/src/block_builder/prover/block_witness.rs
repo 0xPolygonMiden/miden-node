@@ -134,6 +134,10 @@ impl BlockWitness {
                     stack_inputs.extend(*nullifier);
                 }
 
+                // append nullifier value (`[0, 0, 0, block_num]`)
+                let block_num = self.prev_header.block_num() + 1;
+                stack_inputs.extend([ZERO, ZERO, ZERO, block_num.into()]);
+
                 // append initial nullifier root
                 stack_inputs.extend(self.prev_header.nullifier_root());
 

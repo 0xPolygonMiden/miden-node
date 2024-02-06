@@ -109,33 +109,35 @@ proc.compute_note_root
     # => [ROOT_{n-1}]
 end
 
-#! Stack: [num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_0, ..., NULLIFIER_n]
+#! Stack: [num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_VALUE,
+#!         NULLIFIER_0, ..., NULLIFIER_n]
 #! Output: [NULLIFIER_ROOT]
 proc.compute_nullifier_root
     # assess if we should loop
     dup neq.0
-    #=> [0 or 1, num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_0, ..., NULLIFIER_n ]
+    #=> [0 or 1, num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_VALUE, NULLIFIER_0, ..., NULLIFIER_n ]
     
     while.true
-        #=> [num_nullifiers_left_to_update, ROOT_i, NULLIFIER_i, ... ]
+        #=> [num_nullifiers_left_to_update, ROOT_i, NULLIFIER_VALUE, NULLIFIER_i, ... ]
 
         # Prepare stack for `smt::set`
-        movdn.8 swapw push.0.0.0.1
-        #=> [1 (as word), NULLIFIER_i, ROOT_i, num_nullifiers_left_to_update, ... ]
+        movdn.12 movupw.2 dupw.2
+        #=> [NULLIFIER_VALUE, NULLIFIER_i, ROOT_i, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
 
         exec.smt::set
-        #=> [OLD_VALUE, ROOT_{i+1}, num_nullifiers_left_to_update, ... ]
+        #=> [OLD_VALUE, ROOT_{i+1}, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
 
         # Check that OLD_VALUE == 0 (i.e. that nullifier was indeed not previously produced)
         padw assert_eqw
-        #=> [ROOT_{i+1}, num_nullifiers_left_to_update, ... ]
+        #=> [ROOT_{i+1}, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
 
         # loop counter
-        movup.4 sub.1 dup neq.0
-        #=> [0 or 1, num_nullifiers_left_to_update - 1, ROOT_{i+1}, ... ]
+        movup.8 sub.1 dup neq.0
+        #=> [0 or 1, num_nullifiers_left_to_update - 1, ROOT_{i+1}, NULLIFIER_VALUE, ... ]
     end
+    #=> [0, ROOT_{n-1}, NULLIFIER_VALUE ]
 
-    drop
+    drop swapw dropw
     # => [ROOT_{n-1}]
 end
 
