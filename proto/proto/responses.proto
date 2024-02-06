@@ -7,6 +7,7 @@ import "digest.proto";
 import "merkle.proto";
 import "mmr.proto";
 import "note.proto";
+import "smt.proto";
 import "tsmt.proto";
 
 message ApplyBlockResponse {}
@@ -61,7 +62,7 @@ message AccountBlockInputRecord {
 // A nullifier returned as a response to the GetBlockInputs
 message NullifierBlockInputRecord {
     digest.Digest nullifier = 1;
-    merkle.MerklePath proof = 2;
+    smt.SmtOpening opening = 2;
 }
 
 message GetBlockInputsResponse {
