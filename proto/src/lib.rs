@@ -1,6 +1,6 @@
 pub mod conversion;
 pub mod domain;
-pub mod error;
+pub mod errors;
 mod formatting;
 pub mod hex;
 

@@ -1,7 +1,6 @@
 //! Wrapper functions for SQL statements.
 use std::rc::Rc;
 
-use anyhow::anyhow;
 use miden_crypto::{
     hash::rpo::RpoDigest,
     utils::{Deserializable, SliceReader},
@@ -17,9 +16,9 @@ use miden_node_proto::{
 use prost::Message;
 use rusqlite::{params, types::Value, Connection, Transaction};
 
-use super::StateSyncUpdate;
+use super::{Result, StateSyncUpdate};
 use crate::{
-    errors::StateError,
+    errors::{ConversionError, DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
 };
 
@@ -37,7 +36,7 @@ pub fn insert_nullifiers_for_block(
     transaction: &Transaction,
     nullifiers: &[RpoDigest],
     block_num: BlockNumber,
-) -> Result<usize, anyhow::Error> {
+) -> Result<usize> {
     use miden_crypto::StarkField;
 
     let mut stmt = transaction.prepare(
@@ -60,9 +59,7 @@ pub fn insert_nullifiers_for_block(
 /// # Returns
 ///
 /// A vector with nullifiers and the block height at which they where created, or an error.
-pub fn select_nullifiers(
-    conn: &mut Connection
-) -> Result<Vec<(RpoDigest, BlockNumber)>, anyhow::Error> {
+pub fn select_nullifiers(conn: &mut Connection) -> Result<Vec<(RpoDigest, BlockNumber)>> {
     let mut stmt =
         conn.prepare("SELECT nullifier, block_number FROM nullifiers ORDER BY block_number ASC;")?;
     let mut rows = stmt.query([])?;
@@ -83,7 +80,7 @@ pub fn select_nullifiers(
 /// # Returns
 ///
 /// A vector with notes, or an error.
-pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
+pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
     let mut stmt = conn.prepare("SELECT * FROM notes ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
 
@@ -113,7 +110,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>, anyhow::Error> {
 /// # Returns
 ///
 /// A vector with accounts, or an error.
-pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>, anyhow::Error> {
+pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
     let mut stmt = conn.prepare("SELECT * FROM accounts ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
 
@@ -149,7 +146,7 @@ pub fn select_nullifiers_by_block_range(
     block_start: BlockNumber,
     block_end: BlockNumber,
     nullifier_prefixes: &[u32],
-) -> Result<Vec<NullifierUpdate>, anyhow::Error> {
+) -> Result<Vec<NullifierUpdate>> {
     let nullifier_prefixes: Vec<Value> =
         nullifier_prefixes.iter().copied().map(u32_to_value).collect();
 
@@ -197,7 +194,7 @@ pub fn select_nullifiers_by_block_range(
 pub fn insert_block_header(
     transaction: &Transaction,
     block_header: &BlockHeader,
-) -> Result<usize, anyhow::Error> {
+) -> Result<usize> {
     let mut stmt = transaction
         .prepare("INSERT INTO block_headers (block_num, block_header) VALUES (?1, ?2);")?;
     Ok(stmt.execute(params![block_header.block_num, block_header.encode_to_vec()])?)
@@ -212,7 +209,7 @@ pub fn insert_block_header(
 pub fn select_block_header_by_block_num(
     conn: &mut Connection,
     block_number: Option<BlockNumber>,
-) -> Result<Option<BlockHeader>, anyhow::Error> {
+) -> Result<Option<BlockHeader>> {
     let mut stmt;
     let mut rows = match block_number {
         Some(block_number) => {
@@ -241,7 +238,7 @@ pub fn select_block_header_by_block_num(
 /// # Returns
 ///
 /// A vector of [BlockHeader] or an error.
-pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>, anyhow::Error> {
+pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
     let mut stmt =
         conn.prepare("SELECT block_header FROM block_headers ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
@@ -268,7 +265,7 @@ pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>, a
 pub fn insert_notes(
     transaction: &Transaction,
     notes: &[Note],
-) -> Result<usize, anyhow::Error> {
+) -> Result<usize> {
     let mut stmt = transaction.prepare(
         "
         INSERT INTO
@@ -292,12 +289,21 @@ pub fn insert_notes(
         count += stmt.execute(params![
             note.block_num,
             note.note_index,
-            note.note_hash.clone().ok_or(StateError::NoteMissingHash)?.encode_to_vec(),
+            note.note_hash
+                .clone()
+                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
+                    entity: "note",
+                    field_name: "note_hash"
+                })?
+                .encode_to_vec(),
             u64_to_value(note.sender),
             u64_to_value(note.tag),
             note.merkle_path
                 .clone()
-                .ok_or(StateError::NoteMissingMerklePath)?
+                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
+                    entity: "note",
+                    field_name: "merkle_path"
+                })?
                 .encode_to_vec(),
         ])?;
     }
@@ -322,7 +328,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     tags: &[u32],
     account_ids: &[AccountId],
     block_num: BlockNumber,
-) -> Result<Vec<Note>, anyhow::Error> {
+) -> Result<Vec<Note>> {
     let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
@@ -396,7 +402,7 @@ pub fn upsert_accounts_with_blocknum(
     transaction: &Transaction,
     accounts: &[(AccountId, Digest)],
     block_num: BlockNumber,
-) -> Result<usize, anyhow::Error> {
+) -> Result<usize> {
     let mut stmt = transaction.prepare("INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num) VALUES (?1, ?2, ?3);")?;
 
     let mut count = 0;
@@ -421,7 +427,7 @@ pub fn select_accounts_by_block_range(
     block_start: BlockNumber,
     block_end: BlockNumber,
     account_ids: &[AccountId],
-) -> Result<Vec<AccountHashUpdate>, anyhow::Error> {
+) -> Result<Vec<AccountHashUpdate>> {
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
@@ -444,7 +450,7 @@ pub fn select_accounts_by_block_range(
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
         let account_id_data = column_value_as_u64(row, 0)?;
-        let account_id: account::AccountId = (account_id_data).into();
+        let account_id: account::AccountId = account_id_data.into();
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = Digest::decode(account_hash_data)?;
         let block_num = row.get(2)?;
@@ -464,9 +470,7 @@ pub fn select_accounts_by_block_range(
 /// # Returns
 ///
 /// The vector with the account id and corresponding hash, or an error.
-pub fn select_account_hashes(
-    conn: &mut Connection
-) -> Result<Vec<(AccountId, Digest)>, anyhow::Error> {
+pub fn select_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, Digest)>> {
     let mut stmt =
         conn.prepare("SELECT account_id, account_hash FROM accounts ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
@@ -490,7 +494,7 @@ pub fn get_state_sync(
     account_ids: &[AccountId],
     note_tag_prefixes: &[u32],
     nullifier_prefixes: &[u32],
-) -> Result<StateSyncUpdate, anyhow::Error> {
+) -> Result<StateSyncUpdate, StateSyncError> {
     let notes = select_notes_since_block_by_tag_and_sender(
         conn,
         note_tag_prefixes,
@@ -500,14 +504,14 @@ pub fn get_state_sync(
 
     let (block_header, chain_tip) = if !notes.is_empty() {
         let block_header = select_block_header_by_block_num(conn, Some(notes[0].block_num))?
-            .ok_or(anyhow!("Block db is empty"))?;
-        let tip =
-            select_block_header_by_block_num(conn, None)?.ok_or(anyhow!("Block db is empty"))?;
+            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
+        let tip = select_block_header_by_block_num(conn, None)?
+            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
 
         (block_header, tip.block_num)
     } else {
-        let block_header =
-            select_block_header_by_block_num(conn, None)?.ok_or(anyhow!("Block db is empty"))?;
+        let block_header = select_block_header_by_block_num(conn, None)?
+            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
 
         let block_num = block_header.block_num;
         (block_header, block_num)
@@ -544,7 +548,7 @@ pub fn apply_block(
     notes: &[Note],
     nullifiers: &[RpoDigest],
     accounts: &[(AccountId, Digest)],
-) -> Result<usize, anyhow::Error> {
+) -> Result<usize> {
     let mut count = 0;
     count += insert_block_header(transaction, block_header)?;
     count += insert_notes(transaction, notes)?;
@@ -557,14 +561,14 @@ pub fn apply_block(
 // ================================================================================================
 
 /// Decodes a blob from the database into a [Digest].
-fn decode_protobuf_digest(data: &[u8]) -> Result<Digest, anyhow::Error> {
+fn decode_protobuf_digest(data: &[u8]) -> Result<Digest> {
     Ok(Digest::decode(data)?)
 }
 
 /// Decodes a blob from the database into a [RpoDigest].
-fn decode_rpo_digest(data: &[u8]) -> Result<RpoDigest, anyhow::Error> {
+fn decode_rpo_digest(data: &[u8]) -> Result<RpoDigest> {
     let mut reader = SliceReader::new(data);
-    RpoDigest::read_from(&mut reader).map_err(|_| anyhow!("Decoding nullifier from DB failed"))
+    RpoDigest::read_from(&mut reader).map_err(DatabaseError::NullifierDecodingError)
 }
 
 /// Returns the high bits of the `u64` value used during searches.
@@ -590,7 +594,7 @@ fn u32_to_value(v: u32) -> Value {
 
 /// Gets a `u64`` value from the database.
 ///
-/// Sqlite uses `i64` as its internal representation format, and so when retreiving
+/// Sqlite uses `i64` as its internal representation format, and so when retrieving
 /// we need to make sure we cast as `u64` to get the original value
 fn column_value_as_u64<I: rusqlite::RowIndex>(
     row: &rusqlite::Row<'_>,

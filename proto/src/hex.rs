@@ -1,6 +1,6 @@
 use hex::{FromHex, ToHex};
 
-use crate::{digest::Digest, error::ParseError};
+use crate::{digest::Digest, errors::ParseError};
 
 pub const DIGEST_DATA_SIZE: usize = 32;
 

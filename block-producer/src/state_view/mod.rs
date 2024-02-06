@@ -1,15 +1,16 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
-use miden_node_utils::logging::format_array;
+use miden_node_utils::formatting::format_array;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
 use tracing::{debug, instrument};
 
 use crate::{
     block::Block,
+    errors::VerifyTxError,
     store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
-    txqueue::{TransactionVerifier, VerifyTxError},
+    txqueue::TransactionVerifier,
     ProvenTransaction, COMPONENT,
 };
 
