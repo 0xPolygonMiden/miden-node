@@ -1,4 +1,4 @@
-use miden_crypto::merkle::{MerklePath, MmrPeaks};
+use miden_crypto::merkle::{MerklePath, MmrPeaks, SmtProof};
 use miden_objects::{accounts::AccountId, BlockHeader, Digest};
 
 #[derive(Clone, Debug)]
@@ -11,7 +11,7 @@ pub struct AccountInputRecord {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NullifierInputRecord {
     pub nullifier: Digest,
-    pub proof: MerklePath,
+    pub proof: SmtProof,
 }
 
 /// Information needed from the store to build a block

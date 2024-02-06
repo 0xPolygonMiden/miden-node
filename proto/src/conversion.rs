@@ -1,5 +1,5 @@
 use miden_crypto::{
-    merkle::{MerklePath, MmrDelta, MmrPeaks, SmtProof, TieredSmtProof},
+    merkle::{LeafIndex, MerklePath, MmrDelta, MmrPeaks, SmtLeaf, SmtProof, TieredSmtProof},
     Felt, FieldElement, StarkField, Word,
 };
 use miden_objects::{
@@ -12,7 +12,7 @@ use crate::{
     account, block_header,
     digest::{self, Digest},
     domain::{AccountInputRecord, BlockInputs, NullifierInputRecord},
-    errors, merkle, mmr, note, requests, responses, tsmt,
+    errors, merkle, mmr, note, requests, responses, smt, tsmt,
 };
 
 impl From<[u64; 4]> for digest::Digest {
@@ -72,13 +72,39 @@ impl From<digest::Digest> for [u64; 4] {
     }
 }
 
-impl From<SmtProof> for tsmt::NullifierProof {
-    fn from(smt_proof: SmtProof) -> Self {
-        let (path, smt_leaf) = smt_proof.into_parts();
-        tsmt::NullifierProof {
-            merkle_path: convert(path),
-            leaves: convert(smt_leaf.entries()),
+impl TryFrom<smt::SmtLeaf> for SmtLeaf {
+    type Error = errors::ParseError;
+
+    fn try_from(value: smt::SmtLeaf) -> Result<Self, Self::Error> {
+        let leaf = value.leaf.ok_or(errors::ParseError::ProtobufMissingData)?;
+
+        match leaf {
+            smt::smt_leaf::Leaf::Empty(leaf_index) => {
+                Ok(Self::new_empty(LeafIndex::new_max_depth(leaf_index)))
+            },
+            smt::smt_leaf::Leaf::Single(entry) => {
+                let (key, value): (RpoDigest, Word) = entry.try_into()?;
+
+                Ok(SmtLeaf::new_single(key, value))
+            },
+            smt::smt_leaf::Leaf::Multiple(entries) => {
+                let domain_entries: Vec<(RpoDigest, Word)> = try_convert(entries.entries)?;
+
+                Ok(SmtLeaf::new_multiple(domain_entries)?)
+            },
         }
+    }
+}
+
+impl TryFrom<smt::SmtLeafEntry> for (RpoDigest, Word) {
+    type Error = errors::ParseError;
+
+    fn try_from(entry: smt::SmtLeafEntry) -> Result<Self, Self::Error> {
+        let key: RpoDigest =
+            entry.key.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?;
+        let value: Word = entry.value.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?;
+
+        Ok((key, value))
     }
 }
 
