@@ -1,5 +1,5 @@
 use miden_crypto::{
-    merkle::{LeafIndex, Mmr, SmtLeaf, SmtProof},
+    merkle::{LeafIndex, Mmr, SmtLeaf, SmtProof, SMT_DEPTH},
     ONE,
 };
 use miden_mock::mock::block::mock_block_header;
@@ -514,16 +514,18 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
             NullifierInputRecord {
                 nullifier: nullifier_2,
                 proof: SmtProof::new(
-                    MerklePath::default(),
+                    MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
                     SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_2[3].into())),
-                ).unwrap(),
+                )
+                .unwrap(),
             },
             NullifierInputRecord {
                 nullifier: nullifier_3,
                 proof: SmtProof::new(
-                    MerklePath::default(),
+                    MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
                     SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_3[3].into())),
-                ).unwrap(),
+                )
+                .unwrap(),
             },
         ];
 
