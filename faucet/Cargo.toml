@@ -1,0 +1,14 @@
+[package]
+name = "miden-node-faucet"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "4"
+actix-files = "0.6.5"
+actix-cors = "0.7.0"
+serde = { version = "1.0", features = ["derive"] }
+miden-client = { git = "https://github.com/0xPolygonMiden/miden-client", branch = "main" }
+miden_objects = { workspace = true }
