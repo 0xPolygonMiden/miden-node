@@ -42,17 +42,12 @@ use tracing::{info, info_span, instrument};
 use crate::{
     db::{Db, StateSyncUpdate},
     errors::{
-        ApplyBlockError, ConversionError, DatabaseError, StateError, StateInitializationError,
-        StateSyncError,
+        ApplyBlockError, ConversionError, DatabaseError, GetBlockInputsError,
+        StateInitializationError, StateSyncError,
     },
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
-
-// TYPES
-// ================================================================================================
-
-pub type Result<T, E = StateError> = std::result::Result<T, E>;
 
 // STRUCTURES
 // ================================================================================================
@@ -244,7 +239,7 @@ impl State {
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .ok_or(StateError::DbBlockHeaderEmpty)?
+            .ok_or(ApplyBlockError::DbBlockHeaderEmpty)?
             .try_into()?;
 
         if new_block.block_num() != prev_block.block_num() + 1 {
@@ -279,7 +274,7 @@ impl State {
 
                 // new_block.chain_root must be equal to the chain MMR root prior to the update
                 let peaks = chain_mmr.peaks(chain_mmr.forest()).map_err(|error| {
-                    StateError::FailedToGetMmrPeaksForForest {
+                    ApplyBlockError::FailedToGetMmrPeaksForForest {
                         forest: chain_mmr.forest(),
                         error,
                     }
@@ -390,8 +385,8 @@ impl State {
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
-    ) -> Result<Option<block_header::BlockHeader>> {
-        Ok(self.db.select_block_header_by_block_num(block_num).await?)
+    ) -> Result<Option<block_header::BlockHeader>, DatabaseError> {
+        self.db.select_block_header_by_block_num(block_num).await
     }
 
     /// Generates membership proofs for each one of the `nullifiers` against the latest nullifier
@@ -470,18 +465,21 @@ impl State {
         &self,
         account_ids: &[AccountId],
         _nullifiers: &[RpoDigest],
-    ) -> Result<(block_header::BlockHeader, MmrPeaks, Vec<AccountStateWithProof>)> {
+    ) -> Result<
+        (block_header::BlockHeader, MmrPeaks, Vec<AccountStateWithProof>),
+        GetBlockInputsError,
+    > {
         let inner = self.inner.read().await;
 
         let latest = self
             .db
             .select_block_header_by_block_num(None)
             .await?
-            .ok_or(StateError::DbBlockHeaderEmpty)?;
+            .ok_or(GetBlockInputsError::DbBlockHeaderEmpty)?;
 
         // sanity check
         if inner.chain_mmr.forest() != latest.block_num as usize + 1 {
-            return Err(StateError::IncorrectChainMmrForestNumber {
+            return Err(GetBlockInputsError::IncorrectChainMmrForestNumber {
                 forest: inner.chain_mmr.forest(),
                 block_num: latest.block_num,
             });
@@ -490,7 +488,7 @@ impl State {
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
         let peaks = inner.chain_mmr.peaks(latest.block_num as usize).map_err(|error| {
-            StateError::FailedToGetMmrPeaksForForest {
+            GetBlockInputsError::FailedToGetMmrPeaksForForest {
                 forest: latest.block_num as usize,
                 error,
             }
@@ -516,12 +514,12 @@ impl State {
     }
 
     /// Returns data needed by the block producer to verify transactions validity.
-    #[instrument(target = "miden-store", skip_all, ret, err)]
+    #[instrument(target = "miden-store", skip_all, ret)]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
         nullifiers: &[RpoDigest],
-    ) -> Result<(AccountState, Vec<NullifierStateForTransactionInput>)> {
+    ) -> (AccountState, Vec<NullifierStateForTransactionInput>) {
         info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
@@ -549,7 +547,7 @@ impl State {
             })
             .collect();
 
-        Ok((account, nullifier_blocks))
+        (account, nullifier_blocks)
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.

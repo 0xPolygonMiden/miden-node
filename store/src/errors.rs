@@ -115,15 +115,13 @@ pub enum GenesisError {
     SelectBlockHeaderByBlockNumError(Box<DatabaseError>),
 }
 
-// State errors
+// Get block inputs errors
 // =================================================================================================
 
 #[derive(Error, Debug)]
-pub enum StateError {
+pub enum GetBlockInputsError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("Conversion error: {0}")]
-    ConversionError(#[from] ConversionError),
     #[error("Database doesnt have any block header data")]
     DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]
@@ -131,6 +129,9 @@ pub enum StateError {
     #[error("Chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {forest}, block num: {block_num}")]
     IncorrectChainMmrForestNumber { forest: usize, block_num: u32 },
 }
+
+// State initialization errors
+// =================================================================================================
 
 #[derive(Error, Debug)]
 pub enum StateInitializationError {
@@ -145,6 +146,9 @@ pub enum StateInitializationError {
     #[error("Failed to create chain MMR: {0}")]
     FailedToCreateChainMmr(ParseError),
 }
+
+// State synchronization errors
+// =================================================================================================
 
 #[derive(Error, Debug)]
 pub enum StateSyncError {
@@ -163,8 +167,6 @@ pub enum StateSyncError {
 pub enum ApplyBlockError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("State error: {0}")]
-    StateError(#[from] StateError),
     #[error("Conversion error: {0}")]
     ConversionError(#[from] ConversionError),
     #[error("Concurrent write detected")]
@@ -189,6 +191,10 @@ pub enum ApplyBlockError {
     FailedToCreateNotesTree(MerkleError),
     #[error("Received invalid account id")]
     InvalidAccountId,
+    #[error("Database doesnt have any block header data")]
+    DbBlockHeaderEmpty,
+    #[error("Failed to get MMR peaks for forest ({forest}): {error}")]
+    FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
 }
 
 impl From<ParseError> for ApplyBlockError {
