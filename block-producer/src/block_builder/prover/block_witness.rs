@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use miden_crypto::ZERO;
+use miden_crypto::{merkle::SmtProof, ZERO};
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
@@ -33,7 +33,7 @@ pub struct BlockWitness {
     pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     /// (batch_index, created_notes_root) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
-    pub(super) produced_nullifiers: BTreeMap<Digest, MerklePath>,
+    pub(super) produced_nullifiers: BTreeMap<Digest, SmtProof>,
     pub(super) chain_peaks: MmrPeaks,
     pub(super) prev_header: BlockHeader,
 }
@@ -202,7 +202,8 @@ impl BlockWitness {
             merkle_store
                 .add_merkle_paths(self.produced_nullifiers.into_iter().map(|(nullifier, proof)| {
                     // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
-                    (u64::from(nullifier[3]), Digest::default(), proof)
+                    let (path, _) = proof.into_parts();
+                    (u64::from(nullifier[3]), Digest::default(), path)
                 }))
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 
