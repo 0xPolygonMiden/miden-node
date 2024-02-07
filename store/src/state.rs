@@ -18,6 +18,7 @@ use miden_node_proto::{
     block_header,
     conversion::nullifier_value_to_blocknum,
     digest::Digest,
+    domain::NullifierInputRecord,
     errors::ParseError,
     note::{Note, NoteCreated},
     requests::AccountUpdate,
@@ -460,9 +461,14 @@ impl State {
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
-        _nullifiers: &[RpoDigest],
+        nullifiers: &[RpoDigest],
     ) -> Result<
-        (block_header::BlockHeader, MmrPeaks, Vec<AccountStateWithProof>),
+        (
+            block_header::BlockHeader,
+            MmrPeaks,
+            Vec<AccountStateWithProof>,
+            Vec<NullifierInputRecord>,
+        ),
         GetBlockInputsError,
     > {
         let inner = self.inner.read().await;
@@ -505,8 +511,19 @@ impl State {
             })
             .collect();
 
-        // TODO: add nullifiers
-        Ok((latest, peaks, account_states))
+        let nullifier_input_records: Vec<NullifierInputRecord> = nullifiers
+            .iter()
+            .map(|nullifier| {
+                let proof = inner.nullifier_tree.open(nullifier);
+
+                NullifierInputRecord {
+                    nullifier: *nullifier,
+                    proof,
+                }
+            })
+            .collect();
+
+        Ok((latest, peaks, account_states, nullifier_input_records))
     }
 
     /// Returns data needed by the block producer to verify transactions validity.

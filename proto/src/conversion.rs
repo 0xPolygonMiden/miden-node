@@ -96,6 +96,22 @@ impl TryFrom<smt::SmtLeaf> for SmtLeaf {
     }
 }
 
+impl From<SmtLeaf> for smt::SmtLeaf {
+    fn from(smt_leaf: SmtLeaf) -> Self {
+        use smt::smt_leaf::Leaf;
+
+        let leaf = match smt_leaf {
+            SmtLeaf::Empty(leaf_index) => Leaf::Empty(leaf_index.value()),
+            SmtLeaf::Single(entry) => Leaf::Single(entry.into()),
+            SmtLeaf::Multiple(entries) => Leaf::Multiple(smt::SmtLeafEntries {
+                entries: convert(entries),
+            }),
+        };
+
+        Self { leaf: Some(leaf) }
+    }
+}
+
 impl TryFrom<smt::SmtLeafEntry> for (RpoDigest, Word) {
     type Error = errors::ParseError;
 
@@ -105,6 +121,15 @@ impl TryFrom<smt::SmtLeafEntry> for (RpoDigest, Word) {
         let value: Word = entry.value.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?;
 
         Ok((key, value))
+    }
+}
+
+impl From<(RpoDigest, Word)> for smt::SmtLeafEntry {
+    fn from((key, value): (RpoDigest, Word)) -> Self {
+        Self {
+            key: Some(key.into()),
+            value: Some(value.into()),
+        }
     }
 }
 
@@ -118,6 +143,16 @@ impl TryFrom<smt::SmtOpening> for SmtProof {
             opening.leaf.ok_or(errors::ParseError::ProtobufMissingData)?.try_into()?;
 
         Ok(SmtProof::new(path, leaf)?)
+    }
+}
+
+impl From<SmtProof> for smt::SmtOpening {
+    fn from(proof: SmtProof) -> Self {
+        let (path, leaf) = proof.into_parts();
+        Self {
+            path: Some(path.into()),
+            leaf: Some(leaf.into()),
+        }
     }
 }
 
@@ -377,6 +412,15 @@ impl TryFrom<responses::NullifierBlockInputRecord> for NullifierInputRecord {
                 .ok_or(errors::ParseError::ProtobufMissingData)?
                 .try_into()?,
         })
+    }
+}
+
+impl From<NullifierInputRecord> for responses::NullifierBlockInputRecord {
+    fn from(value: NullifierInputRecord) -> Self {
+        Self {
+            nullifier: Some(value.nullifier.into()),
+            opening: Some(value.proof.into()),
+        }
     }
 }
 
