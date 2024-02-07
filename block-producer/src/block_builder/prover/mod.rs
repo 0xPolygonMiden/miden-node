@@ -128,7 +128,7 @@ proc.compute_nullifier_root
         #=> [OLD_VALUE, ROOT_{i+1}, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
 
         # Check that OLD_VALUE == 0 (i.e. that nullifier was indeed not previously produced)
-        padw assert_eqw
+        assertz assertz assertz assertz 
         #=> [ROOT_{i+1}, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
 
         # loop counter
