@@ -640,9 +640,11 @@ async fn test_compute_nullifier_root_success() {
 
     // Set up store
     // ---------------------------------------------------------------------------------------------
+    let initial_block_num = 42;
 
     let store = MockStoreSuccessBuilder::new()
         .initial_accounts(batches.iter().flat_map(|batch| batch.account_initial_states()))
+        .initial_block_num(initial_block_num)
         .build();
 
     // Block prover
@@ -651,7 +653,6 @@ async fn test_compute_nullifier_root_success() {
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs =
         store.get_block_inputs(account_ids.iter(), nullifiers.iter()).await.unwrap();
-    let block_num = block_inputs_from_store.block_header.block_num();
 
     let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
@@ -660,10 +661,12 @@ async fn test_compute_nullifier_root_success() {
 
     // Create SMT by hand to get new root
     // ---------------------------------------------------------------------------------------------
+
+    // Note that the block number in store is 42; the nullifiers get added to the next block (i.e. block number 43)
     let nullifier_smt = Smt::with_entries(
         nullifiers
             .into_iter()
-            .map(|nullifier| (nullifier, [ZERO, ZERO, ZERO, block_num.into()])),
+            .map(|nullifier| (nullifier, [ZERO, ZERO, ZERO, (initial_block_num + 1).into()])),
     )
     .unwrap();
 
