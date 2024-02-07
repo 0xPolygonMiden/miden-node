@@ -1,7 +1,7 @@
 use miden_crypto::merkle::MmrDelta;
 use miden_objects::Digest as RpoDigest;
 
-use crate::{digest, error, mmr};
+use crate::{digest, errors::ParseError, mmr};
 
 // INTO
 // ================================================================================================
@@ -21,10 +21,10 @@ impl From<MmrDelta> for mmr::MmrDelta {
 // ================================================================================================
 
 impl TryFrom<mmr::MmrDelta> for MmrDelta {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(value: mmr::MmrDelta) -> Result<Self, Self::Error> {
-        let data: Result<Vec<RpoDigest>, error::ParseError> =
+        let data: Result<Vec<RpoDigest>, ParseError> =
             value.data.into_iter().map(|v| v.try_into()).collect();
 
         Ok(MmrDelta {

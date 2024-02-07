@@ -1,6 +1,6 @@
 use miden_crypto::merkle::MerklePath;
 
-use crate::{digest, error, merkle};
+use crate::{digest, errors::ParseError, merkle};
 
 // INTO
 // ================================================================================================
@@ -16,7 +16,7 @@ impl From<MerklePath> for merkle::MerklePath {
 // ================================================================================================
 
 impl TryFrom<merkle::MerklePath> for MerklePath {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(merkle_path: merkle::MerklePath) -> Result<Self, Self::Error> {
         merkle_path.siblings.into_iter().map(|v| v.try_into()).collect()

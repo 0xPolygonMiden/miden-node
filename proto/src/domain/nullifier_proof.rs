@@ -6,7 +6,8 @@ use miden_objects::Digest as RpoDigest;
 
 use crate::{
     domain::{convert, try_convert},
-    error, tsmt,
+    errors::ParseError,
+    tsmt,
 };
 
 // INTO
@@ -27,7 +28,7 @@ impl From<TieredSmtProof> for tsmt::NullifierProof {
 // ================================================================================================
 
 impl TryFrom<tsmt::NullifierProof> for TieredSmtProof {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(value: tsmt::NullifierProof) -> Result<Self, Self::Error> {
         let path = MerklePath::new(try_convert(value.merkle_path)?);
@@ -35,13 +36,13 @@ impl TryFrom<tsmt::NullifierProof> for TieredSmtProof {
             .leaves
             .into_iter()
             .map(|leaf| {
-                let key = leaf.key.ok_or(error::ParseError::MissingLeafKey)?.try_into()?;
+                let key = leaf.key.ok_or(ParseError::MissingLeafKey)?.try_into()?;
                 let value = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::from(leaf.block_num)];
                 let result = (key, value);
 
                 Ok(result)
             })
             .collect::<Result<Vec<(RpoDigest, Word)>, Self::Error>>()?;
-        TieredSmtProof::new(path, entries).or(Err(error::ParseError::InvalidProof))
+        TieredSmtProof::new(path, entries).or(Err(ParseError::InvalidProof))
     }
 }

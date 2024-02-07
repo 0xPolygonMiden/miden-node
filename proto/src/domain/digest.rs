@@ -4,7 +4,7 @@ use miden_objects::{
     Digest,
 };
 
-use crate::{digest, error};
+use crate::{digest, errors::ParseError};
 
 // INTO
 // ================================================================================================
@@ -94,14 +94,14 @@ impl From<digest::Digest> for [u64; 4] {
 }
 
 impl TryFrom<digest::Digest> for [Felt; 4] {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         if ![value.d0, value.d1, value.d2, value.d3]
             .iter()
             .all(|v| *v < <Felt as StarkField>::MODULUS)
         {
-            Err(error::ParseError::NotAValidFelt)
+            Err(ParseError::NotAValidFelt)
         } else {
             Ok([
                 Felt::new(value.d0),
@@ -114,7 +114,7 @@ impl TryFrom<digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<digest::Digest> for Digest {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         Ok(Self::new(value.try_into()?))
@@ -122,7 +122,7 @@ impl TryFrom<digest::Digest> for Digest {
 }
 
 impl TryFrom<&digest::Digest> for [Felt; 4] {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -130,7 +130,7 @@ impl TryFrom<&digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<&digest::Digest> for Digest {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()

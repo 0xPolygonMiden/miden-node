@@ -1,6 +1,6 @@
 use miden_objects::BlockHeader;
 
-use crate::{block_header, error};
+use crate::{block_header, errors::ParseError};
 
 // INTO
 // ================================================================================================
@@ -30,7 +30,7 @@ impl From<BlockHeader> for block_header::BlockHeader {
 // ================================================================================================
 
 impl TryFrom<&block_header::BlockHeader> for BlockHeader {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(value: &block_header::BlockHeader) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -38,18 +38,18 @@ impl TryFrom<&block_header::BlockHeader> for BlockHeader {
 }
 
 impl TryFrom<block_header::BlockHeader> for BlockHeader {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(value: block_header::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(
-            value.prev_hash.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.prev_hash.ok_or(ParseError::ProtobufMissingData)?.try_into()?,
             value.block_num,
-            value.chain_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.account_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.nullifier_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.note_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.batch_root.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
-            value.proof_hash.ok_or(error::ParseError::ProtobufMissingData)?.try_into()?,
+            value.chain_root.ok_or(ParseError::ProtobufMissingData)?.try_into()?,
+            value.account_root.ok_or(ParseError::ProtobufMissingData)?.try_into()?,
+            value.nullifier_root.ok_or(ParseError::ProtobufMissingData)?.try_into()?,
+            value.note_root.ok_or(ParseError::ProtobufMissingData)?.try_into()?,
+            value.batch_root.ok_or(ParseError::ProtobufMissingData)?.try_into()?,
+            value.proof_hash.ok_or(ParseError::ProtobufMissingData)?.try_into()?,
             value.version.into(),
             value.timestamp.into(),
         ))

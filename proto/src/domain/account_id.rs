@@ -1,6 +1,6 @@
 use miden_objects::accounts::AccountId;
 
-use crate::{account, error};
+use crate::{account, errors::ParseError};
 
 // INTO
 // ================================================================================================
@@ -29,9 +29,9 @@ impl From<account::AccountId> for u64 {
 }
 
 impl TryFrom<account::AccountId> for AccountId {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(account_id: account::AccountId) -> Result<Self, Self::Error> {
-        account_id.id.try_into().map_err(|_| error::ParseError::NotAValidFelt)
+        account_id.id.try_into().map_err(|_| ParseError::NotAValidFelt)
     }
 }

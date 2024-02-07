@@ -6,7 +6,8 @@ use crate::{
         account_input_record::AccountInputRecord, nullifier_input_record::NullifierInputRecord,
         try_convert,
     },
-    error, responses,
+    errors::ParseError,
+    responses,
 };
 
 /// Information needed from the store to build a block
@@ -29,12 +30,12 @@ pub struct BlockInputs {
 // ================================================================================================
 
 impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
-    type Error = error::ParseError;
+    type Error = ParseError;
 
     fn try_from(get_block_inputs: responses::GetBlockInputsResponse) -> Result<Self, Self::Error> {
         let block_header: BlockHeader = get_block_inputs
             .block_header
-            .ok_or(error::ParseError::ProtobufMissingData)?
+            .ok_or(ParseError::ProtobufMissingData)?
             .try_into()?;
 
         let chain_peaks = {
