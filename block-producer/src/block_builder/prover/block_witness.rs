@@ -122,9 +122,6 @@ impl BlockWitness {
         block_inputs: &BlockInputs,
         batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError> {
-        // TODO:
-        // - Block height returned for each nullifier is 0.
-
         if batches.len() > MAX_BATCHES_PER_BLOCK {
             return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
         }
