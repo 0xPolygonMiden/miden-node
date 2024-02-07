@@ -17,6 +17,7 @@ pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
     produced_nullifiers: Option<Smt>,
     chain_mmr: Option<Mmr>,
+    block_num: Option<u32>,
 }
 
 impl MockStoreSuccessBuilder {
@@ -67,6 +68,15 @@ impl MockStoreSuccessBuilder {
         self
     }
 
+    pub fn initial_block_num(
+        mut self,
+        block_num: u32,
+    ) -> Self {
+        self.block_num = Some(block_num);
+
+        self
+    }
+
     pub fn build(self) -> MockStoreSuccess {
         let accounts_smt = self.accounts.unwrap_or(SimpleSmt::<ACCOUNT_TREE_DEPTH>::new().unwrap());
         let nullifiers_smt = self.produced_nullifiers.unwrap_or_default();
@@ -74,7 +84,7 @@ impl MockStoreSuccessBuilder {
 
         let initial_block_header = BlockHeader::new(
             Digest::default(),
-            1,
+            self.block_num.unwrap_or(1),
             chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
             accounts_smt.root(),
             nullifiers_smt.root(),
