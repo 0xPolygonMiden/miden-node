@@ -653,7 +653,6 @@ async fn test_compute_nullifier_root_success() {
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs =
         store.get_block_inputs(account_ids.iter(), nullifiers.iter()).await.unwrap();
-    let block_num = block_inputs_from_store.block_header.block_num();
 
     let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
