@@ -292,10 +292,9 @@ impl State {
                     nullifier_tree.insert(*nullifier, nullifier_data);
                 }
 
-                // FIXME: Re-add when nullifiers start getting updated
-                // if nullifier_tree.root() != new_block.nullifier_root() {
-                //     return Err(StateError::NewBlockInvalidNullifierRoot);
-                // }
+                if nullifier_tree.root() != new_block.nullifier_root() {
+                    return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
+                }
                 nullifier_tree
             };
 
