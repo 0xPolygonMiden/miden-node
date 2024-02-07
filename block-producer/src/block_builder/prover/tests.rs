@@ -609,7 +609,7 @@ async fn test_compute_nullifier_root_empty_success() {
 }
 
 // TODO tests:
-// - compare root with 3 nullifiers (`Smt` vs block kernel)
+// - compare root with 3 nullifiers (`Smt` vs block kernel) with block_num == 42
 
 // CHAIN MMR ROOT TESTS
 // =================================================================================================
