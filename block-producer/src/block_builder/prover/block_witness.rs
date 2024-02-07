@@ -288,41 +288,43 @@ impl BlockWitness {
 
     /// Builds the advice inputs to the block kernel
     fn build_advice_inputs(self) -> Result<AdviceInputs, BlockProverError> {
+        let merkle_store = {
+            let mut merkle_store = MerkleStore::default();
+
+            // add accounts merkle paths
+            merkle_store
+                .add_merkle_paths(self.updated_accounts.into_iter().map(
+                    |(
+                        account_id,
+                        AccountUpdate {
+                            initial_state_hash,
+                            final_state_hash: _,
+                            proof,
+                        },
+                    )| { (u64::from(account_id), initial_state_hash, proof) },
+                ))
+                .map_err(BlockProverError::InvalidMerklePaths)?;
+
+            // add nullifiers merkle paths
+            merkle_store
+                .add_merkle_paths(self.produced_nullifiers.iter().map(|(nullifier, proof)| {
+                    // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
+                    (u64::from(nullifier[3]), Digest::default(), proof.path().clone())
+                }))
+                .map_err(BlockProverError::InvalidMerklePaths)?;
+
+            merkle_store
+        };
+
         let advice_map: Vec<_> = self
             .produced_nullifiers
             .values()
             .map(|proof| (proof.leaf().hash().as_bytes(), proof.leaf().to_elements()))
+            .chain(std::iter::once(mmr_peaks_advice_map_key_value(&self.chain_peaks)))
             .collect();
 
-        let mut merkle_store = MerkleStore::default();
-
-        // add accounts merkle paths
-        merkle_store
-            .add_merkle_paths(self.updated_accounts.into_iter().map(
-                |(
-                    account_id,
-                    AccountUpdate {
-                        initial_state_hash,
-                        final_state_hash: _,
-                        proof,
-                    },
-                )| { (u64::from(account_id), initial_state_hash, proof) },
-            ))
-            .map_err(BlockProverError::InvalidMerklePaths)?;
-
-        // add nullifiers merkle paths
-        merkle_store
-            .add_merkle_paths(self.produced_nullifiers.into_iter().map(|(nullifier, proof)| {
-                let (path, _) = proof.into_parts();
-
-                // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
-                (u64::from(nullifier[3]), Digest::default(), path)
-            }))
-            .map_err(BlockProverError::InvalidMerklePaths)?;
-
-        let mut advice_inputs =
+        let advice_inputs =
             AdviceInputs::default().with_merkle_store(merkle_store).with_map(advice_map);
-        add_mmr_peaks_to_advice_inputs(&self.chain_peaks, &mut advice_inputs);
 
         Ok(advice_inputs)
     }
@@ -338,14 +340,10 @@ pub(super) struct AccountUpdate {
 // HELPERS
 // =================================================================================================
 
-/// insert MMR peaks info into the advice map
-/// FIXME: This was copy/pasted from `miden-lib`'s `add_chain_mmr_to_advice_inputs`. Once we move the block kernel
-/// into `miden-lib`, we should use that function instead
-fn add_mmr_peaks_to_advice_inputs(
-    peaks: &MmrPeaks,
-    inputs: &mut AdviceInputs,
-) {
+// Generates the advice map key/value for Mmr peaks
+fn mmr_peaks_advice_map_key_value(peaks: &MmrPeaks) -> ([u8; 32], Vec<Felt>) {
     let mut elements = vec![Felt::new(peaks.num_leaves() as u64), ZERO, ZERO, ZERO];
     elements.extend(peaks.flatten_and_pad_peaks());
-    inputs.extend_map([(peaks.hash_peaks().into(), elements)]);
+
+    (peaks.hash_peaks().into(), elements)
 }
