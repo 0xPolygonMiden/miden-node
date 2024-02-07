@@ -114,117 +114,12 @@ impl BlockWitness {
         })
     }
 
+    /// Converts [`BlockWitness`] into inputs to the block kernel program
     pub(super) fn into_program_inputs(
         self
     ) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
-        let stack_inputs = {
-            // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
-            // from the bottom to the top
-            let mut stack_inputs = Vec::new();
-
-            // Chain MMR stack inputs
-            {
-                stack_inputs.extend(self.prev_header.hash());
-                stack_inputs.extend(self.chain_peaks.hash_peaks());
-            }
-
-            // Nullifiers stack inputs
-            {
-                let num_produced_nullifiers: u64 = self
-                    .produced_nullifiers
-                    .len()
-                    .try_into()
-                    .expect("can't be more than 2^64 - 1 nullifiers");
-
-                for nullifier in self.produced_nullifiers.keys() {
-                    stack_inputs.extend(*nullifier);
-                }
-
-                // append nullifier value (`[0, 0, 0, block_num]`)
-                let block_num = self.prev_header.block_num() + 1;
-                stack_inputs.extend([ZERO, ZERO, ZERO, block_num.into()]);
-
-                // append initial nullifier root
-                stack_inputs.extend(self.prev_header.nullifier_root());
-
-                // append number of nullifiers
-                stack_inputs.push(num_produced_nullifiers.into());
-            }
-
-            // Notes stack inputs
-            {
-                let num_created_notes_roots = self.batch_created_notes_roots.len();
-                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter()
-                {
-                    stack_inputs.extend(batch_created_notes_root.iter());
-
-                    let batch_index = u64::try_from(*batch_index)
-                        .expect("can't be more than 2^64 - 1 notes created");
-                    stack_inputs.push(Felt::from(batch_index));
-                }
-
-                let empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
-                stack_inputs.extend(*empty_root);
-                stack_inputs.push(Felt::from(
-                    u64::try_from(num_created_notes_roots)
-                        .expect("can't be more than 2^64 - 1 notes created"),
-                ));
-            }
-
-            // Account stack inputs
-            let mut num_accounts_updated: u64 = 0;
-            for (idx, (&account_id, account_update)) in self.updated_accounts.iter().enumerate() {
-                stack_inputs.push(account_id.into());
-                stack_inputs.extend(account_update.final_state_hash);
-
-                let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
-                num_accounts_updated = idx + 1;
-            }
-
-            // append initial account root
-            stack_inputs.extend(self.prev_header.account_root());
-
-            // append number of accounts updated
-            stack_inputs.push(num_accounts_updated.into());
-
-            StackInputs::new(stack_inputs)
-        };
-
-        let advice_inputs = {
-            let mut merkle_store = MerkleStore::default();
-
-            // add accounts merkle paths
-            merkle_store
-                .add_merkle_paths(self.updated_accounts.into_iter().map(
-                    |(
-                        account_id,
-                        AccountUpdate {
-                            initial_state_hash,
-                            final_state_hash: _,
-                            proof,
-                        },
-                    )| { (u64::from(account_id), initial_state_hash, proof) },
-                ))
-                .map_err(BlockProverError::InvalidMerklePaths)?;
-
-            // add nullifiers merkle paths
-            merkle_store
-                .add_merkle_paths(self.produced_nullifiers.into_iter().map(|(nullifier, path)| {
-                    // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
-                    (u64::from(nullifier[3]), Digest::default(), path)
-                }))
-                .map_err(BlockProverError::InvalidMerklePaths)?;
-
-            let advice_map = self.nullifier_smt_leaves.into_iter().map(|nullifier_leaf| {
-                (nullifier_leaf.hash().as_bytes(), nullifier_leaf.to_elements())
-            });
-
-            let mut advice_inputs =
-                AdviceInputs::default().with_merkle_store(merkle_store).with_map(advice_map);
-            add_mmr_peaks_to_advice_inputs(&self.chain_peaks, &mut advice_inputs);
-
-            advice_inputs
-        };
+        let stack_inputs = self.build_stack_inputs();
+        let advice_inputs = self.build_advice_inputs()?;
 
         Ok((advice_inputs, stack_inputs))
     }
@@ -328,6 +223,117 @@ impl BlockWitness {
 
             Err(BuildBlockError::InconsistentNullifiers(differing_nullifiers))
         }
+    }
+
+    /// Builds the stack inputs to the block kernel
+    fn build_stack_inputs(&self) -> StackInputs {
+        // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
+        // from the bottom to the top
+        let mut stack_inputs = Vec::new();
+
+        // Chain MMR stack inputs
+        {
+            stack_inputs.extend(self.prev_header.hash());
+            stack_inputs.extend(self.chain_peaks.hash_peaks());
+        }
+
+        // Nullifiers stack inputs
+        {
+            let num_produced_nullifiers: u64 = self
+                .produced_nullifiers
+                .len()
+                .try_into()
+                .expect("can't be more than 2^64 - 1 nullifiers");
+
+            for nullifier in self.produced_nullifiers.keys() {
+                stack_inputs.extend(*nullifier);
+            }
+
+            // append nullifier value (`[0, 0, 0, block_num]`)
+            let block_num = self.prev_header.block_num() + 1;
+            stack_inputs.extend([ZERO, ZERO, ZERO, block_num.into()]);
+
+            // append initial nullifier root
+            stack_inputs.extend(self.prev_header.nullifier_root());
+
+            // append number of nullifiers
+            stack_inputs.push(num_produced_nullifiers.into());
+        }
+
+        // Notes stack inputs
+        {
+            let num_created_notes_roots = self.batch_created_notes_roots.len();
+            for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter() {
+                stack_inputs.extend(batch_created_notes_root.iter());
+
+                let batch_index =
+                    u64::try_from(*batch_index).expect("can't be more than 2^64 - 1 notes created");
+                stack_inputs.push(Felt::from(batch_index));
+            }
+
+            let empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
+            stack_inputs.extend(*empty_root);
+            stack_inputs.push(Felt::from(
+                u64::try_from(num_created_notes_roots)
+                    .expect("can't be more than 2^64 - 1 notes created"),
+            ));
+        }
+
+        // Account stack inputs
+        let mut num_accounts_updated: u64 = 0;
+        for (idx, (&account_id, account_update)) in self.updated_accounts.iter().enumerate() {
+            stack_inputs.push(account_id.into());
+            stack_inputs.extend(account_update.final_state_hash);
+
+            let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
+            num_accounts_updated = idx + 1;
+        }
+
+        // append initial account root
+        stack_inputs.extend(self.prev_header.account_root());
+
+        // append number of accounts updated
+        stack_inputs.push(num_accounts_updated.into());
+
+        StackInputs::new(stack_inputs)
+    }
+
+    /// Builds the advice inputs to the block kernel
+    fn build_advice_inputs(self) -> Result<AdviceInputs, BlockProverError> {
+        let mut merkle_store = MerkleStore::default();
+
+        // add accounts merkle paths
+        merkle_store
+            .add_merkle_paths(self.updated_accounts.into_iter().map(
+                |(
+                    account_id,
+                    AccountUpdate {
+                        initial_state_hash,
+                        final_state_hash: _,
+                        proof,
+                    },
+                )| { (u64::from(account_id), initial_state_hash, proof) },
+            ))
+            .map_err(BlockProverError::InvalidMerklePaths)?;
+
+        // add nullifiers merkle paths
+        merkle_store
+            .add_merkle_paths(self.produced_nullifiers.into_iter().map(|(nullifier, path)| {
+                // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
+                (u64::from(nullifier[3]), Digest::default(), path)
+            }))
+            .map_err(BlockProverError::InvalidMerklePaths)?;
+
+        let advice_map = self
+            .nullifier_smt_leaves
+            .into_iter()
+            .map(|nullifier_leaf| (nullifier_leaf.hash().as_bytes(), nullifier_leaf.to_elements()));
+
+        let mut advice_inputs =
+            AdviceInputs::default().with_merkle_store(merkle_store).with_map(advice_map);
+        add_mmr_peaks_to_advice_inputs(&self.chain_peaks, &mut advice_inputs);
+
+        Ok(advice_inputs)
     }
 }
 
