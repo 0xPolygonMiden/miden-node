@@ -348,9 +348,16 @@ impl State {
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
-        _nullifiers: &[RpoDigest],
-    ) -> Result<(block_header::BlockHeader, MmrPeaks, Vec<AccountInputRecord>), GetBlockInputsError>
-    {
+        nullifiers: &[RpoDigest],
+    ) -> Result<
+        (
+            block_header::BlockHeader,
+            MmrPeaks,
+            Vec<AccountStateWithProof>,
+            Vec<NullifierInputRecord>,
+        ),
+        GetBlockInputsError,
+    > {
         let inner = self.inner.read().await;
 
         let latest = self
@@ -396,6 +403,18 @@ impl State {
             .map(|nullifier| {
                 let value = inner.nullifier_tree.get_value(&nullifier);
                 let block_num = nullifier_value_to_blocknum(value);
+
+                NullifierInputRecord {
+                    nullifier: *nullifier,
+                    proof,
+                }
+            })
+            .collect();
+
+        let nullifier_input_records: Vec<NullifierInputRecord> = nullifiers
+            .iter()
+            .map(|nullifier| {
+                let proof = inner.nullifier_tree.open(nullifier);
 
                 NullifierInputRecord {
                     nullifier: *nullifier,
