@@ -293,8 +293,8 @@ impl BlockWitness {
     fn build_advice_inputs(self) -> Result<AdviceInputs, BlockProverError> {
         let advice_map: Vec<_> = self
             .produced_nullifiers
-            .iter()
-            .map(|(_, proof)| (proof.leaf().hash().as_bytes(), proof.leaf().to_elements()))
+            .values()
+            .map(|proof| (proof.leaf().hash().as_bytes(), proof.leaf().to_elements()))
             .collect();
 
         let mut merkle_store = MerkleStore::default();
