@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use miden_crypto::{merkle::SmtLeaf, ZERO};
+use miden_crypto::{merkle::SmtProof, ZERO};
 use miden_node_proto::domain::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
@@ -33,8 +33,7 @@ pub struct BlockWitness {
     pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     /// (batch_index, created_notes_root) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
-    pub(super) produced_nullifiers: BTreeMap<Digest, MerklePath>,
-    pub(super) nullifier_smt_leaves: Vec<SmtLeaf>,
+    pub(super) produced_nullifiers: BTreeMap<Digest, SmtProof>,
     pub(super) chain_peaks: MmrPeaks,
     pub(super) prev_header: BlockHeader,
 }
@@ -91,24 +90,16 @@ impl BlockWitness {
             })
             .collect();
 
-        let (produced_nullifiers, nullifier_smt_leaves) = {
-            let (nullifiers, proofs): (Vec<_>, Vec<_>) = block_inputs
-                .nullifiers
-                .into_iter()
-                .map(|nullifier_record| (nullifier_record.nullifier, nullifier_record.proof))
-                .unzip();
-
-            let (merkle_paths, leaves): (Vec<MerklePath>, Vec<SmtLeaf>) =
-                proofs.into_iter().map(|proof| proof.into_parts()).unzip();
-
-            (nullifiers.into_iter().zip(merkle_paths).collect(), leaves)
-        };
+        let produced_nullifiers = block_inputs
+            .nullifiers
+            .into_iter()
+            .map(|nullifier_record| (nullifier_record.nullifier, nullifier_record.proof))
+            .collect();
 
         Ok(Self {
             updated_accounts,
             batch_created_notes_roots,
             produced_nullifiers,
-            nullifier_smt_leaves,
             chain_peaks: block_inputs.chain_peaks,
             prev_header: block_inputs.block_header,
         })
@@ -300,6 +291,12 @@ impl BlockWitness {
 
     /// Builds the advice inputs to the block kernel
     fn build_advice_inputs(self) -> Result<AdviceInputs, BlockProverError> {
+        let advice_map: Vec<_> = self
+            .produced_nullifiers
+            .iter()
+            .map(|(_, proof)| (proof.leaf().hash().as_bytes(), proof.leaf().to_elements()))
+            .collect();
+
         let mut merkle_store = MerkleStore::default();
 
         // add accounts merkle paths
@@ -318,16 +315,13 @@ impl BlockWitness {
 
         // add nullifiers merkle paths
         merkle_store
-            .add_merkle_paths(self.produced_nullifiers.into_iter().map(|(nullifier, path)| {
+            .add_merkle_paths(self.produced_nullifiers.into_iter().map(|(nullifier, proof)| {
+                let (path, _) = proof.into_parts();
+
                 // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
                 (u64::from(nullifier[3]), Digest::default(), path)
             }))
             .map_err(BlockProverError::InvalidMerklePaths)?;
-
-        let advice_map = self
-            .nullifier_smt_leaves
-            .into_iter()
-            .map(|nullifier_leaf| (nullifier_leaf.hash().as_bytes(), nullifier_leaf.to_elements()));
 
         let mut advice_inputs =
             AdviceInputs::default().with_merkle_store(merkle_store).with_map(advice_map);
