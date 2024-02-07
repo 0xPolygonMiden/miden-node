@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use miden_crypto::{
     merkle::{LeafIndex, Mmr, Smt, SmtLeaf, SmtProof, SMT_DEPTH},
     ONE,
