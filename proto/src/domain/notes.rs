@@ -1,6 +1,6 @@
 use miden_objects::notes::NoteEnvelope;
 
-use crate::note;
+use crate::generated::note;
 
 // Note
 // ================================================================================================

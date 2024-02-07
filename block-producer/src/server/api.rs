@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use miden_crypto::utils::Deserializable;
-use miden_node_proto::{
+use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
     responses::SubmitProvenTransactionResponse,
 };

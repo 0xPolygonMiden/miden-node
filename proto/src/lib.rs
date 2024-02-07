@@ -2,12 +2,12 @@ pub mod domain;
 pub mod errors;
 
 #[rustfmt::skip]
-mod generated;
+pub mod generated;
 
 // RE-EXPORTS
-// ------------------------------------------------------------------------------------------------
-pub use domain::{convert, nullifier_value_to_blocknum};
-pub use generated::{
-    account, block_header, block_producer, digest, merkle, mmr, note, requests, responses, rpc,
-    smt, store,
+// ================================================================================================
+
+pub use domain::{
+    accounts::AccountInputRecord, blocks::BlockInputs, convert, nullifier_value_to_blocknum,
+    nullifiers::NullifierInputRecord, try_convert,
 };

@@ -2,10 +2,9 @@ use miden_crypto::merkle::MmrPeaks;
 use miden_objects::BlockHeader;
 
 use crate::{
-    block_header,
     domain::{accounts::AccountInputRecord, nullifiers::NullifierInputRecord, try_convert},
     errors::ParseError,
-    responses,
+    generated::{block_header, responses},
 };
 
 // BlockHeader

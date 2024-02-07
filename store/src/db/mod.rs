@@ -2,7 +2,7 @@ use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
-use miden_node_proto::{
+use miden_node_proto::generated::{
     account::AccountInfo,
     block_header,
     digest::Digest,

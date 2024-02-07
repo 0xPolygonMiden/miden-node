@@ -6,7 +6,7 @@ use miden_crypto::{
     utils::{Deserializable, SliceReader},
     StarkField,
 };
-use miden_node_proto::{
+use miden_node_proto::generated::{
     account::{self, AccountId as AccountIdProto, AccountInfo},
     block_header::BlockHeader,
     digest::Digest,

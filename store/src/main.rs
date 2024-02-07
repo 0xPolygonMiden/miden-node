@@ -3,8 +3,8 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use cli::{Cli, Command, Query};
 use hex::ToHex;
-use miden_crypto::merkle::{path_to_text, SmtProof};
-use miden_node_proto::{
+use miden_crypto::merkle::{path_to_text, TieredSmtProof};
+use miden_node_proto::generated::{
     account::AccountId,
     requests::{
         CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,

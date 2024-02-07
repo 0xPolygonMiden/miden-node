@@ -1,6 +1,6 @@
 use anyhow::Result;
 use miden_crypto::hash::rpo::RpoDigest;
-use miden_node_proto::{
+use miden_node_proto::generated::{
     block_producer::api_client as block_producer_client,
     requests::{
         CheckNullifiersRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,

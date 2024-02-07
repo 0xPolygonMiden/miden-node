@@ -7,7 +7,7 @@ use miden_objects::{
     Digest,
 };
 
-use crate::{digest, errors::ParseError};
+use crate::{errors::ParseError, generated::digest};
 
 // CONSTANTS
 // ================================================================================================
@@ -228,7 +228,7 @@ mod test {
     use hex::{self, FromHex, ToHex};
     use proptest::prelude::*;
 
-    use crate::digest::Digest;
+    use crate::generated::digest::Digest;
 
     #[test]
     fn test_hex_digest() {

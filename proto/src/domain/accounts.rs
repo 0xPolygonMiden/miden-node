@@ -3,9 +3,12 @@ use std::fmt::{Debug, Display, Formatter};
 use miden_crypto::merkle::MerklePath;
 use miden_objects::{accounts::AccountId, Digest, Digest as RpoDigest};
 
-use crate::{account, errors::ParseError, requests, responses};
+use crate::{
+    errors::ParseError,
+    generated::{account, requests, responses},
+};
 
-// AccountId
+// AccountId formatting
 // ================================================================================================
 
 impl Display for account::AccountId {
@@ -26,6 +29,9 @@ impl Debug for account::AccountId {
     }
 }
 
+// INTO AccountId
+// ================================================================================================
+
 impl From<u64> for account::AccountId {
     fn from(value: u64) -> Self {
         account::AccountId { id: value }
@@ -39,6 +45,9 @@ impl From<AccountId> for account::AccountId {
         }
     }
 }
+
+// FROM AccountId
+// ================================================================================================
 
 impl From<account::AccountId> for u64 {
     fn from(value: account::AccountId) -> Self {
@@ -54,7 +63,7 @@ impl TryFrom<account::AccountId> for AccountId {
     }
 }
 
-// AccountUpdate
+// INTO AccountUpdate
 // ================================================================================================
 
 impl From<(AccountId, RpoDigest)> for requests::AccountUpdate {
@@ -75,9 +84,6 @@ pub struct AccountInputRecord {
     pub account_hash: Digest,
     pub proof: MerklePath,
 }
-
-// AccountBlockInputRecord
-// ================================================================================================
 
 impl TryFrom<responses::AccountBlockInputRecord> for AccountInputRecord {
     type Error = ParseError;

@@ -1,6 +1,9 @@
 use miden_crypto::merkle::MerklePath;
 
-use crate::{digest, errors::ParseError, merkle};
+use crate::{
+    errors::ParseError,
+    generated::{digest, merkle},
+};
 
 // INTO
 // ================================================================================================

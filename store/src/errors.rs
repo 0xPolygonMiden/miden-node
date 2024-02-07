@@ -6,7 +6,7 @@ use miden_crypto::{
     merkle::{MerkleError, MmrError},
     utils::DeserializationError,
 };
-use miden_node_proto::{block_header::BlockHeader, errors::ParseError};
+use miden_node_proto::{errors::ParseError, generated::block_header::BlockHeader};
 use prost::DecodeError;
 use rusqlite::types::FromSqlError;
 use thiserror::Error;

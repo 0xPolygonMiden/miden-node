@@ -5,10 +5,13 @@ use std::{
 
 use async_trait::async_trait;
 use miden_node_proto::{
-    account, convert, digest,
+    convert,
     domain::blocks::BlockInputs,
-    requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
-    store::api_client as store_client,
+    generated::{
+        account, digest,
+        requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
+        store::api_client as store_client,
+    },
 };
 use miden_node_utils::formatting::{format_map, format_opt};
 use miden_objects::{accounts::AccountId, Digest};

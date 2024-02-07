@@ -14,17 +14,18 @@ use miden_crypto::{
     Felt, FieldElement, Word, EMPTY_WORD,
 };
 use miden_node_proto::{
-    account::AccountInfo,
-    block_header,
-    digest::Digest,
-    domain::NullifierInputRecord,
     errors::ParseError,
-    note::{Note, NoteCreated},
-    nullifier_value_to_blocknum,
-    requests::AccountUpdate,
-    responses::{
-        AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
+    generated::{
+        account::AccountInfo,
+        block_header,
+        digest::Digest,
+        note::{Note, NoteCreated},
+        requests::AccountUpdate,
+        responses::{
+            AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
+        },
     },
+    nullifier_value_to_blocknum,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{

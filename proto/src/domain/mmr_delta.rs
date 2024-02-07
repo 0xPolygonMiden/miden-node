@@ -1,7 +1,10 @@
 use miden_crypto::merkle::MmrDelta;
 use miden_objects::Digest as RpoDigest;
 
-use crate::{digest, errors::ParseError, mmr};
+use crate::{
+    errors::ParseError,
+    generated::{digest, mmr},
+};
 
 // INTO
 // ================================================================================================

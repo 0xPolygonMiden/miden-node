@@ -7,7 +7,7 @@ use miden_objects::{Digest, Digest as RpoDigest};
 use crate::{
     domain::{convert, nullifier_value_to_blocknum, try_convert},
     errors::ParseError,
-    responses, tsmt,
+    generated::{responses, tsmt},
 };
 
 // NullifierLeaf

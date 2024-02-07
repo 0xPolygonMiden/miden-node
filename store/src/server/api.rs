@@ -4,20 +4,22 @@ use anyhow::Result;
 use miden_crypto::{hash::rpo::RpoDigest, Felt, ZERO};
 use miden_node_proto::{
     convert,
-    digest::Digest,
     errors::ParseError,
-    requests::{
-        ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
-        GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
-        ListNullifiersRequest, SyncStateRequest,
+    generated::{
+        digest::Digest,
+        requests::{
+            ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
+            GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+        },
+        responses::{
+            ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
+            ListNotesResponse, ListNullifiersResponse, SyncStateResponse,
+        },
+        store::api_server,
+        tsmt::NullifierLeaf,
     },
-    responses::{
-        ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
-        GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
-        ListNotesResponse, ListNullifiersResponse, SyncStateResponse,
-    },
-    smt::SmtLeafEntry,
-    store::api_server,
 };
 use miden_objects::BlockHeader;
 use tonic::{Response, Status};
