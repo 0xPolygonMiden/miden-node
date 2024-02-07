@@ -1,7 +1,5 @@
 pub mod domain;
 pub mod errors;
-mod formatting;
-pub mod hex;
 
 #[rustfmt::skip]
 mod generated;

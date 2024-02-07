@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_crypto::ZERO;
-use miden_node_proto::domain::block_inputs::BlockInputs;
+use miden_node_proto::domain::blocks::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerkleStore, MmrPeaks},

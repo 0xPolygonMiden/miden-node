@@ -6,7 +6,7 @@ use std::{
 use async_trait::async_trait;
 use miden_node_proto::{
     account, convert, digest,
-    domain::block_inputs::BlockInputs,
+    domain::blocks::BlockInputs,
     requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
     store::api_client as store_client,
 };

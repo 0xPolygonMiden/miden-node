@@ -1,19 +1,12 @@
 use miden_crypto::{StarkField, Word};
 
-pub mod account_block_input_record;
-pub mod account_id;
-pub mod account_input_record;
-pub mod account_update;
-pub mod block_header;
-pub mod block_inputs;
+pub mod accounts;
+pub mod blocks;
 pub mod digest;
 pub mod merkle_path;
 pub mod mmr_delta;
-pub mod note;
-pub mod note_created;
-pub mod nullifier_input_record;
-pub mod nullifier_leaf;
-pub mod nullifier_proof;
+pub mod notes;
+pub mod nullifiers;
 
 // UTILITIES
 // ================================================================================================

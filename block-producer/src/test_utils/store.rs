@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 use miden_crypto::merkle::ValuePath;
-use miden_node_proto::domain::{
-    account_input_record::AccountInputRecord, block_inputs::BlockInputs,
-};
+use miden_node_proto::domain::{accounts::AccountInputRecord, blocks::BlockInputs};
 use miden_objects::{crypto::merkle::Mmr, BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
