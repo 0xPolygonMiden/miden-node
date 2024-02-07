@@ -1,5 +1,5 @@
 use miden_crypto::{
-    merkle::{LeafIndex, Mmr, SmtLeaf, SmtProof, SMT_DEPTH},
+    merkle::{LeafIndex, Mmr, Smt, SmtLeaf, SmtProof, SMT_DEPTH},
     ONE,
 };
 use miden_mock::mock::block::mock_block_header;
