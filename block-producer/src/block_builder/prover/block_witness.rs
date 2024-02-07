@@ -33,8 +33,7 @@ pub struct BlockWitness {
     pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     /// (batch_index, created_notes_root) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
-    pub(super) produced_nullifiers: BTreeMap<Digest, MerklePath>,
-    pub(super) nullifier_smt_leaves: Vec<SmtLeaf>,
+    pub(super) produced_nullifiers: BTreeMap<Digest, SmtProof>,
     pub(super) chain_peaks: MmrPeaks,
     pub(super) prev_header: BlockHeader,
 }
@@ -91,24 +90,16 @@ impl BlockWitness {
             })
             .collect();
 
-        let (produced_nullifiers, nullifier_smt_leaves) = {
-            let (nullifiers, proofs): (Vec<_>, Vec<_>) = block_inputs
-                .nullifiers
-                .into_iter()
-                .map(|nullifier_record| (nullifier_record.nullifier, nullifier_record.proof))
-                .unzip();
-
-            let (merkle_paths, leaves): (Vec<MerklePath>, Vec<SmtLeaf>) =
-                proofs.into_iter().map(|proof| proof.into_parts()).unzip();
-
-            (nullifiers.into_iter().zip(merkle_paths).collect(), leaves)
-        };
+        let produced_nullifiers = block_inputs
+            .nullifiers
+            .into_iter()
+            .map(|nullifier_record| (nullifier_record.nullifier, nullifier_record.proof))
+            .collect();
 
         Ok(Self {
             updated_accounts,
             batch_created_notes_roots,
             produced_nullifiers,
-            nullifier_smt_leaves,
             chain_peaks: block_inputs.chain_peaks,
             prev_header: block_inputs.block_header,
         })
