@@ -17,26 +17,25 @@ struct UserId {
 async fn get_tokens(req: web::Json<UserId>) -> impl Responder {
     println!("Received request from account_id: {}", req.account_id);
 
-    let config = ClientConfig::default();
-    let client = Client::new(config)?;
+    // let config = ClientConfig::default();
+    // let client = Client::new(config)?;
 
-    // import faucet id from genesis generated faucet
-    let asset = FungibleAsset::new(faucet_id, 100);
+    // // import faucet id from genesis generated faucet
+    // let asset = FungibleAsset::new(faucet_id, 100);
 
-    // get account id from user
-    let account_id = AccountId::from_hex(&req.account_id)?;
+    // // get account id from user
+    // let account_id = AccountId::from_hex(&req.account_id)?;
 
-    // create transaction from data
-    let transaction = TransactionTemplate::MintFungibleAsset {
-        asset: (),
-        target_account_id: account_id,
-    };
+    // // create transaction from data
+    // let transaction = TransactionTemplate::MintFungibleAsset {
+    //     asset: (),
+    //     target_account_id: account_id,
+    // };
 
     // execute, prove and submit tx
     // client.new_transaction(transaction_template)
 
-    client::transactions::HttpResponse::Ok()
-        .json(format!("Token request received successfully from {}", req.account_id))
+    HttpResponse::Ok().json(format!("Token request received successfully from {}", req.account_id))
 }
 
 #[actix_web::main]
