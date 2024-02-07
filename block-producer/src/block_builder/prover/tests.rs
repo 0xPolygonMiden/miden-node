@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use miden_crypto::{
     merkle::{LeafIndex, Mmr, Smt, SmtLeaf, SmtProof, SMT_DEPTH},
     ONE,
@@ -608,8 +610,70 @@ async fn test_compute_nullifier_root_empty_success() {
     assert_eq!(block_header.nullifier_root(), nullifier_smt.root());
 }
 
-// TODO tests:
-// - compare root with 3 nullifiers (`Smt` vs block kernel) with block_num == 42
+/// Tests that the block kernel returns the expected nullifier tree when multiple nullifiers are present in the transaction
+#[tokio::test]
+async fn test_compute_nullifier_root_success() {
+    let batches: Vec<TransactionBatch> = {
+        let batch_1 = {
+            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        let batch_2 = {
+            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        vec![batch_1, batch_2]
+    };
+
+    let account_ids: Vec<AccountId> = batches
+        .iter()
+        .flat_map(|batch| batch.account_initial_states())
+        .map(|(account_id, _)| account_id)
+        .collect();
+
+    let nullifiers = [
+        batches[0].produced_nullifiers().next().unwrap(),
+        batches[1].produced_nullifiers().next().unwrap(),
+    ];
+
+    let block_num: u32 = 42;
+
+    // Set up store
+    // ---------------------------------------------------------------------------------------------
+
+    let store = MockStoreSuccessBuilder::new()
+        .initial_accounts(batches.iter().flat_map(|batch| batch.account_initial_states()))
+        .build();
+
+    // Block prover
+    // ---------------------------------------------------------------------------------------------
+
+    // Block inputs is initialized with all the accounts and their initial state
+    let block_inputs_from_store: BlockInputs =
+        store.get_block_inputs(account_ids.iter(), nullifiers.iter()).await.unwrap();
+
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+
+    let block_prover = BlockProver::new();
+    let block_header = block_prover.prove(block_witness).unwrap();
+
+    // Create SMT by hand to get new root
+    // ---------------------------------------------------------------------------------------------
+    let nullifier_smt = Smt::with_entries(
+        nullifiers
+            .into_iter()
+            .map(|nullifier| (nullifier, [ZERO, ZERO, ZERO, block_num.into()])),
+    )
+    .unwrap();
+
+    // Compare roots
+    // ---------------------------------------------------------------------------------------------
+    assert_eq!(block_header.nullifier_root(), nullifier_smt.root());
+}
 
 // CHAIN MMR ROOT TESTS
 // =================================================================================================
