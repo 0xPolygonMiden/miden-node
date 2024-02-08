@@ -125,6 +125,8 @@ pub enum ApplyBlockError {
     NewBlockInvalidAccountRoot,
     #[error("Received invalid note root")]
     NewBlockInvalidNoteRoot,
+    #[error("Received invalid nullifier root")]
+    NewBlockInvalidNullifierRoot,
     #[error("Duplicated nullifiers {0:?}")]
     DuplicatedNullifiers(Vec<RpoDigest>),
     #[error("Unable to create proof for note: {0}")]

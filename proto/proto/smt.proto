@@ -1,0 +1,32 @@
+// Message definitions related to Sparse Merkle Trees (SMT).
+
+syntax = "proto3";
+package smt;
+
+import "digest.proto";
+import "merkle.proto";
+
+// An entry in a leaf.
+message SmtLeafEntry {
+    digest.Digest key = 1;
+    digest.Digest value = 2;
+}
+
+message SmtLeafEntries {
+    repeated SmtLeafEntry entries = 1;
+}
+
+// A leaf in an SMT, sitting at depth 64. A leaf can contain 0, 1 or multiple leaf entries.
+message SmtLeaf {
+    oneof leaf {
+        uint64 empty = 1;
+        SmtLeafEntry single = 2;
+        SmtLeafEntries multiple = 3;
+    }
+}
+
+// The opening of a leaf in an SMT.
+message SmtOpening {
+    merkle.MerklePath path = 1;
+    SmtLeaf leaf = 2;
+}

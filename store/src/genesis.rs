@@ -1,4 +1,4 @@
-use miden_crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, TieredSmt};
+use miden_crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, Smt};
 use miden_objects::{
     accounts::Account,
     notes::NOTE_LEAF_DEPTH,
@@ -44,7 +44,7 @@ impl GenesisState {
             GENESIS_BLOCK_NUM,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
-            TieredSmt::default().root(),
+            Smt::default().root(),
             *EmptySubtreeRoots::entry(NOTE_LEAF_DEPTH, 0),
             Digest::default(),
             Digest::default(),

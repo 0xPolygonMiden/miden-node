@@ -80,7 +80,7 @@ pub struct NullifierBlockInputRecord {
     #[prost(message, optional, tag = "1")]
     pub nullifier: ::core::option::Option<super::digest::Digest>,
     #[prost(message, optional, tag = "2")]
-    pub proof: ::core::option::Option<super::merkle::MerklePath>,
+    pub opening: ::core::option::Option<super::smt::SmtOpening>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]

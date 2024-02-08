@@ -10,10 +10,7 @@ use std::{
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    merkle::{
-        LeafIndex, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, TieredSmt, TieredSmtProof,
-        ValuePath,
-    },
+    merkle::{LeafIndex, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtProof, ValuePath},
     Felt, FieldElement, Word, EMPTY_WORD,
 };
 use miden_node_proto::{
@@ -21,6 +18,7 @@ use miden_node_proto::{
     block_header,
     conversion::nullifier_value_to_blocknum,
     digest::Digest,
+    domain::NullifierInputRecord,
     errors::ParseError,
     note::{Note, NoteCreated},
     requests::AccountUpdate,
@@ -54,7 +52,7 @@ use crate::{
 
 /// Container for state that needs to be updated atomically.
 struct InnerState {
-    nullifier_tree: TieredSmt,
+    nullifier_tree: Smt,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
 }
@@ -258,7 +256,7 @@ impl State {
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
                 .iter()
-                .filter(|&&n| inner.nullifier_tree.get_value(n) != EMPTY_WORD)
+                .filter(|&n| inner.nullifier_tree.get_value(n) != EMPTY_WORD)
                 .cloned()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
@@ -295,10 +293,9 @@ impl State {
                     nullifier_tree.insert(*nullifier, nullifier_data);
                 }
 
-                // FIXME: Re-add when nullifiers start getting updated
-                // if nullifier_tree.root() != new_block.nullifier_root() {
-                //     return Err(StateError::NewBlockInvalidNullifierRoot);
-                // }
+                if nullifier_tree.root() != new_block.nullifier_root() {
+                    return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
+                }
                 nullifier_tree
             };
 
@@ -397,9 +394,9 @@ impl State {
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
-    ) -> Vec<TieredSmtProof> {
+    ) -> Vec<SmtProof> {
         let inner = self.inner.read().await;
-        nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
+        nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
     /// Loads data to synchronize a client.
@@ -464,9 +461,14 @@ impl State {
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
-        _nullifiers: &[RpoDigest],
+        nullifiers: &[RpoDigest],
     ) -> Result<
-        (block_header::BlockHeader, MmrPeaks, Vec<AccountStateWithProof>),
+        (
+            block_header::BlockHeader,
+            MmrPeaks,
+            Vec<AccountStateWithProof>,
+            Vec<NullifierInputRecord>,
+        ),
         GetBlockInputsError,
     > {
         let inner = self.inner.read().await;
@@ -509,8 +511,19 @@ impl State {
             })
             .collect();
 
-        // TODO: add nullifiers
-        Ok((latest, peaks, account_states))
+        let nullifier_input_records: Vec<NullifierInputRecord> = nullifiers
+            .iter()
+            .map(|nullifier| {
+                let proof = inner.nullifier_tree.open(nullifier);
+
+                NullifierInputRecord {
+                    nullifier: *nullifier,
+                    proof,
+                }
+            })
+            .collect();
+
+        Ok((latest, peaks, account_states, nullifier_input_records))
     }
 
     /// Returns data needed by the block producer to verify transactions validity.
@@ -537,7 +550,7 @@ impl State {
             .iter()
             .cloned()
             .map(|nullifier| {
-                let value = inner.nullifier_tree.get_value(nullifier);
+                let value = inner.nullifier_tree.get_value(&nullifier);
                 let block_num = nullifier_value_to_blocknum(value);
 
                 NullifierStateForTransactionInput {
@@ -570,9 +583,9 @@ impl State {
 // UTILITIES
 // ================================================================================================
 
-/// Returns the nullifier's block number given its leaf value in the TSMT.
+/// Returns the nullifier's block number given its leaf value in the SMT.
 fn block_to_nullifier_data(block: BlockNumber) -> Word {
-    [Felt::new(block as u64), Felt::ZERO, Felt::ZERO, Felt::ZERO]
+    [Felt::from(block), Felt::ZERO, Felt::ZERO, Felt::ZERO]
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
@@ -601,7 +614,7 @@ pub fn build_notes_tree(
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt, StateInitializationError> {
+async fn load_nullifier_tree(db: &mut Db) -> Result<Smt, StateInitializationError> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
     let leaves = nullifiers
@@ -609,7 +622,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt, StateInitializati
         .map(|(nullifier, block)| (nullifier, block_to_nullifier_data(block)));
 
     let now = Instant::now();
-    let nullifier_tree = TieredSmt::with_entries(leaves)
+    let nullifier_tree = Smt::with_entries(leaves)
         .map_err(StateInitializationError::FailedToCreateNullifiersTree)?;
     let elapsed = now.elapsed().as_secs();
 

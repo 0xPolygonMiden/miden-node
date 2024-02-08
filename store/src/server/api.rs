@@ -192,7 +192,7 @@ impl api_server::Api for StoreApi {
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
 
-        let (latest, accumulator, account_states) = self
+        let (latest, accumulator, account_states, nullifier_records) = self
             .state
             .get_block_inputs(&account_ids, &nullifiers)
             .await
@@ -202,8 +202,7 @@ impl api_server::Api for StoreApi {
             block_header: Some(latest),
             mmr_peaks: convert(accumulator.peaks()),
             account_states: convert(account_states),
-            // TODO: nullifiers blocked by changes in crypto repo
-            nullifiers: vec![],
+            nullifiers: convert(nullifier_records),
         }))
     }
 

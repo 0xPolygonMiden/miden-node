@@ -1,6 +1,9 @@
-use miden_crypto::{merkle::Mmr, ONE};
+use miden_crypto::{
+    merkle::{LeafIndex, Mmr, Smt, SmtLeaf, SmtProof, SMT_DEPTH},
+    ONE,
+};
 use miden_mock::mock::block::mock_block_header;
-use miden_node_proto::domain::{AccountInputRecord, BlockInputs};
+use miden_node_proto::domain::{AccountInputRecord, BlockInputs, NullifierInputRecord};
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MmrPeaks},
@@ -16,7 +19,7 @@ use crate::{
     store::Store,
     test_utils::{
         block::{build_actual_block_header, build_expected_block_header, MockBlockBuilder},
-        DummyProvenTxGenerator, MockStoreSuccessBuilder,
+        DummyProvenTxGenerator, MockProvenTxBuilder, MockStoreSuccessBuilder,
     },
     TransactionBatch,
 };
@@ -471,6 +474,205 @@ async fn test_compute_note_root_success() {
     // Compare roots
     // ---------------------------------------------------------------------------------------------
     assert_eq!(block_header.note_root(), notes_smt.root());
+}
+
+// NULLIFIER ROOT TESTS
+// =================================================================================================
+
+/// Tests that `BlockWitness` constructor fails if the store and transaction batches contain a
+/// different set of nullifiers.
+///
+/// The transaction batches will contain nullifiers 1 & 2, while the store will contain 2 & 3.
+#[test]
+fn test_block_witness_validation_inconsistent_nullifiers() {
+    let batches: Vec<TransactionBatch> = {
+        let batch_1 = {
+            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        let batch_2 = {
+            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        vec![batch_1, batch_2]
+    };
+
+    let nullifier_1 = batches[0].produced_nullifiers().next().unwrap();
+    let nullifier_2 = batches[1].produced_nullifiers().next().unwrap();
+    let nullifier_3 =
+        Digest::from([101_u64.into(), 102_u64.into(), 103_u64.into(), 104_u64.into()]);
+
+    let block_inputs_from_store: BlockInputs = {
+        let block_header = mock_block_header(0, None, None, &[]);
+        let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+
+        let nullifiers = vec![
+            NullifierInputRecord {
+                nullifier: nullifier_2,
+                proof: SmtProof::new(
+                    MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_2[3].into())),
+                )
+                .unwrap(),
+            },
+            NullifierInputRecord {
+                nullifier: nullifier_3,
+                proof: SmtProof::new(
+                    MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_3[3].into())),
+                )
+                .unwrap(),
+            },
+        ];
+
+        let account_states = batches
+            .iter()
+            .flat_map(|batch| batch.account_initial_states())
+            .map(|(account_id, account_hash)| AccountInputRecord {
+                account_id,
+                account_hash,
+                proof: MerklePath::default(),
+            })
+            .collect();
+
+        BlockInputs {
+            block_header,
+            chain_peaks,
+            account_states,
+            nullifiers,
+        }
+    };
+
+    let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
+
+    assert_eq!(
+        block_witness_result,
+        Err(BuildBlockError::InconsistentNullifiers(vec![nullifier_1, nullifier_3]))
+    );
+}
+
+/// Tests that the block kernel returns the expected nullifier tree when no nullifiers are present in the transaction
+#[tokio::test]
+async fn test_compute_nullifier_root_empty_success() {
+    let batches: Vec<TransactionBatch> = {
+        let batch_1 = {
+            let tx = MockProvenTxBuilder::new().build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        let batch_2 = {
+            let tx = MockProvenTxBuilder::new().build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        vec![batch_1, batch_2]
+    };
+
+    let account_ids: Vec<AccountId> = batches
+        .iter()
+        .flat_map(|batch| batch.account_initial_states())
+        .map(|(account_id, _)| account_id)
+        .collect();
+
+    // Set up store
+    // ---------------------------------------------------------------------------------------------
+
+    let store = MockStoreSuccessBuilder::new()
+        .initial_accounts(batches.iter().flat_map(|batch| batch.account_initial_states()))
+        .build();
+
+    // Block prover
+    // ---------------------------------------------------------------------------------------------
+
+    // Block inputs is initialized with all the accounts and their initial state
+    let block_inputs_from_store: BlockInputs =
+        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
+
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+
+    let block_prover = BlockProver::new();
+    let block_header = block_prover.prove(block_witness).unwrap();
+
+    // Create SMT by hand to get new root
+    // ---------------------------------------------------------------------------------------------
+    let nullifier_smt = Smt::new();
+
+    // Compare roots
+    // ---------------------------------------------------------------------------------------------
+    assert_eq!(block_header.nullifier_root(), nullifier_smt.root());
+}
+
+/// Tests that the block kernel returns the expected nullifier tree when multiple nullifiers are present in the transaction
+#[tokio::test]
+async fn test_compute_nullifier_root_success() {
+    let batches: Vec<TransactionBatch> = {
+        let batch_1 = {
+            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        let batch_2 = {
+            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+
+            TransactionBatch::new(vec![tx]).unwrap()
+        };
+
+        vec![batch_1, batch_2]
+    };
+
+    let account_ids: Vec<AccountId> = batches
+        .iter()
+        .flat_map(|batch| batch.account_initial_states())
+        .map(|(account_id, _)| account_id)
+        .collect();
+
+    let nullifiers = [
+        batches[0].produced_nullifiers().next().unwrap(),
+        batches[1].produced_nullifiers().next().unwrap(),
+    ];
+
+    // Set up store
+    // ---------------------------------------------------------------------------------------------
+    let initial_block_num = 42;
+
+    let store = MockStoreSuccessBuilder::new()
+        .initial_accounts(batches.iter().flat_map(|batch| batch.account_initial_states()))
+        .initial_block_num(initial_block_num)
+        .build();
+
+    // Block prover
+    // ---------------------------------------------------------------------------------------------
+
+    // Block inputs is initialized with all the accounts and their initial state
+    let block_inputs_from_store: BlockInputs =
+        store.get_block_inputs(account_ids.iter(), nullifiers.iter()).await.unwrap();
+
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+
+    let block_prover = BlockProver::new();
+    let block_header = block_prover.prove(block_witness).unwrap();
+
+    // Create SMT by hand to get new root
+    // ---------------------------------------------------------------------------------------------
+
+    // Note that the block number in store is 42; the nullifiers get added to the next block (i.e. block number 43)
+    let nullifier_smt = Smt::with_entries(
+        nullifiers
+            .into_iter()
+            .map(|nullifier| (nullifier, [(initial_block_num + 1).into(), ZERO, ZERO, ZERO])),
+    )
+    .unwrap();
+
+    // Compare roots
+    // ---------------------------------------------------------------------------------------------
+    assert_eq!(block_header.nullifier_root(), nullifier_smt.root());
 }
 
 // CHAIN MMR ROOT TESTS

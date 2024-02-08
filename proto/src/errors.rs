@@ -1,4 +1,4 @@
-use miden_crypto::merkle::MmrError;
+use miden_crypto::merkle::{MmrError, SmtLeafError, SmtProofError};
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -21,4 +21,8 @@ pub enum ParseError {
     InvalidProof,
     #[error("Protobuf message missing data")]
     ProtobufMissingData,
+    #[error("smt leaf error: {0}")]
+    SmtLeafError(#[from] SmtLeafError),
+    #[error("smt proof error: {0}")]
+    SmtProofError(#[from] SmtProofError),
 }

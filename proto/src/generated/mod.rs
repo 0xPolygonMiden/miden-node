@@ -8,5 +8,6 @@ pub mod note;
 pub mod requests;
 pub mod responses;
 pub mod rpc;
+pub mod smt;
 pub mod store;
 pub mod tsmt;

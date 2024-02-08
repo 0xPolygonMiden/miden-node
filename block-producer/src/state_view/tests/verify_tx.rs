@@ -152,7 +152,7 @@ async fn test_verify_tx_vt3() {
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
             .initial_accounts(iter::once((account.id, account.states[0])))
-            .initial_nullifiers(BTreeSet::from_iter(iter::once(nullifier_in_store.inner())))
+            .initial_nullifiers(BTreeSet::from_iter(iter::once(nullifier_in_store.inner())), 1)
             .build(),
     );
 
