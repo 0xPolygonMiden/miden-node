@@ -17,8 +17,6 @@ pub enum ParseError {
     TooManyMmrPeaks,
     #[error("Value is not in the range 0..MODULUS")]
     NotAValidFelt,
-    #[error("Received TSMT proof is invalid")]
-    InvalidProof,
     #[error("Protobuf message missing data")]
     ProtobufMissingData,
     #[error("smt leaf error: {0}")]
