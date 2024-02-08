@@ -217,7 +217,7 @@ impl State {
 
                     Ok(Note {
                         block_num: new_block.block_num(),
-                        note_hash: note.note_hash.clone(),
+                        note_id: note.note_id.clone(),
                         sender: note.sender,
                         note_index: note.note_index,
                         tag: note.tag,
@@ -495,14 +495,12 @@ pub fn build_notes_tree(
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
-        let note_hash = note
-            .note_hash
-            .clone()
-            .ok_or(NoteCreated::missing_field(stringify!(note_hash)))?;
+        let note_id =
+            note.note_id.clone().ok_or(NoteCreated::missing_field(stringify!(note_id)))?;
         let account_id = note.sender.try_into().or(Err(ApplyBlockError::InvalidAccountId))?;
         let note_metadata = NoteMetadata::new(account_id, note.tag.into());
         let index = note.note_index as u64;
-        entries.push((index, note_hash.try_into()?));
+        entries.push((index, note_id.try_into()?));
         entries.push((index + 1, note_metadata.into()));
     }
 

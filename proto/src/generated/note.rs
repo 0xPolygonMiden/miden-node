@@ -7,7 +7,7 @@ pub struct Note {
     #[prost(uint32, tag = "2")]
     pub note_index: u32,
     #[prost(message, optional, tag = "3")]
-    pub note_hash: ::core::option::Option<super::digest::Digest>,
+    pub note_id: ::core::option::Option<super::digest::Digest>,
     #[prost(fixed64, tag = "4")]
     pub sender: u64,
     #[prost(uint64, tag = "5")]
@@ -23,7 +23,7 @@ pub struct NoteSyncRecord {
     #[prost(uint32, tag = "1")]
     pub note_index: u32,
     #[prost(message, optional, tag = "2")]
-    pub note_hash: ::core::option::Option<super::digest::Digest>,
+    pub note_id: ::core::option::Option<super::digest::Digest>,
     #[prost(fixed64, tag = "3")]
     pub sender: u64,
     #[prost(uint64, tag = "4")]
@@ -39,7 +39,7 @@ pub struct NoteCreated {
     #[prost(uint32, tag = "1")]
     pub note_index: u32,
     #[prost(message, optional, tag = "2")]
-    pub note_hash: ::core::option::Option<super::digest::Digest>,
+    pub note_id: ::core::option::Option<super::digest::Digest>,
     #[prost(fixed64, tag = "3")]
     pub sender: u64,
     #[prost(uint64, tag = "4")]

@@ -85,8 +85,8 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
 
     let mut notes = vec![];
     while let Some(row) = rows.next()? {
-        let note_hash_data = row.get_ref(2)?.as_blob()?;
-        let note_hash = Digest::decode(note_hash_data)?;
+        let note_id_data = row.get_ref(2)?.as_blob()?;
+        let note_id = Digest::decode(note_id_data)?;
 
         let merkle_path_data = row.get_ref(5)?.as_blob()?;
         let merkle_path = MerklePath::decode(merkle_path_data)?;
@@ -94,7 +94,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
         notes.push(Note {
             block_num: row.get(0)?,
             note_index: row.get(1)?,
-            note_hash: Some(note_hash),
+            note_id: Some(note_id),
             sender: column_value_as_u64(row, 3)?,
             tag: column_value_as_u64(row, 4)?,
             merkle_path: Some(merkle_path),
@@ -288,9 +288,9 @@ pub fn insert_notes(
         count += stmt.execute(params![
             note.block_num,
             note.note_index,
-            note.note_hash
+            note.note_id
                 .clone()
-                .ok_or(Note::missing_field(stringify!(note_hash)))?
+                .ok_or(Note::missing_field(stringify!(note_id)))?
                 .encode_to_vec(),
             u64_to_value(note.sender),
             u64_to_value(note.tag),
@@ -361,8 +361,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
     while let Some(row) = rows.next()? {
         let block_num = row.get(0)?;
         let note_index = row.get(1)?;
-        let note_hash_data = row.get_ref(2)?.as_blob()?;
-        let note_hash = Some(decode_protobuf_digest(note_hash_data)?);
+        let note_id_data = row.get_ref(2)?.as_blob()?;
+        let note_id = Some(decode_protobuf_digest(note_id_data)?);
         let sender = column_value_as_u64(row, 3)?;
         let tag = column_value_as_u64(row, 4)?;
         let merkle_path_data = row.get_ref(5)?.as_blob()?;
@@ -371,7 +371,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note = Note {
             block_num,
             note_index,
-            note_hash,
+            note_id,
             sender,
             tag,
             merkle_path,

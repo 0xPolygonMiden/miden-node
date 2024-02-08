@@ -103,7 +103,7 @@ fn test_sql_select_notes() {
         let note = Note {
             block_num,
             note_index: i,
-            note_hash: Some(num_to_protobuf_digest(i.into())),
+            note_id: Some(num_to_protobuf_digest(i.into())),
             sender: i.into(),
             tag: i.into(),
             merkle_path: Some(MerklePath { siblings: vec![] }),
@@ -414,7 +414,7 @@ fn test_notes() {
     let note = Note {
         block_num,
         note_index,
-        note_hash: Some(num_to_protobuf_digest(3)),
+        note_id: Some(num_to_protobuf_digest(3)),
         sender: 4,
         tag,
         merkle_path: Some(MerklePath {
@@ -454,7 +454,7 @@ fn test_notes() {
     let note2 = Note {
         block_num: note.block_num + 1,
         note_index: note.note_index,
-        note_hash: Some(num_to_protobuf_digest(3)),
+        note_id: Some(num_to_protobuf_digest(3)),
         sender: note.sender,
         tag: note.tag,
         merkle_path: Some(MerklePath {
