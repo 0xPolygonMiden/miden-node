@@ -46,32 +46,32 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
         Ok(BlockHeader::new(
             value
                 .prev_hash
-                .ok_or(BlockHeader::missing_field(stringify!(prev_hash)))?
+                .ok_or(block_header::BlockHeader::missing_field(stringify!(prev_hash)))?
                 .try_into()?,
             value.block_num,
             value
                 .chain_root
-                .ok_or(BlockHeader::missing_field(stringify!(chain_root)))?
+                .ok_or(block_header::BlockHeader::missing_field(stringify!(chain_root)))?
                 .try_into()?,
             value
                 .account_root
-                .ok_or(BlockHeader::missing_field(stringify!(account_root)))?
+                .ok_or(block_header::BlockHeader::missing_field(stringify!(account_root)))?
                 .try_into()?,
             value
                 .nullifier_root
-                .ok_or(BlockHeader::missing_field(stringify!(nullifier_root)))?
+                .ok_or(block_header::BlockHeader::missing_field(stringify!(nullifier_root)))?
                 .try_into()?,
             value
                 .note_root
-                .ok_or(BlockHeader::missing_field(stringify!(note_root)))?
+                .ok_or(block_header::BlockHeader::missing_field(stringify!(note_root)))?
                 .try_into()?,
             value
                 .batch_root
-                .ok_or(BlockHeader::missing_field(stringify!(batch_root)))?
+                .ok_or(block_header::BlockHeader::missing_field(stringify!(batch_root)))?
                 .try_into()?,
             value
                 .proof_hash
-                .ok_or(BlockHeader::missing_field(stringify!(proof_hash)))?
+                .ok_or(block_header::BlockHeader::missing_field(stringify!(proof_hash)))?
                 .try_into()?,
             value.version.into(),
             value.timestamp.into(),

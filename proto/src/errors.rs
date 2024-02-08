@@ -30,7 +30,7 @@ pub trait MissingFieldHelper {
     fn missing_field(field_name: &'static str) -> ParseError;
 }
 
-impl<T> MissingFieldHelper for T {
+impl<T: prost::Message> MissingFieldHelper for T {
     fn missing_field(field_name: &'static str) -> ParseError {
         ParseError::MissingFieldInProtobufRepresentation {
             entity: type_name::<T>(),
