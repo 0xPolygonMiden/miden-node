@@ -14,9 +14,7 @@ impl From<BlockHeader> for block_header::BlockHeader {
     fn from(header: BlockHeader) -> Self {
         Self {
             prev_hash: Some(header.prev_hash().into()),
-            block_num: u64::from(header.block_num())
-                .try_into()
-                .expect("TODO: BlockHeader.block_num should be u64"),
+            block_num: header.block_num(),
             chain_root: Some(header.chain_root().into()),
             account_root: Some(header.account_root().into()),
             nullifier_root: Some(header.nullifier_root().into()),
