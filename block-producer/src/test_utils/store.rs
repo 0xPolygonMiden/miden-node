@@ -1,13 +1,21 @@
+use std::collections::BTreeMap;
+
 use async_trait::async_trait;
 use miden_crypto::merkle::ValuePath;
-use miden_node_proto::domain::{accounts::AccountInputRecord, blocks::BlockInputs};
+use miden_node_proto::{
+    domain::{
+        accounts::{AccountInputRecord, AccountState},
+        blocks::BlockInputs,
+    },
+    TransactionInputs,
+};
 use miden_objects::{crypto::merkle::Mmr, BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO};
 use miden_vm::crypto::SimpleSmt;
 
 use super::*;
 use crate::{
     block::Block,
-    store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputs, TxInputsError},
+    store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputsError},
     ProvenTransaction,
 };
 
@@ -15,7 +23,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    produced_nullifiers: Option<Smt>,
+    consumed_nullifiers: Option<BTreeMap<Digest, u32>>,
     chain_mmr: Option<Mmr>,
     block_num: Option<u32>,
 }
@@ -45,8 +53,7 @@ impl MockStoreSuccessBuilder {
 
     pub fn initial_nullifiers(
         mut self,
-        nullifiers: BTreeSet<Digest>,
-        block_num: u32,
+        consumed_nullifiers: BTreeMap<Digest, u32>,
     ) -> Self {
         let smt = Smt::with_entries(
             nullifiers
@@ -111,7 +118,7 @@ pub struct MockStoreSuccess {
     pub accounts: Arc<RwLock<SimpleSmt<ACCOUNT_TREE_DEPTH>>>,
 
     /// Stores the nullifiers of the notes that were consumed
-    pub produced_nullifiers: Arc<RwLock<Smt>>,
+    pub consumed_nullifiers: Arc<RwLock<BTreeMap<Digest, u32>>>,
 
     // Stores the chain MMR
     pub chain_mmr: Arc<RwLock<Mmr>>,
@@ -148,10 +155,13 @@ impl ApplyBlock for MockStoreSuccess {
         debug_assert_eq!(locked_accounts.root(), block.header.account_root());
 
         // update nullifiers
-        for nullifier in block.produced_nullifiers {
-            locked_produced_nullifiers
-                .insert(nullifier, [ZERO, ZERO, ZERO, block.header.block_num().into()]);
-        }
+        let mut new_nullifiers: BTreeMap<Digest, u32> = block
+            .produced_nullifiers
+            .iter()
+            .cloned()
+            .map(|nullifier| (nullifier, block.header.block_num()))
+            .collect();
+        locked_consumed_nullifiers.append(&mut new_nullifiers);
 
         // update chain mmr with new block header hash
         {
@@ -175,7 +185,7 @@ impl Store for MockStoreSuccess {
     async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
-    ) -> Result<TxInputs, TxInputsError> {
+    ) -> Result<TransactionInputs, TxInputsError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
 
@@ -193,14 +203,18 @@ impl Store for MockStoreSuccess {
             .input_notes()
             .iter()
             .map(|nullifier| {
-                let nullifier_value = locked_produced_nullifiers.get_value(&nullifier.inner());
-
-                (nullifier.inner(), nullifier_value != EMPTY_WORD)
+                (
+                    nullifier.inner(),
+                    locked_consumed_nullifiers.get(&nullifier.inner()).cloned().unwrap_or_default(),
+                )
             })
             .collect();
 
-        Ok(TxInputs {
-            account_hash,
+        Ok(TransactionInputs {
+            account_state: AccountState {
+                account_id: proven_tx.account_id(),
+                account_hash,
+            },
             nullifiers,
         })
     }
@@ -269,7 +283,7 @@ impl Store for MockStoreFailure {
     async fn get_tx_inputs(
         &self,
         _proven_tx: &ProvenTransaction,
-    ) -> Result<TxInputs, TxInputsError> {
+    ) -> Result<TransactionInputs, TxInputsError> {
         Err(TxInputsError::Dummy)
     }
 

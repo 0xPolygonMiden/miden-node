@@ -25,7 +25,7 @@ use miden_objects::BlockHeader;
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, COMPONENT};
+use crate::{state::State, types::AccountId, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -192,7 +192,7 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
+        let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
 
         let (latest, accumulator, account_states, nullifier_records) = self
             .state
@@ -227,13 +227,13 @@ impl api_server::Api for StoreApi {
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
 
-        let (account, nullifiers_blocks) =
-            self.state.get_transaction_inputs(account_id, &nullifiers).await;
+        let tx_inputs = self
+            .state
+            .get_transaction_inputs(account_id, &nullifiers)
+            .await
+            .map_err(invalid_argument)?;
 
-        Ok(Response::new(GetTransactionInputsResponse {
-            account_state: Some(account.into()),
-            nullifiers: convert(nullifiers_blocks),
-        }))
+        Ok(Response::new(tx_inputs.into()))
     }
 
     // TESTING ENDPOINTS

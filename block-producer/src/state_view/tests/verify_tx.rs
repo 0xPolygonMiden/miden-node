@@ -10,7 +10,7 @@
 //! VT5: `verify_tx(tx)` must fail if a previous transaction, not yet in the block, consumed a note
 //!      that `tx` is also consuming
 
-use std::iter;
+use std::{collections::BTreeMap, iter};
 
 use miden_objects::transaction::{InputNotes, OutputNotes};
 use tokio::task::JoinSet;
@@ -152,7 +152,7 @@ async fn test_verify_tx_vt3() {
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
             .initial_accounts(iter::once((account.id, account.states[0])))
-            .initial_nullifiers(BTreeSet::from_iter(iter::once(nullifier_in_store.inner())), 1)
+            .initial_nullifiers(BTreeMap::from_iter(iter::once((nullifier_in_store.inner(), 1))))
             .build(),
     );
 

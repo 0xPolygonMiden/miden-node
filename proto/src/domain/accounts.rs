@@ -1,11 +1,22 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::{
+    any::type_name,
+    fmt::{Debug, Display, Formatter},
+};
 
 use miden_crypto::merkle::MerklePath;
+use miden_node_utils::formatting::format_opt;
 use miden_objects::{accounts::AccountId, Digest, Digest as RpoDigest};
 
 use crate::{
     errors::ParseError,
-    generated::{account, requests, responses},
+    generated::{
+        account,
+        requests::AccountUpdate,
+        responses::{
+            AccountBlockInputRecord,
+            AccountTransactionInputRecord as AccountTransactionInputRecordPB,
+        },
+    },
 };
 
 // AccountId formatting
@@ -66,7 +77,7 @@ impl TryFrom<account::AccountId> for AccountId {
 // INTO AccountUpdate
 // ================================================================================================
 
-impl From<(AccountId, RpoDigest)> for requests::AccountUpdate {
+impl From<(AccountId, RpoDigest)> for AccountUpdate {
     fn from((account_id, account_hash): (AccountId, RpoDigest)) -> Self {
         Self {
             account_id: Some(account_id.into()),
@@ -85,22 +96,142 @@ pub struct AccountInputRecord {
     pub proof: MerklePath,
 }
 
-impl TryFrom<responses::AccountBlockInputRecord> for AccountInputRecord {
+impl From<AccountInputRecord> for AccountBlockInputRecord {
+    fn from(from: AccountInputRecord) -> Self {
+        Self {
+            account_id: Some(from.account_id.into()),
+            account_hash: Some(from.account_hash.into()),
+            proof: Some(from.proof.into()),
+        }
+    }
+}
+
+impl TryFrom<AccountBlockInputRecord> for AccountInputRecord {
     type Error = ParseError;
 
-    fn try_from(
-        account_input_record: responses::AccountBlockInputRecord
-    ) -> Result<Self, Self::Error> {
+    fn try_from(account_input_record: AccountBlockInputRecord) -> Result<Self, Self::Error> {
         Ok(Self {
             account_id: account_input_record
                 .account_id
-                .ok_or(ParseError::ProtobufMissingData)?
+                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
+                    entity: type_name::<AccountBlockInputRecord>(),
+                    field_name: stringify!(account_id),
+                })?
                 .try_into()?,
             account_hash: account_input_record
                 .account_hash
-                .ok_or(ParseError::ProtobufMissingData)?
+                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
+                    entity: type_name::<AccountBlockInputRecord>(),
+                    field_name: stringify!(account_hash),
+                })?
                 .try_into()?,
-            proof: account_input_record.proof.ok_or(ParseError::ProtobufMissingData)?.try_into()?,
+            proof: account_input_record
+                .proof
+                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
+                    entity: type_name::<AccountBlockInputRecord>(),
+                    field_name: stringify!(proof),
+                })?
+                .try_into()?,
         })
+    }
+}
+
+/// Information needed from the store to verify account in transaction.
+#[derive(Debug)]
+pub struct AccountState {
+    /// Account ID
+    pub account_id: AccountId,
+    /// The account hash in the store corresponding to tx's account ID
+    pub account_hash: Option<Digest>,
+}
+
+impl Display for AccountState {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{{ account_id: {}, account_hash: {} }}",
+            self.account_id,
+            format_opt(self.account_hash.as_ref()),
+        ))
+    }
+}
+
+impl From<AccountState> for AccountTransactionInputRecordPB {
+    fn from(from: AccountState) -> Self {
+        Self {
+            account_id: Some(from.account_id.into()),
+            account_hash: from.account_hash.map(Into::into),
+        }
+    }
+}
+
+impl TryFrom<AccountTransactionInputRecordPB> for AccountState {
+    type Error = ParseError;
+
+    fn try_from(from: AccountTransactionInputRecordPB) -> Result<Self, Self::Error> {
+        let account_id = from
+            .account_id
+            .clone()
+            .ok_or(ParseError::MissingFieldInProtobufRepresentation {
+                entity: type_name::<AccountTransactionInputRecordPB>(),
+                field_name: stringify!(account_id),
+            })?
+            .try_into()?;
+
+        let account_hash = from
+            .account_hash
+            .ok_or(ParseError::MissingFieldInProtobufRepresentation {
+                entity: type_name::<AccountTransactionInputRecordPB>(),
+                field_name: stringify!(account_hash),
+            })?
+            .try_into()?;
+
+        // If the hash is equal to `Digest::default()`, it signifies that this is a new account
+        // which is not yet present in the Store.
+        let account_hash = if account_hash == Digest::default() {
+            None
+        } else {
+            Some(account_hash)
+        };
+
+        Ok(Self {
+            account_id,
+            account_hash,
+        })
+    }
+}
+
+impl TryFrom<AccountUpdate> for AccountState {
+    type Error = ParseError;
+
+    fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
+        Ok(Self {
+            account_id: value
+                .account_id
+                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
+                    entity: type_name::<AccountUpdate>(),
+                    field_name: stringify!(account_id),
+                })?
+                .try_into()?,
+            account_hash: Some(
+                value
+                    .account_hash
+                    .ok_or(ParseError::MissingFieldInProtobufRepresentation {
+                        entity: type_name::<AccountUpdate>(),
+                        field_name: stringify!(account_hash),
+                    })?
+                    .try_into()?,
+            ),
+        })
+    }
+}
+
+impl TryFrom<&AccountUpdate> for AccountState {
+    type Error = ParseError;
+
+    fn try_from(value: &AccountUpdate) -> Result<Self, Self::Error> {
+        value.clone().try_into()
     }
 }

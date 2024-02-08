@@ -1,25 +1,28 @@
 //! Wrapper functions for SQL statements.
-use std::rc::Rc;
+use std::{any::type_name, rc::Rc};
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
     utils::{Deserializable, SliceReader},
     StarkField,
 };
-use miden_node_proto::generated::{
-    account::{self, AccountId as AccountIdProto, AccountInfo},
-    block_header::BlockHeader,
-    digest::Digest,
-    merkle::MerklePath,
-    note::Note,
-    responses::{AccountHashUpdate, NullifierUpdate},
+use miden_node_proto::{
+    errors::ParseError,
+    generated::{
+        account::{self, AccountId as AccountIdProto, AccountInfo},
+        block_header::BlockHeader,
+        digest::Digest,
+        merkle::MerklePath,
+        note::Note,
+        responses::{AccountHashUpdate, NullifierUpdate},
+    },
 };
 use prost::Message;
 use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{Result, StateSyncUpdate};
 use crate::{
-    errors::{ConversionError, DatabaseError, StateSyncError},
+    errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
 };
 
@@ -287,18 +290,18 @@ pub fn insert_notes(
             note.note_index,
             note.note_hash
                 .clone()
-                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
-                    entity: "note",
-                    field_name: "note_hash"
+                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
+                    entity: type_name::<Note>(),
+                    field_name: stringify!(note_hash)
                 })?
                 .encode_to_vec(),
             u64_to_value(note.sender),
             u64_to_value(note.tag),
             note.merkle_path
                 .clone()
-                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
-                    entity: "note",
-                    field_name: "merkle_path"
+                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
+                    entity: type_name::<Note>(),
+                    field_name: stringify!(merkle_path)
                 })?
                 .encode_to_vec(),
         ])?;

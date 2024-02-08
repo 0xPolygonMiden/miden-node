@@ -15,10 +15,11 @@ pub enum ParseError {
     TooManyMmrPeaks,
     #[error("Value is not in the range 0..MODULUS")]
     NotAValidFelt,
-    #[error("Protobuf message missing data")]
-    ProtobufMissingData,
-    #[error("smt leaf error: {0}")]
-    SmtLeafError(#[from] SmtLeafError),
-    #[error("smt proof error: {0}")]
-    SmtProofError(#[from] SmtProofError),
+    #[error("Received TSMT proof is invalid")]
+    InvalidProof,
+    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
+    MissingFieldInProtobufRepresentation {
+        entity: &'static str,
+        field_name: &'static str,
+    },
 }

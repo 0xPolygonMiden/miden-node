@@ -7,6 +7,7 @@ pub mod merkle_path;
 pub mod mmr_delta;
 pub mod notes;
 pub mod nullifiers;
+pub mod transactions;
 
 // UTILITIES
 // ================================================================================================

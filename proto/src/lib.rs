@@ -8,6 +8,10 @@ pub mod generated;
 // ================================================================================================
 
 pub use domain::{
-    accounts::AccountInputRecord, blocks::BlockInputs, convert, nullifier_value_to_blocknum,
-    nullifiers::NullifierInputRecord, try_convert,
+    accounts::{AccountInputRecord, AccountState},
+    blocks::BlockInputs,
+    convert, nullifier_value_to_blocknum,
+    nullifiers::NullifierInputRecord,
+    transactions::TransactionInputs,
+    try_convert,
 };
