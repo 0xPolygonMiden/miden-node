@@ -1,4 +1,6 @@
-use miden_crypto::merkle::{MmrError, SmtLeafError, SmtProofError};
+use std::any::type_name;
+
+use miden_crypto::merkle::MmrError;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -22,4 +24,17 @@ pub enum ParseError {
         entity: &'static str,
         field_name: &'static str,
     },
+}
+
+pub trait MissingFieldHelper {
+    fn missing_field(field_name: &'static str) -> ParseError;
+}
+
+impl<T> MissingFieldHelper for T {
+    fn missing_field(field_name: &'static str) -> ParseError {
+        ParseError::MissingFieldInProtobufRepresentation {
+            entity: type_name::<T>(),
+            field_name,
+        }
+    }
 }

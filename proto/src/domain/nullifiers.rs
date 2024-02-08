@@ -1,5 +1,3 @@
-use std::any::type_name;
-
 use miden_crypto::{
     merkle::{MerklePath, TieredSmtProof},
     Felt, FieldElement, Word,
@@ -8,7 +6,7 @@ use miden_objects::{Digest, Digest as RpoDigest};
 
 use crate::{
     domain::{convert, nullifier_value_to_blocknum, try_convert},
-    errors::ParseError,
+    errors::{MissingFieldHelper, ParseError},
     generated::{responses, responses::NullifierBlockInputRecord, tsmt},
 };
 
@@ -77,17 +75,11 @@ impl TryFrom<responses::NullifierBlockInputRecord> for NullifierInputRecord {
         Ok(Self {
             nullifier: nullifier_input_record
                 .nullifier
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<NullifierBlockInputRecord>(),
-                    field_name: stringify!(nullifier),
-                })?
+                .ok_or(NullifierBlockInputRecord::missing_field(stringify!(nullifier)))?
                 .try_into()?,
             proof: nullifier_input_record
                 .proof
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<NullifierBlockInputRecord>(),
-                    field_name: stringify!(proof),
-                })?
+                .ok_or(NullifierBlockInputRecord::missing_field(stringify!(proof)))?
                 .try_into()?,
         })
     }

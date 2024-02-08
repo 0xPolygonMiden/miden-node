@@ -1,11 +1,9 @@
-use std::any::type_name;
-
 use miden_crypto::merkle::MmrPeaks;
 use miden_objects::BlockHeader;
 
 use crate::{
     domain::{accounts::AccountInputRecord, nullifiers::NullifierInputRecord, try_convert},
-    errors::ParseError,
+    errors::{MissingFieldHelper, ParseError},
     generated::{block_header, responses, responses::GetBlockInputsResponse},
 };
 
@@ -48,53 +46,32 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
         Ok(BlockHeader::new(
             value
                 .prev_hash
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<BlockHeader>(),
-                    field_name: stringify!(prev_hash),
-                })?
+                .ok_or(BlockHeader::missing_field(stringify!(prev_hash)))?
                 .try_into()?,
             value.block_num,
             value
                 .chain_root
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<BlockHeader>(),
-                    field_name: stringify!(chain_root),
-                })?
+                .ok_or(BlockHeader::missing_field(stringify!(chain_root)))?
                 .try_into()?,
             value
                 .account_root
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<BlockHeader>(),
-                    field_name: stringify!(account_root),
-                })?
+                .ok_or(BlockHeader::missing_field(stringify!(account_root)))?
                 .try_into()?,
             value
                 .nullifier_root
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<BlockHeader>(),
-                    field_name: stringify!(nullifier_root),
-                })?
+                .ok_or(BlockHeader::missing_field(stringify!(nullifier_root)))?
                 .try_into()?,
             value
                 .note_root
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<BlockHeader>(),
-                    field_name: stringify!(note_root),
-                })?
+                .ok_or(BlockHeader::missing_field(stringify!(note_root)))?
                 .try_into()?,
             value
                 .batch_root
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<BlockHeader>(),
-                    field_name: stringify!(batch_root),
-                })?
+                .ok_or(BlockHeader::missing_field(stringify!(batch_root)))?
                 .try_into()?,
             value
                 .proof_hash
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<BlockHeader>(),
-                    field_name: stringify!(proof_hash),
-                })?
+                .ok_or(BlockHeader::missing_field(stringify!(proof_hash)))?
                 .try_into()?,
             value.version.into(),
             value.timestamp.into(),
@@ -127,10 +104,7 @@ impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
     fn try_from(get_block_inputs: responses::GetBlockInputsResponse) -> Result<Self, Self::Error> {
         let block_header: BlockHeader = get_block_inputs
             .block_header
-            .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                entity: type_name::<GetBlockInputsResponse>(),
-                field_name: stringify!(block_header),
-            })?
+            .ok_or(GetBlockInputsResponse::missing_field(stringify!(block_header)))?
             .try_into()?;
 
         let chain_peaks = {

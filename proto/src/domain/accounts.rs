@@ -1,14 +1,11 @@
-use std::{
-    any::type_name,
-    fmt::{Debug, Display, Formatter},
-};
+use std::fmt::{Debug, Display, Formatter};
 
 use miden_crypto::merkle::MerklePath;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{accounts::AccountId, Digest, Digest as RpoDigest};
 
 use crate::{
-    errors::ParseError,
+    errors::{MissingFieldHelper, ParseError},
     generated::{
         account,
         requests::AccountUpdate,
@@ -113,24 +110,15 @@ impl TryFrom<AccountBlockInputRecord> for AccountInputRecord {
         Ok(Self {
             account_id: account_input_record
                 .account_id
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<AccountBlockInputRecord>(),
-                    field_name: stringify!(account_id),
-                })?
+                .ok_or(AccountBlockInputRecord::missing_field(stringify!(account_id)))?
                 .try_into()?,
             account_hash: account_input_record
                 .account_hash
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<AccountBlockInputRecord>(),
-                    field_name: stringify!(account_hash),
-                })?
+                .ok_or(AccountBlockInputRecord::missing_field(stringify!(account_hash)))?
                 .try_into()?,
             proof: account_input_record
                 .proof
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<AccountBlockInputRecord>(),
-                    field_name: stringify!(proof),
-                })?
+                .ok_or(AccountBlockInputRecord::missing_field(stringify!(proof)))?
                 .try_into()?,
         })
     }
@@ -174,18 +162,12 @@ impl TryFrom<AccountTransactionInputRecordPB> for AccountState {
         let account_id = from
             .account_id
             .clone()
-            .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                entity: type_name::<AccountTransactionInputRecordPB>(),
-                field_name: stringify!(account_id),
-            })?
+            .ok_or(AccountTransactionInputRecordPB::missing_field(stringify!(account_id)))?
             .try_into()?;
 
         let account_hash = from
             .account_hash
-            .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                entity: type_name::<AccountTransactionInputRecordPB>(),
-                field_name: stringify!(account_hash),
-            })?
+            .ok_or(AccountTransactionInputRecordPB::missing_field(stringify!(account_hash)))?
             .try_into()?;
 
         // If the hash is equal to `Digest::default()`, it signifies that this is a new account
@@ -210,18 +192,12 @@ impl TryFrom<AccountUpdate> for AccountState {
         Ok(Self {
             account_id: value
                 .account_id
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<AccountUpdate>(),
-                    field_name: stringify!(account_id),
-                })?
+                .ok_or(AccountUpdate::missing_field(stringify!(account_id)))?
                 .try_into()?,
             account_hash: Some(
                 value
                     .account_hash
-                    .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                        entity: type_name::<AccountUpdate>(),
-                        field_name: stringify!(account_hash),
-                    })?
+                    .ok_or(AccountUpdate::missing_field(stringify!(account_hash)))?
                     .try_into()?,
             ),
         })

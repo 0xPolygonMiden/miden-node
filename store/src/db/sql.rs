@@ -1,5 +1,5 @@
 //! Wrapper functions for SQL statements.
-use std::{any::type_name, rc::Rc};
+use std::rc::Rc;
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
@@ -7,7 +7,7 @@ use miden_crypto::{
     StarkField,
 };
 use miden_node_proto::{
-    errors::ParseError,
+    errors::MissingFieldHelper,
     generated::{
         account::{self, AccountId as AccountIdProto, AccountInfo},
         block_header::BlockHeader,
@@ -290,19 +290,13 @@ pub fn insert_notes(
             note.note_index,
             note.note_hash
                 .clone()
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<Note>(),
-                    field_name: stringify!(note_hash)
-                })?
+                .ok_or(Note::missing_field(stringify!(note_hash)))?
                 .encode_to_vec(),
             u64_to_value(note.sender),
             u64_to_value(note.tag),
             note.merkle_path
                 .clone()
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<Note>(),
-                    field_name: stringify!(merkle_path)
-                })?
+                .ok_or(Note::missing_field(stringify!(merkle_path)))?
                 .encode_to_vec(),
         ])?;
     }

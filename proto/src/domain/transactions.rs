@@ -1,5 +1,4 @@
 use std::{
-    any::type_name,
     collections::BTreeMap,
     fmt::{Display, Formatter},
 };
@@ -9,7 +8,7 @@ use miden_objects::Digest;
 
 use crate::{
     domain::accounts::AccountState,
-    errors::ParseError,
+    errors::{MissingFieldHelper, ParseError},
     generated::responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
 };
 
@@ -60,20 +59,14 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
     fn try_from(response: GetTransactionInputsResponse) -> Result<Self, Self::Error> {
         let account_state = response
             .account_state
-            .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                entity: type_name::<GetTransactionInputsResponse>(),
-                field_name: stringify!(account_state),
-            })?
+            .ok_or(GetTransactionInputsResponse::missing_field(stringify!(account_state)))?
             .try_into()?;
 
         let mut nullifiers = BTreeMap::new();
         for nullifier_record in response.nullifiers {
             let nullifier = nullifier_record
                 .nullifier
-                .ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                    entity: type_name::<NullifierTransactionInputRecord>(),
-                    field_name: stringify!(nullifier),
-                })?
+                .ok_or(NullifierTransactionInputRecord::missing_field(stringify!(nullifier)))?
                 .try_into()?;
 
             nullifiers.insert(nullifier, nullifier_record.block_num);

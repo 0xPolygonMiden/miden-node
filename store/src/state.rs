@@ -2,7 +2,7 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{any::type_name, mem, sync::Arc};
+use std::{mem, sync::Arc};
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
@@ -11,7 +11,7 @@ use miden_crypto::{
 };
 use miden_node_proto::{
     domain::accounts::AccountState,
-    errors::ParseError,
+    errors::{MissingFieldHelper, ParseError},
     generated::{
         account::AccountInfo,
         block_header,
@@ -472,11 +472,10 @@ pub fn build_notes_tree(
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
-        let note_hash =
-            note.note_hash.clone().ok_or(ParseError::MissingFieldInProtobufRepresentation {
-                entity: type_name::<NoteCreated>(),
-                field_name: stringify!(note_hash),
-            })?;
+        let note_hash = note
+            .note_hash
+            .clone()
+            .ok_or(NoteCreated::missing_field(stringify!(note_hash)))?;
         let account_id = note.sender.try_into().or(Err(ApplyBlockError::InvalidAccountId))?;
         let note_metadata = NoteMetadata::new(account_id, note.tag.into());
         let index = note.note_index as u64;
