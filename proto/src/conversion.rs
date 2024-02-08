@@ -1,6 +1,6 @@
 use miden_crypto::{
-    merkle::{LeafIndex, MerklePath, MmrDelta, MmrPeaks, SmtLeaf, SmtProof, TieredSmtProof},
-    Felt, FieldElement, StarkField, Word,
+    merkle::{LeafIndex, MerklePath, MmrDelta, MmrPeaks, SmtLeaf, SmtProof},
+    Felt, StarkField, Word,
 };
 use miden_objects::{
     accounts::AccountId,
@@ -12,7 +12,7 @@ use crate::{
     account, block_header,
     digest::{self, Digest},
     domain::{AccountInputRecord, BlockInputs, NullifierInputRecord},
-    errors, merkle, mmr, note, requests, responses, smt, tsmt,
+    errors, merkle, mmr, note, requests, responses, smt,
 };
 
 impl From<[u64; 4]> for digest::Digest {
@@ -153,48 +153,6 @@ impl From<SmtProof> for smt::SmtOpening {
             path: Some(path.into()),
             leaf: Some(leaf.into()),
         }
-    }
-}
-
-impl From<&(RpoDigest, Word)> for tsmt::NullifierLeaf {
-    fn from(value: &(RpoDigest, Word)) -> Self {
-        let (key, value) = value;
-        Self {
-            key: Some(key.into()),
-            block_num: nullifier_value_to_blocknum(*value),
-        }
-    }
-}
-
-impl From<SmtProof> for tsmt::NullifierProof {
-    fn from(smt_proof: SmtProof) -> Self {
-        let (path, leaf) = smt_proof.into_parts();
-        let raw_path: merkle::MerklePath = path.into();
-
-        Self {
-            leaves: convert(leaf.entries()),
-            merkle_path: raw_path.siblings,
-        }
-    }
-}
-
-impl TryFrom<tsmt::NullifierProof> for TieredSmtProof {
-    type Error = errors::ParseError;
-
-    fn try_from(value: tsmt::NullifierProof) -> Result<Self, Self::Error> {
-        let path = MerklePath::new(try_convert(value.merkle_path)?);
-        let entries = value
-            .leaves
-            .into_iter()
-            .map(|leaf| {
-                let key = leaf.key.ok_or(errors::ParseError::MissingLeafKey)?.try_into()?;
-                let value = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::from(leaf.block_num)];
-                let result = (key, value);
-
-                Ok(result)
-            })
-            .collect::<Result<Vec<(RpoDigest, Word)>, Self::Error>>()?;
-        TieredSmtProof::new(path, entries).or(Err(errors::ParseError::InvalidProof))
     }
 }
 
@@ -523,7 +481,7 @@ where
     from.into_iter().map(|e| e.try_into()).collect()
 }
 
-/// Given the leaf value of the nullifier TSMT, returns the nullifier's block number.
+/// Given the leaf value of the nullifier SMT, returns the nullifier's block number.
 ///
 /// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
 /// of a value.

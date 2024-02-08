@@ -10,4 +10,3 @@ pub mod responses;
 pub mod rpc;
 pub mod smt;
 pub mod store;
-pub mod tsmt;

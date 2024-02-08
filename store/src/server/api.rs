@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use miden_crypto::hash::rpo::RpoDigest;
+use miden_crypto::{hash::rpo::RpoDigest, Felt, ZERO};
 use miden_node_proto::{
     conversion::convert,
     digest::Digest,
@@ -16,8 +16,8 @@ use miden_node_proto::{
         GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
         ListNotesResponse, ListNullifiersResponse, SyncStateResponse,
     },
+    smt::SmtLeafEntry,
     store::api_server,
-    tsmt::NullifierLeaf,
 };
 use miden_objects::BlockHeader;
 use tonic::{Response, Status};
@@ -253,9 +253,9 @@ impl api_server::Api for StoreApi {
         let raw_nullifiers = self.state.list_nullifiers().await.map_err(internal_error)?;
         let nullifiers = raw_nullifiers
             .into_iter()
-            .map(|(key, block_num)| NullifierLeaf {
+            .map(|(key, block_num)| SmtLeafEntry {
                 key: Some(Digest::from(key)),
-                block_num,
+                value: Some([Felt::from(block_num), ZERO, ZERO, ZERO].into()),
             })
             .collect();
         Ok(Response::new(ListNullifiersResponse { nullifiers }))

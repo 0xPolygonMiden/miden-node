@@ -11,5 +11,5 @@ mod generated;
 // ------------------------------------------------------------------------------------------------
 pub use generated::{
     account, block_header, block_producer, digest, merkle, mmr, note, requests, responses, rpc,
-    smt, store, tsmt,
+    smt, store,
 };
