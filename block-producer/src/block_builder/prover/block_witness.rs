@@ -237,9 +237,9 @@ impl BlockWitness {
                 stack_inputs.extend(*nullifier);
             }
 
-            // append nullifier value (`[0, 0, 0, block_num]`)
+            // append nullifier value (`[block_num, 0, 0, 0]`)
             let block_num = self.prev_header.block_num() + 1;
-            stack_inputs.extend([ZERO, ZERO, ZERO, block_num.into()]);
+            stack_inputs.extend([block_num.into(), ZERO, ZERO, ZERO]);
 
             // append initial nullifier root
             stack_inputs.extend(self.prev_header.nullifier_root());

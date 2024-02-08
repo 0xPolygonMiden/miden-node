@@ -666,7 +666,7 @@ async fn test_compute_nullifier_root_success() {
     let nullifier_smt = Smt::with_entries(
         nullifiers
             .into_iter()
-            .map(|nullifier| (nullifier, [ZERO, ZERO, ZERO, (initial_block_num + 1).into()])),
+            .map(|nullifier| (nullifier, [(initial_block_num + 1).into(), ZERO, ZERO, ZERO])),
     )
     .unwrap();
 

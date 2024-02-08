@@ -585,7 +585,7 @@ impl State {
 
 /// Returns the nullifier's block number given its leaf value in the SMT.
 fn block_to_nullifier_data(block: BlockNumber) -> Word {
-    [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(block as u64)]
+    [Felt::new(block as u64), Felt::ZERO, Felt::ZERO, Felt::ZERO]
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
