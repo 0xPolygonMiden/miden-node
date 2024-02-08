@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use cli::{Cli, Command, Query};
 use hex::ToHex;
-use miden_crypto::merkle::{path_to_text, TieredSmtProof};
+use miden_crypto::merkle::{path_to_text, SmtProof};
 use miden_node_proto::{
     account::AccountId,
     requests::{
@@ -11,8 +11,8 @@ use miden_node_proto::{
         GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest, ListNullifiersRequest,
         SyncStateRequest,
     },
+    smt::SmtOpening,
     store::api_client,
-    tsmt::NullifierProof,
 };
 use miden_node_store::{config::StoreTopLevelConfig, db::Db, server};
 use miden_node_utils::config::load_config;
@@ -72,10 +72,8 @@ async fn query(
                 nullifiers: args.nullifiers.clone(),
             });
             let response = client.check_nullifiers(request).await?.into_inner();
-            let proofs = response
-                .proofs
-                .into_iter()
-                .map(<NullifierProof as TryInto<TieredSmtProof>>::try_into);
+            let proofs =
+                response.proofs.into_iter().map(<SmtOpening as TryInto<SmtProof>>::try_into);
             for (result, nullifier) in proofs.zip(args.nullifiers.iter()) {
                 match result {
                     Ok(proof) => {

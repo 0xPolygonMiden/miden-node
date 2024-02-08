@@ -8,13 +8,12 @@ import "merkle.proto";
 import "mmr.proto";
 import "note.proto";
 import "smt.proto";
-import "tsmt.proto";
 
 message ApplyBlockResponse {}
 
 message CheckNullifiersResponse {
     // Each requested nullifier has its corresponding nullifier proof at the same position.
-    repeated tsmt.NullifierProof proofs = 1;
+    repeated smt.SmtOpening proofs = 1;
 }
 
 message GetBlockHeaderByNumberResponse {
@@ -102,7 +101,7 @@ message SubmitProvenTransactionResponse {}
 
 message ListNullifiersResponse {
     // Lists all nullifiers of the current chain
-    repeated tsmt.NullifierLeaf nullifiers = 1;
+    repeated smt.SmtLeafEntry nullifiers = 1;
 }
 
 message ListAccountsResponse {
