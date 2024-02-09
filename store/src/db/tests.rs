@@ -490,7 +490,7 @@ fn test_notes() {
 // UTILITIES
 // -------------------------------------------------------------------------------------------
 fn num_to_rpo_digest(n: u64) -> RpoDigest {
-    RpoDigest::new([Felt::new(n), Felt::ZERO, Felt::ZERO, Felt::ZERO])
+    RpoDigest::new([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(n)])
 }
 
 fn num_to_protobuf_digest(n: u64) -> ProtobufDigest {
