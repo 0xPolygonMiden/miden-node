@@ -3,7 +3,8 @@ use std::rc::Rc;
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    utils::{Deserializable, SliceReader}, StarkField,
+    utils::{Deserializable, SliceReader},
+    StarkField,
 };
 use miden_node_proto::{
     account::{self, AccountId as AccountIdProto, AccountInfo},
@@ -43,11 +44,8 @@ pub fn insert_nullifiers_for_block(
 
     let mut count = 0;
     for nullifier in nullifiers.iter() {
-        count += stmt.execute(params![
-            nullifier.as_bytes(),
-            get_nullifier_prefix(nullifier),
-            block_num,
-        ])?
+        count +=
+            stmt.execute(params![nullifier.as_bytes(), get_nullifier_prefix(nullifier), block_num])?
     }
     Ok(count)
 }
