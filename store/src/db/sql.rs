@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    utils::{Deserializable, SliceReader},
+    utils::{Deserializable, SliceReader}, StarkField,
 };
 use miden_node_proto::{
     account::{self, AccountId as AccountIdProto, AccountInfo},
@@ -37,8 +37,6 @@ pub fn insert_nullifiers_for_block(
     nullifiers: &[RpoDigest],
     block_num: BlockNumber,
 ) -> Result<usize> {
-    use miden_crypto::StarkField;
-
     let mut stmt = transaction.prepare(
         "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_number) VALUES (?1, ?2, ?3);",
     )?;
@@ -47,7 +45,7 @@ pub fn insert_nullifiers_for_block(
     for nullifier in nullifiers.iter() {
         count += stmt.execute(params![
             nullifier.as_bytes(),
-            u64_to_prefix(nullifier[0].as_int()),
+            get_nullifier_prefix(nullifier),
             block_num,
         ])?
     }
@@ -571,9 +569,9 @@ fn decode_rpo_digest(data: &[u8]) -> Result<RpoDigest> {
     RpoDigest::read_from(&mut reader).map_err(DatabaseError::NullifierDecodingError)
 }
 
-/// Returns the high bits of the `u64` value used during searches.
-pub(crate) fn u64_to_prefix(v: u64) -> u32 {
-    (v >> 48) as u32
+/// Returns the high 16 bits of the provided nullifier.
+pub(crate) fn get_nullifier_prefix(nullifier: &RpoDigest) -> u32 {
+    (nullifier[3].as_int() >> 48) as u32
 }
 
 /// Converts a `u64` into a [Value].

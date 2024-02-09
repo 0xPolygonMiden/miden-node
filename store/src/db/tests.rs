@@ -1,4 +1,4 @@
-use miden_crypto::{hash::rpo::RpoDigest, merkle::LeafIndex, StarkField};
+use miden_crypto::{hash::rpo::RpoDigest, merkle::LeafIndex};
 use miden_node_proto::{
     account::{AccountId, AccountInfo},
     block_header::BlockHeader as ProtobufBlockHeader,
@@ -172,7 +172,7 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         u32::MAX,
-        &[sql::u64_to_prefix(nullifier1[0].as_int())],
+        &[sql::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -199,7 +199,7 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         u32::MAX,
-        &[sql::u64_to_prefix(nullifier1[0].as_int())],
+        &[sql::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -213,7 +213,7 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         u32::MAX,
-        &[sql::u64_to_prefix(nullifier2[0].as_int())],
+        &[sql::get_nullifier_prefix(&nullifier2)],
     )
     .unwrap();
     assert_eq!(
@@ -230,8 +230,8 @@ fn test_sql_select_nullifiers_by_block_range() {
         0,
         1,
         &[
-            sql::u64_to_prefix(nullifier1[0].as_int()),
-            sql::u64_to_prefix(nullifier2[0].as_int()),
+            sql::get_nullifier_prefix(&nullifier1),
+            sql::get_nullifier_prefix(&nullifier2),
         ],
     )
     .unwrap();
@@ -249,8 +249,8 @@ fn test_sql_select_nullifiers_by_block_range() {
         1,
         u32::MAX,
         &[
-            sql::u64_to_prefix(nullifier1[0].as_int()),
-            sql::u64_to_prefix(nullifier2[0].as_int()),
+            sql::get_nullifier_prefix(&nullifier1),
+            sql::get_nullifier_prefix(&nullifier2),
         ],
     )
     .unwrap();
@@ -269,8 +269,8 @@ fn test_sql_select_nullifiers_by_block_range() {
         2,
         2,
         &[
-            sql::u64_to_prefix(nullifier1[0].as_int()),
-            sql::u64_to_prefix(nullifier2[0].as_int()),
+            sql::get_nullifier_prefix(&nullifier1),
+            sql::get_nullifier_prefix(&nullifier2),
         ],
     )
     .unwrap();
