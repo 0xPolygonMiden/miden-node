@@ -7,7 +7,7 @@ use miden_objects::{accounts::AccountId, Digest, Digest as RpoDigest};
 use crate::{
     errors::{MissingFieldHelper, ParseError},
     generated::{
-        account,
+        self,
         requests::AccountUpdate,
         responses::{
             AccountBlockInputRecord,
@@ -16,10 +16,10 @@ use crate::{
     },
 };
 
-// AccountId formatting
+// ACCOUNT ID
 // ================================================================================================
 
-impl Display for account::AccountId {
+impl Display for generated::account::AccountId {
     fn fmt(
         &self,
         f: &mut Formatter<'_>,
@@ -28,7 +28,7 @@ impl Display for account::AccountId {
     }
 }
 
-impl Debug for account::AccountId {
+impl Debug for generated::account::AccountId {
     fn fmt(
         &self,
         f: &mut Formatter<'_>,
@@ -37,16 +37,16 @@ impl Debug for account::AccountId {
     }
 }
 
-// INTO AccountId
-// ================================================================================================
+// INTO ACCOUNT ID
+// ------------------------------------------------------------------------------------------------
 
-impl From<u64> for account::AccountId {
+impl From<u64> for generated::account::AccountId {
     fn from(value: u64) -> Self {
-        account::AccountId { id: value }
+        generated::account::AccountId { id: value }
     }
 }
 
-impl From<AccountId> for account::AccountId {
+impl From<AccountId> for generated::account::AccountId {
     fn from(account_id: AccountId) -> Self {
         Self {
             id: account_id.into(),
@@ -54,24 +54,24 @@ impl From<AccountId> for account::AccountId {
     }
 }
 
-// FROM AccountId
-// ================================================================================================
+// FROM ACCOUNT ID
+// ------------------------------------------------------------------------------------------------
 
-impl From<account::AccountId> for u64 {
-    fn from(value: account::AccountId) -> Self {
+impl From<generated::account::AccountId> for u64 {
+    fn from(value: generated::account::AccountId) -> Self {
         value.id
     }
 }
 
-impl TryFrom<account::AccountId> for AccountId {
+impl TryFrom<generated::account::AccountId> for AccountId {
     type Error = ParseError;
 
-    fn try_from(account_id: account::AccountId) -> Result<Self, Self::Error> {
+    fn try_from(account_id: generated::account::AccountId) -> Result<Self, Self::Error> {
         account_id.id.try_into().map_err(|_| ParseError::NotAValidFelt)
     }
 }
 
-// INTO AccountUpdate
+// INTO ACCOUNT UPDATE
 // ================================================================================================
 
 impl From<(AccountId, RpoDigest)> for AccountUpdate {
@@ -83,7 +83,7 @@ impl From<(AccountId, RpoDigest)> for AccountUpdate {
     }
 }
 
-// AccountInputRecord
+// ACCOUNT INPUT RECORD
 // ================================================================================================
 
 #[derive(Clone, Debug)]

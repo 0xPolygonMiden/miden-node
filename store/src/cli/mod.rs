@@ -1,13 +1,13 @@
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::anyhow;
 use clap::{Args, Parser, Subcommand};
-use hex::FromHex;
-use miden_crypto::{Felt, FieldElement, StarkField};
-use miden_node_proto::generated::digest::Digest;
 use miden_node_store::config;
+use miden_objects::{accounts::AccountId, notes::Nullifier};
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Parser)]
+// CLI COMMANDS
+// ================================================================================================
+
+#[derive(Clone, Eq, PartialEq, Debug, Parser)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
     #[arg(short, long, value_name = "FILE", default_value = config::CONFIG_FILENAME)]
@@ -17,7 +17,7 @@ pub struct Cli {
     pub command: Command,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Subcommand)]
+#[derive(Clone, Eq, PartialEq, Debug, Subcommand)]
 pub enum Command {
     /// Starts the Store gRPC service.
     Serve,
@@ -27,7 +27,7 @@ pub enum Command {
     Query(Query),
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Subcommand)]
+#[derive(Clone, Eq, PartialEq, Debug, Subcommand)]
 pub enum Query {
     /// Query a block header.
     GetBlockHeaderByNumber(GetBlockHeaderByNumberArgs),
@@ -54,24 +54,27 @@ pub enum Query {
     ListAccounts,
 }
 
+// COMMAND ARGS
+// ================================================================================================
+
 #[derive(Args, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct GetBlockHeaderByNumberArgs {
     /// Optional block height, if unspecified return latest.
     pub block_num: Option<u32>,
 }
 
-#[derive(Args, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Args, Clone, Eq, PartialEq, Debug)]
 pub struct CheckNullifiersArgs {
     /// List of nullifiers to query.
     #[arg(value_parser=parse_nullifier)]
-    pub nullifiers: Vec<Digest>,
+    pub nullifiers: Vec<Nullifier>,
 }
 
-#[derive(Args, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Args, Clone, Eq, PartialEq, Debug)]
 pub struct SyncStateArgs {
     /// List of accounts to include in the result
     #[arg(long="account", value_parser=parse_account_id)]
-    pub account_ids: Vec<u64>,
+    pub account_ids: Vec<AccountId>,
 
     /// List of prefixes to filter notes.
     #[arg(long = "note")]
@@ -85,39 +88,39 @@ pub struct SyncStateArgs {
     pub block_num: u32,
 }
 
-#[derive(Args, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Args, Clone, Eq, PartialEq, Debug)]
 pub struct GetBlockInputsArgs {
     /// List of account ids to query.
     #[arg(long="account", value_parser=parse_account_id)]
-    pub account_ids: Vec<u64>,
+    pub account_ids: Vec<AccountId>,
 
     /// List of nullifiers to query.
     #[arg(value_parser=parse_nullifier)]
-    pub nullifiers: Vec<Digest>,
+    pub nullifiers: Vec<Nullifier>,
 }
 
-#[derive(Args, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Args, Clone, Eq, PartialEq, Debug)]
 pub struct GetTransactionInputsArgs {
     /// Account id to query.
     #[arg(value_parser=parse_account_id)]
-    pub account_id: u64,
+    pub account_id: AccountId,
 
     /// Nullifiers to query.
     #[arg(value_parser=parse_nullifier)]
-    pub nullifiers: Vec<Digest>,
+    pub nullifiers: Vec<Nullifier>,
 }
 
-/// Parses an `u64` used to repesent an account id, returns an error if the u64 doesn't fit in the
-/// field's modulus.
-fn parse_account_id(value: &str) -> anyhow::Result<u64> {
-    let number = <Felt as FieldElement>::PositiveInteger::from_str(value)?;
-    if number >= Felt::MODULUS {
-        return Err(anyhow!("Account id larger than field modulus"));
-    }
-    Ok(number)
+// HELPER FUNCTIONS
+// ================================================================================================
+
+/// Parses an `u64` used to represent an account id, returns an error if the u64 doesn't fit in
+/// the field's modulus.
+fn parse_account_id(value: &str) -> anyhow::Result<AccountId> {
+    let number = u64::from_str(value)?;
+    Ok(number.try_into()?)
 }
 
 /// Parses a hex-encoded digest from the slice.
-fn parse_nullifier(value: &str) -> Result<Digest, String> {
-    Digest::from_hex(value.as_bytes()).map_err(|e| e.to_string())
+fn parse_nullifier(value: &str) -> Result<Nullifier, String> {
+    Nullifier::from_hex(value).map_err(|e| e.to_string())
 }
