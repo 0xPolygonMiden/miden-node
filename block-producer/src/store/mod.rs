@@ -93,11 +93,7 @@ impl Store for DefaultStore {
     ) -> Result<TransactionInputs, TxInputsError> {
         let message = GetTransactionInputsRequest {
             account_id: Some(proven_tx.account_id().into()),
-            nullifiers: proven_tx
-                .input_notes()
-                .iter()
-                .map(|nullifier| (*nullifier).into())
-                .collect(),
+            nullifiers: proven_tx.input_notes().iter().map(|&nullifier| nullifier.into()).collect(),
         };
 
         info!(target: COMPONENT, tx_id = %proven_tx.id().to_hex());

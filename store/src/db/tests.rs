@@ -140,11 +140,7 @@ fn test_sql_select_accounts() {
         });
 
         let transaction = conn.transaction().unwrap();
-        let res = sql::upsert_accounts_with_blocknum(
-            &transaction,
-            &[(account, digest.into())],
-            block_num,
-        );
+        let res = sql::upsert_accounts(&transaction, &[(account, digest.into())], block_num);
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
         let accounts = sql::select_accounts(&mut conn).unwrap();
@@ -354,12 +350,9 @@ fn test_db_account() {
     let account_hash = num_to_protobuf_digest(0);
 
     let transaction = conn.transaction().unwrap();
-    let row_count = sql::upsert_accounts_with_blocknum(
-        &transaction,
-        &[(account_id, account_hash.clone())],
-        block_num,
-    )
-    .unwrap();
+    let row_count =
+        sql::upsert_accounts(&transaction, &[(account_id, account_hash.clone())], block_num)
+            .unwrap();
     transaction.commit().unwrap();
 
     assert_eq!(row_count, 1);

@@ -449,7 +449,7 @@ impl State {
             .cloned()
             .map(|nullifier| {
                 let value = inner.nullifier_tree.get_value(&nullifier);
-                let block_num = nullifier_value_to_blocknum(value);
+                let block_num = nullifier_value_to_block_num(value);
 
                 (nullifier, block_num)
             })

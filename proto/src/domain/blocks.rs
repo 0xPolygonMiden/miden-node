@@ -7,7 +7,7 @@ use crate::{
     generated::{block_header, responses, responses::GetBlockInputsResponse},
 };
 
-// BlockHeader
+// BLOCK HEADER
 // ================================================================================================
 
 impl From<BlockHeader> for block_header::BlockHeader {
@@ -77,7 +77,7 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
     }
 }
 
-// BlockInputs
+// BLOCK INPUTS
 // ================================================================================================
 
 /// Information needed from the store to build a block

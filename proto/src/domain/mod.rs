@@ -32,6 +32,6 @@ where
 ///
 /// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
 /// of a value.
-pub fn nullifier_value_to_blocknum(value: Word) -> u32 {
+pub fn nullifier_value_to_block_num(value: Word) -> u32 {
     value[3].as_int().try_into().expect("invalid block number found in store")
 }

@@ -26,6 +26,137 @@ use crate::{
     types::{AccountId, BlockNumber},
 };
 
+// ACCOUNT QUERIES
+// ================================================================================================
+
+/// Select all accounts from the DB using the given [Connection].
+///
+/// # Returns
+///
+/// A vector with accounts, or an error.
+pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
+    let mut stmt = conn.prepare("SELECT * FROM accounts ORDER BY block_num ASC;")?;
+    let mut rows = stmt.query([])?;
+
+    let mut accounts = vec![];
+    while let Some(row) = rows.next()? {
+        let account_hash_data = row.get_ref(1)?.as_blob()?;
+        let account_hash = Digest::decode(account_hash_data)?;
+
+        let account_id_data = column_value_as_u64(row, 0)?;
+        let account_id = AccountIdProto::from(account_id_data);
+
+        accounts.push(AccountInfo {
+            account_id: Some(account_id),
+            account_hash: Some(account_hash),
+            block_num: row.get(2)?,
+        })
+    }
+    Ok(accounts)
+}
+
+/// Select all account hashes from the DB using the given [Connection].
+///
+/// # Returns
+///
+/// The vector with the account id and corresponding hash, or an error.
+pub fn select_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, Digest)>> {
+    let mut stmt =
+        conn.prepare("SELECT account_id, account_hash FROM accounts ORDER BY block_num ASC;")?;
+    let mut rows = stmt.query([])?;
+
+    let mut result = Vec::new();
+    while let Some(row) = rows.next()? {
+        let account_id = column_value_as_u64(row, 0)?;
+        let account_hash_data = row.get_ref(1)?.as_blob()?;
+        let account_hash = Digest::decode(account_hash_data)?;
+
+        result.push((account_id, account_hash));
+    }
+
+    Ok(result)
+}
+
+/// Select [AccountHashUpdate] from the DB using the given [Connection], given that the account
+/// update was done between `(block_start, block_end]`.
+///
+/// # Returns
+///
+/// The vector of [AccountHashUpdate] with the matching accounts.
+pub fn select_accounts_by_block_range(
+    conn: &mut Connection,
+    block_start: BlockNumber,
+    block_end: BlockNumber,
+    account_ids: &[AccountId],
+) -> Result<Vec<AccountHashUpdate>> {
+    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
+
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            account_id, account_hash, block_num
+        FROM
+            accounts
+        WHERE
+            block_num > ?1 AND
+            block_num <= ?2 AND
+            account_id IN rarray(?3)
+        ORDER BY
+            block_num ASC
+    ",
+    )?;
+
+    let mut rows = stmt.query(params![block_start, block_end, Rc::new(account_ids)])?;
+
+    let mut result = Vec::new();
+    while let Some(row) = rows.next()? {
+        let account_id_data = column_value_as_u64(row, 0)?;
+        let account_id: account::AccountId = account_id_data.into();
+        let account_hash_data = row.get_ref(1)?.as_blob()?;
+        let account_hash = Digest::decode(account_hash_data)?;
+        let block_num = row.get(2)?;
+
+        result.push(AccountHashUpdate {
+            account_id: Some(account_id),
+            account_hash: Some(account_hash),
+            block_num,
+        });
+    }
+
+    Ok(result)
+}
+
+/// Inserts or updates accounts to the DB using the given [Transaction].
+///
+/// # Returns
+///
+/// The number of affected rows.
+///
+/// # Note
+///
+/// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
+/// transaction.
+pub fn upsert_accounts(
+    transaction: &Transaction,
+    accounts: &[(AccountId, Digest)],
+    block_num: BlockNumber,
+) -> Result<usize> {
+    let mut stmt = transaction.prepare("INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num) VALUES (?1, ?2, ?3);")?;
+
+    let mut count = 0;
+    for (account_id, account_hash) in accounts.iter() {
+        count += stmt.execute(params![
+            u64_to_value(*account_id),
+            account_hash.encode_to_vec(),
+            block_num
+        ])?
+    }
+    Ok(count)
+}
+
+// NULLIFIER QUERIES
+// ================================================================================================
+
 /// Insert nullifiers to the DB using the given [Transaction].
 ///
 /// # Returns
@@ -71,63 +202,6 @@ pub fn select_nullifiers(conn: &mut Connection) -> Result<Vec<(RpoDigest, BlockN
         result.push((nullifier, block_number));
     }
     Ok(result)
-}
-
-/// Select all notes from the DB using the given [Connection].
-///
-///
-/// # Returns
-///
-/// A vector with notes, or an error.
-pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
-    let mut stmt = conn.prepare("SELECT * FROM notes ORDER BY block_num ASC;")?;
-    let mut rows = stmt.query([])?;
-
-    let mut notes = vec![];
-    while let Some(row) = rows.next()? {
-        let note_id_data = row.get_ref(2)?.as_blob()?;
-        let note_id = Digest::decode(note_id_data)?;
-
-        let merkle_path_data = row.get_ref(5)?.as_blob()?;
-        let merkle_path = MerklePath::decode(merkle_path_data)?;
-
-        notes.push(Note {
-            block_num: row.get(0)?,
-            note_index: row.get(1)?,
-            note_id: Some(note_id),
-            sender: column_value_as_u64(row, 3)?,
-            tag: column_value_as_u64(row, 4)?,
-            merkle_path: Some(merkle_path),
-        })
-    }
-    Ok(notes)
-}
-
-/// Select all accounts from the DB using the given [Connection].
-///
-///
-/// # Returns
-///
-/// A vector with accounts, or an error.
-pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
-    let mut stmt = conn.prepare("SELECT * FROM accounts ORDER BY block_num ASC;")?;
-    let mut rows = stmt.query([])?;
-
-    let mut accounts = vec![];
-    while let Some(row) = rows.next()? {
-        let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = Digest::decode(account_hash_data)?;
-
-        let account_id_data = column_value_as_u64(row, 0)?;
-        let account_id = AccountIdProto::from(account_id_data);
-
-        accounts.push(AccountInfo {
-            account_id: Some(account_id),
-            account_hash: Some(account_hash),
-            block_num: row.get(2)?,
-        })
-    }
-    Ok(accounts)
 }
 
 /// Select nullifiers created between `(block_start, block_end]` that also match the
@@ -180,75 +254,37 @@ pub fn select_nullifiers_by_block_range(
     Ok(result)
 }
 
-/// Insert a [BlockHeader] to the DB using the given [Transaction].
+// NOTE QUERIES
+// ================================================================================================
+
+/// Select all notes from the DB using the given [Connection].
+///
 ///
 /// # Returns
 ///
-/// The number of affected rows.
-///
-/// # Note
-///
-/// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
-/// transaction.
-pub fn insert_block_header(
-    transaction: &Transaction,
-    block_header: &BlockHeader,
-) -> Result<usize> {
-    let mut stmt = transaction
-        .prepare("INSERT INTO block_headers (block_num, block_header) VALUES (?1, ?2);")?;
-    Ok(stmt.execute(params![block_header.block_num, block_header.encode_to_vec()])?)
-}
-
-/// Select a [BlockHeader] from the DB by its `block_num` using the given [Connection].
-///
-/// # Returns
-///
-/// When `block_number` is [None], the latest block header is returned. Otherwise the block with the
-/// given block height is returned.
-pub fn select_block_header_by_block_num(
-    conn: &mut Connection,
-    block_number: Option<BlockNumber>,
-) -> Result<Option<BlockHeader>> {
-    let mut stmt;
-    let mut rows = match block_number {
-        Some(block_number) => {
-            stmt = conn.prepare("SELECT block_header FROM block_headers WHERE block_num = ?1")?;
-            stmt.query([block_number])?
-        },
-        None => {
-            stmt = conn.prepare(
-                "SELECT block_header FROM block_headers ORDER BY block_num DESC LIMIT 1",
-            )?;
-            stmt.query([])?
-        },
-    };
-
-    match rows.next()? {
-        Some(row) => {
-            let data = row.get_ref(0)?.as_blob()?;
-            Ok(Some(BlockHeader::decode(data)?))
-        },
-        None => Ok(None),
-    }
-}
-
-/// Select all block headers from the DB using the given [Connection].
-///
-/// # Returns
-///
-/// A vector of [BlockHeader] or an error.
-pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
-    let mut stmt =
-        conn.prepare("SELECT block_header FROM block_headers ORDER BY block_num ASC;")?;
+/// A vector with notes, or an error.
+pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
+    let mut stmt = conn.prepare("SELECT * FROM notes ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
-    let mut result = vec![];
-    while let Some(row) = rows.next()? {
-        let block_header_data = row.get_ref(0)?.as_blob()?;
-        let block_header = BlockHeader::decode(block_header_data)?;
-        result.push(block_header);
-    }
 
-    Ok(result)
+    let mut notes = vec![];
+    while let Some(row) = rows.next()? {
+        let note_id_data = row.get_ref(2)?.as_blob()?;
+        let note_id = Digest::decode(note_id_data)?;
+
+        let merkle_path_data = row.get_ref(5)?.as_blob()?;
+        let merkle_path = MerklePath::decode(merkle_path_data)?;
+
+        notes.push(Note {
+            block_num: row.get(0)?,
+            note_index: row.get(1)?,
+            note_id: Some(note_id),
+            sender: column_value_as_u64(row, 3)?,
+            tag: column_value_as_u64(row, 4)?,
+            merkle_path: Some(merkle_path),
+        })
+    }
+    Ok(notes)
 }
 
 /// Insert notes to the DB using the given [Transaction].
@@ -381,7 +417,10 @@ pub fn select_notes_since_block_by_tag_and_sender(
     Ok(res)
 }
 
-/// Inserts or updates accounts to the DB using the given [Transaction].
+// BLOCK CHAIN QUERIES
+// ================================================================================================
+
+/// Insert a [BlockHeader] to the DB using the given [Transaction].
 ///
 /// # Returns
 ///
@@ -391,94 +430,69 @@ pub fn select_notes_since_block_by_tag_and_sender(
 ///
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
-pub fn upsert_accounts_with_blocknum(
+pub fn insert_block_header(
     transaction: &Transaction,
-    accounts: &[(AccountId, Digest)],
-    block_num: BlockNumber,
+    block_header: &BlockHeader,
 ) -> Result<usize> {
-    let mut stmt = transaction.prepare("INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num) VALUES (?1, ?2, ?3);")?;
-
-    let mut count = 0;
-    for (account_id, account_hash) in accounts.iter() {
-        count += stmt.execute(params![
-            u64_to_value(*account_id),
-            account_hash.encode_to_vec(),
-            block_num
-        ])?
-    }
-    Ok(count)
+    let mut stmt = transaction
+        .prepare("INSERT INTO block_headers (block_num, block_header) VALUES (?1, ?2);")?;
+    Ok(stmt.execute(params![block_header.block_num, block_header.encode_to_vec()])?)
 }
 
-/// Select [AccountHashUpdate] from the DB using the given [Connection], given that the account
-/// update was done between `(block_start, block_end]`.
+/// Select a [BlockHeader] from the DB by its `block_num` using the given [Connection].
 ///
 /// # Returns
 ///
-/// The vector of [AccountHashUpdate] with the matching accounts.
-pub fn select_accounts_by_block_range(
+/// When `block_number` is [None], the latest block header is returned. Otherwise the block with the
+/// given block height is returned.
+pub fn select_block_header_by_block_num(
     conn: &mut Connection,
-    block_start: BlockNumber,
-    block_end: BlockNumber,
-    account_ids: &[AccountId],
-) -> Result<Vec<AccountHashUpdate>> {
-    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
+    block_number: Option<BlockNumber>,
+) -> Result<Option<BlockHeader>> {
+    let mut stmt;
+    let mut rows = match block_number {
+        Some(block_number) => {
+            stmt = conn.prepare("SELECT block_header FROM block_headers WHERE block_num = ?1")?;
+            stmt.query([block_number])?
+        },
+        None => {
+            stmt = conn.prepare(
+                "SELECT block_header FROM block_headers ORDER BY block_num DESC LIMIT 1",
+            )?;
+            stmt.query([])?
+        },
+    };
 
-    let mut stmt = conn.prepare(
-        "
-        SELECT
-            account_id, account_hash, block_num
-        FROM
-            accounts
-        WHERE
-            block_num > ?1 AND
-            block_num <= ?2 AND
-            account_id IN rarray(?3)
-        ORDER BY
-            block_num ASC
-    ",
-    )?;
-
-    let mut rows = stmt.query(params![block_start, block_end, Rc::new(account_ids)])?;
-
-    let mut result = Vec::new();
-    while let Some(row) = rows.next()? {
-        let account_id_data = column_value_as_u64(row, 0)?;
-        let account_id: account::AccountId = account_id_data.into();
-        let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = Digest::decode(account_hash_data)?;
-        let block_num = row.get(2)?;
-
-        result.push(AccountHashUpdate {
-            account_id: Some(account_id),
-            account_hash: Some(account_hash),
-            block_num,
-        });
+    match rows.next()? {
+        Some(row) => {
+            let data = row.get_ref(0)?.as_blob()?;
+            Ok(Some(BlockHeader::decode(data)?))
+        },
+        None => Ok(None),
     }
-
-    Ok(result)
 }
 
-/// Select all account hashes from the DB using the given [Connection].
+/// Select all block headers from the DB using the given [Connection].
 ///
 /// # Returns
 ///
-/// The vector with the account id and corresponding hash, or an error.
-pub fn select_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, Digest)>> {
+/// A vector of [BlockHeader] or an error.
+pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
     let mut stmt =
-        conn.prepare("SELECT account_id, account_hash FROM accounts ORDER BY block_num ASC;")?;
+        conn.prepare("SELECT block_header FROM block_headers ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
-
-    let mut result = Vec::new();
+    let mut result = vec![];
     while let Some(row) = rows.next()? {
-        let account_id = column_value_as_u64(row, 0)?;
-        let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = Digest::decode(account_hash_data)?;
-
-        result.push((account_id, account_hash));
+        let block_header_data = row.get_ref(0)?.as_blob()?;
+        let block_header = BlockHeader::decode(block_header_data)?;
+        result.push(block_header);
     }
 
     Ok(result)
 }
+
+// STATE SYNC
+// ================================================================================================
 
 /// Loads the state necessary for a state sync.
 pub fn get_state_sync(
@@ -529,8 +543,10 @@ pub fn get_state_sync(
     })
 }
 
+// APPLY BLOCK
+// ================================================================================================
+
 /// Updates the DB with the state of a new block.
-///
 ///
 /// # Returns
 ///
@@ -545,7 +561,7 @@ pub fn apply_block(
     let mut count = 0;
     count += insert_block_header(transaction, block_header)?;
     count += insert_notes(transaction, notes)?;
-    count += upsert_accounts_with_blocknum(transaction, accounts, block_header.block_num)?;
+    count += upsert_accounts(transaction, accounts, block_header.block_num)?;
     count += insert_nullifiers_for_block(transaction, nullifiers, block_header.block_num)?;
     Ok(count)
 }

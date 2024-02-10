@@ -12,6 +12,9 @@ use crate::{
     generated::responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
 };
 
+// TRANSACTION INPUTS
+// ================================================================================================
+
 /// Information needed from the store to verify a transaction.
 #[derive(Debug)]
 pub struct TransactionInputs {
