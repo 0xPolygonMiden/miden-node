@@ -1,5 +1,4 @@
 use anyhow::Result;
-use miden_crypto::hash::rpo::RpoDigest;
 use miden_node_proto::generated::{
     block_producer::api_client as block_producer_client,
     requests::{
@@ -13,6 +12,7 @@ use miden_node_proto::generated::{
     rpc::api_server,
     store::api_client as store_client,
 };
+use miden_objects::Digest;
 use tonic::{
     transport::{Channel, Error},
     Request, Response, Status,
@@ -67,9 +67,9 @@ impl api_server::Api for RpcApi {
 
         // validate all the nullifiers from the user request
         for nullifier in request.get_ref().nullifiers.iter() {
-            let _: RpoDigest = nullifier
+            let _: Digest = nullifier
                 .try_into()
-                .or(Err(Status::invalid_argument("Digest field is not in the modulos range")))?;
+                .or(Err(Status::invalid_argument("Digest field is not in the modulus range")))?;
         }
 
         self.store.clone().check_nullifiers(request).await
