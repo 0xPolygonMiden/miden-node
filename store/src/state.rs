@@ -13,7 +13,7 @@ use miden_node_proto::{
         digest::Digest,
         note::{Note, NoteCreated},
     },
-    nullifier_value_to_block_num, AccountInputRecord, NullifierInputRecord, TransactionInputs,
+    nullifier_value_to_block_num, AccountInputRecord, NullifierWitness, TransactionInputs,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
@@ -350,7 +350,7 @@ impl State {
             block_header::BlockHeader,
             MmrPeaks,
             Vec<AccountInputRecord>,
-            Vec<NullifierInputRecord>,
+            Vec<NullifierWitness>,
         ),
         GetBlockInputsError,
     > {
@@ -394,12 +394,12 @@ impl State {
             })
             .collect::<Result<_, AccountError>>()?;
 
-        let nullifier_input_records: Vec<NullifierInputRecord> = nullifiers
+        let nullifier_input_records: Vec<NullifierWitness> = nullifiers
             .iter()
             .map(|nullifier| {
                 let proof = inner.nullifier_tree.open(nullifier);
 
-                NullifierInputRecord {
+                NullifierWitness {
                     nullifier: *nullifier,
                     proof,
                 }

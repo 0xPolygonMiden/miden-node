@@ -9,12 +9,12 @@ use crate::{
 // ================================================================================================
 
 #[derive(Clone, Debug)]
-pub struct NullifierInputRecord {
+pub struct NullifierWitness {
     pub nullifier: Digest,
     pub proof: SmtProof,
 }
 
-impl TryFrom<NullifierBlockInputRecord> for NullifierInputRecord {
+impl TryFrom<NullifierBlockInputRecord> for NullifierWitness {
     type Error = ParseError;
 
     fn try_from(nullifier_input_record: NullifierBlockInputRecord) -> Result<Self, Self::Error> {
@@ -31,8 +31,8 @@ impl TryFrom<NullifierBlockInputRecord> for NullifierInputRecord {
     }
 }
 
-impl From<NullifierInputRecord> for NullifierBlockInputRecord {
-    fn from(value: NullifierInputRecord) -> Self {
+impl From<NullifierWitness> for NullifierBlockInputRecord {
+    fn from(value: NullifierWitness) -> Self {
         Self {
             nullifier: Some(value.nullifier.into()),
             opening: Some(value.proof.into()),

@@ -2,12 +2,7 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use miden_node_proto::{
-    domain::{
-        accounts::{AccountInputRecord, AccountState},
-        blocks::BlockInputs,
-        nullifiers::NullifierInputRecord,
-    },
-    TransactionInputs,
+    AccountInputRecord, AccountState, BlockInputs, NullifierWitness, TransactionInputs,
 };
 use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
@@ -248,8 +243,8 @@ impl Store for MockStoreSuccess {
                 .collect()
         };
 
-        let nullifier_records: Vec<NullifierInputRecord> = produced_nullifiers
-            .map(|nullifier| NullifierInputRecord {
+        let nullifier_records: Vec<NullifierWitness> = produced_nullifiers
+            .map(|nullifier| NullifierWitness {
                 nullifier: *nullifier,
                 proof: locked_produced_nullifiers.open(nullifier),
             })

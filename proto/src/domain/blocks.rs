@@ -1,9 +1,10 @@
 use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 
+use super::try_convert;
 use crate::{
-    domain::{accounts::AccountInputRecord, nullifiers::NullifierInputRecord, try_convert},
     errors::{MissingFieldHelper, ParseError},
     generated::{block_header, responses, responses::GetBlockInputsResponse},
+    AccountInputRecord, NullifierWitness,
 };
 
 // BLOCK HEADER
@@ -92,7 +93,7 @@ pub struct BlockInputs {
     pub account_states: Vec<AccountInputRecord>,
 
     /// The requested nullifiers and their authentication paths
-    pub nullifiers: Vec<NullifierInputRecord>,
+    pub nullifiers: Vec<NullifierWitness>,
 }
 
 impl TryFrom<responses::GetBlockInputsResponse> for BlockInputs {
