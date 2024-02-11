@@ -1,13 +1,14 @@
 use std::io;
 
 use deadpool_sqlite::PoolError;
-use miden_crypto::{
-    hash::rpo::RpoDigest,
-    merkle::{MerkleError, MmrError},
-    utils::DeserializationError,
-};
 use miden_node_proto::{errors::ParseError, generated::block_header::BlockHeader};
-use miden_objects::AccountError;
+use miden_objects::{
+    crypto::{
+        merkle::{MerkleError, MmrError},
+        utils::DeserializationError,
+    },
+    AccountError, Digest,
+};
 use prost::DecodeError;
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -115,7 +116,7 @@ pub enum ApplyBlockError {
     #[error("Received invalid nullifier root")]
     NewBlockInvalidNullifierRoot,
     #[error("Duplicated nullifiers {0:?}")]
-    DuplicatedNullifiers(Vec<RpoDigest>),
+    DuplicatedNullifiers(Vec<Digest>),
     #[error("Unable to create proof for note: {0}")]
     UnableToCreateProofForNote(MerkleError),
     #[error("Block applying was broken because of closed channel on database side: {0}")]

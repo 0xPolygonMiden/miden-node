@@ -1,17 +1,15 @@
-use miden_crypto::{
-    merkle::{LeafIndex, Mmr, Smt, SmtLeaf, SmtProof, SMT_DEPTH},
-    ONE,
-};
 use miden_mock::mock::block::mock_block_header;
 use miden_node_proto::domain::{accounts::AccountInputRecord, blocks::BlockInputs};
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::{EmptySubtreeRoots, MmrPeaks},
+    crypto::merkle::{
+        EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
+        SMT_DEPTH,
+    },
     notes::{NoteEnvelope, NoteMetadata},
     transaction::{InputNotes, OutputNotes},
-    ZERO,
+    ONE, ZERO,
 };
-use miden_vm::crypto::{MerklePath, SimpleSmt};
 
 use super::*;
 use crate::{

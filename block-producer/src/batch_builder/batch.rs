@@ -1,8 +1,14 @@
 use std::collections::BTreeMap;
 
-use miden_crypto::hash::blake::{Blake3Digest, Blake3_256};
-use miden_objects::{accounts::AccountId, notes::NoteEnvelope, Digest};
-use miden_vm::crypto::SimpleSmt;
+use miden_objects::{
+    accounts::AccountId,
+    crypto::{
+        hash::blake::{Blake3Digest, Blake3_256},
+        merkle::SimpleSmt,
+    },
+    notes::NoteEnvelope,
+    Digest,
+};
 use tracing::instrument;
 
 use crate::{

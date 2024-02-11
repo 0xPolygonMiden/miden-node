@@ -1,5 +1,4 @@
-use miden_crypto::{hash::rpo::RpoDigest, merkle::LeafIndex};
-use miden_node_proto::{
+use miden_node_proto::generated::{
     account::{AccountId, AccountInfo},
     block_header::BlockHeader as ProtobufBlockHeader,
     digest::Digest as ProtobufDigest,
@@ -7,7 +6,14 @@ use miden_node_proto::{
     note::Note,
     responses::{AccountHashUpdate, NullifierUpdate},
 };
-use miden_objects::{crypto::merkle::SimpleSmt, notes::NOTE_LEAF_DEPTH, Felt, FieldElement};
+use miden_objects::{
+    crypto::{
+        hash::rpo::RpoDigest,
+        merkle::{LeafIndex, SimpleSmt},
+    },
+    notes::NOTE_LEAF_DEPTH,
+    Felt, FieldElement, StarkField,
+};
 use rusqlite::{vtab::array, Connection};
 
 use super::sql;

@@ -1,12 +1,11 @@
-use miden_air::trace::chiplets::hasher::Digest;
-use miden_crypto::merkle::MerkleError;
 use miden_node_proto::errors::ParseError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
+    crypto::merkle::MerkleError,
     notes::Nullifier,
     transaction::{InputNotes, ProvenTransaction},
-    TransactionInputError,
+    Digest, TransactionInputError,
 };
 use miden_vm::ExecutionError;
 use thiserror::Error;

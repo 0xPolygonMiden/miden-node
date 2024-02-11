@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use miden_crypto::merkle::ValuePath;
 use miden_node_proto::{
     domain::{
         accounts::{AccountInputRecord, AccountState},
@@ -9,8 +8,10 @@ use miden_node_proto::{
     },
     TransactionInputs,
 };
-use miden_objects::{crypto::merkle::Mmr, BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO};
-use miden_vm::crypto::SimpleSmt;
+use miden_objects::{
+    crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
+    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
+};
 
 use super::*;
 use crate::{

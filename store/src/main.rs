@@ -2,7 +2,6 @@ mod cli;
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use cli::{Cli, Command, Query};
-use miden_crypto::merkle::{path_to_text, SmtProof};
 use miden_node_proto::generated::{
     requests::{
         CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
@@ -14,7 +13,10 @@ use miden_node_proto::generated::{
 };
 use miden_node_store::{config::StoreTopLevelConfig, db::Db, server};
 use miden_node_utils::config::load_config;
-use miden_objects::BlockHeader;
+use miden_objects::{
+    crypto::merkle::{path_to_text, SmtProof},
+    BlockHeader,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use miden_crypto::utils::Deserializable;
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
     responses::SubmitProvenTransactionResponse,
 };
 use miden_node_utils::formatting::{format_input_notes, format_opt, format_output_notes};
-use miden_objects::transaction::ProvenTransaction;
+use miden_objects::{transaction::ProvenTransaction, utils::serde::Deserializable};
 use tonic::Status;
 use tracing::{debug, info, instrument};
 

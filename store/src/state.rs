@@ -25,8 +25,12 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
+    crypto::{
+        hash::rpo::RpoDigest,
+        merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtProof, ValuePath},
+    },
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
-    AccountError, BlockHeader, ACCOUNT_TREE_DEPTH,
+    AccountError, BlockHeader, Felt, FieldElement, Word, ACCOUNT_TREE_DEPTH, EMPTY_WORD,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},

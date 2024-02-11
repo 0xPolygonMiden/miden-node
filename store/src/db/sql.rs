@@ -1,11 +1,6 @@
 //! Wrapper functions for SQL statements.
 use std::rc::Rc;
 
-use miden_crypto::{
-    hash::rpo::RpoDigest,
-    utils::{Deserializable, SliceReader},
-    StarkField,
-};
 use miden_node_proto::{
     errors::MissingFieldHelper,
     generated::{
@@ -16,6 +11,13 @@ use miden_node_proto::{
         note::Note,
         responses::{AccountHashUpdate, NullifierUpdate},
     },
+};
+use miden_objects::{
+    crypto::{
+        hash::rpo::RpoDigest,
+        utils::{Deserializable, SliceReader},
+    },
+    StarkField,
 };
 use prost::Message;
 use rusqlite::{params, types::Value, Connection, Transaction};
