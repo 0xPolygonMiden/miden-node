@@ -12,7 +12,7 @@ use miden_objects::{
         merkle::{LeafIndex, SimpleSmt},
     },
     notes::NOTE_LEAF_DEPTH,
-    Felt, FieldElement, StarkField,
+    Felt, FieldElement,
 };
 use rusqlite::{vtab::array, Connection};
 

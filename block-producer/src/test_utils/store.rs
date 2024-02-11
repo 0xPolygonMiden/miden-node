@@ -1,10 +1,11 @@
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use miden_node_proto::{
     domain::{
         accounts::{AccountInputRecord, AccountState},
         blocks::BlockInputs,
+        nullifiers::NullifierInputRecord,
     },
     TransactionInputs,
 };
@@ -24,7 +25,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    consumed_nullifiers: Option<BTreeMap<Digest, u32>>,
+    produced_nullifiers: Option<Smt>,
     chain_mmr: Option<Mmr>,
     block_num: Option<u32>,
 }
@@ -54,7 +55,8 @@ impl MockStoreSuccessBuilder {
 
     pub fn initial_nullifiers(
         mut self,
-        consumed_nullifiers: BTreeMap<Digest, u32>,
+        nullifiers: BTreeSet<Digest>,
+        block_num: u32,
     ) -> Self {
         let smt = Smt::with_entries(
             nullifiers
@@ -119,12 +121,12 @@ pub struct MockStoreSuccess {
     pub accounts: Arc<RwLock<SimpleSmt<ACCOUNT_TREE_DEPTH>>>,
 
     /// Stores the nullifiers of the notes that were consumed
-    pub consumed_nullifiers: Arc<RwLock<BTreeMap<Digest, u32>>>,
+    pub produced_nullifiers: Arc<RwLock<Smt>>,
 
-    // Stores the chain MMR
+    /// Stores the chain MMR
     pub chain_mmr: Arc<RwLock<Mmr>>,
 
-    // Stores the header of the last applied block
+    /// Stores the header of the last applied block
     pub last_block_header: Arc<RwLock<BlockHeader>>,
 
     /// The number of times `apply_block()` was called
@@ -156,13 +158,10 @@ impl ApplyBlock for MockStoreSuccess {
         debug_assert_eq!(locked_accounts.root(), block.header.account_root());
 
         // update nullifiers
-        let mut new_nullifiers: BTreeMap<Digest, u32> = block
-            .produced_nullifiers
-            .iter()
-            .cloned()
-            .map(|nullifier| (nullifier, block.header.block_num()))
-            .collect();
-        locked_consumed_nullifiers.append(&mut new_nullifiers);
+        for nullifier in block.produced_nullifiers {
+            locked_produced_nullifiers
+                .insert(nullifier, [ZERO, ZERO, ZERO, block.header.block_num().into()]);
+        }
 
         // update chain mmr with new block header hash
         {
@@ -204,10 +203,9 @@ impl Store for MockStoreSuccess {
             .input_notes()
             .iter()
             .map(|nullifier| {
-                (
-                    nullifier.inner(),
-                    locked_consumed_nullifiers.get(&nullifier.inner()).cloned().unwrap_or_default(),
-                )
+                let nullifier_value = locked_produced_nullifiers.get_value(&nullifier.inner());
+
+                (nullifier.inner(), nullifier_value[3].inner() as u32)
             })
             .collect();
 

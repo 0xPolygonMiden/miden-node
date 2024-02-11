@@ -16,8 +16,8 @@ use miden_node_proto::{
             GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
             ListNotesResponse, ListNullifiersResponse, SyncStateResponse,
         },
+        smt::SmtLeafEntry,
         store::api_server,
-        tsmt::NullifierLeaf,
     },
 };
 use miden_objects::{BlockHeader, Digest, Felt, ZERO};

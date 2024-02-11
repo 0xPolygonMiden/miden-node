@@ -28,7 +28,7 @@ where
     from.into_iter().map(|e| e.try_into()).collect()
 }
 
-/// Given the leaf value of the nullifier TSMT, returns the nullifier's block number.
+/// Given the leaf value of the nullifier SMT, returns the nullifier's block number.
 ///
 /// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
 /// of a value.
