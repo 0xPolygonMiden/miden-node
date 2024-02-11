@@ -1,13 +1,18 @@
+use std::collections::BTreeSet;
+
 use async_trait::async_trait;
-use miden_crypto::merkle::{Smt, ValuePath};
-use miden_node_proto::domain::{AccountInputRecord, BlockInputs, NullifierInputRecord};
-use miden_objects::{crypto::merkle::Mmr, BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO};
-use miden_vm::crypto::SimpleSmt;
+use miden_node_proto::{
+    AccountInputRecord, AccountState, BlockInputs, NullifierWitness, TransactionInputs,
+};
+use miden_objects::{
+    crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
+    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
+};
 
 use super::*;
 use crate::{
     block::Block,
-    store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputs, TxInputsError},
+    store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputsError},
     ProvenTransaction,
 };
 
@@ -113,10 +118,10 @@ pub struct MockStoreSuccess {
     /// Stores the nullifiers of the notes that were consumed
     pub produced_nullifiers: Arc<RwLock<Smt>>,
 
-    // Stores the chain MMR
+    /// Stores the chain MMR
     pub chain_mmr: Arc<RwLock<Mmr>>,
 
-    // Stores the header of the last applied block
+    /// Stores the header of the last applied block
     pub last_block_header: Arc<RwLock<BlockHeader>>,
 
     /// The number of times `apply_block()` was called
@@ -175,7 +180,7 @@ impl Store for MockStoreSuccess {
     async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
-    ) -> Result<TxInputs, TxInputsError> {
+    ) -> Result<TransactionInputs, TxInputsError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
 
@@ -195,12 +200,15 @@ impl Store for MockStoreSuccess {
             .map(|nullifier| {
                 let nullifier_value = locked_produced_nullifiers.get_value(&nullifier.inner());
 
-                (nullifier.inner(), nullifier_value != EMPTY_WORD)
+                (nullifier.inner(), nullifier_value[3].inner() as u32)
             })
             .collect();
 
-        Ok(TxInputs {
-            account_hash,
+        Ok(TransactionInputs {
+            account_state: AccountState {
+                account_id: proven_tx.account_id(),
+                account_hash,
+            },
             nullifiers,
         })
     }
@@ -235,8 +243,8 @@ impl Store for MockStoreSuccess {
                 .collect()
         };
 
-        let nullifier_records: Vec<NullifierInputRecord> = produced_nullifiers
-            .map(|nullifier| NullifierInputRecord {
+        let nullifier_records: Vec<NullifierWitness> = produced_nullifiers
+            .map(|nullifier| NullifierWitness {
                 nullifier: *nullifier,
                 proof: locked_produced_nullifiers.open(nullifier),
             })
@@ -269,7 +277,7 @@ impl Store for MockStoreFailure {
     async fn get_tx_inputs(
         &self,
         _proven_tx: &ProvenTransaction,
-    ) -> Result<TxInputs, TxInputsError> {
+    ) -> Result<TransactionInputs, TxInputsError> {
         Err(TxInputsError::Dummy)
     }
 

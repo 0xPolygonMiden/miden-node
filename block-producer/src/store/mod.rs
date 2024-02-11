@@ -1,18 +1,14 @@
-use std::{
-    collections::BTreeMap,
-    fmt::{Display, Formatter},
-};
-
 use async_trait::async_trait;
 use miden_node_proto::{
-    account,
-    conversion::convert,
-    digest,
-    domain::BlockInputs,
-    requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
-    store::api_client as store_client,
+    convert,
+    domain::blocks::BlockInputs,
+    generated::{
+        account, digest,
+        requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
+        store::api_client as store_client,
+    },
+    TransactionInputs,
 };
-use miden_node_utils::formatting::{format_map, format_opt};
 use miden_objects::{accounts::AccountId, Digest};
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
@@ -29,7 +25,7 @@ pub trait Store: ApplyBlock {
     async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
-    ) -> Result<TxInputs, TxInputsError>;
+    ) -> Result<TransactionInputs, TxInputsError>;
 
     /// TODO: add comments
     async fn get_block_inputs(
@@ -45,29 +41,6 @@ pub trait ApplyBlock: Send + Sync + 'static {
         &self,
         block: Block,
     ) -> Result<(), ApplyBlockError>;
-}
-
-/// Information needed from the store to verify a transaction.
-#[derive(Debug)]
-pub struct TxInputs {
-    /// The account hash in the store corresponding to tx's account ID
-    pub account_hash: Option<Digest>,
-
-    /// Maps each consumed notes' nullifier to whether the note is already consumed
-    pub nullifiers: BTreeMap<Digest, bool>,
-}
-
-impl Display for TxInputs {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{{ account_hash: {}, nullifiers: {} }}",
-            format_opt(self.account_hash.as_ref()),
-            format_map(&self.nullifiers)
-        ))
-    }
 }
 
 // DEFAULT STORE IMPLEMENTATION
@@ -117,14 +90,10 @@ impl Store for DefaultStore {
     async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
-    ) -> Result<TxInputs, TxInputsError> {
+    ) -> Result<TransactionInputs, TxInputsError> {
         let message = GetTransactionInputsRequest {
             account_id: Some(proven_tx.account_id().into()),
-            nullifiers: proven_tx
-                .input_notes()
-                .iter()
-                .map(|nullifier| (*nullifier).into())
-                .collect(),
+            nullifiers: proven_tx.input_notes().iter().map(|&nullifier| nullifier.into()).collect(),
         };
 
         info!(target: COMPONENT, tx_id = %proven_tx.id().to_hex());
@@ -141,68 +110,15 @@ impl Store for DefaultStore {
 
         debug!(target: COMPONENT, ?response);
 
-        let account_hash = {
-            let account_state = response
-                .account_state
-                .ok_or(TxInputsError::MalformedResponse("account_states empty".to_string()))?;
+        let tx_inputs: TransactionInputs = response.try_into()?;
 
-            let account_id_from_store: AccountId = account_state
-                .account_id
-                .clone()
-                .ok_or(TxInputsError::MalformedResponse("empty account id".to_string()))?
-                .try_into()?;
-
-            if account_id_from_store != proven_tx.account_id() {
-                return Err(TxInputsError::MalformedResponse(format!(
-                    "incorrect account id returned from store. Got: {}, expected: {}",
-                    account_id_from_store,
-                    proven_tx.account_id()
-                )));
-            }
-
-            account_state.account_hash.clone().map(Digest::try_from).transpose()?
-        };
-
-        let nullifiers = {
-            let mut nullifiers = Vec::new();
-
-            for nullifier_record in response.nullifiers {
-                let nullifier = nullifier_record
-                    .nullifier
-                    .ok_or(TxInputsError::MalformedResponse(
-                        "nullifier record contains empty nullifier".to_string(),
-                    ))?
-                    .try_into()?;
-
-                // `block_num` is nonzero if already consumed; 0 otherwise
-                nullifiers.push((nullifier, nullifier_record.block_num != 0))
-            }
-
-            nullifiers.into_iter().collect()
-        };
-
-        // We are matching the received account_hash from the Store here to check for different
-        // cases:
-        // 1. If the hash is equal to `Digest::default()`, it signifies that this is a new account
-        //    which is not yet present in the Store.
-        // 2. If the hash is not equal to `Digest::default()`, it signifies that it is an exiting
-        //    account (i.e., known to the Store).
-        // 3. If the hash is `None`, it means there has been an error in the processing of the
-        //    account hash from the Store.
-        let account_hash = match account_hash {
-            Some(hash) if hash == Digest::default() => None,
-            Some(hash) => Some(hash),
-            None => {
-                return Err(TxInputsError::MalformedResponse(
-                    "incorrect account hash returned from the store. Got None".to_string(),
-                ))
-            },
-        };
-
-        let tx_inputs = TxInputs {
-            account_hash,
-            nullifiers,
-        };
+        if tx_inputs.account_state.account_id != proven_tx.account_id() {
+            return Err(TxInputsError::MalformedResponse(format!(
+                "incorrect account id returned from store. Got: {}, expected: {}",
+                tx_inputs.account_state.account_id,
+                proven_tx.account_id()
+            )));
+        }
 
         debug!(target: COMPONENT, %tx_inputs);
 

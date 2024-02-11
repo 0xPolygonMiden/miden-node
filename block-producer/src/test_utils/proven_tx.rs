@@ -3,13 +3,12 @@
 use std::sync::{Arc, Mutex};
 
 use miden_air::{ExecutionProof, HashFunction};
-use miden_crypto::hash::rpo::Rpo256;
 use miden_mock::constants::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteEnvelope, NoteMetadata, Nullifier},
     transaction::{InputNotes, OutputNotes, ProvenTransaction},
-    Digest, ONE,
+    Digest, Hasher, ONE,
 };
 use once_cell::sync::Lazy;
 use winterfell::{
@@ -66,7 +65,7 @@ impl MockProvenTxBuilder {
         let notes_created: Vec<_> = (*locked_num_notes_created
             ..(*locked_num_notes_created + num_notes_created_in_tx))
             .map(|note_index| {
-                let note_hash = Rpo256::hash(&note_index.to_be_bytes());
+                let note_hash = Hasher::hash(&note_index.to_be_bytes());
 
                 NoteEnvelope::new(note_hash.into(), NoteMetadata::new(self.mock_account.id, ONE))
             })

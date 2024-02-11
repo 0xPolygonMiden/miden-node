@@ -1,17 +1,15 @@
-use miden_crypto::{
-    merkle::{LeafIndex, Mmr, Smt, SmtLeaf, SmtProof, SMT_DEPTH},
-    ONE,
-};
 use miden_mock::mock::block::mock_block_header;
-use miden_node_proto::domain::{AccountInputRecord, BlockInputs, NullifierInputRecord};
+use miden_node_proto::{AccountInputRecord, BlockInputs, NullifierWitness};
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::{EmptySubtreeRoots, MmrPeaks},
+    crypto::merkle::{
+        EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
+        SMT_DEPTH,
+    },
     notes::{NoteEnvelope, NoteMetadata},
     transaction::{InputNotes, OutputNotes},
-    ZERO,
+    ONE, ZERO,
 };
-use miden_vm::crypto::{MerklePath, SimpleSmt};
 
 use super::*;
 use crate::{
@@ -511,7 +509,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let nullifiers = vec![
-            NullifierInputRecord {
+            NullifierWitness {
                 nullifier: nullifier_2,
                 proof: SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
@@ -519,7 +517,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
                 )
                 .unwrap(),
             },
-            NullifierInputRecord {
+            NullifierWitness {
                 nullifier: nullifier_3,
                 proof: SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),

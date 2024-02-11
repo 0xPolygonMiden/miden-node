@@ -1,12 +1,15 @@
-use miden_crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, Smt};
 use miden_objects::{
     accounts::Account,
+    crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, Smt},
     notes::NOTE_LEAF_DEPTH,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     BlockHeader, Digest, ACCOUNT_TREE_DEPTH,
 };
 
 pub const GENESIS_BLOCK_NUM: u32 = 0;
+
+// GENESIS STATE
+// ================================================================================================
 
 /// Represents the state at genesis, which will be used to derive the genesis block.
 #[derive(Debug, PartialEq, Eq)]

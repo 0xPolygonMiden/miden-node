@@ -1,30 +1,18 @@
 use std::io;
 
 use deadpool_sqlite::PoolError;
-use miden_crypto::{
-    hash::rpo::RpoDigest,
-    merkle::{MerkleError, MmrError},
-    utils::DeserializationError,
+use miden_node_proto::{errors::ParseError, generated::block_header::BlockHeader};
+use miden_objects::{
+    crypto::{
+        merkle::{MerkleError, MmrError},
+        utils::DeserializationError,
+    },
+    AccountError, Digest,
 };
-use miden_node_proto::{block_header::BlockHeader, errors::ParseError};
 use prost::DecodeError;
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
-
-// CONVERSION ERRORS
-// =================================================================================================
-
-#[derive(Error, Debug)]
-pub enum ConversionError {
-    #[error("Parse error: {0}")]
-    ParseError(#[from] ParseError),
-    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
-    MissingFieldInProtobufRepresentation {
-        entity: &'static str,
-        field_name: &'static str,
-    },
-}
 
 // DATABASE ERRORS
 // =================================================================================================
@@ -43,8 +31,8 @@ pub enum DatabaseError {
     DecodeError(#[from] DecodeError),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
-    #[error("Conversion error: {0}")]
-    ConversionError(#[from] ConversionError),
+    #[error("Parse error: {0}")]
+    ParseError(#[from] ParseError),
     #[error("Decoding nullifier from database failed: {0}")]
     NullifierDecodingError(DeserializationError),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
@@ -58,8 +46,8 @@ pub enum DatabaseError {
 pub enum StateInitializationError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("Conversion error: {0}")]
-    ConversionError(#[from] ConversionError),
+    #[error("Parse error: {0}")]
+    ParseError(#[from] ParseError),
     #[error("Failed to create nullifiers tree: {0}")]
     FailedToCreateNullifiersTree(MerkleError),
     #[error("Failed to create accounts tree: {0}")]
@@ -111,8 +99,8 @@ pub enum GenesisError {
 pub enum ApplyBlockError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("Conversion error: {0}")]
-    ConversionError(#[from] ConversionError),
+    #[error("Parse error: {0}")]
+    ParseError(#[from] ParseError),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
     #[error("New block number must be 1 greater than the current block number")]
@@ -128,7 +116,7 @@ pub enum ApplyBlockError {
     #[error("Received invalid nullifier root")]
     NewBlockInvalidNullifierRoot,
     #[error("Duplicated nullifiers {0:?}")]
-    DuplicatedNullifiers(Vec<RpoDigest>),
+    DuplicatedNullifiers(Vec<Digest>),
     #[error("Unable to create proof for note: {0}")]
     UnableToCreateProofForNote(MerkleError),
     #[error("Block applying was broken because of closed channel on database side: {0}")]
@@ -143,16 +131,12 @@ pub enum ApplyBlockError {
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
 }
 
-impl From<ParseError> for ApplyBlockError {
-    fn from(err: ParseError) -> Self {
-        ApplyBlockError::ConversionError(err.into())
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum GetBlockInputsError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
+    #[error("Account error: {0}")]
+    AccountError(#[from] AccountError),
     #[error("Database doesn't have any block header data")]
     DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]

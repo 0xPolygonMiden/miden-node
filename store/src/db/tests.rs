@@ -1,5 +1,4 @@
-use miden_crypto::{hash::rpo::RpoDigest, merkle::LeafIndex};
-use miden_node_proto::{
+use miden_node_proto::generated::{
     account::{AccountId, AccountInfo},
     block_header::BlockHeader as ProtobufBlockHeader,
     digest::Digest as ProtobufDigest,
@@ -7,7 +6,14 @@ use miden_node_proto::{
     note::Note,
     responses::{AccountHashUpdate, NullifierUpdate},
 };
-use miden_objects::{crypto::merkle::SimpleSmt, notes::NOTE_LEAF_DEPTH, Felt, FieldElement};
+use miden_objects::{
+    crypto::{
+        hash::rpo::RpoDigest,
+        merkle::{LeafIndex, SimpleSmt},
+    },
+    notes::NOTE_LEAF_DEPTH,
+    Felt, FieldElement,
+};
 use rusqlite::{vtab::array, Connection};
 
 use super::sql;
@@ -103,7 +109,7 @@ fn test_sql_select_notes() {
         let note = Note {
             block_num,
             note_index: i,
-            note_hash: Some(num_to_protobuf_digest(i.into())),
+            note_id: Some(num_to_protobuf_digest(i.into())),
             sender: i.into(),
             tag: i.into(),
             merkle_path: Some(MerklePath { siblings: vec![] }),
@@ -140,11 +146,7 @@ fn test_sql_select_accounts() {
         });
 
         let transaction = conn.transaction().unwrap();
-        let res = sql::upsert_accounts_with_blocknum(
-            &transaction,
-            &[(account, digest.into())],
-            block_num,
-        );
+        let res = sql::upsert_accounts(&transaction, &[(account, digest.into())], block_num);
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
         let accounts = sql::select_accounts(&mut conn).unwrap();
@@ -354,12 +356,9 @@ fn test_db_account() {
     let account_hash = num_to_protobuf_digest(0);
 
     let transaction = conn.transaction().unwrap();
-    let row_count = sql::upsert_accounts_with_blocknum(
-        &transaction,
-        &[(account_id, account_hash.clone())],
-        block_num,
-    )
-    .unwrap();
+    let row_count =
+        sql::upsert_accounts(&transaction, &[(account_id, account_hash.clone())], block_num)
+            .unwrap();
     transaction.commit().unwrap();
 
     assert_eq!(row_count, 1);
@@ -414,7 +413,7 @@ fn test_notes() {
     let note = Note {
         block_num,
         note_index,
-        note_hash: Some(num_to_protobuf_digest(3)),
+        note_id: Some(num_to_protobuf_digest(3)),
         sender: 4,
         tag,
         merkle_path: Some(MerklePath {
@@ -454,7 +453,7 @@ fn test_notes() {
     let note2 = Note {
         block_num: note.block_num + 1,
         note_index: note.note_index,
-        note_hash: Some(num_to_protobuf_digest(3)),
+        note_id: Some(num_to_protobuf_digest(3)),
         sender: note.sender,
         tag: note.tag,
         merkle_path: Some(MerklePath {

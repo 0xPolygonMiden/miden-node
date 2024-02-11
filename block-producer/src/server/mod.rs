@@ -1,7 +1,7 @@
 use std::{net::ToSocketAddrs, sync::Arc};
 
 use anyhow::{anyhow, Result};
-use miden_node_proto::{block_producer::api_server, store::api_client as store_client};
+use miden_node_proto::generated::{block_producer::api_server, store::api_client as store_client};
 use tonic::transport::Server;
 use tracing::{info, instrument};
 

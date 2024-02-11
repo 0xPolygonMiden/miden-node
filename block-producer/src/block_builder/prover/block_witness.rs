@@ -1,13 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use miden_crypto::{merkle::SmtProof, ZERO};
-use miden_node_proto::domain::BlockInputs;
+use miden_node_proto::domain::blocks::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::{EmptySubtreeRoots, MerkleStore, MmrPeaks},
-    BlockHeader, Digest, Felt,
+    crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
+    vm::{AdviceInputs, StackInputs},
+    BlockHeader, Digest, Felt, ZERO,
 };
-use miden_vm::{crypto::MerklePath, AdviceInputs, StackInputs};
 
 use crate::{
     errors::{BlockProverError, BuildBlockError},

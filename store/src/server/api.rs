@@ -1,29 +1,30 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use miden_crypto::{hash::rpo::RpoDigest, Felt, ZERO};
 use miden_node_proto::{
-    conversion::convert,
-    digest::Digest,
+    convert,
     errors::ParseError,
-    requests::{
-        ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
-        GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
-        ListNullifiersRequest, SyncStateRequest,
+    generated::{
+        self,
+        requests::{
+            ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
+            GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+        },
+        responses::{
+            ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
+            ListNotesResponse, ListNullifiersResponse, SyncStateResponse,
+        },
+        smt::SmtLeafEntry,
+        store::api_server,
     },
-    responses::{
-        ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
-        GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
-        ListNotesResponse, ListNullifiersResponse, SyncStateResponse,
-    },
-    smt::SmtLeafEntry,
-    store::api_server,
 };
-use miden_objects::BlockHeader;
+use miden_objects::{BlockHeader, Digest, Felt, ZERO};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, COMPONENT};
+use crate::{state::State, types::AccountId, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -54,9 +55,8 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
         info!(target: COMPONENT, ?request);
 
-        let request = request.into_inner();
-        let block_header =
-            self.state.get_block_header(request.block_num).await.map_err(internal_error)?;
+        let block_num = request.into_inner().block_num;
+        let block_header = self.state.get_block_header(block_num).await.map_err(internal_error)?;
 
         Ok(Response::new(GetBlockHeaderByNumberResponse { block_header }))
     }
@@ -77,7 +77,7 @@ impl api_server::Api for StoreApi {
         &self,
         request: tonic::Request<CheckNullifiersRequest>,
     ) -> Result<Response<CheckNullifiersResponse>, Status> {
-        // Validate the nullifiers and convert them to RpoDigest values. Stop on first error.
+        // Validate the nullifiers and convert them to Digest values. Stop on first error.
         let request = request.into_inner();
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
 
@@ -190,7 +190,7 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
+        let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
 
         let (latest, accumulator, account_states, nullifier_records) = self
             .state
@@ -225,13 +225,13 @@ impl api_server::Api for StoreApi {
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
 
-        let (account, nullifiers_blocks) =
-            self.state.get_transaction_inputs(account_id, &nullifiers).await;
+        let tx_inputs = self
+            .state
+            .get_transaction_inputs(account_id, &nullifiers)
+            .await
+            .map_err(invalid_argument)?;
 
-        Ok(Response::new(GetTransactionInputsResponse {
-            account_state: Some(account.into()),
-            nullifiers: convert(nullifiers_blocks),
-        }))
+        Ok(Response::new(tx_inputs.into()))
     }
 
     // TESTING ENDPOINTS
@@ -254,7 +254,7 @@ impl api_server::Api for StoreApi {
         let nullifiers = raw_nullifiers
             .into_iter()
             .map(|(key, block_num)| SmtLeafEntry {
-                key: Some(Digest::from(key)),
+                key: Some(key.into()),
                 value: Some([Felt::from(block_num), ZERO, ZERO, ZERO].into()),
             })
             .collect();
@@ -309,10 +309,10 @@ fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
 }
 
 #[instrument(target = "miden-store", skip_all, err)]
-fn validate_nullifiers(nullifiers: &[Digest]) -> Result<Vec<RpoDigest>, Status> {
+fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Digest>, Status> {
     nullifiers
         .iter()
         .map(|v| v.try_into())
-        .collect::<Result<Vec<RpoDigest>, ParseError>>()
+        .collect::<Result<Vec<Digest>, ParseError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }
