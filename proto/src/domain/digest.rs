@@ -222,6 +222,9 @@ impl TryFrom<&digest::Digest> for Digest {
     }
 }
 
+// TESTS
+// ================================================================================================
+
 #[cfg(test)]
 mod test {
     use hex::{self, FromHex, ToHex};

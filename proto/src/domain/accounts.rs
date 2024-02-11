@@ -8,10 +8,7 @@ use crate::{
     generated::{
         self,
         requests::AccountUpdate,
-        responses::{
-            AccountBlockInputRecord,
-            AccountTransactionInputRecord as AccountTransactionInputRecordPB,
-        },
+        responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
 };
 
@@ -36,7 +33,7 @@ impl Debug for generated::account::AccountId {
     }
 }
 
-// INTO ACCOUNT ID
+// INTO PROTO ACCOUNT ID
 // ------------------------------------------------------------------------------------------------
 
 impl From<u64> for generated::account::AccountId {
@@ -53,7 +50,7 @@ impl From<AccountId> for generated::account::AccountId {
     }
 }
 
-// FROM ACCOUNT ID
+// FROM PROTO ACCOUNT ID
 // ------------------------------------------------------------------------------------------------
 
 impl From<generated::account::AccountId> for u64 {
@@ -123,6 +120,9 @@ impl TryFrom<AccountBlockInputRecord> for AccountInputRecord {
     }
 }
 
+// ACCOUNT STATE
+// ================================================================================================
+
 /// Information needed from the store to verify account in transaction.
 #[derive(Debug)]
 pub struct AccountState {
@@ -145,7 +145,7 @@ impl Display for AccountState {
     }
 }
 
-impl From<AccountState> for AccountTransactionInputRecordPB {
+impl From<AccountState> for AccountTransactionInputRecord {
     fn from(from: AccountState) -> Self {
         Self {
             account_id: Some(from.account_id.into()),
@@ -154,19 +154,19 @@ impl From<AccountState> for AccountTransactionInputRecordPB {
     }
 }
 
-impl TryFrom<AccountTransactionInputRecordPB> for AccountState {
+impl TryFrom<AccountTransactionInputRecord> for AccountState {
     type Error = ParseError;
 
-    fn try_from(from: AccountTransactionInputRecordPB) -> Result<Self, Self::Error> {
+    fn try_from(from: AccountTransactionInputRecord) -> Result<Self, Self::Error> {
         let account_id = from
             .account_id
             .clone()
-            .ok_or(AccountTransactionInputRecordPB::missing_field(stringify!(account_id)))?
+            .ok_or(AccountTransactionInputRecord::missing_field(stringify!(account_id)))?
             .try_into()?;
 
         let account_hash = from
             .account_hash
-            .ok_or(AccountTransactionInputRecordPB::missing_field(stringify!(account_hash)))?
+            .ok_or(AccountTransactionInputRecord::missing_field(stringify!(account_hash)))?
             .try_into()?;
 
         // If the hash is equal to `Digest::default()`, it signifies that this is a new account
