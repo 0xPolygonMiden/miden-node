@@ -1,16 +1,20 @@
-use std::sync::{Arc, Mutex};
-
 use actix_cors::Cors;
-use actix_files;
-use actix_web::{post, web, App, HttpResponse, HttpServer, ResponseError};
+use actix_files::{self};
+use actix_web::{
+    http::header::{self},
+    post, web, App, HttpResponse, HttpServer, ResponseError,
+};
 use derive_more::Display;
 use miden_client::{
     client::{transactions::TransactionTemplate, Client},
     config::ClientConfig,
 };
-use miden_objects::{accounts::AccountId, assets::FungibleAsset};
+use miden_objects::{
+    accounts::AccountId, assets::FungibleAsset, transaction::InputNote, utils::serde::Serializable,
+};
 use serde::Deserialize;
-use utils::import_account_from_args;
+use std::sync::{Arc, Mutex};
+use tokio::time::{sleep, Duration};
 
 mod utils;
 
@@ -42,17 +46,17 @@ async fn get_tokens(
 ) -> Result<HttpResponse, FaucetError> {
     println!("Received request from account_id: {}", req.account_id);
 
+    // get account id from user
+    let target_account_id = AccountId::from_hex(&req.account_id)
+        .map_err(|e| FaucetError::BadClientData(e.to_string()))?;
+
     // sync client
     let block = state.client.lock().unwrap().sync_state().await.map_err(|e| {
         eprintln!("Failed to sync");
         FaucetError::InternalError(e.to_string())
     })?;
 
-    println!("synced {block}");
-
-    // get account id from user
-    let target_account_id = AccountId::from_hex(&req.account_id)
-        .map_err(|e| FaucetError::BadClientData(e.to_string()))?;
+    println!("Synced to block: {block}");
 
     // create transaction template from data
     let template = TransactionTemplate::MintFungibleAsset {
@@ -68,21 +72,71 @@ async fn get_tokens(
 
     println!("Transaction has been executed");
 
+    let note_id = transaction
+        .created_notes()
+        .get(0)
+        .ok_or_else(|| {
+            FaucetError::InternalError("Transaction has not created a note.".to_string())
+        })?
+        .id();
+
     state.client.lock().unwrap().send_transaction(transaction).await.map_err(|e| {
-        eprintln!("Error: {}", e.to_string());
+        println!("error {e}");
         FaucetError::InternalError(e.to_string())
     })?;
 
     println!("Transaction has been proven and sent!");
 
+    // let mut is_input_note = false;
+
+    // for _ in 0..10 {
+    //     // sync client after submitting tx to get input_note
+    //     let block = state.client.lock().unwrap().sync_state().await.map_err(|e| {
+    //         eprintln!("Failed to sync");
+    //         FaucetError::InternalError(e.to_string())
+    //     })?;
+
+    //     println!("Synced to block: {block}");
+
+    //     if let Ok(note) = state.client.lock().unwrap().get_input_note(note_id) {
+    //         let input_note_result: Result<InputNote, _> = note.try_into();
+
+    //         if let Ok(_input_note) = input_note_result {
+    //             is_input_note = true;
+    //             break;
+    //         }
+    //     }
+    //     sleep(Duration::from_secs(1)).await;
+    // }
+
+    let note = state
+        .client
+        .lock()
+        .unwrap()
+        .get_input_note(note_id)
+        .map_err(|e| FaucetError::InternalError(e.to_string()))?;
+
+    // if is_input_note {
+    let bytes = note.to_bytes();
+    println!("Transaction has been turned to bytes");
     Ok(HttpResponse::Ok()
-        .json(format!("Token request received successfully from {}", req.account_id)))
+        .content_type("application/octet-stream")
+        .append_header(header::ContentDisposition {
+            disposition: actix_web::http::header::DispositionType::Attachment,
+            parameters: vec![actix_web::http::header::DispositionParam::Filename(
+                "note.bin".to_string(),
+            )],
+        })
+        .body(bytes))
+    // } else {
+    // Err(FaucetError::InternalError("Failed to return note".to_string()))
+    // }
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // import faucet
-    let faucet = match import_account_from_args() {
+    let faucet = match utils::import_account_from_args() {
         Ok(account_data) => account_data,
         Err(e) => panic!("Failed importing faucet account: {e}"),
     };
@@ -102,8 +156,10 @@ async fn main() -> std::io::Result<()> {
     client
         .lock()
         .unwrap()
-        .import_account(faucet)
+        .import_account(faucet.clone())
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+
+    println!("Faucet: {} has been loaded into client", faucet.account.id());
 
     HttpServer::new(move || {
         let cors = Cors::default().allow_any_origin().allow_any_method().allow_any_header();

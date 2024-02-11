@@ -8,15 +8,15 @@ pub fn import_account_from_args() -> Result<AccountData> {
     let path = match args.get(1) {
         Some(s) => match PathBuf::from_str(s) {
             Ok(path) => path,
-            Err(e) => return Err(anyhow!("Failed to turn string to path: {e}")),
+            Err(e) => return Err(anyhow!("Failed to turn string to path. {e}")),
         },
         None => return Err(anyhow!("Invalid file path")),
     };
 
     let account_data_file_contents =
-        fs::read(path).map_err(|e| anyhow!("Failed to read file: {e}"))?;
+        fs::read(path).map_err(|e| anyhow!("Failed to read file. {e}"))?;
     let account_data = AccountData::read_from_bytes(&account_data_file_contents)
-        .map_err(|e| anyhow!("Failed to deserialize file: {e}"))?;
+        .map_err(|e| anyhow!("Failed to deserialize file. {e}"))?;
 
     Ok(account_data)
 }

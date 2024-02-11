@@ -11,6 +11,7 @@ debug-assertions = true
 [dependencies]
 miden-client = { git = "https://github.com/0xPolygonMiden/miden-client", branch = "main", features = [
     "testing",
+    "concurrent",
 ] }
 actix-web = "4"
 actix-files = "0.6.5"
@@ -19,3 +20,4 @@ anyhow = "1"
 derive_more = "0.99.17"
 miden_objects = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["time"] }

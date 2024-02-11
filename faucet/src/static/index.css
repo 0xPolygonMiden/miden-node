@@ -23,6 +23,13 @@ body {
     background-repeat: repeat;
 }
 
+#error-message {
+    display: none;
+    color: red;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
 #navbar {
     position: fixed;
     top: 0;
@@ -54,13 +61,13 @@ body {
     font-weight: bold;
     color: white;
     margin: 0;
+    margin-bottom: 20px;
 }
 
 #account-id {
     padding: 10px;
     border-radius: 10px;
     border: 1px solid #ccc;
-    margin-top: 30px;
     margin-bottom: 30px;
     width: 300px;
 }
