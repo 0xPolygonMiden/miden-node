@@ -1,4 +1,4 @@
-use miden_crypto::{StarkField, Word};
+use miden_objects::{StarkField, Word};
 
 pub mod accounts;
 pub mod blocks;

@@ -1,4 +1,4 @@
-use miden_crypto::merkle::MerklePath;
+use miden_objects::crypto::merkle::MerklePath;
 
 use crate::{
     errors::ParseError,

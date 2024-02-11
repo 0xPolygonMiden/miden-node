@@ -1,8 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use miden_crypto::merkle::MerklePath;
 use miden_node_utils::formatting::format_opt;
-use miden_objects::{accounts::AccountId, Digest, Digest as RpoDigest};
+use miden_objects::{accounts::AccountId, crypto::merkle::MerklePath, Digest};
 
 use crate::{
     errors::{MissingFieldHelper, ParseError},
@@ -74,8 +73,8 @@ impl TryFrom<generated::account::AccountId> for AccountId {
 // INTO ACCOUNT UPDATE
 // ================================================================================================
 
-impl From<(AccountId, RpoDigest)> for AccountUpdate {
-    fn from((account_id, account_hash): (AccountId, RpoDigest)) -> Self {
+impl From<(AccountId, Digest)> for AccountUpdate {
+    fn from((account_id, account_hash): (AccountId, Digest)) -> Self {
         Self {
             account_id: Some(account_id.into()),
             account_hash: Some(account_hash.into()),

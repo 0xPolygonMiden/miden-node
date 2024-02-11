@@ -1,5 +1,4 @@
-use miden_crypto::merkle::MmrPeaks;
-use miden_objects::BlockHeader;
+use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 
 use crate::{
     domain::{accounts::AccountInputRecord, nullifiers::NullifierInputRecord, try_convert},

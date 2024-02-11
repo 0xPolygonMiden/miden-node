@@ -1,6 +1,6 @@
 use std::any::type_name;
 
-use miden_crypto::merkle::{MmrError, SmtLeafError, SmtProofError};
+use miden_objects::crypto::merkle::{MmrError, SmtLeafError, SmtProofError};
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq)]

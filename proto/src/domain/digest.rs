@@ -1,10 +1,9 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use hex::{FromHex, ToHex};
-use miden_crypto::{Felt, StarkField};
 use miden_objects::{
     notes::{NoteId, Nullifier},
-    Digest,
+    Digest, Felt, StarkField,
 };
 
 use crate::{errors::ParseError, generated::digest};

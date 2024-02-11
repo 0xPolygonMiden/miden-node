@@ -1,8 +1,7 @@
-use miden_crypto::{
-    merkle::{LeafIndex, MerklePath, SmtLeaf, SmtProof},
-    Word,
+use miden_objects::{
+    crypto::merkle::{LeafIndex, MerklePath, SmtLeaf, SmtProof},
+    Digest, Word,
 };
-use miden_objects::{Digest, Digest as RpoDigest};
 
 use crate::{
     domain::{convert, try_convert},
@@ -56,12 +55,12 @@ impl TryFrom<smt::SmtLeaf> for SmtLeaf {
                 Ok(Self::new_empty(LeafIndex::new_max_depth(leaf_index)))
             },
             smt::smt_leaf::Leaf::Single(entry) => {
-                let (key, value): (RpoDigest, Word) = entry.try_into()?;
+                let (key, value): (Digest, Word) = entry.try_into()?;
 
                 Ok(SmtLeaf::new_single(key, value))
             },
             smt::smt_leaf::Leaf::Multiple(entries) => {
-                let domain_entries: Vec<(RpoDigest, Word)> = try_convert(entries.entries)?;
+                let domain_entries: Vec<(Digest, Word)> = try_convert(entries.entries)?;
 
                 Ok(SmtLeaf::new_multiple(domain_entries)?)
             },
@@ -85,11 +84,11 @@ impl From<SmtLeaf> for smt::SmtLeaf {
     }
 }
 
-impl TryFrom<smt::SmtLeafEntry> for (RpoDigest, Word) {
+impl TryFrom<smt::SmtLeafEntry> for (Digest, Word) {
     type Error = ParseError;
 
     fn try_from(entry: smt::SmtLeafEntry) -> Result<Self, Self::Error> {
-        let key: RpoDigest =
+        let key: Digest =
             entry.key.ok_or(smt::SmtLeafEntry::missing_field(stringify!(key)))?.try_into()?;
         let value: Word = entry
             .value
@@ -100,8 +99,8 @@ impl TryFrom<smt::SmtLeafEntry> for (RpoDigest, Word) {
     }
 }
 
-impl From<(RpoDigest, Word)> for smt::SmtLeafEntry {
-    fn from((key, value): (RpoDigest, Word)) -> Self {
+impl From<(Digest, Word)> for smt::SmtLeafEntry {
+    fn from((key, value): (Digest, Word)) -> Self {
         Self {
             key: Some(key.into()),
             value: Some(value.into()),
