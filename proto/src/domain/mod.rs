@@ -1,4 +1,4 @@
-use miden_objects::{StarkField, Word};
+use miden_objects::Word;
 
 pub mod accounts;
 pub mod blocks;

@@ -486,7 +486,12 @@ pub fn build_notes_tree(
             .ok_or(NoteCreated::missing_field(stringify!(sender)))?
             .try_into()
             .or(Err(ApplyBlockError::InvalidAccountId))?;
-        let note_metadata = NoteMetadata::new(account_id, note.tag.into());
+        let note_metadata = NoteMetadata::new(
+            account_id,
+            note.tag
+                .try_into()
+                .expect("tag value is greater than or equal to the field modulus"),
+        );
         let index = note.note_index as u64;
         entries.push((index, note_id.try_into()?));
         entries.push((index + 1, note_metadata.into()));

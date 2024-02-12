@@ -72,7 +72,10 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
                 .ok_or(block_header::BlockHeader::missing_field(stringify!(proof_hash)))?
                 .try_into()?,
             value.version.into(),
-            value.timestamp.into(),
+            value
+                .timestamp
+                .try_into()
+                .expect("timestamp value is greater than or equal to the field modulus"),
         ))
     }
 }

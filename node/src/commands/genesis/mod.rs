@@ -148,7 +148,8 @@ fn create_accounts(
                     init_seed,
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
-                    Felt::from(inputs.max_supply),
+                    Felt::try_from(inputs.max_supply)
+                        .expect("max supply value is greater than or equal to the field modulus"),
                     auth_scheme,
                 )?;
 
