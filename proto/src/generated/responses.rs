@@ -8,7 +8,7 @@ pub struct ApplyBlockResponse {}
 pub struct CheckNullifiersResponse {
     /// Each requested nullifier has its corresponding nullifier proof at the same position.
     #[prost(message, repeated, tag = "1")]
-    pub proofs: ::prost::alloc::vec::Vec<super::tsmt::NullifierProof>,
+    pub proofs: ::prost::alloc::vec::Vec<super::smt::SmtOpening>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -80,7 +80,7 @@ pub struct NullifierBlockInputRecord {
     #[prost(message, optional, tag = "1")]
     pub nullifier: ::core::option::Option<super::digest::Digest>,
     #[prost(message, optional, tag = "2")]
-    pub proof: ::core::option::Option<super::merkle::MerklePath>,
+    pub opening: ::core::option::Option<super::smt::SmtOpening>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -140,7 +140,7 @@ pub struct SubmitProvenTransactionResponse {}
 pub struct ListNullifiersResponse {
     /// Lists all nullifiers of the current chain
     #[prost(message, repeated, tag = "1")]
-    pub nullifiers: ::prost::alloc::vec::Vec<super::tsmt::NullifierLeaf>,
+    pub nullifiers: ::prost::alloc::vec::Vec<super::smt::SmtLeafEntry>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]

@@ -1,7 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use miden_air::{ExecutionOptions, Felt};
-use miden_crypto::merkle::TieredSmt;
 use miden_objects::{assembly::Assembler, BlockHeader, Digest};
 use miden_stdlib::StdLibrary;
 use miden_vm::{execute, DefaultHost, MemAdviceProvider, Program};
@@ -15,8 +14,11 @@ pub const ACCOUNT_ROOT_WORD_IDX: usize = 0;
 /// The index of the word at which the note root is stored on the output stack.
 pub const NOTE_ROOT_WORD_IDX: usize = 4;
 
+/// The index of the word at which the nullifier root is stored on the output stack.
+pub const NULLIFIER_ROOT_WORD_IDX: usize = 8;
+
 /// The index of the word at which the note root is stored on the output stack.
-pub const CHAIN_MMR_ROOT_WORD_IDX: usize = 8;
+pub const CHAIN_MMR_ROOT_WORD_IDX: usize = 12;
 
 pub mod block_witness;
 
@@ -29,6 +31,7 @@ mod tests;
 /// Stack inputs: [num_accounts_updated, OLD_ACCOUNT_ROOT, NEW_ACCOUNT_HASH_0, account_id_0, ... ,
 /// NEW_ACCOUNT_HASH_n, account_id_n]
 const BLOCK_KERNEL_MASM: &str = "
+use.std::collections::smt
 use.std::collections::smt64
 use.std::collections::mmr
 
@@ -106,6 +109,38 @@ proc.compute_note_root
     # => [ROOT_{n-1}]
 end
 
+#! Stack: [num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_VALUE,
+#!         NULLIFIER_0, ..., NULLIFIER_n]
+#! Output: [NULLIFIER_ROOT]
+proc.compute_nullifier_root
+    # assess if we should loop
+    dup neq.0
+    #=> [0 or 1, num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_VALUE, NULLIFIER_0, ..., NULLIFIER_n ]
+    
+    while.true
+        #=> [num_nullifiers_left_to_update, ROOT_i, NULLIFIER_VALUE, NULLIFIER_i, ... ]
+
+        # Prepare stack for `smt::set`
+        movdn.12 movupw.2 dupw.2
+        #=> [NULLIFIER_VALUE, NULLIFIER_i, ROOT_i, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
+
+        exec.smt::set
+        #=> [OLD_VALUE, ROOT_{i+1}, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
+
+        # Check that OLD_VALUE == 0 (i.e. that nullifier was indeed not previously produced)
+        assertz assertz assertz assertz 
+        #=> [ROOT_{i+1}, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
+
+        # loop counter
+        movup.8 sub.1 dup neq.0
+        #=> [0 or 1, num_nullifiers_left_to_update - 1, ROOT_{i+1}, NULLIFIER_VALUE, ... ]
+    end
+    #=> [0, ROOT_{n-1}, NULLIFIER_VALUE ]
+
+    drop swapw dropw
+    # => [ROOT_{n-1}]
+end
+
 #! Compute the chain MMR root
 #!
 #! Stack: [ PREV_CHAIN_MMR_HASH, PREV_BLOCK_HASH_TO_INSERT ]
@@ -132,20 +167,23 @@ proc.compute_chain_mmr_root
     # => [ CHAIN_MMR_ROOT ]
 end
 
-# Stack: [<account root inputs>, <note root inputs>, <chain mmr root inputs>]
+# Stack: [<account root inputs>, <note root inputs>, <nullifier root inputs>, <chain mmr root inputs>]
 begin
     exec.compute_account_root mem_storew.0 dropw
-    # => [<note root inputs>, <chain mmr root inputs>]
+    # => [<note root inputs>, <nullifier root inputs>, <chain mmr root inputs>]
 
     exec.compute_note_root mem_storew.1 dropw
+    # => [ <nullifier root inputs>, <chain mmr root inputs> ]
+
+    exec.compute_nullifier_root mem_storew.2 dropw
     # => [ <chain mmr root inputs> ]
 
     exec.compute_chain_mmr_root
     # => [ CHAIN_MMR_ROOT ]
 
     # Load output on stack
-    padw mem_loadw.1 padw mem_loadw.0
-    #=> [ ACCOUNT_ROOT, NOTE_ROOT, CHAIN_MMR_ROOT ]
+    padw mem_loadw.2 padw mem_loadw.1 padw mem_loadw.0
+    #=> [ ACCOUNT_ROOT, NOTE_ROOT, NULLIFIER_ROOT, CHAIN_MMR_ROOT ]
 end
 ";
 
@@ -180,9 +218,8 @@ impl BlockProver {
         let block_num = witness.prev_header.block_num() + 1;
         let version = witness.prev_header.version();
 
-        let (account_root, note_root, chain_root) = self.compute_roots(witness)?;
+        let (account_root, note_root, nullifier_root, chain_root) = self.compute_roots(witness)?;
 
-        let nullifier_root = TieredSmt::default().root();
         let batch_root = Digest::default();
         let proof_hash = Digest::default();
         let timestamp: Felt = SystemTime::now()
@@ -208,7 +245,7 @@ impl BlockProver {
     fn compute_roots(
         &self,
         witness: BlockWitness,
-    ) -> Result<(Digest, Digest, Digest), BlockProverError> {
+    ) -> Result<(Digest, Digest, Digest, Digest), BlockProverError> {
         let (advice_inputs, stack_inputs) = witness.into_program_inputs()?;
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
@@ -230,11 +267,21 @@ impl BlockProver {
             .get_stack_word(NOTE_ROOT_WORD_IDX)
             .ok_or(BlockProverError::InvalidRootOutput("note".to_string()))?;
 
+        let new_nullifier_root = execution_output
+            .stack_outputs()
+            .get_stack_word(NULLIFIER_ROOT_WORD_IDX)
+            .ok_or(BlockProverError::InvalidRootOutput("nullifier".to_string()))?;
+
         let new_chain_mmr_root = execution_output
             .stack_outputs()
             .get_stack_word(CHAIN_MMR_ROOT_WORD_IDX)
             .ok_or(BlockProverError::InvalidRootOutput("chain mmr".to_string()))?;
 
-        Ok((new_account_root.into(), new_note_root.into(), new_chain_mmr_root.into()))
+        Ok((
+            new_account_root.into(),
+            new_note_root.into(),
+            new_nullifier_root.into(),
+            new_chain_mmr_root.into(),
+        ))
     }
 }

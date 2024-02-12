@@ -1,6 +1,7 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
+use miden_node_proto::TransactionInputs;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
@@ -9,7 +10,7 @@ use tracing::{debug, instrument};
 use crate::{
     block::Block,
     errors::VerifyTxError,
-    store::{ApplyBlock, ApplyBlockError, Store, TxInputs},
+    store::{ApplyBlock, ApplyBlockError, Store},
     txqueue::TransactionVerifier,
     ProvenTransaction, COMPONENT,
 };
@@ -176,11 +177,11 @@ fn ensure_in_flight_constraints(
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_tx_inputs_constraints(
     candidate_tx: &ProvenTransaction,
-    tx_inputs: TxInputs,
+    tx_inputs: TransactionInputs,
 ) -> Result<(), VerifyTxError> {
     debug!(target: COMPONENT, %tx_inputs);
 
-    match tx_inputs.account_hash {
+    match tx_inputs.account_state.account_hash {
         // if the account is present in the Store, make sure that the account state hash
         // from the received transaction is the same as the one from the Store
         Some(store_account_hash) => {
@@ -200,7 +201,7 @@ fn ensure_tx_inputs_constraints(
     let infracting_nullifiers: Vec<Nullifier> = tx_inputs
         .nullifiers
         .into_iter()
-        .filter(|&(_, is_already_consumed)| is_already_consumed)
+        .filter(|&(_, block_num)| block_num != 0)
         .map(|(nullifier_in_tx, _)| nullifier_in_tx.into())
         .collect();
 

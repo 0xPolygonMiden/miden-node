@@ -54,7 +54,7 @@ This method doesn't return any data.
 
 ### CheckNullifiers
 
-Get a list of proofs for given nullifier hashes, each proof as Tiered Sparse Merkle Trees ([read more](../proto/proto/tsmt.proto)).
+Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree
 
 **Parameters:**
 

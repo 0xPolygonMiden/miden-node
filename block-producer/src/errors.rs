@@ -1,12 +1,11 @@
-use miden_air::trace::chiplets::hasher::Digest;
-use miden_crypto::merkle::MerkleError;
 use miden_node_proto::errors::ParseError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
+    crypto::merkle::MerkleError,
     notes::Nullifier,
     transaction::{InputNotes, ProvenTransaction},
-    TransactionInputError,
+    Digest, TransactionInputError,
 };
 use miden_vm::ExecutionError;
 use thiserror::Error;
@@ -131,6 +130,8 @@ pub enum BuildBlockError {
     InconsistentAccountIds(Vec<AccountId>),
     #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
     InconsistentAccountStates(Vec<AccountId>),
+    #[error("transaction batches and store don't produce the same nullifiers. Offending nullifiers: {0:?}")]
+    InconsistentNullifiers(Vec<Digest>),
     #[error(
         "too many batches in block. Got: {0}, max: 2^{}",
         CREATED_NOTES_TREE_INSERTION_DEPTH

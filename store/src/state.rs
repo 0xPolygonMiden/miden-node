@@ -1,37 +1,28 @@
-//! Abstraction to synchornize state modifications.
+//! Abstraction to synchronize state modifications.
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{
-    fmt::{Debug, Display, Formatter},
-    mem,
-    sync::Arc,
-};
+use std::{mem, sync::Arc};
 
-use miden_crypto::{
-    hash::rpo::RpoDigest,
-    merkle::{
-        LeafIndex, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, TieredSmt, TieredSmtProof,
-        ValuePath,
-    },
-    Felt, FieldElement, Word, EMPTY_WORD,
-};
 use miden_node_proto::{
-    account::AccountInfo,
-    block_header,
-    conversion::nullifier_value_to_blocknum,
-    digest::Digest,
-    errors::ParseError,
-    note::{Note, NoteCreated},
-    requests::AccountUpdate,
-    responses::{
-        AccountBlockInputRecord, AccountTransactionInputRecord, NullifierTransactionInputRecord,
+    domain::accounts::AccountState,
+    errors::{MissingFieldHelper, ParseError},
+    generated::{
+        account::AccountInfo,
+        block_header,
+        digest::Digest,
+        note::{Note, NoteCreated},
     },
+    nullifier_value_to_block_num, AccountInputRecord, NullifierWitness, TransactionInputs,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
+    crypto::{
+        hash::rpo::RpoDigest,
+        merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtProof, ValuePath},
+    },
     notes::{NoteMetadata, NOTE_LEAF_DEPTH},
-    BlockHeader, ACCOUNT_TREE_DEPTH,
+    AccountError, BlockHeader, Felt, FieldElement, Word, ACCOUNT_TREE_DEPTH, EMPTY_WORD,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -42,8 +33,8 @@ use tracing::{info, info_span, instrument};
 use crate::{
     db::{Db, StateSyncUpdate},
     errors::{
-        ApplyBlockError, ConversionError, DatabaseError, GetBlockInputsError,
-        StateInitializationError, StateSyncError,
+        ApplyBlockError, DatabaseError, GetBlockInputsError, StateInitializationError,
+        StateSyncError,
     },
     types::{AccountId, BlockNumber},
     COMPONENT,
@@ -54,7 +45,7 @@ use crate::{
 
 /// Container for state that needs to be updated atomically.
 struct InnerState {
-    nullifier_tree: TieredSmt,
+    nullifier_tree: Smt,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
 }
@@ -71,116 +62,6 @@ pub struct State {
     /// To allow readers to access the tree data while an update in being performed, and prevent
     /// TOCTOU issues, there must be no concurrent writers. This locks to serialize the writers.
     writer: Mutex<()>,
-}
-
-pub struct AccountStateWithProof {
-    account_id: AccountId,
-    account_hash: Word,
-    merkle_path: MerklePath,
-}
-
-impl From<AccountStateWithProof> for AccountBlockInputRecord {
-    fn from(value: AccountStateWithProof) -> Self {
-        Self {
-            account_id: Some(value.account_id.into()),
-            account_hash: Some(value.account_hash.into()),
-            proof: Some(value.merkle_path.into()),
-        }
-    }
-}
-
-pub struct AccountState {
-    account_id: AccountId,
-    account_hash: Word,
-}
-
-impl Debug for AccountState {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{{ account_id: {}, account_hash: {} }}",
-            format_account_id(self.account_id),
-            RpoDigest::from(self.account_hash),
-        ))
-    }
-}
-
-impl Display for AccountState {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
-        Debug::fmt(self, f)
-    }
-}
-
-impl From<AccountState> for AccountTransactionInputRecord {
-    fn from(value: AccountState) -> Self {
-        Self {
-            account_id: Some(value.account_id.into()),
-            account_hash: Some(value.account_hash.into()),
-        }
-    }
-}
-
-impl TryFrom<AccountUpdate> for AccountState {
-    type Error = ConversionError;
-
-    fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
-        Ok(Self {
-            account_id: value
-                .account_id
-                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
-                    entity: "account update",
-                    field_name: "account_id",
-                })?
-                .into(),
-            account_hash: value
-                .account_hash
-                .ok_or(ConversionError::MissingFieldInProtobufRepresentation {
-                    entity: "account update",
-                    field_name: "account_hash",
-                })?
-                .try_into()?,
-        })
-    }
-}
-
-impl TryFrom<&AccountUpdate> for AccountState {
-    type Error = ConversionError;
-
-    fn try_from(value: &AccountUpdate) -> Result<Self, Self::Error> {
-        value.clone().try_into()
-    }
-}
-
-#[derive(Debug)]
-pub struct NullifierStateForTransactionInput {
-    nullifier: RpoDigest,
-    block_num: u32,
-}
-
-impl Display for NullifierStateForTransactionInput {
-    fn fmt(
-        &self,
-        formatter: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
-        formatter.write_fmt(format_args!(
-            "{{ nullifier: {}, block_num: {} }}",
-            self.nullifier, self.block_num
-        ))
-    }
-}
-
-impl From<NullifierStateForTransactionInput> for NullifierTransactionInputRecord {
-    fn from(value: NullifierStateForTransactionInput) -> Self {
-        Self {
-            nullifier: Some(value.nullifier.into()),
-            block_num: value.block_num,
-        }
-    }
 }
 
 impl State {
@@ -258,7 +139,7 @@ impl State {
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
                 .iter()
-                .filter(|&&n| inner.nullifier_tree.get_value(n) != EMPTY_WORD)
+                .filter(|&n| inner.nullifier_tree.get_value(n) != EMPTY_WORD)
                 .cloned()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
@@ -295,10 +176,9 @@ impl State {
                     nullifier_tree.insert(*nullifier, nullifier_data);
                 }
 
-                // FIXME: Re-add when nullifiers start getting updated
-                // if nullifier_tree.root() != new_block.nullifier_root() {
-                //     return Err(StateError::NewBlockInvalidNullifierRoot);
-                // }
+                if nullifier_tree.root() != new_block.nullifier_root() {
+                    return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
+                }
                 nullifier_tree
             };
 
@@ -333,7 +213,7 @@ impl State {
 
                     Ok(Note {
                         block_num: new_block.block_num(),
-                        note_hash: note.note_hash.clone(),
+                        note_id: note.note_id.clone(),
                         sender: note.sender,
                         note_index: note.note_index,
                         tag: note.tag,
@@ -397,9 +277,9 @@ impl State {
     pub async fn check_nullifiers(
         &self,
         nullifiers: &[RpoDigest],
-    ) -> Vec<TieredSmtProof> {
+    ) -> Vec<SmtProof> {
         let inner = self.inner.read().await;
-        nullifiers.iter().map(|n| inner.nullifier_tree.prove(*n)).collect()
+        nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
     /// Loads data to synchronize a client.
@@ -464,9 +344,14 @@ impl State {
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
-        _nullifiers: &[RpoDigest],
+        nullifiers: &[RpoDigest],
     ) -> Result<
-        (block_header::BlockHeader, MmrPeaks, Vec<AccountStateWithProof>),
+        (
+            block_header::BlockHeader,
+            MmrPeaks,
+            Vec<AccountInputRecord>,
+            Vec<NullifierWitness>,
+        ),
         GetBlockInputsError,
     > {
         let inner = self.inner.read().await;
@@ -499,18 +384,29 @@ impl State {
             .map(|account_id| {
                 let ValuePath {
                     value: account_hash,
-                    path: merkle_path,
+                    path: proof,
                 } = inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
-                AccountStateWithProof {
-                    account_id,
-                    account_hash: account_hash.into(),
-                    merkle_path,
+                Ok(AccountInputRecord {
+                    account_id: account_id.try_into()?,
+                    account_hash,
+                    proof,
+                })
+            })
+            .collect::<Result<_, AccountError>>()?;
+
+        let nullifier_input_records: Vec<NullifierWitness> = nullifiers
+            .iter()
+            .map(|nullifier| {
+                let proof = inner.nullifier_tree.open(nullifier);
+
+                NullifierWitness {
+                    nullifier: *nullifier,
+                    proof,
                 }
             })
             .collect();
 
-        // TODO: add nullifiers
-        Ok((latest, peaks, account_states))
+        Ok((latest, peaks, account_states, nullifier_input_records))
     }
 
     /// Returns data needed by the block producer to verify transactions validity.
@@ -519,35 +415,33 @@ impl State {
         &self,
         account_id: AccountId,
         nullifiers: &[RpoDigest],
-    ) -> (AccountState, Vec<NullifierStateForTransactionInput>) {
+    ) -> Result<TransactionInputs, AccountError> {
         info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
 
-        let account = AccountState {
-            account_id,
-            account_hash: inner
-                .account_tree
-                .open(&LeafIndex::new_max_depth(account_id))
-                .value
-                .into(),
+        let account_state = AccountState {
+            account_id: account_id.try_into()?,
+            account_hash: Some(
+                inner.account_tree.open(&LeafIndex::new_max_depth(account_id)).value,
+            ),
         };
 
-        let nullifier_blocks = nullifiers
+        let nullifiers = nullifiers
             .iter()
             .cloned()
             .map(|nullifier| {
-                let value = inner.nullifier_tree.get_value(nullifier);
-                let block_num = nullifier_value_to_blocknum(value);
+                let value = inner.nullifier_tree.get_value(&nullifier);
+                let block_num = nullifier_value_to_block_num(value);
 
-                NullifierStateForTransactionInput {
-                    nullifier,
-                    block_num,
-                }
+                (nullifier, block_num)
             })
             .collect();
 
-        (account, nullifier_blocks)
+        Ok(TransactionInputs {
+            account_state,
+            nullifiers,
+        })
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
@@ -570,9 +464,9 @@ impl State {
 // UTILITIES
 // ================================================================================================
 
-/// Returns the nullifier's block number given its leaf value in the TSMT.
+/// Returns the nullifier's block number given its leaf value in the SMT.
 fn block_to_nullifier_data(block: BlockNumber) -> Word {
-    [Felt::new(block as u64), Felt::ZERO, Felt::ZERO, Felt::ZERO]
+    [Felt::from(block), Felt::ZERO, Felt::ZERO, Felt::ZERO]
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
@@ -584,16 +478,12 @@ pub fn build_notes_tree(
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
-        let note_hash = note.note_hash.clone().ok_or(
-            ConversionError::MissingFieldInProtobufRepresentation {
-                entity: "note",
-                field_name: "note_hash",
-            },
-        )?;
+        let note_id =
+            note.note_id.clone().ok_or(NoteCreated::missing_field(stringify!(note_id)))?;
         let account_id = note.sender.try_into().or(Err(ApplyBlockError::InvalidAccountId))?;
         let note_metadata = NoteMetadata::new(account_id, note.tag.into());
         let index = note.note_index as u64;
-        entries.push((index, note_hash.try_into()?));
+        entries.push((index, note_id.try_into()?));
         entries.push((index + 1, note_metadata.into()));
     }
 
@@ -601,7 +491,7 @@ pub fn build_notes_tree(
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt, StateInitializationError> {
+async fn load_nullifier_tree(db: &mut Db) -> Result<Smt, StateInitializationError> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
     let leaves = nullifiers
@@ -609,7 +499,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<TieredSmt, StateInitializati
         .map(|(nullifier, block)| (nullifier, block_to_nullifier_data(block)));
 
     let now = Instant::now();
-    let nullifier_tree = TieredSmt::with_entries(leaves)
+    let nullifier_tree = Smt::with_entries(leaves)
         .map_err(StateInitializationError::FailedToCreateNullifiersTree)?;
     let elapsed = now.elapsed().as_secs();
 
@@ -640,7 +530,7 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
 async fn load_accounts(
     db: &mut Db
 ) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
-    let account_data: Result<Vec<_>, ConversionError> = db
+    let account_data: Result<Vec<_>, ParseError> = db
         .select_account_hashes()
         .await?
         .into_iter()

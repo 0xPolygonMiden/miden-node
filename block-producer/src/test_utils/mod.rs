@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::Arc;
 
 use miden_objects::{accounts::AccountId, Digest};
 use tokio::sync::RwLock;

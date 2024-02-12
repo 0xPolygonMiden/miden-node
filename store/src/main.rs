@@ -2,21 +2,21 @@ mod cli;
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use cli::{Cli, Command, Query};
-use hex::ToHex;
-use miden_crypto::merkle::{path_to_text, TieredSmtProof};
-use miden_node_proto::{
-    account::AccountId,
+use miden_node_proto::generated::{
     requests::{
         CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
         GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest, ListNullifiersRequest,
         SyncStateRequest,
     },
+    smt::SmtOpening,
     store::api_client,
-    tsmt::NullifierProof,
 };
 use miden_node_store::{config::StoreTopLevelConfig, db::Db, server};
 use miden_node_utils::config::load_config;
-use miden_objects::BlockHeader;
+use miden_objects::{
+    crypto::merkle::{path_to_text, SmtProof},
+    BlockHeader,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -69,25 +69,23 @@ async fn query(
         },
         Query::CheckNullifiers(args) => {
             let request = tonic::Request::new(CheckNullifiersRequest {
-                nullifiers: args.nullifiers.clone(),
+                nullifiers: args.nullifiers.iter().map(|n| n.into()).collect(),
             });
             let response = client.check_nullifiers(request).await?.into_inner();
-            let proofs = response
-                .proofs
-                .into_iter()
-                .map(<NullifierProof as TryInto<TieredSmtProof>>::try_into);
+            let proofs =
+                response.proofs.into_iter().map(<SmtOpening as TryInto<SmtProof>>::try_into);
             for (result, nullifier) in proofs.zip(args.nullifiers.iter()) {
                 match result {
                     Ok(proof) => {
                         let (path, leaf) = proof.into_parts();
                         println!(
                             "{} merkle_path: {:?} leaf: {:?}",
-                            nullifier.encode_hex::<String>(),
+                            nullifier.to_hex(),
                             path_to_text(&path).expect("Formatting merkle path failed"),
                             leaf,
                         )
                     },
-                    Err(e) => println!("{} {:?}", nullifier.encode_hex::<String>(), e),
+                    Err(e) => println!("{} {:?}", nullifier.to_hex(), e),
                 }
             }
             Ok(())
@@ -95,7 +93,7 @@ async fn query(
         Query::SyncState(args) => {
             let request = tonic::Request::new(SyncStateRequest {
                 block_num: args.block_num,
-                account_ids: args.account_ids.iter().map(|&id| AccountId { id }).collect(),
+                account_ids: args.account_ids.iter().map(|&id| id.into()).collect(),
                 note_tags: args.note_tags.clone(),
                 nullifiers: args.nullifiers.clone(),
             });
@@ -105,8 +103,8 @@ async fn query(
         },
         Query::GetBlockInputs(args) => {
             let request = tonic::Request::new(GetBlockInputsRequest {
-                account_ids: args.account_ids.iter().map(|&id| AccountId { id }).collect(),
-                nullifiers: args.nullifiers.clone(),
+                account_ids: args.account_ids.iter().map(|&id| id.into()).collect(),
+                nullifiers: args.nullifiers.into_iter().map(|n| n.into()).collect(),
             });
             let response = client.get_block_inputs(request).await?.into_inner();
             println!("{:?}", response);
@@ -114,10 +112,8 @@ async fn query(
         },
         Query::GetTransactionInputs(args) => {
             let request = tonic::Request::new(GetTransactionInputsRequest {
-                account_id: Some(AccountId {
-                    id: args.account_id,
-                }),
-                nullifiers: args.nullifiers.clone(),
+                account_id: Some(args.account_id.into()),
+                nullifiers: args.nullifiers.into_iter().map(|n| n.into()).collect(),
             });
             let response = client.get_transaction_inputs(request).await?.into_inner();
             println!("{:?}", response);

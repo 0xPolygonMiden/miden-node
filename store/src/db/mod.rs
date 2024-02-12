@@ -1,14 +1,14 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_crypto::{hash::rpo::RpoDigest, utils::Deserializable};
-use miden_node_proto::{
+use miden_node_proto::generated::{
     account::AccountInfo,
     block_header,
     digest::Digest,
     note::Note,
     responses::{AccountHashUpdate, NullifierUpdate},
 };
+use miden_objects::crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
