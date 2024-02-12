@@ -13,7 +13,7 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-// TRANSACTION VERIFIER
+// TRANSACTION VALIDATOR
 // ================================================================================================
 
 /// Implementations are responsible to track in-flight transactions and verify that new transactions
@@ -22,7 +22,7 @@ mod tests;
 /// See [crate::store::ApplyBlock], that trait's `apply_block` is called when a block is sealed, and
 /// it can determine when transactions are no longer in-flight.
 #[async_trait]
-pub trait TransactionVerifier: Send + Sync + 'static {
+pub trait TransactionValidator: Send + Sync + 'static {
     /// Method to receive a `tx` for processing.
     ///
     /// This method should:
@@ -57,7 +57,7 @@ pub struct TransactionQueue<BB, TV> {
 
 impl<BB, TV> TransactionQueue<BB, TV>
 where
-    TV: TransactionVerifier,
+    TV: TransactionValidator,
     BB: BatchBuilder,
 {
     pub fn new(

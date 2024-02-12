@@ -7,11 +7,14 @@ use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNot
 use tokio::sync::RwLock;
 use tracing::{debug, instrument};
 
+#[cfg(not(test))]
+use miden_tx::TransactionVerifier;
+
 use crate::{
     block::Block,
     errors::VerifyTxError,
     store::{ApplyBlock, ApplyBlockError, Store},
-    txqueue::TransactionVerifier,
+    txqueue::TransactionValidator,
     ProvenTransaction, COMPONENT,
 };
 
@@ -43,7 +46,7 @@ where
 }
 
 #[async_trait]
-impl<S> TransactionVerifier for DefaultStateView<S>
+impl<S> TransactionValidator for DefaultStateView<S>
 where
     S: Store,
 {
@@ -54,7 +57,22 @@ where
         &self,
         candidate_tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError> {
-        // 1. soft-check if `tx` violates in-flight requirements.
+        #[cfg(not(test))]
+        // The verification of the transaction proof is disabled in tests for now because
+        // we are using a `DummyProver`, hence proofs generated in tests are invalid.
+        // TODO: Add valid proof generation in tests
+        {
+            // 1. Verify transaction proof
+            //
+            // This check makes sure that the transaction proof that has been attached to the transaction
+            // is valid, errors out if the proof is invalid.
+            let tx_verifier = TransactionVerifier::new(96);
+            tx_verifier
+                .verify(candidate_tx.clone())
+                .map_err(|_| VerifyTxError::InvalidTransactionProof(candidate_tx.id()))?;
+        }
+
+        // 2. soft-check if `tx` violates in-flight requirements.
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
         // to quickly reject clearly infracting transactions before hitting the store (slow).
@@ -64,11 +82,11 @@ where
             &*self.nullifiers_in_flight.read().await,
         )?;
 
-        // 2. Fetch the transaction inputs from the store, and check tx input constraints
+        // 3. Fetch the transaction inputs from the store, and check tx input constraints
         let tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
         ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
 
-        // 3. Re-check in-flight transaction constraints, and if verification passes, register
+        // 4. Re-check in-flight transaction constraints, and if verification passes, register
         //    transaction
         //
         // Note: We need to re-check these constraints because we dropped the locks since we last

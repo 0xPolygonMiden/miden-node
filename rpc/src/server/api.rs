@@ -12,7 +12,8 @@ use miden_node_proto::generated::{
     rpc::api_server,
     store::api_client as store_client,
 };
-use miden_objects::Digest;
+use miden_objects::{transaction::ProvenTransaction, utils::serde::Deserializable, Digest};
+use miden_tx::TransactionVerifier;
 use tonic::{
     transport::{Channel, Error},
     Request, Response, Status,
@@ -116,6 +117,17 @@ impl api_server::Api for RpcApi {
         request: Request<SubmitProvenTransactionRequest>,
     ) -> Result<Response<SubmitProvenTransactionResponse>, Status> {
         debug!(target: COMPONENT, request = ?request.get_ref());
+
+        let request = request.into_inner();
+
+        let tx = ProvenTransaction::read_from_bytes(&request.transaction)
+            .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
+
+        let tx_verifier = TransactionVerifier::new(96);
+
+        tx_verifier
+            .verify(tx)
+            .map_err(|_| Status::invalid_argument("Invalid transaction proof"))?;
 
         self.block_producer.clone().submit_proven_transaction(request).await
     }

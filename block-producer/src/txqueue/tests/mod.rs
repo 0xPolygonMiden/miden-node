@@ -10,10 +10,10 @@ use crate::{errors::BuildBatchError, test_utils::DummyProvenTxGenerator, Transac
 // ================================================================================================
 
 /// All transactions verify successfully
-struct TransactionVerifierSuccess;
+struct TransactionValidatorSuccess;
 
 #[async_trait]
-impl TransactionVerifier for TransactionVerifierSuccess {
+impl TransactionValidator for TransactionValidatorSuccess {
     async fn verify_tx(
         &self,
         _tx: &ProvenTransaction,
@@ -23,10 +23,10 @@ impl TransactionVerifier for TransactionVerifierSuccess {
 }
 
 /// All transactions fail to verify
-struct TransactionVerifierFailure;
+struct TransactionValidatorFailure;
 
 #[async_trait]
-impl TransactionVerifier for TransactionVerifierFailure {
+impl TransactionValidator for TransactionValidatorFailure {
     async fn verify_tx(
         &self,
         tx: &ProvenTransaction,
@@ -87,7 +87,7 @@ async fn test_build_batch_success() {
     let (sender, mut receiver) = mpsc::unbounded_channel::<TransactionBatch>();
 
     let tx_queue = Arc::new(TransactionQueue::new(
-        Arc::new(TransactionVerifierSuccess),
+        Arc::new(TransactionValidatorSuccess),
         Arc::new(BatchBuilderSuccess::new(sender)),
         TransactionQueueOptions {
             build_batch_frequency,
@@ -182,7 +182,7 @@ async fn test_tx_verify_failure() {
     let batch_builder = Arc::new(BatchBuilderSuccess::new(sender));
 
     let tx_queue = Arc::new(TransactionQueue::new(
-        Arc::new(TransactionVerifierFailure),
+        Arc::new(TransactionValidatorFailure),
         batch_builder.clone(),
         TransactionQueueOptions {
             build_batch_frequency,
@@ -216,7 +216,7 @@ async fn test_build_batch_failure() {
     let batch_builder = Arc::new(BatchBuilderFailure);
 
     let tx_queue = TransactionQueue::new(
-        Arc::new(TransactionVerifierSuccess),
+        Arc::new(TransactionValidatorSuccess),
         batch_builder.clone(),
         TransactionQueueOptions {
             build_batch_frequency,
