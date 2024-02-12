@@ -124,7 +124,7 @@ async fn get_tokens(
         .append_header(header::ContentDisposition {
             disposition: actix_web::http::header::DispositionType::Attachment,
             parameters: vec![actix_web::http::header::DispositionParam::Filename(
-                "note.bin".to_string(),
+                "note.mno".to_string(),
             )],
         })
         .body(bytes))
