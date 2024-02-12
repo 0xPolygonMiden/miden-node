@@ -125,9 +125,12 @@ impl api_server::Api for RpcApi {
 
         let tx_verifier = TransactionVerifier::new(96);
 
-        tx_verifier
-            .verify(tx)
-            .map_err(|_| Status::invalid_argument("Invalid transaction proof"))?;
+        tx_verifier.verify(tx.clone()).map_err(|_| {
+            Status::invalid_argument(format!(
+                "Invalid transaction proof for transaction: {}",
+                tx.id().to_hex()
+            ))
+        })?;
 
         self.block_producer.clone().submit_proven_transaction(request).await
     }
