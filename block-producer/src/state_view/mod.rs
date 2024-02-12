@@ -4,11 +4,10 @@ use async_trait::async_trait;
 use miden_node_proto::TransactionInputs;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
-use tokio::sync::RwLock;
-use tracing::{debug, instrument};
-
 #[cfg(not(test))]
 use miden_tx::TransactionVerifier;
+use tokio::sync::RwLock;
+use tracing::{debug, instrument};
 
 use crate::{
     block::Block,
