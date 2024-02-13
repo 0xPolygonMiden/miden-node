@@ -23,7 +23,7 @@ pub struct DefaultStateView<S> {
     store: Arc<S>,
 
     /// Enables or disables the verification of transaction proofs in `verify_tx`
-    check_tx_proofs: bool,
+    verify_tx_proofs: bool,
 
     /// The account ID of accounts being modified by transactions currently in the block production
     /// pipeline. We currently ensure that only 1 tx/block modifies any given account (issue: #186).
@@ -39,11 +39,11 @@ where
 {
     pub fn new(
         store: Arc<S>,
-        check_tx_proofs: bool,
+        verify_tx_proofs: bool,
     ) -> Self {
         Self {
             store,
-            check_tx_proofs,
+            verify_tx_proofs,
             accounts_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
             nullifiers_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
         }
@@ -61,7 +61,7 @@ where
         &self,
         candidate_tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError> {
-        if self.check_tx_proofs {
+        if self.verify_tx_proofs {
             // Verify transaction proof
             //
             // This check makes sure that the transaction proof that has been attached to the transaction
