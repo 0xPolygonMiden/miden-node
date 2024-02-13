@@ -17,6 +17,6 @@ pub struct AccountInfo {
     pub account_id: ::core::option::Option<AccountId>,
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
-    #[prost(uint32, tag = "3")]
+    #[prost(fixed32, tag = "3")]
     pub block_num: u32,
 }

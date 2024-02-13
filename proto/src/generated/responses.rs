@@ -34,7 +34,7 @@ pub struct AccountHashUpdate {
 pub struct NullifierUpdate {
     #[prost(message, optional, tag = "1")]
     pub nullifier: ::core::option::Option<super::digest::Digest>,
-    #[prost(uint32, tag = "2")]
+    #[prost(fixed32, tag = "2")]
     pub block_num: u32,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
@@ -42,7 +42,7 @@ pub struct NullifierUpdate {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateResponse {
     /// number of the latest block in the chain
-    #[prost(uint32, tag = "1")]
+    #[prost(fixed32, tag = "1")]
     pub chain_tip: u32,
     /// block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
@@ -118,7 +118,7 @@ pub struct NullifierTransactionInputRecord {
     #[prost(message, optional, tag = "1")]
     pub nullifier: ::core::option::Option<super::digest::Digest>,
     /// The block at which the nullifier has been consumed, zero if not consumed.
-    #[prost(uint32, tag = "2")]
+    #[prost(fixed32, tag = "2")]
     pub block_num: u32,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]

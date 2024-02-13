@@ -3,29 +3,28 @@ package note;
 
 import "digest.proto";
 import "merkle.proto";
+import "account.proto";
 
 message Note {
-    uint32 block_num = 1;
+    fixed32 block_num = 1;
     uint32 note_index = 2;
     digest.Digest note_id = 3;
-    fixed64 sender  = 4;
-    uint64 tag = 5;
+    account.AccountId sender  = 4;
+    fixed64 tag = 5;
     merkle.MerklePath merkle_path = 7;
 }
 
-// TODO: change `sender` to AccountId
 message NoteSyncRecord {
     uint32 note_index = 1;
     digest.Digest note_id = 2;
-    fixed64 sender  = 3;
-    uint64 tag = 4;
+    account.AccountId sender  = 3;
+    fixed64 tag = 4;
     merkle.MerklePath merkle_path = 6;
 }
 
-// TODO: change `sender` to AccountId
 message NoteCreated {
     uint32 note_index = 1;
     digest.Digest note_id = 2;
-    fixed64 sender  = 3;
-    uint64 tag = 4;
+    account.AccountId sender  = 3;
+    fixed64 tag = 4;
 }

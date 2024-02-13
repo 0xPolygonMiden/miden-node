@@ -23,7 +23,7 @@ impl From<BlockHeader> for block_header::BlockHeader {
             proof_hash: Some(header.proof_hash().into()),
             version: u64::from(header.version())
                 .try_into()
-                .expect("TODO: BlockHeader.version should be u64"),
+                .expect("Failed to convert BlockHeader.version into u32"),
             timestamp: header.timestamp().into(),
         }
     }

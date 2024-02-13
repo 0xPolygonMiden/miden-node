@@ -49,7 +49,7 @@ pub struct SyncStateRequest {
     /// Last block known by the client. The response will contain data starting from the next block,
     /// until the first block which contains a note of matching the requested tag, or the chain tip
     /// if there are no notes.
-    #[prost(uint32, tag = "1")]
+    #[prost(fixed32, tag = "1")]
     pub block_num: u32,
     /// Accounts' hash to include in the response.
     ///
