@@ -50,7 +50,7 @@ pub struct TransactionQueueOptions {
 
 pub struct TransactionQueue<BB, TV> {
     ready_queue: SharedRwVec<ProvenTransaction>,
-    tx_verifier: Arc<TV>,
+    tx_validator: Arc<TV>,
     batch_builder: Arc<BB>,
     options: TransactionQueueOptions,
 }
@@ -61,13 +61,13 @@ where
     BB: BatchBuilder,
 {
     pub fn new(
-        tx_verifier: Arc<TV>,
+        tx_validator: Arc<TV>,
         batch_builder: Arc<BB>,
         options: TransactionQueueOptions,
     ) -> Self {
         Self {
             ready_queue: Arc::new(RwLock::new(Vec::new())),
-            tx_verifier,
+            tx_validator,
             batch_builder,
             options,
         }
@@ -136,7 +136,7 @@ where
     ) -> Result<(), AddTransactionError> {
         info!(target: COMPONENT, tx_id = %tx.id().to_hex(), account_id = %tx.account_id().to_hex());
 
-        self.tx_verifier
+        self.tx_validator
             .verify_tx(&tx)
             .await
             .map_err(AddTransactionError::VerificationFailed)?;
