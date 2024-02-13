@@ -214,7 +214,7 @@ impl State {
                     Ok(Note {
                         block_num: new_block.block_num(),
                         note_id: note.note_id.clone(),
-                        sender: note.sender,
+                        sender: note.sender.clone(),
                         note_index: note.note_index,
                         tag: note.tag,
                         merkle_path: Some(merkle_path.into()),
@@ -480,7 +480,12 @@ pub fn build_notes_tree(
     for note in notes.iter() {
         let note_id =
             note.note_id.clone().ok_or(NoteCreated::missing_field(stringify!(note_id)))?;
-        let account_id = note.sender.try_into().or(Err(ApplyBlockError::InvalidAccountId))?;
+        let account_id = note
+            .sender
+            .clone()
+            .ok_or(NoteCreated::missing_field(stringify!(sender)))?
+            .try_into()
+            .or(Err(ApplyBlockError::InvalidAccountId))?;
         let note_metadata = NoteMetadata::new(account_id, note.tag.into());
         let index = note.note_index as u64;
         entries.push((index, note_id.try_into()?));

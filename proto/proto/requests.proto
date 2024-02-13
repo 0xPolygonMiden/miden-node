@@ -39,7 +39,7 @@ message SyncStateRequest {
     // Last block known by the client. The response will contain data starting from the next block,
     // until the first block which contains a note of matching the requested tag, or the chain tip
     // if there are no notes.
-    uint32 block_num = 1;
+    fixed32 block_num = 1;
 
     // Accounts' hash to include in the response.
     //

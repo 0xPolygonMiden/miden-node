@@ -6,7 +6,7 @@ pub struct BlockHeader {
     #[prost(message, optional, tag = "1")]
     pub prev_hash: ::core::option::Option<super::digest::Digest>,
     /// a unique sequential number of the current block.
-    #[prost(uint32, tag = "2")]
+    #[prost(fixed32, tag = "2")]
     pub block_num: u32,
     /// a commitment to an MMR of the entire chain where each block is a leaf.
     #[prost(message, optional, tag = "3")]
@@ -30,6 +30,6 @@ pub struct BlockHeader {
     #[prost(uint32, tag = "9")]
     pub version: u32,
     /// the time when the block was created.
-    #[prost(uint64, tag = "10")]
-    pub timestamp: u64,
+    #[prost(fixed32, tag = "10")]
+    pub timestamp: u32,
 }

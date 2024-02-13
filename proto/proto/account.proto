@@ -13,5 +13,5 @@ message AccountId {
 message AccountInfo {
     AccountId account_id = 1;
     digest.Digest account_hash = 2;
-    uint32 block_num = 3;
+    fixed32 block_num = 3;
 }
