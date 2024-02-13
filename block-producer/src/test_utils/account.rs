@@ -13,7 +13,10 @@ pub struct MockPrivateAccount<const NUM_STATES: usize = 3> {
 }
 
 impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
-    fn new(init_seed: [u8; 32]) -> Self {
+    fn new(
+        init_seed: [u8; 32],
+        new_account: bool,
+    ) -> Self {
         let account_seed = get_account_seed(
             init_seed,
             miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
@@ -25,7 +28,10 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
 
         let mut states = [Digest::default(); NUM_STATES];
 
-        states[0] = Hasher::hash(&init_seed);
+        if !new_account {
+            states[0] = Hasher::hash(&init_seed);
+        }
+
         for idx in 1..NUM_STATES {
             states[idx] = Hasher::hash(&states[idx - 1].as_bytes());
         }
@@ -39,9 +45,15 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
 
 impl<const NUM_STATES: usize> From<u32> for MockPrivateAccount<NUM_STATES> {
     /// Each index gives rise to a different account ID
+    /// Passing index 0 signifies that it's a new account
     fn from(index: u32) -> Self {
         let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 28]).collect();
 
-        Self::new(init_seed.try_into().unwrap())
+        // using index 0 signifies that it's a new account
+        if index == 0 {
+            Self::new(init_seed.try_into().unwrap(), true)
+        } else {
+            Self::new(init_seed.try_into().unwrap(), false)
+        }
     }
 }
