@@ -4,6 +4,7 @@
 # port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-block-producer', 1)) % 2**16
 endpoint = { host = "localhost", port = 48046 }
 store_url = "http://localhost:28943"
+check_tx_proofs = true
 
 [rpc]
 # port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-rpc', 1)) % 2**16

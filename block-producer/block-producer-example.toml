@@ -1,3 +1,4 @@
 [block_producer]
 endpoint = { host = "localhost", port = 48046 }
 store_url = "http://localhost:28943"
+check_tx_proofs = true

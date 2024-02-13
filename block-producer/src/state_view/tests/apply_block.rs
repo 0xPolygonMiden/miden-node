@@ -31,7 +31,7 @@ async fn test_apply_block_ab1() {
         OutputNotes::new(Vec::new()).unwrap(),
     );
 
-    let state_view = DefaultStateView::new(store.clone());
+    let state_view = DefaultStateView::new(store.clone(), false);
 
     // Verify transaction so it can be tracked in state view
     let verify_tx_res = state_view.verify_tx(&tx).await;
@@ -70,7 +70,7 @@ async fn test_apply_block_ab2() {
             .build(),
     );
 
-    let state_view = DefaultStateView::new(store.clone());
+    let state_view = DefaultStateView::new(store.clone(), false);
 
     // Verify transactions so it can be tracked in state view
     for tx in txs {
@@ -119,7 +119,7 @@ async fn test_apply_block_ab3() {
             .build(),
     );
 
-    let state_view = DefaultStateView::new(store.clone());
+    let state_view = DefaultStateView::new(store.clone(), false);
 
     // Verify transactions so it can be tracked in state view
     for tx in txs.clone() {

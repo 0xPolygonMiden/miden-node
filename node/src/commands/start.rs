@@ -69,6 +69,7 @@ mod tests {
                 r#"
                     [block_producer]
                     store_url = "http://store:8000"
+                    check_tx_proofs = true
 
                     [block_producer.endpoint]
                     host = "127.0.0.1"
@@ -101,6 +102,7 @@ mod tests {
                             port: 8080,
                         },
                         store_url: "http://store:8000".to_string(),
+                        check_tx_proofs: true
                     },
                     rpc: RpcConfig {
                         endpoint: Endpoint {

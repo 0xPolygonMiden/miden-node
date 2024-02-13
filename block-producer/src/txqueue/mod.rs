@@ -27,9 +27,9 @@ pub trait TransactionValidator: Send + Sync + 'static {
     ///
     /// This method should:
     ///
-    /// 1. Verify the transaction is valid, against the current's rollup state, and also against
+    /// Verify the transaction is valid, against the current's rollup state, and also against
     ///    in-flight transactions.
-    /// 2. Track the necessary state of the transaction until it is commited to the `store`, to
+    /// Track the necessary state of the transaction until it is commited to the `store`, to
     ///    perform the check above.
     async fn verify_tx(
         &self,

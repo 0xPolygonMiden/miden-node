@@ -6,7 +6,6 @@ use miden_node_utils::formatting::format_array;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
 use tokio::sync::RwLock;
 use tracing::{debug, instrument};
-#[cfg(not(test))]
 use {miden_objects::MIN_PROOF_SECURITY_LEVEL, miden_tx::TransactionVerifier};
 
 use crate::{
@@ -23,6 +22,9 @@ mod tests;
 pub struct DefaultStateView<S> {
     store: Arc<S>,
 
+    /// Enables or disables the verification of transaction proofs in `verify_tx`
+    check_tx_proofs: bool,
+
     /// The account ID of accounts being modified by transactions currently in the block production
     /// pipeline. We currently ensure that only 1 tx/block modifies any given account (issue: #186).
     accounts_in_flight: Arc<RwLock<BTreeSet<AccountId>>>,
@@ -35,9 +37,13 @@ impl<S> DefaultStateView<S>
 where
     S: Store,
 {
-    pub fn new(store: Arc<S>) -> Self {
+    pub fn new(
+        store: Arc<S>,
+        check_tx_proofs: bool,
+    ) -> Self {
         Self {
             store,
+            check_tx_proofs,
             accounts_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
             nullifiers_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
         }
@@ -55,11 +61,7 @@ where
         &self,
         candidate_tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError> {
-        #[cfg(not(test))]
-        // The verification of the transaction proof is disabled in tests for now because
-        // we are using a `DummyProver`, hence proofs generated in tests are invalid.
-        // TODO: Add valid proof generation in tests, could be done using traits
-        {
+        if self.check_tx_proofs {
             // Verify transaction proof
             //
             // This check makes sure that the transaction proof that has been attached to the transaction
