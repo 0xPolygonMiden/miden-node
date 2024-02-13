@@ -4,8 +4,10 @@ use async_trait::async_trait;
 use miden_node_proto::TransactionInputs;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest};
+
 #[cfg(not(test))]
-use miden_tx::TransactionVerifier;
+use {miden_objects::MIN_PROOF_SECURITY_LEVEL, miden_tx::TransactionVerifier};
+
 use tokio::sync::RwLock;
 use tracing::{debug, instrument};
 
@@ -49,7 +51,6 @@ impl<S> TransactionValidator for DefaultStateView<S>
 where
     S: Store,
 {
-    // TODO: Verify proof as well
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(skip_all, err)]
     async fn verify_tx(
@@ -59,19 +60,19 @@ where
         #[cfg(not(test))]
         // The verification of the transaction proof is disabled in tests for now because
         // we are using a `DummyProver`, hence proofs generated in tests are invalid.
-        // TODO: Add valid proof generation in tests
+        // TODO: Add valid proof generation in tests, could be done using traits
         {
-            // 1. Verify transaction proof
+            // Verify transaction proof
             //
             // This check makes sure that the transaction proof that has been attached to the transaction
             // is valid, errors out if the proof is invalid.
-            let tx_verifier = TransactionVerifier::new(96);
+            let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
             tx_verifier
                 .verify(candidate_tx.clone())
                 .map_err(|_| VerifyTxError::InvalidTransactionProof(candidate_tx.id()))?;
         }
 
-        // 2. soft-check if `tx` violates in-flight requirements.
+        // Soft-check if `tx` violates in-flight requirements.
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
         // to quickly reject clearly infracting transactions before hitting the store (slow).
@@ -81,11 +82,11 @@ where
             &*self.nullifiers_in_flight.read().await,
         )?;
 
-        // 3. Fetch the transaction inputs from the store, and check tx input constraints
+        // Fetch the transaction inputs from the store, and check tx input constraints
         let tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
         ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
 
-        // 4. Re-check in-flight transaction constraints, and if verification passes, register
+        // Re-check in-flight transaction constraints, and if verification passes, register
         //    transaction
         //
         // Note: We need to re-check these constraints because we dropped the locks since we last
@@ -128,7 +129,7 @@ where
         let mut locked_accounts_in_flight = self.accounts_in_flight.write().await;
         let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
 
-        // 1. Remove account ids of transactions in block
+        // Remove account ids of transactions in block
         let account_ids_in_block = block
             .updated_accounts
             .iter()
@@ -139,7 +140,7 @@ where
             debug_assert!(was_in_flight);
         }
 
-        // 2. Remove new nullifiers of transactions in block
+        // Remove new nullifiers of transactions in block
         for nullifier in block.produced_nullifiers.iter() {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
@@ -153,9 +154,9 @@ where
 // -------------------------------------------------------------------------------------------------
 
 /// Ensures the constraints related to in-flight transactions:
-/// 1. the candidate transaction doesn't modify the same account as an existing in-flight
+/// - the candidate transaction doesn't modify the same account as an existing in-flight
 ///    transaction (issue: #186)
-/// 2. no consumed note's nullifier in candidate tx's consumed notes is already contained in
+/// - no consumed note's nullifier in candidate tx's consumed notes is already contained in
 ///    `already_consumed_nullifiers`
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
@@ -165,12 +166,12 @@ fn ensure_in_flight_constraints(
 ) -> Result<(), VerifyTxError> {
     debug!(target: COMPONENT, accounts_in_flight = %format_array(accounts_in_flight), already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
 
-    // 1. Check account id hasn't been modified yet
+    // Check account id hasn't been modified yet
     if accounts_in_flight.contains(&candidate_tx.account_id()) {
         return Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(candidate_tx.account_id()));
     }
 
-    // 2. Check no consumed notes were already consumed
+    // Check no consumed notes were already consumed
     let infracting_nullifiers: Vec<Nullifier> = {
         candidate_tx
             .input_notes()

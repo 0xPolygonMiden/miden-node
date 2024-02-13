@@ -44,8 +44,7 @@ pub enum VerifyTxError {
     TransactionInputError(#[from] TransactionInputError),
 
     /// Failed to verify the transaction execution proof
-    /// TODO: Add transaction id in error message
-    #[error("Invalid transaction proof error")]
+    #[error("Invalid transaction proof error for transaction: {0}")]
     InvalidTransactionProof(TransactionId),
 }
 
