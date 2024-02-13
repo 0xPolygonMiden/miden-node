@@ -23,5 +23,5 @@ message BlockHeader {
     // specifies the version of the protocol.
     uint32 version = 9;
     // the time when the block was created.
-    fixed32 timestamp = 10;
+    uint64 timestamp = 10;
 }

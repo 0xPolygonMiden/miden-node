@@ -30,6 +30,6 @@ pub struct BlockHeader {
     #[prost(uint32, tag = "9")]
     pub version: u32,
     /// the time when the block was created.
-    #[prost(fixed32, tag = "10")]
-    pub timestamp: u32,
+    #[prost(uint64, tag = "10")]
+    pub timestamp: u64,
 }

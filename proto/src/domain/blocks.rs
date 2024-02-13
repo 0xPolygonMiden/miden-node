@@ -24,9 +24,7 @@ impl From<BlockHeader> for block_header::BlockHeader {
             version: u64::from(header.version())
                 .try_into()
                 .expect("Failed to convert BlockHeader.version into u32"),
-            timestamp: u64::from(header.timestamp())
-                .try_into()
-                .expect("Failed to convert BlockHeader.timestamp into u32"),
+            timestamp: header.timestamp().into(),
         }
     }
 }
