@@ -14,7 +14,6 @@ message Note {
     merkle.MerklePath merkle_path = 7;
 }
 
-// TODO: change `sender` to AccountId
 message NoteSyncRecord {
     uint32 note_index = 1;
     digest.Digest note_id = 2;
@@ -23,7 +22,6 @@ message NoteSyncRecord {
     merkle.MerklePath merkle_path = 6;
 }
 
-// TODO: change `sender` to AccountId
 message NoteCreated {
     uint32 note_index = 1;
     digest.Digest note_id = 2;
