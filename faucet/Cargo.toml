@@ -9,7 +9,7 @@ edition = "2021"
 debug-assertions = true
 
 [dependencies]
-miden-client = { git = "https://github.com/0xPolygonMiden/miden-client", branch = "main", features = [
+miden-client = { git = "https://github.com/0xPolygonMiden/miden-client", branch = "phklive-bump-rusqlite", features = [
     "testing",
     "concurrent",
 ] }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use actix_cors::Cors;
 use actix_files::{self};
 use actix_web::{
@@ -9,12 +11,9 @@ use miden_client::{
     client::{transactions::TransactionTemplate, Client},
     config::ClientConfig,
 };
-use miden_objects::{
-    accounts::AccountId, assets::FungibleAsset, transaction::InputNote, utils::serde::Serializable,
-};
+use miden_objects::{accounts::AccountId, assets::FungibleAsset, utils::serde::Serializable};
 use serde::Deserialize;
-use std::sync::{Arc, Mutex};
-use tokio::time::{sleep, Duration};
+use tokio::sync::Mutex;
 
 mod utils;
 
@@ -50,11 +49,14 @@ async fn get_tokens(
     let target_account_id = AccountId::from_hex(&req.account_id)
         .map_err(|e| FaucetError::BadClientData(e.to_string()))?;
 
-    // sync client
-    let block = state.client.lock().unwrap().sync_state().await.map_err(|e| {
-        eprintln!("Failed to sync");
-        FaucetError::InternalError(e.to_string())
-    })?;
+    // Sync client and drop the lock before await
+    let block = {
+        let mut client = state.client.lock().await;
+        client.sync_state().await.map_err(|e| {
+            eprintln!("Failed to sync");
+            FaucetError::InternalError(e.to_string())
+        })?
+    };
 
     println!("Synced to block: {block}");
 
@@ -64,26 +66,32 @@ async fn get_tokens(
         target_account_id,
     };
 
-    // execute, prove and submit tx
-    let transaction = state.client.lock().unwrap().new_transaction(template).map_err(|e| {
-        eprintln!("Error: {}", e.to_string());
-        FaucetError::InternalError(e.to_string())
-    })?;
+    // Execute, prove and submit tx
+    let transaction = {
+        let mut client = state.client.lock().await;
+        client.new_transaction(template).map_err(|e| {
+            eprintln!("Error: {}", e);
+            FaucetError::InternalError(e.to_string())
+        })?
+    };
 
     println!("Transaction has been executed");
 
     let note_id = transaction
         .created_notes()
-        .get(0)
+        .first()
         .ok_or_else(|| {
             FaucetError::InternalError("Transaction has not created a note.".to_string())
         })?
         .id();
 
-    state.client.lock().unwrap().send_transaction(transaction).await.map_err(|e| {
-        println!("error {e}");
-        FaucetError::InternalError(e.to_string())
-    })?;
+    {
+        let mut client = state.client.lock().await;
+        client.send_transaction(transaction).await.map_err(|e| {
+            println!("error {e}");
+            FaucetError::InternalError(e.to_string())
+        })?;
+    }
 
     println!("Transaction has been proven and sent!");
 
@@ -112,7 +120,7 @@ async fn get_tokens(
     let note = state
         .client
         .lock()
-        .unwrap()
+        .await
         .get_input_note(note_id)
         .map_err(|e| FaucetError::InternalError(e.to_string()))?;
 
@@ -155,7 +163,7 @@ async fn main() -> std::io::Result<()> {
     // load faucet into client
     client
         .lock()
-        .unwrap()
+        .await
         .import_account(faucet.clone())
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
 

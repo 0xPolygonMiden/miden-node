@@ -1,6 +1,7 @@
+use std::{env, fs, path::PathBuf, str::FromStr};
+
 use anyhow::{anyhow, Result};
 use miden_objects::{accounts::AccountData, utils::serde::Deserializable};
-use std::{env, fs, path::PathBuf, str::FromStr};
 
 pub fn import_account_from_args() -> Result<AccountData> {
     let args: Vec<String> = env::args().collect();
