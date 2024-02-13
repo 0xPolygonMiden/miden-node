@@ -8,7 +8,7 @@ use miden_objects::{
     accounts::AccountId,
     notes::{NoteEnvelope, NoteMetadata, Nullifier},
     transaction::{InputNotes, OutputNotes, ProvenTransaction},
-    Digest, Hasher, ONE,
+    Digest, Felt, Hasher, ONE,
 };
 use once_cell::sync::Lazy;
 use winterfell::{
@@ -89,10 +89,10 @@ impl MockProvenTxBuilder {
                 *locked_num_input_notes += 1;
 
                 let nullifier = Digest::from([
-                    BaseElement::new(1),
-                    BaseElement::new(1),
-                    BaseElement::new(1),
-                    BaseElement::new(*locked_num_input_notes),
+                    Felt::new(1),
+                    Felt::new(1),
+                    Felt::new(1),
+                    Felt::new(*locked_num_input_notes),
                 ]);
 
                 Nullifier::from(nullifier)
