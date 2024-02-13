@@ -15,7 +15,6 @@ pub struct Note {
     #[prost(message, optional, tag = "7")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
 }
-/// TODO: change `sender` to AccountId
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -31,7 +30,6 @@ pub struct NoteSyncRecord {
     #[prost(message, optional, tag = "6")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
 }
-/// TODO: change `sender` to AccountId
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
