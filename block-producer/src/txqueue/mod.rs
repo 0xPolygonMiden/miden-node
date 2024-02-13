@@ -26,11 +26,10 @@ pub trait TransactionValidator: Send + Sync + 'static {
     /// Method to receive a `tx` for processing.
     ///
     /// This method should:
-    ///
-    /// Verify the transaction is valid, against the current's rollup state, and also against
-    ///    in-flight transactions.
-    /// Track the necessary state of the transaction until it is commited to the `store`, to
-    ///    perform the check above.
+    /// - Verify the transaction is valid, against the current's rollup state, and also against
+    ///   in-flight transactions.
+    /// - Track the necessary state of the transaction until it is commited to the `store`, to
+    ///   perform the check above.
     async fn verify_tx(
         &self,
         tx: &ProvenTransaction,

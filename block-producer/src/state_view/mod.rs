@@ -156,11 +156,11 @@ where
 // HELPERS
 // -------------------------------------------------------------------------------------------------
 
-/// Ensures the constraints related to in-flight transactions:
-/// - the candidate transaction doesn't modify the same account as an existing in-flight
-///    transaction (issue: #186)
-/// - no consumed note's nullifier in candidate tx's consumed notes is already contained in
-///    `already_consumed_nullifiers`
+/// Ensures the constraints related to in-flight transactions:  
+/// - the candidate transaction doesn't modify the same account as an existing in-flight  
+///   transaction (issue: #186)  
+/// - no consumed note's nullifier in candidate tx's consumed notes is already contained in  
+///   `already_consumed_nullifiers`
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
     candidate_tx: &ProvenTransaction,

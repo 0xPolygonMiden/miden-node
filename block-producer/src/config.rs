@@ -16,6 +16,11 @@ pub struct BlockProducerConfig {
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.
     pub store_url: String,
 
+    /// Enables or Disables the verification of proofs in the Block Producer
+    /// We could want to disable proof verification for the following reasons:
+    /// - Proofs take non-negligible time to verify
+    /// - Proof verification is already made at the RPC level
+    /// - Batch Builder will verify tx proofs before batch proof generation
     pub verify_tx_proofs: bool,
 }
 
