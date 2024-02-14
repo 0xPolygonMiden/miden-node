@@ -309,7 +309,11 @@ impl BlockWitness {
             merkle_store
                 .add_merkle_paths(self.produced_nullifiers.iter().map(|(nullifier, proof)| {
                     // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
-                    (u64::from(nullifier.inner()[3]), Digest::default(), proof.path().clone())
+                    (
+                        u64::from(nullifier.most_significant_felt()),
+                        Digest::default(),
+                        proof.path().clone(),
+                    )
                 }))
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 

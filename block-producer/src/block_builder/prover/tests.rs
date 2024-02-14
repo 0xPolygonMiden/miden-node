@@ -518,7 +518,9 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
                 nullifier: nullifier_2,
                 proof: SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
-                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_2.inner()[3].into())),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(
+                        nullifier_2.most_significant_felt().into(),
+                    )),
                 )
                 .unwrap(),
             },
@@ -526,7 +528,9 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
                 nullifier: nullifier_3,
                 proof: SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
-                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_3.inner()[3].into())),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(
+                        nullifier_3.most_significant_felt().into(),
+                    )),
                 )
                 .unwrap(),
             },
