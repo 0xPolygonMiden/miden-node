@@ -11,7 +11,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-miden-crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto", branch = "next" }
+miden-crypto = { version = "0.8" }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main" }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main" }
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main" }
