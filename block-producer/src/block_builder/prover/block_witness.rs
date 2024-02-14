@@ -4,6 +4,7 @@ use miden_node_proto::domain::blocks::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
+    notes::Nullifier,
     vm::{AdviceInputs, StackInputs},
     BlockHeader, Digest, Felt, ZERO,
 };
@@ -32,7 +33,7 @@ pub struct BlockWitness {
     pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     /// (batch_index, created_notes_root) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
-    pub(super) produced_nullifiers: BTreeMap<Digest, SmtProof>,
+    pub(super) produced_nullifiers: BTreeMap<Nullifier, SmtProof>,
     pub(super) chain_peaks: MmrPeaks,
     pub(super) prev_header: BlockHeader,
 }
@@ -191,19 +192,19 @@ impl BlockWitness {
         block_inputs: &BlockInputs,
         batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError> {
-        let produced_nullifiers_from_store: BTreeSet<Digest> = block_inputs
+        let produced_nullifiers_from_store: BTreeSet<Nullifier> = block_inputs
             .nullifiers
             .iter()
             .map(|nullifier_record| nullifier_record.nullifier)
             .collect();
 
-        let produced_nullifiers_from_batches: BTreeSet<Digest> =
+        let produced_nullifiers_from_batches: BTreeSet<Nullifier> =
             batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
 
         if produced_nullifiers_from_store == produced_nullifiers_from_batches {
             Ok(())
         } else {
-            let differing_nullifiers: Vec<Digest> = produced_nullifiers_from_store
+            let differing_nullifiers: Vec<Nullifier> = produced_nullifiers_from_store
                 .symmetric_difference(&produced_nullifiers_from_batches)
                 .copied()
                 .collect();
@@ -233,7 +234,7 @@ impl BlockWitness {
                 .expect("can't be more than 2^64 - 1 nullifiers");
 
             for nullifier in self.produced_nullifiers.keys() {
-                stack_inputs.extend(*nullifier);
+                stack_inputs.extend(nullifier.inner());
             }
 
             // append nullifier value (`[block_num, 0, 0, 0]`)
@@ -308,7 +309,7 @@ impl BlockWitness {
             merkle_store
                 .add_merkle_paths(self.produced_nullifiers.iter().map(|(nullifier, proof)| {
                     // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
-                    (u64::from(nullifier[3]), Digest::default(), proof.path().clone())
+                    (u64::from(nullifier.inner()[3]), Digest::default(), proof.path().clone())
                 }))
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 

@@ -507,7 +507,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
     let nullifier_1 = batches[0].produced_nullifiers().next().unwrap();
     let nullifier_2 = batches[1].produced_nullifiers().next().unwrap();
     let nullifier_3 =
-        Digest::from([101_u64.into(), 102_u64.into(), 103_u64.into(), 104_u64.into()]);
+        Digest::from([101_u64.into(), 102_u64.into(), 103_u64.into(), 104_u64.into()]).into();
 
     let block_inputs_from_store: BlockInputs = {
         let block_header = mock_block_header(0, None, None, &[]);
@@ -518,7 +518,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
                 nullifier: nullifier_2,
                 proof: SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
-                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_2[3].into())),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_2.inner()[3].into())),
                 )
                 .unwrap(),
             },
@@ -526,7 +526,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
                 nullifier: nullifier_3,
                 proof: SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
-                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_3[3].into())),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_3.inner()[3].into())),
                 )
                 .unwrap(),
             },
@@ -666,12 +666,11 @@ async fn test_compute_nullifier_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Note that the block number in store is 42; the nullifiers get added to the next block (i.e. block number 43)
-    let nullifier_smt = Smt::with_entries(
-        nullifiers
-            .into_iter()
-            .map(|nullifier| (nullifier, [(initial_block_num + 1).into(), ZERO, ZERO, ZERO])),
-    )
-    .unwrap();
+    let nullifier_smt =
+        Smt::with_entries(nullifiers.into_iter().map(|nullifier| {
+            (nullifier.inner(), [(initial_block_num + 1).into(), ZERO, ZERO, ZERO])
+        }))
+        .unwrap();
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------

@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use miden_node_proto::TransactionInputs;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest,
-    MIN_PROOF_SECURITY_LEVEL,
+    accounts::AccountId, notes::Nullifier, transaction::InputNotes, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tokio::sync::RwLock;
@@ -33,7 +32,7 @@ pub struct DefaultStateView<S> {
     accounts_in_flight: Arc<RwLock<BTreeSet<AccountId>>>,
 
     /// The nullifiers of notes consumed by transactions currently in the block production pipeline.
-    nullifiers_in_flight: Arc<RwLock<BTreeSet<Digest>>>,
+    nullifiers_in_flight: Arc<RwLock<BTreeSet<Nullifier>>>,
 }
 
 impl<S> DefaultStateView<S>
@@ -105,7 +104,7 @@ where
             locked_accounts_in_flight.insert(candidate_tx.account_id());
 
             let mut nullifiers_in_tx: BTreeSet<_> =
-                candidate_tx.input_notes().iter().map(|nullifier| nullifier.inner()).collect();
+                candidate_tx.input_notes().iter().cloned().collect();
             locked_nullifiers_in_flight.append(&mut nullifiers_in_tx);
         }
 
@@ -162,7 +161,7 @@ where
 fn ensure_in_flight_constraints(
     candidate_tx: &ProvenTransaction,
     accounts_in_flight: &BTreeSet<AccountId>,
-    already_consumed_nullifiers: &BTreeSet<Digest>,
+    already_consumed_nullifiers: &BTreeSet<Nullifier>,
 ) -> Result<(), VerifyTxError> {
     debug!(target: COMPONENT, accounts_in_flight = %format_array(accounts_in_flight), already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
 
@@ -176,9 +175,7 @@ fn ensure_in_flight_constraints(
         candidate_tx
             .input_notes()
             .iter()
-            .filter(|&nullifier_in_tx| {
-                already_consumed_nullifiers.contains(&nullifier_in_tx.inner())
-            })
+            .filter(|&nullifier_in_tx| already_consumed_nullifiers.contains(nullifier_in_tx))
             .cloned()
             .collect()
     };
@@ -220,7 +217,7 @@ fn ensure_tx_inputs_constraints(
         .nullifiers
         .into_iter()
         .filter(|&(_, block_num)| block_num != 0)
-        .map(|(nullifier_in_tx, _)| nullifier_in_tx.into())
+        .map(|(nullifier_in_tx, _)| nullifier_in_tx)
         .collect();
 
     if !infracting_nullifiers.is_empty() {
