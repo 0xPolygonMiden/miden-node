@@ -28,7 +28,7 @@ use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tracing::{info, info_span, instrument};
+use tracing::{error, info, info_span, instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
@@ -235,7 +235,7 @@ impl State {
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
         let db = self.db.clone();
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
                 .await
         });
@@ -252,6 +252,33 @@ impl State {
             let _ = mem::replace(&mut inner.chain_mmr, chain_mmr);
             let _ = mem::replace(&mut inner.nullifier_tree, nullifier_tree);
             let _ = mem::replace(&mut inner.account_tree, account_tree);
+        }
+
+        match handle.await {
+            // These errors should never happen. It is unclear if the state of the node would be
+            // valid because the apply_block task may have failed when commiting the transaction, so
+            // the in-memory and the DB state would be out-of-sync.
+            //
+            // TODO: shutdown #91
+            Err(err) => {
+                error!(
+                    is_cancelled = err.is_cancelled(),
+                    is_panic = err.is_panic(),
+                    COMPONENT,
+                    "apply_block task joined with an error"
+                );
+            },
+            Ok(Err(err)) => {
+                error!(err = err.to_string(), COMPONENT, "apply_block failed with a DB error");
+            },
+            Ok(Ok(())) => {
+                info!(
+                    block_hash = new_block.hash().to_hex(),
+                    block_num = new_block.block_num(),
+                    COMPONENT,
+                    "apply_block sucessfull"
+                );
+            },
         }
 
         Ok(())
