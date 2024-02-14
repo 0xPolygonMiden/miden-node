@@ -85,7 +85,7 @@ async fn test_verify_tx_happy_path_concurrent() {
 async fn test_verify_tx_vt1() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account = MockPrivateAccount::<3>::from(0);
+    let account = MockPrivateAccount::<3>::from(1);
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -116,7 +116,6 @@ async fn test_verify_tx_vt1() {
     );
 }
 
-/// TODO: Add new_account checks from the ProvenTransaction
 /// Verifies requirement VT2
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
@@ -149,7 +148,7 @@ async fn test_verify_tx_vt2() {
 async fn test_verify_tx_vt3() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
+    let account: MockPrivateAccount<3> = MockPrivateAccount::from(1);
 
     let nullifier_in_store = nullifier_by_index(0);
 
@@ -187,7 +186,7 @@ async fn test_verify_tx_vt3() {
 async fn test_verify_tx_vt4() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
+    let account: MockPrivateAccount<3> = MockPrivateAccount::from(1);
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -231,8 +230,8 @@ async fn test_verify_tx_vt4() {
 async fn test_verify_tx_vt5() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(0);
-    let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(1);
+    let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(1);
+    let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(2);
     let nullifier_in_both_txs = nullifier_by_index(0);
 
     // Notice: `consumed_note_in_both_txs` is NOT in the store
