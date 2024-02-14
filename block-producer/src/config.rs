@@ -16,11 +16,12 @@ pub struct BlockProducerConfig {
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.
     pub store_url: String,
 
-    /// Enables or Disables the verification of proofs in the Block Producer
-    /// We could want to disable proof verification for the following reasons:
-    /// - Proofs take non-negligible time to verify
-    /// - Proof verification is already made at the RPC level
-    /// - Batch Builder will verify tx proofs before batch proof generation
+    /// Enable or disable the verification of transaction proofs before they are accepted into the
+    /// transaction queue.
+    ///
+    /// Disabling transaction proof verification will speed up transaction processing as proof
+    /// verification may take ~15ms/proof. This is OK when all transactions are forwarded to the
+    /// block producer from the RPC component as transaction proofs are also verified there.
     pub verify_tx_proofs: bool,
 }
 

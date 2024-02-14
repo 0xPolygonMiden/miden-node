@@ -65,10 +65,7 @@ where
         candidate_tx: &ProvenTransaction,
     ) -> Result<(), VerifyTxError> {
         if self.verify_tx_proofs {
-            // Verify transaction proof
-            //
-            // This check makes sure that the transaction proof that has been attached to the transaction
-            // is valid, errors out if the proof is invalid.
+            // Make sure that the transaction proof is valid and meets the required security level
             let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
             tx_verifier
                 .verify(candidate_tx.clone())
@@ -90,7 +87,7 @@ where
         ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
 
         // Re-check in-flight transaction constraints, and if verification passes, register
-        //    transaction
+        // transaction
         //
         // Note: We need to re-check these constraints because we dropped the locks since we last
         // checked
@@ -156,10 +153,10 @@ where
 // HELPERS
 // -------------------------------------------------------------------------------------------------
 
-/// Ensures the constraints related to in-flight transactions:  
-/// - the candidate transaction doesn't modify the same account as an existing in-flight  
-///   transaction (issue: #186)  
-/// - no consumed note's nullifier in candidate tx's consumed notes is already contained in  
+/// Ensures the constraints related to in-flight transactions:
+/// - the candidate transaction doesn't modify the same account as an existing in-flight
+///   transaction (issue: #186)
+/// - no consumed note's nullifier in candidate tx's consumed notes is already contained in
 ///   `already_consumed_nullifiers`
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
