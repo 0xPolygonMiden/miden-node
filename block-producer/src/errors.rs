@@ -135,7 +135,7 @@ pub enum BuildBlockError {
     #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
     InconsistentAccountStates(Vec<AccountId>),
     #[error("transaction batches and store don't produce the same nullifiers. Offending nullifiers: {0:?}")]
-    InconsistentNullifiers(Vec<Digest>),
+    InconsistentNullifiers(Vec<Nullifier>),
     #[error(
         "too many batches in block. Got: {0}, max: 2^{}",
         CREATED_NOTES_TREE_INSERTION_DEPTH

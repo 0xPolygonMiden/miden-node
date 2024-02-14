@@ -400,7 +400,7 @@ impl State {
                 let proof = inner.nullifier_tree.open(nullifier);
 
                 NullifierWitness {
-                    nullifier: *nullifier,
+                    nullifier: (*nullifier).into(),
                     proof,
                 }
             })
@@ -434,7 +434,7 @@ impl State {
                 let value = inner.nullifier_tree.get_value(&nullifier);
                 let block_num = nullifier_value_to_block_num(value);
 
-                (nullifier, block_num)
+                (nullifier.into(), block_num)
             })
             .collect();
 

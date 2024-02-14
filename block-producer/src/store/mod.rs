@@ -9,7 +9,7 @@ use miden_node_proto::{
     },
     TransactionInputs,
 };
-use miden_objects::{accounts::AccountId, Digest};
+use miden_objects::{accounts::AccountId, notes::Nullifier};
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
@@ -31,7 +31,7 @@ pub trait Store: ApplyBlock {
     async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = &AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Digest> + Send,
+        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
 }
 
@@ -128,7 +128,7 @@ impl Store for DefaultStore {
     async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = &AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Digest> + Send,
+        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let request = tonic::Request::new(GetBlockInputsRequest {
             account_ids: updated_accounts

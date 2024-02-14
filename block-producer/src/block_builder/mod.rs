@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
-use miden_objects::{accounts::AccountId, Digest};
+use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
 use tracing::{debug, info, instrument};
 
 use crate::{
@@ -90,7 +90,7 @@ where
                 })
             })
             .collect();
-        let produced_nullifiers: Vec<Digest> =
+        let produced_nullifiers: Vec<Nullifier> =
             batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
 
         let block_inputs = self

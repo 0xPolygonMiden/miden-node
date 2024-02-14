@@ -4,7 +4,7 @@ use std::{
 };
 
 use miden_node_utils::formatting::{format_map, format_opt};
-use miden_objects::Digest;
+use miden_objects::notes::Nullifier;
 
 use crate::{
     domain::accounts::AccountState,
@@ -23,7 +23,7 @@ pub struct TransactionInputs {
 
     /// Maps each consumed notes' nullifier to block number, where the note is consumed
     /// (`zero` means, that note isn't consumed yet)
-    pub nullifiers: BTreeMap<Digest, u32>,
+    pub nullifiers: BTreeMap<Nullifier, u32>,
 }
 
 impl Display for TransactionInputs {
