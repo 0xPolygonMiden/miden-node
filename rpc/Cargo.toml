@@ -31,3 +31,4 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
+miden-node-utils = { path = "../utils", features = ["tracing-forest"] }
