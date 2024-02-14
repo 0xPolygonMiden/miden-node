@@ -18,7 +18,7 @@ use miden_node_utils::config::load_config;
 use miden_objects::{
     accounts::{Account, AccountData, AccountType, AuthData},
     assets::TokenSymbol,
-    Felt,
+    Felt, ONE,
 };
 
 mod inputs;
@@ -121,7 +121,7 @@ fn create_accounts(
 
     for account in accounts {
         // build account data from account inputs
-        let account_data = match account {
+        let mut account_data = match account {
             AccountInput::BasicWallet(inputs) => {
                 print!("Creating basic wallet account...");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
@@ -165,6 +165,8 @@ fn create_accounts(
                 return Err(anyhow!("Failed to generate account file {} because it already exists. Use the --force flag to overwrite.", path.display()));
             }
         }
+
+        account_data.account.set_nonce(ONE)?;
 
         account_data.write(path)?;
 
