@@ -12,12 +12,9 @@ use miden_node_proto::{
         responses::{AccountHashUpdate, NullifierUpdate},
     },
 };
-use miden_objects::{
-    crypto::{
-        hash::rpo::RpoDigest,
-        utils::{Deserializable, SliceReader},
-    },
-    StarkField,
+use miden_objects::crypto::{
+    hash::rpo::RpoDigest,
+    utils::{Deserializable, SliceReader},
 };
 use prost::Message;
 use rusqlite::{params, types::Value, Connection, Transaction};

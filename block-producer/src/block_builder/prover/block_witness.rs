@@ -227,11 +227,9 @@ impl BlockWitness {
 
         // Nullifiers stack inputs
         {
-            let num_produced_nullifiers: u64 = self
-                .produced_nullifiers
-                .len()
+            let num_produced_nullifiers: Felt = (self.produced_nullifiers.len() as u64)
                 .try_into()
-                .expect("can't be more than 2^64 - 1 nullifiers");
+                .expect("nullifiers number is greater than or equal to the field modulus");
 
             for nullifier in self.produced_nullifiers.keys() {
                 stack_inputs.extend(nullifier.inner());
@@ -245,7 +243,7 @@ impl BlockWitness {
             stack_inputs.extend(self.prev_header.nullifier_root());
 
             // append number of nullifiers
-            stack_inputs.push(num_produced_nullifiers.into());
+            stack_inputs.push(num_produced_nullifiers);
         }
 
         // Notes stack inputs
@@ -254,17 +252,17 @@ impl BlockWitness {
             for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter() {
                 stack_inputs.extend(batch_created_notes_root.iter());
 
-                let batch_index =
-                    u64::try_from(*batch_index).expect("can't be more than 2^64 - 1 notes created");
-                stack_inputs.push(Felt::from(batch_index));
+                let batch_index = Felt::try_from(*batch_index as u64)
+                    .expect("batch index is greater than or equal to the field modulus");
+                stack_inputs.push(batch_index);
             }
 
             let empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
             stack_inputs.extend(*empty_root);
-            stack_inputs.push(Felt::from(
-                u64::try_from(num_created_notes_roots)
-                    .expect("can't be more than 2^64 - 1 notes created"),
-            ));
+            stack_inputs.push(
+                Felt::try_from(num_created_notes_roots as u64)
+                    .expect("notes roots number is greater than or equal to the field modulus"),
+            );
         }
 
         // Account stack inputs
@@ -281,7 +279,11 @@ impl BlockWitness {
         stack_inputs.extend(self.prev_header.account_root());
 
         // append number of accounts updated
-        stack_inputs.push(num_accounts_updated.into());
+        stack_inputs.push(
+            num_accounts_updated
+                .try_into()
+                .expect("updated accounts number is greater than or equal to the field modulus"),
+        );
 
         StackInputs::new(stack_inputs)
     }

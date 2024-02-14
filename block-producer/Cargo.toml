@@ -51,4 +51,4 @@ miden-node-utils = { path = "../utils", features = ["tracing-forest"] }
 miden-node-test-macro = { path = "../test-macro" }
 once_cell = { version = "1.18" }
 tokio = { version = "1.29", features = ["test-util"] }
-winterfell = { version = "0.7" }
+winterfell = { version = "0.8" }
