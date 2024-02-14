@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use miden_node_proto::TransactionInputs;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::AccountId, notes::Nullifier, transaction::InputNotes, MIN_PROOF_SECURITY_LEVEL,
+    accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest,
+    MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tokio::sync::RwLock;
