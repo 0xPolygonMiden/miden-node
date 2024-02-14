@@ -1,7 +1,10 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use hex::{FromHex, ToHex};
-use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
+use miden_objects::{
+    notes::{NoteId, Nullifier},
+    Digest, Felt, StarkField,
+};
 
 use crate::{errors::ParseError, generated::digest};
 
@@ -139,6 +142,18 @@ impl From<Digest> for digest::Digest {
 impl From<&Digest> for digest::Digest {
     fn from(value: &Digest) -> Self {
         (*value).into()
+    }
+}
+
+impl From<&Nullifier> for digest::Digest {
+    fn from(value: &Nullifier) -> Self {
+        (*value).inner().into()
+    }
+}
+
+impl From<Nullifier> for digest::Digest {
+    fn from(value: Nullifier) -> Self {
+        value.inner().into()
     }
 }
 

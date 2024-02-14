@@ -6,7 +6,7 @@ use miden_objects::{
         hash::blake::{Blake3Digest, Blake3_256},
         merkle::SimpleSmt,
     },
-    notes::{NoteEnvelope, Nullifier},
+    notes::NoteEnvelope,
     Digest,
 };
 use tracing::instrument;
@@ -29,7 +29,7 @@ pub type BatchId = Blake3Digest<32>;
 pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: BTreeMap<AccountId, AccountStates>,
-    produced_nullifiers: Vec<Nullifier>,
+    produced_nullifiers: Vec<Digest>,
     created_notes_smt: SimpleSmt<CREATED_NOTES_SMT_DEPTH>,
     /// The notes stored `created_notes_smt`
     created_notes: Vec<NoteEnvelope>,
@@ -63,8 +63,11 @@ impl TransactionBatch {
             })
             .collect();
 
-        let produced_nullifiers =
-            txs.iter().flat_map(|tx| tx.input_notes().iter()).cloned().collect();
+        let produced_nullifiers = txs
+            .iter()
+            .flat_map(|tx| tx.input_notes().iter())
+            .map(|nullifier| nullifier.inner())
+            .collect();
 
         let (created_notes, created_notes_smt) = {
             let created_notes: Vec<NoteEnvelope> =
@@ -120,7 +123,7 @@ impl TransactionBatch {
     }
 
     /// Returns the nullifier of all consumed notes.
-    pub fn produced_nullifiers(&self) -> impl Iterator<Item = Nullifier> + '_ {
+    pub fn produced_nullifiers(&self) -> impl Iterator<Item = Digest> + '_ {
         self.produced_nullifiers.iter().cloned()
     }
 

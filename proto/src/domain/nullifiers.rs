@@ -1,46 +1,16 @@
-use miden_objects::{
-    crypto::{hash::rpo::RpoDigest, merkle::SmtProof},
-    notes::Nullifier,
-};
+use miden_objects::{crypto::merkle::SmtProof, Digest};
 
 use crate::{
     errors::{MissingFieldHelper, ParseError},
-    generated::{digest::Digest, responses::NullifierBlockInputRecord},
+    generated::responses::NullifierBlockInputRecord,
 };
-
-// FROM NULLIFIER
-// ================================================================================================
-
-impl From<&Nullifier> for Digest {
-    fn from(value: &Nullifier) -> Self {
-        (*value).inner().into()
-    }
-}
-
-impl From<Nullifier> for Digest {
-    fn from(value: Nullifier) -> Self {
-        value.inner().into()
-    }
-}
-
-// INTO NULLIFIER
-// ================================================================================================
-
-impl TryFrom<Digest> for Nullifier {
-    type Error = ParseError;
-
-    fn try_from(value: Digest) -> Result<Self, Self::Error> {
-        let digest: RpoDigest = value.try_into()?;
-        Ok(digest.into())
-    }
-}
 
 // NULLIFIER INPUT RECORD
 // ================================================================================================
 
 #[derive(Clone, Debug)]
 pub struct NullifierWitness {
-    pub nullifier: Nullifier,
+    pub nullifier: Digest,
     pub proof: SmtProof,
 }
 

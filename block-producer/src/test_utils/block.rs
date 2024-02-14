@@ -2,10 +2,8 @@ use std::collections::BTreeMap;
 
 use miden_node_proto::domain::blocks::BlockInputs;
 use miden_objects::{
-    accounts::AccountId,
-    crypto::merkle::Mmr,
-    notes::{NoteEnvelope, Nullifier},
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, ONE, ZERO,
+    accounts::AccountId, crypto::merkle::Mmr, notes::NoteEnvelope, BlockHeader, Digest,
+    ACCOUNT_TREE_DEPTH, ONE, ZERO,
 };
 use miden_vm::crypto::SimpleSmt;
 
@@ -76,7 +74,7 @@ pub async fn build_actual_block_header(
 ) -> BlockHeader {
     let updated_accounts: Vec<(AccountId, Digest)> =
         batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
-    let produced_nullifiers: Vec<Nullifier> =
+    let produced_nullifiers: Vec<Digest> =
         batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
 
     let block_inputs_from_store: BlockInputs = store
@@ -100,7 +98,7 @@ pub struct MockBlockBuilder {
 
     updated_accounts: Option<Vec<(AccountId, Digest)>>,
     created_notes: Option<BTreeMap<u64, NoteEnvelope>>,
-    produced_nullifiers: Option<Vec<Nullifier>>,
+    produced_nullifiers: Option<Vec<Digest>>,
 }
 
 impl MockBlockBuilder {
@@ -140,7 +138,7 @@ impl MockBlockBuilder {
 
     pub fn produced_nullifiers(
         mut self,
-        produced_nullifiers: Vec<Nullifier>,
+        produced_nullifiers: Vec<Digest>,
     ) -> Self {
         self.produced_nullifiers = Some(produced_nullifiers);
 

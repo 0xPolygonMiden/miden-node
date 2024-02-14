@@ -6,7 +6,6 @@ use miden_node_proto::{
 };
 use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    notes::Nullifier,
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
 };
 
@@ -156,7 +155,7 @@ impl ApplyBlock for MockStoreSuccess {
         // update nullifiers
         for nullifier in block.produced_nullifiers {
             locked_produced_nullifiers
-                .insert(nullifier.inner(), [ZERO, ZERO, ZERO, block.header.block_num().into()]);
+                .insert(nullifier, [ZERO, ZERO, ZERO, block.header.block_num().into()]);
         }
 
         // update chain mmr with new block header hash
@@ -201,7 +200,7 @@ impl Store for MockStoreSuccess {
             .map(|nullifier| {
                 let nullifier_value = locked_produced_nullifiers.get_value(&nullifier.inner());
 
-                (*nullifier, nullifier_value[3].inner() as u32)
+                (nullifier.inner(), nullifier_value[3].inner() as u32)
             })
             .collect();
 
@@ -217,7 +216,7 @@ impl Store for MockStoreSuccess {
     async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = &AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
@@ -247,7 +246,7 @@ impl Store for MockStoreSuccess {
         let nullifier_records: Vec<NullifierWitness> = produced_nullifiers
             .map(|nullifier| NullifierWitness {
                 nullifier: *nullifier,
-                proof: locked_produced_nullifiers.open(&nullifier.inner()),
+                proof: locked_produced_nullifiers.open(nullifier),
             })
             .collect();
 
@@ -285,7 +284,7 @@ impl Store for MockStoreFailure {
     async fn get_block_inputs(
         &self,
         _updated_accounts: impl Iterator<Item = &AccountId> + Send,
-        _produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        _produced_nullifiers: impl Iterator<Item = &Digest> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         Err(BlockInputsError::GrpcClientError(String::new()))
     }
