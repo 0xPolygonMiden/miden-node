@@ -212,7 +212,14 @@ fn ensure_tx_inputs_constraints(
         },
         // if the account is not present in the Store, it must be a new account
         None => {
-            // TODO: check if the transaction was executed against new account
+            // if the initial account hash is not equal to `Digest::default()` it
+            // signifies that the account is not new but is also not recorded in the Store
+            if candidate_tx.initial_account_hash() != Digest::default() {
+                return Err(VerifyTxError::IncorrectAccountInitialHash {
+                    tx_initial_account_hash: candidate_tx.initial_account_hash(),
+                    store_account_hash: None,
+                });
+            }
         },
     }
 
