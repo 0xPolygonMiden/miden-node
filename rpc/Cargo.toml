@@ -11,17 +11,18 @@ rust-version = "1.73"
 
 [dependencies]
 anyhow = { version = "1.0" }
-clap = { version = "4.3" , features = ["derive"] }
+clap = { version = "4.3", features = ["derive"] }
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 hex = { version = "0.4" }
 miden-objects = { workspace = true }
+miden-tx = { workspace = true }
 miden-node-proto = { path = "../proto" }
 miden-node-store = { path = "../store" }
 miden-node-utils = { path = "../utils" }
 miden-node-block-producer = { path = "../block-producer" }
 prost = { version = "0.12" }
-serde = { version = "1.0" , features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 toml = { version = "0.8" }
 tonic = { version = "0.11" }

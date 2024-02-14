@@ -2,7 +2,7 @@ use miden_air::Felt;
 use miden_objects::transaction::{InputNotes, OutputNotes};
 
 // block builder tests (higher level)
-// 1. `apply_block()` is called
+// `apply_block()` is called
 use super::*;
 use crate::{
     test_utils::{DummyProvenTxGenerator, MockStoreFailure, MockStoreSuccessBuilder},

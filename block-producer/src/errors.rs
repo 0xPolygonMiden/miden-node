@@ -4,7 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::MerkleError,
     notes::Nullifier,
-    transaction::{InputNotes, ProvenTransaction},
+    transaction::{InputNotes, ProvenTransaction, TransactionId},
     Digest, TransactionInputError,
 };
 use miden_vm::ExecutionError;
@@ -42,6 +42,10 @@ pub enum VerifyTxError {
 
     #[error("Transaction input error: {0}")]
     TransactionInputError(#[from] TransactionInputError),
+
+    /// Failed to verify the transaction execution proof
+    #[error("Invalid transaction proof error for transaction: {0}")]
+    InvalidTransactionProof(TransactionId),
 }
 
 // Transaction adding errors

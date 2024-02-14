@@ -28,6 +28,7 @@ miden-node-store = { path = "../store" }
 miden-node-utils = { path = "../utils" }
 miden-objects = { workspace = true }
 miden_stdlib = { package = "miden-stdlib", git = "https://github.com/0xPolygonMiden/miden-vm", branch = "next", default-features = false }
+miden-tx = { workspace = true }
 miden_vm = { package = "miden-vm", git = "https://github.com/0xPolygonMiden/miden-vm", branch = "next", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
@@ -47,5 +48,5 @@ tracing-subscriber = { workspace = true }
 figment = { version = "0.10", features = ["toml", "env", "test"] }
 miden-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
 once_cell = { version = "1.18" }
-tokio = { version = "1.29", features = ["test-util" ] }
+tokio = { version = "1.29", features = ["test-util"] }
 winterfell = { version = "0.7" }

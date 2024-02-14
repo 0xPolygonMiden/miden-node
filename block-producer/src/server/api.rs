@@ -12,7 +12,7 @@ use tracing::{debug, info, instrument};
 
 use crate::{
     batch_builder::BatchBuilder,
-    txqueue::{TransactionQueue, TransactionVerifier},
+    txqueue::{TransactionQueue, TransactionValidator},
     COMPONENT,
 };
 
@@ -32,7 +32,7 @@ impl<BB, TV> BlockProducerApi<BB, TV> {
 #[tonic::async_trait]
 impl<BB, TV> api_server::Api for BlockProducerApi<BB, TV>
 where
-    TV: TransactionVerifier,
+    TV: TransactionValidator,
     BB: BatchBuilder,
 {
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue

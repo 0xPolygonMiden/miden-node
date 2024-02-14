@@ -13,7 +13,7 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-// TRANSACTION VERIFIER
+// TRANSACTION VALIDATOR
 // ================================================================================================
 
 /// Implementations are responsible to track in-flight transactions and verify that new transactions
@@ -22,15 +22,14 @@ mod tests;
 /// See [crate::store::ApplyBlock], that trait's `apply_block` is called when a block is sealed, and
 /// it can determine when transactions are no longer in-flight.
 #[async_trait]
-pub trait TransactionVerifier: Send + Sync + 'static {
+pub trait TransactionValidator: Send + Sync + 'static {
     /// Method to receive a `tx` for processing.
     ///
     /// This method should:
-    ///
-    /// 1. Verify the transaction is valid, against the current's rollup state, and also against
-    ///    in-flight transactions.
-    /// 2. Track the necessary state of the transaction until it is commited to the `store`, to
-    ///    perform the check above.
+    /// - Verify the transaction is valid, against the current's rollup state, and also against
+    ///   in-flight transactions.
+    /// - Track the necessary state of the transaction until it is commited to the `store`, to
+    ///   perform the check above.
     async fn verify_tx(
         &self,
         tx: &ProvenTransaction,
@@ -50,24 +49,24 @@ pub struct TransactionQueueOptions {
 
 pub struct TransactionQueue<BB, TV> {
     ready_queue: SharedRwVec<ProvenTransaction>,
-    tx_verifier: Arc<TV>,
+    tx_validator: Arc<TV>,
     batch_builder: Arc<BB>,
     options: TransactionQueueOptions,
 }
 
 impl<BB, TV> TransactionQueue<BB, TV>
 where
-    TV: TransactionVerifier,
+    TV: TransactionValidator,
     BB: BatchBuilder,
 {
     pub fn new(
-        tx_verifier: Arc<TV>,
+        tx_validator: Arc<TV>,
         batch_builder: Arc<BB>,
         options: TransactionQueueOptions,
     ) -> Self {
         Self {
             ready_queue: Arc::new(RwLock::new(Vec::new())),
-            tx_verifier,
+            tx_validator,
             batch_builder,
             options,
         }
@@ -136,7 +135,7 @@ where
     ) -> Result<(), AddTransactionError> {
         info!(target: COMPONENT, tx_id = %tx.id().to_hex(), account_id = %tx.account_id().to_hex());
 
-        self.tx_verifier
+        self.tx_validator
             .verify_tx(&tx)
             .await
             .map_err(AddTransactionError::VerificationFailed)?;
