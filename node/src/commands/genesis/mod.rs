@@ -18,7 +18,7 @@ use miden_node_utils::config::load_config;
 use miden_objects::{
     accounts::{Account, AccountData, AccountType, AuthData},
     assets::TokenSymbol,
-    Felt,
+    Felt, ONE,
 };
 
 mod inputs;
@@ -166,7 +166,7 @@ fn create_accounts(
             }
         }
 
-        account_data.account.set_nonce(Felt::new(1))?;
+        account_data.account.set_nonce(ONE)?;
 
         account_data.write(path)?;
 
