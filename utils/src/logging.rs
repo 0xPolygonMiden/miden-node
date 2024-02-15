@@ -1,5 +1,9 @@
 use anyhow::Result;
-use tracing::subscriber::{self, Subscriber};
+use tracing::{
+    level_filters::LevelFilter,
+    subscriber::{self, Subscriber},
+};
+use tracing_subscriber::EnvFilter;
 
 pub fn setup_logging() -> Result<()> {
     subscriber::set_global_default(subscriber())?;
@@ -9,8 +13,7 @@ pub fn setup_logging() -> Result<()> {
 
 #[cfg(not(feature = "tracing-forest"))]
 pub fn subscriber() -> impl Subscriber + core::fmt::Debug {
-    use tracing::level_filters::LevelFilter;
-    use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
+    use tracing_subscriber::fmt::format::FmtSpan;
 
     tracing_subscriber::fmt()
         .pretty()
@@ -33,5 +36,9 @@ pub fn subscriber() -> impl Subscriber + core::fmt::Debug {
     pub use tracing_forest::ForestLayer;
     pub use tracing_subscriber::{layer::SubscriberExt, Registry};
 
-    Registry::default().with(ForestLayer::default())
+    Registry::default().with(ForestLayer::default()).with(
+        EnvFilter::builder()
+            .with_default_directive(LevelFilter::INFO.into())
+            .from_env_lossy(),
+    )
 }

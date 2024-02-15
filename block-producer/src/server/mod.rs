@@ -3,7 +3,7 @@ use std::{net::ToSocketAddrs, sync::Arc};
 use anyhow::{anyhow, Result};
 use miden_node_proto::generated::{block_producer::api_server, store::api_client as store_client};
 use tonic::transport::Server;
-use tracing::{info, instrument};
+use tracing::info;
 
 use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
@@ -16,14 +16,11 @@ use crate::{
     SERVER_MAX_BATCHES_PER_BLOCK,
 };
 
-// TODO: does this need to be public?
 pub mod api;
 
 // BLOCK PRODUCER INITIALIZER
 // ================================================================================================
 
-/// TODO: add comments
-#[instrument(target = "miden-block-producer", name = "block_producer", skip_all)]
 pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     info!(target: COMPONENT, %config, "Initializing server");
 

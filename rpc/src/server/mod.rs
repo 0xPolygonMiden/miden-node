@@ -3,7 +3,7 @@ use std::net::ToSocketAddrs;
 use anyhow::{anyhow, Result};
 use miden_node_proto::generated::rpc::api_server;
 use tonic::transport::Server;
-use tracing::{info, instrument};
+use tracing::info;
 
 use crate::{config::RpcConfig, COMPONENT};
 
@@ -11,7 +11,7 @@ mod api;
 
 // RPC INITIALIZER
 // ================================================================================================
-#[instrument(target = "miden-rpc", name = "rpc", skip_all)]
+
 pub async fn serve(config: RpcConfig) -> Result<()> {
     info!(target: COMPONENT, %config, "Initializing server");
 
