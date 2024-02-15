@@ -325,7 +325,7 @@ impl BlockWitness {
         let advice_map: Vec<_> = self
             .produced_nullifiers
             .values()
-            .map(|proof| (proof.leaf().hash().as_bytes(), proof.leaf().to_elements()))
+            .map(|proof| (proof.leaf().hash(), proof.leaf().to_elements()))
             .chain(std::iter::once(mmr_peaks_advice_map_key_value(&self.chain_peaks)))
             .collect();
 
@@ -347,9 +347,9 @@ pub(super) struct AccountUpdate {
 // =================================================================================================
 
 // Generates the advice map key/value for Mmr peaks
-fn mmr_peaks_advice_map_key_value(peaks: &MmrPeaks) -> ([u8; 32], Vec<Felt>) {
+fn mmr_peaks_advice_map_key_value(peaks: &MmrPeaks) -> (Digest, Vec<Felt>) {
     let mut elements = vec![Felt::new(peaks.num_leaves() as u64), ZERO, ZERO, ZERO];
     elements.extend(peaks.flatten_and_pad_peaks());
 
-    (peaks.hash_peaks().into(), elements)
+    (peaks.hash_peaks(), elements)
 }
