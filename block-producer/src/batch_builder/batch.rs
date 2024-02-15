@@ -7,14 +7,11 @@ use miden_objects::{
         merkle::SimpleSmt,
     },
     notes::{NoteEnvelope, Nullifier},
-    Digest,
+    Digest, BATCH_OUTPUT_NOTES_TREE_DEPTH, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
 
-use crate::{
-    errors::BuildBatchError, ProvenTransaction, CREATED_NOTES_SMT_DEPTH,
-    MAX_NUM_CREATED_NOTES_PER_BATCH,
-};
+use crate::{errors::BuildBatchError, ProvenTransaction};
 
 pub type BatchId = Blake3Digest<32>;
 
@@ -30,7 +27,7 @@ pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Nullifier>,
-    created_notes_smt: SimpleSmt<CREATED_NOTES_SMT_DEPTH>,
+    created_notes_smt: SimpleSmt<BATCH_OUTPUT_NOTES_TREE_DEPTH>,
     /// The notes stored `created_notes_smt`
     created_notes: Vec<NoteEnvelope>,
 }
@@ -70,14 +67,14 @@ impl TransactionBatch {
             let created_notes: Vec<NoteEnvelope> =
                 txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
 
-            if created_notes.len() > MAX_NUM_CREATED_NOTES_PER_BATCH {
+            if created_notes.len() > MAX_NOTES_PER_BATCH {
                 return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
             }
 
             // TODO: document under what circumstances SMT creating can fail
             (
                 created_notes.clone(),
-                SimpleSmt::<CREATED_NOTES_SMT_DEPTH>::with_contiguous_leaves(
+                SimpleSmt::<BATCH_OUTPUT_NOTES_TREE_DEPTH>::with_contiguous_leaves(
                     created_notes.into_iter().flat_map(|note_envelope| {
                         [note_envelope.note_id().into(), note_envelope.metadata().into()]
                     }),
