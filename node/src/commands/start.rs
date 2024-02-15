@@ -8,6 +8,8 @@ use miden_node_utils::config::load_config;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinSet;
 
+use crate::faucet;
+
 // Top-level config
 // ================================================================================================
 
@@ -22,7 +24,10 @@ pub struct StartCommandConfig {
 // START
 // ===================================================================================================
 
-pub async fn start_node(config_filepath: &Path) -> Result<()> {
+pub async fn start_node(
+    config_filepath: &Path,
+    has_faucet: bool,
+) -> Result<()> {
     let config: StartCommandConfig = load_config(config_filepath).extract().map_err(|err| {
         anyhow!("failed to load config file `{}`: {err}", config_filepath.display())
     })?;
@@ -38,6 +43,12 @@ pub async fn start_node(config_filepath: &Path) -> Result<()> {
     // wait for block producer before starting rpc
     tokio::time::sleep(Duration::from_secs(1)).await;
     join_set.spawn(rpc_server::serve(config.rpc));
+
+    if has_faucet {
+        // start miden-faucet
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        join_set.spawn(faucet::serve());
+    }
 
     // block on all tasks
     while let Some(res) = join_set.join_next().await {

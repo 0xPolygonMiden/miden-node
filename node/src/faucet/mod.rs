@@ -142,7 +142,7 @@ async fn get_tokens(
 }
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+pub async fn serve() -> std::io::Result<()> {
     // import faucet
     let faucet = match utils::import_account_from_args() {
         Ok(account_data) => account_data,
