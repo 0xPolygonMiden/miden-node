@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use miden_node_proto::domain::blocks::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
@@ -10,6 +9,7 @@ use miden_objects::{
 };
 
 use crate::{
+    block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
     TransactionBatch,
 };
@@ -40,9 +40,9 @@ impl BlockWitness {
                 batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
 
             let mut account_merkle_proofs: BTreeMap<AccountId, MerklePath> = block_inputs
-                .account_states
+                .accounts
                 .into_iter()
-                .map(|record| (record.account_id, record.proof))
+                .map(|(account_id, witness)| (account_id, witness.proof))
                 .collect();
 
             batches
@@ -80,16 +80,10 @@ impl BlockWitness {
             })
             .collect();
 
-        let produced_nullifiers = block_inputs
-            .nullifiers
-            .into_iter()
-            .map(|nullifier_record| (nullifier_record.nullifier, nullifier_record.proof))
-            .collect();
-
         Ok(Self {
             updated_accounts,
             batch_created_notes_roots,
-            produced_nullifiers,
+            produced_nullifiers: block_inputs.nullifiers,
             chain_peaks: block_inputs.chain_peaks,
             prev_header: block_inputs.block_header,
         })
@@ -133,27 +127,23 @@ impl BlockWitness {
 
         let accounts_in_batches: BTreeSet<AccountId> =
             batches_initial_states.keys().cloned().collect();
-        let accounts_in_store: BTreeSet<AccountId> = block_inputs
-            .account_states
-            .iter()
-            .map(|record| &record.account_id)
-            .cloned()
-            .collect();
+        let accounts_in_store: BTreeSet<AccountId> =
+            block_inputs.accounts.keys().copied().collect();
 
         if accounts_in_batches == accounts_in_store {
             let accounts_with_different_hashes: Vec<AccountId> = block_inputs
-                .account_states
+                .accounts
                 .iter()
-                .filter_map(|record| {
-                    let hash_in_store = record.account_hash;
+                .filter_map(|(account_id, witness)| {
+                    let hash_in_store = witness.hash;
                     let hash_in_batches = batches_initial_states
-                        .get(&record.account_id)
+                        .get(account_id)
                         .expect("we already verified that account id is contained in batches");
 
                     if hash_in_store == *hash_in_batches {
                         None
                     } else {
-                        Some(record.account_id)
+                        Some(*account_id)
                     }
                 })
                 .collect();
@@ -182,11 +172,8 @@ impl BlockWitness {
         block_inputs: &BlockInputs,
         batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError> {
-        let produced_nullifiers_from_store: BTreeSet<Nullifier> = block_inputs
-            .nullifiers
-            .iter()
-            .map(|nullifier_record| nullifier_record.nullifier)
-            .collect();
+        let produced_nullifiers_from_store: BTreeSet<Nullifier> =
+            block_inputs.nullifiers.keys().copied().collect();
 
         let produced_nullifiers_from_batches: BTreeSet<Nullifier> =
             batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();

@@ -2,7 +2,7 @@ use miden_node_proto::errors::ParseError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::MerkleError,
+    crypto::merkle::{MerkleError, MmrError},
     notes::Nullifier,
     transaction::{InputNotes, ProvenTransaction, TransactionId},
     Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH, MAX_NOTES_PER_BATCH,
@@ -97,10 +97,13 @@ pub enum BlockProverError {
 // Block inputs errors
 // =================================================================================================
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, PartialEq, Error)]
 pub enum BlockInputsError {
     #[error("failed to parse protobuf message: {0}")]
     ParseError(#[from] ParseError),
+    #[error("MmrPeaks error: {0}")]
+    MmrPeaksError(#[from] MmrError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
 }

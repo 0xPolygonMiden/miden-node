@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use miden_node_proto::domain::blocks::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::Mmr,
@@ -11,7 +10,7 @@ use miden_vm::crypto::SimpleSmt;
 
 use super::MockStoreSuccess;
 use crate::{
-    block::Block,
+    block::{Block, BlockInputs},
     block_builder::prover::{block_witness::BlockWitness, BlockProver},
     store::Store,
     TransactionBatch,
