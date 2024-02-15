@@ -1,5 +1,6 @@
+use std::collections::BTreeMap;
+
 use miden_mock::mock::block::mock_block_header;
-use miden_node_proto::{AccountInputRecord, NullifierWitness};
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{
@@ -13,7 +14,7 @@ use miden_objects::{
 
 use super::*;
 use crate::{
-    block::BlockInputs,
+    block::{AccountWitness, BlockInputs},
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
     store::Store,
     test_utils::{
@@ -41,24 +42,16 @@ fn test_block_witness_validation_inconsistent_account_ids() {
         let block_header = mock_block_header(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
-        let account_states = vec![
-            AccountInputRecord {
-                account_id: account_id_1,
-                account_hash: Digest::default(),
-                proof: MerklePath::default(),
-            },
-            AccountInputRecord {
-                account_id: account_id_2,
-                account_hash: Digest::default(),
-                proof: MerklePath::default(),
-            },
-        ];
+        let accounts = BTreeMap::from_iter(vec![
+            (account_id_1, AccountWitness::default()),
+            (account_id_2, AccountWitness::default()),
+        ]);
 
         BlockInputs {
             block_header,
             chain_peaks,
-            account_states,
-            nullifiers: Vec::new(),
+            accounts,
+            nullifiers: Default::default(),
         }
     };
 
@@ -117,24 +110,22 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
         let block_header = mock_block_header(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
-        let account_states = vec![
-            AccountInputRecord {
-                account_id: account_id_1,
-                account_hash: account_1_hash_store,
-                proof: MerklePath::default(),
-            },
-            AccountInputRecord {
-                account_id: account_id_2,
-                account_hash: Digest::default(),
-                proof: MerklePath::default(),
-            },
-        ];
+        let accounts = BTreeMap::from_iter(vec![
+            (
+                account_id_1,
+                AccountWitness {
+                    hash: account_1_hash_store,
+                    proof: Default::default(),
+                },
+            ),
+            (account_id_2, Default::default()),
+        ]);
 
         BlockInputs {
             block_header,
             chain_peaks,
-            account_states,
-            nullifiers: Vec::new(),
+            accounts,
+            nullifiers: Default::default(),
         }
     };
 
@@ -514,43 +505,47 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
         let block_header = mock_block_header(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
-        let nullifiers = vec![
-            NullifierWitness {
-                nullifier: nullifier_2,
-                proof: SmtProof::new(
+        let accounts = batches
+            .iter()
+            .flat_map(|batch| batch.account_initial_states())
+            .map(|(account_id, hash)| {
+                (
+                    account_id,
+                    AccountWitness {
+                        hash,
+                        proof: MerklePath::default(),
+                    },
+                )
+            })
+            .collect();
+
+        let nullifiers = BTreeMap::from_iter(vec![
+            (
+                nullifier_2,
+                SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
                     SmtLeaf::new_empty(LeafIndex::new_max_depth(
                         nullifier_2.most_significant_felt().into(),
                     )),
                 )
                 .unwrap(),
-            },
-            NullifierWitness {
-                nullifier: nullifier_3,
-                proof: SmtProof::new(
+            ),
+            (
+                nullifier_3,
+                SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
                     SmtLeaf::new_empty(LeafIndex::new_max_depth(
                         nullifier_3.most_significant_felt().into(),
                     )),
                 )
                 .unwrap(),
-            },
-        ];
-
-        let account_states = batches
-            .iter()
-            .flat_map(|batch| batch.account_initial_states())
-            .map(|(account_id, account_hash)| AccountInputRecord {
-                account_id,
-                account_hash,
-                proof: MerklePath::default(),
-            })
-            .collect();
+            ),
+        ]);
 
         BlockInputs {
             block_header,
             chain_peaks,
-            account_states,
+            accounts,
             nullifiers,
         }
     };

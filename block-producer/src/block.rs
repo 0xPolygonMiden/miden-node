@@ -3,11 +3,11 @@ use std::collections::BTreeMap;
 use miden_node_proto::{
     errors::{MissingFieldHelper, ParseError},
     generated::responses::GetBlockInputsResponse,
-    try_convert, AccountInputRecord, NullifierWitness,
+    AccountInputRecord, NullifierWitness,
 };
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::MmrPeaks,
+    crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
     notes::{NoteEnvelope, Nullifier},
     BlockHeader, Digest,
 };
@@ -43,10 +43,16 @@ pub struct BlockInputs {
     pub chain_peaks: MmrPeaks,
 
     /// The hashes of the requested accounts and their authentication paths
-    pub account_states: Vec<AccountInputRecord>,
+    pub accounts: BTreeMap<AccountId, AccountWitness>,
 
     /// The requested nullifiers and their authentication paths
-    pub nullifiers: Vec<NullifierWitness>,
+    pub nullifiers: BTreeMap<Nullifier, SmtProof>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct AccountWitness {
+    pub hash: Digest,
+    pub proof: MerklePath,
 }
 
 impl TryFrom<GetBlockInputsResponse> for BlockInputs {
@@ -76,11 +82,33 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             .map_err(Self::Error::MmrPeaksError)?
         };
 
+        let accounts = get_block_inputs
+            .account_states
+            .into_iter()
+            .map(|entry| {
+                let domain: AccountInputRecord = entry.try_into()?;
+                let witness = AccountWitness {
+                    hash: domain.account_hash,
+                    proof: domain.proof,
+                };
+                Ok((domain.account_id, witness))
+            })
+            .collect::<Result<BTreeMap<_, _>, ParseError>>()?;
+
+        let nullifiers = get_block_inputs
+            .nullifiers
+            .into_iter()
+            .map(|entry| {
+                let witness: NullifierWitness = entry.try_into()?;
+                Ok((witness.nullifier, witness.proof))
+            })
+            .collect::<Result<BTreeMap<_, _>, ParseError>>()?;
+
         Ok(Self {
             block_header,
             chain_peaks,
-            account_states: try_convert(get_block_inputs.account_states)?,
-            nullifiers: try_convert(get_block_inputs.nullifiers)?,
+            accounts,
+            nullifiers,
         })
     }
 }
