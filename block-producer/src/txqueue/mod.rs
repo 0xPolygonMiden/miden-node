@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use miden_objects::MAX_NOTES_PER_BATCH;
 use tokio::{sync::RwLock, time};
 use tracing::{debug, info, info_span, instrument, Instrument};
 
@@ -87,7 +88,7 @@ where
     /// Divides the queue in groups to be batched; those that failed are appended back on the queue
     #[instrument(target = "miden-block-producer", skip_all)]
     async fn try_build_batches(&self) {
-        let txs: Vec<ProvenTransaction> = {
+        let mut txs: Vec<ProvenTransaction> = {
             let mut locked_ready_queue = self.ready_queue.write().await;
 
             // If there are no transactions in the queue, this call is a no-op. The [BatchBuilder]
@@ -100,15 +101,35 @@ where
             locked_ready_queue.drain(..).collect()
         };
 
-        let tx_groups = txs.chunks(self.options.batch_size).map(|txs| txs.to_vec());
+        while !txs.is_empty() {
+            let mut batch = Vec::with_capacity(self.options.batch_size);
+            let mut notes_in_batch = 0;
 
-        for txs in tx_groups {
+            while let Some(tx) = txs.pop() {
+                notes_in_batch += tx.output_notes().num_notes();
+
+                debug_assert!(
+                    tx.output_notes().num_notes() <= MAX_NOTES_PER_BATCH,
+                    "Sanity check, the number of output notes of a single transaction must never be larger than the batch maximum",
+                );
+
+                if notes_in_batch > MAX_NOTES_PER_BATCH || batch.len() == self.options.batch_size {
+                    // Batch would be too big in number of notes or transactions. Push the tx back
+                    // to the list of available transactions and forward the current batch.
+                    txs.push(tx);
+                    break;
+                } else {
+                    // The tx fits in the current batch
+                    batch.push(tx)
+                }
+            }
+
             let ready_queue = self.ready_queue.clone();
             let batch_builder = self.batch_builder.clone();
 
             tokio::spawn(
                 async move {
-                    match batch_builder.build_batch(txs).await {
+                    match batch_builder.build_batch(batch).await {
                         Ok(_) => {
                             // batch was successfully built, do nothing
                         },
