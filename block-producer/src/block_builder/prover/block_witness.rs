@@ -128,7 +128,7 @@ impl BlockWitness {
         let accounts_in_batches: BTreeSet<AccountId> =
             batches_initial_states.keys().cloned().collect();
         let accounts_in_store: BTreeSet<AccountId> =
-            block_inputs.accounts.iter().map(|(&account_id, _)| account_id).collect();
+            block_inputs.accounts.keys().copied().collect();
 
         if accounts_in_batches == accounts_in_store {
             let accounts_with_different_hashes: Vec<AccountId> = block_inputs
@@ -173,7 +173,7 @@ impl BlockWitness {
         batches: &[TransactionBatch],
     ) -> Result<(), BuildBlockError> {
         let produced_nullifiers_from_store: BTreeSet<Nullifier> =
-            block_inputs.nullifiers.iter().map(|(&nullifier, _)| nullifier).collect();
+            block_inputs.nullifiers.keys().copied().collect();
 
         let produced_nullifiers_from_batches: BTreeSet<Nullifier> =
             batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
