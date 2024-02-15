@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use miden_node_proto::{
     convert,
-    domain::blocks::BlockInputs,
     generated::{
         account, digest,
         requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
@@ -14,7 +13,10 @@ use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{block::Block, ProvenTransaction, COMPONENT};
+use crate::{
+    block::{Block, BlockInputs},
+    ProvenTransaction, COMPONENT,
+};
 
 // STORE TRAIT
 // ================================================================================================
