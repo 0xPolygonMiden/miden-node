@@ -30,7 +30,7 @@ pub enum Command {
         #[arg(short, long, value_name = "FILE", default_value = NODE_CONFIG_FILE_PATH)]
         config: PathBuf,
 
-        #[arg(short = "f", long, default_value = false)]
+        #[arg(short, long)]
         has_faucet: bool,
     },
 
@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::Start { config, has_faucet } => commands::start_node(config, has_faucet).await,
+        Command::Start { config, has_faucet } => commands::start_node(config, *has_faucet).await,
         Command::MakeGenesis {
             output_path,
             force,
