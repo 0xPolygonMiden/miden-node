@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use miden_node_proto::domain::blocks::BlockInputs;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
@@ -10,6 +9,7 @@ use miden_objects::{
 };
 
 use crate::{
+    block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
     TransactionBatch, CREATED_NOTES_SMT_DEPTH, CREATED_NOTES_TREE_INSERTION_DEPTH,
 };

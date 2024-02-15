@@ -1,5 +1,5 @@
 use miden_mock::mock::block::mock_block_header;
-use miden_node_proto::{AccountInputRecord, BlockInputs, NullifierWitness};
+use miden_node_proto::{AccountInputRecord, NullifierWitness};
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{
@@ -13,6 +13,7 @@ use miden_objects::{
 
 use super::*;
 use crate::{
+    block::BlockInputs,
     block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
     store::Store,
     test_utils::{

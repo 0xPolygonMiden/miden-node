@@ -1,9 +1,7 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
-use miden_node_proto::{
-    AccountInputRecord, AccountState, BlockInputs, NullifierWitness, TransactionInputs,
-};
+use miden_node_proto::{AccountInputRecord, AccountState, NullifierWitness, TransactionInputs};
 use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::Nullifier,
@@ -12,7 +10,7 @@ use miden_objects::{
 
 use super::*;
 use crate::{
-    block::Block,
+    block::{Block, BlockInputs},
     store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputsError},
     ProvenTransaction,
 };
