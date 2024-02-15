@@ -3,7 +3,7 @@ use std::{net::ToSocketAddrs, sync::Arc};
 use anyhow::{anyhow, Result};
 use miden_node_proto::generated::store::api_server;
 use tonic::transport::Server;
-use tracing::{info, instrument};
+use tracing::info;
 
 use crate::{config::StoreConfig, db::Db, state::State, COMPONENT};
 
@@ -12,7 +12,6 @@ mod api;
 // STORE INITIALIZER
 // ================================================================================================
 
-#[instrument(target = "miden-store", name = "store", skip_all)]
 pub async fn serve(
     config: StoreConfig,
     db: Db,
