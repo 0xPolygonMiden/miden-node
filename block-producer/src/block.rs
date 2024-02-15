@@ -12,6 +12,8 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
+use crate::store::BlockInputsError;
+
 #[derive(Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
@@ -56,7 +58,7 @@ pub struct AccountWitness {
 }
 
 impl TryFrom<GetBlockInputsResponse> for BlockInputs {
-    type Error = ParseError;
+    type Error = BlockInputsError;
 
     fn try_from(get_block_inputs: GetBlockInputsResponse) -> Result<Self, Self::Error> {
         let block_header: BlockHeader = get_block_inputs
@@ -76,10 +78,9 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
                 get_block_inputs
                     .mmr_peaks
                     .into_iter()
-                    .map(|peak| peak.try_into())
-                    .collect::<Result<_, Self::Error>>()?,
-            )
-            .map_err(Self::Error::MmrPeaksError)?
+                    .map(TryInto::try_into)
+                    .collect::<Result<_, _>>()?,
+            )?
         };
 
         let accounts = get_block_inputs

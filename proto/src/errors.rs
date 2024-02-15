@@ -1,6 +1,6 @@
 use std::any::type_name;
 
-use miden_objects::crypto::merkle::{MmrError, SmtLeafError, SmtProofError};
+use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -15,8 +15,6 @@ pub enum ParseError {
     TooMuchData { expected: usize, got: usize },
     #[error("Not enough data, expected {expected}, got {got}")]
     InsufficientData { expected: usize, got: usize },
-    #[error("MmrPeaks error: {0}")]
-    MmrPeaksError(MmrError),
     #[error("Number of MmrPeaks doesn't fit into memory")]
     TooManyMmrPeaks,
     #[error("Value is not in the range 0..MODULUS")]
