@@ -5,24 +5,14 @@ use miden_objects::{
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
     notes::Nullifier,
     vm::{AdviceInputs, StackInputs},
-    BlockHeader, Digest, Felt, ZERO,
+    BlockHeader, Digest, Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
 use crate::{
     block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
-    TransactionBatch, CREATED_NOTES_SMT_DEPTH, CREATED_NOTES_TREE_INSERTION_DEPTH,
+    TransactionBatch,
 };
-
-// CONSTANTS
-// =================================================================================================
-
-/// The depth of the created notes tree in the block.
-pub(crate) const CREATED_NOTES_TREE_DEPTH: u8 =
-    CREATED_NOTES_TREE_INSERTION_DEPTH + CREATED_NOTES_SMT_DEPTH;
-
-pub(crate) const MAX_BATCHES_PER_BLOCK: usize =
-    2_usize.pow(CREATED_NOTES_TREE_INSERTION_DEPTH as u32);
 
 // BLOCK WITNESS
 // =================================================================================================
@@ -244,7 +234,7 @@ impl BlockWitness {
                 stack_inputs.push(batch_index);
             }
 
-            let empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
+            let empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
             stack_inputs.extend(*empty_root);
             stack_inputs.push(
                 Felt::try_from(num_created_notes_roots as u64)

@@ -8,7 +8,10 @@ use miden_node_proto::generated::{
     note::Note,
     responses::{AccountHashUpdate, NullifierUpdate},
 };
-use miden_objects::crypto::{hash::rpo::RpoDigest, utils::Deserializable};
+use miden_objects::{
+    crypto::{hash::rpo::RpoDigest, utils::Deserializable},
+    GENESIS_BLOCK,
+};
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
@@ -16,7 +19,7 @@ use tracing::{info, info_span, instrument};
 use crate::{
     config::StoreConfig,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
-    genesis::{GenesisState, GENESIS_BLOCK_NUM},
+    genesis::GenesisState,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -285,7 +288,7 @@ impl Db {
         };
 
         let maybe_block_header_in_store = self
-            .select_block_header_by_block_num(Some(GENESIS_BLOCK_NUM))
+            .select_block_header_by_block_num(Some(GENESIS_BLOCK))
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 

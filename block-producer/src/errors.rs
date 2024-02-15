@@ -5,12 +5,10 @@ use miden_objects::{
     crypto::merkle::MerkleError,
     notes::Nullifier,
     transaction::{InputNotes, ProvenTransaction, TransactionId},
-    Digest, TransactionInputError,
+    Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH, MAX_NOTES_PER_BATCH,
 };
 use miden_vm::ExecutionError;
 use thiserror::Error;
-
-use crate::{CREATED_NOTES_TREE_INSERTION_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH};
 
 // Transaction verification errors
 // =================================================================================================
@@ -67,10 +65,7 @@ pub enum AddTransactionError {
 /// queue can re-queue them.
 #[derive(Error, Debug)]
 pub enum BuildBatchError {
-    #[error(
-        "Too many notes in the batch. Got: {0}, max: {}",
-        MAX_NUM_CREATED_NOTES_PER_BATCH
-    )]
+    #[error("Too many notes in the batch. Got: {0}, max: {}", MAX_NOTES_PER_BATCH)]
     TooManyNotesCreated(usize, Vec<ProvenTransaction>),
 
     #[error("failed to create notes SMT: {0}")]
@@ -138,7 +133,7 @@ pub enum BuildBlockError {
     InconsistentNullifiers(Vec<Nullifier>),
     #[error(
         "too many batches in block. Got: {0}, max: 2^{}",
-        CREATED_NOTES_TREE_INSERTION_DEPTH
+        BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH
     )]
     TooManyBatchesInBlock(usize),
 }

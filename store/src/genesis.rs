@@ -3,10 +3,8 @@ use miden_objects::{
     crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, Smt},
     notes::NOTE_LEAF_DEPTH,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH,
+    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, GENESIS_BLOCK,
 };
-
-pub const GENESIS_BLOCK_NUM: u32 = 0;
 
 // GENESIS STATE
 // ================================================================================================
@@ -44,7 +42,7 @@ impl GenesisState {
 
         let block_header = BlockHeader::new(
             Digest::default(),
-            GENESIS_BLOCK_NUM,
+            GENESIS_BLOCK,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             Smt::default().root(),
