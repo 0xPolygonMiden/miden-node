@@ -21,6 +21,7 @@ use crate::test_utils::MockStoreSuccessBuilder;
 /// Tests the happy path where 3 transactions who modify different accounts and consume different
 /// notes all verify successfully
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_happy_path() {
     let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
@@ -36,7 +37,7 @@ async fn test_verify_tx_happy_path() {
             .build(),
     );
 
-    let state_view = DefaultStateView::new(store);
+    let state_view = DefaultStateView::new(store, false);
 
     for tx in txs {
         state_view.verify_tx(&tx).await.unwrap();
@@ -48,6 +49,7 @@ async fn test_verify_tx_happy_path() {
 ///
 /// In this test, all calls to `verify_tx()` are concurrent
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_happy_path_concurrent() {
     let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
@@ -63,7 +65,7 @@ async fn test_verify_tx_happy_path_concurrent() {
             .build(),
     );
 
-    let state_view = Arc::new(DefaultStateView::new(store));
+    let state_view = Arc::new(DefaultStateView::new(store, false));
 
     let mut set = JoinSet::new();
 
@@ -79,10 +81,11 @@ async fn test_verify_tx_happy_path_concurrent() {
 
 /// Verifies requirement VT1
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt1() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account = MockPrivateAccount::<3>::from(0);
+    let account = MockPrivateAccount::<3>::from(1);
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -100,7 +103,7 @@ async fn test_verify_tx_vt1() {
         OutputNotes::new(Vec::new()).unwrap(),
     );
 
-    let state_view = DefaultStateView::new(store);
+    let state_view = DefaultStateView::new(store, false);
 
     let verify_tx_result = state_view.verify_tx(&tx).await;
 
@@ -113,9 +116,9 @@ async fn test_verify_tx_vt1() {
     );
 }
 
-/// TODO: Add new_account checks from the ProvenTransaction
 /// Verifies requirement VT2
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt2() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -132,7 +135,7 @@ async fn test_verify_tx_vt2() {
         OutputNotes::new(Vec::new()).unwrap(),
     );
 
-    let state_view = DefaultStateView::new(store);
+    let state_view = DefaultStateView::new(store, false);
 
     let verify_tx_result = state_view.verify_tx(&tx).await;
 
@@ -141,10 +144,11 @@ async fn test_verify_tx_vt2() {
 
 /// Verifies requirement VT3
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt3() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
+    let account: MockPrivateAccount<3> = MockPrivateAccount::from(1);
 
     let nullifier_in_store = nullifier_by_index(0);
 
@@ -164,7 +168,7 @@ async fn test_verify_tx_vt3() {
         OutputNotes::new(Vec::new()).unwrap(),
     );
 
-    let state_view = DefaultStateView::new(store);
+    let state_view = DefaultStateView::new(store, false);
 
     let verify_tx_result = state_view.verify_tx(&tx).await;
 
@@ -178,10 +182,11 @@ async fn test_verify_tx_vt3() {
 
 /// Verifies requirement VT4
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt4() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
+    let account: MockPrivateAccount<3> = MockPrivateAccount::from(1);
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -207,7 +212,7 @@ async fn test_verify_tx_vt4() {
         OutputNotes::new(Vec::new()).unwrap(),
     );
 
-    let state_view = DefaultStateView::new(store);
+    let state_view = DefaultStateView::new(store, false);
 
     let verify_tx1_result = state_view.verify_tx(&tx1).await;
     assert!(verify_tx1_result.is_ok());
@@ -221,11 +226,12 @@ async fn test_verify_tx_vt4() {
 
 /// Verifies requirement VT5
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt5() {
     let tx_gen = DummyProvenTxGenerator::new();
 
-    let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(0);
-    let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(1);
+    let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(1);
+    let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(2);
     let nullifier_in_both_txs = nullifier_by_index(0);
 
     // Notice: `consumed_note_in_both_txs` is NOT in the store
@@ -257,7 +263,7 @@ async fn test_verify_tx_vt5() {
         OutputNotes::new(Vec::new()).unwrap(),
     );
 
-    let state_view = DefaultStateView::new(store);
+    let state_view = DefaultStateView::new(store, false);
 
     let verify_tx1_result = state_view.verify_tx(&tx1).await;
     assert!(verify_tx1_result.is_ok());

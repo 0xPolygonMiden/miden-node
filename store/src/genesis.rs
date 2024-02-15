@@ -51,8 +51,12 @@ impl GenesisState {
             *EmptySubtreeRoots::entry(NOTE_LEAF_DEPTH, 0),
             Digest::default(),
             Digest::default(),
-            self.version.into(),
-            self.timestamp.into(),
+            self.version
+                .try_into()
+                .expect("version value is greater than or equal to the field modulus"),
+            self.timestamp
+                .try_into()
+                .expect("timestamp value is greater than or equal to the field modulus"),
         );
 
         Ok((block_header, account_smt))
@@ -68,11 +72,8 @@ impl Serializable for GenesisState {
         target: &mut W,
     ) {
         assert!(self.accounts.len() <= u64::MAX as usize, "too many accounts in GenesisState");
-        target.write_u64(self.accounts.len() as u64);
-
-        for account in self.accounts.iter() {
-            account.write_into(target);
-        }
+        target.write_usize(self.accounts.len());
+        target.write_many(&self.accounts);
 
         target.write_u64(self.version);
         target.write_u64(self.timestamp);
@@ -81,8 +82,8 @@ impl Serializable for GenesisState {
 
 impl Deserializable for GenesisState {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let num_accounts = source.read_u64()? as usize;
-        let accounts = Account::read_batch_from(source, num_accounts)?;
+        let num_accounts = source.read_usize()?;
+        let accounts = source.read_many::<Account>(num_accounts)?;
 
         let version = source.read_u64()?;
         let timestamp = source.read_u64()?;

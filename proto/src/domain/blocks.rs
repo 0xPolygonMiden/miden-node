@@ -23,7 +23,7 @@ impl From<BlockHeader> for block_header::BlockHeader {
             proof_hash: Some(header.proof_hash().into()),
             version: u64::from(header.version())
                 .try_into()
-                .expect("TODO: BlockHeader.version should be u64"),
+                .expect("Failed to convert BlockHeader.version into u32"),
             timestamp: header.timestamp().into(),
         }
     }
@@ -72,7 +72,10 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
                 .ok_or(block_header::BlockHeader::missing_field(stringify!(proof_hash)))?
                 .try_into()?,
             value.version.into(),
-            value.timestamp.into(),
+            value
+                .timestamp
+                .try_into()
+                .expect("timestamp value is greater than or equal to the field modulus"),
         ))
     }
 }

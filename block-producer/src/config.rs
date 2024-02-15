@@ -15,6 +15,14 @@ pub struct BlockProducerConfig {
 
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.
     pub store_url: String,
+
+    /// Enable or disable the verification of transaction proofs before they are accepted into the
+    /// transaction queue.
+    ///
+    /// Disabling transaction proof verification will speed up transaction processing as proof
+    /// verification may take ~15ms/proof. This is OK when all transactions are forwarded to the
+    /// block producer from the RPC component as transaction proofs are also verified there.
+    pub verify_tx_proofs: bool,
 }
 
 impl BlockProducerConfig {
@@ -62,6 +70,7 @@ mod tests {
                 r#"
                     [block_producer]
                     store_url = "http://store:8000"
+                    verify_tx_proofs = true
 
                     [block_producer.endpoint]
                     host = "127.0.0.1"
@@ -81,6 +90,7 @@ mod tests {
                             port: 8080,
                         },
                         store_url: "http://store:8000".to_string(),
+                        verify_tx_proofs: true
                     }
                 }
             );

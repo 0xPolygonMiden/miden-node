@@ -10,10 +10,10 @@ use crate::{errors::BuildBatchError, test_utils::DummyProvenTxGenerator, Transac
 // ================================================================================================
 
 /// All transactions verify successfully
-struct TransactionVerifierSuccess;
+struct TransactionValidatorSuccess;
 
 #[async_trait]
-impl TransactionVerifier for TransactionVerifierSuccess {
+impl TransactionValidator for TransactionValidatorSuccess {
     async fn verify_tx(
         &self,
         _tx: &ProvenTransaction,
@@ -23,10 +23,10 @@ impl TransactionVerifier for TransactionVerifierSuccess {
 }
 
 /// All transactions fail to verify
-struct TransactionVerifierFailure;
+struct TransactionValidatorFailure;
 
 #[async_trait]
-impl TransactionVerifier for TransactionVerifierFailure {
+impl TransactionValidator for TransactionValidatorFailure {
     async fn verify_tx(
         &self,
         tx: &ProvenTransaction,
@@ -81,13 +81,14 @@ impl BatchBuilder for BatchBuilderFailure {
 /// Tests that when the internal "build batch timer" hits, all transactions in the queue are sent to
 /// be built in some batch
 #[tokio::test(start_paused = true)]
+#[miden_node_test_macro::enable_logging]
 async fn test_build_batch_success() {
     let build_batch_frequency = Duration::from_millis(5);
     let batch_size = 3;
     let (sender, mut receiver) = mpsc::unbounded_channel::<TransactionBatch>();
 
     let tx_queue = Arc::new(TransactionQueue::new(
-        Arc::new(TransactionVerifierSuccess),
+        Arc::new(TransactionValidatorSuccess),
         Arc::new(BatchBuilderSuccess::new(sender)),
         TransactionQueueOptions {
             build_batch_frequency,
@@ -174,6 +175,7 @@ async fn test_build_batch_success() {
 
 /// Tests that when transactions fail to verify, they are not added to the queue
 #[tokio::test(start_paused = true)]
+#[miden_node_test_macro::enable_logging]
 async fn test_tx_verify_failure() {
     let build_batch_frequency = Duration::from_millis(5);
     let batch_size = 3;
@@ -182,7 +184,7 @@ async fn test_tx_verify_failure() {
     let batch_builder = Arc::new(BatchBuilderSuccess::new(sender));
 
     let tx_queue = Arc::new(TransactionQueue::new(
-        Arc::new(TransactionVerifierFailure),
+        Arc::new(TransactionValidatorFailure),
         batch_builder.clone(),
         TransactionQueueOptions {
             build_batch_frequency,
@@ -209,6 +211,7 @@ async fn test_tx_verify_failure() {
 
 /// Tests that when batch building fails, transactions are added back to the ready queue
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_build_batch_failure() {
     let build_batch_frequency = Duration::from_millis(30);
     let batch_size = 3;
@@ -216,7 +219,7 @@ async fn test_build_batch_failure() {
     let batch_builder = Arc::new(BatchBuilderFailure);
 
     let tx_queue = TransactionQueue::new(
-        Arc::new(TransactionVerifierSuccess),
+        Arc::new(TransactionValidatorSuccess),
         batch_builder.clone(),
         TransactionQueueOptions {
             build_batch_frequency,

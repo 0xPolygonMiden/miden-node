@@ -30,7 +30,7 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
     let store = Arc::new(DefaultStore::new(
         store_client::ApiClient::connect(config.store_url.to_string()).await?,
     ));
-    let state_view = Arc::new(DefaultStateView::new(store.clone()));
+    let state_view = Arc::new(DefaultStateView::new(store.clone(), config.verify_tx_proofs));
 
     let block_builder = DefaultBlockBuilder::new(store.clone(), state_view.clone());
     let batch_builder_options = DefaultBatchBuilderOptions {

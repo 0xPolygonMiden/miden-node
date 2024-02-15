@@ -108,9 +108,9 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
     let account_id_2 = AccountId::new_unchecked(ONE);
 
     let account_1_hash_store =
-        Digest::new([Felt::from(1u64), Felt::from(2u64), Felt::from(3u64), Felt::from(4u64)]);
+        Digest::new([Felt::new(1u64), Felt::new(2u64), Felt::new(3u64), Felt::new(4u64)]);
     let account_1_hash_batches =
-        Digest::new([Felt::from(4u64), Felt::from(3u64), Felt::from(2u64), Felt::from(1u64)]);
+        Digest::new([Felt::new(4u64), Felt::new(3u64), Felt::new(2u64), Felt::new(1u64)]);
 
     let block_inputs_from_store: BlockInputs = {
         let block_header = mock_block_header(0, None, None, &[]);
@@ -180,33 +180,34 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 ///
 /// We assume an initial store with 5 accounts, and all will be updated.
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_account_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
 
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
-        AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)),
-        AccountId::new_unchecked(Felt::from(0b1111_0000_0000_0000u64)),
-        AccountId::new_unchecked(Felt::from(0b1111_1111_0000_0000u64)),
-        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_0000u64)),
-        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_1111u64)),
+        AccountId::new_unchecked(Felt::new(0b0000_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::new(0b1111_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::new(0b1111_1111_0000_0000u64)),
+        AccountId::new_unchecked(Felt::new(0b1111_1111_1111_0000u64)),
+        AccountId::new_unchecked(Felt::new(0b1111_1111_1111_1111u64)),
     ];
 
     let account_initial_states = [
-        [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)],
-        [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)],
-        [Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)],
-        [Felt::from(4u64), Felt::from(4u64), Felt::from(4u64), Felt::from(4u64)],
-        [Felt::from(5u64), Felt::from(5u64), Felt::from(5u64), Felt::from(5u64)],
+        [Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)],
+        [Felt::new(2u64), Felt::new(2u64), Felt::new(2u64), Felt::new(2u64)],
+        [Felt::new(3u64), Felt::new(3u64), Felt::new(3u64), Felt::new(3u64)],
+        [Felt::new(4u64), Felt::new(4u64), Felt::new(4u64), Felt::new(4u64)],
+        [Felt::new(5u64), Felt::new(5u64), Felt::new(5u64), Felt::new(5u64)],
     ];
 
     let account_final_states = [
-        [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)],
-        [Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)],
-        [Felt::from(4u64), Felt::from(4u64), Felt::from(4u64), Felt::from(4u64)],
-        [Felt::from(5u64), Felt::from(5u64), Felt::from(5u64), Felt::from(5u64)],
-        [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)],
+        [Felt::new(2u64), Felt::new(2u64), Felt::new(2u64), Felt::new(2u64)],
+        [Felt::new(3u64), Felt::new(3u64), Felt::new(3u64), Felt::new(3u64)],
+        [Felt::new(4u64), Felt::new(4u64), Felt::new(4u64), Felt::new(4u64)],
+        [Felt::new(5u64), Felt::new(5u64), Felt::new(5u64), Felt::new(5u64)],
+        [Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)],
     ];
 
     // Set up store's account SMT
@@ -274,23 +275,24 @@ async fn test_compute_account_root_success() {
 
 /// Test that the current account root is returned if the batches are empty
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_account_root_empty_batches() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
-        AccountId::new_unchecked(Felt::from(0b0000_0000_0000_0000u64)),
-        AccountId::new_unchecked(Felt::from(0b1111_0000_0000_0000u64)),
-        AccountId::new_unchecked(Felt::from(0b1111_1111_0000_0000u64)),
-        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_0000u64)),
-        AccountId::new_unchecked(Felt::from(0b1111_1111_1111_1111u64)),
+        AccountId::new_unchecked(Felt::new(0b0000_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::new(0b1111_0000_0000_0000u64)),
+        AccountId::new_unchecked(Felt::new(0b1111_1111_0000_0000u64)),
+        AccountId::new_unchecked(Felt::new(0b1111_1111_1111_0000u64)),
+        AccountId::new_unchecked(Felt::new(0b1111_1111_1111_1111u64)),
     ];
 
     let account_initial_states = [
-        [Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)],
-        [Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)],
-        [Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)],
-        [Felt::from(4u64), Felt::from(4u64), Felt::from(4u64), Felt::from(4u64)],
-        [Felt::from(5u64), Felt::from(5u64), Felt::from(5u64), Felt::from(5u64)],
+        [Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)],
+        [Felt::new(2u64), Felt::new(2u64), Felt::new(2u64), Felt::new(2u64)],
+        [Felt::new(3u64), Felt::new(3u64), Felt::new(3u64), Felt::new(3u64)],
+        [Felt::new(4u64), Felt::new(4u64), Felt::new(4u64), Felt::new(4u64)],
+        [Felt::new(5u64), Felt::new(5u64), Felt::new(5u64), Felt::new(5u64)],
     ];
 
     // Set up store's account SMT
@@ -329,6 +331,7 @@ async fn test_compute_account_root_empty_batches() {
 /// Tests that the block kernel returns the empty tree (depth 20) if no notes were created, and
 /// contains no batches
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_empty_batches_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
@@ -358,6 +361,7 @@ async fn test_compute_note_root_empty_batches_success() {
 /// Tests that the block kernel returns the empty tree (depth 20) if no notes were created, but
 /// which contains at least 1 batch.
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_empty_notes_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
@@ -390,24 +394,25 @@ async fn test_compute_note_root_empty_notes_success() {
 /// Tests that the block kernel returns the expected tree when multiple notes were created across
 /// many batches.
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_success() {
     let tx_gen = DummyProvenTxGenerator::new();
 
     let account_ids = [
-        AccountId::new_unchecked(Felt::from(0u64)),
-        AccountId::new_unchecked(Felt::from(1u64)),
-        AccountId::new_unchecked(Felt::from(2u64)),
+        AccountId::new_unchecked(Felt::new(0u64)),
+        AccountId::new_unchecked(Felt::new(1u64)),
+        AccountId::new_unchecked(Felt::new(2u64)),
     ];
 
     let notes_created: Vec<NoteEnvelope> = [
-        Digest::from([Felt::from(1u64), Felt::from(1u64), Felt::from(1u64), Felt::from(1u64)]),
-        Digest::from([Felt::from(2u64), Felt::from(2u64), Felt::from(2u64), Felt::from(2u64)]),
-        Digest::from([Felt::from(3u64), Felt::from(3u64), Felt::from(3u64), Felt::from(3u64)]),
+        Digest::from([Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)]),
+        Digest::from([Felt::new(2u64), Felt::new(2u64), Felt::new(2u64), Felt::new(2u64)]),
+        Digest::from([Felt::new(3u64), Felt::new(3u64), Felt::new(3u64), Felt::new(3u64)]),
     ]
     .into_iter()
     .zip(account_ids.iter())
     .map(|(note_digest, &account_id)| {
-        NoteEnvelope::new(note_digest.into(), NoteMetadata::new(account_id, Felt::from(1u64)))
+        NoteEnvelope::new(note_digest.into(), NoteMetadata::new(account_id, Felt::new(1u64)))
     })
     .collect();
 
@@ -502,7 +507,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
     let nullifier_1 = batches[0].produced_nullifiers().next().unwrap();
     let nullifier_2 = batches[1].produced_nullifiers().next().unwrap();
     let nullifier_3 =
-        Digest::from([101_u64.into(), 102_u64.into(), 103_u64.into(), 104_u64.into()]);
+        Digest::from([101_u32.into(), 102_u32.into(), 103_u32.into(), 104_u32.into()]).into();
 
     let block_inputs_from_store: BlockInputs = {
         let block_header = mock_block_header(0, None, None, &[]);
@@ -513,7 +518,9 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
                 nullifier: nullifier_2,
                 proof: SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
-                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_2[3].into())),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(
+                        nullifier_2.most_significant_felt().into(),
+                    )),
                 )
                 .unwrap(),
             },
@@ -521,7 +528,9 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
                 nullifier: nullifier_3,
                 proof: SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
-                    SmtLeaf::new_empty(LeafIndex::new_max_depth(nullifier_3[3].into())),
+                    SmtLeaf::new_empty(LeafIndex::new_max_depth(
+                        nullifier_3.most_significant_felt().into(),
+                    )),
                 )
                 .unwrap(),
             },
@@ -661,12 +670,11 @@ async fn test_compute_nullifier_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Note that the block number in store is 42; the nullifiers get added to the next block (i.e. block number 43)
-    let nullifier_smt = Smt::with_entries(
-        nullifiers
-            .into_iter()
-            .map(|nullifier| (nullifier, [(initial_block_num + 1).into(), ZERO, ZERO, ZERO])),
-    )
-    .unwrap();
+    let nullifier_smt =
+        Smt::with_entries(nullifiers.into_iter().map(|nullifier| {
+            (nullifier.inner(), [(initial_block_num + 1).into(), ZERO, ZERO, ZERO])
+        }))
+        .unwrap();
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
@@ -678,6 +686,7 @@ async fn test_compute_nullifier_root_success() {
 
 /// Test that the chain mmr root is as expected if the batches are empty
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_chain_mmr_root_empty_mmr() {
     let store = MockStoreSuccessBuilder::new().build();
 
@@ -689,6 +698,7 @@ async fn test_compute_chain_mmr_root_empty_mmr() {
 
 /// add header to non-empty MMR (1 peak), and check that we get the expected commitment
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_chain_mmr_root_mmr_1_peak() {
     let initial_chain_mmr = {
         let mut mmr = Mmr::new();
@@ -707,6 +717,7 @@ async fn test_compute_chain_mmr_root_mmr_1_peak() {
 
 /// add header to an MMR with 17 peaks, and check that we get the expected commitment
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_compute_chain_mmr_root_mmr_17_peaks() {
     let initial_chain_mmr = {
         let mut mmr = Mmr::new();

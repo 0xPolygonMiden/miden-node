@@ -12,12 +12,9 @@ use miden_node_proto::{
         responses::{AccountHashUpdate, NullifierUpdate},
     },
 };
-use miden_objects::{
-    crypto::{
-        hash::rpo::RpoDigest,
-        utils::{Deserializable, SliceReader},
-    },
-    StarkField,
+use miden_objects::crypto::{
+    hash::rpo::RpoDigest,
+    utils::{Deserializable, SliceReader},
 };
 use prost::Message;
 use rusqlite::{params, types::Value, Connection, Transaction};
@@ -281,7 +278,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
             block_num: row.get(0)?,
             note_index: row.get(1)?,
             note_id: Some(note_id),
-            sender: column_value_as_u64(row, 3)?,
+            sender: Some(column_value_as_u64(row, 3)?.into()),
             tag: column_value_as_u64(row, 4)?,
             merkle_path: Some(merkle_path),
         })
@@ -330,7 +327,9 @@ pub fn insert_notes(
                 .clone()
                 .ok_or(Note::missing_field(stringify!(note_id)))?
                 .encode_to_vec(),
-            u64_to_value(note.sender),
+            u64_to_value(
+                note.sender.clone().ok_or(Note::missing_field(stringify!(sender)))?.into()
+            ),
             u64_to_value(note.tag),
             note.merkle_path
                 .clone()
@@ -401,7 +400,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note_index = row.get(1)?;
         let note_id_data = row.get_ref(2)?.as_blob()?;
         let note_id = Some(decode_protobuf_digest(note_id_data)?);
-        let sender = column_value_as_u64(row, 3)?;
+        let sender = Some(column_value_as_u64(row, 3)?.into());
         let tag = column_value_as_u64(row, 4)?;
         let merkle_path_data = row.get_ref(5)?.as_blob()?;
         let merkle_path = Some(MerklePath::decode(merkle_path_data)?);

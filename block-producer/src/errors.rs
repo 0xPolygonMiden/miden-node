@@ -4,7 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::MerkleError,
     notes::Nullifier,
-    transaction::{InputNotes, ProvenTransaction},
+    transaction::{InputNotes, ProvenTransaction, TransactionId},
     Digest, TransactionInputError,
 };
 use miden_vm::ExecutionError;
@@ -42,6 +42,10 @@ pub enum VerifyTxError {
 
     #[error("Transaction input error: {0}")]
     TransactionInputError(#[from] TransactionInputError),
+
+    /// Failed to verify the transaction execution proof
+    #[error("Invalid transaction proof error for transaction: {0}")]
+    InvalidTransactionProof(TransactionId),
 }
 
 // Transaction adding errors
@@ -131,7 +135,7 @@ pub enum BuildBlockError {
     #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
     InconsistentAccountStates(Vec<AccountId>),
     #[error("transaction batches and store don't produce the same nullifiers. Offending nullifiers: {0:?}")]
-    InconsistentNullifiers(Vec<Digest>),
+    InconsistentNullifiers(Vec<Nullifier>),
     #[error(
         "too many batches in block. Got: {0}, max: 2^{}",
         CREATED_NOTES_TREE_INSERTION_DEPTH

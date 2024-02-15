@@ -7,7 +7,7 @@ message BlockHeader {
     // the hash of the previous blocks header.
     digest.Digest prev_hash = 1;
     // a unique sequential number of the current block.
-    uint32 block_num = 2;
+    fixed32 block_num = 2;
     // a commitment to an MMR of the entire chain where each block is a leaf.
     digest.Digest chain_root = 3;
     // a commitment to account database.

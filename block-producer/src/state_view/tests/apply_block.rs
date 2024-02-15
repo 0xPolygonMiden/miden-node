@@ -13,6 +13,7 @@ use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 
 /// Tests requirement AB1
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_apply_block_ab1() {
     let tx_gen = DummyProvenTxGenerator::new();
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
@@ -31,7 +32,7 @@ async fn test_apply_block_ab1() {
         OutputNotes::new(Vec::new()).unwrap(),
     );
 
-    let state_view = DefaultStateView::new(store.clone());
+    let state_view = DefaultStateView::new(store.clone(), false);
 
     // Verify transaction so it can be tracked in state view
     let verify_tx_res = state_view.verify_tx(&tx).await;
@@ -54,6 +55,7 @@ async fn test_apply_block_ab1() {
 
 /// Tests requirement AB2
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_apply_block_ab2() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -70,7 +72,7 @@ async fn test_apply_block_ab2() {
             .build(),
     );
 
-    let state_view = DefaultStateView::new(store.clone());
+    let state_view = DefaultStateView::new(store.clone(), false);
 
     // Verify transactions so it can be tracked in state view
     for tx in txs {
@@ -103,6 +105,7 @@ async fn test_apply_block_ab2() {
 
 /// Tests requirement AB3
 #[tokio::test]
+#[miden_node_test_macro::enable_logging]
 async fn test_apply_block_ab3() {
     let tx_gen = DummyProvenTxGenerator::new();
 
@@ -119,7 +122,7 @@ async fn test_apply_block_ab3() {
             .build(),
     );
 
-    let state_view = DefaultStateView::new(store.clone());
+    let state_view = DefaultStateView::new(store.clone(), false);
 
     // Verify transactions so it can be tracked in state view
     for tx in txs.clone() {

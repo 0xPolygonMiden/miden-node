@@ -110,7 +110,7 @@ fn test_sql_select_notes() {
             block_num,
             note_index: i,
             note_id: Some(num_to_protobuf_digest(i.into())),
-            sender: i.into(),
+            sender: Some(u64::from(i).into()),
             tag: i.into(),
             merkle_path: Some(MerklePath { siblings: vec![] }),
         };
@@ -414,7 +414,7 @@ fn test_notes() {
         block_num,
         note_index,
         note_id: Some(num_to_protobuf_digest(3)),
-        sender: 4,
+        sender: Some(4.into()),
         tag,
         merkle_path: Some(MerklePath {
             siblings: merkle_path.clone(),
@@ -454,7 +454,7 @@ fn test_notes() {
         block_num: note.block_num + 1,
         note_index: note.note_index,
         note_id: Some(num_to_protobuf_digest(3)),
-        sender: note.sender,
+        sender: note.sender.clone(),
         tag: note.tag,
         merkle_path: Some(MerklePath {
             siblings: merkle_path,

@@ -28,12 +28,12 @@ message AccountHashUpdate {
 
 message NullifierUpdate {
     digest.Digest nullifier = 1;
-    uint32 block_num = 2;
+    fixed32 block_num = 2;
 }
 
 message SyncStateResponse {
     // number of the latest block in the chain
-    uint32 chain_tip = 1;
+    fixed32 chain_tip = 1;
 
     // block header of the block with the first note matching the specified criteria
     block_header.BlockHeader block_header = 2;
@@ -89,7 +89,7 @@ message AccountTransactionInputRecord {
 message NullifierTransactionInputRecord {
     digest.Digest nullifier = 1;
     // The block at which the nullifier has been consumed, zero if not consumed.
-    uint32 block_num = 2;
+    fixed32 block_num = 2;
 }
 
 message GetTransactionInputsResponse {

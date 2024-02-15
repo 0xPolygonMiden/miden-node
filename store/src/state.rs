@@ -28,7 +28,7 @@ use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tracing::{info, info_span, instrument};
+use tracing::{error, info, info_span, instrument};
 
 use crate::{
     db::{Db, StateSyncUpdate},
@@ -214,7 +214,7 @@ impl State {
                     Ok(Note {
                         block_num: new_block.block_num(),
                         note_id: note.note_id.clone(),
-                        sender: note.sender,
+                        sender: note.sender.clone(),
                         note_index: note.note_index,
                         tag: note.tag,
                         merkle_path: Some(merkle_path.into()),
@@ -235,7 +235,7 @@ impl State {
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
         let db = self.db.clone();
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
                 .await
         });
@@ -252,6 +252,33 @@ impl State {
             let _ = mem::replace(&mut inner.chain_mmr, chain_mmr);
             let _ = mem::replace(&mut inner.nullifier_tree, nullifier_tree);
             let _ = mem::replace(&mut inner.account_tree, account_tree);
+        }
+
+        match handle.await {
+            // These errors should never happen. It is unclear if the state of the node would be
+            // valid because the apply_block task may have failed when commiting the transaction, so
+            // the in-memory and the DB state would be out-of-sync.
+            //
+            // TODO: shutdown #91
+            Err(err) => {
+                error!(
+                    is_cancelled = err.is_cancelled(),
+                    is_panic = err.is_panic(),
+                    COMPONENT,
+                    "apply_block task joined with an error"
+                );
+            },
+            Ok(Err(err)) => {
+                error!(err = err.to_string(), COMPONENT, "apply_block failed with a DB error");
+            },
+            Ok(Ok(())) => {
+                info!(
+                    block_hash = new_block.hash().to_hex(),
+                    block_num = new_block.block_num(),
+                    COMPONENT,
+                    "apply_block sucessfull"
+                );
+            },
         }
 
         Ok(())
@@ -400,7 +427,7 @@ impl State {
                 let proof = inner.nullifier_tree.open(nullifier);
 
                 NullifierWitness {
-                    nullifier: *nullifier,
+                    nullifier: (*nullifier).into(),
                     proof,
                 }
             })
@@ -434,7 +461,7 @@ impl State {
                 let value = inner.nullifier_tree.get_value(&nullifier);
                 let block_num = nullifier_value_to_block_num(value);
 
-                (nullifier, block_num)
+                (nullifier.into(), block_num)
             })
             .collect();
 
@@ -480,8 +507,18 @@ pub fn build_notes_tree(
     for note in notes.iter() {
         let note_id =
             note.note_id.clone().ok_or(NoteCreated::missing_field(stringify!(note_id)))?;
-        let account_id = note.sender.try_into().or(Err(ApplyBlockError::InvalidAccountId))?;
-        let note_metadata = NoteMetadata::new(account_id, note.tag.into());
+        let account_id = note
+            .sender
+            .clone()
+            .ok_or(NoteCreated::missing_field(stringify!(sender)))?
+            .try_into()
+            .or(Err(ApplyBlockError::InvalidAccountId))?;
+        let note_metadata = NoteMetadata::new(
+            account_id,
+            note.tag
+                .try_into()
+                .expect("tag value is greater than or equal to the field modulus"),
+        );
         let index = note.note_index as u64;
         entries.push((index, note_id.try_into()?));
         entries.push((index + 1, note_metadata.into()));
