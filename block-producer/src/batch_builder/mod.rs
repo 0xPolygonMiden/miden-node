@@ -78,9 +78,6 @@ where
 
     // BATCH BUILDER STARTER
     // --------------------------------------------------------------------------------------------
-
-    /// TODO: add comments
-    #[instrument(target = "miden-block-producer", name = "block_producer" skip_all)]
     pub async fn run(self: Arc<Self>) {
         let mut interval = time::interval(self.options.block_frequency);
 

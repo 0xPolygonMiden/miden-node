@@ -12,6 +12,7 @@ rust-version = "1.73"
 [features]
 # Makes `make-genesis` subcommand run faster. Is only suitable for testing.
 testing = ["miden-lib/testing"]
+tracing-forest = ["miden-node-block-producer/tracing-forest"]
 
 [dependencies]
 anyhow = { version = "1.0" }
