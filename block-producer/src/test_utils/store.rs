@@ -1,7 +1,6 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
-use miden_node_proto::{AccountState, TransactionInputs};
 use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::Nullifier,
@@ -11,7 +10,9 @@ use miden_objects::{
 use super::*;
 use crate::{
     block::{AccountWitness, Block, BlockInputs},
-    store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputsError},
+    store::{
+        ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
+    },
     ProvenTransaction,
 };
 
@@ -204,10 +205,8 @@ impl Store for MockStoreSuccess {
             .collect();
 
         Ok(TransactionInputs {
-            account_state: AccountState {
-                account_id: proven_tx.account_id(),
-                account_hash,
-            },
+            account_id: proven_tx.account_id(),
+            account_hash,
             nullifiers,
         })
     }
