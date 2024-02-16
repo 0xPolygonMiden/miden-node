@@ -26,7 +26,7 @@ pub struct StartCommandConfig {
 
 pub async fn start_node(
     config_filepath: &Path,
-    has_faucet: bool,
+    with_faucet: &bool,
 ) -> Result<()> {
     let config: StartCommandConfig = load_config(config_filepath).extract().map_err(|err| {
         anyhow!("failed to load config file `{}`: {err}", config_filepath.display())
@@ -44,11 +44,11 @@ pub async fn start_node(
     tokio::time::sleep(Duration::from_secs(1)).await;
     join_set.spawn(rpc_server::serve(config.rpc));
 
-    if has_faucet {
-        // start miden-faucet
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        join_set.spawn(faucet::serve());
-    }
+    // if with_faucet {
+    //     // start miden-faucet
+    //     tokio::time::sleep(Duration::from_secs(1)).await;
+    //     join_set.spawn(faucet::serve());
+    // }
 
     // block on all tasks
     while let Some(res) = join_set.join_next().await {

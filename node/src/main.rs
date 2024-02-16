@@ -31,7 +31,7 @@ pub enum Command {
         config: PathBuf,
 
         #[arg(short, long)]
-        has_faucet: bool,
+        with_faucet: bool,
     },
 
     /// Generates a genesis file and associated account files based on a specified genesis input
@@ -61,7 +61,10 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::Start { config, has_faucet } => commands::start_node(config, *has_faucet).await,
+        Command::Start {
+            config,
+            with_faucet,
+        } => commands::start_node(config, with_faucet).await,
         Command::MakeGenesis {
             output_path,
             force,
