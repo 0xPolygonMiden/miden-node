@@ -8,7 +8,7 @@ use miden_node_utils::config::load_config;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinSet;
 
-use crate::faucet;
+// use crate::faucet;
 
 // Top-level config
 // ================================================================================================
