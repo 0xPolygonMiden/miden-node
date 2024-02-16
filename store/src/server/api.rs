@@ -225,13 +225,9 @@ impl api_server::Api for StoreApi {
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
 
-        let tx_inputs = self
-            .state
-            .get_transaction_inputs(account_id, &nullifiers)
-            .await
-            .map_err(invalid_argument)?;
+        let response = self.state.get_transaction_inputs(account_id, &nullifiers).await;
 
-        Ok(Response::new(tx_inputs.into()))
+        Ok(Response::new(response))
     }
 
     // TESTING ENDPOINTS

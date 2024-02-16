@@ -5,15 +5,18 @@
 use std::{mem, sync::Arc};
 
 use miden_node_proto::{
-    domain::accounts::AccountState,
     errors::{MissingFieldHelper, ParseError},
     generated::{
         account::AccountInfo,
         block_header,
         digest::Digest,
         note::{Note, NoteCreated},
+        responses::{
+            AccountTransactionInputRecord, GetTransactionInputsResponse,
+            NullifierTransactionInputRecord,
+        },
     },
-    nullifier_value_to_block_num, AccountInputRecord, NullifierWitness, TransactionInputs,
+    nullifier_value_to_block_num, AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
@@ -442,17 +445,17 @@ impl State {
         &self,
         account_id: AccountId,
         nullifiers: &[RpoDigest],
-    ) -> Result<TransactionInputs, AccountError> {
+    ) -> GetTransactionInputsResponse {
         info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
 
-        let account_state = AccountState {
-            account_id: account_id.try_into()?,
+        let account_state = Some(AccountTransactionInputRecord {
+            account_id: Some(account_id.into()),
             account_hash: Some(
-                inner.account_tree.open(&LeafIndex::new_max_depth(account_id)).value,
+                inner.account_tree.open(&LeafIndex::new_max_depth(account_id)).value.into(),
             ),
-        };
+        });
 
         let nullifiers = nullifiers
             .iter()
@@ -461,14 +464,17 @@ impl State {
                 let value = inner.nullifier_tree.get_value(&nullifier);
                 let block_num = nullifier_value_to_block_num(value);
 
-                (nullifier.into(), block_num)
+                NullifierTransactionInputRecord {
+                    nullifier: Some(nullifier.into()),
+                    block_num,
+                }
             })
             .collect();
 
-        Ok(TransactionInputs {
+        GetTransactionInputsResponse {
             account_state,
             nullifiers,
-        })
+        }
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
