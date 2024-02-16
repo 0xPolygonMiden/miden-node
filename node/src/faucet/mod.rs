@@ -2,10 +2,8 @@ use std::sync::Arc;
 
 use actix_cors::Cors;
 use actix_files::{self};
-use actix_web::{
-    http::header::{self},
-    post, web, App, HttpResponse, HttpServer, ResponseError,
-};
+use actix_web::{http::header, post, web, App, HttpResponse, HttpServer, ResponseError};
+use anyhow::Result;
 use derive_more::Display;
 use miden_client::{
     client::{transactions::TransactionTemplate, Client},
@@ -141,8 +139,7 @@ async fn get_tokens(
     // }
 }
 
-#[actix_web::main]
-pub async fn serve() -> std::io::Result<()> {
+pub async fn serve() -> Result<()> {
     // import faucet
     let faucet = match utils::import_account_from_args() {
         Ok(account_data) => account_data,
@@ -169,19 +166,25 @@ pub async fn serve() -> std::io::Result<()> {
 
     println!("Faucet: {} has been loaded into client", faucet.account.id());
 
-    HttpServer::new(move || {
-        let cors = Cors::default().allow_any_origin().allow_any_method().allow_any_header();
+    let server = Arc::new(Mutex::new(
+        HttpServer::new(move || {
+            let cors = Cors::default().allow_any_origin().allow_any_method().allow_any_header();
+            App::new()
+                .app_data(web::Data::new(FaucetState {
+                    client: client.clone(),
+                    asset,
+                }))
+                .wrap(cors)
+                .service(get_tokens)
+                .service(
+                    actix_files::Files::new("/", "faucet/src/static/").index_file("index.html"),
+                )
+        })
+        .bind("127.0.0.1:8080")?
+        .run(),
+    ));
 
-        App::new()
-            .app_data(web::Data::new(FaucetState {
-                client: client.clone(),
-                asset,
-            }))
-            .wrap(cors)
-            .service(get_tokens)
-            .service(actix_files::Files::new("/", "faucet/src/static/").index_file("index.html"))
-    })
-    .bind("127.0.0.1:8080")?
-    .run()
-    .await
+    let _ = server.lock().await;
+
+    Ok(())
 }
