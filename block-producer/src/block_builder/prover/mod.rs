@@ -32,7 +32,6 @@ mod tests;
 /// NEW_ACCOUNT_HASH_n, account_id_n]
 const BLOCK_KERNEL_MASM: &str = "
 use.std::collections::smt
-use.std::collections::smt64
 use.std::collections::mmr
 
 const.CHAIN_MMR_PTR=1000
@@ -54,12 +53,12 @@ proc.compute_account_root
         movdn.9
         # => [ROOT_i, NEW_ACCOUNT_HASH_i, account_id_i, counter, ...]
 
-        # Move root down (for smt64.set)
-        movdn.8 movdn.8 movdn.8 movdn.8
-        # => [NEW_ACCOUNT_HASH_i, account_id_i, ROOT_i, counter, ...]
+        # Prepare stack for `mtree_set`
+        movup.8 push.64
+        # => [64, account_id_i, ROOT_i, NEW_ACCOUNT_HASH_i, counter, ...]
 
         # set new value in SMT
-        exec.smt64::set dropw
+        mtree_set dropw
         # => [ROOT_{i+1}, counter, ...]
 
         # loop counter
