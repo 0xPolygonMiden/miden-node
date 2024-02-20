@@ -193,12 +193,7 @@ impl TryFrom<AccountUpdate> for AccountState {
                 .account_id
                 .ok_or(AccountUpdate::missing_field(stringify!(account_id)))?
                 .try_into()?,
-            account_hash: Some(
-                value
-                    .account_hash
-                    .ok_or(AccountUpdate::missing_field(stringify!(account_hash)))?
-                    .try_into()?,
-            ),
+            account_hash: value.account_hash.map(TryInto::try_into).transpose()?,
         })
     }
 }

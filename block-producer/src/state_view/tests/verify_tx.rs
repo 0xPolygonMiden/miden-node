@@ -12,7 +12,6 @@
 
 use std::iter;
 
-use miden_objects::transaction::{InputNotes, OutputNotes};
 use tokio::task::JoinSet;
 
 use super::*;
