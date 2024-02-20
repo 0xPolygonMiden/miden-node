@@ -158,7 +158,7 @@ impl Db {
         })?
     }
 
-    /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.
+    /// Search for a [BlockHeader] from the database by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
