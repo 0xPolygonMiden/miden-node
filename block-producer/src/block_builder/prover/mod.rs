@@ -34,6 +34,7 @@ const BLOCK_KERNEL_MASM: &str = "
 use.std::collections::smt
 use.std::collections::mmr
 
+const.ACCOUNT_TREE_DEPTH=64
 const.CHAIN_MMR_PTR=1000
 
 #! Compute the account root
@@ -54,8 +55,8 @@ proc.compute_account_root
         # => [ROOT_i, NEW_ACCOUNT_HASH_i, account_id_i, counter, ...]
 
         # Prepare stack for `mtree_set`
-        movup.8 push.64
-        # => [64, account_id_i, ROOT_i, NEW_ACCOUNT_HASH_i, counter, ...]
+        movup.8 push.ACCOUNT_TREE_DEPTH
+        # => [account_tree_depth, account_id_i, ROOT_i, NEW_ACCOUNT_HASH_i, counter, ...]
 
         # set new value in SMT
         mtree_set dropw
