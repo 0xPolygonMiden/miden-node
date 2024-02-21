@@ -4,10 +4,7 @@ use miden_objects::transaction::{InputNotes, OutputNotes};
 // block builder tests (higher level)
 // `apply_block()` is called
 use super::*;
-use crate::{
-    test_utils::{DummyProvenTxGenerator, MockStoreFailure, MockStoreSuccessBuilder},
-    TransactionBatch,
-};
+use crate::test_utils::{DummyProvenTxGenerator, MockStoreFailure, MockStoreSuccessBuilder};
 
 /// Tests that `build_block()` succeeds when the transaction batches are not empty
 #[tokio::test]

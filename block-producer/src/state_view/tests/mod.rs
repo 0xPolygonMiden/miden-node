@@ -1,4 +1,4 @@
-use miden_objects::{notes::Nullifier, transaction::OutputNotes, Hasher, EMPTY_WORD, ZERO};
+use miden_objects::{transaction::OutputNotes, Hasher, EMPTY_WORD, ZERO};
 
 use super::*;
 use crate::test_utils::{DummyProvenTxGenerator, MockPrivateAccount};

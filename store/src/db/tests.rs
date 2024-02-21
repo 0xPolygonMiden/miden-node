@@ -1,22 +1,14 @@
-use miden_node_proto::generated::{
-    account::{AccountId, AccountInfo},
-    block_header::BlockHeader as ProtobufBlockHeader,
-    digest::Digest as ProtobufDigest,
-    merkle::MerklePath,
-    note::Note,
-    responses::{AccountHashUpdate, NullifierUpdate},
-};
 use miden_objects::{
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{LeafIndex, SimpleSmt},
+        merkle::{LeafIndex, MerklePath, SimpleSmt},
     },
     notes::NOTE_LEAF_DEPTH,
-    Felt, FieldElement,
+    BlockHeader, Felt, FieldElement,
 };
 use rusqlite::{vtab::array, Connection};
 
-use super::sql;
+use super::{sql, AccountInfo, Note, NoteCreated, NullifierInfo};
 use crate::db::migrations;
 
 fn create_db() -> Connection {
@@ -108,11 +100,13 @@ fn test_sql_select_notes() {
     for i in 0..10 {
         let note = Note {
             block_num,
-            note_index: i,
-            note_id: Some(num_to_protobuf_digest(i.into())),
-            sender: Some(u64::from(i).into()),
-            tag: i.into(),
-            merkle_path: Some(MerklePath { siblings: vec![] }),
+            note_created: NoteCreated {
+                note_index: i,
+                note_id: num_to_rpo_digest(i as u64),
+                sender: i as u64,
+                tag: i as u64,
+            },
+            merkle_path: MerklePath::new(vec![]),
         };
         state.push(note.clone());
 
@@ -137,16 +131,16 @@ fn test_sql_select_accounts() {
     let block_num = 1;
     let mut state = vec![];
     for i in 0..10 {
-        let account = i;
-        let digest = num_to_rpo_digest(i);
+        let account_id = i;
+        let account_hash = num_to_rpo_digest(i);
         state.push(AccountInfo {
-            account_id: Some(AccountId { id: account }),
-            account_hash: Some(digest.into()),
+            account_id,
+            account_hash,
             block_num,
         });
 
         let transaction = conn.transaction().unwrap();
-        let res = sql::upsert_accounts(&transaction, &[(account, digest.into())], block_num);
+        let res = sql::upsert_accounts(&transaction, &[(account_id, account_hash)], block_num);
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
         let accounts = sql::select_accounts(&mut conn).unwrap();
@@ -179,8 +173,8 @@ fn test_sql_select_nullifiers_by_block_range() {
     .unwrap();
     assert_eq!(
         nullifiers,
-        vec![NullifierUpdate {
-            nullifier: Some(nullifier1.into()),
+        vec![NullifierInfo {
+            nullifier: nullifier1.into(),
             block_num: block_number1
         }]
     );
@@ -206,8 +200,8 @@ fn test_sql_select_nullifiers_by_block_range() {
     .unwrap();
     assert_eq!(
         nullifiers,
-        vec![NullifierUpdate {
-            nullifier: Some(nullifier1.into()),
+        vec![NullifierInfo {
+            nullifier: nullifier1.into(),
             block_num: block_number1
         }]
     );
@@ -220,8 +214,8 @@ fn test_sql_select_nullifiers_by_block_range() {
     .unwrap();
     assert_eq!(
         nullifiers,
-        vec![NullifierUpdate {
-            nullifier: Some(nullifier2.into()),
+        vec![NullifierInfo {
+            nullifier: nullifier2.into(),
             block_num: block_number2
         }]
     );
@@ -236,8 +230,8 @@ fn test_sql_select_nullifiers_by_block_range() {
     .unwrap();
     assert_eq!(
         nullifiers,
-        vec![NullifierUpdate {
-            nullifier: Some(nullifier1.into()),
+        vec![NullifierInfo {
+            nullifier: nullifier1.into(),
             block_num: block_number1
         }]
     );
@@ -252,14 +246,14 @@ fn test_sql_select_nullifiers_by_block_range() {
     .unwrap();
     assert_eq!(
         nullifiers,
-        vec![NullifierUpdate {
-            nullifier: Some(nullifier2.into()),
+        vec![NullifierInfo {
+            nullifier: nullifier2.into(),
             block_num: block_number2
         }]
     );
 
     // When block start and end are the same, no nullifiers should be returned. This case happens
-    // when the client requests a sync update and it is already tracking the chain tip.
+    // when the client requests a sync update, and it is already tracking the chain tip.
     let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
         2,
@@ -285,18 +279,18 @@ fn test_db_block_header() {
     let res = sql::select_block_headers(&mut conn).unwrap();
     assert!(res.is_empty());
 
-    let block_header = ProtobufBlockHeader {
-        prev_hash: Some(num_to_protobuf_digest(1)),
-        block_num: 2,
-        chain_root: Some(num_to_protobuf_digest(3)),
-        account_root: Some(num_to_protobuf_digest(4)),
-        nullifier_root: Some(num_to_protobuf_digest(5)),
-        note_root: Some(num_to_protobuf_digest(6)),
-        batch_root: Some(num_to_protobuf_digest(7)),
-        proof_hash: Some(num_to_protobuf_digest(8)),
-        version: 9,
-        timestamp: 10,
-    };
+    let block_header = BlockHeader::new(
+        num_to_rpo_digest(1),
+        2,
+        num_to_rpo_digest(3),
+        num_to_rpo_digest(4),
+        num_to_rpo_digest(5),
+        num_to_rpo_digest(6),
+        num_to_rpo_digest(7),
+        num_to_rpo_digest(8),
+        9_u8.into(),
+        10_u8.into(),
+    );
 
     // test insertion
     let transaction = conn.transaction().unwrap();
@@ -310,25 +304,25 @@ fn test_db_block_header() {
 
     // test fetch block header by block number
     let res =
-        sql::select_block_header_by_block_num(&mut conn, Some(block_header.block_num)).unwrap();
+        sql::select_block_header_by_block_num(&mut conn, Some(block_header.block_num())).unwrap();
     assert_eq!(res.unwrap(), block_header);
 
     // test fetch latest block header
     let res = sql::select_block_header_by_block_num(&mut conn, None).unwrap();
     assert_eq!(res.unwrap(), block_header);
 
-    let block_header2 = ProtobufBlockHeader {
-        prev_hash: Some(num_to_protobuf_digest(11)),
-        block_num: 12,
-        chain_root: Some(num_to_protobuf_digest(13)),
-        account_root: Some(num_to_protobuf_digest(14)),
-        nullifier_root: Some(num_to_protobuf_digest(15)),
-        note_root: Some(num_to_protobuf_digest(16)),
-        batch_root: Some(num_to_protobuf_digest(17)),
-        proof_hash: Some(num_to_protobuf_digest(18)),
-        version: 19,
-        timestamp: 20,
-    };
+    let block_header2 = BlockHeader::new(
+        num_to_rpo_digest(11),
+        12,
+        num_to_rpo_digest(13),
+        num_to_rpo_digest(14),
+        num_to_rpo_digest(15),
+        num_to_rpo_digest(16),
+        num_to_rpo_digest(17),
+        num_to_rpo_digest(18),
+        19_u8.into(),
+        20_u8.into(),
+    );
 
     let transaction = conn.transaction().unwrap();
     sql::insert_block_header(&transaction, &block_header2).unwrap();
@@ -353,12 +347,11 @@ fn test_db_account() {
     // test insertion
     let block_num = 1;
     let account_id = 0;
-    let account_hash = num_to_protobuf_digest(0);
+    let account_hash = num_to_rpo_digest(0);
 
     let transaction = conn.transaction().unwrap();
     let row_count =
-        sql::upsert_accounts(&transaction, &[(account_id, account_hash.clone())], block_num)
-            .unwrap();
+        sql::upsert_accounts(&transaction, &[(account_id, account_hash)], block_num).unwrap();
     transaction.commit().unwrap();
 
     assert_eq!(row_count, 1);
@@ -367,14 +360,14 @@ fn test_db_account() {
     let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert_eq!(
         res,
-        vec![AccountHashUpdate {
-            account_id: Some(account_id.into()),
-            account_hash: Some(account_hash),
+        vec![AccountInfo {
+            account_id,
+            account_hash,
             block_num
         }]
     );
 
-    // test query for update outside of the block range
+    // test query for update outside the block range
     let res = sql::select_accounts_by_block_range(&mut conn, block_num + 1, u32::MAX, &account_ids)
         .unwrap();
     assert!(res.is_empty());
@@ -405,20 +398,17 @@ fn test_notes() {
     let values = [(note_index as u64, *note_hash)];
     let notes_db = SimpleSmt::<NOTE_LEAF_DEPTH>::with_leaves(values.iter().cloned()).unwrap();
     let idx = LeafIndex::<NOTE_LEAF_DEPTH>::new(note_index as u64).unwrap();
-    let merkle_path = notes_db.open(&idx).path;
-
-    let merkle_path: Vec<ProtobufDigest> =
-        merkle_path.nodes().iter().map(|n| (*n).into()).collect();
+    let merkle_path = MerklePath::new(notes_db.open(&idx).path.nodes().to_vec());
 
     let note = Note {
         block_num,
-        note_index,
-        note_id: Some(num_to_protobuf_digest(3)),
-        sender: Some(4.into()),
-        tag,
-        merkle_path: Some(MerklePath {
-            siblings: merkle_path.clone(),
-        }),
+        note_created: NoteCreated {
+            note_index,
+            note_id: num_to_rpo_digest(3),
+            sender: 4,
+            tag,
+        },
+        merkle_path: merkle_path.clone(),
     };
 
     let transaction = conn.transaction().unwrap();
@@ -452,13 +442,13 @@ fn test_notes() {
     // insertion second note with same tag, but on higher block
     let note2 = Note {
         block_num: note.block_num + 1,
-        note_index: note.note_index,
-        note_id: Some(num_to_protobuf_digest(3)),
-        sender: note.sender.clone(),
-        tag: note.tag,
-        merkle_path: Some(MerklePath {
-            siblings: merkle_path,
-        }),
+        note_created: NoteCreated {
+            note_index: note.note_created.note_index,
+            note_id: num_to_rpo_digest(3),
+            sender: note.note_created.sender,
+            tag: note.note_created.tag,
+        },
+        merkle_path,
     };
 
     let transaction = conn.transaction().unwrap();
@@ -490,13 +480,4 @@ fn test_notes() {
 // -------------------------------------------------------------------------------------------
 fn num_to_rpo_digest(n: u64) -> RpoDigest {
     RpoDigest::new([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(n)])
-}
-
-fn num_to_protobuf_digest(n: u64) -> ProtobufDigest {
-    ProtobufDigest {
-        d0: 0,
-        d1: 0,
-        d2: 0,
-        d3: n,
-    }
 }
