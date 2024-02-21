@@ -11,6 +11,5 @@ pub use domain::{
     accounts::{AccountInputRecord, AccountState},
     convert, nullifier_value_to_block_num,
     nullifiers::NullifierWitness,
-    transactions::TransactionInputs,
     try_convert,
 };

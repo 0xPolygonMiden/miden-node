@@ -1,7 +1,4 @@
-use tokio::{
-    sync::mpsc::{self, error::TryRecvError},
-    time,
-};
+use tokio::sync::mpsc::{self, error::TryRecvError};
 
 use super::*;
 use crate::{errors::BuildBatchError, test_utils::DummyProvenTxGenerator, TransactionBatch};

@@ -212,7 +212,7 @@ impl TryFrom<&digest::Digest> for Digest {
 
 #[cfg(test)]
 mod test {
-    use hex::{self, FromHex, ToHex};
+    use hex::{FromHex, ToHex};
     use proptest::prelude::*;
 
     use crate::generated::digest::Digest;

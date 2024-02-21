@@ -1,7 +1,6 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
-use miden_node_proto::TransactionInputs;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
     accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest,
@@ -14,7 +13,7 @@ use tracing::{debug, instrument};
 use crate::{
     block::Block,
     errors::VerifyTxError,
-    store::{ApplyBlock, ApplyBlockError, Store},
+    store::{ApplyBlock, ApplyBlockError, Store, TransactionInputs},
     txqueue::TransactionValidator,
     ProvenTransaction, COMPONENT,
 };
@@ -197,7 +196,7 @@ fn ensure_tx_inputs_constraints(
 ) -> Result<(), VerifyTxError> {
     debug!(target: COMPONENT, %tx_inputs);
 
-    match tx_inputs.account_state.account_hash {
+    match tx_inputs.account_hash {
         // if the account is present in the Store, make sure that the account state hash
         // from the received transaction is the same as the one from the Store
         Some(store_account_hash) => {

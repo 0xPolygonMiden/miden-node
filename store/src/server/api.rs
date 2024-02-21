@@ -1,30 +1,33 @@
 use std::sync::Arc;
 
-use anyhow::Result;
 use miden_node_proto::{
     convert,
     errors::ParseError,
     generated::{
         self,
+        note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
             GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest,
             ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
-            ApplyBlockResponse, CheckNullifiersResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
-            ListNotesResponse, ListNullifiersResponse, SyncStateResponse,
+            AccountHashUpdate, AccountTransactionInputRecord, ApplyBlockResponse,
+            CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
+            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
+            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
     },
+    AccountState,
 };
-use miden_objects::{BlockHeader, Digest, Felt, ZERO};
+use miden_objects::{crypto::hash::rpo::RpoDigest, BlockHeader, Felt, ZERO};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, types::AccountId, COMPONENT};
+use crate::{db::NoteCreated, state::State, types::AccountId, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -56,7 +59,12 @@ impl api_server::Api for StoreApi {
         info!(target: COMPONENT, ?request);
 
         let block_num = request.into_inner().block_num;
-        let block_header = self.state.get_block_header(block_num).await.map_err(internal_error)?;
+        let block_header = self
+            .state
+            .get_block_header(block_num)
+            .await
+            .map_err(internal_error)?
+            .map(Into::into);
 
         Ok(Response::new(GetBlockHeaderByNumberResponse { block_header }))
     }
@@ -113,13 +121,44 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
+        let accounts = state
+            .account_updates
+            .into_iter()
+            .map(|account_info| AccountHashUpdate {
+                account_id: Some(account_info.account_id.into()),
+                account_hash: Some(account_info.account_hash.into()),
+                block_num: account_info.block_num,
+            })
+            .collect();
+
+        let notes = state
+            .notes
+            .into_iter()
+            .map(|note| NoteSyncRecord {
+                note_index: note.note_created.note_index,
+                note_id: Some(note.note_created.note_id.into()),
+                sender: Some(note.note_created.sender.into()),
+                tag: note.note_created.tag,
+                merkle_path: Some(note.merkle_path.into()),
+            })
+            .collect();
+
+        let nullifiers = state
+            .nullifiers
+            .into_iter()
+            .map(|nullifier_info| NullifierUpdate {
+                nullifier: Some(nullifier_info.nullifier.into()),
+                block_num: nullifier_info.block_num,
+            })
+            .collect();
+
         Ok(Response::new(SyncStateResponse {
             chain_tip: state.chain_tip,
-            block_header: Some(state.block_header),
+            block_header: Some(state.block_header.into()),
             mmr_delta: Some(delta.into()),
-            accounts: state.account_updates,
-            notes: convert(state.notes),
-            nullifiers: state.nullifiers,
+            accounts,
+            notes,
+            nullifiers,
         }))
     }
 
@@ -142,34 +181,49 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
-        let block = request.block.ok_or(invalid_argument("Apply block missing block header"))?;
-        let header_base: BlockHeader = block
-            .clone()
+        let block_header: BlockHeader = request
+            .block
+            .ok_or(invalid_argument("Apply block missing block header"))?
             .try_into()
             .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?;
 
-        info!(target: COMPONENT, block_num = block.block_num, block_hash = %header_base.hash());
+        info!(target: COMPONENT, block_num = block_header.block_num(), block_hash = %block_header.hash());
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let accounts = request
             .accounts
-            .iter()
+            .into_iter()
             .map(|account_update| {
-                let account_id = account_update
-                    .account_id
-                    .clone()
-                    .ok_or(invalid_argument("Account update missing account id"))?;
-                let account_hash = account_update
-                    .account_hash
-                    .clone()
-                    .ok_or(invalid_argument("Account update missing account hash"))?;
-                Ok((account_id.id, account_hash))
+                let account_state: AccountState = account_update
+                    .try_into()
+                    .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?;
+                Ok((
+                    account_state.account_id.into(),
+                    account_state
+                        .account_hash
+                        .ok_or(invalid_argument("Account update missing account hash"))?,
+                ))
             })
             .collect::<Result<Vec<_>, Status>>()?;
 
-        let notes = request.notes;
+        let notes = request
+            .notes
+            .into_iter()
+            .map(|note| {
+                Ok(NoteCreated {
+                    note_index: note.note_index,
+                    note_id: note
+                        .note_id
+                        .ok_or(invalid_argument("Note missing id"))?
+                        .try_into()
+                        .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?,
+                    sender: note.sender.ok_or(invalid_argument("Note missing sender"))?.into(),
+                    tag: note.tag,
+                })
+            })
+            .collect::<Result<Vec<_>, Status>>()?;
 
-        let _ = self.state.apply_block(block, nullifiers, accounts, notes).await;
+        let _ = self.state.apply_block(block_header, nullifiers, accounts, notes).await;
 
         Ok(Response::new(ApplyBlockResponse {}))
     }
@@ -199,7 +253,7 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)?;
 
         Ok(Response::new(GetBlockInputsResponse {
-            block_header: Some(latest),
+            block_header: Some(latest.into()),
             mmr_peaks: convert(accumulator.peaks()),
             account_states: convert(account_states),
             nullifiers: convert(nullifier_records),
@@ -225,13 +279,22 @@ impl api_server::Api for StoreApi {
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
 
-        let tx_inputs = self
-            .state
-            .get_transaction_inputs(account_id, &nullifiers)
-            .await
-            .map_err(invalid_argument)?;
+        let tx_inputs = self.state.get_transaction_inputs(account_id, &nullifiers).await;
 
-        Ok(Response::new(tx_inputs.into()))
+        Ok(Response::new(GetTransactionInputsResponse {
+            account_state: Some(AccountTransactionInputRecord {
+                account_id: Some(account_id.into()),
+                account_hash: Some(tx_inputs.account_hash.into()),
+            }),
+            nullifiers: tx_inputs
+                .nullifiers
+                .into_iter()
+                .map(|nullifier| NullifierTransactionInputRecord {
+                    nullifier: Some(nullifier.nullifier.inner().into()),
+                    block_num: nullifier.block_num,
+                })
+                .collect(),
+        }))
     }
 
     // TESTING ENDPOINTS
@@ -274,7 +337,21 @@ impl api_server::Api for StoreApi {
         &self,
         _request: tonic::Request<ListNotesRequest>,
     ) -> Result<Response<ListNotesResponse>, Status> {
-        let notes = self.state.list_notes().await.map_err(internal_error)?;
+        let notes = self
+            .state
+            .list_notes()
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|note| generated::note::Note {
+                block_num: note.block_num,
+                note_index: note.note_created.note_index,
+                note_id: Some(note.note_created.note_id.into()),
+                sender: Some(note.note_created.sender.into()),
+                tag: note.note_created.tag,
+                merkle_path: Some(note.merkle_path.into()),
+            })
+            .collect();
         Ok(Response::new(ListNotesResponse { notes }))
     }
 
@@ -291,7 +368,18 @@ impl api_server::Api for StoreApi {
         &self,
         _request: tonic::Request<ListAccountsRequest>,
     ) -> Result<Response<ListAccountsResponse>, Status> {
-        let accounts = self.state.list_accounts().await.map_err(internal_error)?;
+        let accounts = self
+            .state
+            .list_accounts()
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|account_info| generated::account::AccountInfo {
+                account_id: Some(account_info.account_id.into()),
+                account_hash: Some(account_info.account_hash.into()),
+                block_num: account_info.block_num,
+            })
+            .collect();
         Ok(Response::new(ListAccountsResponse { accounts }))
     }
 }
@@ -309,10 +397,10 @@ fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
 }
 
 #[instrument(target = "miden-store", skip_all, err)]
-fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Digest>, Status> {
+fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<RpoDigest>, Status> {
     nullifiers
         .iter()
-        .map(|v| v.try_into())
-        .collect::<Result<Vec<Digest>, ParseError>>()
+        .map(TryInto::try_into)
+        .collect::<Result<_, ParseError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }

@@ -6,8 +6,6 @@
 
 use std::iter;
 
-use miden_objects::transaction::{InputNotes, OutputNotes};
-
 use super::*;
 use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 
