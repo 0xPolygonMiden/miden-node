@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "block-producer",
+  "faucet",
   "node",
   "proto",
   "rpc",
