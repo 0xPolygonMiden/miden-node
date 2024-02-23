@@ -48,10 +48,7 @@ pub fn create_fungible_faucet(
     client
         .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(keypair))
         .map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Failed to insert account into client.",
-            )
+            io::Error::new(io::ErrorKind::InvalidData, "Failed to insert account into client.")
         })?;
 
     Ok(account)
@@ -72,10 +69,7 @@ pub fn import_fungible_faucet(
         AccountData::read_from_bytes(&contents).expect("Failed to deserialize faucet from file.");
 
     client.import_account(account_data.clone()).map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Failed to import account into client.",
-        )
+        io::Error::new(io::ErrorKind::InvalidData, "Failed to import account into client.")
     })?;
 
     Ok(account_data.account)

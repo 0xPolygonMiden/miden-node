@@ -1,3 +1,5 @@
+use std::{io, sync::Arc};
+
 use actix_cors::Cors;
 use actix_files::Files;
 use actix_web::{web, App, HttpServer};
@@ -5,14 +7,12 @@ use async_mutex::Mutex;
 use clap::Parser;
 use cli::Cli;
 use handlers::get_tokens;
-use miden_client::client::rpc::TonicRpcClient;
-use miden_client::client::Client;
-use miden_client::config::{ClientConfig, RpcConfig, StoreConfig};
-use miden_client::store::data_store::SqliteDataStore;
-use miden_client::store::Store;
+use miden_client::{
+    client::{rpc::TonicRpcClient, Client},
+    config::{ClientConfig, RpcConfig, StoreConfig},
+    store::{data_store::SqliteDataStore, Store},
+};
 use miden_objects::accounts::AccountId;
-use std::io;
-use std::sync::Arc;
 
 mod cli;
 mod errors;
@@ -56,21 +56,16 @@ async fn main() -> std::io::Result<()> {
         } => {
             amount = *asset_amount;
             utils::create_fungible_faucet(token_symbol, decimals, max_supply, &mut client)
-        }
+        },
         cli::Command::Import {
             faucet_path,
             asset_amount,
         } => {
             amount = *asset_amount;
             utils::import_fungible_faucet(faucet_path, &mut client)
-        }
+        },
     }
-    .map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Failed to create faucet account.",
-        )
-    })?;
+    .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Failed to create faucet account."))?;
 
     // Sync client
     client
@@ -78,10 +73,7 @@ async fn main() -> std::io::Result<()> {
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::ConnectionRefused, "Failed to sync state."))?;
 
-    println!(
-        "✅ Faucet setup successful, account id: {}",
-        faucet_account.id()
-    );
+    println!("✅ Faucet setup successful, account id: {}", faucet_account.id());
 
     println!("🚀 Starting server on: http://127.0.0.1:8080");
 
@@ -93,9 +85,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     HttpServer::new(move || {
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allowed_methods(vec!["GET"]);
+        let cors = Cors::default().allow_any_origin().allowed_methods(vec!["GET"]);
         App::new()
             .app_data(web::Data::new(faucet_state.clone()))
             .wrap(cors)
