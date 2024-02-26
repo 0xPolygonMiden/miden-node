@@ -3,8 +3,8 @@ use std::collections::BTreeSet;
 use async_trait::async_trait;
 use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    notes::Nullifier,
-    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
+    notes::{NoteEnvelope, Nullifier},
+    BlockHeader, Word, ACCOUNT_TREE_DEPTH, EMPTY_WORD, NOTE_TREE_DEPTH, ONE, ZERO,
 };
 
 use super::*;
@@ -20,6 +20,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
+    notes: Option<SimpleSmt<NOTE_TREE_DEPTH>>,
     produced_nullifiers: Option<Smt>,
     chain_mmr: Option<Mmr>,
     block_num: Option<u32>,
@@ -44,6 +45,25 @@ impl MockStoreSuccessBuilder {
         };
 
         self.accounts = Some(accounts_smt);
+
+        self
+    }
+
+    pub fn initial_notes(
+        mut self,
+        notes: impl Iterator<Item = NoteEnvelope>,
+    ) -> Self {
+        let notes_smt = {
+            let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.size_hint().0 * 2);
+            for (index, note) in notes.enumerate() {
+                entries.push(((index * 2) as u64, note.note_id().into()));
+                entries.push(((index * 2) as u64 + 1, note.metadata().into()));
+            }
+
+            SimpleSmt::<NOTE_TREE_DEPTH>::with_leaves(entries).unwrap()
+        };
+
+        self.notes = Some(notes_smt);
 
         self
     }
@@ -83,7 +103,8 @@ impl MockStoreSuccessBuilder {
     }
 
     pub fn build(self) -> MockStoreSuccess {
-        let accounts_smt = self.accounts.unwrap_or(SimpleSmt::<ACCOUNT_TREE_DEPTH>::new().unwrap());
+        let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new().unwrap());
+        let notes_smt = self.notes.unwrap_or(SimpleSmt::new().unwrap());
         let nullifiers_smt = self.produced_nullifiers.unwrap_or_default();
         let chain_mmr = self.chain_mmr.unwrap_or_default();
 
@@ -93,8 +114,7 @@ impl MockStoreSuccessBuilder {
             chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
             accounts_smt.root(),
             nullifiers_smt.root(),
-            // FIXME: FILL IN CORRECT VALUE
-            Digest::default(),
+            notes_smt.root(),
             Digest::default(),
             Digest::default(),
             ZERO,
@@ -103,6 +123,7 @@ impl MockStoreSuccessBuilder {
 
         MockStoreSuccess {
             accounts: Arc::new(RwLock::new(accounts_smt)),
+            notes: Arc::new(RwLock::new(notes_smt)),
             produced_nullifiers: Arc::new(RwLock::new(nullifiers_smt)),
             chain_mmr: Arc::new(RwLock::new(chain_mmr)),
             last_block_header: Arc::new(RwLock::new(initial_block_header)),
@@ -114,6 +135,9 @@ impl MockStoreSuccessBuilder {
 pub struct MockStoreSuccess {
     /// Map account id -> account hash
     pub accounts: Arc<RwLock<SimpleSmt<ACCOUNT_TREE_DEPTH>>>,
+
+    /// Stores notes created
+    pub notes: Arc<RwLock<SimpleSmt<NOTE_TREE_DEPTH>>>,
 
     /// Stores the nullifiers of the notes that were consumed
     pub produced_nullifiers: Arc<RwLock<Smt>>,
@@ -144,6 +168,7 @@ impl ApplyBlock for MockStoreSuccess {
     ) -> Result<(), ApplyBlockError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
+        let mut locked_notes = self.notes.write().await;
         let mut locked_produced_nullifiers = self.produced_nullifiers.write().await;
 
         // update accounts
@@ -151,6 +176,17 @@ impl ApplyBlock for MockStoreSuccess {
             locked_accounts.insert(account_id.into(), account_hash.into());
         }
         debug_assert_eq!(locked_accounts.root(), block.header.account_root());
+
+        // update notes
+        let mut entries: Vec<(u64, Word)> = Vec::with_capacity(block.created_notes.len() * 2);
+        for (index, note) in block.created_notes.iter() {
+            entries.push((index * 2, note.note_id().into()));
+            entries.push((index * 2 + 1, note.metadata().into()));
+        }
+        let created_notes = SimpleSmt::<NOTE_TREE_DEPTH>::with_leaves(entries)?;
+        debug_assert_eq!(created_notes.root(), block.header.note_root());
+        let new_notes_root = locked_notes.set_subtree(0, created_notes)?;
+        debug_assert_eq!(new_notes_root, block.header.note_root());
 
         // update nullifiers
         for nullifier in block.produced_nullifiers {

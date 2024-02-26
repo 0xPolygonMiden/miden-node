@@ -4,7 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::Mmr,
     notes::{NoteEnvelope, Nullifier},
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, ONE, ZERO,
+    BlockHeader, Digest, Word, ACCOUNT_TREE_DEPTH, NOTE_TREE_DEPTH, ONE, ZERO,
 };
 use miden_vm::crypto::SimpleSmt;
 
@@ -26,10 +26,10 @@ pub async fn build_expected_block_header(
 
     // Compute new account root
     let updated_accounts: Vec<(AccountId, Digest)> =
-        batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+        batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
     let new_account_root = {
         let mut store_accounts = store.accounts.read().await.clone();
-        for &(account_id, new_account_state) in updated_accounts.iter() {
+        for (account_id, new_account_state) in updated_accounts {
             store_accounts.insert(account_id.into(), new_account_state.into());
         }
 
@@ -37,9 +37,17 @@ pub async fn build_expected_block_header(
     };
 
     // Compute created notes root
-    // FIXME: compute the right root. Needs
-    // https://github.com/0xPolygonMiden/crypto/issues/220#issuecomment-1823911017
-    let new_created_notes_root = Digest::default();
+    let created_notes: Vec<&NoteEnvelope> =
+        batches.iter().flat_map(TransactionBatch::created_notes).collect();
+    let new_created_notes_root = {
+        let mut entries: Vec<(u64, Word)> = Vec::with_capacity(created_notes.len() * 2);
+        for (index, note) in created_notes.iter().enumerate() {
+            entries.push(((index * 2) as u64, note.note_id().into()));
+            entries.push(((index * 2) as u64 + 1, note.metadata().into()));
+        }
+
+        SimpleSmt::<NOTE_TREE_DEPTH>::with_leaves(entries).unwrap().root()
+    };
 
     // Compute new chain MMR root
     let new_chain_mmr_root = {
@@ -58,7 +66,6 @@ pub async fn build_expected_block_header(
         new_account_root,
         // FIXME: FILL IN CORRECT NULLIFIER ROOT
         Digest::default(),
-        // FIXME: FILL IN CORRECT CREATED NOTES ROOT
         new_created_notes_root,
         Digest::default(),
         Digest::default(),
