@@ -1,7 +1,7 @@
-use miden_objects::{transaction::OutputNotes, Hasher, EMPTY_WORD, ZERO};
+use miden_objects::{Hasher, EMPTY_WORD, ZERO};
 
 use super::*;
-use crate::test_utils::{DummyProvenTxGenerator, MockPrivateAccount};
+use crate::test_utils::{MockPrivateAccount, MockProvenTxBuilder};
 
 mod apply_block;
 mod verify_tx;
@@ -26,18 +26,14 @@ pub fn nullifier_by_index(index: u32) -> Nullifier {
 /// Returns `num` transactions, and the corresponding account they modify.
 /// The transactions each consume a single different note
 pub fn get_txs_and_accounts(
-    tx_gen: &DummyProvenTxGenerator,
-    num: u32,
-) -> impl Iterator<Item = (ProvenTransaction, MockPrivateAccount)> + '_ {
+    num: u32
+) -> impl Iterator<Item=(ProvenTransaction, MockPrivateAccount)> {
     (0..num).map(|index| {
         let account = MockPrivateAccount::from(index);
-        let tx = tx_gen.dummy_proven_tx_with_params(
-            account.id,
-            account.states[0],
-            account.states[1],
-            InputNotes::new(vec![nullifier_by_index(index)]).unwrap(),
-            OutputNotes::new(Vec::new()).unwrap(),
-        );
+        let tx =
+            MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1])
+                .num_nullifiers(1)
+                .build();
 
         (tx, account)
     })

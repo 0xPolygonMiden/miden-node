@@ -13,7 +13,6 @@ use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_apply_block_ab1() {
-    let tx_gen = DummyProvenTxGenerator::new();
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
     let store = Arc::new(
@@ -22,13 +21,8 @@ async fn test_apply_block_ab1() {
             .build(),
     );
 
-    let tx = tx_gen.dummy_proven_tx_with_params(
-        account.id,
-        account.states[0],
-        account.states[1],
-        InputNotes::new(Vec::new()).unwrap(),
-        OutputNotes::new(Vec::new()).unwrap(),
-    );
+    let tx =
+        MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1]).build();
 
     let state_view = DefaultStateView::new(store.clone(), false);
 
@@ -55,9 +49,7 @@ async fn test_apply_block_ab1() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_apply_block_ab2() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
-    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(&tx_gen, 3).unzip();
+    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(3).unzip();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -105,9 +97,7 @@ async fn test_apply_block_ab2() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_apply_block_ab3() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
-    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(&tx_gen, 3).unzip();
+    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(3).unzip();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -144,13 +134,13 @@ async fn test_apply_block_ab3() {
 
     // Craft a new transaction which tries to consume the same note that was consumed in in the
     // first tx
-    let tx_new = tx_gen.dummy_proven_tx_with_params(
+    let tx_new = MockProvenTxBuilder::with_account(
         accounts[0].id,
         accounts[0].states[1],
         accounts[0].states[2],
-        txs[0].input_notes().clone(),
-        OutputNotes::new(Vec::new()).unwrap(),
-    );
+    )
+    .nullifiers(txs[0].input_notes().iter().cloned().collect())
+    .build();
 
     let verify_tx_res = state_view.verify_tx(&tx_new).await;
     assert_eq!(

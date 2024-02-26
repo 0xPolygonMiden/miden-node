@@ -1,5 +1,5 @@
 use super::*;
-use crate::{errors::BuildBlockError, test_utils::DummyProvenTxGenerator};
+use crate::{errors::BuildBlockError, test_utils::MockProvenTxBuilder};
 
 // STRUCTS
 // ================================================================================================
@@ -61,13 +61,7 @@ async fn test_block_size_doesnt_exceed_limit() {
 
     // Add 3 batches in internal queue (remember: 2 batches/block)
     {
-        let tx_gen = DummyProvenTxGenerator::new();
-
-        let mut batch_group = vec![
-            dummy_tx_batch(&tx_gen, 2),
-            dummy_tx_batch(&tx_gen, 2),
-            dummy_tx_batch(&tx_gen, 2),
-        ];
+        let mut batch_group = vec![dummy_tx_batch(2), dummy_tx_batch(2), dummy_tx_batch(2)];
 
         batch_builder.ready_batches.write().await.append(&mut batch_group);
     }
@@ -137,13 +131,7 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
 
     // Add 3 batches in internal queue
     {
-        let tx_gen = DummyProvenTxGenerator::new();
-
-        let mut batch_group = vec![
-            dummy_tx_batch(&tx_gen, 2),
-            dummy_tx_batch(&tx_gen, 2),
-            dummy_tx_batch(&tx_gen, 2),
-        ];
+        let mut batch_group = vec![dummy_tx_batch(2), dummy_tx_batch(2), dummy_tx_batch(2)];
 
         batch_builder.ready_batches.write().await.append(&mut batch_group);
     }
@@ -161,10 +149,7 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
 // HELPERS
 // ================================================================================================
 
-fn dummy_tx_batch(
-    tx_gen: &DummyProvenTxGenerator,
-    num_txs_in_batch: usize,
-) -> TransactionBatch {
-    let txs: Vec<_> = (0..num_txs_in_batch).map(|_| tx_gen.dummy_proven_tx()).collect();
+fn dummy_tx_batch(num_txs_in_batch: usize) -> TransactionBatch {
+    let txs: Vec<_> = (0..num_txs_in_batch).map(|_| MockProvenTxBuilder::new().build()).collect();
     TransactionBatch::new(txs).unwrap()
 }

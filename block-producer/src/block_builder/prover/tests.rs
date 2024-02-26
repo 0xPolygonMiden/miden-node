@@ -8,7 +8,6 @@ use miden_objects::{
         SMT_DEPTH,
     },
     notes::{NoteEnvelope, NoteMetadata},
-    transaction::{InputNotes, OutputNotes},
     BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
@@ -18,7 +17,7 @@ use crate::{
     store::Store,
     test_utils::{
         block::{build_actual_block_header, build_expected_block_header, MockBlockBuilder},
-        DummyProvenTxGenerator, MockProvenTxBuilder, MockStoreSuccessBuilder,
+        MockProvenTxBuilder, MockStoreSuccessBuilder,
     },
     TransactionBatch,
 };
@@ -32,7 +31,6 @@ use crate::{
 /// The store will contain accounts 1 & 2, while the transaction batches will contain 2 & 3.
 #[test]
 fn test_block_witness_validation_inconsistent_account_ids() {
-    let tx_gen = DummyProvenTxGenerator::new();
     let account_id_1 = AccountId::new_unchecked(ZERO);
     let account_id_2 = AccountId::new_unchecked(ONE);
     let account_id_3 = AccountId::new_unchecked(Felt::new(42));
@@ -56,25 +54,23 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
-            let tx = tx_gen.dummy_proven_tx_with_params(
+            let tx = MockProvenTxBuilder::with_account(
                 account_id_2,
                 Digest::default(),
                 Digest::default(),
-                InputNotes::new(Vec::new()).unwrap(),
-                OutputNotes::new(Vec::new()).unwrap(),
-            );
+            )
+            .build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };
 
         let batch_2 = {
-            let tx = tx_gen.dummy_proven_tx_with_params(
+            let tx = MockProvenTxBuilder::with_account(
                 account_id_3,
                 Digest::default(),
                 Digest::default(),
-                InputNotes::new(Vec::new()).unwrap(),
-                OutputNotes::new(Vec::new()).unwrap(),
-            );
+            )
+            .build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };
@@ -96,7 +92,6 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 /// Only account 1 will have a different state hash
 #[test]
 fn test_block_witness_validation_inconsistent_account_hashes() {
-    let tx_gen = DummyProvenTxGenerator::new();
     let account_id_1 = AccountId::new_unchecked(ZERO);
     let account_id_2 = AccountId::new_unchecked(ONE);
 
@@ -128,30 +123,21 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
         }
     };
 
-    let batches: Vec<TransactionBatch> = {
-        let batch_1 = {
-            let tx = tx_gen.dummy_proven_tx_with_params(
-                account_id_1,
-                account_1_hash_batches,
-                Digest::default(),
-                InputNotes::new(Vec::new()).unwrap(),
-                OutputNotes::new(Vec::new()).unwrap(),
-            );
-
-            TransactionBatch::new(vec![tx]).unwrap()
-        };
-
-        let batch_2 = {
-            let tx = tx_gen.dummy_proven_tx_with_params(
-                account_id_2,
-                Digest::default(),
-                Digest::default(),
-                InputNotes::new(Vec::new()).unwrap(),
-                OutputNotes::new(Vec::new()).unwrap(),
-            );
-
-            TransactionBatch::new(vec![tx]).unwrap()
-        };
+    let batches = {
+        let batch_1 = TransactionBatch::new(vec![MockProvenTxBuilder::with_account(
+            account_id_1,
+            account_1_hash_batches,
+            Digest::default(),
+        )
+        .build()])
+        .unwrap();
+        let batch_2 = TransactionBatch::new(vec![MockProvenTxBuilder::with_account(
+            account_id_2,
+            Digest::default(),
+            Digest::default(),
+        )
+        .build()])
+        .unwrap();
 
         vec![batch_1, batch_2]
     };
@@ -173,8 +159,6 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_compute_account_root_success() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
@@ -225,13 +209,12 @@ async fn test_compute_account_root_success() {
             .iter()
             .enumerate()
             .map(|(idx, &account_id)| {
-                tx_gen.dummy_proven_tx_with_params(
+                MockProvenTxBuilder::with_account(
                     account_id,
                     account_initial_states[idx].into(),
                     account_final_states[idx].into(),
-                    InputNotes::new(Vec::new()).unwrap(),
-                    OutputNotes::new(Vec::new()).unwrap(),
                 )
+                .build()
             })
             .collect();
 
@@ -387,8 +370,6 @@ async fn test_compute_note_root_empty_notes_success() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_success() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     let account_ids = [
         AccountId::new_unchecked(Felt::new(0u64)),
         AccountId::new_unchecked(Felt::new(1u64)),
@@ -424,13 +405,9 @@ async fn test_compute_note_root_success() {
             .iter()
             .zip(account_ids.iter())
             .map(|(note, &account_id)| {
-                tx_gen.dummy_proven_tx_with_params(
-                    account_id,
-                    Digest::default(),
-                    Digest::default(),
-                    InputNotes::new(Vec::new()).unwrap(),
-                    OutputNotes::new(vec![*note]).unwrap(),
-                )
+                MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
+                    .notes_created(vec![*note])
+                    .build()
             })
             .collect();
 
