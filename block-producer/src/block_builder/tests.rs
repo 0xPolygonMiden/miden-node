@@ -27,7 +27,7 @@ async fn test_apply_block_called_nonempty_batches() {
                 account_initial_hash,
                 [Felt::new(2u64), Felt::new(2u64), Felt::new(2u64), Felt::new(2u64)].into(),
             )
-                .build();
+            .build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };

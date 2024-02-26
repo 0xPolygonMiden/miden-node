@@ -27,7 +27,7 @@ pub fn nullifier_by_index(index: u32) -> Nullifier {
 /// The transactions each consume a single different note
 pub fn get_txs_and_accounts(
     num: u32
-) -> impl Iterator<Item=(ProvenTransaction, MockPrivateAccount)> {
+) -> impl Iterator<Item = (ProvenTransaction, MockPrivateAccount)> {
     (0..num).map(|index| {
         let account = MockPrivateAccount::from(index);
         let tx =
