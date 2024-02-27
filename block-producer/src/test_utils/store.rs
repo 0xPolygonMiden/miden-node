@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::{NoteEnvelope, Nullifier},
-    BlockHeader, Word, ACCOUNT_TREE_DEPTH, EMPTY_WORD, NOTE_TREE_DEPTH, ONE, ZERO,
+    BlockHeader, Word, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
 };
 
 use super::*;
@@ -20,7 +20,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    notes: Option<SimpleSmt<NOTE_TREE_DEPTH>>,
+    notes: Option<SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH>>,
     produced_nullifiers: Option<Smt>,
     chain_mmr: Option<Mmr>,
     block_num: Option<u32>,
@@ -60,7 +60,7 @@ impl MockStoreSuccessBuilder {
                 entries.push(((index * 2) as u64 + 1, note.metadata().into()));
             }
 
-            SimpleSmt::<NOTE_TREE_DEPTH>::with_leaves(entries).unwrap()
+            SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(entries).unwrap()
         };
 
         self.notes = Some(notes_smt);
@@ -137,7 +137,7 @@ pub struct MockStoreSuccess {
     pub accounts: Arc<RwLock<SimpleSmt<ACCOUNT_TREE_DEPTH>>>,
 
     /// Stores notes created
-    pub notes: Arc<RwLock<SimpleSmt<NOTE_TREE_DEPTH>>>,
+    pub notes: Arc<RwLock<SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH>>>,
 
     /// Stores the nullifiers of the notes that were consumed
     pub produced_nullifiers: Arc<RwLock<Smt>>,
@@ -183,7 +183,7 @@ impl ApplyBlock for MockStoreSuccess {
             entries.push((index * 2, note.note_id().into()));
             entries.push((index * 2 + 1, note.metadata().into()));
         }
-        let created_notes = SimpleSmt::<NOTE_TREE_DEPTH>::with_leaves(entries)?;
+        let created_notes = SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(entries)?;
         debug_assert_eq!(created_notes.root(), block.header.note_root());
         let new_notes_root = locked_notes.set_subtree(0, created_notes)?;
         debug_assert_eq!(new_notes_root, block.header.note_root());

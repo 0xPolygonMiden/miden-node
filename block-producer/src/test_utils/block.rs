@@ -4,7 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::Mmr,
     notes::{NoteEnvelope, Nullifier},
-    BlockHeader, Digest, Word, ACCOUNT_TREE_DEPTH, NOTE_TREE_DEPTH, ONE, ZERO,
+    BlockHeader, Digest, Word, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 use miden_vm::crypto::SimpleSmt;
 
@@ -46,7 +46,7 @@ pub async fn build_expected_block_header(
             entries.push(((index * 2) as u64 + 1, note.metadata().into()));
         }
 
-        SimpleSmt::<NOTE_TREE_DEPTH>::with_leaves(entries).unwrap().root()
+        SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(entries).unwrap().root()
     };
 
     // Compute new chain MMR root
