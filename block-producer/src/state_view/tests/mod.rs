@@ -28,7 +28,7 @@ pub fn nullifier_by_index(index: u32) -> Nullifier {
 pub fn get_txs_and_accounts(
     starting_account_index: u32,
     num: u32,
-) -> impl Iterator<Item=(ProvenTransaction, MockPrivateAccount)> {
+) -> impl Iterator<Item = (ProvenTransaction, MockPrivateAccount)> {
     (0..num).map(move |index| {
         let account = MockPrivateAccount::from(starting_account_index + index);
         let nullifier_starting_index = (starting_account_index + index) as u64;

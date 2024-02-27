@@ -121,8 +121,8 @@ async fn test_verify_tx_vt2() {
         account_not_in_store.states[0],
         account_not_in_store.states[1],
     )
-        .nullifiers_range(0..1)
-        .build();
+    .nullifiers_range(0..1)
+    .build();
 
     let state_view = DefaultStateView::new(store, false);
 
