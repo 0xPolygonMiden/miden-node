@@ -26,13 +26,15 @@ pub fn nullifier_by_index(index: u32) -> Nullifier {
 /// Returns `num` transactions, and the corresponding account they modify.
 /// The transactions each consume a single different note
 pub fn get_txs_and_accounts(
-    num: u32
-) -> impl Iterator<Item = (ProvenTransaction, MockPrivateAccount)> {
-    (0..num).map(|index| {
-        let account = MockPrivateAccount::from(index);
+    starting_account_index: u32,
+    num: u32,
+) -> impl Iterator<Item=(ProvenTransaction, MockPrivateAccount)> {
+    (0..num).map(move |index| {
+        let account = MockPrivateAccount::from(starting_account_index + index);
+        let nullifier_starting_index = (starting_account_index + index) as u64;
         let tx =
             MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1])
-                .num_nullifiers(1)
+                .nullifiers_range(nullifier_starting_index..(nullifier_starting_index + 1))
                 .build();
 
         (tx, account)

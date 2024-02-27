@@ -106,7 +106,7 @@ async fn test_build_batch_success() {
 
     // if there is a single transaction in the queue when it is time to build a batch, the batch is
     // created with that single transaction
-    let tx = MockProvenTxBuilder::new().build();
+    let tx = MockProvenTxBuilder::with_account_index(0).build();
     tx_queue
         .add_transaction(tx.clone())
         .await
@@ -189,8 +189,10 @@ async fn test_tx_verify_failure() {
     tokio::spawn(tx_queue.clone().run());
 
     // Add a bunch of transactions that will all fail tx verification
-    for _ in 0..(3 * batch_size) {
-        let r = tx_queue.add_transaction(MockProvenTxBuilder::new().build()).await;
+    for i in 0..(3 * batch_size as u32) {
+        let r = tx_queue
+            .add_transaction(MockProvenTxBuilder::with_account_index(i).build())
+            .await;
 
         assert!(matches!(r, Err(AddTransactionError::VerificationFailed(_))));
         assert_eq!(
@@ -222,8 +224,11 @@ async fn test_build_batch_failure() {
     let internal_ready_queue = tx_queue.ready_queue.clone();
 
     // Add enough transactions so that we have 1 batch
-    for _i in 0..batch_size {
-        tx_queue.add_transaction(MockProvenTxBuilder::new().build()).await.unwrap();
+    for i in 0..batch_size {
+        tx_queue
+            .add_transaction(MockProvenTxBuilder::with_account_index(i as u32).build())
+            .await
+            .unwrap();
     }
 
     // Start the queue
