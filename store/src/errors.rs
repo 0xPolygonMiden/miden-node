@@ -1,15 +1,13 @@
 use std::io;
 
 use deadpool_sqlite::PoolError;
-use miden_node_proto::{errors::ParseError, generated::block_header::BlockHeader};
 use miden_objects::{
     crypto::{
         merkle::{MerkleError, MmrError},
         utils::DeserializationError,
     },
-    AccountError, Digest,
+    AccountError, BlockHeader, Digest,
 };
-use prost::DecodeError;
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
@@ -27,14 +25,10 @@ pub enum DatabaseError {
     FromSqlError(#[from] FromSqlError),
     #[error("I/O error: {0}")]
     IoError(#[from] io::Error),
-    #[error("Prost decode error: {0}")]
-    DecodeError(#[from] DecodeError),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
-    #[error("Parse error: {0}")]
-    ParseError(#[from] ParseError),
-    #[error("Decoding nullifier from database failed: {0}")]
-    NullifierDecodingError(DeserializationError),
+    #[error("Deserialization of BLOB data from database failed: {0}")]
+    DeserializationError(DeserializationError),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
     ApplyBlockFailedClosedChannel(RecvError),
 }
@@ -46,14 +40,10 @@ pub enum DatabaseError {
 pub enum StateInitializationError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("Parse error: {0}")]
-    ParseError(#[from] ParseError),
     #[error("Failed to create nullifiers tree: {0}")]
     FailedToCreateNullifiersTree(MerkleError),
     #[error("Failed to create accounts tree: {0}")]
     FailedToCreateAccountsTree(MerkleError),
-    #[error("Failed to create chain MMR: {0}")]
-    FailedToCreateChainMmr(ParseError),
 }
 
 #[derive(Debug, Error)]
@@ -99,8 +89,8 @@ pub enum GenesisError {
 pub enum ApplyBlockError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("Parse error: {0}")]
-    ParseError(#[from] ParseError),
+    #[error("Account error: {0}")]
+    AccountError(#[from] AccountError),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
     #[error("New block number must be 1 greater than the current block number")]
@@ -123,8 +113,6 @@ pub enum ApplyBlockError {
     BlockApplyingBrokenBecauseOfClosedChannel(RecvError),
     #[error("Failed to create notes tree: {0}")]
     FailedToCreateNotesTree(MerkleError),
-    #[error("Received invalid account id")]
-    InvalidAccountId,
     #[error("Database doesn't have any block header data")]
     DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]

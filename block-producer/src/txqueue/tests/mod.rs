@@ -1,10 +1,7 @@
-use tokio::{
-    sync::mpsc::{self, error::TryRecvError},
-    time,
-};
+use tokio::sync::mpsc::{self, error::TryRecvError};
 
 use super::*;
-use crate::{errors::BuildBatchError, test_utils::DummyProvenTxGenerator, TransactionBatch};
+use crate::{errors::BuildBatchError, test_utils::MockProvenTxBuilder, TransactionBatch};
 
 // STRUCTS
 // ================================================================================================
@@ -107,11 +104,9 @@ async fn test_build_batch_success() {
     tokio::time::advance(build_batch_frequency).await;
     assert_eq!(Err(TryRecvError::Empty), receiver.try_recv(), "queue starts empty");
 
-    let tx_generator = DummyProvenTxGenerator::new();
-
     // if there is a single transaction in the queue when it is time to build a batch, the batch is
     // created with that single transaction
-    let tx = tx_generator.dummy_proven_tx();
+    let tx = MockProvenTxBuilder::with_account_index(0).build();
     tx_queue
         .add_transaction(tx.clone())
         .await
@@ -124,18 +119,17 @@ async fn test_build_batch_success() {
         receiver.try_recv(),
         "A single transaction produces a single batch"
     );
-    let expected = TransactionBatch::new(vec![tx]).expect("Valid transactions");
+    let expected = TransactionBatch::new(vec![tx.clone()]).expect("Valid transactions");
     assert_eq!(expected, batch, "The batch should have the one transaction added to the queue");
 
     // a batch will include up to `batch_size` transactions
     let mut txs = Vec::new();
     for _ in 0..batch_size {
-        let tx = tx_generator.dummy_proven_tx();
         tx_queue
             .add_transaction(tx.clone())
             .await
             .expect("Transaciton queue is running");
-        txs.push(tx)
+        txs.push(tx.clone())
     }
     tokio::time::advance(build_batch_frequency).await;
     let batch = receiver.try_recv().expect("Queue not empty");
@@ -150,12 +144,11 @@ async fn test_build_batch_success() {
     // the transaction queue eagerly produces batches
     let mut txs = Vec::new();
     for _ in 0..(2 * batch_size + 1) {
-        let tx = tx_generator.dummy_proven_tx();
         tx_queue
             .add_transaction(tx.clone())
             .await
             .expect("Transaciton queue is running");
-        txs.push(tx)
+        txs.push(tx.clone())
     }
     for expected_batch in txs.chunks(batch_size).map(|txs| txs.to_vec()) {
         tokio::time::advance(build_batch_frequency).await;
@@ -196,9 +189,10 @@ async fn test_tx_verify_failure() {
     tokio::spawn(tx_queue.clone().run());
 
     // Add a bunch of transactions that will all fail tx verification
-    let proven_tx_generator = DummyProvenTxGenerator::new();
-    for _ in 0..(3 * batch_size) {
-        let r = tx_queue.add_transaction(proven_tx_generator.dummy_proven_tx()).await;
+    for i in 0..(3 * batch_size as u32) {
+        let r = tx_queue
+            .add_transaction(MockProvenTxBuilder::with_account_index(i).build())
+            .await;
 
         assert!(matches!(r, Err(AddTransactionError::VerificationFailed(_))));
         assert_eq!(
@@ -229,11 +223,12 @@ async fn test_build_batch_failure() {
 
     let internal_ready_queue = tx_queue.ready_queue.clone();
 
-    let proven_tx_generator = DummyProvenTxGenerator::new();
-
     // Add enough transactions so that we have 1 batch
-    for _i in 0..batch_size {
-        tx_queue.add_transaction(proven_tx_generator.dummy_proven_tx()).await.unwrap();
+    for i in 0..batch_size {
+        tx_queue
+            .add_transaction(MockProvenTxBuilder::with_account_index(i as u32).build())
+            .await
+            .unwrap();
     }
 
     // Start the queue

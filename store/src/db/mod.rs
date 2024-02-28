@@ -1,14 +1,11 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_node_proto::generated::{
-    account::AccountInfo,
-    block_header,
-    digest::Digest,
-    note::Note,
-    responses::{AccountHashUpdate, NullifierUpdate},
+use miden_objects::{
+    crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
+    notes::Nullifier,
+    BlockHeader, GENESIS_BLOCK,
 };
-use miden_objects::crypto::{hash::rpo::RpoDigest, utils::Deserializable};
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
@@ -16,7 +13,7 @@ use tracing::{info, info_span, instrument};
 use crate::{
     config::StoreConfig,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
-    genesis::{GenesisState, GENESIS_BLOCK_NUM},
+    genesis::GenesisState,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -34,12 +31,40 @@ pub struct Db {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct AccountInfo {
+    pub account_id: AccountId,
+    pub account_hash: RpoDigest,
+    pub block_num: BlockNumber,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct NullifierInfo {
+    pub nullifier: Nullifier,
+    pub block_num: BlockNumber,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteCreated {
+    pub note_index: u32,
+    pub note_id: RpoDigest,
+    pub sender: AccountId,
+    pub tag: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Note {
+    pub block_num: BlockNumber,
+    pub note_created: NoteCreated,
+    pub merkle_path: MerklePath,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct StateSyncUpdate {
     pub notes: Vec<Note>,
-    pub block_header: block_header::BlockHeader,
+    pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
-    pub account_updates: Vec<AccountHashUpdate>,
-    pub nullifiers: Vec<NullifierUpdate>,
+    pub account_updates: Vec<AccountInfo>,
+    pub nullifiers: Vec<NullifierInfo>,
 }
 
 impl Db {
@@ -133,7 +158,7 @@ impl Db {
         })?
     }
 
-    /// Search for a [block_header::BlockHeader] from the DB by its `block_num`.
+    /// Search for a [BlockHeader] from the database by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
@@ -141,7 +166,7 @@ impl Db {
     pub async fn select_block_header_by_block_num(
         &self,
         block_number: Option<BlockNumber>,
-    ) -> Result<Option<block_header::BlockHeader>> {
+    ) -> Result<Option<BlockHeader>> {
         self.pool
             .get()
             .await?
@@ -155,7 +180,7 @@ impl Db {
     /// Loads all the block headers from the DB.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_block_headers(&self) -> Result<Vec<block_header::BlockHeader>> {
+    pub async fn select_block_headers(&self) -> Result<Vec<BlockHeader>> {
         self.pool
             .get()
             .await?
@@ -169,7 +194,7 @@ impl Db {
     /// Loads all the account hashes from the DB.
     #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_account_hashes(&self) -> Result<Vec<(AccountId, Digest)>> {
+    pub async fn select_account_hashes(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
         self.pool
             .get()
             .await?
@@ -224,10 +249,10 @@ impl Db {
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
-        block_header: block_header::BlockHeader,
+        block_header: BlockHeader,
         notes: Vec<Note>,
         nullifiers: Vec<RpoDigest>,
-        accounts: Vec<(AccountId, Digest)>,
+        accounts: Vec<(AccountId, RpoDigest)>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -278,14 +303,12 @@ impl Db {
 
             let genesis_state = GenesisState::read_from_bytes(&file_contents)
                 .map_err(GenesisError::GenesisFileDeserializationError)?;
-            let (block_header, account_smt) =
-                genesis_state.into_block_parts().map_err(GenesisError::MalformedGenesisState)?;
 
-            (block_header.into(), account_smt)
+            genesis_state.into_block_parts().map_err(GenesisError::MalformedGenesisState)?
         };
 
         let maybe_block_header_in_store = self
-            .select_block_header_by_block_num(Some(GENESIS_BLOCK_NUM))
+            .select_block_header_by_block_num(Some(GENESIS_BLOCK))
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
@@ -313,7 +336,7 @@ impl Db {
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt
                             .leaves()
-                            .map(|(account_id, state_hash)| (account_id, Digest::from(state_hash)))
+                            .map(|(account_id, state_hash)| (account_id, state_hash.into()))
                             .collect();
                         sql::apply_block(
                             &transaction,

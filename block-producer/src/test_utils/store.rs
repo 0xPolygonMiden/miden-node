@@ -1,9 +1,6 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
-use miden_node_proto::{
-    AccountInputRecord, AccountState, BlockInputs, NullifierWitness, TransactionInputs,
-};
 use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::Nullifier,
@@ -12,8 +9,10 @@ use miden_objects::{
 
 use super::*;
 use crate::{
-    block::Block,
-    store::{ApplyBlock, ApplyBlockError, BlockInputsError, Store, TxInputsError},
+    block::{AccountWitness, Block, BlockInputs},
+    store::{
+        ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
+    },
     ProvenTransaction,
 };
 
@@ -206,10 +205,8 @@ impl Store for MockStoreSuccess {
             .collect();
 
         Ok(TransactionInputs {
-            account_state: AccountState {
-                account_id: proven_tx.account_id(),
-                account_hash,
-            },
+            account_id: proven_tx.account_id(),
+            account_hash,
             nullifiers,
         })
     }
@@ -227,35 +224,28 @@ impl Store for MockStoreSuccess {
             locked_chain_mmr.peaks(locked_chain_mmr.forest()).unwrap()
         };
 
-        let account_states = {
+        let accounts = {
             updated_accounts
                 .map(|&account_id| {
                     let ValuePath {
-                        value: account_hash,
+                        value: hash,
                         path: proof,
                     } = locked_accounts.open(&account_id.into());
 
-                    AccountInputRecord {
-                        account_id,
-                        account_hash,
-                        proof,
-                    }
+                    (account_id, AccountWitness { hash, proof })
                 })
                 .collect()
         };
 
-        let nullifier_records: Vec<NullifierWitness> = produced_nullifiers
-            .map(|nullifier| NullifierWitness {
-                nullifier: *nullifier,
-                proof: locked_produced_nullifiers.open(&nullifier.inner()),
-            })
+        let nullifiers = produced_nullifiers
+            .map(|nullifier| (*nullifier, locked_produced_nullifiers.open(&nullifier.inner())))
             .collect();
 
         Ok(BlockInputs {
             block_header: *self.last_block_header.read().await,
             chain_peaks,
-            account_states,
-            nullifiers: nullifier_records,
+            accounts,
+            nullifiers,
         })
     }
 }

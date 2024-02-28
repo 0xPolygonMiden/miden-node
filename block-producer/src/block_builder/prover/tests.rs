@@ -1,5 +1,6 @@
+use std::collections::BTreeMap;
+
 use miden_mock::mock::block::mock_block_header;
-use miden_node_proto::{AccountInputRecord, BlockInputs, NullifierWitness};
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{
@@ -7,17 +8,16 @@ use miden_objects::{
         SMT_DEPTH,
     },
     notes::{NoteEnvelope, NoteMetadata},
-    transaction::{InputNotes, OutputNotes},
-    ONE, ZERO,
+    BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
 use super::*;
 use crate::{
-    block_builder::prover::block_witness::CREATED_NOTES_TREE_DEPTH,
+    block::{AccountWitness, BlockInputs},
     store::Store,
     test_utils::{
         block::{build_actual_block_header, build_expected_block_header, MockBlockBuilder},
-        DummyProvenTxGenerator, MockProvenTxBuilder, MockStoreSuccessBuilder,
+        MockProvenTxBuilder, MockStoreSuccessBuilder,
     },
     TransactionBatch,
 };
@@ -31,7 +31,6 @@ use crate::{
 /// The store will contain accounts 1 & 2, while the transaction batches will contain 2 & 3.
 #[test]
 fn test_block_witness_validation_inconsistent_account_ids() {
-    let tx_gen = DummyProvenTxGenerator::new();
     let account_id_1 = AccountId::new_unchecked(ZERO);
     let account_id_2 = AccountId::new_unchecked(ONE);
     let account_id_3 = AccountId::new_unchecked(Felt::new(42));
@@ -40,48 +39,38 @@ fn test_block_witness_validation_inconsistent_account_ids() {
         let block_header = mock_block_header(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
-        let account_states = vec![
-            AccountInputRecord {
-                account_id: account_id_1,
-                account_hash: Digest::default(),
-                proof: MerklePath::default(),
-            },
-            AccountInputRecord {
-                account_id: account_id_2,
-                account_hash: Digest::default(),
-                proof: MerklePath::default(),
-            },
-        ];
+        let accounts = BTreeMap::from_iter(vec![
+            (account_id_1, AccountWitness::default()),
+            (account_id_2, AccountWitness::default()),
+        ]);
 
         BlockInputs {
             block_header,
             chain_peaks,
-            account_states,
-            nullifiers: Vec::new(),
+            accounts,
+            nullifiers: Default::default(),
         }
     };
 
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
-            let tx = tx_gen.dummy_proven_tx_with_params(
+            let tx = MockProvenTxBuilder::with_account(
                 account_id_2,
                 Digest::default(),
                 Digest::default(),
-                InputNotes::new(Vec::new()).unwrap(),
-                OutputNotes::new(Vec::new()).unwrap(),
-            );
+            )
+            .build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };
 
         let batch_2 = {
-            let tx = tx_gen.dummy_proven_tx_with_params(
+            let tx = MockProvenTxBuilder::with_account(
                 account_id_3,
                 Digest::default(),
                 Digest::default(),
-                InputNotes::new(Vec::new()).unwrap(),
-                OutputNotes::new(Vec::new()).unwrap(),
-            );
+            )
+            .build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };
@@ -103,7 +92,6 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 /// Only account 1 will have a different state hash
 #[test]
 fn test_block_witness_validation_inconsistent_account_hashes() {
-    let tx_gen = DummyProvenTxGenerator::new();
     let account_id_1 = AccountId::new_unchecked(ZERO);
     let account_id_2 = AccountId::new_unchecked(ONE);
 
@@ -116,51 +104,40 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
         let block_header = mock_block_header(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
-        let account_states = vec![
-            AccountInputRecord {
-                account_id: account_id_1,
-                account_hash: account_1_hash_store,
-                proof: MerklePath::default(),
-            },
-            AccountInputRecord {
-                account_id: account_id_2,
-                account_hash: Digest::default(),
-                proof: MerklePath::default(),
-            },
-        ];
+        let accounts = BTreeMap::from_iter(vec![
+            (
+                account_id_1,
+                AccountWitness {
+                    hash: account_1_hash_store,
+                    proof: Default::default(),
+                },
+            ),
+            (account_id_2, Default::default()),
+        ]);
 
         BlockInputs {
             block_header,
             chain_peaks,
-            account_states,
-            nullifiers: Vec::new(),
+            accounts,
+            nullifiers: Default::default(),
         }
     };
 
-    let batches: Vec<TransactionBatch> = {
-        let batch_1 = {
-            let tx = tx_gen.dummy_proven_tx_with_params(
-                account_id_1,
-                account_1_hash_batches,
-                Digest::default(),
-                InputNotes::new(Vec::new()).unwrap(),
-                OutputNotes::new(Vec::new()).unwrap(),
-            );
-
-            TransactionBatch::new(vec![tx]).unwrap()
-        };
-
-        let batch_2 = {
-            let tx = tx_gen.dummy_proven_tx_with_params(
-                account_id_2,
-                Digest::default(),
-                Digest::default(),
-                InputNotes::new(Vec::new()).unwrap(),
-                OutputNotes::new(Vec::new()).unwrap(),
-            );
-
-            TransactionBatch::new(vec![tx]).unwrap()
-        };
+    let batches = {
+        let batch_1 = TransactionBatch::new(vec![MockProvenTxBuilder::with_account(
+            account_id_1,
+            account_1_hash_batches,
+            Digest::default(),
+        )
+        .build()])
+        .unwrap();
+        let batch_2 = TransactionBatch::new(vec![MockProvenTxBuilder::with_account(
+            account_id_2,
+            Digest::default(),
+            Digest::default(),
+        )
+        .build()])
+        .unwrap();
 
         vec![batch_1, batch_2]
     };
@@ -182,8 +159,6 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_compute_account_root_success() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
@@ -234,13 +209,12 @@ async fn test_compute_account_root_success() {
             .iter()
             .enumerate()
             .map(|(idx, &account_id)| {
-                tx_gen.dummy_proven_tx_with_params(
+                MockProvenTxBuilder::with_account(
                     account_id,
                     account_initial_states[idx].into(),
                     account_final_states[idx].into(),
-                    InputNotes::new(Vec::new()).unwrap(),
-                    OutputNotes::new(Vec::new()).unwrap(),
                 )
+                .build()
             })
             .collect();
 
@@ -354,7 +328,7 @@ async fn test_compute_note_root_empty_batches_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -387,7 +361,7 @@ async fn test_compute_note_root_empty_notes_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(CREATED_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -396,8 +370,6 @@ async fn test_compute_note_root_empty_notes_success() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_success() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     let account_ids = [
         AccountId::new_unchecked(Felt::new(0u64)),
         AccountId::new_unchecked(Felt::new(1u64)),
@@ -433,13 +405,9 @@ async fn test_compute_note_root_success() {
             .iter()
             .zip(account_ids.iter())
             .map(|(note, &account_id)| {
-                tx_gen.dummy_proven_tx_with_params(
-                    account_id,
-                    Digest::default(),
-                    Digest::default(),
-                    InputNotes::new(Vec::new()).unwrap(),
-                    OutputNotes::new(vec![*note]).unwrap(),
-                )
+                MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
+                    .notes_created(vec![*note])
+                    .build()
             })
             .collect();
 
@@ -460,11 +428,11 @@ async fn test_compute_note_root_success() {
     // The current logic is hardcoded to a depth of 21
     // Specifically, we assume the block has up to 2^8 batches, and each batch up to 2^12 created notes,
     // where each note is stored at depth 13 in the batch as 2 contiguous nodes: note hash, then metadata.
-    assert_eq!(CREATED_NOTES_TREE_DEPTH, 21);
+    assert_eq!(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 21);
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
     // the second subtree of depth 12
-    let notes_smt = SimpleSmt::<CREATED_NOTES_TREE_DEPTH>::with_leaves(vec![
+    let notes_smt = SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(vec![
         (0u64, notes_created[0].note_id().into()),
         (1u64, notes_created[0].metadata().into()),
         (2u64, notes_created[1].note_id().into()),
@@ -490,13 +458,13 @@ async fn test_compute_note_root_success() {
 fn test_block_witness_validation_inconsistent_nullifiers() {
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
-            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+            let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };
 
         let batch_2 = {
-            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+            let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };
@@ -513,43 +481,47 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
         let block_header = mock_block_header(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
-        let nullifiers = vec![
-            NullifierWitness {
-                nullifier: nullifier_2,
-                proof: SmtProof::new(
+        let accounts = batches
+            .iter()
+            .flat_map(|batch| batch.account_initial_states())
+            .map(|(account_id, hash)| {
+                (
+                    account_id,
+                    AccountWitness {
+                        hash,
+                        proof: MerklePath::default(),
+                    },
+                )
+            })
+            .collect();
+
+        let nullifiers = BTreeMap::from_iter(vec![
+            (
+                nullifier_2,
+                SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
                     SmtLeaf::new_empty(LeafIndex::new_max_depth(
                         nullifier_2.most_significant_felt().into(),
                     )),
                 )
                 .unwrap(),
-            },
-            NullifierWitness {
-                nullifier: nullifier_3,
-                proof: SmtProof::new(
+            ),
+            (
+                nullifier_3,
+                SmtProof::new(
                     MerklePath::new(vec![Digest::default(); SMT_DEPTH as usize]),
                     SmtLeaf::new_empty(LeafIndex::new_max_depth(
                         nullifier_3.most_significant_felt().into(),
                     )),
                 )
                 .unwrap(),
-            },
-        ];
-
-        let account_states = batches
-            .iter()
-            .flat_map(|batch| batch.account_initial_states())
-            .map(|(account_id, account_hash)| AccountInputRecord {
-                account_id,
-                account_hash,
-                proof: MerklePath::default(),
-            })
-            .collect();
+            ),
+        ]);
 
         BlockInputs {
             block_header,
             chain_peaks,
-            account_states,
+            accounts,
             nullifiers,
         }
     };
@@ -567,13 +539,13 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
 async fn test_compute_nullifier_root_empty_success() {
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
-            let tx = MockProvenTxBuilder::new().build();
+            let tx = MockProvenTxBuilder::with_account_index(0).build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };
 
         let batch_2 = {
-            let tx = MockProvenTxBuilder::new().build();
+            let tx = MockProvenTxBuilder::with_account_index(1).build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };
@@ -620,13 +592,13 @@ async fn test_compute_nullifier_root_empty_success() {
 async fn test_compute_nullifier_root_success() {
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
-            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+            let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };
 
         let batch_2 = {
-            let tx = MockProvenTxBuilder::new().num_nullifiers(1).build();
+            let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
             TransactionBatch::new(vec![tx]).unwrap()
         };

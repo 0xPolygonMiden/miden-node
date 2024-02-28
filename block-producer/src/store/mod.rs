@@ -1,20 +1,31 @@
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Formatter},
+};
+
 use async_trait::async_trait;
+use miden_air::trace::chiplets::hasher::Digest;
 use miden_node_proto::{
     convert,
-    domain::blocks::BlockInputs,
+    errors::{MissingFieldHelper, ParseError},
     generated::{
         account, digest,
         requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
+        responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
-    TransactionInputs,
+    AccountState,
 };
+use miden_node_utils::formatting::{format_map, format_opt};
 use miden_objects::{accounts::AccountId, notes::Nullifier};
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{block::Block, ProvenTransaction, COMPONENT};
+use crate::{
+    block::{Block, BlockInputs},
+    ProvenTransaction, COMPONENT,
+};
 
 // STORE TRAIT
 // ================================================================================================
@@ -41,6 +52,65 @@ pub trait ApplyBlock: Send + Sync + 'static {
         &self,
         block: Block,
     ) -> Result<(), ApplyBlockError>;
+}
+
+// TRANSACTION INPUTS
+// ================================================================================================
+
+/// Information needed from the store to verify a transaction.
+#[derive(Debug)]
+pub struct TransactionInputs {
+    /// Account ID
+    pub account_id: AccountId,
+    /// The account hash in the store corresponding to tx's account ID
+    pub account_hash: Option<Digest>,
+    /// Maps each consumed notes' nullifier to block number, where the note is consumed
+    /// (`zero` means, that note isn't consumed yet)
+    pub nullifiers: BTreeMap<Nullifier, u32>,
+}
+
+impl Display for TransactionInputs {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{{ account_id: {}, account_hash: {}, nullifiers: {} }}",
+            self.account_id,
+            format_opt(self.account_hash.as_ref()),
+            format_map(&self.nullifiers)
+        ))
+    }
+}
+
+impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
+    type Error = ParseError;
+
+    fn try_from(response: GetTransactionInputsResponse) -> Result<Self, Self::Error> {
+        let AccountState {
+            account_id,
+            account_hash,
+        } = response
+            .account_state
+            .ok_or(GetTransactionInputsResponse::missing_field(stringify!(account_state)))?
+            .try_into()?;
+
+        let mut nullifiers = BTreeMap::new();
+        for nullifier_record in response.nullifiers {
+            let nullifier = nullifier_record
+                .nullifier
+                .ok_or(NullifierTransactionInputRecord::missing_field(stringify!(nullifier)))?
+                .try_into()?;
+
+            nullifiers.insert(nullifier, nullifier_record.block_num);
+        }
+
+        Ok(Self {
+            account_id,
+            account_hash,
+            nullifiers,
+        })
+    }
 }
 
 // DEFAULT STORE IMPLEMENTATION
@@ -112,10 +182,10 @@ impl Store for DefaultStore {
 
         let tx_inputs: TransactionInputs = response.try_into()?;
 
-        if tx_inputs.account_state.account_id != proven_tx.account_id() {
+        if tx_inputs.account_id != proven_tx.account_id() {
             return Err(TxInputsError::MalformedResponse(format!(
                 "incorrect account id returned from store. Got: {}, expected: {}",
-                tx_inputs.account_state.account_id,
+                tx_inputs.account_id,
                 proven_tx.account_id()
             )));
         }

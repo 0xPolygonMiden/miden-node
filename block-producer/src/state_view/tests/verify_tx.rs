@@ -12,7 +12,6 @@
 
 use std::iter;
 
-use miden_objects::transaction::{InputNotes, OutputNotes};
 use tokio::task::JoinSet;
 
 use super::*;
@@ -23,9 +22,8 @@ use crate::test_utils::MockStoreSuccessBuilder;
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_happy_path() {
-    let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
-        get_txs_and_accounts(&tx_gen, 3).unzip();
+        get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -51,9 +49,8 @@ async fn test_verify_tx_happy_path() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_happy_path_concurrent() {
-    let tx_gen = DummyProvenTxGenerator::new();
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
-        get_txs_and_accounts(&tx_gen, 3).unzip();
+        get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -83,8 +80,6 @@ async fn test_verify_tx_happy_path_concurrent() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt1() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     let account = MockPrivateAccount::<3>::from(1);
 
     let store = Arc::new(
@@ -95,13 +90,9 @@ async fn test_verify_tx_vt1() {
 
     // The transaction's initial account hash uses `account.states[1]`, where the store expects
     // `account.states[0]`
-    let tx = tx_gen.dummy_proven_tx_with_params(
-        account.id,
-        account.states[1],
-        account.states[2],
-        InputNotes::new(vec![nullifier_by_index(0)]).unwrap(),
-        OutputNotes::new(Vec::new()).unwrap(),
-    );
+    let tx = MockProvenTxBuilder::with_account(account.id, account.states[1], account.states[2])
+        .nullifiers_range(0..1)
+        .build();
 
     let state_view = DefaultStateView::new(store, false);
 
@@ -111,7 +102,7 @@ async fn test_verify_tx_vt1() {
         verify_tx_result,
         Err(VerifyTxError::IncorrectAccountInitialHash {
             tx_initial_account_hash: account.states[1],
-            store_account_hash: Some(account.states[0])
+            store_account_hash: Some(account.states[0]),
         })
     );
 }
@@ -120,20 +111,18 @@ async fn test_verify_tx_vt1() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt2() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     let account_not_in_store: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
     // Notice: account is not added to the store
     let store = Arc::new(MockStoreSuccessBuilder::new().build());
 
-    let tx = tx_gen.dummy_proven_tx_with_params(
+    let tx = MockProvenTxBuilder::with_account(
         account_not_in_store.id,
         account_not_in_store.states[0],
         account_not_in_store.states[1],
-        InputNotes::new(vec![nullifier_by_index(0)]).unwrap(),
-        OutputNotes::new(Vec::new()).unwrap(),
-    );
+    )
+    .nullifiers_range(0..1)
+    .build();
 
     let state_view = DefaultStateView::new(store, false);
 
@@ -146,8 +135,6 @@ async fn test_verify_tx_vt2() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt3() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(1);
 
     let nullifier_in_store = nullifier_by_index(0);
@@ -160,13 +147,9 @@ async fn test_verify_tx_vt3() {
             .build(),
     );
 
-    let tx = tx_gen.dummy_proven_tx_with_params(
-        account.id,
-        account.states[0],
-        account.states[1],
-        InputNotes::new(vec![nullifier_in_store]).unwrap(),
-        OutputNotes::new(Vec::new()).unwrap(),
-    );
+    let tx = MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1])
+        .nullifiers(vec![nullifier_in_store])
+        .build();
 
     let state_view = DefaultStateView::new(store, false);
 
@@ -184,8 +167,6 @@ async fn test_verify_tx_vt3() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt4() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(1);
 
     let store = Arc::new(
@@ -194,23 +175,13 @@ async fn test_verify_tx_vt4() {
             .build(),
     );
 
-    let tx1 = tx_gen.dummy_proven_tx_with_params(
-        account.id,
-        account.states[0],
-        account.states[1],
-        InputNotes::new(Vec::new()).unwrap(),
-        OutputNotes::new(Vec::new()).unwrap(),
-    );
+    let tx1 =
+        MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1]).build();
 
     // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
     // which is currently disallowed
-    let tx2 = tx_gen.dummy_proven_tx_with_params(
-        account.id,
-        account.states[1],
-        account.states[2],
-        InputNotes::new(Vec::new()).unwrap(),
-        OutputNotes::new(Vec::new()).unwrap(),
-    );
+    let tx2 =
+        MockProvenTxBuilder::with_account(account.id, account.states[1], account.states[2]).build();
 
     let state_view = DefaultStateView::new(store, false);
 
@@ -228,8 +199,6 @@ async fn test_verify_tx_vt4() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_vt5() {
-    let tx_gen = DummyProvenTxGenerator::new();
-
     let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(1);
     let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(2);
     let nullifier_in_both_txs = nullifier_by_index(0);
@@ -245,23 +214,17 @@ async fn test_verify_tx_vt5() {
             .build(),
     );
 
-    let tx1 = tx_gen.dummy_proven_tx_with_params(
-        account_1.id,
-        account_1.states[0],
-        account_1.states[1],
-        InputNotes::new(vec![nullifier_in_both_txs]).unwrap(),
-        OutputNotes::new(Vec::new()).unwrap(),
-    );
+    let tx1 =
+        MockProvenTxBuilder::with_account(account_1.id, account_1.states[0], account_1.states[1])
+            .nullifiers(vec![nullifier_in_both_txs])
+            .build();
 
     // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
     // which is currently disallowed
-    let tx2 = tx_gen.dummy_proven_tx_with_params(
-        account_2.id,
-        account_2.states[1],
-        account_2.states[2],
-        InputNotes::new(vec![nullifier_in_both_txs]).unwrap(),
-        OutputNotes::new(Vec::new()).unwrap(),
-    );
+    let tx2 =
+        MockProvenTxBuilder::with_account(account_2.id, account_2.states[1], account_2.states[2])
+            .nullifiers(vec![nullifier_in_both_txs])
+            .build();
 
     let state_view = DefaultStateView::new(store, false);
 

@@ -2,15 +2,13 @@ use miden_node_proto::errors::ParseError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::MerkleError,
+    crypto::merkle::{MerkleError, MmrError},
     notes::Nullifier,
     transaction::{InputNotes, ProvenTransaction, TransactionId},
-    Digest, TransactionInputError,
+    Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH, MAX_NOTES_PER_BATCH,
 };
 use miden_vm::ExecutionError;
 use thiserror::Error;
-
-use crate::{CREATED_NOTES_TREE_INSERTION_DEPTH, MAX_NUM_CREATED_NOTES_PER_BATCH};
 
 // Transaction verification errors
 // =================================================================================================
@@ -67,10 +65,7 @@ pub enum AddTransactionError {
 /// queue can re-queue them.
 #[derive(Error, Debug)]
 pub enum BuildBatchError {
-    #[error(
-        "Too many notes in the batch. Got: {0}, max: {}",
-        MAX_NUM_CREATED_NOTES_PER_BATCH
-    )]
+    #[error("Too many notes in the batch. Got: {0}, max: {}", MAX_NOTES_PER_BATCH)]
     TooManyNotesCreated(usize, Vec<ProvenTransaction>),
 
     #[error("failed to create notes SMT: {0}")]
@@ -102,10 +97,13 @@ pub enum BlockProverError {
 // Block inputs errors
 // =================================================================================================
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, PartialEq, Error)]
 pub enum BlockInputsError {
     #[error("failed to parse protobuf message: {0}")]
     ParseError(#[from] ParseError),
+    #[error("MmrPeaks error: {0}")]
+    MmrPeaksError(#[from] MmrError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
 }
@@ -138,7 +136,7 @@ pub enum BuildBlockError {
     InconsistentNullifiers(Vec<Nullifier>),
     #[error(
         "too many batches in block. Got: {0}, max: 2^{}",
-        CREATED_NOTES_TREE_INSERTION_DEPTH
+        BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH
     )]
     TooManyBatchesInBlock(usize),
 }

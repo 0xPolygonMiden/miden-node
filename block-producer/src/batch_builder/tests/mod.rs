@@ -1,5 +1,5 @@
 use super::*;
-use crate::{errors::BuildBlockError, test_utils::DummyProvenTxGenerator, TransactionBatch};
+use crate::{errors::BuildBlockError, test_utils::MockProvenTxBuilder};
 
 // STRUCTS
 // ================================================================================================
@@ -61,13 +61,8 @@ async fn test_block_size_doesnt_exceed_limit() {
 
     // Add 3 batches in internal queue (remember: 2 batches/block)
     {
-        let tx_gen = DummyProvenTxGenerator::new();
-
-        let mut batch_group = vec![
-            dummy_tx_batch(&tx_gen, 2),
-            dummy_tx_batch(&tx_gen, 2),
-            dummy_tx_batch(&tx_gen, 2),
-        ];
+        let mut batch_group =
+            vec![dummy_tx_batch(0, 2), dummy_tx_batch(10, 2), dummy_tx_batch(20, 2)];
 
         batch_builder.ready_batches.write().await.append(&mut batch_group);
     }
@@ -137,13 +132,8 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
 
     // Add 3 batches in internal queue
     {
-        let tx_gen = DummyProvenTxGenerator::new();
-
-        let mut batch_group = vec![
-            dummy_tx_batch(&tx_gen, 2),
-            dummy_tx_batch(&tx_gen, 2),
-            dummy_tx_batch(&tx_gen, 2),
-        ];
+        let mut batch_group =
+            vec![dummy_tx_batch(0, 2), dummy_tx_batch(10, 2), dummy_tx_batch(20, 2)];
 
         batch_builder.ready_batches.write().await.append(&mut batch_group);
     }
@@ -162,9 +152,13 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
 // ================================================================================================
 
 fn dummy_tx_batch(
-    tx_gen: &DummyProvenTxGenerator,
+    starting_acccount_index: u32,
     num_txs_in_batch: usize,
 ) -> TransactionBatch {
-    let txs: Vec<_> = (0..num_txs_in_batch).map(|_| tx_gen.dummy_proven_tx()).collect();
+    let txs = (0..num_txs_in_batch)
+        .map(|index| {
+            MockProvenTxBuilder::with_account_index(starting_acccount_index + index as u32).build()
+        })
+        .collect();
     TransactionBatch::new(txs).unwrap()
 }
