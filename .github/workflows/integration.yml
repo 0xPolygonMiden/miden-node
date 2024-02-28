@@ -1,0 +1,26 @@
+# Runs the integration tests
+
+name: Integration
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  run-container:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout code
+
+    - name: Build Docker image
+      run: docker build -t miden-node .
+
+    - name: Run Docker image
+      run: docker run --name miden-node -p 57291:57291
+
+    - name: Run integration tests
+      run: ./scripts/run-integration-tests.sh
+

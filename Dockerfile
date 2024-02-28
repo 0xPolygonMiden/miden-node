@@ -16,9 +16,11 @@ RUN cd miden-node && make
 FROM ubuntu:22.04
 RUN apt-get update && apt-get -y upgrade && apt-get install -y make libssl-dev libsqlite3-dev
 COPY --from=builder /app/miden-node/scripts/start-miden-node.sh start-miden-node.sh
+COPY --from=builder /app/miden-node/scripts/run-integration-tests.sh run-integration-tests.sh
 COPY --from=builder /app/miden-node/node/miden-node.toml miden-node.toml
 COPY --from=builder /app/miden-node/node/genesis.toml genesis.toml
 COPY --from=builder /usr/local/cargo/bin/miden-node /usr/local/bin/miden-node
 RUN chmod +x /start-miden-node.sh
+RUN chmod +x /run-integration-tests.sh
 EXPOSE 57291
 CMD [ "/start-miden-node.sh" ]
