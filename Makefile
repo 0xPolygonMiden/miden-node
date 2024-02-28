@@ -1,10 +1,8 @@
 FEATURES=testing
 
-install: 
-	cargo install --features=${FEATURES} --path node --force --locked
+install:
+	cargo install --features=${FEATURES} --path node
 
-run: 
+run:
 	miden-node make-genesis --inputs-path node/genesis.toml
 	miden-node start --config node/miden-node.toml
-
-fmt:
