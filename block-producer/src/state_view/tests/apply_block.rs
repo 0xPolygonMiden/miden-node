@@ -49,7 +49,7 @@ async fn test_apply_block_ab1() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_apply_block_ab2() {
-    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(3).unzip();
+    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -67,7 +67,7 @@ async fn test_apply_block_ab2() {
     // Verify transactions so it can be tracked in state view
     for tx in txs {
         let verify_tx_res = state_view.verify_tx(&tx).await;
-        assert!(verify_tx_res.is_ok());
+        assert_eq!(verify_tx_res, Ok(()));
     }
 
     // All except the first account will go into the block.
@@ -97,7 +97,7 @@ async fn test_apply_block_ab2() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_apply_block_ab3() {
-    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(3).unzip();
+    let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -115,7 +115,7 @@ async fn test_apply_block_ab3() {
     // Verify transactions so it can be tracked in state view
     for tx in txs.clone() {
         let verify_tx_res = state_view.verify_tx(&tx).await;
-        assert!(verify_tx_res.is_ok());
+        assert_eq!(verify_tx_res, Ok(()));
     }
 
     let block = MockBlockBuilder::new(&store)

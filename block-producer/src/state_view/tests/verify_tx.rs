@@ -23,7 +23,7 @@ use crate::test_utils::MockStoreSuccessBuilder;
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_happy_path() {
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
-        get_txs_and_accounts(3).unzip();
+        get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -50,7 +50,7 @@ async fn test_verify_tx_happy_path() {
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_happy_path_concurrent() {
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
-        get_txs_and_accounts(3).unzip();
+        get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::new()
@@ -91,7 +91,7 @@ async fn test_verify_tx_vt1() {
     // The transaction's initial account hash uses `account.states[1]`, where the store expects
     // `account.states[0]`
     let tx = MockProvenTxBuilder::with_account(account.id, account.states[1], account.states[2])
-        .num_nullifiers(1)
+        .nullifiers_range(0..1)
         .build();
 
     let state_view = DefaultStateView::new(store, false);
@@ -121,7 +121,7 @@ async fn test_verify_tx_vt2() {
         account_not_in_store.states[0],
         account_not_in_store.states[1],
     )
-    .num_nullifiers(1)
+    .nullifiers_range(0..1)
     .build();
 
     let state_view = DefaultStateView::new(store, false);

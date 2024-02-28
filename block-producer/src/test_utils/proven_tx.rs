@@ -1,6 +1,4 @@
-//! FibSmall taken from the `fib_small` example in `winterfell`
-
-use std::sync::{Arc, Mutex};
+use std::ops::Range;
 
 use miden_air::{ExecutionProof, HashFunction};
 use miden_objects::{
@@ -9,19 +7,9 @@ use miden_objects::{
     transaction::{InputNotes, OutputNotes, ProvenTransaction},
     Digest, Felt, Hasher, ONE,
 };
-use once_cell::sync::Lazy;
 use winterfell::StarkProof;
 
 use super::MockPrivateAccount;
-
-/// Keeps track how many accounts were created as a source of randomness
-static NUM_ACCOUNTS_CREATED: Lazy<Arc<Mutex<u32>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
-
-/// Keeps track how many accounts were created as a source of randomness
-static NUM_NOTES_CREATED: Lazy<Arc<Mutex<u64>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
-
-/// Keeps track how many input notes were created as a source of randomness
-static NUM_INPUT_NOTES: Lazy<Arc<Mutex<u64>>> = Lazy::new(|| Arc::new(Mutex::new(0)));
 
 pub struct MockProvenTxBuilder {
     account_id: AccountId,
@@ -32,16 +20,8 @@ pub struct MockProvenTxBuilder {
 }
 
 impl MockProvenTxBuilder {
-    pub fn new() -> Self {
-        let mock_account: MockPrivateAccount = {
-            let mut locked_num_accounts_created = NUM_ACCOUNTS_CREATED.lock().unwrap();
-
-            let account_index = *locked_num_accounts_created;
-
-            *locked_num_accounts_created += 1;
-
-            account_index.into()
-        };
+    pub fn with_account_index(account_index: u32) -> Self {
+        let mock_account: MockPrivateAccount = account_index.into();
 
         Self::with_account(mock_account.id, mock_account.states[0], mock_account.states[1])
     }
@@ -65,6 +45,7 @@ impl MockProvenTxBuilder {
         nullifiers: Vec<Nullifier>,
     ) -> Self {
         self.nullifiers = Some(nullifiers);
+
         self
     }
 
@@ -73,17 +54,31 @@ impl MockProvenTxBuilder {
         notes: Vec<NoteEnvelope>,
     ) -> Self {
         self.notes_created = Some(notes);
+
         self
     }
 
-    pub fn num_notes_created(
-        mut self,
-        num_notes_created_in_tx: u64,
+    pub fn nullifiers_range(
+        self,
+        range: Range<u64>,
     ) -> Self {
-        let mut locked_num_notes_created = NUM_NOTES_CREATED.lock().unwrap();
+        let nullifiers = range
+            .map(|index| {
+                let nullifier =
+                    Digest::from([Felt::new(1), Felt::new(1), Felt::new(1), Felt::new(index)]);
 
-        let notes_created: Vec<_> = (*locked_num_notes_created
-            ..(*locked_num_notes_created + num_notes_created_in_tx))
+                Nullifier::from(nullifier)
+            })
+            .collect();
+
+        self.nullifiers(nullifiers)
+    }
+
+    pub fn notes_created_range(
+        self,
+        range: Range<u64>,
+    ) -> Self {
+        let notes = range
             .map(|note_index| {
                 let note_hash = Hasher::hash(&note_index.to_be_bytes());
 
@@ -91,37 +86,7 @@ impl MockProvenTxBuilder {
             })
             .collect();
 
-        // update state
-        self.notes_created = Some(notes_created);
-        *locked_num_notes_created += num_notes_created_in_tx;
-
-        self
-    }
-
-    pub fn num_nullifiers(
-        mut self,
-        num_nullifiers_in_tx: u64,
-    ) -> Self {
-        let mut locked_num_input_notes = NUM_INPUT_NOTES.lock().unwrap();
-
-        let nullifiers: Vec<Nullifier> = (0..num_nullifiers_in_tx)
-            .map(|_| {
-                *locked_num_input_notes += 1;
-
-                let nullifier = Digest::from([
-                    Felt::new(1),
-                    Felt::new(1),
-                    Felt::new(1),
-                    Felt::new(*locked_num_input_notes),
-                ]);
-
-                Nullifier::from(nullifier)
-            })
-            .collect();
-
-        self.nullifiers = Some(nullifiers);
-
-        self
+        self.notes_created(notes)
     }
 
     pub fn build(self) -> ProvenTransaction {
@@ -135,11 +100,5 @@ impl MockProvenTxBuilder {
             Digest::default(),
             ExecutionProof::new(StarkProof::new_dummy(), HashFunction::Blake3_192),
         )
-    }
-}
-
-impl Default for MockProvenTxBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
