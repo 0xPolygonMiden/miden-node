@@ -116,17 +116,17 @@ impl TransactionBatch {
             .map(|(account_id, account_states)| (*account_id, account_states.final_state))
     }
 
-    /// Returns the nullifier of all consumed notes.
+    /// Returns an iterator over produced nullifiers for all consumed notes.
     pub fn produced_nullifiers(&self) -> impl Iterator<Item = Nullifier> + '_ {
         self.produced_nullifiers.iter().cloned()
     }
 
-    /// Returns the hash of created notes.
+    /// Returns an iterator over created notes.
     pub fn created_notes(&self) -> impl Iterator<Item = &NoteEnvelope> + '_ {
         self.created_notes.iter()
     }
 
-    /// Returns the root of the created notes SMT.
+    /// Returns the root hash of the created notes SMT.
     pub fn created_notes_root(&self) -> Digest {
         self.created_notes_smt.root()
     }

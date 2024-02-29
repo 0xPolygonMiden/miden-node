@@ -4,7 +4,8 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::Mmr,
     notes::{NoteEnvelope, Nullifier},
-    BlockHeader, Digest, Word, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
+    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_NOTES_PER_BATCH,
+    ONE, ZERO,
 };
 use miden_vm::crypto::SimpleSmt;
 
@@ -36,19 +37,6 @@ pub async fn build_expected_block_header(
         store_accounts.root()
     };
 
-    // Compute created notes root
-    let created_notes: Vec<&NoteEnvelope> =
-        batches.iter().flat_map(TransactionBatch::created_notes).collect();
-    let new_created_notes_root = {
-        let mut entries: Vec<(u64, Word)> = Vec::with_capacity(created_notes.len() * 2);
-        for (index, note) in created_notes.iter().enumerate() {
-            entries.push(((index * 2) as u64, note.note_id().into()));
-            entries.push(((index * 2) as u64 + 1, note.metadata().into()));
-        }
-
-        SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(entries).unwrap().root()
-    };
-
     // Compute new chain MMR root
     let new_chain_mmr_root = {
         let mut store_chain_mmr = store.chain_mmr.read().await.clone();
@@ -66,7 +54,7 @@ pub async fn build_expected_block_header(
         new_account_root,
         // FIXME: FILL IN CORRECT NULLIFIER ROOT
         Digest::default(),
-        new_created_notes_root,
+        note_created_smt_from_batches(batches.iter()).root(),
         Digest::default(),
         Digest::default(),
         ZERO,
@@ -154,13 +142,15 @@ impl MockBlockBuilder {
     }
 
     pub fn build(self) -> Block {
+        let created_notes = self.created_notes.unwrap_or_default();
+
         let header = BlockHeader::new(
             self.last_block_header.hash(),
             self.last_block_header.block_num() + 1,
             self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
             self.store_accounts.root(),
             Digest::default(),
-            Digest::default(),
+            note_created_smt_from_envelopes(created_notes.iter()).root(),
             Digest::default(),
             Digest::default(),
             ZERO,
@@ -170,8 +160,34 @@ impl MockBlockBuilder {
         Block {
             header,
             updated_accounts: self.updated_accounts.unwrap_or_default(),
-            created_notes: self.created_notes.unwrap_or_default(),
+            created_notes,
             produced_nullifiers: self.produced_nullifiers.unwrap_or_default(),
         }
     }
+}
+
+pub(crate) fn note_created_smt_from_envelopes<'a>(
+    note_iterator: impl Iterator<Item = (&'a u64, &'a NoteEnvelope)>
+) -> SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH> {
+    SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(note_iterator.flat_map(
+        |(note_idx_in_block, note)| {
+            let index = note_idx_in_block * 2;
+            [(index, note.note_id().into()), (index + 1, note.metadata().into())]
+        },
+    ))
+    .unwrap()
+}
+
+pub(crate) fn note_created_smt_from_batches<'a>(
+    batches: impl Iterator<Item = &'a TransactionBatch>
+) -> SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH> {
+    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_index, batch)| {
+        let subtree_index = batch_index * MAX_NOTES_PER_BATCH * 2;
+        batch.created_notes().enumerate().flat_map(move |(note_index, note)| {
+            let index = (subtree_index + note_index * 2) as u64;
+            [(index, note.note_id().into()), (index + 1, note.metadata().into())]
+        })
+    });
+
+    SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(note_leaf_iterator).unwrap()
 }
