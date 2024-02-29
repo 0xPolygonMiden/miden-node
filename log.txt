@@ -1,0 +1,743 @@
+[Integration/run-container] [DEBUG] evaluating expression 'success()'
+[Integration/run-container] [DEBUG] expression 'success()' evaluated to 'true'
+[Integration/run-container] 🚀  Start image=catthehacker/ubuntu:act-latest
+[Integration/run-container]   🐳  docker pull image=catthehacker/ubuntu:act-latest platform=linux/amd64 username= forcePull=true
+[Integration/run-container] [DEBUG]   🐳  docker pull catthehacker/ubuntu:act-latest
+[Integration/run-container] [DEBUG] pulling image 'docker.io/catthehacker/ubuntu:act-latest' (linux/amd64)
+[Integration/run-container] using DockerAuthConfig authentication for docker pull
+[Integration/run-container] [DEBUG] Pulling from catthehacker/ubuntu :: act-latest
+[Integration/run-container] [DEBUG] Digest: sha256:478c2df2b8ca598b33b5f1ff6e9511f0c46b4b7081109535bf1b728b8ec5f4f8 :: 
+[Integration/run-container] [DEBUG] Status: Image is up to date for catthehacker/ubuntu:act-latest :: 
+[Integration/run-container] [DEBUG] Removed container: 9025c5a3cd3ad011ee515c5eae3bde2637060383b54af00b2c4763e7830a4e94
+[Integration/run-container] [DEBUG]   🐳  docker volume rm act-Integration-run-container-43f8e2bf20f80b9a6a5615306ad2417ca705fe75076dc2cff276ddffabf51861
+[Integration/run-container] [DEBUG]   🐳  docker volume rm act-Integration-run-container-43f8e2bf20f80b9a6a5615306ad2417ca705fe75076dc2cff276ddffabf51861-env
+[Integration/run-container]   🐳  docker create image=catthehacker/ubuntu:act-latest platform=linux/amd64 entrypoint=["tail" "-f" "/dev/null"] cmd=[] network="host"
+[Integration/run-container] [DEBUG] Common container.Config ==> &{Hostname: Domainname: User: AttachStdin:false AttachStdout:false AttachStderr:false ExposedPorts:map[] Tty:false OpenStdin:false StdinOnce:false Env:[RUNNER_TOOL_CACHE=/opt/hostedtoolcache RUNNER_OS=Linux RUNNER_ARCH=ARM64 RUNNER_TEMP=/tmp LANG=C.UTF-8] Cmd:[] Healthcheck:<nil> ArgsEscaped:false Image:catthehacker/ubuntu:act-latest Volumes:map[] WorkingDir:/Users/phk/Developer/polygon/node Entrypoint:[] NetworkDisabled:false MacAddress: OnBuild:[] Labels:map[] StopSignal: StopTimeout:<nil> Shell:[]}
+[Integration/run-container] [DEBUG] Common container.HostConfig ==> &{Binds:[/var/run/docker.sock:/var/run/docker.sock] ContainerIDFile: LogConfig:{Type: Config:map[]} NetworkMode:host PortBindings:map[] RestartPolicy:{Name: MaximumRetryCount:0} AutoRemove:false VolumeDriver: VolumesFrom:[] ConsoleSize:[0 0] Annotations:map[] CapAdd:[] CapDrop:[] CgroupnsMode: DNS:[] DNSOptions:[] DNSSearch:[] ExtraHosts:[] GroupAdd:[] IpcMode: Cgroup: Links:[] OomScoreAdj:0 PidMode: Privileged:false PublishAllPorts:false ReadonlyRootfs:false SecurityOpt:[] StorageOpt:map[] Tmpfs:map[] UTSMode: UsernsMode: ShmSize:0 Sysctls:map[] Runtime: Isolation: Resources:{CPUShares:0 Memory:0 NanoCPUs:0 CgroupParent: BlkioWeight:0 BlkioWeightDevice:[] BlkioDeviceReadBps:[] BlkioDeviceWriteBps:[] BlkioDeviceReadIOps:[] BlkioDeviceWriteIOps:[] CPUPeriod:0 CPUQuota:0 CPURealtimePeriod:0 CPURealtimeRuntime:0 CpusetCpus: CpusetMems: Devices:[] DeviceCgroupRules:[] DeviceRequests:[] KernelMemory:0 KernelMemoryTCP:0 MemoryReservation:0 MemorySwap:0 MemorySwappiness:<nil> OomKillDisable:<nil> PidsLimit:<nil> Ulimits:[] CPUCount:0 CPUPercent:0 IOMaximumIOps:0 IOMaximumBandwidth:0} Mounts:[{Type:volume Source:act-Integration-run-container-43f8e2bf20f80b9a6a5615306ad2417ca705fe75076dc2cff276ddffabf51861 Target:/Users/phk/Developer/polygon/node ReadOnly:false Consistency: BindOptions:<nil> VolumeOptions:<nil> TmpfsOptions:<nil> ClusterOptions:<nil>} {Type:volume Source:act-toolcache Target:/opt/hostedtoolcache ReadOnly:false Consistency: BindOptions:<nil> VolumeOptions:<nil> TmpfsOptions:<nil> ClusterOptions:<nil>} {Type:volume Source:act-Integration-run-container-43f8e2bf20f80b9a6a5615306ad2417ca705fe75076dc2cff276ddffabf51861-env Target:/var/run/act ReadOnly:false Consistency: BindOptions:<nil> VolumeOptions:<nil> TmpfsOptions:<nil> ClusterOptions:<nil>}] MaskedPaths:[] ReadonlyPaths:[] Init:<nil>}
+[Integration/run-container] [DEBUG] input.NetworkAliases ==> [run-container]
+[Integration/run-container] [DEBUG] Created container name=act-Integration-run-container-43f8e2bf20f80b9a6a5615306ad2417ca705fe75076dc2cff276ddffabf51861 id=c3d8ee5c82e23ab6d2dec6b89d8234cd72420f1685f4228f7919577ab5f6188d from image catthehacker/ubuntu:act-latest (platform: linux/amd64)
+[Integration/run-container] [DEBUG] ENV ==> [RUNNER_TOOL_CACHE=/opt/hostedtoolcache RUNNER_OS=Linux RUNNER_ARCH=ARM64 RUNNER_TEMP=/tmp LANG=C.UTF-8]
+[Integration/run-container]   🐳  docker run image=catthehacker/ubuntu:act-latest platform=linux/amd64 entrypoint=["tail" "-f" "/dev/null"] cmd=[] network="host"
+[Integration/run-container] [DEBUG] Starting container: c3d8ee5c82e23ab6d2dec6b89d8234cd72420f1685f4228f7919577ab5f6188d
+[Integration/run-container] [DEBUG] Started container: c3d8ee5c82e23ab6d2dec6b89d8234cd72420f1685f4228f7919577ab5f6188d
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/event.json len:2
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/envs.txt len:0
+[Integration/run-container] [DEBUG] Extracting content to '/var/run/act/'
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Skipping local actions/checkout because workdir was already copied
+[Integration/run-container] [DEBUG] skip pre step for 'Checkout code': no action model available
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Skipping local actions/checkout because workdir was already copied
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] setupEnv => map[ACT:true ACTIONS_CACHE_URL:http://172.29.8.94:61035/ CI:true GITHUB_ACTION:0 GITHUB_ACTIONS:true GITHUB_ACTION_PATH: GITHUB_ACTION_REF:v4 GITHUB_ACTION_REPOSITORY:actions/checkout GITHUB_ACTOR:nektos/act GITHUB_API_URL:https://api.github.com GITHUB_BASE_REF: GITHUB_EVENT_NAME:push GITHUB_EVENT_PATH:/var/run/act/workflow/event.json GITHUB_GRAPHQL_URL:https://api.github.com/graphql GITHUB_HEAD_REF: GITHUB_JOB:run-container GITHUB_REF:refs/heads/phklive-dockerize-node GITHUB_REF_NAME:phklive-dockerize-node GITHUB_REF_TYPE:branch GITHUB_REPOSITORY:0xPolygonMiden/miden-node GITHUB_REPOSITORY_OWNER:0xPolygonMiden GITHUB_RETENTION_DAYS:0 GITHUB_RUN_ID:1 GITHUB_RUN_NUMBER:1 GITHUB_SERVER_URL:https://github.com GITHUB_SHA:042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc GITHUB_WORKFLOW:Integration GITHUB_WORKSPACE:/Users/phk/Developer/polygon/node ImageOS:ubuntu20 RUNNER_PERFLOG:/dev/null RUNNER_TRACKING_ID:]
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] evaluating expression ''
+[Integration/run-container] [DEBUG] expression '' evaluated to 'true'
+[Integration/run-container] ⭐ Run Main Checkout code
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/outputcmd.txt len:0
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/statecmd.txt len:0
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/pathcmd.txt len:0
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/envs.txt len:0
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/SUMMARY.md len:0
+[Integration/run-container] [DEBUG] Extracting content to '/var/run/act'
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container]   🐳  docker cp src=/Users/phk/Developer/polygon/node/. dst=/Users/phk/Developer/polygon/node
+[Integration/run-container] [DEBUG] Writing tarball /var/folders/jb/t5x4spcs1_v2fpjtzrzph7nm0000gn/T/act1496437197 from /Users/phk/Developer/polygon/node/.
+[Integration/run-container] [DEBUG] Stripping prefix:/Users/phk/Developer/polygon/node/ src:/Users/phk/Developer/polygon/node/.
+[Integration/run-container] [DEBUG] Extracting content from '/var/folders/jb/t5x4spcs1_v2fpjtzrzph7nm0000gn/T/act1496437197' to '/Users/phk/Developer/polygon/node'
+[Integration/run-container]   ✅  Success - Main Checkout code
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] setupEnv => map[ACT:true ACTIONS_CACHE_URL:http://172.29.8.94:61035/ CI:true GITHUB_ACTION:1 GITHUB_ACTIONS:true GITHUB_ACTION_PATH: GITHUB_ACTION_REF: GITHUB_ACTION_REPOSITORY: GITHUB_ACTOR:nektos/act GITHUB_API_URL:https://api.github.com GITHUB_BASE_REF: GITHUB_EVENT_NAME:push GITHUB_EVENT_PATH:/var/run/act/workflow/event.json GITHUB_GRAPHQL_URL:https://api.github.com/graphql GITHUB_HEAD_REF: GITHUB_JOB:run-container GITHUB_REF:refs/heads/phklive-dockerize-node GITHUB_REF_NAME:phklive-dockerize-node GITHUB_REF_TYPE:branch GITHUB_REPOSITORY:0xPolygonMiden/miden-node GITHUB_REPOSITORY_OWNER:0xPolygonMiden GITHUB_RETENTION_DAYS:0 GITHUB_RUN_ID:1 GITHUB_RUN_NUMBER:1 GITHUB_SERVER_URL:https://github.com GITHUB_SHA:042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc GITHUB_WORKFLOW:Integration GITHUB_WORKSPACE:/Users/phk/Developer/polygon/node ImageOS:ubuntu20 RUNNER_PERFLOG:/dev/null RUNNER_TRACKING_ID:]
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] evaluating expression ''
+[Integration/run-container] [DEBUG] expression '' evaluated to 'true'
+[Integration/run-container] ⭐ Run Main Build Docker image
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/outputcmd.txt len:0
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/statecmd.txt len:0
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/pathcmd.txt len:0
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/envs.txt len:0
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/SUMMARY.md len:0
+[Integration/run-container] [DEBUG] Extracting content to '/var/run/act'
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Wrote command 
+
+docker build -t miden-node-image .
+
+ to 'workflow/1'
+[Integration/run-container] [DEBUG] Writing entry to tarball workflow/1 len:36
+[Integration/run-container] [DEBUG] Extracting content to '/var/run/act'
+[Integration/run-container]   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/1] user= workdir=
+[Integration/run-container] [DEBUG] Exec command '[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/1]'
+[Integration/run-container] [DEBUG] Working directory '/Users/phk/Developer/polygon/node'
+[Integration/run-container]   | #0 building with "default" instance using docker driver
+[Integration/run-container]   | 
+[Integration/run-container]   | #1 [internal] load build definition from Dockerfile
+[Integration/run-container]   | #1 transferring dockerfile: 927B 0.0s done
+[Integration/run-container]   | #1 DONE 0.0s
+[Integration/run-container]   | 
+[Integration/run-container]   | #2 [internal] load metadata for docker.io/library/rust:1.75.0-bullseye
+[Integration/run-container]   | #2 ...
+[Integration/run-container]   | 
+[Integration/run-container]   | #3 [internal] load metadata for docker.io/library/ubuntu:22.04
+[Integration/run-container]   | #3 DONE 0.4s
+[Integration/run-container]   | 
+[Integration/run-container]   | #2 [internal] load metadata for docker.io/library/rust:1.75.0-bullseye
+[Integration/run-container]   | #2 DONE 0.4s
+[Integration/run-container]   | 
+[Integration/run-container]   | #4 [internal] load .dockerignore
+[Integration/run-container]   | #4 transferring context: 642B done
+[Integration/run-container]   | #4 DONE 0.0s
+[Integration/run-container]   | 
+[Integration/run-container]   | #5 [stage-1 1/9] FROM docker.io/library/ubuntu:22.04@sha256:f9d633ff6640178c2d0525017174a688e2c1aef28f0a0130b26bd5554491f0da
+[Integration/run-container]   | #5 DONE 0.0s
+[Integration/run-container]   | 
+[Integration/run-container]   | #6 [builder 1/5] FROM docker.io/library/rust:1.75.0-bullseye@sha256:2576095c947f6d9cfb5f19d51b822cdeb557c5a5b6de9460f2bf1f913d0434ca
+[Integration/run-container]   | #6 DONE 0.0s
+[Integration/run-container]   | 
+[Integration/run-container]   | #7 [internal] load build context
+[Integration/run-container]   | #7 transferring context: 659.11kB 0.0s done
+[Integration/run-container]   | #7 DONE 0.0s
+[Integration/run-container]   | 
+[Integration/run-container]   | #8 [builder 2/5] RUN apt-get update && apt-get -y upgrade
+[Integration/run-container]   | #8 CACHED
+[Integration/run-container]   | 
+[Integration/run-container]   | #9 [builder 3/5] RUN apt-get install -y gcc llvm clang bindgen pkg-config
+[Integration/run-container]   | #9 CACHED
+[Integration/run-container]   | 
+[Integration/run-container]   | #10 [builder 4/5] COPY . .
+[Integration/run-container]   | #10 DONE 0.4s
+[Integration/run-container]   | 
+[Integration/run-container]   | #11 [builder 5/5] RUN make
+[Integration/run-container]   | #11 0.168 cargo install --features=testing --path node
+[Integration/run-container]   | #11 0.244   Installing miden-node v0.1.0 (/node)
+[Integration/run-container]   | #11 0.268     Updating crates.io index
+[Integration/run-container]   | #11 0.268     Updating git repository `https://github.com/0xPolygonMiden/miden-base`
+[Integration/run-container]   | #11 3.866  Downloading crates ...
+[Integration/run-container]   | #11 4.222   Downloaded addr2line v0.21.0
+[Integration/run-container]   | #11 4.229   Downloaded winter-fri v0.8.1
+[Integration/run-container]   | #11 4.233   Downloaded rand_chacha v0.3.1
+[Integration/run-container]   | #11 4.238   Downloaded logos-derive v0.13.0
+[Integration/run-container]   | #11 4.240   Downloaded logos v0.13.0
+[Integration/run-container]   | #11 4.242   Downloaded winter-math v0.8.1
+[Integration/run-container]   | #11 4.248   Downloaded is_ci v1.2.0
+[Integration/run-container]   | #11 4.252   Downloaded num_cpus v1.16.0
+[Integration/run-container]   | #11 4.257   Downloaded try-lock v0.2.5
+[Integration/run-container]   | #11 4.259   Downloaded generic-array v0.14.7
+[Integration/run-container]   | #11 4.282   Downloaded cexpr v0.6.0
+[Integration/run-container]   | #11 4.293   Downloaded rand_core v0.6.4
+[Integration/run-container]   | #11 4.304   Downloaded num_enum v0.7.2
+[Integration/run-container]   | #11 4.312   Downloaded logos-codegen v0.13.0
+[Integration/run-container]   | #11 4.316   Downloaded prost v0.12.3
+[Integration/run-container]   | #11 4.319   Downloaded multimap v0.8.3
+[Integration/run-container]   | #11 4.354   Downloaded lazycell v1.3.0
+[Integration/run-container]   | #11 4.361   Downloaded colorchoice v1.0.0
+[Integration/run-container]   | #11 4.392   Downloaded allocator-api2 v0.2.16
+[Integration/run-container]   | #11 4.398   Downloaded tracing-core v0.1.32
+[Integration/run-container]   | #11 4.410   Downloaded tower-service v0.3.2
+[Integration/run-container]   | #11 4.432   Downloaded option-ext v0.2.0
+[Integration/run-container]   | #11 4.456   Downloaded deadpool-runtime v0.1.3
+[Integration/run-container]   | #11 4.512   Downloaded tower-layer v0.3.2
+[Integration/run-container]   | #11 4.535   Downloaded async-stream-impl v0.3.5
+[Integration/run-container]   | #11 4.550   Downloaded pear_codegen v0.2.8
+[Integration/run-container]   | #11 4.561   Downloaded tracing-log v0.2.0
+[Integration/run-container]   | #11 4.610   Downloaded heck v0.4.1
+[Integration/run-container]   | #11 4.657   Downloaded miden-verifier v0.8.0
+[Integration/run-container]   | #11 4.660   Downloaded supports-hyperlinks v3.0.0
+[Integration/run-container]   | #11 4.663   Downloaded unicode-linebreak v0.1.5
+[Integration/run-container]   | #11 4.667   Downloaded lazy_static v1.4.0
+[Integration/run-container]   | #11 4.675   Downloaded want v0.3.1
+[Integration/run-container]   | #11 4.679   Downloaded proc-macro-crate v3.1.0
+[Integration/run-container]   | #11 4.681   Downloaded pear v0.2.8
+[Integration/run-container]   | #11 4.693   Downloaded cfg-if v1.0.0
+[Integration/run-container]   | #11 4.711   Downloaded deadpool-sqlite v0.7.0
+[Integration/run-container]   | #11 4.729   Downloaded matchers v0.1.0
+[Integration/run-container]   | #11 4.764   Downloaded proc-macro2-diagnostics v0.10.1
+[Integration/run-container]   | #11 4.784   Downloaded libloading v0.8.1
+[Integration/run-container]   | #11 4.792   Downloaded adler v1.0.2
+[Integration/run-container]   | #11 4.801   Downloaded errno v0.3.8
+[Integration/run-container]   | #11 4.804   Downloaded winter-verifier v0.8.1
+[Integration/run-container]   | #11 4.806   Downloaded prost-derive v0.12.3
+[Integration/run-container]   | #11 4.822   Downloaded dirs-sys v0.4.1
+[Integration/run-container]   | #11 4.828   Downloaded futures-core v0.3.30
+[Integration/run-container]   | #11 4.833   Downloaded version_check v0.9.4
+[Integration/run-container]   | #11 4.840   Downloaded pin-utils v0.1.0
+[Integration/run-container]   | #11 4.846   Downloaded httpdate v1.0.3
+[Integration/run-container]   | #11 4.878   Downloaded smawk v0.3.2
+[Integration/run-container]   | #11 4.883   Downloaded hyper-timeout v0.4.1
+[Integration/run-container]   | #11 4.895   Downloaded equivalent v1.0.1
+[Integration/run-container]   | #11 4.922   Downloaded anstyle v1.0.6
+[Integration/run-container]   | #11 4.932   Downloaded hex v0.4.3
+[Integration/run-container]   | #11 4.984   Downloaded async-trait v0.1.77
+[Integration/run-container]   | #11 5.004   Downloaded fixedbitset v0.4.2
+[Integration/run-container]   | #11 5.021   Downloaded uncased v0.9.10
+[Integration/run-container]   | #11 5.031   Downloaded which v4.4.2
+[Integration/run-container]   | #11 5.039   Downloaded strsim v0.11.0
+[Integration/run-container]   | #11 5.041   Downloaded futures-sink v0.3.30
+[Integration/run-container]   | #11 5.043   Downloaded supports-unicode v3.0.0
+[Integration/run-container]   | #11 5.060   Downloaded httparse v1.8.0
+[Integration/run-container]   | #11 5.076   Downloaded slab v0.4.9
+[Integration/run-container]   | #11 5.077   Downloaded clap_derive v4.5.0
+[Integration/run-container]   | #11 5.080   Downloaded yansi v1.0.0-rc.1
+[Integration/run-container]   | #11 5.113   Downloaded deadpool-sync v0.1.2
+[Integration/run-container]   | #11 5.115   Downloaded constant_time_eq v0.3.0
+[Integration/run-container]   | #11 5.121   Downloaded rustversion v1.0.14
+[Integration/run-container]   | #11 5.124   Downloaded tracing-serde v0.1.3
+[Integration/run-container]   | #11 5.159   Downloaded sync_wrapper v0.1.2
+[Integration/run-container]   | #11 5.171   Downloaded shlex v1.3.0
+[Integration/run-container]   | #11 5.176   Downloaded autocfg v1.1.0
+[Integration/run-container]   | #11 5.178   Downloaded async-stream v0.3.5
+[Integration/run-container]   | #11 5.181   Downloaded crypto-common v0.1.6
+[Integration/run-container]   | #11 5.196   Downloaded arrayref v0.3.7
+[Integration/run-container]   | #11 5.197   Downloaded num_enum_derive v0.7.2
+[Integration/run-container]   | #11 5.222   Downloaded pkg-config v0.3.30
+[Integration/run-container]   | #11 5.225   Downloaded fallible-streaming-iterator v0.1.9
+[Integration/run-container]   | #11 5.226   Downloaded home v0.5.9
+[Integration/run-container]   | #11 5.227   Downloaded serde_spanned v0.6.5
+[Integration/run-container]   | #11 5.234   Downloaded beef v0.5.2
+[Integration/run-container]   | #11 5.236   Downloaded miden-prover v0.8.0
+[Integration/run-container]   | #11 5.237   Downloaded tokio-macros v2.2.0
+[Integration/run-container]   | #11 5.286   Downloaded bitflags v1.3.2
+[Integration/run-container]   | #11 5.295   Downloaded deadpool v0.10.0
+[Integration/run-container]   | #11 5.306   Downloaded anstream v0.6.13
+[Integration/run-container]   | #11 5.322   Downloaded backtrace-ext v0.2.1
+[Integration/run-container]   | #11 5.334   Downloaded either v1.10.0
+[Integration/run-container]   | #11 5.337   Downloaded itoa v1.0.10
+[Integration/run-container]   | #11 5.339   Downloaded fnv v1.0.7
+[Integration/run-container]   | #11 5.341   Downloaded thread_local v1.1.8
+[Integration/run-container]   | #11 5.343   Downloaded ppv-lite86 v0.2.17
+[Integration/run-container]   | #11 5.345   Downloaded clap_lex v0.7.0
+[Integration/run-container]   | #11 5.352   Downloaded thiserror-impl v1.0.57
+[Integration/run-container]   | #11 5.360   Downloaded tokio-io-timeout v1.2.0
+[Integration/run-container]   | #11 5.378   Downloaded directories v5.0.1
+[Integration/run-container]   | #11 5.389   Downloaded miette-derive v7.1.0
+[Integration/run-container]   | #11 5.391   Downloaded supports-color v3.0.0
+[Integration/run-container]   | #11 5.393   Downloaded protox-parse v0.6.0
+[Integration/run-container]   | #11 5.396   Downloaded futures-task v0.3.30
+[Integration/run-container]   | #11 5.397   Downloaded percent-encoding v2.3.1
+[Integration/run-container]   | #11 5.398   Downloaded block-buffer v0.10.4
+[Integration/run-container]   | #11 5.416   Downloaded prost-build v0.12.3
+[Integration/run-container]   | #11 5.420   Downloaded fastrand v2.0.1
+[Integration/run-container]   | #11 5.488   Downloaded rustc-hash v1.1.0
+[Integration/run-container]   | #11 5.490   Downloaded inlinable_string v0.1.15
+[Integration/run-container]   | #11 5.492   Downloaded glob v0.3.1
+[Integration/run-container]   | #11 5.494   Downloaded anstyle-query v1.0.2
+[Integration/run-container]   | #11 5.498   Downloaded nu-ansi-term v0.46.0
+[Integration/run-container]   | #11 5.506   Downloaded unicode-width v0.1.11
+[Integration/run-container]   | #11 5.508   Downloaded clap v4.5.1
+[Integration/run-container]   | #11 5.520   Downloaded terminal_size v0.3.0
+[Integration/run-container]   | #11 5.521   Downloaded pin-project-internal v1.1.4
+[Integration/run-container]   | #11 5.523   Downloaded proc-macro2 v1.0.78
+[Integration/run-container]   | #11 5.527   Downloaded mime v0.3.17
+[Integration/run-container]   | #11 5.528   Downloaded cpufeatures v0.2.12
+[Integration/run-container]   | #11 5.530   Downloaded overload v0.1.1
+[Integration/run-container]   | #11 5.531   Downloaded winter-utils v0.8.2
+[Integration/run-container]   | #11 5.535   Downloaded miden-core v0.8.0
+[Integration/run-container]   | #11 5.537   Downloaded tracing-attributes v0.1.27
+[Integration/run-container]   | #11 5.590   Downloaded futures-channel v0.3.30
+[Integration/run-container]   | #11 5.646   Downloaded keccak v0.1.5
+[Integration/run-container]   | #11 5.654   Downloaded hashlink v0.8.4
+[Integration/run-container]   | #11 5.664   Downloaded toml_datetime v0.6.5
+[Integration/run-container]   | #11 5.684   Downloaded digest v0.10.7
+[Integration/run-container]   | #11 5.701   Downloaded rustc-demangle v0.1.23
+[Integration/run-container]   | #11 5.705   Downloaded owo-colors v4.0.0
+[Integration/run-container]   | #11 5.736   Downloaded axum-core v0.3.4
+[Integration/run-container]   | #11 5.739   Downloaded smallvec v1.13.1
+[Integration/run-container]   | #11 5.742   Downloaded arrayvec v0.7.4
+[Integration/run-container]   | #11 5.765   Downloaded rusqlite_migration v1.1.0
+[Integration/run-container]   | #11 5.787   Downloaded fallible-iterator v0.3.0
+[Integration/run-container]   | #11 5.788   Downloaded pin-project v1.1.4
+[Integration/run-container]   | #11 5.800   Downloaded tonic-build v0.11.0
+[Integration/run-container]   | #11 5.810   Downloaded thiserror v1.0.57
+[Integration/run-container]   | #11 5.815   Downloaded anstyle-parse v0.2.3
+[Integration/run-container]   | #11 5.839   Downloaded http-body v0.4.6
+[Integration/run-container]   | #11 5.841   Downloaded matchit v0.7.3
+[Integration/run-container]   | #11 5.857   Downloaded utf8parse v0.2.1
+[Integration/run-container]   | #11 5.866   Downloaded getrandom v0.2.12
+[Integration/run-container]   | #11 5.874   Downloaded pin-project-lite v0.2.13
+[Integration/run-container]   | #11 5.885   Downloaded protox v0.6.0
+[Integration/run-container]   | #11 5.910   Downloaded unicode-ident v1.0.12
+[Integration/run-container]   | #11 5.913   Downloaded miden-air v0.8.0
+[Integration/run-container]   | #11 5.918   Downloaded prost-types v0.12.3
+[Integration/run-container]   | #11 5.975   Downloaded indexmap v1.9.3
+[Integration/run-container]   | #11 5.984   Downloaded once_cell v1.19.0
+[Integration/run-container]   | #11 6.005   Downloaded quote v1.0.35
+[Integration/run-container]   | #11 6.031   Downloaded ryu v1.0.17
+[Integration/run-container]   | #11 6.040   Downloaded ahash v0.8.10
+[Integration/run-container]   | #11 6.050   Downloaded serde_derive v1.0.197
+[Integration/run-container]   | #11 6.057   Downloaded tempfile v3.10.1
+[Integration/run-container]   | #11 6.086   Downloaded bitflags v2.4.2
+[Integration/run-container]   | #11 6.131   Downloaded anyhow v1.0.80
+[Integration/run-container]   | #11 6.143   Downloaded log v0.4.21
+[Integration/run-container]   | #11 6.168   Downloaded socket2 v0.5.6
+[Integration/run-container]   | #11 6.178   Downloaded clang-sys v1.7.0
+[Integration/run-container]   | #11 6.183   Downloaded typenum v1.17.0
+[Integration/run-container]   | #11 6.205   Downloaded textwrap v0.16.1
+[Integration/run-container]   | #11 6.212   Downloaded miniz_oxide v0.7.2
+[Integration/run-container]   | #11 6.232   Downloaded winter-prover v0.8.1
+[Integration/run-container]   | #11 6.240   Downloaded miden-vm v0.8.0
+[Integration/run-container]   | #11 6.259   Downloaded tokio-stream v0.1.14
+[Integration/run-container]   | #11 6.297   Downloaded toml v0.8.10
+[Integration/run-container]   | #11 6.353   Downloaded cc v1.0.88
+[Integration/run-container]   | #11 6.477   Downloaded winter-crypto v0.8.1
+[Integration/run-container]   | #11 6.498   Downloaded sharded-slab v0.1.7
+[Integration/run-container]   | #11 6.508   Downloaded figment v0.10.14
+[Integration/run-container]   | #11 6.516   Downloaded prettyplease v0.2.16
+[Integration/run-container]   | #11 6.660   Downloaded indexmap v2.2.3
+[Integration/run-container]   | #11 6.705   Downloaded winter-air v0.8.1
+[Integration/run-container]   | #11 6.713   Downloaded zerocopy v0.7.32
+[Integration/run-container]   | #11 6.744   Downloaded tracing v0.1.40
+[Integration/run-container]   | #11 6.750   Downloaded serde v1.0.197
+[Integration/run-container]   | #11 6.755   Downloaded memchr v2.7.1
+[Integration/run-container]   | #11 6.793   Downloaded base64 v0.21.7
+[Integration/run-container]   | #11 6.831   Downloaded hashbrown v0.12.3
+[Integration/run-container]   | #11 6.840   Downloaded prost-reflect v0.13.0
+[Integration/run-container]   | #11 6.870   Downloaded bytes v1.5.0
+[Integration/run-container]   | #11 6.914   Downloaded mio v0.8.10
+[Integration/run-container]   | #11 6.924   Downloaded rand v0.8.5
+[Integration/run-container]   | #11 6.961   Downloaded tonic v0.11.0
+[Integration/run-container]   | #11 6.971   Downloaded toml_edit v0.22.6
+[Integration/run-container]   | #11 6.999   Downloaded http v0.2.11
+[Integration/run-container]   | #11 7.090   Downloaded miette v7.1.0
+[Integration/run-container]   | #11 7.116   Downloaded tower v0.4.13
+[Integration/run-container]   | #11 7.142   Downloaded toml_edit v0.21.1
+[Integration/run-container]   | #11 7.170   Downloaded backtrace v0.3.69
+[Integration/run-container]   | #11 7.190   Downloaded miden-assembly v0.8.0
+[Integration/run-container]   | #11 7.196   Downloaded libm v0.2.8
+[Integration/run-container]   | #11 7.204   Downloaded minimal-lexical v0.2.1
+[Integration/run-container]   | #11 7.216   Downloaded winnow v0.6.3
+[Integration/run-container]   | #11 7.227   Downloaded itertools v0.11.0
+[Integration/run-container]   | #11 7.272   Downloaded regex-automata v0.1.10
+[Integration/run-container]   | #11 7.329   Downloaded itertools v0.12.1
+[Integration/run-container]   | #11 7.337   Downloaded nom v7.1.3
+[Integration/run-container]   | #11 7.382   Downloaded tokio-util v0.7.10
+[Integration/run-container]   | #11 7.390   Downloaded winnow v0.5.40
+[Integration/run-container]   | #11 7.448   Downloaded axum v0.6.20
+[Integration/run-container]   | #11 7.464   Downloaded hashbrown v0.14.3
+[Integration/run-container]   | #11 7.546   Downloaded futures-util v0.3.30
+[Integration/run-container]   | #11 7.566   Downloaded rusqlite v0.30.0
+[Integration/run-container]   | #11 7.575   Downloaded miden-processor v0.8.0
+[Integration/run-container]   | #11 7.601   Downloaded blake3 v1.5.0
+[Integration/run-container]   | #11 7.650   Downloaded petgraph v0.6.4
+[Integration/run-container]   | #11 7.666   Downloaded h2 v0.3.24
+[Integration/run-container]   | #11 7.672   Downloaded serde_json v1.0.114
+[Integration/run-container]   | #11 7.679   Downloaded clap_builder v4.5.1
+[Integration/run-container]   | #11 7.729   Downloaded aho-corasick v1.1.2
+[Integration/run-container]   | #11 7.776   Downloaded tracing-subscriber v0.3.18
+[Integration/run-container]   | #11 7.795   Downloaded miden-stdlib v0.8.0
+[Integration/run-container]   | #11 7.886   Downloaded hyper v0.14.28
+[Integration/run-container]   | #11 7.914   Downloaded vcpkg v0.2.15
+[Integration/run-container]   | #11 7.997   Downloaded bindgen v0.69.4
+[Integration/run-container]   | #11 8.087   Downloaded regex v1.10.3
+[Integration/run-container]   | #11 8.103   Downloaded object v0.32.2
+[Integration/run-container]   | #11 8.135   Downloaded gimli v0.28.1
+[Integration/run-container]   | #11 8.152   Downloaded syn v2.0.52
+[Integration/run-container]   | #11 8.170   Downloaded regex-syntax v0.6.29
+[Integration/run-container]   | #11 8.300   Downloaded regex-syntax v0.8.2
+[Integration/run-container]   | #11 8.372   Downloaded rustix v0.38.31
+[Integration/run-container]   | #11 8.876   Downloaded regex-automata v0.4.5
+[Integration/run-container]   | #11 8.944   Downloaded tokio v1.36.0
+[Integration/run-container]   | #11 8.989   Downloaded sha3 v0.10.8
+[Integration/run-container]   | #11 9.078   Downloaded libc v0.2.153
+[Integration/run-container]   | #11 9.782   Downloaded linux-raw-sys v0.4.13
+[Integration/run-container]   | #11 11.30   Downloaded miden-crypto v0.8.1
+[Integration/run-container]   | #11 11.58   Downloaded libsqlite3-sys v0.27.0
+[Integration/run-container]   | #11 11.70    Compiling proc-macro2 v1.0.78
+[Integration/run-container]   | #11 11.70    Compiling unicode-ident v1.0.12
+[Integration/run-container]   | #11 11.70    Compiling libc v0.2.153
+[Integration/run-container]   | #11 11.70    Compiling version_check v0.9.4
+[Integration/run-container]   | #11 11.70    Compiling cfg-if v1.0.0
+[Integration/run-container]   | #11 11.70    Compiling typenum v1.17.0
+[Integration/run-container]   | #11 11.70    Compiling once_cell v1.19.0
+[Integration/run-container]   | #11 11.71    Compiling glob v0.3.1
+[Integration/run-container]   | #11 11.71    Compiling pin-project-lite v0.2.13
+[Integration/run-container]   | #11 11.74    Compiling equivalent v1.0.1
+[Integration/run-container]   | #11 11.75    Compiling hashbrown v0.14.3
+[Integration/run-container]   | #11 11.76    Compiling either v1.10.0
+[Integration/run-container]   | #11 11.78    Compiling bitflags v2.4.2
+[Integration/run-container]   | #11 11.79    Compiling arrayvec v0.7.4
+[Integration/run-container]   | #11 11.90    Compiling tracing-core v0.1.32
+[Integration/run-container]   | #11 11.92    Compiling constant_time_eq v0.3.0
+[Integration/run-container]   | #11 11.93    Compiling winter-utils v0.8.2
+[Integration/run-container]   | #11 11.96    Compiling arrayref v0.3.7
+[Integration/run-container]   | #11 11.98    Compiling bytes v1.5.0
+[Integration/run-container]   | #11 11.98    Compiling memchr v2.7.1
+[Integration/run-container]   | #11 11.99    Compiling generic-array v0.14.7
+[Integration/run-container]   | #11 12.11    Compiling winter-math v0.8.1
+[Integration/run-container]   | #11 12.16    Compiling ahash v0.8.10
+[Integration/run-container]   | #11 12.35    Compiling indexmap v2.2.3
+[Integration/run-container]   | #11 12.38    Compiling quote v1.0.35
+[Integration/run-container]   | #11 12.51    Compiling anyhow v1.0.80
+[Integration/run-container]   | #11 12.63    Compiling syn v2.0.52
+[Integration/run-container]   | #11 12.64    Compiling cc v1.0.88
+[Integration/run-container]   | #11 12.65    Compiling cpufeatures v0.2.12
+[Integration/run-container]   | #11 12.66    Compiling toml_datetime v0.6.5
+[Integration/run-container]   | #11 12.69    Compiling keccak v0.1.5
+[Integration/run-container]   | #11 12.77    Compiling winnow v0.5.40
+[Integration/run-container]   | #11 12.84    Compiling zerocopy v0.7.32
+[Integration/run-container]   | #11 12.84    Compiling allocator-api2 v0.2.16
+[Integration/run-container]   | #11 12.85    Compiling num_cpus v1.16.0
+[Integration/run-container]   | #11 13.02    Compiling socket2 v0.5.6
+[Integration/run-container]   | #11 13.04    Compiling mio v0.8.10
+[Integration/run-container]   | #11 13.15    Compiling libm v0.2.8
+[Integration/run-container]   | #11 13.23    Compiling block-buffer v0.10.4
+[Integration/run-container]   | #11 13.27    Compiling crypto-common v0.1.6
+[Integration/run-container]   | #11 13.33    Compiling digest v0.10.7
+[Integration/run-container]   | #11 13.41    Compiling rustix v0.38.31
+[Integration/run-container]   | #11 13.50    Compiling sha3 v0.10.8
+[Integration/run-container]   | #11 13.66    Compiling serde v1.0.197
+[Integration/run-container]   | #11 13.81    Compiling regex-syntax v0.8.2
+[Integration/run-container]   | #11 13.85    Compiling blake3 v1.5.0
+[Integration/run-container]   | #11 13.85    Compiling miden-crypto v0.8.1
+[Integration/run-container]   | #11 13.99    Compiling itertools v0.11.0
+[Integration/run-container]   | #11 14.06    Compiling autocfg v1.1.0
+[Integration/run-container]   | #11 14.31    Compiling toml_edit v0.21.1
+[Integration/run-container]   | #11 14.34    Compiling futures-core v0.3.30
+[Integration/run-container]   | #11 14.34    Compiling linux-raw-sys v0.4.13
+[Integration/run-container]   | #11 14.54    Compiling winter-crypto v0.8.1
+[Integration/run-container]   | #11 14.94    Compiling regex-automata v0.4.5
+[Integration/run-container]   | #11 14.99    Compiling winter-fri v0.8.1
+[Integration/run-container]   | #11 15.23    Compiling winter-air v0.8.1
+[Integration/run-container]   | #11 15.45    Compiling proc-macro-crate v3.1.0
+[Integration/run-container]   | #11 15.79    Compiling itoa v1.0.10
+[Integration/run-container]   | #11 16.09    Compiling thiserror v1.0.57
+[Integration/run-container]   | #11 16.42    Compiling regex v1.10.3
+[Integration/run-container]   | #11 16.59    Compiling backtrace v0.3.69
+[Integration/run-container]   | #11 16.73    Compiling clang-sys v1.7.0
+[Integration/run-container]   | #11 16.90    Compiling adler v1.0.2
+[Integration/run-container]   | #11 16.97    Compiling gimli v0.28.1
+[Integration/run-container]   | #11 16.98    Compiling rustversion v1.0.14
+[Integration/run-container]   | #11 16.98    Compiling miniz_oxide v0.7.2
+[Integration/run-container]   | #11 17.20    Compiling slab v0.4.9
+[Integration/run-container]   | #11 17.20    Compiling object v0.32.2
+[Integration/run-container]   | #11 17.22    Compiling regex-syntax v0.6.29
+[Integration/run-container]   | #11 17.26    Compiling pin-utils v0.1.0
+[Integration/run-container]   | #11 17.29    Compiling fnv v1.0.7
+[Integration/run-container]   | #11 17.32    Compiling beef v0.5.2
+[Integration/run-container]   | #11 17.32    Compiling rustc-demangle v0.1.23
+[Integration/run-container]   | #11 17.33    Compiling minimal-lexical v0.2.1
+[Integration/run-container]   | #11 17.40    Compiling futures-task v0.3.30
+[Integration/run-container]   | #11 17.48    Compiling nom v7.1.3
+[Integration/run-container]   | #11 17.52    Compiling futures-util v0.3.30
+[Integration/run-container]   | #11 17.71    Compiling tracing-attributes v0.1.27
+[Integration/run-container]   | #11 17.72    Compiling num_enum_derive v0.7.2
+[Integration/run-container]   | #11 18.46    Compiling tokio-macros v2.2.0
+[Integration/run-container]   | #11 19.03    Compiling serde_derive v1.0.197
+[Integration/run-container]   | #11 19.07    Compiling prost-derive v0.12.3
+[Integration/run-container]   | #11 19.17    Compiling num_enum v0.7.2
+[Integration/run-container]   | #11 19.21    Compiling addr2line v0.21.0
+[Integration/run-container]   | #11 19.30    Compiling tracing v0.1.40
+[Integration/run-container]   | #11 19.37    Compiling tokio v1.36.0
+[Integration/run-container]   | #11 19.42    Compiling winter-prover v0.8.1
+[Integration/run-container]   | #11 19.43    Compiling thiserror-impl v1.0.57
+[Integration/run-container]   | #11 19.62    Compiling logos-codegen v0.13.0
+[Integration/run-container]   | #11 19.62    Compiling http v0.2.11
+[Integration/run-container]   | #11 20.59    Compiling libloading v0.8.1
+[Integration/run-container]   | #11 20.69    Compiling bindgen v0.69.4
+[Integration/run-container]   | #11 20.77    Compiling prost v0.12.3
+[Integration/run-container]   | #11 20.82    Compiling unicode-linebreak v0.1.5
+[Integration/run-container]   | #11 20.84    Compiling is_ci v1.2.0
+[Integration/run-container]   | #11 20.90    Compiling miden-core v0.8.0
+[Integration/run-container]   | #11 20.99    Compiling smawk v0.3.2
+[Integration/run-container]   | #11 21.02    Compiling prost-types v0.12.3
+[Integration/run-container]   | #11 21.06    Compiling unicode-width v0.1.11
+[Integration/run-container]   | #11 21.11    Compiling futures-sink v0.3.30
+[Integration/run-container]   | #11 21.11    Compiling async-trait v0.1.77
+[Integration/run-container]   | #11 21.14    Compiling logos-derive v0.13.0
+[Integration/run-container]   | #11 21.15    Compiling textwrap v0.16.1
+[Integration/run-container]   | #11 21.29    Compiling miden-air v0.8.0
+[Integration/run-container]   | #11 21.56    Compiling miden-assembly v0.8.0
+[Integration/run-container]   | #11 21.70    Compiling supports-color v3.0.0
+[Integration/run-container]   | #11 21.78    Compiling backtrace-ext v0.2.1
+[Integration/run-container]   | #11 21.85    Compiling miden-processor v0.8.0
+[Integration/run-container]   | #11 22.19    Compiling cexpr v0.6.0
+[Integration/run-container]   | #11 22.93    Compiling tokio-util v0.7.10
+[Integration/run-container]   | #11 24.22    Compiling miette-derive v7.1.0
+[Integration/run-container]   | #11 24.23    Compiling terminal_size v0.3.0
+[Integration/run-container]   | #11 24.28    Compiling winter-verifier v0.8.1
+[Integration/run-container]   | #11 24.56    Compiling getrandom v0.2.12
+[Integration/run-container]   | #11 24.57    Compiling proc-macro2-diagnostics v0.10.1
+[Integration/run-container]   | #11 24.71    Compiling itertools v0.12.1
+[Integration/run-container]   | #11 24.74    Compiling lazycell v1.3.0
+[Integration/run-container]   | #11 24.79    Compiling tower-service v0.3.2
+[Integration/run-container]   | #11 24.81    Compiling shlex v1.3.0
+[Integration/run-container]   | #11 24.94    Compiling lazy_static v1.4.0
+[Integration/run-container]   | #11 25.15    Compiling heck v0.4.1
+[Integration/run-container]   | #11 25.35    Compiling prettyplease v0.2.16
+[Integration/run-container]   | #11 25.54    Compiling httparse v1.8.0
+[Integration/run-container]   | #11 25.71    Compiling rustc-hash v1.1.0
+[Integration/run-container]   | #11 25.75    Compiling supports-hyperlinks v3.0.0
+[Integration/run-container]   | #11 25.76    Compiling supports-unicode v3.0.0
+[Integration/run-container]   | #11 25.81    Compiling owo-colors v4.0.0
+[Integration/run-container]   | #11 25.88    Compiling rand_core v0.6.4
+[Integration/run-container]   | #11 25.91    Compiling miden-verifier v0.8.0
+[Integration/run-container]   | #11 26.06    Compiling logos v0.13.0
+[Integration/run-container]   | #11 26.67    Compiling miette v7.1.0
+[Integration/run-container]   | #11 26.70    Compiling http-body v0.4.6
+[Integration/run-container]   | #11 26.87    Compiling indexmap v1.9.3
+[Integration/run-container]   | #11 27.01    Compiling fixedbitset v0.4.2
+[Integration/run-container]   | #11 27.02    Compiling vcpkg v0.2.15
+[Integration/run-container]   | #11 27.17    Compiling ppv-lite86 v0.2.17
+[Integration/run-container]   | #11 27.34    Compiling yansi v1.0.0-rc.1
+[Integration/run-container]   | #11 27.37    Compiling fastrand v2.0.1
+[Integration/run-container]   | #11 27.55    Compiling try-lock v0.2.5
+[Integration/run-container]   | #11 27.59    Compiling home v0.5.9
+[Integration/run-container]   | #11 27.60    Compiling smallvec v1.13.1
+[Integration/run-container]   | #11 27.66    Compiling pkg-config v0.3.30
+[Integration/run-container]   | #11 27.76    Compiling which v4.4.2
+[Integration/run-container]   | #11 27.77    Compiling want v0.3.1
+[Integration/run-container]   | #11 27.89    Compiling tempfile v3.10.1
+[Integration/run-container]   | #11 27.96    Compiling rand_chacha v0.3.1
+[Integration/run-container]   | #11 28.08    Compiling petgraph v0.6.4
+[Integration/run-container]   | #11 28.13    Compiling miden-stdlib v0.8.0
+[Integration/run-container]   | #11 28.86    Compiling serde_spanned v0.6.5
+[Integration/run-container]   | #11 28.94    Compiling h2 v0.3.24
+[Integration/run-container]   | #11 29.09    Compiling axum-core v0.3.4
+[Integration/run-container]   | #11 29.14    Compiling pin-project-internal v1.1.4
+[Integration/run-container]   | #11 29.18    Compiling futures-channel v0.3.30
+[Integration/run-container]   | #11 29.20    Compiling uncased v0.9.10
+[Integration/run-container]   | #11 29.34    Compiling hashbrown v0.12.3
+[Integration/run-container]   | #11 29.35    Compiling winnow v0.6.3
+[Integration/run-container]   | #11 29.82    Compiling httpdate v1.0.3
+[Integration/run-container]   | #11 30.13    Compiling multimap v0.8.3
+[Integration/run-container]   | #11 30.23    Compiling tower-layer v0.3.2
+[Integration/run-container]   | #11 30.40    Compiling serde_json v1.0.114
+[Integration/run-container]   | #11 30.41    Compiling log v0.4.21
+[Integration/run-container]   | #11 30.65    Compiling prost-build v0.12.3
+[Integration/run-container]   | #11 31.39    Compiling hyper v0.14.28
+[Integration/run-container]   | #11 31.40    Compiling toml_edit v0.22.6
+[Integration/run-container]   | #11 31.89    Compiling libsqlite3-sys v0.27.0
+[Integration/run-container]   | #11 34.74    Compiling regex-automata v0.1.10
+[Integration/run-container]   | #11 35.20    Compiling pin-project v1.1.4
+[Integration/run-container]   | #11 35.69    Compiling pear_codegen v0.2.8
+[Integration/run-container]   | #11 36.52    Compiling rand v0.8.5
+[Integration/run-container]   | #11 36.54    Compiling prost-reflect v0.13.0
+[Integration/run-container]   | #11 37.50    Compiling protox-parse v0.6.0
+[Integration/run-container]   | #11 37.92    Compiling miden-objects v0.1.0 (https://github.com/0xPolygonMiden/miden-base?branch=main#a08c8c1d)
+[Integration/run-container]   | #11 38.25    Compiling axum v0.6.20
+[Integration/run-container]   | #11 38.29    Compiling figment v0.10.14
+[Integration/run-container]   | #11 38.40    Compiling utf8parse v0.2.1
+[Integration/run-container]   | #11 38.44    Compiling inlinable_string v0.1.15
+[Integration/run-container]   | #11 38.66    Compiling ryu v1.0.17
+[Integration/run-container]   | #11 38.73    Compiling mime v0.3.17
+[Integration/run-container]   | #11 38.84    Compiling overload v0.1.1
+[Integration/run-container]   | #11 38.86    Compiling nu-ansi-term v0.46.0
+[Integration/run-container]   | #11 39.14    Compiling pear v0.2.8
+[Integration/run-container]   | #11 39.45    Compiling anstyle-parse v0.2.3
+[Integration/run-container]   | #11 39.50    Compiling sharded-slab v0.1.7
+[Integration/run-container]   | #11 39.60    Compiling protox v0.6.0
+[Integration/run-container]   | #11 40.13    Compiling tower v0.4.13
+[Integration/run-container]   | #11 40.36    Compiling matchers v0.1.0
+[Integration/run-container]   | #11 40.62    Compiling toml v0.8.10
+[Integration/run-container]   | #11 41.04    Compiling tonic-build v0.11.0
+[Integration/run-container]   | #11 41.76    Compiling tracing-log v0.2.0
+[Integration/run-container]   | #11 41.77    Compiling miden-lib v0.1.0 (https://github.com/0xPolygonMiden/miden-base?branch=main#a08c8c1d)
+[Integration/run-container]   | #11 42.05    Compiling tracing-serde v0.1.3
+[Integration/run-container]   | #11 42.11    Compiling tokio-io-timeout v1.2.0
+[Integration/run-container]   | #11 42.14    Compiling deadpool-runtime v0.1.3
+[Integration/run-container]   | #11 42.15    Compiling async-stream-impl v0.3.5
+[Integration/run-container]   | #11 42.19    Compiling hashlink v0.8.4
+[Integration/run-container]   | #11 42.24    Compiling thread_local v1.1.8
+[Integration/run-container]   | #11 42.37    Compiling percent-encoding v2.3.1
+[Integration/run-container]   | #11 42.46    Compiling matchit v0.7.3
+[Integration/run-container]   | #11 42.56    Compiling fallible-iterator v0.3.0
+[Integration/run-container]   | #11 42.60    Compiling fallible-streaming-iterator v0.1.9
+[Integration/run-container]   | #11 42.65    Compiling anstyle v1.0.6
+[Integration/run-container]   | #11 42.70    Compiling bitflags v1.3.2
+[Integration/run-container]   | #11 42.74    Compiling anstyle-query v1.0.2
+[Integration/run-container]   | #11 42.79    Compiling sync_wrapper v0.1.2
+[Integration/run-container]   | #11 42.83    Compiling colorchoice v1.0.0
+[Integration/run-container]   | #11 42.87    Compiling anstream v0.6.13
+[Integration/run-container]   | #11 42.87    Compiling rusqlite v0.30.0
+[Integration/run-container]   | #11 42.89    Compiling async-stream v0.3.5
+[Integration/run-container]   | #11 43.01    Compiling tracing-subscriber v0.3.18
+[Integration/run-container]   | #11 43.69    Compiling hyper-timeout v0.4.1
+[Integration/run-container]   | #11 43.79    Compiling miden-node-proto v0.1.0 (/proto)
+[Integration/run-container]   | #11 44.08    Compiling tokio-stream v0.1.14
+[Integration/run-container]   | #11 44.56    Compiling option-ext v0.2.0
+[Integration/run-container]   | #11 44.59    Compiling strsim v0.11.0
+[Integration/run-container]   | #11 44.90    Compiling clap_lex v0.7.0
+[Integration/run-container]   | #11 45.18    Compiling base64 v0.21.7
+[Integration/run-container]   | #11 45.59    Compiling rusqlite_migration v1.1.0
+[Integration/run-container]   | #11 45.74    Compiling clap_builder v4.5.1
+[Integration/run-container]   | #11 45.78    Compiling miden-node-utils v0.1.0 (/utils)
+[Integration/run-container]   | #11 45.79    Compiling dirs-sys v0.4.1
+[Integration/run-container]   | #11 46.41    Compiling deadpool v0.10.0
+[Integration/run-container]   | #11 46.56    Compiling deadpool-sync v0.1.2
+[Integration/run-container]   | #11 46.64    Compiling clap_derive v4.5.0
+[Integration/run-container]   | #11 47.75    Compiling tonic v0.11.0
+[Integration/run-container]   | #11 49.07    Compiling miden-prover v0.8.0
+[Integration/run-container]   | #11 49.19    Compiling hex v0.4.3
+[Integration/run-container]   | #11 49.42    Compiling clap v4.5.1
+[Integration/run-container]   | #11 49.45    Compiling deadpool-sqlite v0.7.0
+[Integration/run-container]   | #11 49.49    Compiling directories v5.0.1
+[Integration/run-container]   | #11 50.68    Compiling miden-node-store v0.1.0 (/store)
+[Integration/run-container]   | #11 51.10    Compiling miden-vm v0.8.0
+[Integration/run-container]   | #11 51.14    Compiling miden-tx v0.1.0 (https://github.com/0xPolygonMiden/miden-base?branch=main#a08c8c1d)
+[Integration/run-container]   | #11 52.10    Compiling miden-node-block-producer v0.1.0 (/block-producer)
+[Integration/run-container]   | #11 54.28    Compiling miden-node-rpc v0.1.0 (/rpc)
+[Integration/run-container]   | #11 60.20    Compiling miden-node v0.1.0 (/node)
+[Integration/run-container]   | #11 70.05     Finished release [optimized] target(s) in 1m 09s
+[Integration/run-container]   | #11 70.15   Installing /usr/local/cargo/bin/miden-node
+[Integration/run-container]   | #11 70.15    Installed package `miden-node v0.1.0 (/node)` (executable `miden-node`)
+[Integration/run-container]   | #11 DONE 70.4s
+[Integration/run-container]   | 
+[Integration/run-container]   | #12 [stage-1 2/9] RUN apt-get update && apt-get -y upgrade && apt-get install -y make libssl-dev libsqlite3-dev
+[Integration/run-container]   | #12 CACHED
+[Integration/run-container]   | 
+[Integration/run-container]   | #13 [stage-1 5/9] COPY --from=builder /app/miden-node/node/miden-node.toml miden-node.toml
+[Integration/run-container]   | #13 ERROR: failed to calculate checksum of ref 362705a2-35fa-44b0-a30f-17e4f7a78351::kjdo0qzbefh82nxylyu7wjm7m: failed to walk /var/lib/docker/tmp/buildkit-mount1885727292/app/miden-node/node: lstat /var/lib/docker/tmp/buildkit-mount1885727292/app/miden-node/node: no such file or directory
+[Integration/run-container]   | 
+[Integration/run-container]   | #14 [stage-1 3/9] COPY --from=builder /app/miden-node/scripts/start-miden-node.sh start-miden-node.sh
+[Integration/run-container]   | #14 ERROR: failed to calculate checksum of ref 362705a2-35fa-44b0-a30f-17e4f7a78351::kjdo0qzbefh82nxylyu7wjm7m: failed to walk /var/lib/docker/tmp/buildkit-mount2268240150/app/miden-node/scripts: lstat /var/lib/docker/tmp/buildkit-mount2268240150/app/miden-node/scripts: no such file or directory
+[Integration/run-container]   | 
+[Integration/run-container]   | #15 [stage-1 6/9] COPY --from=builder /app/miden-node/node/genesis.toml genesis.toml
+[Integration/run-container]   | #15 ERROR: failed to calculate checksum of ref 362705a2-35fa-44b0-a30f-17e4f7a78351::kjdo0qzbefh82nxylyu7wjm7m: failed to walk /var/lib/docker/tmp/buildkit-mount1006398245/app/miden-node/node: lstat /var/lib/docker/tmp/buildkit-mount1006398245/app/miden-node/node: no such file or directory
+[Integration/run-container]   | 
+[Integration/run-container]   | #16 [stage-1 4/9] COPY --from=builder /app/miden-node/scripts/run-integration-tests.sh run-integration-tests.sh
+[Integration/run-container]   | #16 ERROR: failed to calculate checksum of ref 362705a2-35fa-44b0-a30f-17e4f7a78351::kjdo0qzbefh82nxylyu7wjm7m: failed to walk /var/lib/docker/tmp/buildkit-mount37655179/app/miden-node/scripts: lstat /var/lib/docker/tmp/buildkit-mount37655179/app/miden-node/scripts: no such file or directory
+[Integration/run-container]   | ------
+[Integration/run-container]   |  > [stage-1 3/9] COPY --from=builder /app/miden-node/scripts/start-miden-node.sh start-miden-node.sh:
+[Integration/run-container]   | ------
+[Integration/run-container]   | ------
+[Integration/run-container]   |  > [stage-1 4/9] COPY --from=builder /app/miden-node/scripts/run-integration-tests.sh run-integration-tests.sh:
+[Integration/run-container]   | ------
+[Integration/run-container]   | ------
+[Integration/run-container]   |  > [stage-1 5/9] COPY --from=builder /app/miden-node/node/miden-node.toml miden-node.toml:
+[Integration/run-container]   | ------
+[Integration/run-container]   | ------
+[Integration/run-container]   |  > [stage-1 6/9] COPY --from=builder /app/miden-node/node/genesis.toml genesis.toml:
+[Integration/run-container]   | ------
+[Integration/run-container]   | Dockerfile:20
+[Integration/run-container]   | --------------------
+[Integration/run-container]   |   18 |     COPY --from=builder /app/miden-node/scripts/run-integration-tests.sh run-integration-tests.sh
+[Integration/run-container]   |   19 |     COPY --from=builder /app/miden-node/node/miden-node.toml miden-node.toml
+[Integration/run-container]   |   20 | >>> COPY --from=builder /app/miden-node/node/genesis.toml genesis.toml
+[Integration/run-container]   |   21 |     COPY --from=builder /usr/local/cargo/bin/miden-node /usr/local/bin/miden-node
+[Integration/run-container]   |   22 |     RUN chmod +x /start-miden-node.sh
+[Integration/run-container]   | --------------------
+[Integration/run-container]   | ERROR: failed to solve: failed to compute cache key: failed to calculate checksum of ref 362705a2-35fa-44b0-a30f-17e4f7a78351::kjdo0qzbefh82nxylyu7wjm7m: failed to walk /var/lib/docker/tmp/buildkit-mount1006398245/app/miden-node/node: lstat /var/lib/docker/tmp/buildkit-mount1006398245/app/miden-node/node: no such file or directory
+[Integration/run-container]   ❌  Failure - Main Build Docker image
+[Integration/run-container] exitcode '1': failure
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] setupEnv => map[ACT:true ACTIONS_CACHE_URL:http://172.29.8.94:61035/ CI:true GITHUB_ACTION:2 GITHUB_ACTIONS:true GITHUB_ACTION_PATH: GITHUB_ACTION_REF: GITHUB_ACTION_REPOSITORY: GITHUB_ACTOR:nektos/act GITHUB_API_URL:https://api.github.com GITHUB_BASE_REF: GITHUB_EVENT_NAME:push GITHUB_EVENT_PATH:/var/run/act/workflow/event.json GITHUB_GRAPHQL_URL:https://api.github.com/graphql GITHUB_HEAD_REF: GITHUB_JOB:run-container GITHUB_REF:refs/heads/phklive-dockerize-node GITHUB_REF_NAME:phklive-dockerize-node GITHUB_REF_TYPE:branch GITHUB_REPOSITORY:0xPolygonMiden/miden-node GITHUB_REPOSITORY_OWNER:0xPolygonMiden GITHUB_RETENTION_DAYS:0 GITHUB_RUN_ID:1 GITHUB_RUN_NUMBER:1 GITHUB_SERVER_URL:https://github.com GITHUB_SHA:042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc GITHUB_WORKFLOW:Integration GITHUB_WORKSPACE:/Users/phk/Developer/polygon/node ImageOS:ubuntu20 RUNNER_PERFLOG:/dev/null RUNNER_TRACKING_ID:]
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] evaluating expression ''
+[Integration/run-container] [DEBUG] expression '' evaluated to 'false'
+[Integration/run-container] [DEBUG] Skipping step 'Run Docker image' due to ''
+[Integration/run-container] [DEBUG] skipping post step for 'Checkout code': no action model available
+[Integration/run-container] 🏁  Job failed
+[Integration/run-container] [DEBUG] Loading revision from git directory
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
+[Integration/run-container] [DEBUG] HEAD points to '042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc'
+[Integration/run-container] [DEBUG] using github ref: refs/heads/phklive-dockerize-node
+[Integration/run-container] [DEBUG] Found revision: 042ad7f2ee9faaaf6bb7afb9b57a6477d98778bc
