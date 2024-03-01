@@ -42,17 +42,11 @@ impl MockStoreSuccessBuilder {
         };
 
         let created_notes = note_created_smt_from_batches(batches.iter().cloned());
-        let produced_nullifiers = batches
-            .iter()
-            .cloned()
-            .flat_map(TransactionBatch::produced_nullifiers)
-            .map(|nullifier| nullifier.inner())
-            .collect();
 
         Self {
             accounts: Some(accounts_smt),
             notes: Some(created_notes),
-            produced_nullifiers: Some(produced_nullifiers),
+            produced_nullifiers: None,
             chain_mmr: None,
             block_num: None,
         }
