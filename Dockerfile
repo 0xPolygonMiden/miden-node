@@ -7,9 +7,10 @@ FROM rust:1.75.0-bullseye AS builder
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get install -y gcc llvm clang bindgen pkg-config
 
-# Copy project
-COPY . .
-RUN make
+# Setup workdir
+WORKDIR /app
+COPY . miden-node
+RUN cd miden-node && make
 
 ### Run Miden-Node
 FROM ubuntu:22.04

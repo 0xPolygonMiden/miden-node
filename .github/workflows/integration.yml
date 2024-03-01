@@ -17,6 +17,7 @@ jobs:
       run: docker build -t miden-node-image .
 
     - name: Run Docker image
-      run: docker run -d -p 57291:57291 miden-node-image
+      run: docker run -d --name miden-node -p 57291:57291 miden-node-image
 
-    # Add steps to interact with the service, e.g., running tests.
+    - name: Run Integration tests
+      run: ./scripts/run-integration-tests.sh
