@@ -113,6 +113,8 @@ pub enum BlockInputsError {
 
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ApplyBlockError {
+    #[error("Merkle error: {0}")]
+    MerkleError(#[from] MerkleError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
 }

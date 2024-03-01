@@ -13,8 +13,7 @@ async fn test_apply_block_called_nonempty_batches() {
     let account_initial_hash: Digest =
         [Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)].into();
     let store = Arc::new(
-        MockStoreSuccessBuilder::new()
-            .initial_accounts(std::iter::once((account_id, account_initial_hash)))
+        MockStoreSuccessBuilder::from_accounts(std::iter::once((account_id, account_initial_hash)))
             .build(),
     );
 
@@ -48,9 +47,7 @@ async fn test_apply_block_called_empty_batches() {
     let account_hash: Digest =
         [Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)].into();
     let store = Arc::new(
-        MockStoreSuccessBuilder::new()
-            .initial_accounts(std::iter::once((account_id, account_hash)))
-            .build(),
+        MockStoreSuccessBuilder::from_accounts(std::iter::once((account_id, account_hash))).build(),
     );
 
     let block_builder = DefaultBlockBuilder::new(store.clone(), store.clone());

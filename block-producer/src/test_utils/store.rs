@@ -3,47 +3,76 @@ use std::collections::BTreeSet;
 use async_trait::async_trait;
 use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    notes::Nullifier,
-    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
+    notes::{NoteEnvelope, Nullifier},
+    BlockHeader, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
 };
 
 use super::*;
 use crate::{
+    batch_builder::TransactionBatch,
     block::{AccountWitness, Block, BlockInputs},
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
+    test_utils::block::{note_created_smt_from_batches, note_created_smt_from_envelopes},
     ProvenTransaction,
 };
 
 /// Builds a [`MockStoreSuccess`]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    produced_nullifiers: Option<Smt>,
+    notes: Option<SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH>>,
+    produced_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
     block_num: Option<u32>,
 }
 
 impl MockStoreSuccessBuilder {
-    /// FIXME: the store always needs to be properly initialized with initial accounts
-    /// see https://github.com/0xPolygonMiden/miden-node/issues/79
-    pub fn new() -> Self {
-        Self::default()
+    pub fn from_batches<'a>(batches: impl Iterator<Item = &'a TransactionBatch>) -> Self {
+        let batches: Vec<_> = batches.collect();
+
+        let accounts_smt = {
+            let accounts = batches
+                .iter()
+                .cloned()
+                .flat_map(TransactionBatch::account_initial_states)
+                .map(|(account_id, hash)| (account_id.into(), hash.into()));
+            SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
+        };
+
+        let created_notes = note_created_smt_from_batches(batches.iter().cloned());
+
+        Self {
+            accounts: Some(accounts_smt),
+            notes: Some(created_notes),
+            produced_nullifiers: None,
+            chain_mmr: None,
+            block_num: None,
+        }
     }
 
-    pub fn initial_accounts(
-        mut self,
-        accounts: impl Iterator<Item = (AccountId, Digest)>,
-    ) -> Self {
+    pub fn from_accounts(accounts: impl Iterator<Item = (AccountId, Digest)>) -> Self {
         let accounts_smt = {
-            let accounts =
-                accounts.into_iter().map(|(account_id, hash)| (account_id.into(), hash.into()));
+            let accounts = accounts.map(|(account_id, hash)| (account_id.into(), hash.into()));
 
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
-        self.accounts = Some(accounts_smt);
+        Self {
+            accounts: Some(accounts_smt),
+            notes: None,
+            produced_nullifiers: None,
+            chain_mmr: None,
+            block_num: None,
+        }
+    }
+
+    pub fn initial_notes<'a>(
+        mut self,
+        notes: impl Iterator<Item = (&'a u64, &'a NoteEnvelope)>,
+    ) -> Self {
+        self.notes = Some(note_created_smt_from_envelopes(notes));
 
         self
     }
@@ -51,15 +80,8 @@ impl MockStoreSuccessBuilder {
     pub fn initial_nullifiers(
         mut self,
         nullifiers: BTreeSet<Digest>,
-        block_num: u32,
     ) -> Self {
-        let smt = Smt::with_entries(
-            nullifiers
-                .into_iter()
-                .map(|nullifier| (nullifier, [ZERO, ZERO, ZERO, block_num.into()])),
-        )
-        .unwrap();
-        self.produced_nullifiers = Some(smt);
+        self.produced_nullifiers = Some(nullifiers);
 
         self
     }
@@ -83,18 +105,29 @@ impl MockStoreSuccessBuilder {
     }
 
     pub fn build(self) -> MockStoreSuccess {
-        let accounts_smt = self.accounts.unwrap_or(SimpleSmt::<ACCOUNT_TREE_DEPTH>::new().unwrap());
-        let nullifiers_smt = self.produced_nullifiers.unwrap_or_default();
+        let block_num = self.block_num.unwrap_or(1);
+        let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new().unwrap());
+        let notes_smt = self.notes.unwrap_or(SimpleSmt::new().unwrap());
         let chain_mmr = self.chain_mmr.unwrap_or_default();
+        let nullifiers_smt = self
+            .produced_nullifiers
+            .map(|nullifiers| {
+                Smt::with_entries(
+                    nullifiers
+                        .into_iter()
+                        .map(|nullifier| (nullifier, [block_num.into(), ZERO, ZERO, ZERO])),
+                )
+                .unwrap()
+            })
+            .unwrap_or_default();
 
         let initial_block_header = BlockHeader::new(
             Digest::default(),
-            self.block_num.unwrap_or(1),
+            block_num,
             chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
             accounts_smt.root(),
             nullifiers_smt.root(),
-            // FIXME: FILL IN CORRECT VALUE
-            Digest::default(),
+            notes_smt.root(),
             Digest::default(),
             Digest::default(),
             ZERO,
@@ -155,7 +188,7 @@ impl ApplyBlock for MockStoreSuccess {
         // update nullifiers
         for nullifier in block.produced_nullifiers {
             locked_produced_nullifiers
-                .insert(nullifier.inner(), [ZERO, ZERO, ZERO, block.header.block_num().into()]);
+                .insert(nullifier.inner(), [block.header.block_num().into(), ZERO, ZERO, ZERO]);
         }
 
         // update chain mmr with new block header hash
@@ -200,7 +233,7 @@ impl Store for MockStoreSuccess {
             .map(|nullifier| {
                 let nullifier_value = locked_produced_nullifiers.get_value(&nullifier.inner());
 
-                (*nullifier, nullifier_value[3].inner() as u32)
+                (*nullifier, nullifier_value[0].inner() as u32)
             })
             .collect();
 

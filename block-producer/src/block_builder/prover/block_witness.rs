@@ -225,7 +225,6 @@ impl BlockWitness {
 
         // Notes stack inputs
         {
-            let num_created_notes_roots = self.batch_created_notes_roots.len();
             for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter() {
                 stack_inputs.extend(batch_created_notes_root.iter());
 
@@ -237,7 +236,7 @@ impl BlockWitness {
             let empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
             stack_inputs.extend(*empty_root);
             stack_inputs.push(
-                Felt::try_from(num_created_notes_roots as u64)
+                Felt::try_from(self.batch_created_notes_roots.len() as u64)
                     .expect("notes roots number is greater than or equal to the field modulus"),
             );
         }

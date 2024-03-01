@@ -64,8 +64,7 @@ impl MockProvenTxBuilder {
     ) -> Self {
         let nullifiers = range
             .map(|index| {
-                let nullifier =
-                    Digest::from([Felt::new(1), Felt::new(1), Felt::new(1), Felt::new(index)]);
+                let nullifier = Digest::from([ONE, ONE, ONE, Felt::new(index)]);
 
                 Nullifier::from(nullifier)
             })
