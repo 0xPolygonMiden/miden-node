@@ -1,6 +1,6 @@
 # Miden-node Dockerfile
 
-#### Setup image builder
+# Setup image builder
 FROM rust:1.75.0-bullseye AS builder
 
 # Install dependencies
@@ -12,7 +12,7 @@ WORKDIR /app
 COPY . miden-node
 RUN cd miden-node && make
 
-### Run Miden-Node
+# Run Miden-Node
 FROM ubuntu:22.04
 RUN apt-get update && apt-get -y upgrade && apt-get install -y make libssl-dev libsqlite3-dev curl
 COPY --from=builder /app/miden-node/scripts/start-miden-node.sh start-miden-node.sh
