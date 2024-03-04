@@ -1,6 +1,5 @@
 use std::{collections::BTreeMap, iter};
 
-use miden_mock::mock::block::mock_block_header;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{
@@ -36,7 +35,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
     let account_id_3 = AccountId::new_unchecked(Felt::new(42));
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = mock_block_header(0, None, None, &[]);
+        let block_header = BlockHeader::mock(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let accounts = BTreeMap::from_iter(vec![
@@ -101,7 +100,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
         Digest::new([Felt::new(4u64), Felt::new(3u64), Felt::new(2u64), Felt::new(1u64)]);
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = mock_block_header(0, None, None, &[]);
+        let block_header = BlockHeader::mock(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let accounts = BTreeMap::from_iter(vec![
@@ -476,7 +475,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
         Digest::from([101_u32.into(), 102_u32.into(), 103_u32.into(), 104_u32.into()]).into();
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = mock_block_header(0, None, None, &[]);
+        let block_header = BlockHeader::mock(0, None, None, &[]);
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let accounts = batches

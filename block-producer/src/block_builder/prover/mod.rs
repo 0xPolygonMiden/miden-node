@@ -2,8 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use miden_air::{ExecutionOptions, Felt};
 use miden_objects::{assembly::Assembler, BlockHeader, Digest};
+use miden_processor::{execute, DefaultHost, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
-use miden_vm::{execute, DefaultHost, MemAdviceProvider, Program};
 
 use self::block_witness::BlockWitness;
 use crate::errors::{BlockProverError, BuildBlockError};
@@ -116,7 +116,7 @@ proc.compute_nullifier_root
     # assess if we should loop
     dup neq.0
     #=> [0 or 1, num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_VALUE, NULLIFIER_0, ..., NULLIFIER_n ]
-    
+
     while.true
         #=> [num_nullifiers_left_to_update, ROOT_i, NULLIFIER_VALUE, NULLIFIER_i, ... ]
 
@@ -128,7 +128,7 @@ proc.compute_nullifier_root
         #=> [OLD_VALUE, ROOT_{i+1}, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
 
         # Check that OLD_VALUE == 0 (i.e. that nullifier was indeed not previously produced)
-        assertz assertz assertz assertz 
+        assertz assertz assertz assertz
         #=> [ROOT_{i+1}, NULLIFIER_VALUE, num_nullifiers_left_to_update, ... ]
 
         # loop counter

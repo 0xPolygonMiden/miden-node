@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use miden_crypto::merkle::SimpleSmt;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::Mmr,
@@ -7,7 +8,6 @@ use miden_objects::{
     BlockHeader, Digest, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_NOTES_PER_BATCH,
     ONE, ZERO,
 };
-use miden_vm::crypto::SimpleSmt;
 
 use super::MockStoreSuccess;
 use crate::{
