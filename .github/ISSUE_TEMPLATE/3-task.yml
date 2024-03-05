@@ -11,11 +11,11 @@ body:
     attributes:
       label: "Node's components affected by this task"
       options:
-        - RPC
-        - Block producer
-        - Store
-        - Protobuf messages
-        - Testing
+        - label: "RPC"
+        - label: "Block producer"
+        - label: "Store"
+        - label: "Protobuf messages"
+        - label: "Testing"
     validations:
       required: true
   - type: textarea
