@@ -78,7 +78,14 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: ${{matrix.args}}
+          args:
+      - name: Check docs
+        uses: actions-rs/cargo@v1
+        env:
+          RUSTDOCFLAGS: -D warnings
+        with:
+          command: doc
+          args: --verbose --keep-going ${{matrix.args}}
 
   test:
     name: test ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
