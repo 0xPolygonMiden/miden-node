@@ -487,7 +487,7 @@ fn block_num_to_nullifier_value(block: BlockNumber) -> Word {
 ///
 /// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
 /// of a value.
-pub fn nullifier_value_to_block_num(value: Word) -> BlockNumber {
+fn nullifier_value_to_block_num(value: Word) -> BlockNumber {
     value[0].as_int().try_into().expect("invalid block number found in store")
 }
 
@@ -557,4 +557,28 @@ async fn load_accounts(
 
     SimpleSmt::with_leaves(account_data)
         .map_err(StateInitializationError::FailedToCreateAccountsTree)
+}
+
+#[cfg(test)]
+mod tests {
+    use miden_objects::{Felt, ZERO};
+
+    use super::{block_num_to_nullifier_value, nullifier_value_to_block_num};
+
+    #[test]
+    fn test_nullifier_data_encoding() {
+        let block_num = 123;
+        let nullifier_value = block_num_to_nullifier_value(block_num);
+
+        assert_eq!(nullifier_value, [Felt::from(block_num), ZERO, ZERO, ZERO])
+    }
+
+    #[test]
+    fn test_nullifier_data_decoding() {
+        let block_num = 123;
+        let nullifier_value = [Felt::from(block_num), ZERO, ZERO, ZERO];
+        let decoded_block_num = nullifier_value_to_block_num(nullifier_value);
+
+        assert_eq!(decoded_block_num, block_num);
+    }
 }
