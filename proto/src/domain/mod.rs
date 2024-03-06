@@ -1,5 +1,3 @@
-use miden_objects::Word;
-
 pub mod accounts;
 pub mod blocks;
 pub mod digest;
@@ -24,12 +22,4 @@ where
     From: TryInto<To, Error = E>,
 {
     from.into_iter().map(|e| e.try_into()).collect()
-}
-
-/// Given the leaf value of the nullifier SMT, returns the nullifier's block number.
-///
-/// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
-/// of a value.
-pub fn nullifier_value_to_block_num(value: Word) -> u32 {
-    value[0].as_int().try_into().expect("invalid block number found in store")
 }
