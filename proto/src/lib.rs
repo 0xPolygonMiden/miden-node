@@ -9,7 +9,7 @@ pub mod generated;
 
 pub use domain::{
     accounts::{AccountInputRecord, AccountState},
-    convert, nullifier_value_to_block_num,
+    convert,
     nullifiers::NullifierWitness,
     try_convert,
 };
