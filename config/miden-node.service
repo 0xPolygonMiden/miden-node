@@ -1,0 +1,14 @@
+[Unit]
+Description=Miden node
+Wants=network-online.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=exec
+Environment="RUST_LOG=info"
+ExecStart=miden-node start
+WorkingDirectory=/srv/miden-node
+RestartSec=5
+Restart=always
