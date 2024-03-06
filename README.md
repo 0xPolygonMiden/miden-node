@@ -32,7 +32,7 @@ Before you can build and run the Miden node or any of its components, you'll nee
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 
 ```sh
-sudo apt install gcc llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
+sudo apt install llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
 ```
 
 ### Installing the node
