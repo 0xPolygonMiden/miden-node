@@ -16,9 +16,7 @@ async fn test_apply_block_ab1() {
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
     let store = Arc::new(
-        MockStoreSuccessBuilder::new()
-            .initial_accounts(iter::once((account.id, account.states[0])))
-            .build(),
+        MockStoreSuccessBuilder::from_accounts(iter::once((account.id, account.states[0]))).build(),
     );
 
     let tx =
@@ -52,14 +50,13 @@ async fn test_apply_block_ab2() {
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
-        MockStoreSuccessBuilder::new()
-            .initial_accounts(
-                accounts
-                    .clone()
-                    .into_iter()
-                    .map(|mock_account| (mock_account.id, mock_account.states[0])),
-            )
-            .build(),
+        MockStoreSuccessBuilder::from_accounts(
+            accounts
+                .clone()
+                .into_iter()
+                .map(|mock_account| (mock_account.id, mock_account.states[0])),
+        )
+        .build(),
     );
 
     let state_view = DefaultStateView::new(store.clone(), false);
@@ -100,14 +97,13 @@ async fn test_apply_block_ab3() {
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
-        MockStoreSuccessBuilder::new()
-            .initial_accounts(
-                accounts
-                    .clone()
-                    .into_iter()
-                    .map(|mock_account| (mock_account.id, mock_account.states[0])),
-            )
-            .build(),
+        MockStoreSuccessBuilder::from_accounts(
+            accounts
+                .clone()
+                .into_iter()
+                .map(|mock_account| (mock_account.id, mock_account.states[0])),
+        )
+        .build(),
     );
 
     let state_view = DefaultStateView::new(store.clone(), false);
@@ -132,7 +128,7 @@ async fn test_apply_block_ab3() {
     let apply_block_res = state_view.apply_block(block).await;
     assert!(apply_block_res.is_ok());
 
-    // Craft a new transaction which tries to consume the same note that was consumed in in the
+    // Craft a new transaction which tries to consume the same note that was consumed in the
     // first tx
     let tx_new = MockProvenTxBuilder::with_account(
         accounts[0].id,

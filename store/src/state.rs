@@ -478,7 +478,7 @@ impl State {
 // UTILITIES
 // ================================================================================================
 
-/// Returns the nullifier's block number given its leaf value in the SMT.
+/// Returns the nullifier's leaf value in the SMT by its block number.
 fn block_to_nullifier_data(block: BlockNumber) -> Word {
     [Felt::from(block), Felt::ZERO, Felt::ZERO, Felt::ZERO]
 }

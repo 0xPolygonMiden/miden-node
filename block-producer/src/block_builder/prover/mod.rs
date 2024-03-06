@@ -224,7 +224,7 @@ impl BlockProver {
         let proof_hash = Digest::default();
         let timestamp: Felt = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("today is expected to be before 1970")
+            .expect("today is expected to be after 1970")
             .as_millis()
             .try_into()
             .expect("timestamp is greater than or equal to the field modulus");

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, iter};
 
 use miden_mock::mock::block::mock_block_header;
 use miden_objects::{
@@ -188,14 +188,13 @@ async fn test_compute_account_root_success() {
     // Set up store's account SMT
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new()
-        .initial_accounts(
-            account_ids
-                .iter()
-                .zip(account_initial_states.iter())
-                .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
-        )
-        .build();
+    let store = MockStoreSuccessBuilder::from_accounts(
+        account_ids
+            .iter()
+            .zip(account_initial_states.iter())
+            .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
+    )
+    .build();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -272,14 +271,13 @@ async fn test_compute_account_root_empty_batches() {
     // Set up store's account SMT
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new()
-        .initial_accounts(
-            account_ids
-                .iter()
-                .zip(account_initial_states.iter())
-                .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
-        )
-        .build();
+    let store = MockStoreSuccessBuilder::from_accounts(
+        account_ids
+            .iter()
+            .zip(account_initial_states.iter())
+            .map(|(&account_id, &account_hash)| (account_id, account_hash.into())),
+    )
+    .build();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -310,7 +308,7 @@ async fn test_compute_note_root_empty_batches_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new().build();
+    let store = MockStoreSuccessBuilder::from_batches(iter::empty()).build();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -340,7 +338,7 @@ async fn test_compute_note_root_empty_notes_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new().build();
+    let store = MockStoreSuccessBuilder::from_batches(iter::empty()).build();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -391,7 +389,7 @@ async fn test_compute_note_root_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new().build();
+    let store = MockStoreSuccessBuilder::from_batches(iter::empty()).build();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -562,9 +560,7 @@ async fn test_compute_nullifier_root_empty_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
-    let store = MockStoreSuccessBuilder::new()
-        .initial_accounts(batches.iter().flat_map(|batch| batch.account_initial_states()))
-        .build();
+    let store = MockStoreSuccessBuilder::from_batches(batches.iter()).build();
 
     // Block prover
     // ---------------------------------------------------------------------------------------------
@@ -621,8 +617,7 @@ async fn test_compute_nullifier_root_success() {
     // ---------------------------------------------------------------------------------------------
     let initial_block_num = 42;
 
-    let store = MockStoreSuccessBuilder::new()
-        .initial_accounts(batches.iter().flat_map(|batch| batch.account_initial_states()))
+    let store = MockStoreSuccessBuilder::from_batches(batches.iter())
         .initial_block_num(initial_block_num)
         .build();
 
@@ -660,7 +655,7 @@ async fn test_compute_nullifier_root_success() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_compute_chain_mmr_root_empty_mmr() {
-    let store = MockStoreSuccessBuilder::new().build();
+    let store = MockStoreSuccessBuilder::from_batches(iter::empty()).build();
 
     let expected_block_header = build_expected_block_header(&store, &[]).await;
     let actual_block_header = build_actual_block_header(&store, Vec::new()).await;
@@ -679,7 +674,9 @@ async fn test_compute_chain_mmr_root_mmr_1_peak() {
         mmr
     };
 
-    let store = MockStoreSuccessBuilder::new().initial_chain_mmr(initial_chain_mmr).build();
+    let store = MockStoreSuccessBuilder::from_batches(iter::empty())
+        .initial_chain_mmr(initial_chain_mmr)
+        .build();
 
     let expected_block_header = build_expected_block_header(&store, &[]).await;
     let actual_block_header = build_actual_block_header(&store, Vec::new()).await;
@@ -702,7 +699,9 @@ async fn test_compute_chain_mmr_root_mmr_17_peaks() {
         mmr
     };
 
-    let store = MockStoreSuccessBuilder::new().initial_chain_mmr(initial_chain_mmr).build();
+    let store = MockStoreSuccessBuilder::from_batches(iter::empty())
+        .initial_chain_mmr(initial_chain_mmr)
+        .build();
 
     let expected_block_header = build_expected_block_header(&store, &[]).await;
     let actual_block_header = build_actual_block_header(&store, Vec::new()).await;
