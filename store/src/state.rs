@@ -164,7 +164,8 @@ impl State {
             // update nullifier tree
             let nullifier_tree = {
                 let mut nullifier_tree = inner.nullifier_tree.clone();
-                let nullifier_data = block_num_to_nullifier_value(block_header.block_num());
+                let nullifier_data =
+                    NullifierValueEncoder::encode_block_num(block_header.block_num());
                 for nullifier in nullifiers.iter() {
                     nullifier_tree.insert(*nullifier, nullifier_data);
                 }
@@ -443,7 +444,7 @@ impl State {
             .cloned()
             .map(|nullifier| {
                 let value = inner.nullifier_tree.get_value(&nullifier);
-                let block_num = nullifier_value_to_block_num(value);
+                let block_num = NullifierValueEncoder::decode_block_num(&value);
 
                 NullifierInfo {
                     nullifier: nullifier.into(),
@@ -478,17 +479,21 @@ impl State {
 // UTILITIES
 // ================================================================================================
 
-/// Returns the nullifier's leaf value in the SMT by its block number.
-fn block_num_to_nullifier_value(block: BlockNumber) -> Word {
-    [Felt::from(block), Felt::ZERO, Felt::ZERO, Felt::ZERO]
-}
+struct NullifierValueEncoder;
 
-/// Given the leaf value of the nullifier SMT, returns the nullifier's block number.
-///
-/// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
-/// of a value.
-fn nullifier_value_to_block_num(value: Word) -> BlockNumber {
-    value[0].as_int().try_into().expect("invalid block number found in store")
+impl NullifierValueEncoder {
+    /// Returns the nullifier's leaf value in the SMT by its block number.
+    fn encode_block_num(block: BlockNumber) -> Word {
+        [Felt::from(block), Felt::ZERO, Felt::ZERO, Felt::ZERO]
+    }
+
+    /// Given the leaf value of the nullifier SMT, returns the nullifier's block number.
+    ///
+    /// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
+    /// of a value.
+    fn decode_block_num(value: &Word) -> BlockNumber {
+        value[0].as_int().try_into().expect("invalid block number found in store")
+    }
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
@@ -520,7 +525,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<Smt, StateInitializationErro
     let len = nullifiers.len();
     let leaves = nullifiers
         .into_iter()
-        .map(|(nullifier, block)| (nullifier, block_num_to_nullifier_value(block)));
+        .map(|(nullifier, block)| (nullifier, NullifierValueEncoder::encode_block_num(block)));
 
     let now = Instant::now();
     let nullifier_tree = Smt::with_entries(leaves)
@@ -563,21 +568,21 @@ async fn load_accounts(
 mod tests {
     use miden_objects::{Felt, ZERO};
 
-    use super::{block_num_to_nullifier_value, nullifier_value_to_block_num};
+    use crate::state::NullifierValueEncoder;
 
     #[test]
-    fn test_nullifier_data_encoding() {
+    fn test_nullifier_value_encoding() {
         let block_num = 123;
-        let nullifier_value = block_num_to_nullifier_value(block_num);
+        let nullifier_value = NullifierValueEncoder::encode_block_num(block_num);
 
         assert_eq!(nullifier_value, [Felt::from(block_num), ZERO, ZERO, ZERO])
     }
 
     #[test]
-    fn test_nullifier_data_decoding() {
+    fn test_nullifier_value_decoding() {
         let block_num = 123;
         let nullifier_value = [Felt::from(block_num), ZERO, ZERO, ZERO];
-        let decoded_block_num = nullifier_value_to_block_num(nullifier_value);
+        let decoded_block_num = NullifierValueEncoder::decode_block_num(&nullifier_value);
 
         assert_eq!(decoded_block_num, block_num);
     }
