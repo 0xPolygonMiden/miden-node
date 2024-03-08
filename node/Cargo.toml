@@ -18,7 +18,6 @@ tracing-forest = ["miden-node-block-producer/tracing-forest"]
 [dependencies]
 anyhow = { version = "1.0" }
 clap = { version = "4.3", features = ["derive"] }
-miden-crypto = { workspace = true, features = ["std"] }
 miden-lib = { workspace = true, features = ["concurrent"] }
 miden-node-block-producer = { path = "../block-producer", version = "0.1" }
 miden-node-rpc = { path = "../rpc", version = "0.1" }

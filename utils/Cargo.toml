@@ -14,7 +14,6 @@ rust-version = "1.75"
 anyhow = { version = "1.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
-miden-crypto = { workspace = true }
 miden-objects = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 tracing = { workspace = true }
