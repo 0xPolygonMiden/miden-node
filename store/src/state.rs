@@ -4,7 +4,7 @@
 //! data is atomically written, and that reads are consistent.
 use std::{mem, sync::Arc};
 
-use miden_node_proto::{nullifier_value_to_block_num, AccountInputRecord, NullifierWitness};
+use miden_node_proto::{AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
     crypto::{
@@ -164,7 +164,7 @@ impl State {
             // update nullifier tree
             let nullifier_tree = {
                 let mut nullifier_tree = inner.nullifier_tree.clone();
-                let nullifier_data = block_to_nullifier_data(block_header.block_num());
+                let nullifier_data = block_num_to_nullifier_value(block_header.block_num());
                 for nullifier in nullifiers.iter() {
                     nullifier_tree.insert(*nullifier, nullifier_data);
                 }
@@ -479,8 +479,16 @@ impl State {
 // ================================================================================================
 
 /// Returns the nullifier's leaf value in the SMT by its block number.
-fn block_to_nullifier_data(block: BlockNumber) -> Word {
+fn block_num_to_nullifier_value(block: BlockNumber) -> Word {
     [Felt::from(block), Felt::ZERO, Felt::ZERO, Felt::ZERO]
+}
+
+/// Given the leaf value of the nullifier SMT, returns the nullifier's block number.
+///
+/// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
+/// of a value.
+fn nullifier_value_to_block_num(value: Word) -> BlockNumber {
+    value[0].as_int().try_into().expect("invalid block number found in store")
 }
 
 /// Creates a [SimpleSmt] tree from the `notes`.
@@ -512,7 +520,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<Smt, StateInitializationErro
     let len = nullifiers.len();
     let leaves = nullifiers
         .into_iter()
-        .map(|(nullifier, block)| (nullifier, block_to_nullifier_data(block)));
+        .map(|(nullifier, block)| (nullifier, block_num_to_nullifier_value(block)));
 
     let now = Instant::now();
     let nullifier_tree = Smt::with_entries(leaves)
@@ -549,4 +557,28 @@ async fn load_accounts(
 
     SimpleSmt::with_leaves(account_data)
         .map_err(StateInitializationError::FailedToCreateAccountsTree)
+}
+
+#[cfg(test)]
+mod tests {
+    use miden_objects::{Felt, ZERO};
+
+    use super::{block_num_to_nullifier_value, nullifier_value_to_block_num};
+
+    #[test]
+    fn test_nullifier_data_encoding() {
+        let block_num = 123;
+        let nullifier_value = block_num_to_nullifier_value(block_num);
+
+        assert_eq!(nullifier_value, [Felt::from(block_num), ZERO, ZERO, ZERO])
+    }
+
+    #[test]
+    fn test_nullifier_data_decoding() {
+        let block_num = 123;
+        let nullifier_value = [Felt::from(block_num), ZERO, ZERO, ZERO];
+        let decoded_block_num = nullifier_value_to_block_num(nullifier_value);
+
+        assert_eq!(decoded_block_num, block_num);
+    }
 }
