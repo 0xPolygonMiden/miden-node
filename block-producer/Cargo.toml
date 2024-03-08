@@ -25,7 +25,6 @@ async-trait = { version = "0.1" }
 clap = { version = "4.3", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
-miden-air = { workspace = true }
 miden-node-proto = { path = "../proto", version = "0.1" }
 miden-node-store = { path = "../store", version = "0.1" }
 miden-node-utils = { path = "../utils", version = "0.1" }
@@ -43,6 +42,7 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
+miden-air = { workspace = true }
 miden-node-test-macro = { path = "../test-macro" }
 miden-objects = { workspace = true, features = ["testing"] }
 once_cell = { version = "1.18" }

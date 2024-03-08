@@ -1,8 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use miden_air::{ExecutionOptions, Felt};
-use miden_objects::{assembly::Assembler, BlockHeader, Digest};
-use miden_processor::{execute, DefaultHost, MemAdviceProvider, Program};
+use miden_objects::{assembly::Assembler, BlockHeader, Digest, Felt};
+use miden_processor::{execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
 
 use self::block_witness::BlockWitness;
