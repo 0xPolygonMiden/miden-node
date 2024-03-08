@@ -39,7 +39,7 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
 
             PRIMARY KEY (account_id),
             CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
-            CONSTRAINT accounts_block_num_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296)
+            CONSTRAINT accounts_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE
@@ -61,13 +61,14 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
         (
             nullifier BLOB NOT NULL,
             nullifier_prefix INTEGER NOT NULL,
-            block_number INTEGER NOT NULL,
+            block_num INTEGER NOT NULL,
 
             PRIMARY KEY (nullifier),
             CONSTRAINT fk_block_num FOREIGN KEY (block_number) REFERENCES block_headers (block_num),
             CONSTRAINT nullifiers_nullifier_is_digest CHECK (length(nullifier) = 32),
             CONSTRAINT nullifiers_nullifier_prefix_is_u16 CHECK (nullifier_prefix >= 0 AND nullifier_prefix < 65536),
-            CONSTRAINT nullifiers_block_number_is_u32 CHECK (block_number >= 0 AND block_number < 4294967296)
+            CONSTRAINT nullifiers_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
+            FOREIGN KEY (block_num) REFERENCES block_header (block_num)
         ) STRICT, WITHOUT ROWID;
         ",
     )])

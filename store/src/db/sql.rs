@@ -157,7 +157,7 @@ pub fn insert_nullifiers_for_block(
     block_num: BlockNumber,
 ) -> Result<usize> {
     let mut stmt = transaction.prepare(
-        "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_number) VALUES (?1, ?2, ?3);",
+        "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_num) VALUES (?1, ?2, ?3);",
     )?;
 
     let mut count = 0;
@@ -175,7 +175,7 @@ pub fn insert_nullifiers_for_block(
 /// A vector with nullifiers and the block height at which they were created, or an error.
 pub fn select_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, BlockNumber)>> {
     let mut stmt =
-        conn.prepare("SELECT nullifier, block_number FROM nullifiers ORDER BY block_number ASC;")?;
+        conn.prepare("SELECT nullifier, block_num FROM nullifiers ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
 
     let mut result = vec![];
@@ -211,15 +211,15 @@ pub fn select_nullifiers_by_block_range(
         "
         SELECT
             nullifier,
-            block_number
+            block_num
         FROM
             nullifiers
         WHERE
-            block_number > ?1 AND
-            block_number <= ?2 AND
+            block_num > ?1 AND
+            block_num <= ?2 AND
             nullifier_prefix IN rarray(?3)
         ORDER BY
-            block_number ASC
+            block_num ASC
     ",
     )?;
 
