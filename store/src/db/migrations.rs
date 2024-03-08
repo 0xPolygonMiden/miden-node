@@ -43,6 +43,20 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE
+            account_details
+        (
+            account_id INTEGER NOT NULL,
+            nonce INTEGER NOT NULL,
+            vault BLOB NOT NULL,
+            storage BLOB NOT NULL,
+            code BLOB NOT NULL,
+
+            PRIMARY KEY (account_id),
+            CONSTRAINT account_details_nonce_non_negative CHECK (nonce >= 0),
+            FOREIGN KEY (account_id) REFERENCES accounts (account_id)
+        ) STRICT, WITHOUT ROWID;
+
+        CREATE TABLE
             nullifiers
         (
             nullifier BLOB NOT NULL,
