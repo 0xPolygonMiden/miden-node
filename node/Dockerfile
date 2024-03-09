@@ -31,6 +31,21 @@ RUN apt-get update && \
     libsqlite3-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Set labels
+LABEL org.opencontainers.image.authors=miden@polygon.io \
+      org.opencontainers.image.url=https://0xpolygonmiden.github.io/ \
+      org.opencontainers.image.documentation=https://github.com/0xPolygonMiden/miden-node \
+      org.opencontainers.image.source=https://github.com/0xPolygonMiden/miden-node \
+      org.opencontainers.image.vendor=Polygon \
+      org.opencontainers.image.licenses=MIT
+
+ARG CREATED
+ARG VERSION
+ARG COMMIT
+LABEL org.opencontainers.image.created=$CREATED \
+      org.opencontainers.image.version=$VERSION \
+      org.opencontainers.image.revision=$COMMIT
+
 # Copy artifacts from the builder stage
 COPY --from=builder /app/node/miden-node.toml miden-node.toml
 COPY --from=builder /app/genesis.dat genesis.dat
