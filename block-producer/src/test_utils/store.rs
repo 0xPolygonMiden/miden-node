@@ -180,7 +180,7 @@ impl ApplyBlock for MockStoreSuccess {
         let mut locked_produced_nullifiers = self.produced_nullifiers.write().await;
 
         // update accounts
-        for &(account_id, account_hash) in block.updated_accounts.iter() {
+        for &(account_id, ref details, account_hash) in block.updated_accounts.iter() {
             locked_accounts.insert(account_id.into(), account_hash.into());
         }
         debug_assert_eq!(locked_accounts.root(), block.header.account_root());

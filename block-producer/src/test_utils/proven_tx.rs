@@ -4,7 +4,7 @@ use miden_air::HashFunction;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteEnvelope, NoteMetadata, Nullifier},
-    transaction::{InputNotes, OutputNotes, ProvenTransaction},
+    transaction::{InputNotes, OutputNotes, ProvenTransactio, ProvenTransactionBuilder},
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
 };
@@ -90,15 +90,16 @@ impl MockProvenTxBuilder {
     }
 
     pub fn build(self) -> ProvenTransaction {
-        ProvenTransaction::new(
+        ProvenTransactionBuilder::new(
             self.account_id,
             self.initial_account_hash,
             self.final_account_hash,
-            InputNotes::new(self.nullifiers.unwrap_or_default()).unwrap(),
-            OutputNotes::new(self.notes_created.unwrap_or_default()).unwrap(),
-            None,
             Digest::default(),
             ExecutionProof::new(StarkProof::new_dummy(), HashFunction::Blake3_192),
         )
+        .add_input_notes(self.nullifiers.unwrap_or_default())
+        .add_output_notes(self.notes_created.unwrap_or_default())
+        .build()
+        .unwrap()
     }
 }

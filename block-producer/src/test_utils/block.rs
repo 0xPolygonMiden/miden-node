@@ -4,6 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{Mmr, SimpleSmt},
     notes::{NoteEnvelope, Nullifier},
+    transaction::AccountDetails,
     BlockHeader, Digest, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_NOTES_PER_BATCH,
     ONE, ZERO,
 };
@@ -25,11 +26,11 @@ pub async fn build_expected_block_header(
     let last_block_header = *store.last_block_header.read().await;
 
     // Compute new account root
-    let updated_accounts: Vec<(AccountId, Digest)> =
+    let updated_accounts: Vec<(AccountId, Option<AccountDetails>, Digest)> =
         batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
     let new_account_root = {
         let mut store_accounts = store.accounts.read().await.clone();
-        for (account_id, new_account_state) in updated_accounts {
+        for (account_id, details, new_account_state) in updated_accounts {
             store_accounts.insert(account_id.into(), new_account_state.into());
         }
 
@@ -67,14 +68,14 @@ pub async fn build_actual_block_header(
     store: &MockStoreSuccess,
     batches: Vec<TransactionBatch>,
 ) -> BlockHeader {
-    let updated_accounts: Vec<(AccountId, Digest)> =
-        batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+    let updated_accounts: Vec<(AccountId, Option<AccountDetails>, Digest)> =
+        batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
     let produced_nullifiers: Vec<Nullifier> =
-        batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+        batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
     let block_inputs_from_store: BlockInputs = store
         .get_block_inputs(
-            updated_accounts.iter().map(|(account_id, _)| account_id),
+            updated_accounts.iter().map(|(account_id, _, _)| account_id),
             produced_nullifiers.iter(),
         )
         .await
@@ -91,7 +92,7 @@ pub struct MockBlockBuilder {
     store_chain_mmr: Mmr,
     last_block_header: BlockHeader,
 
-    updated_accounts: Option<Vec<(AccountId, Digest)>>,
+    updated_accounts: Option<Vec<(AccountId, Option<AccountDetails>, Digest)>>,
     created_notes: Option<BTreeMap<u64, NoteEnvelope>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
@@ -111,9 +112,9 @@ impl MockBlockBuilder {
 
     pub fn account_updates(
         mut self,
-        updated_accounts: Vec<(AccountId, Digest)>,
+        updated_accounts: Vec<(AccountId, Option<AccountDetails>, Digest)>,
     ) -> Self {
-        for &(account_id, new_account_state) in updated_accounts.iter() {
+        for &(account_id, ref details, new_account_state) in updated_accounts.iter() {
             self.store_accounts.insert(account_id.into(), new_account_state.into());
         }
 

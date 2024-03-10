@@ -7,6 +7,7 @@ use miden_objects::{
         merkle::SimpleSmt,
     },
     notes::{NoteEnvelope, Nullifier},
+    transaction::AccountDetails,
     Digest, BATCH_OUTPUT_NOTES_TREE_DEPTH, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
@@ -55,6 +56,7 @@ impl TransactionBatch {
                     AccountStates {
                         initial_state: tx.initial_account_hash(),
                         final_state: tx.final_account_hash(),
+                        details: tx.account_details().cloned(),
                     },
                 )
             })
@@ -108,12 +110,14 @@ impl TransactionBatch {
             .map(|(account_id, account_states)| (*account_id, account_states.initial_state))
     }
 
-    /// Returns an iterator over (account_id, new_state_hash) tuples for accounts that were
+    /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
-    pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
-        self.updated_accounts
-            .iter()
-            .map(|(account_id, account_states)| (*account_id, account_states.final_state))
+    pub fn updated_accounts(
+        &self
+    ) -> impl Iterator<Item = (AccountId, Option<AccountDetails>, Digest)> + '_ {
+        self.updated_accounts.iter().map(|(account_id, account_states)| {
+            (*account_id, account_states.details.clone(), account_states.final_state)
+        })
     }
 
     /// Returns an iterator over produced nullifiers for all consumed notes.
@@ -147,8 +151,9 @@ impl TransactionBatch {
 /// account.
 ///
 /// TODO: should this be moved into domain objects?
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct AccountStates {
     initial_state: Digest,
     final_state: Digest,
+    details: Option<AccountDetails>,
 }

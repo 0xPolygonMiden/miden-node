@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use miden_node_proto::{
-    errors::{MissingFieldHelper, ParseError},
+    errors::{ConversionError, MissingFieldHelper},
     generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
@@ -9,6 +9,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
     notes::{NoteEnvelope, Nullifier},
+    transaction::AccountDetails,
     BlockHeader, Digest,
 };
 
@@ -17,11 +18,10 @@ use crate::store::BlockInputsError;
 #[derive(Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
-    pub updated_accounts: Vec<(AccountId, Digest)>,
+    pub updated_accounts: Vec<(AccountId, Option<AccountDetails>, Digest)>,
     pub created_notes: BTreeMap<u64, NoteEnvelope>,
     pub produced_nullifiers: Vec<Nullifier>,
     // TODO:
-    // - full states for updated public accounts
     // - full states for created public notes
     // - zk proof
 }
@@ -94,7 +94,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
                 };
                 Ok((domain.account_id, witness))
             })
-            .collect::<Result<BTreeMap<_, _>, ParseError>>()?;
+            .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
         let nullifiers = get_block_inputs
             .nullifiers
@@ -103,7 +103,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
                 let witness: NullifierWitness = entry.try_into()?;
                 Ok((witness.nullifier, witness.proof))
             })
-            .collect::<Result<BTreeMap<_, _>, ParseError>>()?;
+            .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
         Ok(Self {
             block_header,

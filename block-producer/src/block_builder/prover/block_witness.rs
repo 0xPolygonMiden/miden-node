@@ -37,7 +37,7 @@ impl BlockWitness {
 
         let updated_accounts = {
             let mut account_initial_states: BTreeMap<AccountId, Digest> =
-                batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
+                batches.iter().flat_map(TransactionBatch::account_initial_states).collect();
 
             let mut account_merkle_proofs: BTreeMap<AccountId, MerklePath> = block_inputs
                 .accounts
@@ -47,8 +47,8 @@ impl BlockWitness {
 
             batches
                 .iter()
-                .flat_map(|batch| batch.updated_accounts())
-                .map(|(account_id, final_state_hash)| {
+                .flat_map(TransactionBatch::updated_accounts)
+                .map(|(account_id, details, final_state_hash)| {
                     let initial_state_hash = account_initial_states
                         .remove(&account_id)
                         .expect("already validated that key exists");
