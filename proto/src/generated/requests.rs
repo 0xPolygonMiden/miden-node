@@ -6,6 +6,9 @@ pub struct AccountUpdate {
     pub account_id: ::core::option::Option<super::account::AccountId>,
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
+    /// Details for public account.
+    #[prost(message, optional, tag = "3")]
+    pub details: ::core::option::Option<super::account::AccountDetails>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]

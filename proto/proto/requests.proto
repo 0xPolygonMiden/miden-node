@@ -10,6 +10,8 @@ import "note.proto";
 message AccountUpdate {
     account.AccountId account_id = 1;
     digest.Digest account_hash = 2;
+    // Details for public account.
+    account.AccountDetails details = 3;
 }
 
 message ApplyBlockRequest {

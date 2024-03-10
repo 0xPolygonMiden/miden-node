@@ -1,16 +1,28 @@
 use std::any::type_name;
 
-use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
+use miden_objects::{
+    crypto::merkle::{SmtLeafError, SmtProofError},
+    utils::DeserializationError,
+    AccountDeltaError, AssetError, AssetVaultError,
+};
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq)]
-pub enum ParseError {
+pub enum ConversionError {
     #[error("Hex error: {0}")]
     HexError(#[from] hex::FromHexError),
     #[error("SMT leaf error: {0}")]
     SmtLeafError(#[from] SmtLeafError),
     #[error("SMT proof error: {0}")]
     SmtProofError(#[from] SmtProofError),
+    #[error("Account delta error: {0}")]
+    AccountDeltaError(#[from] AccountDeltaError),
+    #[error("Asset error: {0}")]
+    AssetError(#[from] AssetError),
+    #[error("Asset vault error: {0}")]
+    AssetVaultError(#[from] AssetVaultError),
+    #[error("Deserialization error: {0}")]
+    DeserializationError(DeserializationError),
     #[error("Too much data, expected {expected}, got {got}")]
     TooMuchData { expected: usize, got: usize },
     #[error("Not enough data, expected {expected}, got {got}")]
@@ -26,13 +38,19 @@ pub enum ParseError {
     },
 }
 
+impl From<DeserializationError> for ConversionError {
+    fn from(value: DeserializationError) -> Self {
+        Self::DeserializationError(value)
+    }
+}
+
 pub trait MissingFieldHelper {
-    fn missing_field(field_name: &'static str) -> ParseError;
+    fn missing_field(field_name: &'static str) -> ConversionError;
 }
 
 impl<T: prost::Message> MissingFieldHelper for T {
-    fn missing_field(field_name: &'static str) -> ParseError {
-        ParseError::MissingFieldInProtobufRepresentation {
+    fn missing_field(field_name: &'static str) -> ConversionError {
+        ConversionError::MissingFieldInProtobufRepresentation {
             entity: type_name::<T>(),
             field_name,
         }
