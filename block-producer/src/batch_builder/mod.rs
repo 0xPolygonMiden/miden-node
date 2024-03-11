@@ -122,7 +122,6 @@ impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
 {
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
     async fn build_batch(
         &self,

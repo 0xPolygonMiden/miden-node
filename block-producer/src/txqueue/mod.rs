@@ -147,7 +147,6 @@ where
     ///
     /// This method will validate the `tx` and ensure it is valid w.r.t. the rollup state, and the
     /// current in-flight transactions.
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-block-producer", skip_all, err)]
     pub async fn add_transaction(
         &self,

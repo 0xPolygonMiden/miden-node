@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [nightly]
+        toolchain: [stable]
         os: [ubuntu]
     steps:
       - uses: actions/checkout@v4
