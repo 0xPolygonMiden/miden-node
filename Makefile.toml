@@ -1,0 +1,21 @@
+# Cargo Makefile
+
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.format]
+toolchain = "nightly"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
+[tasks.clippy]
+toolchain = "nightly"
+command = "cargo"
+args = ["clippy","--workspace", "--all-targets", "--", "-D", "clippy::all", "-D", "warnings"]
+
+[tasks.prepare]
+toolchain = "nightly"
+dependencies = [
+    "format",
+    "clippy",
+]

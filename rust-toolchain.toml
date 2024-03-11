@@ -1,6 +1,6 @@
 # rust-toolchain.toml
 
+# sets the default toolchain for the workspace
 [toolchain]
 channel = "1.75"
-components = ["rustfmt", "clippy"]
 targets = ["wasm32-unknown-unknown"]
