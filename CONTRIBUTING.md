@@ -15,18 +15,18 @@ We want to make contributing to this project as easy and transparent as possible
 We are using [Github Flow](https://docs.github.com/en/get-started/quickstart/github-flow), so all code changes happen through pull requests from a [forked repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo).
 
 ### Branching
-- The current active branch is `main`. Every branch with a fix/feature must be forked from `main`.
+- The current active branch is `next`. Every branch with a fix/feature must be forked from `next`.
 
 - The branch name should contain a short issue/feature description separated with hyphens [(kebab-case)](https://en.wikipedia.org/wiki/Letter_case#Kebab_case).
 
     For example, if the issue title is `Fix functionality X in component Y` then the branch name will be something like: `fix-x-in-y`.
 
-- New branch should be rebased from `main` before submitting a PR in case there have been changes to avoid merge commits.
+- New branch should be rebased from `next` before submitting a PR in case there have been changes to avoid merge commits.
 i.e. this branches state:
   ```
           A---B---C fix-x-in-y
          /
-    D---E---F---G main
+    D---E---F---G next
             |   |
          (F, G) changes happened after `fix-x-in-y` forked
   ```
@@ -37,7 +37,7 @@ i.e. this branches state:
   ```
                   A'--B'--C' fix-x-in-y
                  /
-    D---E---F---G main
+    D---E---F---G next
   ```
 
 
@@ -72,11 +72,13 @@ For example, a new change to the `miden-node-store` crate might have the followi
     // ================================================================================
     ```
 
-- [Rustfmt](https://github.com/rust-lang/rustfmt), [Clippy](https://github.com/rust-lang/rust-clippy) and [Rustdoc](https://doc.rust-lang.org/rustdoc/index.html) linting is included in CI pipeline. Anyways it's preferable to run linting locally before push. Note that we use some `nightly` Rust features for Rustfmt and Clippy.
+- [Rustfmt](https://github.com/rust-lang/rustfmt), [Clippy](https://github.com/rust-lang/rust-clippy) and [Rustdoc](https://doc.rust-lang.org/rustdoc/index.html) linting is included in CI pipeline. Anyways it's preferable to run linting locally before push. To simplify running these commands in a reproducible manner we use [cargo-make](https://github.com/sagiegurari/cargo-make), you can run:
 
     ```
-    cargo +nightly fmt --all && cargo +nightly clippy --workspace --all-targets -- -D clippy::all -D warnings && cargo test --all-features --workspace && cargo doc --all-features
+    cargo make lint
     ```
+
+You can find more information about the `cargo make` commands in the [Makefile](Makefile.toml)
 
 ### Versioning
 We use [semver](https://semver.org/) naming convention.

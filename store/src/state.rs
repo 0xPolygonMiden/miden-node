@@ -281,7 +281,6 @@ impl State {
     /// Queries a [BlockHeader] from the database.
     ///
     /// If [None] is given as the value of `block_num`, the latest [BlockHeader] is returned.
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn get_block_header(
         &self,
@@ -319,7 +318,6 @@ impl State {
     ///   the block range.
     /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is interested in,
     ///   results will include nullifiers matching prefixes produced in the given block range.
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn sync_state(
         &self,
