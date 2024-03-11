@@ -48,12 +48,12 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           override: true
-      - name: Doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --all-features --release
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - name: cargo make - format
+        run: cargo make doc
 
   test:
     name: test stable on ubuntu-latest
@@ -64,10 +64,10 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           override: true
-      - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features --workspace -- --nocapture
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - name: cargo make - format
+        run: cargo make test
 

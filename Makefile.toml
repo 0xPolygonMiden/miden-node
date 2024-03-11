@@ -22,8 +22,17 @@ dependencies = [
   "clippy-all-features"
 ]
 
-[tasks.prepare]
+[tasks.doc]
+command = "cargo"
+args = ["doc", "--all-features", "--release"]
+
+[tasks.test]
+command = "cargo"
+args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
+
+[tasks.lint]
 dependencies = [
     "format",
     "clippy",
+    "doc"
 ]
