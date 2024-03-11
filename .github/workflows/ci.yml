@@ -24,6 +24,8 @@ jobs:
           toolchain: ${{matrix.toolchain}}
           components: rustfmt
           override: true
+      - name: Install cargo make
+        run: cargo install cargo-make
       - name: cargo make - format
         run: cargo make format
 
