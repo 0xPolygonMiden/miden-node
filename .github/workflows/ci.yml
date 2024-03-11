@@ -35,7 +35,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
           components: clippy
           override: true
       - name: version
@@ -53,7 +52,6 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
           override: true
       - name: Doc
         uses: actions-rs/cargo@v1
@@ -70,7 +68,6 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
           override: true
       - name: Test
         uses: actions-rs/cargo@v1
