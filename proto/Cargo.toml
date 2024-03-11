@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-proto"
-version = "0.1.0"
+version = "0.2.0"
 description = "Miden RPC message definitions"
 authors = ["miden contributors"]
 readme = "README.md"
@@ -12,7 +12,7 @@ rust-version = "1.75"
 
 [dependencies]
 hex = { version = "0.4" }
-miden-node-utils = { path = "../utils", version = "0.1" }
+miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }
 prost = { version = "0.12" }
 thiserror = { workspace = true }
