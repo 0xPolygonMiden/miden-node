@@ -8,10 +8,22 @@ toolchain = "nightly"
 command = "cargo"
 args = ["fmt", "--all", "--", "--check"]
 
-[tasks.clippy]
+[tasks.clippy-default]
 toolchain = "nightly"
 command = "cargo"
 args = ["clippy","--workspace", "--all-targets", "--", "-D", "clippy::all", "-D", "warnings"]
+
+[tasks.clippy-all-features]
+toolchain = "nightly"
+command = "cargo"
+args = ["clippy","--workspace", "--all-targets", "-all-features", "--", "-D", "clippy::all", "-D", "warnings"]
+
+[tasks.clippy]
+toolchain = "nightly"
+dependencies = [
+  "clippy-default",
+  "clippy-all-features"
+]
 
 [tasks.prepare]
 toolchain = "nightly"
