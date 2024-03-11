@@ -1,6 +1,5 @@
-# rust-toolchain.toml
+# rust-toolchain file
 
-# sets the default toolchain for the workspace
+# sets the default toolchain
 [toolchain]
-channel = "1.75"
-targets = ["wasm32-unknown-unknown"]
+channel = "1.75.0"

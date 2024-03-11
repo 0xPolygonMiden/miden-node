@@ -24,6 +24,8 @@ jobs:
           toolchain: ${{matrix.toolchain}}
           components: rustfmt
           override: true
+      - name: version
+        run: rustc --version
       - name: Install cargo make
         run: cargo install cargo-make
       - name: cargo make - format
@@ -46,6 +48,8 @@ jobs:
           toolchain: ${{matrix.toolchain}}
           components: clippy
           override: true
+      - name: version
+        run: rustc --version
       - name: Install cargo make
         run: cargo install cargo-make
       - name: cargo make - clippy
