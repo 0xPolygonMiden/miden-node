@@ -19,8 +19,6 @@ jobs:
           toolchain: nightly
           components: rustfmt
           override: true
-      - name: version
-        run: rustc --version
       - name: Install cargo make
         run: cargo install cargo-make
       - name: cargo make - format
@@ -37,8 +35,6 @@ jobs:
           profile: minimal
           components: clippy
           override: true
-      - name: version
-        run: rustc --version
       - name: Install cargo make
         run: cargo install cargo-make
       - name: cargo make - clippy
