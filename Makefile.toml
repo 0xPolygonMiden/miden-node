@@ -23,8 +23,9 @@ dependencies = [
 ]
 
 [tasks.doc]
+env = { "RUSTDOCFLAGS" = "-D warnings" }
 command = "cargo"
-args = ["doc", "--all-features", "--release"]
+args = ["doc", "--all-features", "--keep-going", "--release"]
 
 [tasks.test]
 command = "cargo"
@@ -34,5 +35,5 @@ args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
 dependencies = [
     "format",
     "clippy",
-    "doc"
+    "docs"
 ]

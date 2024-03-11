@@ -40,8 +40,8 @@ jobs:
       - name: cargo make - clippy
         run: cargo make clippy
 
-  docs:
-    name: docs stable on ubuntu-latest
+  doc:
+    name: doc stable on ubuntu-latest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
