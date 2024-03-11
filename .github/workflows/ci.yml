@@ -24,11 +24,8 @@ jobs:
           toolchain: ${{matrix.toolchain}}
           components: rustfmt
           override: true
-      - name: fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: cargo make - format
+        run: cargo make format
 
   clippy:
     name: clippy ${{matrix.toolchain}} on ${{matrix.os}}

@@ -334,9 +334,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.15.3"
+version = "3.15.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ea184aa71bb362a1157c896979544cc23974e08fd265f29ea96b59f0b4a555b"
+checksum = "7ff69b9dd49fd426c69a0db9fc04dd934cdb6645ff000864d98f7e2af8830eaa"
 
 [[package]]
 name = "bytemuck"
@@ -358,9 +358,9 @@ checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
 
 [[package]]
 name = "cc"
-version = "1.0.89"
+version = "1.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0ba8f7aaa012f30d5b2861462f6708eccd49c3c39863fe083a308035f63d723"
+checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
 dependencies = [
  "jobserver",
  "libc",
@@ -383,9 +383,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.34"
+version = "0.4.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bc015644b92d5890fab7489e49d21f879d5c990186827d42ec511919404f38b"
+checksum = "8eaf5903dcbc0a39312feb77df2ff4c76387d591b9fc7b04a238dcf8bb62639a"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -408,9 +408,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.1"
+version = "4.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c918d541ef2913577a0f9566e9ce27cb35b6df072075769e0b26cb5a554520da"
+checksum = "b230ab84b0ffdf890d5a10abdbc8b83ae1c4918275daea1ab8801f71536b2651"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -418,9 +418,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.1"
+version = "4.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f3e7391dad68afb0c2ede1bf619f579a3dc9c2ec67f089baa397123a2f3d1eb"
+checksum = "ae129e2e766ae0ec03484e609954119f123cc1fe650337e155d03b022f24f7b4"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1195,7 +1195,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.1.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=main#1d86038758a92889d93ad11001850dbb1b44db4a"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=main#4607915ec55e0056177999f4aba0e5ad1f32b88b"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1205,7 +1205,7 @@ dependencies = [
 [[package]]
 name = "miden-mock"
 version = "0.1.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=main#1d86038758a92889d93ad11001850dbb1b44db4a"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=main#4607915ec55e0056177999f4aba0e5ad1f32b88b"
 dependencies = [
  "env_logger",
  "hex",
@@ -1362,8 +1362,8 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.1.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=main#1d86038758a92889d93ad11001850dbb1b44db4a"
+version = "0.1.1"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=main#4607915ec55e0056177999f4aba0e5ad1f32b88b"
 dependencies = [
  "log",
  "miden-assembly",
@@ -1372,6 +1372,7 @@ dependencies = [
  "miden-processor",
  "miden-verifier",
  "serde",
+ "winter-rand-utils",
 ]
 
 [[package]]
@@ -1410,7 +1411,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.1.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=main#1d86038758a92889d93ad11001850dbb1b44db4a"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=main#4607915ec55e0056177999f4aba0e5ad1f32b88b"
 dependencies = [
  "miden-lib",
  "miden-objects",
@@ -1449,12 +1450,13 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "7.1.0"
+version = "7.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baed61d13cc3723ee6dbed730a82bfacedc60a85d81da2d77e9c3e8ebc0b504a"
+checksum = "4edc8853320c2a0dab800fbda86253c8938f6ea88510dc92c5f1ed20e794afc1"
 dependencies = [
  "backtrace",
  "backtrace-ext",
+ "cfg-if",
  "miette-derive",
  "owo-colors",
  "supports-color",
@@ -1468,9 +1470,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "7.1.0"
+version = "7.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f301c3f54f98abc6c212ee722f5e5c62e472a334415840669e356f04850051ec"
+checksum = "dcf09caffaac8068c346b6df2a7fc27a177fd20b39421a39ce0a211bde679a6c"
 dependencies = [
  "proc-macro2",
  "quote",
