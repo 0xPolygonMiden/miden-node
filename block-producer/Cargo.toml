@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-block-producer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Miden node's block producer component"
 authors = ["miden contributors"]
 readme = "README.md"
@@ -25,9 +25,9 @@ async-trait = { version = "0.1" }
 clap = { version = "4.3", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
-miden-node-proto = { path = "../proto", version = "0.1" }
-miden-node-store = { path = "../store", version = "0.1" }
-miden-node-utils = { path = "../utils", version = "0.1" }
+miden-node-proto = { path = "../proto", version = "0.2" }
+miden-node-store = { path = "../store", version = "0.2" }
+miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }
 miden-processor = { workspace = true }
 miden-stdlib = { workspace = true }
