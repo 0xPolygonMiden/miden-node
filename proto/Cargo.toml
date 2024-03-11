@@ -6,7 +6,7 @@ authors = ["miden contributors"]
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/0xPolygonMiden/miden-node"
-keywords = ["miden", "node", "program", "proto", "protobuf", "rpc"]
+keywords = ["miden", "node", "protobuf", "rpc"]
 edition = "2021"
 rust-version = "1.75"
 

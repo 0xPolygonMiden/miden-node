@@ -17,5 +17,5 @@ itertools = { version = "0.12" }
 miden-objects = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 tracing-forest = { version = "0.1", optional = true, features = ["chrono"] }
+tracing-subscriber = { workspace = true }
