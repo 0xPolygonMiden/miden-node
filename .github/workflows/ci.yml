@@ -46,16 +46,10 @@ jobs:
           toolchain: ${{matrix.toolchain}}
           components: clippy
           override: true
-      - name: Clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace --all-targets -- -D clippy::all -D warnings
-      - name: Clippy all features
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace --all-targets --all-features -- -D clippy::all -D warnings
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - name: cargo make - clippy
+        run: cargo make clippy
 
   docs:
     name: docs ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
