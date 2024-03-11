@@ -8,20 +8,15 @@ on:
 
 jobs:
   rustfmt:
-    name: rustfmt ${{matrix.toolchain}} on ${{matrix.os}}
-    runs-on: ${{matrix.os}}-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: [nightly]
-        os: [ubuntu]
+    name: rustfmt nightly on ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install minimal Rust with rustfmt
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{matrix.toolchain}}
+          toolchain: nightly
           components: rustfmt
           override: true
       - name: version
@@ -32,20 +27,15 @@ jobs:
         run: cargo make format
 
   clippy:
-    name: clippy ${{matrix.toolchain}} on ${{matrix.os}}
-    runs-on: ${{matrix.os}}-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: [stable]
-        os: [ubuntu]
+    name: clippy stable on ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install minimal Rust with clippy
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{matrix.toolchain}}
+          toolchain: stable
           components: clippy
           override: true
       - name: version
@@ -56,46 +46,35 @@ jobs:
         run: cargo make clippy
 
   docs:
-    name: docs ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
-    runs-on: ${{matrix.os}}-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: [stable]
-        os: [ubuntu]
-        args: [--all-features --release]
+    name: docs stable on ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{matrix.toolchain}}
+          toolchain: stable
           override: true
       - name: Doc
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: ${{matrix.args}}
+          args: --all-features --release
 
   test:
-    name: test ${{matrix.toolchain}} on ${{matrix.os}} with ${{matrix.args}}
-    runs-on: ${{matrix.os}}-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: [stable]
-        os: [ubuntu]
-        args: [--all-features --workspace]
+    name: test stable on ubuntu-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{matrix.toolchain}}
+          toolchain: stable
           override: true
       - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: ${{matrix.args}} -- --nocapture
+          args: --all-features --workspace -- --nocapture
+
