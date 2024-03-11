@@ -7,7 +7,7 @@ license = "MIT"
 repository = "https://github.com/0xPolygonMiden/miden-node"
 keywords = ["miden", "node", "utils", "macro"]
 edition = "2021"
-rust-version = "1.73"
+rust-version = "1.75"
 
 [dependencies]
 quote = { version = "1.0" }

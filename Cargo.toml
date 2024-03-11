@@ -9,6 +9,7 @@ members = [
   "test-macro",
 ]
 resolver = "2"
+rust-version = "1.75"
 
 [workspace.dependencies]
 miden-crypto = { version = "0.8" }
