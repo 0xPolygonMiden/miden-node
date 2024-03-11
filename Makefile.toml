@@ -13,6 +13,11 @@ toolchain = "nightly"
 command = "cargo"
 args = ["clippy"]
 
+[tasks.docker-build-node]
+command = "docker"
+args = ["build", "-f", "node/Dockerfile", "-t", "miden-node-image", "."]
+workspace = false
+
 [tasks.prepare]
 toolchain = "nightly"
 dependencies = [
