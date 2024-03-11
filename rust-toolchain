@@ -1,5 +1,2 @@
-# rust-toolchain file
-
-# sets the default toolchain
 [toolchain]
 channel = "1.75"
