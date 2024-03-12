@@ -3,24 +3,45 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
+# linting
 [tasks.format]
 toolchain = "nightly"
 command = "cargo"
-args = ["fmt", "--", "--emit=files"]
+args = ["fmt", "--all", "--", "--check"]
+
+[tasks.clippy-default]
+command = "cargo"
+args = ["clippy","--workspace", "--all-targets", "--", "-D", "clippy::all", "-D", "warnings"]
+
+[tasks.clippy-all-features]
+command = "cargo"
+args = ["clippy","--workspace", "--all-targets", "--all-features", "--", "-D", "clippy::all", "-D", "warnings"]
 
 [tasks.clippy]
-toolchain = "nightly"
-command = "cargo"
-args = ["clippy"]
+dependencies = [
+  "clippy-default",
+  "clippy-all-features"
+]
 
+[tasks.doc]
+env = { "RUSTDOCFLAGS" = "-D warnings" }
+command = "cargo"
+args = ["doc", "--verbose", "--all-features", "--keep-going", "--release"]
+
+[tasks.lint]
+dependencies = [
+    "format",
+    "clippy",
+    "docs"
+]
+
+# testing
+[tasks.test]
+command = "cargo"
+args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
+
+# docker
 [tasks.docker-build-node]
 command = "docker"
 args = ["build", "-f", "node/Dockerfile", "-t", "miden-node-image", "."]
 workspace = false
-
-[tasks.prepare]
-toolchain = "nightly"
-dependencies = [
-    "format",
-    "clippy",
-]

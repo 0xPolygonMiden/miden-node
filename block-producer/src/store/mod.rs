@@ -4,7 +4,6 @@ use std::{
 };
 
 use async_trait::async_trait;
-use miden_air::trace::chiplets::hasher::Digest;
 use miden_node_proto::{
     convert,
     errors::{MissingFieldHelper, ParseError},
@@ -17,7 +16,7 @@ use miden_node_proto::{
     AccountState,
 };
 use miden_node_utils::formatting::{format_map, format_opt};
-use miden_objects::{accounts::AccountId, notes::Nullifier};
+use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
@@ -129,7 +128,6 @@ impl DefaultStore {
 
 #[async_trait]
 impl ApplyBlock for DefaultStore {
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn apply_block(
         &self,
@@ -155,7 +153,6 @@ impl ApplyBlock for DefaultStore {
 
 #[async_trait]
 impl Store for DefaultStore {
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn get_tx_inputs(
         &self,

@@ -35,7 +35,6 @@ where
     TV: TransactionValidator,
     BB: BatchBuilder,
 {
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-block-producer",
         name = "block_producer:submit_proven_transaction",
