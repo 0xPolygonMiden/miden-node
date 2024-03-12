@@ -13,7 +13,7 @@ description = "Miden RPC message definitions"
 
 [dependencies]
 hex = { version = "0.4" }
-miden-node-utils = { path = "../utils" }
+miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }
 prost = { version = "0.12" }
 thiserror = { workspace = true }

@@ -17,10 +17,10 @@ clap = { version = "4.3", features = ["derive"] }
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 hex = { version = "0.4" }
-miden-node-block-producer = { path = "../block-producer" }
-miden-node-proto = { path = "../proto" }
-miden-node-store = { path = "../store" }
-miden-node-utils = { path = "../utils" }
+miden-node-block-producer = { path = "../block-producer", version = "0.2" }
+miden-node-proto = { path = "../proto", version = "0.2" }
+miden-node-store = { path = "../store", version = "0.2" }
+miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true }
 prost = { version = "0.12" }
@@ -33,4 +33,4 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
-miden-node-utils = { path = "../utils", features = ["tracing-forest"] }
+miden-node-utils = { path = "../utils", version = "0.2", features = ["tracing-forest"] }

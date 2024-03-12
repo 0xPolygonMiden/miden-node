@@ -26,9 +26,9 @@ async-trait = { version = "0.1" }
 clap = { version = "4.3", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
-miden-node-proto = { path = "../proto" }
-miden-node-store = { path = "../store" }
-miden-node-utils = { path = "../utils" }
+miden-node-proto = { path = "../proto", version = "0.2" }
+miden-node-store = { path = "../store", version = "0.2" }
+miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }
 miden-processor = { workspace = true }
 miden-stdlib = { workspace = true }
