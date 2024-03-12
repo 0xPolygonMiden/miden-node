@@ -1,3 +1,5 @@
+use std::{io, sync::Arc};
+
 use actix_cors::Cors;
 use actix_files::Files;
 use actix_web::{
@@ -8,13 +10,12 @@ use async_mutex::Mutex;
 use clap::Parser;
 use cli::Cli;
 use handlers::{faucet_id, get_tokens};
-use miden_client::client::Client;
-use miden_client::config::{RpcConfig, StoreConfig};
-use miden_client::store::data_store::SqliteDataStore;
-use miden_client::{client::rpc::TonicRpcClient, store::sqlite_store::SqliteStore};
+use miden_client::{
+    client::{rpc::TonicRpcClient, Client},
+    config::{RpcConfig, StoreConfig},
+    store::{data_store::SqliteDataStore, sqlite_store::SqliteStore},
+};
 use miden_objects::accounts::AccountId;
-use std::io;
-use std::sync::Arc;
 
 mod cli;
 mod errors;

@@ -1,10 +1,11 @@
-use crate::{errors::FaucetError, FaucetState};
 use actix_web::{get, http::header, web, HttpResponse, Result};
 use miden_client::client::transactions::TransactionTemplate;
 use miden_objects::{
     accounts::AccountId, assets::FungibleAsset, notes::NoteId, utils::serde::Serializable,
 };
 use serde::{Deserialize, Serialize};
+
+use crate::{errors::FaucetError, FaucetState};
 
 #[derive(Deserialize)]
 struct FaucetRequest {
