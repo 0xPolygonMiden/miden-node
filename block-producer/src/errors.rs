@@ -7,7 +7,7 @@ use miden_objects::{
     transaction::{InputNotes, ProvenTransaction, TransactionId},
     Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH, MAX_NOTES_PER_BATCH,
 };
-use miden_vm::ExecutionError;
+use miden_processor::ExecutionError;
 use thiserror::Error;
 
 // Transaction verification errors

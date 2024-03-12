@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
 use itertools::Itertools;
-use miden_crypto::{
-    hash::{blake::Blake3Digest, Digest},
-    utils::bytes_to_hex_string,
-};
 use miden_objects::{
+    crypto::{
+        hash::{blake::Blake3Digest, Digest},
+        utils::bytes_to_hex_string,
+    },
     notes::{NoteEnvelope, Nullifier},
     transaction::{InputNotes, OutputNotes},
 };
