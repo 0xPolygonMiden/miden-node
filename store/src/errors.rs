@@ -6,11 +6,28 @@ use miden_objects::{
         merkle::{MerkleError, MmrError},
         utils::DeserializationError,
     },
-    AccountError, BlockHeader, Digest,
+    notes::Nullifier,
+    AccountError, BlockHeader,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
+
+use crate::types::BlockNumber;
+
+// INTERNAL ERRORS
+// =================================================================================================
+
+#[derive(Debug, Error)]
+pub enum NullifierTreeError {
+    #[error("Merkle error: {0}")]
+    MerkleError(#[from] MerkleError),
+    #[error("Nullifier {nullifier} for block #{block_num} already exists in the nullifier tree")]
+    NullifierAlreadyExists {
+        nullifier: Nullifier,
+        block_num: BlockNumber,
+    },
+}
 
 // DATABASE ERRORS
 // =================================================================================================
@@ -41,7 +58,7 @@ pub enum StateInitializationError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
     #[error("Failed to create nullifiers tree: {0}")]
-    FailedToCreateNullifiersTree(MerkleError),
+    FailedToCreateNullifiersTree(NullifierTreeError),
     #[error("Failed to create accounts tree: {0}")]
     FailedToCreateAccountsTree(MerkleError),
 }
@@ -106,7 +123,7 @@ pub enum ApplyBlockError {
     #[error("Received invalid nullifier root")]
     NewBlockInvalidNullifierRoot,
     #[error("Duplicated nullifiers {0:?}")]
-    DuplicatedNullifiers(Vec<Digest>),
+    DuplicatedNullifiers(Vec<Nullifier>),
     #[error("Unable to create proof for note: {0}")]
     UnableToCreateProofForNote(MerkleError),
     #[error("Block applying was broken because of closed channel on database side: {0}")]
@@ -117,6 +134,8 @@ pub enum ApplyBlockError {
     DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
+    #[error("Failed to update nullifier tree: {0}")]
+    FailedToUpdateNullifierTree(NullifierTreeError),
 }
 
 #[derive(Error, Debug)]
