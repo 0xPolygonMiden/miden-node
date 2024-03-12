@@ -46,69 +46,6 @@ pub struct TransactionInputs {
     pub nullifiers: Vec<NullifierInfo>,
 }
 
-pub struct ValidAccount {
-    id: AccountId,
-    hash: RpoDigest,
-    details: Option<AccountDetails>,
-}
-
-impl TryFrom<AccountUpdate> for ValidAccount {
-    type Error = ConversionError;
-
-    fn try_from(account_update: AccountUpdate) -> Result<Self, Self::Error> {
-        // TODO: Refactor: add storage interface and read account from it. Make available for block-producer as well.
-
-        let AccountState {
-            account_id,
-            account_hash,
-        } = account_update.try_into()?;
-        let details = account_update.details.as_ref().map(TryInto::try_into).transpose()?;
-
-        match (account_id.is_on_chain(), details) {
-            (false, None) => (),
-            (false, Some(_)) => ProvenTransactionError::OffChainAccountWithDetails(account_id)?,
-            (true, None) => ProvenTransactionError::OnChainAccountMissingDetails(account_id)?,
-            (true, Some(details)) => {
-                let is_new_account = self.initial_account_hash == Digest::default();
-
-                match (is_new_account, details) {
-                    (true, AccountDetails::Delta(_)) => {
-                        return Err(ProvenTransactionError::NewOnChainAccountRequiresFullDetails(
-                            self.account_id,
-                        ))
-                    },
-                    (true, AccountDetails::Full(account)) => {
-                        if account.id() != self.account_id {
-                            return Err(ProvenTransactionError::AccountIdMismatch(
-                                self.account_id,
-                                account.id(),
-                            ));
-                        }
-                        if account.hash() != self.final_account_hash {
-                            return Err(ProvenTransactionError::AccountFinalHashMismatch(
-                                self.final_account_hash,
-                                account.hash(),
-                            ));
-                        }
-                    },
-                    (false, AccountDetails::Full(_)) => {
-                        return Err(
-                            ProvenTransactionError::ExistingOnChainAccountRequiresDeltaDetails(
-                                self.account_id,
-                            ),
-                        )
-                    },
-                    (false, AccountDetails::Delta(_)) => (),
-                }
-            },
-        }
-
-        let id = account_id.into();
-        let hash = account_hash.ok_or(AccountUpdate::missing_field(stringify!(account_hash)))?;
-        id.Ok(Self { id, hash, details })
-    }
-}
-
 /// Container for state that needs to be updated atomically.
 struct InnerState {
     nullifier_tree: NullifierTree,
