@@ -56,4 +56,5 @@ COPY --from=builder /usr/local/cargo/bin/miden-node /usr/local/bin/miden-node
 EXPOSE 57291
 
 # Start the Miden node
+# Miden node does not spawn sub-processes, so it can be used as the PID1
 CMD miden-node start --config miden-node.toml
