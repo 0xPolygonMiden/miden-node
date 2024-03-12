@@ -201,7 +201,7 @@ impl api_server::Api for StoreApi {
                     .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
                 Ok((
                     account_state.account_id.into(),
-                    // account_state.details,
+                    account_details,
                     account_state
                         .account_hash
                         .ok_or(invalid_argument("Account update missing account hash"))?,
