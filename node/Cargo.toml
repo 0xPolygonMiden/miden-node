@@ -1,12 +1,15 @@
 [package]
 name = "miden-node"
-version = "0.2.0"
-description = "Miden node single binary"
-authors = ["miden contributors"]
-readme = "README.md"
-license = "MIT"
-repository = "https://github.com/0xPolygonMiden/miden-node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme.workspace = true
 keywords = ["miden", "node"]
+description = "Miden node binary"
 
 [features]
 # Makes `make-genesis` subcommand run faster. Is only suitable for testing.
@@ -17,10 +20,10 @@ tracing-forest = ["miden-node-block-producer/tracing-forest"]
 anyhow = { version = "1.0" }
 clap = { version = "4.3", features = ["derive"] }
 miden-lib = { workspace = true, features = ["concurrent"] }
-miden-node-block-producer = { path = "../block-producer", version = "0.2" }
-miden-node-rpc = { path = "../rpc", version = "0.2" }
-miden-node-store = { path = "../store", version = "0.2" }
-miden-node-utils = { path = "../utils", version = "0.2" }
+miden-node-block-producer = { path = "../block-producer" }
+miden-node-rpc = { path = "../rpc" }
+miden-node-store = { path = "../store" }
+miden-node-utils = { path = "../utils" }
 miden-objects = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
@@ -29,4 +32,4 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
-miden-node-utils = { path = "../utils", version = "0.2", features = ["tracing-forest"] }
+miden-node-utils = { path = "../utils", features = ["tracing-forest"] }

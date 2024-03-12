@@ -1,12 +1,15 @@
 [package]
 name = "miden-node-store"
-version = "0.2.0"
-description = "Miden node's state store component"
-authors = ["miden contributors"]
-readme = "README.md"
-license = "MIT"
-repository = "https://github.com/0xPolygonMiden/miden-node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme.workspace = true
 keywords = ["miden", "node", "store"]
+description = "Miden node's state store component"
 
 [[bin]]
 name = "miden-node-store"
@@ -22,8 +25,8 @@ directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 hex = { version = "0.4" }
 miden-lib = { workspace = true }
-miden-node-proto = { path = "../proto", version = "0.2" }
-miden-node-utils = { path = "../utils", version = "0.2" }
+miden-node-proto = { path = "../proto" }
+miden-node-utils = { path = "../utils" }
 miden-objects = { workspace = true }
 once_cell = { version = "1.18.0" }
 prost = { version = "0.12" }
@@ -39,4 +42,4 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
-miden-node-utils = { path = "../utils", version = "0.2", features = ["tracing-forest"] }
+miden-node-utils = { path = "../utils", features = ["tracing-forest"] }

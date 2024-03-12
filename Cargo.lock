@@ -1119,7 +1119,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1138,7 +1138,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-block-producer"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1167,7 +1167,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-proto"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "hex",
  "miden-node-utils",
@@ -1184,7 +1184,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-rpc"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1208,7 +1208,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-store"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1243,7 +1243,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-utils"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "figment",

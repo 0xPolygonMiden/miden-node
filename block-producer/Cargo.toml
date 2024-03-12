@@ -1,12 +1,15 @@
 [package]
 name = "miden-node-block-producer"
-version = "0.2.0"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme.workspace = true
+keywords = ["miden", "node", "block-producer"]
 description = "Miden node's block producer component"
-authors = ["miden contributors"]
-readme = "README.md"
-license = "MIT"
-repository = "https://github.com/0xPolygonMiden/miden-node"
-keywords = ["miden", "node", "store"]
 
 [[bin]]
 name = "miden-node-block-producer"
@@ -23,9 +26,9 @@ async-trait = { version = "0.1" }
 clap = { version = "4.3", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
-miden-node-proto = { path = "../proto", version = "0.2" }
-miden-node-store = { path = "../store", version = "0.2" }
-miden-node-utils = { path = "../utils", version = "0.2" }
+miden-node-proto = { path = "../proto" }
+miden-node-store = { path = "../store" }
+miden-node-utils = { path = "../utils" }
 miden-objects = { workspace = true }
 miden-processor = { workspace = true }
 miden-stdlib = { workspace = true }

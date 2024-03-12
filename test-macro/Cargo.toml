@@ -1,12 +1,15 @@
 [package]
 name = "miden-node-test-macro"
-version = "0.1.0"
-description = "Miden's test macro"
-authors = ["miden contributors"]
-readme = "README.md"
-license = "MIT"
-repository = "https://github.com/0xPolygonMiden/miden-node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme.workspace = true
 keywords = ["miden", "node", "utils", "macro"]
+description = "Miden node's test macro"
 
 [dependencies]
 quote = { version = "1.0" }
