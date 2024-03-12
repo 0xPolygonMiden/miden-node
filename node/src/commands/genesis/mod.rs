@@ -5,10 +5,6 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
-use miden_crypto::{
-    dsa::rpo_falcon512::KeyPair,
-    utils::{hex_to_bytes, Serializable},
-};
 use miden_lib::{
     accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
     AuthScheme,
@@ -18,6 +14,10 @@ use miden_node_utils::config::load_config;
 use miden_objects::{
     accounts::{Account, AccountData, AccountType, AuthData},
     assets::TokenSymbol,
+    crypto::{
+        dsa::rpo_falcon512::KeyPair,
+        utils::{hex_to_bytes, Serializable},
+    },
     Felt, ONE,
 };
 
@@ -204,9 +204,8 @@ mod tests {
     use std::{fs, path::PathBuf};
 
     use figment::Jail;
-    use miden_crypto::utils::Deserializable;
     use miden_node_store::genesis::GenesisState;
-    use miden_objects::accounts::AccountData;
+    use miden_objects::{accounts::AccountData, utils::serde::Deserializable};
 
     use super::make_genesis;
     use crate::DEFAULT_GENESIS_FILE_PATH;

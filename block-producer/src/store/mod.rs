@@ -4,7 +4,6 @@ use std::{
 };
 
 use async_trait::async_trait;
-use miden_air::trace::chiplets::hasher::Digest;
 use miden_node_proto::{
     convert,
     errors::{MissingFieldHelper, ParseError},
@@ -17,7 +16,7 @@ use miden_node_proto::{
     AccountState,
 };
 use miden_node_utils::formatting::{format_map, format_opt};
-use miden_objects::{accounts::AccountId, notes::Nullifier};
+use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
