@@ -1,7 +1,7 @@
-use miden_air::Felt;
-
 // block builder tests (higher level)
 // `apply_block()` is called
+use miden_objects::Felt;
+
 use super::*;
 use crate::test_utils::{MockProvenTxBuilder, MockStoreFailure, MockStoreSuccessBuilder};
 

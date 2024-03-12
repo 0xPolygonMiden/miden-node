@@ -14,6 +14,7 @@ use crate::{
 };
 
 pub(crate) mod prover;
+
 use self::prover::{block_witness::BlockWitness, BlockProver};
 
 #[cfg(test)]
@@ -65,7 +66,6 @@ where
     S: Store,
     A: ApplyBlock,
 {
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn build_block(
         &self,
@@ -77,8 +77,8 @@ where
             batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))),
         );
 
-        let account_updates: Vec<(AccountId, Digest)> =
-            batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+        let updated_accounts: Vec<(AccountId, Digest)> =
+            batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
         let created_notes = batches
             .iter()
             .enumerate()
@@ -90,12 +90,12 @@ where
             })
             .collect();
         let produced_nullifiers: Vec<Nullifier> =
-            batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+            batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
         let block_inputs = self
             .store
             .get_block_inputs(
-                account_updates.iter().map(|(account_id, _)| account_id),
+                updated_accounts.iter().map(|(account_id, _)| account_id),
                 produced_nullifiers.iter(),
             )
             .await?;
@@ -108,7 +108,7 @@ where
 
         let block = Block {
             header: new_block_header,
-            updated_accounts: account_updates,
+            updated_accounts,
             created_notes,
             produced_nullifiers,
         };

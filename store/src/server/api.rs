@@ -44,7 +44,6 @@ impl api_server::Api for StoreApi {
     /// Returns block header for the specified block number.
     ///
     /// If the block number is not provided, block header for the latest block is returned.
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
         name = "store:get_block_header_by_number",
@@ -73,7 +72,6 @@ impl api_server::Api for StoreApi {
     ///
     /// This endpoint also returns Merkle authentication path for each requested nullifier which can
     /// be verified against the latest root of the nullifier database.
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
         name = "store:check_nullifiers",
@@ -99,7 +97,6 @@ impl api_server::Api for StoreApi {
 
     /// Returns info which can be used by the client to sync up to the latest state of the chain
     /// for the objects the client is interested in.
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
         name = "store:sync_state",
@@ -166,7 +163,6 @@ impl api_server::Api for StoreApi {
     // --------------------------------------------------------------------------------------------
 
     /// Updates the local DB by inserting a new block header and the related data.
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
         name = "store:apply_block",
@@ -229,7 +225,6 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
         name = "store:get_block_inputs",
@@ -260,7 +255,6 @@ impl api_server::Api for StoreApi {
         }))
     }
 
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
         name = "store:get_transaction_inputs",
@@ -301,7 +295,6 @@ impl api_server::Api for StoreApi {
     // --------------------------------------------------------------------------------------------
 
     /// Returns a list of all nullifiers
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
         name = "store:list_nullifiers",
@@ -325,7 +318,6 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns a list of all notes
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
         name = "store:list_notes",
@@ -356,7 +348,6 @@ impl api_server::Api for StoreApi {
     }
 
     /// Returns a list of all accounts
-    #[allow(clippy::blocks_in_conditions)] // Workaround of `instrument` issue
     #[instrument(
         target = "miden-store",
         name = "store:list_accounts",

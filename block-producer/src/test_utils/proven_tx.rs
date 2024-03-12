@@ -1,10 +1,11 @@
 use std::ops::Range;
 
-use miden_air::{ExecutionProof, HashFunction};
+use miden_air::HashFunction;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteEnvelope, NoteMetadata, Nullifier},
     transaction::{InputNotes, OutputNotes, ProvenTransaction},
+    vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
 };
 use winterfell::StarkProof;
