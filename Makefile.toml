@@ -1,5 +1,7 @@
 # Cargo Makefile
 
+# If running cargo-make in a workspace you need to add this env variable to make sure it function correctly.
+# See docs: https://github.com/sagiegurari/cargo-make?tab=readme-ov-file#usage
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
