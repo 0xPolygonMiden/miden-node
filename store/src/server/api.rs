@@ -23,7 +23,7 @@ use miden_node_proto::{
     },
     AccountState,
 };
-use miden_objects::{crypto::hash::rpo::RpoDigest, notes::Nullifier, BlockHeader, Felt, ZERO};
+use miden_objects::{notes::Nullifier, BlockHeader, Felt, ZERO};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -391,7 +391,8 @@ fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
 fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Nullifier>, Status> {
     nullifiers
         .iter()
-        .map(|digest_pb| Ok(Nullifier::from(RpoDigest::try_from(digest_pb)?)))
+        .cloned()
+        .map(TryInto::try_into)
         .collect::<Result<_, ParseError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }

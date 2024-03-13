@@ -57,8 +57,8 @@ pub enum DatabaseError {
 pub enum StateInitializationError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("Failed to create nullifiers tree: {0}")]
-    FailedToCreateNullifiersTree(NullifierTreeError),
+    #[error("Failed to create nullifier tree: {0}")]
+    FailedToCreateNullifierTree(NullifierTreeError),
     #[error("Failed to create accounts tree: {0}")]
     FailedToCreateAccountsTree(MerkleError),
 }
