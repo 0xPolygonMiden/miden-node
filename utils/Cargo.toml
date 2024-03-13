@@ -1,15 +1,15 @@
 [package]
 name = "miden-node-utils"
-version.workspace = true
+version = "0.2.0"
+description = "Miden node's shared utilities"
+keywords = ["miden", "node", "utils"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-homepage.workspace = true
-repository.workspace = true
 authors.workspace = true
 readme.workspace = true
-keywords = ["miden", "node", "utils"]
-description = "Miden node's shared utilities"
+homepage.workspace = true
+repository.workspace = true
 
 [dependencies]
 anyhow = { version = "1.0" }

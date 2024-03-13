@@ -1,15 +1,15 @@
 [package]
 name = "miden-node-block-producer"
 version = "0.2.0"
+description = "Miden node's block producer component"
+keywords = ["miden", "node", "block-producer"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-homepage.workspace = true
-repository.workspace = true
 authors.workspace = true
 readme.workspace = true
-keywords = ["miden", "node", "block-producer"]
-description = "Miden node's block producer component"
+homepage.workspace = true
+repository.workspace = true
 
 [[bin]]
 name = "miden-node-block-producer"

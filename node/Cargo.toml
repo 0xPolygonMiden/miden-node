@@ -1,15 +1,15 @@
 [package]
 name = "miden-node"
 version = "0.2.0"
+description = "Miden node binary"
+keywords = ["miden", "node"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-homepage.workspace = true
-repository.workspace = true
 authors.workspace = true
 readme.workspace = true
-keywords = ["miden", "node"]
-description = "Miden node binary"
+homepage.workspace = true
+repository.workspace = true
 
 [features]
 # Makes `make-genesis` subcommand run faster. Is only suitable for testing.
