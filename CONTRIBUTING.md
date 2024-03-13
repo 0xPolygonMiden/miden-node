@@ -81,7 +81,7 @@ For example, a new change to the `miden-node-store` crate might have the followi
 You can find more information about the `cargo make` commands in the [Makefile](Makefile.toml)
 
 ### Testing
-- After writing code different types of tests (unit, integration, end-to-end) are required to make sure that the correct behavior has been achieved and that no bugs have been introduced. You can run tests using the following command:
+After writing code different types of tests (unit, integration, end-to-end) are required to make sure that the correct behavior has been achieved and that no bugs have been introduced. You can run tests using the following command:
 
     ```
     cargo make test
