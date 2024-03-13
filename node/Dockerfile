@@ -39,12 +39,12 @@ RUN miden-node make-genesis --inputs-path node/genesis.toml
 # Run Miden node
 FROM debian:bookworm-slim
 
-# Install required packages
+# Update machine & install required packages
+# The instalation of sqlite3 is needed for correct function of the sqlite database
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get install -y --no-install-recommends \
-    libssl-dev \
-    libsqlite3-dev \
+    sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy artifacts from the builder stage
