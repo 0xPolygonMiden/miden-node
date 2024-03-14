@@ -83,9 +83,9 @@ You can find more information about the `cargo make` commands in the [Makefile](
 ### Testing
 After writing code different types of tests (unit, integration, end-to-end) are required to make sure that the correct behavior has been achieved and that no bugs have been introduced. You can run tests using the following command:
 
-    ```
-    cargo make test
-    ```
+```
+cargo make test
+```
 
 ### Versioning
 We use [semver](https://semver.org/) naming convention.
