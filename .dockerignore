@@ -32,7 +32,5 @@
 /target
 LICENSE
 README.md
-accounts
-genesis.dat
 miden-store.*
 store.*

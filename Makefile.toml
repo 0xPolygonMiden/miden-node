@@ -30,11 +30,6 @@ dependencies = [
   "clippy-all-features"
 ]
 
-[tasks.doc]
-env = { "RUSTDOCFLAGS" = "-D warnings" }
-command = "cargo"
-args = ["doc", "--verbose", "--all-features", "--keep-going", "--release"]
-
 [tasks.lint]
 dependencies = [
     "format",
@@ -43,14 +38,19 @@ dependencies = [
     "docs"
 ]
 
+# documentation
+[tasks.doc]
+env = { "RUSTDOCFLAGS" = "-D warnings" }
+command = "cargo"
+args = ["doc", "--verbose", "--all-features", "--keep-going", "--release"]
+
 # testing
 [tasks.test]
 command = "cargo"
 args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
 
-# docker
+# docker builds
 [tasks.docker-build-node]
-workspace = false
 script = '''
 CREATED=$(date)
 VERSION=$(cat node/Cargo.toml | grep -m 1 '^version' | cut -d '"' -f 2)
@@ -62,17 +62,100 @@ docker build --build-arg CREATED="$CREATED" \
              -f node/Dockerfile \
              -t miden-node-image .
 '''
-
-[tasks.docker-run-node]
 workspace = false
+
+[tasks.docker-build-block-producer]
 script = '''
-docker volume create miden-db
+CREATED=$(date)
+VERSION=$(cat block-producer/Cargo.toml | grep -m 1 '^version' | cut -d '"' -f 2)
+COMMIT=$(git rev-parse HEAD)
+
+docker build --build-arg CREATED="$CREATED" \
+             --build-arg VERSION="$VERSION" \
+             --build-arg COMMIT="$COMMIT" \
+             -f block-producer/Dockerfile \
+             -t miden-node-block-producer-image .
+'''
+workspace = false
+
+
+[tasks.docker-build-rpc]
+script = '''
+CREATED=$(date)
+VERSION=$(cat rpc/Cargo.toml | grep -m 1 '^version' | cut -d '"' -f 2)
+COMMIT=$(git rev-parse HEAD)
+
+docker build --build-arg CREATED="$CREATED" \
+             --build-arg VERSION="$VERSION" \
+             --build-arg COMMIT="$COMMIT" \
+             -f rpc/Dockerfile \
+             -t miden-node-rpc-image .
+'''
+workspace = false
+
+[tasks.docker-build-store]
+script = '''
+CREATED=$(date)
+VERSION=$(cat store/Cargo.toml | grep -m 1 '^version' | cut -d '"' -f 2)
+COMMIT=$(git rev-parse HEAD)
+
+docker build --build-arg CREATED="$CREATED" \
+             --build-arg VERSION="$VERSION" \
+             --build-arg COMMIT="$COMMIT" \
+             -f store/Dockerfile \
+             -t miden-node-store-image .
+'''
+workspace = false
+
+# docker runs
+[tasks.docker-run-node]
+script = '''
+docker volume create miden-node-db
 
 ABSOLUTE_PATH="$(pwd)/node/miden-node.toml"
 
 docker run --name miden-node \
            -p 57291:57291 \
-           -v miden-db:/db \
+           -v miden-node-db:/db \
            -v "${ABSOLUTE_PATH}:/miden-node.toml" \
            -d miden-node-image
 '''
+workspace = false
+
+[tasks.docker-run-block-producer]
+script = '''
+ABSOLUTE_PATH="$(pwd)/block-producer/miden-block-producer.toml"
+
+docker run --name miden-node-block-producer \
+           --network miden \
+           -p 48046:48046 \
+           -v "${ABSOLUTE_PATH}:/miden-block-producer.toml" \
+           -d miden-node-block-producer-image
+'''
+workspace = false
+
+[tasks.docker-run-rpc]
+script = '''
+ABSOLUTE_PATH="$(pwd)/rpc/miden-rpc.toml"
+
+docker run --name miden-node-rpc \
+           -p 57291:57291 \
+           -v "${ABSOLUTE_PATH}:/miden-rpc.toml" \
+           -d miden-node-rpc-image
+'''
+workspace = false
+
+[tasks.docker-run-store]
+script = '''
+docker volume create miden-node-store-db
+
+ABSOLUTE_PATH="$(pwd)/store/miden-store.toml"
+
+docker run --name miden-node-store \
+           --network miden \
+           -p 28943:28943 \
+           -v miden-node-store-db:/db \
+           -v "${ABSOLUTE_PATH}:/miden-store.toml" \
+           -d miden-node-store-image
+'''
+workspace = false

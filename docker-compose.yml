@@ -1,0 +1,17 @@
+services:
+  rpc:
+    build: rpc
+    ports:
+      - "57291:57291"
+
+  store:
+    build: store
+    ports:
+      - "28943:28943"
+
+  block-producer:
+    build: block-producer
+    ports:
+      - "48046:48046"
+
+
