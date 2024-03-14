@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[clap(name = "Miden Faucet")]
-#[clap(about = "A command line tool for Miden Faucet", long_about = None)]
+#[clap(about = "A command line tool for the Miden faucet", long_about = None)]
 pub struct Cli {
     #[clap(subcommand)]
     pub command: Command,

@@ -6,6 +6,7 @@ use std::{
 
 use miden_client::{
     client::{rpc::TonicRpcClient, Client},
+    config::{RpcConfig, StoreConfig},
     store::{data_store::SqliteDataStore, sqlite_store::SqliteStore, AuthInfo},
 };
 use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
@@ -16,6 +17,26 @@ use miden_objects::{
     utils::serde::Deserializable,
     Felt,
 };
+
+/// Instantiates the Miden client
+pub fn build_client() -> Client<TonicRpcClient, SqliteStore, SqliteDataStore> {
+    // Setup store
+    let store_config = StoreConfig::default();
+    let store = SqliteStore::new(store_config).expect("Failed to instantiate store.");
+
+    // Setup the data_store
+    let data_store_store_config = StoreConfig::default();
+    let data_store_store =
+        SqliteStore::new(data_store_store_config).expect("Failed to instantiate datastore store");
+    let data_store = SqliteDataStore::new(data_store_store);
+
+    // Setup the tonic rpc client
+    let rpc_config = RpcConfig::default();
+    let api = TonicRpcClient::new(&rpc_config.endpoint.to_string());
+
+    // Setup the client
+    Client::new(api, store, data_store).expect("Failed to instantiate client.")
+}
 
 /// Creates a Miden fungible faucet from arguments
 pub fn create_fungible_faucet(

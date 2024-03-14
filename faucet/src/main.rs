@@ -12,7 +12,6 @@ use cli::Cli;
 use handlers::{faucet_id, get_tokens};
 use miden_client::{
     client::{rpc::TonicRpcClient, Client},
-    config::{RpcConfig, StoreConfig},
     store::{data_store::SqliteDataStore, sqlite_store::SqliteStore},
 };
 use miden_objects::accounts::AccountId;
@@ -35,29 +34,12 @@ async fn main() -> std::io::Result<()> {
 
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    // Setup store
-    let store_config = StoreConfig::default();
-    let store = SqliteStore::new(store_config).expect("Failed to instantiate store.");
-
-    // Setup the data_store
-    let data_store_store_config = StoreConfig::default();
-    let data_store_store =
-        SqliteStore::new(data_store_store_config).expect("Failed to instantiat datastore store");
-    let data_store = SqliteDataStore::new(data_store_store);
-
-    // Setup the tonic rpc client
-    let rpc_config = RpcConfig::default();
-    let api = TonicRpcClient::new(&rpc_config.endpoint.to_string());
-
-    // Setup the client
-    let mut client = Client::new(api, store, data_store).expect("Failed to instantiate client.");
-
-    // // Instantiate and load config
-    // let client_config = ClientConfig::default();
+    // Instantiate Miden client
+    let mut client = utils::build_client();
 
     let amount: u64;
 
-    // Create the faucet account
+    // Create faucet account
     let faucet_account = match &cli.command {
         cli::Command::Init {
             token_symbol,
