@@ -13,10 +13,6 @@ RUN apt-get update && \
 WORKDIR /app
 COPY . .
 
-# Cache Cargo dependencies
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    cargo fetch --manifest-path node/Cargo.toml
-
 # Build the node crate
 RUN cargo install --features testing --path node
 RUN miden-node make-genesis --inputs-path node/genesis.toml
@@ -31,9 +27,6 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
-
-# Define volume for SQLite database files
-VOLUME db
 
 # Copy artifacts from the builder stage
 COPY --from=builder /app/genesis.dat genesis.dat

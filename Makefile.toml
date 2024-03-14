@@ -50,6 +50,28 @@ args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
 
 # docker
 [tasks.docker-build-node]
-command = "docker"
-args = ["build", "-f", "node/Dockerfile", "-t", "miden-node-image", "."]
 workspace = false
+script = '''
+CREATED=$(date)
+VERSION=$(cat node/Cargo.toml | grep -m 1 '^version' | cut -d '"' -f 2)
+COMMIT=1
+docker build --build-arg CREATED="$CREATED" \
+             --build-arg VERSION="$VERSION" \
+             --build-arg COMMIT="$COMMIT" \
+             -f node/Dockerfile \
+             -t miden-node-image .
+'''
+
+[tasks.docker-run-node]
+workspace = false
+script = '''
+docker volume create miden-db
+
+ABSOLUTE_PATH="$(pwd)/node/miden-node.toml"
+
+docker run --name miden-node \
+           -p 57291:57291 \
+           -v miden-db:/db \
+           -v "${ABSOLUTE_PATH}:/miden-node.toml" \
+           -d miden-node-image
+'''
