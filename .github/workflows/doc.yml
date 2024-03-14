@@ -19,15 +19,7 @@ jobs:
         with:
           profile: minimal
           override: true
-      - name: Doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args:
-      - name: Check docs
-        uses: actions-rs/cargo@v1
-        env:
-          RUSTDOCFLAGS: -D warnings
-        with:
-          command: doc
-          args: --verbose --keep-going ${{matrix.args}}
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - name: cargo make - doc
+        run: cargo make doc

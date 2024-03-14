@@ -22,5 +22,5 @@ jobs:
           override: true
       - name: Install cargo make
         run: cargo install cargo-make
-      - name: cargo make - format
+      - name: cargo make - test
         run: cargo make test
