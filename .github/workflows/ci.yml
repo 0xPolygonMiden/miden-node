@@ -1,4 +1,7 @@
+# Runs the CI
+
 name: CI
+
 on:
   push:
     branches:
