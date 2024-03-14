@@ -4,7 +4,7 @@ use miden_objects::{
         merkle::{Smt, SmtProof},
     },
     notes::Nullifier,
-    Felt, FieldElement, Word, EMPTY_WORD,
+    Felt, FieldElement, Word,
 };
 
 use crate::{errors::NullifierTreeError, types::BlockNumber};
@@ -46,15 +46,18 @@ impl NullifierTree {
         nullifier: &Nullifier,
         block_num: BlockNumber,
     ) -> Result<(), NullifierTreeError> {
-        let value = self.0.insert(nullifier.inner(), Self::block_num_to_leaf_value(block_num));
-        if value == EMPTY_WORD {
-            return Ok(());
+        let key = nullifier.inner();
+        let prev_value = self.0.get_value(&key);
+        if prev_value != Smt::EMPTY_VALUE {
+            return Err(NullifierTreeError::NullifierAlreadyExists {
+                nullifier: *nullifier,
+                block_num: Self::leaf_value_to_block_num(prev_value),
+            });
         }
 
-        Err(NullifierTreeError::NullifierAlreadyExists {
-            nullifier: *nullifier,
-            block_num: Self::leaf_value_to_block_num(value),
-        })
+        self.0.insert(key, Self::block_num_to_leaf_value(block_num));
+
+        Ok(())
     }
 
     /// Returns block number stored for the given nullifier or `None` if the nullifier wasn't
@@ -64,7 +67,7 @@ impl NullifierTree {
         nullifier: &Nullifier,
     ) -> Option<BlockNumber> {
         let value = self.0.get_value(&nullifier.inner());
-        if value == EMPTY_WORD {
+        if value == Smt::EMPTY_VALUE {
             return None;
         }
 
