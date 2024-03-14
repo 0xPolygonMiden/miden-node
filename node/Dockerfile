@@ -40,12 +40,15 @@ RUN miden-node make-genesis --inputs-path node/genesis.toml
 FROM debian:bookworm-slim
 
 # Update machine & install required packages
-# The instalation of sqlite3 is needed for correct function of the sqlite database
+# The instalation of sqlite3 is needed for correct function of the SQLite database
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get install -y --no-install-recommends \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
+
+# Define volume for SQLite database files
+VOLUME db
 
 # Copy artifacts from the builder stage
 COPY --from=builder /app/node/miden-node.toml miden-node.toml
