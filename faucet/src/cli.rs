@@ -1,11 +1,15 @@
+use crate::config;
 use std::path::PathBuf;
-
 use clap::{Parser, Subcommand};
+
 
 #[derive(Parser)]
 #[clap(name = "Miden Faucet")]
 #[clap(about = "A command line tool for the Miden faucet", long_about = None)]
 pub struct Cli {
+    #[arg(short, long, value_name = "FILE", default_value = config::CONFIG_FILENAME)]
+    pub config: PathBuf,
+
     #[clap(subcommand)]
     pub command: Command,
 }

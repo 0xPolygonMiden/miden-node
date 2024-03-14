@@ -1688,6 +1688,7 @@ dependencies = [
  "miden-client",
  "miden-lib",
  "miden-node-proto 0.2.0",
+ "miden-node-utils 0.2.0",
  "miden-objects",
  "serde",
 ]
