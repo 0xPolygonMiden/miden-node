@@ -1,14 +1,15 @@
 [package]
 name = "miden-node"
 version = "0.2.0"
-description = "Miden node single binary"
-authors = ["miden contributors"]
-readme = "README.md"
-license = "MIT"
-repository = "https://github.com/0xPolygonMiden/miden-node"
+description = "Miden node binary"
 keywords = ["miden", "node"]
-edition = "2021"
-rust-version = "1.75"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [features]
 # Makes `make-genesis` subcommand run faster. Is only suitable for testing.
