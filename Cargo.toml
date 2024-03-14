@@ -9,7 +9,18 @@ members = [
   "test-macro",
   "faucet"
 ]
+
 resolver = "2"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+authors = ["Miden contributors"]
+readme = "README.md"
+homepage = "https://polygon.technology/polygon-miden"
+repository = "https://github.com/0xPolygonMiden/miden-node"
+exclude = [".github/"]
 
 [workspace.dependencies]
 miden-air = { version = "0.8", default-features = false }
