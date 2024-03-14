@@ -91,5 +91,33 @@ Please, refer to each component's documentation:
 
 Each directory containing the executables also contains an example configuration file. Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are valid and point to the right endpoint.
 
+### Running the node using Docker
+
+If you intend on running the node inside a Docker container, you will need to follow these steps:
+
+1. Build the docker image from source
+
+    ```sh
+    cargo make docker-build-node
+    ```
+
+    This command will build the docker image for the Miden node and save it locally.
+
+2. Run the Docker container
+
+    ```sh
+    docker run --name miden-node -p 57291:57291 -d miden-node-image
+    ```
+
+    This command will run the node as a container named `miden-node` using the `miden-node-image` and make port `57291` available (rpc endpoint).
+
+3. Monitor container
+
+    ```sh
+    docker ps
+    ```
+
+    After running this command you should see the name of the container `miden-node` being outputed and marked as `Up`.
+
 ## License
 This project is [MIT licensed](./LICENSE).
