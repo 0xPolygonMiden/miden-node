@@ -1,6 +1,6 @@
 # Runs unit-testing related jobs.
 
-name: unit
+name: test
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
     types: [opened, reopened, synchronize]
 
 jobs:
-  test:
+  unit & integration:
     name: test stable on ubuntu-latest
     runs-on: ubuntu-latest
     timeout-minutes: 30
