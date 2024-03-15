@@ -48,4 +48,4 @@ EXPOSE 57291
 
 # Start the Miden node
 # Miden node does not spawn sub-processes, so it can be used as the PID1
-CMD miden-node serve
+CMD miden-node-rpc serve
