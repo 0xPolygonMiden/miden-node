@@ -3,7 +3,7 @@ use miden_objects::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, MerklePath, SimpleSmt},
     },
-    notes::NOTE_LEAF_DEPTH,
+    notes::{Nullifier, NOTE_LEAF_DEPTH},
     BlockHeader, Felt, FieldElement,
 };
 use rusqlite::{vtab::array, Connection};
@@ -22,7 +22,7 @@ fn create_db() -> Connection {
 fn test_sql_insert_nullifiers_for_block() {
     let mut conn = create_db();
 
-    let nullifiers = [num_to_rpo_digest(1 << 48)];
+    let nullifiers = [num_to_nullifier(1 << 48)];
     let block_num = 1;
 
     // Insert a new nullifier succeeds
@@ -53,7 +53,7 @@ fn test_sql_insert_nullifiers_for_block() {
 
     // test inserting multiple nullifiers
     {
-        let nullifiers: Vec<_> = (0..10).map(num_to_rpo_digest).collect();
+        let nullifiers: Vec<_> = (0..10).map(num_to_nullifier).collect();
         let block_num = 1;
         let transaction = conn.transaction().unwrap();
         let res = sql::insert_nullifiers_for_block(&transaction, &nullifiers, block_num);
@@ -74,7 +74,7 @@ fn test_sql_select_nullifiers() {
     let block_num = 1;
     let mut state = vec![];
     for i in 0..10 {
-        let nullifier = num_to_rpo_digest(i);
+        let nullifier = num_to_nullifier(i);
         state.push((nullifier, block_num));
 
         let transaction = conn.transaction().unwrap();
@@ -157,7 +157,7 @@ fn test_sql_select_nullifiers_by_block_range() {
     assert!(nullifiers.is_empty());
 
     // test single item
-    let nullifier1 = num_to_rpo_digest(1 << 48);
+    let nullifier1 = num_to_nullifier(1 << 48);
     let block_number1 = 1;
 
     let transaction = conn.transaction().unwrap();
@@ -174,13 +174,13 @@ fn test_sql_select_nullifiers_by_block_range() {
     assert_eq!(
         nullifiers,
         vec![NullifierInfo {
-            nullifier: nullifier1.into(),
+            nullifier: nullifier1,
             block_num: block_number1
         }]
     );
 
     // test two elements
-    let nullifier2 = num_to_rpo_digest(2 << 48);
+    let nullifier2 = num_to_nullifier(2 << 48);
     let block_number2 = 2;
 
     let transaction = conn.transaction().unwrap();
@@ -201,7 +201,7 @@ fn test_sql_select_nullifiers_by_block_range() {
     assert_eq!(
         nullifiers,
         vec![NullifierInfo {
-            nullifier: nullifier1.into(),
+            nullifier: nullifier1,
             block_num: block_number1
         }]
     );
@@ -215,7 +215,7 @@ fn test_sql_select_nullifiers_by_block_range() {
     assert_eq!(
         nullifiers,
         vec![NullifierInfo {
-            nullifier: nullifier2.into(),
+            nullifier: nullifier2,
             block_num: block_number2
         }]
     );
@@ -231,7 +231,7 @@ fn test_sql_select_nullifiers_by_block_range() {
     assert_eq!(
         nullifiers,
         vec![NullifierInfo {
-            nullifier: nullifier1.into(),
+            nullifier: nullifier1,
             block_num: block_number1
         }]
     );
@@ -247,7 +247,7 @@ fn test_sql_select_nullifiers_by_block_range() {
     assert_eq!(
         nullifiers,
         vec![NullifierInfo {
-            nullifier: nullifier2.into(),
+            nullifier: nullifier2,
             block_num: block_number2
         }]
     );
@@ -480,4 +480,8 @@ fn test_notes() {
 // -------------------------------------------------------------------------------------------
 fn num_to_rpo_digest(n: u64) -> RpoDigest {
     RpoDigest::new([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(n)])
+}
+
+fn num_to_nullifier(n: u64) -> Nullifier {
+    Nullifier::from(num_to_rpo_digest(n))
 }
