@@ -139,6 +139,7 @@ script = '''
 ABSOLUTE_PATH="$(pwd)/rpc/miden-rpc.toml"
 
 docker run --name miden-node-rpc \
+           --network miden \
            -p 57291:57291 \
            -v "${ABSOLUTE_PATH}:/miden-rpc.toml" \
            -d miden-node-rpc-image

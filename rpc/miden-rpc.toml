@@ -1,4 +1,4 @@
 [rpc]
-endpoint = { host = "localhost", port = 57291 }
-block_producer_url = "http://localhost:48046"
-store_url = "http://localhost:28943"
+endpoint = { host = "0.0.0.0", port = 57291 }
+block_producer_url = "http://miden-node-block-producer:48046"
+store_url = "http://miden-node-store:28943"
