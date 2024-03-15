@@ -1,11 +1,10 @@
-# Runs the CI
+# Runs linting related jobs.
 
-name: CI
+name: lint
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, next]
   pull_request:
     types: [opened, reopened, synchronize]
 
@@ -35,8 +34,8 @@ jobs:
           override: true
       - name: Install cargo make
         run: cargo install cargo-make
-      - name: cargo make - format
-        run: cargo make format
+      - name: cargo make - format-check
+        run: cargo make format-check
 
   clippy:
     name: clippy stable on ubuntu-latest
@@ -53,35 +52,3 @@ jobs:
         run: cargo install cargo-make
       - name: cargo make - clippy
         run: cargo make clippy
-
-  doc:
-    name: doc stable on ubuntu-latest
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
-      - name: Install cargo make
-        run: cargo install cargo-make
-      - name: cargo make - format
-        run: cargo make doc
-
-  test:
-    name: test stable on ubuntu-latest
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
-      - name: Install cargo make
-        run: cargo install cargo-make
-      - name: cargo make - format
-        run: cargo make test
-

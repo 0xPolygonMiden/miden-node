@@ -1,0 +1,25 @@
+# Runs documentation related jobs.
+
+name: doc
+
+on:
+  push:
+    branches: [main, next]
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  doc:
+    name: doc stable on ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          override: true
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - name: cargo make - doc
+        run: cargo make doc
