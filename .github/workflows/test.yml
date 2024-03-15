@@ -1,4 +1,4 @@
-# Runs unit-testing related jobs.
+# Runs testing related jobs.
 
 name: test
 
