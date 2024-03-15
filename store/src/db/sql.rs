@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
+    notes::Nullifier,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
@@ -152,7 +153,7 @@ pub fn upsert_accounts(
 /// transaction.
 pub fn insert_nullifiers_for_block(
     transaction: &Transaction,
-    nullifiers: &[RpoDigest],
+    nullifiers: &[Nullifier],
     block_num: BlockNumber,
 ) -> Result<usize> {
     let mut stmt = transaction.prepare(
@@ -172,7 +173,7 @@ pub fn insert_nullifiers_for_block(
 /// # Returns
 ///
 /// A vector with nullifiers and the block height at which they were created, or an error.
-pub fn select_nullifiers(conn: &mut Connection) -> Result<Vec<(RpoDigest, BlockNumber)>> {
+pub fn select_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, BlockNumber)>> {
     let mut stmt =
         conn.prepare("SELECT nullifier, block_number FROM nullifiers ORDER BY block_number ASC;")?;
     let mut rows = stmt.query([])?;
@@ -536,7 +537,7 @@ pub fn apply_block(
     transaction: &Transaction,
     block_header: &BlockHeader,
     notes: &[Note],
-    nullifiers: &[RpoDigest],
+    nullifiers: &[Nullifier],
     accounts: &[(AccountId, RpoDigest)],
 ) -> Result<usize> {
     let mut count = 0;
@@ -556,8 +557,8 @@ fn deserialize<T: Deserializable>(data: &[u8]) -> Result<T, DatabaseError> {
 }
 
 /// Returns the high 16 bits of the provided nullifier.
-pub(crate) fn get_nullifier_prefix(nullifier: &RpoDigest) -> u32 {
-    (nullifier[3].as_int() >> 48) as u32
+pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
+    (nullifier.most_significant_felt().as_int() >> 48) as u32
 }
 
 /// Converts a `u64` into a [Value].
