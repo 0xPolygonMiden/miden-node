@@ -1,0 +1,26 @@
+# Runs testing related jobs.
+
+name: test
+
+on:
+  push:
+    branches: [main, next]
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  unit-and-integration:
+    name: test stable on ubuntu-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          override: true
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - name: cargo make - test
+        run: cargo make test
