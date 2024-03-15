@@ -9,7 +9,7 @@ on:
     types: [opened, reopened, synchronize]
 
 jobs:
-  unit & integration:
+  unit-and-integration:
     name: test stable on ubuntu-latest
     runs-on: ubuntu-latest
     timeout-minutes: 30
