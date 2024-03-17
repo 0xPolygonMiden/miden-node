@@ -48,6 +48,22 @@ dependencies = [
 command = "cargo"
 args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
 
+[tasks.test-end-to-end]
+workspace = false
+script = '''
+cargo install --features testing --path node
+
+miden-node make-genesis --inputs-path node/genesis.toml --force
+
+miden-node start --config node/miden-node.toml &
+
+sleep 10
+
+./scripts/test-end-to-end.sh
+
+pkill -f miden-node
+'''
+
 # docker
 [tasks.docker-build-node]
 workspace = false
