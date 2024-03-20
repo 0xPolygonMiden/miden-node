@@ -91,7 +91,7 @@ pub enum BlockProverError {
     #[error("program execution failed")]
     ProgramExecutionFailed(ExecutionError),
     #[error("failed to retrieve {0} root from stack outputs")]
-    InvalidRootOutput(String),
+    InvalidRootOutput(&'static str),
 }
 
 // Block inputs errors
