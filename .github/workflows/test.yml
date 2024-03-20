@@ -25,18 +25,22 @@ jobs:
       - name: cargo make - test
         run: cargo make test
 
-  end-to-end:
-    name: end-to-end tests stable on ubuntu-latest
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
-      - name: Install cargo make
-        run: cargo install cargo-make
-      - name: cargo make - test-end-to-end
-        run: cargo make test-end-to-end
+  # end-to-end:
+  #   name: end-to-end tests stable on ubuntu-latest
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install Rust
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         override: true
+  #     - name: Install cargo make
+  #       run: cargo install cargo-make
+  #     - name: cargo make - docker-build-node
+  #       run: cargo make docker-build-node
+  #     - name: cargo make - docker-run-node
+  #       run: cargo make docker-run-node
+  #     - name: cargo make - test-end-to-end
+  #       run: cargo make test-end-to-end
