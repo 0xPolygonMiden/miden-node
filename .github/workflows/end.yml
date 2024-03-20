@@ -26,5 +26,7 @@ jobs:
         run: cargo make docker-build-node
       - name: cargo make - docker-run-node
         run: cargo make docker-run-node
+      - name: cargo install - miden-client
+        run: cargo install miden-client --features concurrent,testing
       - name: cargo make - test-end-to-end
         run: cargo make test-end-to-end
