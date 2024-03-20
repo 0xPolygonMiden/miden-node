@@ -260,22 +260,22 @@ impl BlockProver {
         let new_account_root = execution_output
             .stack_outputs()
             .get_stack_word(ACCOUNT_ROOT_WORD_IDX)
-            .ok_or(BlockProverError::InvalidRootOutput("account".to_string()))?;
+            .ok_or(BlockProverError::InvalidRootOutput("account"))?;
 
         let new_note_root = execution_output
             .stack_outputs()
             .get_stack_word(NOTE_ROOT_WORD_IDX)
-            .ok_or(BlockProverError::InvalidRootOutput("note".to_string()))?;
+            .ok_or(BlockProverError::InvalidRootOutput("note"))?;
 
         let new_nullifier_root = execution_output
             .stack_outputs()
             .get_stack_word(NULLIFIER_ROOT_WORD_IDX)
-            .ok_or(BlockProverError::InvalidRootOutput("nullifier".to_string()))?;
+            .ok_or(BlockProverError::InvalidRootOutput("nullifier"))?;
 
         let new_chain_mmr_root = execution_output
             .stack_outputs()
             .get_stack_word(CHAIN_MMR_ROOT_WORD_IDX)
-            .ok_or(BlockProverError::InvalidRootOutput("chain mmr".to_string()))?;
+            .ok_or(BlockProverError::InvalidRootOutput("chain mmr"))?;
 
         Ok((
             new_account_root.into(),
