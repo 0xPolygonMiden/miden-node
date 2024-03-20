@@ -23,7 +23,7 @@ use miden_node_proto::{
     },
     AccountState,
 };
-use miden_objects::{crypto::hash::rpo::RpoDigest, BlockHeader, Felt, ZERO};
+use miden_objects::{notes::Nullifier, BlockHeader, Felt, ZERO};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -284,7 +284,7 @@ impl api_server::Api for StoreApi {
                 .nullifiers
                 .into_iter()
                 .map(|nullifier| NullifierTransactionInputRecord {
-                    nullifier: Some(nullifier.nullifier.inner().into()),
+                    nullifier: Some(nullifier.nullifier.into()),
                     block_num: nullifier.block_num,
                 })
                 .collect(),
@@ -388,9 +388,10 @@ fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
 }
 
 #[instrument(target = "miden-store", skip_all, err)]
-fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<RpoDigest>, Status> {
+fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Nullifier>, Status> {
     nullifiers
         .iter()
+        .cloned()
         .map(TryInto::try_into)
         .collect::<Result<_, ParseError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))

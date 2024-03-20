@@ -1,7 +1,7 @@
 # Miden node
 
 <a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-<a href="https://github.com/0xPolygonMiden/miden-node/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-node/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+<a href="https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml"><img src="https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml/badge.svg?branch=main"></a>
 <a href="https://crates.io/crates/miden-node"><img src="https://img.shields.io/crates/v/miden-node"></a>
 
 This repository holds the Miden node; that is, the software which processes transactions and creates blocks for the Miden rollup.
