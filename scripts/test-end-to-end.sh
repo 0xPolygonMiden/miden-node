@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Setup clean state
-rm store.sqlite3
-
 # Create miden-client.toml file
 {
     echo "[rpc]"
