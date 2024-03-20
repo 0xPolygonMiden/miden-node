@@ -12,10 +12,7 @@ actix-cors = "0.7.0"
 derive_more = "0.99.17"
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-lib = { workspace = true }
-miden-client = { git = "https://github.com/0xPolygonMiden/miden-client", branch = "phklive-fix-faucet", features = [
-    "testing",
-    "concurrent",
-] }
+miden-client = { version = "0.1.0", features = ["testing","concurrent"] }
 miden-node-proto = { path = "../proto", version = "0.2" }
 miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }

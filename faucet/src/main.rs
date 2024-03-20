@@ -12,7 +12,7 @@ use cli::Cli;
 use handlers::{faucet_id, get_tokens};
 use miden_client::{
     client::{rpc::TonicRpcClient, Client},
-    store::{data_store::SqliteDataStore, sqlite_store::SqliteStore},
+    store::sqlite_store::SqliteStore,
 };
 use miden_objects::accounts::AccountId;
 use miden_node_utils::config::load_config;
@@ -29,7 +29,7 @@ mod config;
 pub struct FaucetState {
     id: AccountId,
     asset_amount: u64,
-    client: Arc<Mutex<Client<TonicRpcClient, SqliteStore, SqliteDataStore>>>,
+    client: Arc<Mutex<Client<TonicRpcClient, SqliteStore>>>,
 }
 
 #[actix_web::main]
