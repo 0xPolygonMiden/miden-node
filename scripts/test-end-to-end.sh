@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Create miden-client.toml file
+# Needed for the Miden client to work properly
 {
     echo "[rpc]"
     echo "endpoint = { protocol = \"http\", host = \"localhost\", port = 57291 }"
