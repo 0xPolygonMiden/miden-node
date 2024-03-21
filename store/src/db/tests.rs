@@ -18,12 +18,36 @@ fn create_db() -> Connection {
     conn
 }
 
+fn create_block(
+    conn: &mut Connection,
+    block_num: u32,
+) {
+    let block_header = BlockHeader::new(
+        num_to_rpo_digest(1),
+        block_num,
+        num_to_rpo_digest(3),
+        num_to_rpo_digest(4),
+        num_to_rpo_digest(5),
+        num_to_rpo_digest(6),
+        num_to_rpo_digest(7),
+        num_to_rpo_digest(8),
+        9_u8.into(),
+        10_u8.into(),
+    );
+
+    let transaction = conn.transaction().unwrap();
+    sql::insert_block_header(&transaction, &block_header).unwrap();
+    transaction.commit().unwrap();
+}
+
 #[test]
 fn test_sql_insert_nullifiers_for_block() {
     let mut conn = create_db();
 
     let nullifiers = [num_to_nullifier(1 << 48)];
+
     let block_num = 1;
+    create_block(&mut conn, block_num);
 
     // Insert a new nullifier succeeds
     {
@@ -66,12 +90,14 @@ fn test_sql_insert_nullifiers_for_block() {
 fn test_sql_select_nullifiers() {
     let mut conn = create_db();
 
+    let block_num = 1;
+    create_block(&mut conn, block_num);
+
     // test querying empty table
     let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
     assert!(nullifiers.is_empty());
 
     // test multiple entries
-    let block_num = 1;
     let mut state = vec![];
     for i in 0..10 {
         let nullifier = num_to_nullifier(i);
@@ -90,12 +116,14 @@ fn test_sql_select_nullifiers() {
 fn test_sql_select_notes() {
     let mut conn = create_db();
 
+    let block_num = 1;
+    create_block(&mut conn, block_num);
+
     // test querying empty table
     let notes = sql::select_notes(&mut conn).unwrap();
     assert!(notes.is_empty());
 
     // test multiple entries
-    let block_num = 1;
     let mut state = vec![];
     for i in 0..10 {
         let note = Note {
@@ -123,12 +151,14 @@ fn test_sql_select_notes() {
 fn test_sql_select_accounts() {
     let mut conn = create_db();
 
+    let block_num = 1;
+    create_block(&mut conn, block_num);
+
     // test querying empty table
     let accounts = sql::select_accounts(&mut conn).unwrap();
     assert!(accounts.is_empty());
 
     // test multiple entries
-    let block_num = 1;
     let mut state = vec![];
     for i in 0..10 {
         let account_id = i;
@@ -159,6 +189,7 @@ fn test_sql_select_nullifiers_by_block_range() {
     // test single item
     let nullifier1 = num_to_nullifier(1 << 48);
     let block_number1 = 1;
+    create_block(&mut conn, block_number1);
 
     let transaction = conn.transaction().unwrap();
     sql::insert_nullifiers_for_block(&transaction, &[nullifier1], block_number1).unwrap();
@@ -182,6 +213,7 @@ fn test_sql_select_nullifiers_by_block_range() {
     // test two elements
     let nullifier2 = num_to_nullifier(2 << 48);
     let block_number2 = 2;
+    create_block(&mut conn, block_number2);
 
     let transaction = conn.transaction().unwrap();
     sql::insert_nullifiers_for_block(&transaction, &[nullifier2], block_number2).unwrap();
@@ -339,13 +371,15 @@ fn test_db_block_header() {
 fn test_db_account() {
     let mut conn = create_db();
 
+    let block_num = 1;
+    create_block(&mut conn, block_num);
+
     // test empty table
     let account_ids = vec![0, 1, 2, 3, 4, 5];
     let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert!(res.is_empty());
 
     // test insertion
-    let block_num = 1;
     let account_id = 0;
     let account_hash = num_to_rpo_digest(0);
 
@@ -382,6 +416,9 @@ fn test_db_account() {
 fn test_notes() {
     let mut conn = create_db();
 
+    let block_num_1 = 1;
+    create_block(&mut conn, block_num_1);
+
     // test empty table
     let res = sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0).unwrap();
     assert!(res.is_empty());
@@ -391,7 +428,6 @@ fn test_notes() {
     assert!(res.is_empty());
 
     // test insertion
-    let block_num = 1;
     let note_index = 2u32;
     let tag = 5;
     let note_hash = num_to_rpo_digest(3);
@@ -401,7 +437,7 @@ fn test_notes() {
     let merkle_path = MerklePath::new(notes_db.open(&idx).path.nodes().to_vec());
 
     let note = Note {
-        block_num,
+        block_num: block_num_1,
         note_created: NoteCreated {
             note_index,
             note_id: num_to_rpo_digest(3),
@@ -424,7 +460,7 @@ fn test_notes() {
         &mut conn,
         &[(tag >> 48) as u32],
         &[],
-        block_num,
+        block_num_1,
     )
     .unwrap();
     assert!(res.is_empty());
@@ -434,14 +470,17 @@ fn test_notes() {
         &mut conn,
         &[(tag >> 48) as u32],
         &[],
-        block_num - 1,
+        block_num_1 - 1,
     )
     .unwrap();
     assert_eq!(res, vec![note.clone()]);
 
+    let block_num_2 = note.block_num + 1;
+    create_block(&mut conn, block_num_2);
+
     // insertion second note with same tag, but on higher block
     let note2 = Note {
-        block_num: note.block_num + 1,
+        block_num: block_num_2,
         note_created: NoteCreated {
             note_index: note.note_created.note_index,
             note_id: num_to_rpo_digest(3),
@@ -460,7 +499,7 @@ fn test_notes() {
         &mut conn,
         &[(tag >> 48) as u32],
         &[],
-        block_num - 1,
+        block_num_1 - 1,
     )
     .unwrap();
     assert_eq!(res, vec![note.clone()]);
@@ -470,7 +509,7 @@ fn test_notes() {
         &mut conn,
         &[(tag >> 48) as u32],
         &[],
-        block_num,
+        block_num_1,
     )
     .unwrap();
     assert_eq!(res, vec![note2.clone()]);
