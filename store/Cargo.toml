@@ -30,7 +30,7 @@ miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }
 once_cell = { version = "1.18.0" }
 prost = { version = "0.12" }
-rusqlite = { version = "0.30", features = ["array", "buildtime_bindgen"] }
+rusqlite = { version = "0.30", features = ["array", "buildtime_bindgen", "bundled"] }
 rusqlite_migration = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
