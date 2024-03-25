@@ -9,21 +9,20 @@ use actix_web::{
 use async_mutex::Mutex;
 use clap::Parser;
 use cli::Cli;
+use config::FaucetTopLevelConfig;
 use handlers::{faucet_id, get_tokens};
 use miden_client::{
     client::{rpc::TonicRpcClient, Client},
     store::sqlite_store::SqliteStore,
 };
-use miden_objects::accounts::AccountId;
 use miden_node_utils::config::load_config;
-
-use config::FaucetTopLevelConfig;
+use miden_objects::accounts::AccountId;
 
 mod cli;
+mod config;
 mod errors;
 mod handlers;
 mod utils;
-mod config;
 
 #[derive(Clone)]
 pub struct FaucetState {
@@ -39,8 +38,13 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     // Load config
-    let config: FaucetTopLevelConfig = load_config(cli.config.as_path()).extract()
-    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("Failed to load configuration file: {}", e)))?;
+    let config: FaucetTopLevelConfig =
+        load_config(cli.config.as_path()).extract().map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Failed to load configuration file: {}", e),
+            )
+        })?;
 
     // Instantiate Miden client
     let mut client = utils::build_client();

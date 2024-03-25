@@ -43,5 +43,3 @@ impl Display for FaucetConfig {
 pub struct FaucetTopLevelConfig {
     pub faucet: FaucetConfig,
 }
-
-

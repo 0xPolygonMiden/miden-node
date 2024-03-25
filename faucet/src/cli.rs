@@ -1,7 +1,8 @@
-use crate::config;
 use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
+use crate::config;
 
 #[derive(Parser)]
 #[clap(name = "Miden Faucet")]
