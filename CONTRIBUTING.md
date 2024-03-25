@@ -4,10 +4,10 @@
 
 We want to make contributing to this project as easy and transparent as possible, whether it's:
 
-- Reporting a [bug](https://github.com/0xPolygonMiden/miden-node/issues/new)
+- Reporting a [bug](https://github.com/0xPolygonMiden/miden-node/issues/new?assignees=&labels=bug&projects=&template=1-bugreport.yml&title=%5BBug%5D%3A+)
 - Taking part in [discussions](https://github.com/0xPolygonMiden/miden-node/discussions)
 - Submitting a [fix](https://github.com/0xPolygonMiden/miden-node/pulls)
-- Proposing new [features](https://github.com/0xPolygonMiden/miden-node/issues/new)
+- Proposing new [features](https://github.com/0xPolygonMiden/miden-node/issues/new?assignees=&labels=enhancement&projects=&template=2-feature-request.yml&title=%5BFeature%5D%3A+)
 
 &nbsp;
 
@@ -79,6 +79,13 @@ For example, a new change to the `miden-node-store` crate might have the followi
     ```
 
 You can find more information about the `cargo make` commands in the [Makefile](Makefile.toml)
+
+### Testing
+After writing code different types of tests (unit, integration, end-to-end) are required to make sure that the correct behavior has been achieved and that no bugs have been introduced. You can run tests using the following command:
+
+```
+cargo make test
+```
 
 ### Versioning
 We use [semver](https://semver.org/) naming convention.

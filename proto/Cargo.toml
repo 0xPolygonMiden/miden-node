@@ -1,18 +1,19 @@
 [package]
 name = "miden-node-proto"
-version = "0.1.0"
+version = "0.2.0"
 description = "Miden RPC message definitions"
-authors = ["miden contributors"]
-readme = "README.md"
-license = "MIT"
-repository = "https://github.com/0xPolygonMiden/miden-node"
 keywords = ["miden", "node", "protobuf", "rpc"]
-edition = "2021"
-rust-version = "1.75"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [dependencies]
 hex = { version = "0.4" }
-miden-node-utils = { path = "../utils", version = "0.1" }
+miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }
 prost = { version = "0.12" }
 thiserror = { workspace = true }

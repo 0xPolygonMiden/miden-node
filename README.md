@@ -1,7 +1,7 @@
 # Miden node
 
 <a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-<a href="https://github.com/0xPolygonMiden/miden-node/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-node/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+<a href="https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml"><img src="https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml/badge.svg?branch=main"></a>
 <a href="https://crates.io/crates/miden-node"><img src="https://img.shields.io/crates/v/miden-node"></a>
 
 This repository holds the Miden node; that is, the software which processes transactions and creates blocks for the Miden rollup.
@@ -32,7 +32,7 @@ Before you can build and run the Miden node or any of its components, you'll nee
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 
 ```sh
-sudo apt install gcc llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
+sudo apt install llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
 ```
 
 ### Installing the node
@@ -90,6 +90,34 @@ Please, refer to each component's documentation:
 * [Block Producer](block-producer/README.md#usage)
 
 Each directory containing the executables also contains an example configuration file. Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are valid and point to the right endpoint.
+
+### Running the node using Docker
+
+If you intend on running the node inside a Docker container, you will need to follow these steps:
+
+1. Build the docker image from source
+
+    ```sh
+    cargo make docker-build-node
+    ```
+
+    This command will build the docker image for the Miden node and save it locally.
+
+2. Run the Docker container
+
+    ```sh
+    docker run --name miden-node -p 57291:57291 -d miden-node-image
+    ```
+
+    This command will run the node as a container named `miden-node` using the `miden-node-image` and make port `57291` available (rpc endpoint).
+
+3. Monitor container
+
+    ```sh
+    docker ps
+    ```
+
+    After running this command you should see the name of the container `miden-node` being outputed and marked as `Up`.
 
 ## License
 This project is [MIT licensed](./LICENSE).

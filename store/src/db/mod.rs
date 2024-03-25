@@ -133,7 +133,7 @@ impl Db {
 
     /// Loads all the nullifiers from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>> {
+    pub async fn select_nullifiers(&self) -> Result<Vec<(Nullifier, BlockNumber)>> {
         self.pool.get().await?.interact(sql::select_nullifiers).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
         })?
@@ -242,7 +242,7 @@ impl Db {
         acquire_done: oneshot::Receiver<()>,
         block_header: BlockHeader,
         notes: Vec<Note>,
-        nullifiers: Vec<RpoDigest>,
+        nullifiers: Vec<Nullifier>,
         accounts: Vec<(AccountId, RpoDigest)>,
     ) -> Result<()> {
         self.pool
