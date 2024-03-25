@@ -1,0 +1,16 @@
+[Unit]
+Description=Miden faucet
+Wants=network-online.target
+Wants=miden-node.service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=exec
+Environment="RUST_LOG=info"
+ExecStart=miden-faucet import --asset-amount 100 --faucet-path /srv/miden-node/accounts/account1.mac
+ExecStartPre=-rm store.sqlite3
+WorkingDirectory=/srv/miden-faucet
+RestartSec=5
+Restart=always
