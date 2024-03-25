@@ -19,6 +19,8 @@ use miden_node_utils::config::load_config;
 use miden_objects::accounts::AccountId;
 use tracing::info;
 
+use crate::cli::{ImportArgs, InitArgs};
+
 mod cli;
 mod config;
 mod errors;
@@ -40,40 +42,73 @@ async fn main() -> std::io::Result<()> {
         io::Error::new(io::ErrorKind::Unsupported, format!("Failed to load logging: {}", e))
     })?;
 
-    // Load config
-    let config: FaucetTopLevelConfig =
-        load_config(cli.config.as_path()).extract().map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Failed to load configuration file: {}", e),
-            )
-        })?;
+    // // Load config
+    // let config: FaucetTopLevelConfig =
+    //     load_config(cli.config.as_path()).extract().map_err(|e| {
+    //         io::Error::new(
+    //             io::ErrorKind::InvalidData,
+    //             format!("Failed to load configuration file: {}", e),
+    //         )
+    //     })?;
 
-    // Instantiate Miden client
-    let mut client = utils::build_client(config.faucet.database_filepath.clone());
+    // // Instantiate Miden client
+    // let mut client = utils::build_client(config.faucet.database_filepath.clone());
 
+    let mut client: Client<TonicRpcClient, SqliteStore>;
+    let config: FaucetTopLevelConfig;
     let amount: u64;
 
     // Create faucet account
     let faucet_account = match &cli.command {
-        cli::Command::Init {
+        cli::Commands::Init(InitArgs {
+            asset_amount,
             token_symbol,
             decimals,
             max_supply,
-            asset_amount,
-        } => {
+            config: faucet_config,
+        }) => {
+            config = load_config(faucet_config.as_path()).extract().map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Failed to load configuration file: {}", e),
+                )
+            })?;
+
+            client = utils::build_client(config.faucet.database_filepath.clone());
+
             amount = *asset_amount;
-            utils::create_fungible_faucet(token_symbol, decimals, max_supply, &mut client)
+            utils::create_fungible_faucet(token_symbol, decimals, max_supply, &mut client).map_err(
+                |e| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("Failed to create faucet account: {}", e),
+                    )
+                },
+            )
         },
-        cli::Command::Import {
+        cli::Commands::Import(ImportArgs {
+            asset_amount,
             faucet_path,
-            asset_amount,
-        } => {
+            config: faucet_config,
+        }) => {
+            config = load_config(faucet_config.as_path()).extract().map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Failed to load configuration file: {}", e),
+                )
+            })?;
+
+            client = utils::build_client(config.faucet.database_filepath.clone());
+
             amount = *asset_amount;
-            utils::import_fungible_faucet(faucet_path, &mut client)
+            utils::import_fungible_faucet(faucet_path, &mut client).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Failed to import faucet account: {}", e),
+                )
+            })
         },
-    }
-    .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Failed to create faucet account."))?;
+    }?;
 
     // Sync client
     client.sync_state().await.map_err(|e| {

@@ -1,0 +1,5 @@
+[faucet]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-store', 1)) % 2**16
+endpoint = { protocol = "http", host = "localhost", port = 8080 }
+rpc_url = "http://localhost:57291"
+database_filepath = "db/miden-faucet.sqlite3"
