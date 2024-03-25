@@ -1,6 +1,10 @@
 //! Wrapper functions for SQL statements.
 use std::rc::Rc;
 
+use miden_objects::accounts::{Account, AccountCode, AccountStorage};
+use miden_objects::assets::AssetVault;
+use miden_objects::crypto::merkle::MerklePath;
+use miden_objects::transaction::AccountDetails;
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
     notes::Nullifier,
@@ -30,7 +34,7 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
     let mut accounts = vec![];
     while let Some(row) = rows.next()? {
         let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = deserialize(account_hash_data)?;
+        let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
         let account_id = column_value_as_u64(row, 0)?;
         let block_num = row.get(2)?;
 
@@ -57,7 +61,7 @@ pub fn select_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, Rp
     while let Some(row) = rows.next()? {
         let account_id = column_value_as_u64(row, 0)?;
         let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = deserialize(account_hash_data)?;
+        let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
 
         result.push((account_id, account_hash));
     }
@@ -100,7 +104,7 @@ pub fn select_accounts_by_block_range(
     while let Some(row) = rows.next()? {
         let account_id = column_value_as_u64(row, 0)?;
         let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = deserialize(account_hash_data)?;
+        let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
         let block_num = row.get(2)?;
 
         result.push(AccountInfo {
@@ -125,16 +129,82 @@ pub fn select_accounts_by_block_range(
 /// transaction.
 pub fn upsert_accounts(
     transaction: &Transaction,
-    accounts: &[(AccountId, RpoDigest)],
+    accounts: &[(AccountId, Option<AccountDetails>, RpoDigest)],
     block_num: BlockNumber,
 ) -> Result<usize> {
-    let mut stmt = transaction.prepare("INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num) VALUES (?1, ?2, ?3);")?;
+    let mut acc_stmt = transaction.prepare(
+        "INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num) VALUES (?1, ?2, ?3);",
+    )?;
+    let mut select_details_stmt = transaction.prepare(
+        "SELECT nonce, vault, storage, code FROM account_details WHERE account_id = ?1;",
+    )?;
+    let mut new_details_stmt = transaction.prepare(
+        "INSERT INTO account_details (account_id, nonce, vault, storage, code) VALUES (?1, ?2, ?3, ?4, ?5);"
+    )?;
+    let mut update_details_stmt = transaction.prepare(
+        "UPDATE account_details SET nonce = ?2, vault = ?3, storage = ?4 WHERE account_id = ?1;",
+    )?;
 
     let mut count = 0;
-    for (account_id, account_hash) in accounts.iter() {
-        count +=
-            stmt.execute(params![u64_to_value(*account_id), account_hash.to_bytes(), block_num])?
+    for (account_id, details, account_hash) in accounts.iter() {
+        count += acc_stmt.execute(params![
+            u64_to_value(*account_id),
+            account_hash.to_bytes(),
+            block_num
+        ])?;
+        if let Some(details) = details {
+            match details {
+                AccountDetails::Full(account) => {
+                    debug_assert!(account.is_new());
+                    debug_assert_eq!(*account_id, u64::from(account.id()));
+                    let inserted = new_details_stmt.execute(params![
+                        u64_to_value(account.id().into()),
+                        u64_to_value(account.nonce().as_int()),
+                        account.vault().to_bytes(),
+                        account.storage().to_bytes(),
+                        account.code().to_bytes(),
+                    ])?;
+
+                    debug_assert_eq!(inserted, 1);
+                },
+                AccountDetails::Delta(delta) => {
+                    let mut rows = select_details_stmt.query(params![u64_to_value(*account_id)])?;
+                    let Some(row) = rows.next()? else {
+                        return Err(DatabaseError::ApplyBlockFailedAccountNotOnChain(*account_id));
+                    };
+
+                    let mut account = Account::new(
+                        (*account_id).try_into()?,
+                        AssetVault::read_from_bytes(row.get_ref(1)?.as_blob()?)?,
+                        AccountStorage::read_from_bytes(row.get_ref(2)?.as_blob()?)?,
+                        AccountCode::read_from_bytes(row.get_ref(3)?.as_blob()?)?,
+                        column_value_as_u64(row, 0)?
+                            .try_into()
+                            .map_err(DatabaseError::CorruptedData)?,
+                    );
+
+                    account.apply_delta(delta)?;
+
+                    if &account.hash() != account_hash {
+                        return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
+                            calculated: account.hash(),
+                            expected: *account_hash,
+                        });
+                    }
+
+                    let updated = update_details_stmt.execute(params![
+                        u64_to_value(account.id().into()),
+                        u64_to_value(account.nonce().as_int()),
+                        account.vault().to_bytes(),
+                        account.storage().to_bytes(),
+                    ])?;
+
+                    debug_assert_eq!(updated, 1);
+                },
+            }
+        }
     }
+
     Ok(count)
 }
 
@@ -181,7 +251,7 @@ pub fn select_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, BlockN
     let mut result = vec![];
     while let Some(row) = rows.next()? {
         let nullifier_data = row.get_ref(0)?.as_blob()?;
-        let nullifier = deserialize(nullifier_data)?;
+        let nullifier = Nullifier::read_from_bytes(nullifier_data)?;
         let block_number = row.get(1)?;
         result.push((nullifier, block_number));
     }
@@ -228,7 +298,7 @@ pub fn select_nullifiers_by_block_range(
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
         let nullifier_data = row.get_ref(0)?.as_blob()?;
-        let nullifier = deserialize(nullifier_data)?;
+        let nullifier = Nullifier::read_from_bytes(nullifier_data)?;
         let block_num = row.get(1)?;
         result.push(NullifierInfo {
             nullifier,
@@ -254,10 +324,10 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
     let mut notes = vec![];
     while let Some(row) = rows.next()? {
         let note_id_data = row.get_ref(2)?.as_blob()?;
-        let note_id = deserialize(note_id_data)?;
+        let note_id = RpoDigest::read_from_bytes(note_id_data)?;
 
         let merkle_path_data = row.get_ref(5)?.as_blob()?;
-        let merkle_path = deserialize(merkle_path_data)?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
         notes.push(Note {
             block_num: row.get(0)?,
@@ -378,11 +448,11 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let block_num = row.get(0)?;
         let note_index = row.get(1)?;
         let note_id_data = row.get_ref(2)?.as_blob()?;
-        let note_id = deserialize(note_id_data)?;
+        let note_id = RpoDigest::read_from_bytes(note_id_data)?;
         let sender = column_value_as_u64(row, 3)?;
         let tag = column_value_as_u64(row, 4)?;
         let merkle_path_data = row.get_ref(5)?.as_blob()?;
-        let merkle_path = deserialize(merkle_path_data)?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
         let note = Note {
             block_num,
@@ -448,7 +518,7 @@ pub fn select_block_header_by_block_num(
     match rows.next()? {
         Some(row) => {
             let data = row.get_ref(0)?.as_blob()?;
-            Ok(Some(deserialize(data)?))
+            Ok(Some(BlockHeader::read_from_bytes(data)?))
         },
         None => Ok(None),
     }
@@ -466,7 +536,7 @@ pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
     let mut result = vec![];
     while let Some(row) = rows.next()? {
         let block_header_data = row.get_ref(0)?.as_blob()?;
-        let block_header = deserialize(block_header_data)?;
+        let block_header = BlockHeader::read_from_bytes(block_header_data)?;
         result.push(block_header);
     }
 
@@ -538,7 +608,7 @@ pub fn apply_block(
     block_header: &BlockHeader,
     notes: &[Note],
     nullifiers: &[Nullifier],
-    accounts: &[(AccountId, RpoDigest)],
+    accounts: &[(AccountId, Option<AccountDetails>, RpoDigest)],
 ) -> Result<usize> {
     let mut count = 0;
     count += insert_block_header(transaction, block_header)?;
@@ -550,11 +620,6 @@ pub fn apply_block(
 
 // UTILITIES
 // ================================================================================================
-
-/// Decodes a blob from the database into a corresponding deserializable.
-fn deserialize<T: Deserializable>(data: &[u8]) -> Result<T, DatabaseError> {
-    T::read_from_bytes(data).map_err(DatabaseError::DeserializationError)
-}
 
 /// Returns the high 16 bits of the provided nullifier.
 pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {

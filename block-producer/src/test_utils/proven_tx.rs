@@ -1,10 +1,11 @@
 use std::ops::Range;
 
 use miden_air::HashFunction;
+use miden_objects::transaction::ProvenTransaction;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteEnvelope, NoteMetadata, Nullifier},
-    transaction::{InputNotes, OutputNotes, ProvenTransactio, ProvenTransactionBuilder},
+    transaction::ProvenTransactionBuilder,
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
 };

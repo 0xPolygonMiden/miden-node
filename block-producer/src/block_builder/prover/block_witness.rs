@@ -48,7 +48,7 @@ impl BlockWitness {
             batches
                 .iter()
                 .flat_map(TransactionBatch::updated_accounts)
-                .map(|(account_id, details, final_state_hash)| {
+                .map(|(account_id, _details, final_state_hash)| {
                     let initial_state_hash = account_initial_states
                         .remove(&account_id)
                         .expect("already validated that key exists");

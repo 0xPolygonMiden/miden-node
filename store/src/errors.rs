@@ -3,6 +3,7 @@ use std::io;
 use deadpool_sqlite::PoolError;
 use miden_objects::{
     crypto::{
+        hash::rpo::RpoDigest,
         merkle::{MerkleError, MmrError},
         utils::DeserializationError,
     },
@@ -13,7 +14,7 @@ use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 
-use crate::types::BlockNumber;
+use crate::types::{AccountId, BlockNumber};
 
 // INTERNAL ERRORS
 // =================================================================================================
@@ -46,8 +47,32 @@ pub enum DatabaseError {
     InteractError(String),
     #[error("Deserialization of BLOB data from database failed: {0}")]
     DeserializationError(DeserializationError),
+    #[error("Corrupted data: {0}")]
+    CorruptedData(String),
+    #[error("Account error: {0}")]
+    AccountError(AccountError),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
     ApplyBlockFailedClosedChannel(RecvError),
+    #[error("Failed to apply block because on-chain account details not found: {0}")]
+    ApplyBlockFailedAccountNotOnChain(AccountId),
+    #[error("Failed to apply block because of on-chain account final hashes mismatch (expected {expected}, \
+        but calculated is {calculated}")]
+    ApplyBlockFailedAccountHashesMismatch {
+        expected: RpoDigest,
+        calculated: RpoDigest,
+    },
+}
+
+impl From<DeserializationError> for DatabaseError {
+    fn from(value: DeserializationError) -> Self {
+        Self::DeserializationError(value)
+    }
+}
+
+impl From<AccountError> for DatabaseError {
+    fn from(value: AccountError) -> Self {
+        Self::AccountError(value)
+    }
 }
 
 // INITIALIZATION ERRORS

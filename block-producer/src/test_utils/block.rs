@@ -30,7 +30,7 @@ pub async fn build_expected_block_header(
         batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
     let new_account_root = {
         let mut store_accounts = store.accounts.read().await.clone();
-        for (account_id, details, new_account_state) in updated_accounts {
+        for (account_id, _details, new_account_state) in updated_accounts {
             store_accounts.insert(account_id.into(), new_account_state.into());
         }
 
@@ -114,7 +114,7 @@ impl MockBlockBuilder {
         mut self,
         updated_accounts: Vec<(AccountId, Option<AccountDetails>, Digest)>,
     ) -> Self {
-        for &(account_id, ref details, new_account_state) in updated_accounts.iter() {
+        for &(account_id, ref _details, new_account_state) in updated_accounts.iter() {
             self.store_accounts.insert(account_id.into(), new_account_state.into());
         }
 

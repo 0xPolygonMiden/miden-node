@@ -4,26 +4,21 @@
 //! data is atomically written, and that reads are consistent.
 use std::{mem, sync::Arc};
 
-use miden_node_proto::{
-    errors::{ConversionError, MissingFieldHelper},
-    generated::requests::AccountUpdate,
-    AccountInputRecord, AccountState, NullifierWitness,
-};
+use miden_node_proto::{AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
+use miden_objects::transaction::AccountDetails;
 use miden_objects::{
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteMetadata, Nullifier, NOTE_LEAF_DEPTH},
-    transaction::AccountDetails,
-    AccountError, BlockHeader, Digest, Felt, FieldElement, Word, ACCOUNT_TREE_DEPTH, EMPTY_WORD,
+    AccountError, BlockHeader, Word, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tonic::Status;
 use tracing::{error, info, info_span, instrument};
 
 use crate::{
@@ -111,7 +106,7 @@ impl State {
         &self,
         block_header: BlockHeader,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<(AccountId, RpoDigest)>,
+        accounts: Vec<(AccountId, Option<AccountDetails>, RpoDigest)>,
         notes: Vec<NoteCreated>,
     ) -> Result<(), ApplyBlockError> {
         let _ = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
@@ -185,7 +180,7 @@ impl State {
 
             // update account tree
             let mut account_tree = inner.account_tree.clone();
-            for (account_id, account_hash) in accounts.iter() {
+            for (account_id, _, account_hash) in accounts.iter() {
                 account_tree.insert(LeafIndex::new_max_depth(*account_id), account_hash.into());
             }
 

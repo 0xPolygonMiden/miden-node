@@ -1,6 +1,7 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
+use miden_objects::transaction::AccountDetails;
 use miden_objects::{
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::Nullifier,
@@ -243,7 +244,7 @@ impl Db {
         block_header: BlockHeader,
         notes: Vec<Note>,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<(AccountId, RpoDigest)>,
+        accounts: Vec<(AccountId, Option<AccountDetails>, RpoDigest)>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -326,7 +327,7 @@ impl Db {
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt
                             .leaves()
-                            .map(|(account_id, state_hash)| (account_id, state_hash.into()))
+                            .map(|(account_id, state_hash)| (account_id, None, state_hash.into()))
                             .collect();
                         sql::apply_block(
                             &transaction,
