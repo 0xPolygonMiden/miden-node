@@ -19,4 +19,5 @@ miden-objects = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 clap = { version = "4.5.1", features = ["derive"] }
 async-mutex = "1.4.0"
-env_logger = "0.11.2"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

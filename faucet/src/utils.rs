@@ -19,13 +19,17 @@ use miden_objects::{
 };
 
 /// Instantiates the Miden client
-pub fn build_client() -> Client<TonicRpcClient, SqliteStore> {
+pub fn build_client(database_filepath: String) -> Client<TonicRpcClient, SqliteStore> {
     // Setup store
-    let store_config = StoreConfig::default();
+    let store_config = StoreConfig {
+        database_filepath: database_filepath.clone(),
+    };
     let store = SqliteStore::new(store_config).expect("Failed to instantiate store.");
 
     // Setup the executor store
-    let executor_store_config = StoreConfig::default();
+    let executor_store_config = StoreConfig {
+        database_filepath: database_filepath.clone(),
+    };
     let executor_store =
         SqliteStore::new(executor_store_config).expect("Failed to instantiate datastore store");
 

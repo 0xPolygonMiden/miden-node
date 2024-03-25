@@ -28,6 +28,7 @@ pub enum Command {
         #[clap(short, long, required = true)]
         max_supply: u64,
 
+        /// Amount of assets to be dispersed by the faucet on each request
         #[clap(short, long)]
         asset_amount: u64,
     },
@@ -37,6 +38,7 @@ pub enum Command {
         #[clap(short, long, required = true)]
         faucet_path: PathBuf,
 
+        /// Amount of assets to be dispersed by the faucet on each request
         #[clap(short, long)]
         asset_amount: u64,
     },

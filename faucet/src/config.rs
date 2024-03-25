@@ -10,6 +10,7 @@ pub const CONFIG_FILENAME: &str = "miden-faucet.toml";
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct FaucetConfig {
+    /// Endpoint of the faucet
     pub endpoint: Endpoint,
     /// rpc gRPC endpoint in the format `http://<host>[:<port>]`.
     pub rpc_url: String,

@@ -4,6 +4,7 @@ use miden_objects::{
     accounts::AccountId, assets::FungibleAsset, notes::NoteId, utils::serde::Serializable,
 };
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::{errors::FaucetError, FaucetState};
 
@@ -31,7 +32,7 @@ pub async fn get_tokens(
     req: web::Query<FaucetRequest>,
     state: web::Data<FaucetState>,
 ) -> Result<HttpResponse> {
-    println!("Received a request with account_id: {}", req.account_id);
+    info!("Received a request with account_id: {}", req.account_id);
 
     let client = state.client.clone();
 

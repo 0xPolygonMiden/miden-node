@@ -17,6 +17,7 @@ use miden_client::{
 };
 use miden_node_utils::config::load_config;
 use miden_objects::accounts::AccountId;
+use tracing::info;
 
 mod cli;
 mod config;
@@ -35,7 +36,9 @@ pub struct FaucetState {
 async fn main() -> std::io::Result<()> {
     let cli = Cli::parse();
 
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    miden_node_utils::logging::setup_logging().map_err(|e| {
+        io::Error::new(io::ErrorKind::Unsupported, format!("Failed to load logging: {}", e))
+    })?;
 
     // Load config
     let config: FaucetTopLevelConfig =
@@ -47,7 +50,7 @@ async fn main() -> std::io::Result<()> {
         })?;
 
     // Instantiate Miden client
-    let mut client = utils::build_client();
+    let mut client = utils::build_client(config.faucet.database_filepath.clone());
 
     let amount: u64;
 
@@ -77,11 +80,9 @@ async fn main() -> std::io::Result<()> {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("Failed to sync state: {e:?}"))
     })?;
 
-    println!("{}", config.faucet);
+    info!("✅ Faucet setup successful, account id: {}", faucet_account.id());
 
-    println!("✅ Faucet setup successful, account id: {}", faucet_account.id());
-
-    println!("🚀 Starting server on: {}", config.faucet.as_url());
+    info!("🚀 Starting server on: {}", config.faucet.as_url());
 
     // Instantiate faucet state
     let faucet_state = FaucetState {
@@ -106,7 +107,7 @@ async fn main() -> std::io::Result<()> {
                     .index_file("index.html"),
             )
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind((config.faucet.endpoint.host, config.faucet.endpoint.port))?
     .run()
     .await?;
 
