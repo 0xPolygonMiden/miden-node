@@ -48,6 +48,12 @@ dependencies = [
 command = "cargo"
 args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
 
+[tasks.test-end-to-end]
+workspace = false
+script = '''
+./scripts/test-end-to-end.sh
+'''
+
 # docker
 [tasks.docker-build-node]
 workspace = false
