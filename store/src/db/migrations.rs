@@ -27,7 +27,7 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             PRIMARY KEY (block_num, note_index),
             CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
             CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
-            CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF),
+            CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE
@@ -64,12 +64,10 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             block_num INTEGER NOT NULL,
 
             PRIMARY KEY (nullifier),
-            CONSTRAINT fk_block_num FOREIGN KEY (block_number) REFERENCES block_headers (block_num),
+            CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
             CONSTRAINT nullifiers_nullifier_is_digest CHECK (length(nullifier) = 32),
             CONSTRAINT nullifiers_nullifier_prefix_is_u16 CHECK (nullifier_prefix BETWEEN 0 AND 0xFFFF),
-            CONSTRAINT nullifiers_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
-            CONSTRAINT nullifiers_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
-            FOREIGN KEY (block_num) REFERENCES block_header (block_num)
+            CONSTRAINT nullifiers_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
         ) STRICT, WITHOUT ROWID;
         ",
     )])
