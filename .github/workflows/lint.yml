@@ -32,8 +32,7 @@ jobs:
           toolchain: nightly
           components: rustfmt
           override: true
-      - name: Install cargo make
-        run: cargo install cargo-make
+      - uses: davidB/rust-cargo-make@v1
       - name: cargo make - format-check
         run: cargo make format-check
 
@@ -48,7 +47,6 @@ jobs:
           profile: minimal
           components: clippy
           override: true
-      - name: Install cargo make
-        run: cargo install cargo-make
+      - uses: davidB/rust-cargo-make@v1
       - name: cargo make - clippy
         run: cargo make clippy
