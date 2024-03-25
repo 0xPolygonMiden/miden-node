@@ -20,8 +20,7 @@ jobs:
         with:
           profile: minimal
           override: true
-      - name: Install cargo make
-        run: cargo install cargo-make
+      - uses: davidB/rust-cargo-make@v1
       - name: cargo make - test
         run: cargo make test
 
@@ -36,8 +35,7 @@ jobs:
         with:
           profile: minimal
           override: true
-      - name: Install cargo make
-        run: cargo install cargo-make
+      - uses: davidB/rust-cargo-make@v1
       - name: cargo make - docker-build-node
         run: cargo make docker-build-node
       - name: cargo make - docker-run-node
