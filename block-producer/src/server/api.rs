@@ -65,8 +65,6 @@ where
         );
         debug!(target: COMPONENT, proof = ?tx.proof());
 
-        // TODO: Validate transaction, if it isn't validated during deserialization
-
         self.queue
             .add_transaction(tx)
             .await
