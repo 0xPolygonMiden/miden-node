@@ -1,6 +1,10 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use commands::start_node;
+use miden_node_block_producer::start_block_producer;
+use miden_node_rpc::start_rpc;
+use miden_node_store::start_store;
 
 mod commands;
 
@@ -26,6 +30,9 @@ pub struct Cli {
 pub enum Command {
     /// Start the node
     Start {
+        #[command(subcommand)]
+        command: StartCommand,
+
         #[arg(short, long, value_name = "FILE", default_value = NODE_CONFIG_FILE_PATH)]
         config: PathBuf,
     },
@@ -50,6 +57,14 @@ pub enum Command {
     },
 }
 
+#[derive(Subcommand)]
+pub enum StartCommand {
+    Node,
+    BlockProducer,
+    Rpc,
+    Store,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     miden_node_utils::logging::setup_logging()?;
@@ -57,7 +72,14 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::Start { config } => commands::start_node(config).await,
+        Command::Start { command, config } => {
+            match command {
+                StartCommand::Node => start_node(config).await,
+                StartCommand::BlockProducer => start_block_producer(config).await,
+                StartCommand::Rpc => start_rpc(config).await,
+                StartCommand::Store => start_store(config).await,
+            }
+        }
         Command::MakeGenesis {
             output_path,
             force,
