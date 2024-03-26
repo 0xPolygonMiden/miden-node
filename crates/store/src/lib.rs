@@ -23,8 +23,6 @@ pub const COMPONENT: &str = "miden-store";
 // =================================================================================================
 
 pub async fn start_store(config_filepath: &Path) -> Result<()> {
-    // miden_node_utils::logging::setup_logging()?;
-
     let config: StoreTopLevelConfig = load_config(config_filepath).extract()?;
     let db = Db::setup(config.store.clone()).await?;
 

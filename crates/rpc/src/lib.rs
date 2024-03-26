@@ -16,8 +16,6 @@ pub const COMPONENT: &str = "miden-rpc";
 // =================================================================================================
 
 pub async fn start_rpc(config_filepath: &Path) -> Result<()> {
-    // miden_node_utils::logging::setup_logging()?;
-
     let config: RpcTopLevelConfig = load_config(config_filepath).extract()?;
 
     server::serve(config.rpc).await?;

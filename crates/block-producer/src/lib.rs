@@ -51,8 +51,6 @@ const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
 // =================================================================================================
 
 pub async fn start_block_producer(config_filepath: &Path) -> Result<()> {
-    // miden_node_utils::logging::setup_logging()?;
-
     let config: BlockProducerTopLevelConfig = load_config(config_filepath).extract()?;
 
     server::serve(config.block_producer).await?;
