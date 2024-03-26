@@ -11,15 +11,8 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
-[[bin]]
-name = "miden-node-store"
-path = "src/main.rs"
-bench = false
-doctest = false
-
 [dependencies]
 anyhow = { version = "1.0" }
-clap = { version = "4.3", features = ["derive"] }
 deadpool-sqlite = { version = "0.7", features = ["rt_tokio_1"] }
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
