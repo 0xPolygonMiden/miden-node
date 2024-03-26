@@ -6,13 +6,13 @@ use std::{mem, sync::Arc};
 
 use miden_node_proto::{AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
-use miden_objects::transaction::AccountDetails;
 use miden_objects::{
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteMetadata, Nullifier, NOTE_LEAF_DEPTH},
+    transaction::AccountDetails,
     AccountError, BlockHeader, Word, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{

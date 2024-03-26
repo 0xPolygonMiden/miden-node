@@ -1,13 +1,12 @@
 //! Wrapper functions for SQL statements.
 use std::rc::Rc;
 
-use miden_objects::accounts::{Account, AccountCode, AccountStorage};
-use miden_objects::assets::AssetVault;
-use miden_objects::crypto::merkle::MerklePath;
-use miden_objects::transaction::AccountDetails;
 use miden_objects::{
-    crypto::hash::rpo::RpoDigest,
+    accounts::{Account, AccountCode, AccountStorage},
+    assets::AssetVault,
+    crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::Nullifier,
+    transaction::AccountDetails,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };

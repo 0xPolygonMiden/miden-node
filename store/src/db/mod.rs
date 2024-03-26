@@ -1,10 +1,10 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_objects::transaction::AccountDetails;
 use miden_objects::{
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::Nullifier,
+    transaction::AccountDetails,
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
