@@ -121,24 +121,23 @@ where
         &self,
         block: Block,
     ) -> Result<(), ApplyBlockError> {
-        self.store.apply_block(block.clone()).await?;
+        let account_ids_in_block: Vec<AccountId> =
+            block.updated_accounts.iter().map(|(account_id, _, _)| *account_id).collect();
+        let produced_nullifiers = block.produced_nullifiers.clone();
+
+        self.store.apply_block(block).await?;
 
         let mut locked_accounts_in_flight = self.accounts_in_flight.write().await;
         let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
 
         // Remove account ids of transactions in block
-        let account_ids_in_block = block
-            .updated_accounts
-            .iter()
-            .map(|(account_id, _final_account_hash)| account_id);
-
-        for account_id in account_ids_in_block {
+        for account_id in account_ids_in_block.iter() {
             let was_in_flight = locked_accounts_in_flight.remove(account_id);
             debug_assert!(was_in_flight);
         }
 
         // Remove new nullifiers of transactions in block
-        for nullifier in block.produced_nullifiers.iter() {
+        for nullifier in produced_nullifiers.iter() {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
         }

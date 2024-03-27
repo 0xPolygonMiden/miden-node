@@ -6,7 +6,7 @@ use std::{
 use async_trait::async_trait;
 use miden_node_proto::{
     convert,
-    errors::{MissingFieldHelper, ParseError},
+    errors::{ConversionError, MissingFieldHelper},
     generated::{
         account, digest,
         requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
@@ -83,7 +83,7 @@ impl Display for TransactionInputs {
 }
 
 impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(response: GetTransactionInputsResponse) -> Result<Self, Self::Error> {
         let AccountState {

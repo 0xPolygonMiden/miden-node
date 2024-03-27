@@ -1,4 +1,4 @@
-use miden_node_proto::errors::ParseError;
+use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
@@ -101,7 +101,7 @@ pub enum BlockProverError {
 #[derive(Debug, PartialEq, Error)]
 pub enum BlockInputsError {
     #[error("failed to parse protobuf message: {0}")]
-    ParseError(#[from] ParseError),
+    ConversionError(#[from] ConversionError),
     #[error("MmrPeaks error: {0}")]
     MmrPeaksError(#[from] MmrError),
     #[error("gRPC client failed with error: {0}")]
@@ -153,7 +153,7 @@ pub enum TxInputsError {
     #[error("malformed response from store: {0}")]
     MalformedResponse(String),
     #[error("failed to parse protobuf message: {0}")]
-    ParseError(#[from] ParseError),
+    ConversionError(#[from] ConversionError),
     #[error("dummy")]
     Dummy,
 }

@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use hex::{FromHex, ToHex};
 use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
 
-use crate::{errors::ParseError, generated::digest};
+use crate::{errors::ConversionError, generated::digest};
 
 // CONSTANTS
 // ================================================================================================
@@ -62,17 +62,17 @@ impl ToHex for digest::Digest {
 }
 
 impl FromHex for digest::Digest {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let data = hex::decode(hex)?;
 
         match data.len() {
-            size if size < DIGEST_DATA_SIZE => Err(ParseError::InsufficientData {
+            size if size < DIGEST_DATA_SIZE => Err(ConversionError::InsufficientData {
                 expected: DIGEST_DATA_SIZE,
                 got: size,
             }),
-            size if size > DIGEST_DATA_SIZE => Err(ParseError::TooMuchData {
+            size if size > DIGEST_DATA_SIZE => Err(ConversionError::TooMuchData {
                 expected: DIGEST_DATA_SIZE,
                 got: size,
             }),
@@ -164,14 +164,14 @@ impl From<digest::Digest> for [u64; 4] {
 }
 
 impl TryFrom<digest::Digest> for [Felt; 4] {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         if ![value.d0, value.d1, value.d2, value.d3]
             .iter()
             .all(|v| *v < <Felt as StarkField>::MODULUS)
         {
-            Err(ParseError::NotAValidFelt)
+            Err(ConversionError::NotAValidFelt)
         } else {
             Ok([
                 Felt::new(value.d0),
@@ -184,7 +184,7 @@ impl TryFrom<digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<digest::Digest> for Digest {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         Ok(Self::new(value.try_into()?))
@@ -192,7 +192,7 @@ impl TryFrom<digest::Digest> for Digest {
 }
 
 impl TryFrom<&digest::Digest> for [Felt; 4] {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -200,7 +200,7 @@ impl TryFrom<&digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<&digest::Digest> for Digest {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()

@@ -4,7 +4,7 @@ use miden_objects::{
 };
 
 use crate::{
-    errors::{MissingFieldHelper, ParseError},
+    errors::{ConversionError, MissingFieldHelper},
     generated::{digest::Digest, responses::NullifierBlockInputRecord},
 };
 
@@ -27,7 +27,7 @@ impl From<Nullifier> for Digest {
 // ================================================================================================
 
 impl TryFrom<Digest> for Nullifier {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: Digest) -> Result<Self, Self::Error> {
         let digest: RpoDigest = value.try_into()?;
@@ -45,7 +45,7 @@ pub struct NullifierWitness {
 }
 
 impl TryFrom<NullifierBlockInputRecord> for NullifierWitness {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(nullifier_input_record: NullifierBlockInputRecord) -> Result<Self, Self::Error> {
         Ok(Self {

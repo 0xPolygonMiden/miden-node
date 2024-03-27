@@ -1109,9 +1109,8 @@ dependencies = [
 
 [[package]]
 name = "miden-lib"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "825bc94780153bd3783d9adbdf276ea38fab2ff3ce0815067badaa4d404c5fae"
+version = "0.2.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#86a81277b236a29b9bb85d329137f1fcc84b6063"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1258,9 +1257,8 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7379df161104e3ba97812a89e33b4cff8183964af848074d62dd49f34f00aeed"
+version = "0.2.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#86a81277b236a29b9bb85d329137f1fcc84b6063"
 dependencies = [
  "miden-assembly",
  "miden-core",
@@ -1305,9 +1303,8 @@ dependencies = [
 
 [[package]]
 name = "miden-tx"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d59fa14ff23132a14fd3cf215e681d99aad83d819500319f0b20c251179c671"
+version = "0.2.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#86a81277b236a29b9bb85d329137f1fcc84b6063"
 dependencies = [
  "miden-lib",
  "miden-objects",

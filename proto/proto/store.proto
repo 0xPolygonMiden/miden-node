@@ -17,4 +17,5 @@ service Api {
     rpc ListNullifiers(requests.ListNullifiersRequest) returns (responses.ListNullifiersResponse) {}
     rpc ListAccounts(requests.ListAccountsRequest) returns (responses.ListAccountsResponse) {}
     rpc ListNotes(requests.ListNotesRequest) returns (responses.ListNotesResponse) {}
+    rpc GetPublicAccountDetails(requests.GetPublicAccountDetailsRequest) returns (responses.GetPublicAccountDetailsResponse) {}
 }

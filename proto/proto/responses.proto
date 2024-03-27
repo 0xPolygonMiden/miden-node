@@ -113,3 +113,8 @@ message ListNotesResponse {
     // Lists all notes of the current chain
     repeated note.Note notes = 1;
 }
+
+message GetPublicAccountDetailsResponse {
+    // Public account full details.
+    account.AccountFullDetails details = 1;
+}
