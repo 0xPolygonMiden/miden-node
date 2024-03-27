@@ -116,6 +116,35 @@ pub fn select_accounts_by_block_range(
     Ok(result)
 }
 
+/// Select the latest account details by account id from the DB using the given [Connection].
+///
+/// # Returns
+///
+/// The latest account details, or an error.
+pub fn get_account_details(
+    conn: &mut Connection,
+    account_id: AccountId,
+) -> Result<Account> {
+    let mut stmt = conn.prepare(
+        "SELECT nonce, vault, storage, code FROM account_details WHERE account_id = ?1;",
+    )?;
+
+    let mut rows = stmt.query(params![u64_to_value(account_id)])?;
+    let Some(row) = rows.next()? else {
+        return Err(DatabaseError::AccountNotOnChain(account_id));
+    };
+
+    let account = Account::new(
+        account_id.try_into()?,
+        AssetVault::read_from_bytes(row.get_ref(1)?.as_blob()?)?,
+        AccountStorage::read_from_bytes(row.get_ref(2)?.as_blob()?)?,
+        AccountCode::read_from_bytes(row.get_ref(3)?.as_blob()?)?,
+        column_value_as_u64(row, 0)?.try_into().map_err(DatabaseError::CorruptedData)?,
+    );
+
+    Ok(account)
+}
+
 /// Inserts or updates accounts to the DB using the given [Transaction].
 ///
 /// # Returns
@@ -146,8 +175,9 @@ pub fn upsert_accounts(
 
     let mut count = 0;
     for (account_id, details, account_hash) in accounts.iter() {
+        let account_id = *account_id;
         count += acc_stmt.execute(params![
-            u64_to_value(*account_id),
+            u64_to_value(account_id),
             account_hash.to_bytes(),
             block_num
         ])?;
@@ -155,7 +185,7 @@ pub fn upsert_accounts(
             match details {
                 AccountDetails::Full(account) => {
                     debug_assert!(account.is_new());
-                    debug_assert_eq!(*account_id, u64::from(account.id()));
+                    debug_assert_eq!(account_id, u64::from(account.id()));
                     let inserted = new_details_stmt.execute(params![
                         u64_to_value(account.id().into()),
                         u64_to_value(account.nonce().as_int()),
@@ -167,13 +197,13 @@ pub fn upsert_accounts(
                     debug_assert_eq!(inserted, 1);
                 },
                 AccountDetails::Delta(delta) => {
-                    let mut rows = select_details_stmt.query(params![u64_to_value(*account_id)])?;
+                    let mut rows = select_details_stmt.query(params![u64_to_value(account_id)])?;
                     let Some(row) = rows.next()? else {
-                        return Err(DatabaseError::ApplyBlockFailedAccountNotOnChain(*account_id));
+                        return Err(DatabaseError::AccountNotOnChain(account_id));
                     };
 
                     let mut account = Account::new(
-                        (*account_id).try_into()?,
+                        account_id.try_into()?,
                         AssetVault::read_from_bytes(row.get_ref(1)?.as_blob()?)?,
                         AccountStorage::read_from_bytes(row.get_ref(2)?.as_blob()?)?,
                         AccountCode::read_from_bytes(row.get_ref(3)?.as_blob()?)?,

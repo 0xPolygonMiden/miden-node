@@ -53,8 +53,8 @@ pub enum DatabaseError {
     AccountError(AccountError),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
     ApplyBlockFailedClosedChannel(RecvError),
-    #[error("Failed to apply block because on-chain account details not found: {0}")]
-    ApplyBlockFailedAccountNotOnChain(AccountId),
+    #[error("Public account ({0}) details not found on-chain")]
+    AccountNotOnChain(AccountId),
     #[error("Failed to apply block because of on-chain account final hashes mismatch (expected {expected}, \
         but calculated is {calculated}")]
     ApplyBlockFailedAccountHashesMismatch {
