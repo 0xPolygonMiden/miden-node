@@ -93,7 +93,7 @@ pub async fn get_tokens(
         .append_header(header::ContentDisposition {
             disposition: actix_web::http::header::DispositionType::Attachment,
             parameters: vec![actix_web::http::header::DispositionParam::Filename(
-                "note.mno".to_string(),
+                format!("{:?}.mno",note_id),
             )],
         })
         .body(bytes))

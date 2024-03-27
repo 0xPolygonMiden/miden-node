@@ -18,8 +18,10 @@ use miden_objects::{
     Felt,
 };
 
+use crate::FaucetClient;
+
 /// Instantiates the Miden client
-pub fn build_client(database_filepath: String) -> Client<TonicRpcClient, SqliteStore> {
+pub fn build_client(database_filepath: String) -> FaucetClient {
     // Setup store
     let store_config = StoreConfig {
         database_filepath: database_filepath.clone(),
@@ -46,7 +48,7 @@ pub fn create_fungible_faucet(
     token_symbol: &str,
     decimals: &u8,
     max_supply: &u64,
-    client: &mut Client<TonicRpcClient, SqliteStore>,
+    client: &mut FaucetClient,
 ) -> Result<Account, io::Error> {
     let token_symbol = TokenSymbol::new(token_symbol).expect("Failed to parse token_symbol.");
 
@@ -81,7 +83,7 @@ pub fn create_fungible_faucet(
 /// Imports a Miden fungible faucet from a file
 pub fn import_fungible_faucet(
     faucet_path: &PathBuf,
-    client: &mut Client<TonicRpcClient, SqliteStore>,
+    client: &mut FaucetClient,
 ) -> Result<Account, io::Error> {
     let path = Path::new(faucet_path);
     let mut file = File::open(path).expect("Failed to open file.");

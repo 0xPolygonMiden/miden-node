@@ -9,7 +9,7 @@ use actix_web::{
 use async_mutex::Mutex;
 use clap::Parser;
 use cli::Cli;
-use config::FaucetTopLevelConfig;
+use config::FaucetConfig;
 use handlers::{faucet_id, get_tokens};
 use miden_client::{
     client::{rpc::TonicRpcClient, Client},
@@ -27,11 +27,13 @@ mod errors;
 mod handlers;
 mod utils;
 
+pub type FaucetClient = Client<TonicRpcClient, SqliteStore>;
+
 #[derive(Clone)]
 pub struct FaucetState {
     id: AccountId,
     asset_amount: u64,
-    client: Arc<Mutex<Client<TonicRpcClient, SqliteStore>>>,
+    client: Arc<Mutex<FaucetClient>>,
 }
 
 #[actix_web::main]
@@ -39,23 +41,11 @@ async fn main() -> std::io::Result<()> {
     let cli = Cli::parse();
 
     miden_node_utils::logging::setup_logging().map_err(|e| {
-        io::Error::new(io::ErrorKind::Unsupported, format!("Failed to load logging: {}", e))
+        io::Error::new(io::ErrorKind::Other, format!("Failed to load logging: {}", e))
     })?;
 
-    // // Load config
-    // let config: FaucetTopLevelConfig =
-    //     load_config(cli.config.as_path()).extract().map_err(|e| {
-    //         io::Error::new(
-    //             io::ErrorKind::InvalidData,
-    //             format!("Failed to load configuration file: {}", e),
-    //         )
-    //     })?;
-
-    // // Instantiate Miden client
-    // let mut client = utils::build_client(config.faucet.database_filepath.clone());
-
-    let mut client: Client<TonicRpcClient, SqliteStore>;
-    let config: FaucetTopLevelConfig;
+    let mut client: FaucetClient;
+    let config: FaucetConfig;
     let amount: u64;
 
     // Create faucet account
@@ -74,7 +64,7 @@ async fn main() -> std::io::Result<()> {
                 )
             })?;
 
-            client = utils::build_client(config.faucet.database_filepath.clone());
+            client = utils::build_client(config.database_filepath.clone());
 
             amount = *asset_amount;
             utils::create_fungible_faucet(token_symbol, decimals, max_supply, &mut client).map_err(
@@ -98,7 +88,7 @@ async fn main() -> std::io::Result<()> {
                 )
             })?;
 
-            client = utils::build_client(config.faucet.database_filepath.clone());
+            client = utils::build_client(config.database_filepath.clone());
 
             amount = *asset_amount;
             utils::import_fungible_faucet(faucet_path, &mut client).map_err(|e| {
@@ -112,12 +102,12 @@ async fn main() -> std::io::Result<()> {
 
     // Sync client
     client.sync_state().await.map_err(|e| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("Failed to sync state: {e:?}"))
+        io::Error::new(io::ErrorKind::NotConnected, format!("Failed to sync state: {e:?}"))
     })?;
 
     info!("✅ Faucet setup successful, account id: {}", faucet_account.id());
 
-    info!("🚀 Starting server on: {}", config.faucet.as_url());
+    info!("🚀 Starting server on: {}", config.as_url());
 
     // Instantiate faucet state
     let faucet_state = FaucetState {
@@ -142,7 +132,7 @@ async fn main() -> std::io::Result<()> {
                     .index_file("index.html"),
             )
     })
-    .bind((config.faucet.endpoint.host, config.faucet.endpoint.port))?
+    .bind((config.endpoint.host, config.endpoint.port))?
     .run()
     .await?;
 

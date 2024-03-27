@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub const CONFIG_FILENAME: &str = "miden-faucet.toml";
 
-// Main config
+// Faucet config
 // ================================================================================================
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
@@ -34,13 +34,4 @@ impl Display for FaucetConfig {
             self.endpoint, self.database_filepath, self.rpc_url
         ))
     }
-}
-
-// Top-level config
-// ================================================================================================
-
-/// Faucet top-level configuration.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
-pub struct FaucetTopLevelConfig {
-    pub faucet: FaucetConfig,
 }

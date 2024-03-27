@@ -5,6 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+# Makes `make-genesis` subcommand run faster. Is only suitable for testing.
+testing = ["miden-client/testing"]
+
 [dependencies]
 actix-web = "4"
 actix-files = "0.6.5"
@@ -12,7 +16,7 @@ actix-cors = "0.7.0"
 derive_more = "0.99.17"
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-lib = { workspace = true }
-miden-client = { version = "0.1.0", features = ["testing","concurrent"] }
+miden-client = { version = "0.1.0", features = ["concurrent"] }
 miden-node-proto = { path = "../proto", version = "0.2" }
 miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }
