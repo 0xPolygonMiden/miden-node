@@ -107,7 +107,7 @@ If you intend on running the node inside a Docker container, you will need to fo
 2. Run the Docker container
 
     ```sh
-    docker run --name miden-node -p 57291:57291 -d miden-node-image
+    cargo make docker-run-node
     ```
 
     This command will run the node as a container named `miden-node` using the `miden-node-image` and make port `57291` available (rpc endpoint).
