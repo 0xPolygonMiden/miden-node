@@ -7,6 +7,7 @@ members = [
   "store",
   "utils",
   "test-macro",
+  "faucet"
 ]
 
 resolver = "2"
