@@ -26,12 +26,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install minimal Rust with rustfmt
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: nightly
           components: rustfmt
-          override: true
       - name: Install cargo make
         run: cargo install cargo-make
       - name: cargo make - format-check
@@ -43,11 +41,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install minimal Rust with clippy
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
+          toolchain: stable
           components: clippy
-          override: true
       - name: Install cargo make
         run: cargo install cargo-make
       - name: cargo make - clippy
