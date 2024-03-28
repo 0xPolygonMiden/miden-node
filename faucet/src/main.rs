@@ -10,7 +10,7 @@ use async_mutex::Mutex;
 use clap::Parser;
 use cli::Cli;
 use config::FaucetConfig;
-use handlers::{faucet_metadata, get_tokens};
+use handlers::{get_metadata, get_tokens};
 use miden_client::{
     client::{rpc::TonicRpcClient, Client},
     store::sqlite_store::SqliteStore,
@@ -117,13 +117,13 @@ async fn main() -> std::io::Result<()> {
     };
 
     HttpServer::new(move || {
-        let cors = Cors::default().allow_any_origin().allowed_methods(vec!["GET"]);
+        let cors = Cors::default().allow_any_origin().allow_any_method();
         App::new()
             .app_data(web::Data::new(faucet_state.clone()))
             .wrap(cors)
             .wrap(Logger::default())
             .wrap(DefaultHeaders::new().add(("Cache-Control", "no-cache")))
-            .service(faucet_metadata)
+            .service(get_metadata)
             .service(get_tokens)
             .service(
                 Files::new("/", "faucet/src/static")

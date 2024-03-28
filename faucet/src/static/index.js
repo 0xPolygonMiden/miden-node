@@ -1,5 +1,5 @@
 window.onload = function() {
-    fetch('http://localhost:8080/faucet_metadata')
+    fetch('http://localhost:8080/get_metadata')
         .then(response => response.json())
         .then(data => {
             document.getElementById('faucetId').textContent = data.id;
@@ -33,30 +33,36 @@ document.addEventListener('DOMContentLoaded', function () {
             errorMessage.textContent = "Invalid Account ID."
             errorMessage.style.display = 'block';
         } else {
-            fetch(`http://localhost:8080/get_tokens?account_id=${accountId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        console.log(response.text)
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.blob(); // Handle the response as a blob instead of JSON
-                })
-                .then(blob => {
-                    // Create a URL for the blob
-                    const url = window.URL.createObjectURL(blob);
-                    // Create a link element
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = 'note.mno'; // Provide a filename for the download
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url); // Clean up the URL object
-                })
-                .catch(error => {
-                    console.log(error);
-                    console.error('Error:', error);
-                });
+            fetch('http://localhost:8080/get_tokens', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ account_id: accountId })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.log(response.text)
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const contentDisposition = response.headers.get('Content-Disposition');
+                console.log(contentDisposition);
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'note.mno';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.log(error);
+                console.error('Error:', error);
+            });
         }
     });
 });

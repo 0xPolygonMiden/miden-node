@@ -1,4 +1,4 @@
-use actix_web::{get, http::header, web, HttpResponse, Result};
+use actix_web::{get, http::header, post, web, HttpResponse, Result};
 use miden_client::client::transactions::TransactionTemplate;
 use miden_objects::{
     accounts::AccountId, assets::FungibleAsset, notes::NoteId, utils::serde::Serializable,
@@ -19,8 +19,8 @@ struct FaucetMetadataReponse {
     asset_amount: u64,
 }
 
-#[get("/faucet_metadata")]
-pub async fn faucet_metadata(state: web::Data<FaucetState>) -> HttpResponse {
+#[get("/get_metadata")]
+pub async fn get_metadata(state: web::Data<FaucetState>) -> HttpResponse {
     let response = FaucetMetadataReponse {
         id: state.id.to_string(),
         asset_amount: state.asset_amount,
@@ -29,9 +29,9 @@ pub async fn faucet_metadata(state: web::Data<FaucetState>) -> HttpResponse {
     HttpResponse::Ok().json(response)
 }
 
-#[get("/get_tokens")]
+#[post("/get_tokens")]
 pub async fn get_tokens(
-    req: web::Query<FaucetRequest>,
+    req: web::Json<FaucetRequest>,
     state: web::Data<FaucetState>,
 ) -> Result<HttpResponse> {
     info!("Received a request with account_id: {}", req.account_id);
