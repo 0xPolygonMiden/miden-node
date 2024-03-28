@@ -14,14 +14,16 @@ struct FaucetRequest {
 }
 
 #[derive(Serialize)]
-struct FaucetIdResponse {
-    faucet_id: String,
+struct FaucetMetadataReponse {
+    id: String,
+    asset_amount: u64,
 }
 
-#[get("/faucet_id")]
-pub async fn faucet_id(state: web::Data<FaucetState>) -> HttpResponse {
-    let response = FaucetIdResponse {
-        faucet_id: state.id.to_string(),
+#[get("/faucet_metadata")]
+pub async fn faucet_metadata(state: web::Data<FaucetState>) -> HttpResponse {
+    let response = FaucetMetadataReponse {
+        id: state.id.to_string(),
+        asset_amount: state.asset_amount,
     };
 
     HttpResponse::Ok().json(response)

@@ -1,12 +1,15 @@
 window.onload = function() {
-    fetch('http://localhost:8080/faucet_id') // Adjust the URL as per your server
-        .then(response => response.json()) // Process the response as JSON
+    fetch('http://localhost:8080/faucet_metadata')
+        .then(response => response.json())
         .then(data => {
-            document.getElementById('faucetId').textContent = data.faucet_id; // Accessing the 'id' field from JSON
+            document.getElementById('faucetId').textContent = data.id;
+            document.getElementById('button').textContent = `send me ${data.asset_amount} tokens!`;
         })
         .catch(error => {
             console.error('Error fetching Faucet ID:', error);
             document.getElementById('faucetId').textContent = 'Error loading Faucet ID.';
+            console.error('Error fetching Faucet asset amount:', error);
+            document.getElementById('button').textContent = 'Error retrieving Faucet asset amount.';
         });
 };
 
