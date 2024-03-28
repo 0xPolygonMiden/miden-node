@@ -92,9 +92,10 @@ pub async fn get_tokens(
         .content_type("application/octet-stream")
         .append_header(header::ContentDisposition {
             disposition: actix_web::http::header::DispositionType::Attachment,
-            parameters: vec![actix_web::http::header::DispositionParam::Filename(
-                format!("{:?}.mno",note_id),
-            )],
+            parameters: vec![actix_web::http::header::DispositionParam::Filename(format!(
+                "{:?}.mno",
+                note_id
+            ))],
         })
         .body(bytes))
 }
