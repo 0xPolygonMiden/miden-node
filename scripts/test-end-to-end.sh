@@ -1,4 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -o errexit  # Exit on error
+set -o pipefail # The script fails if any command in a pipeline fails
 
 # Create miden-client.toml file
 # Needed for the Miden client to work properly

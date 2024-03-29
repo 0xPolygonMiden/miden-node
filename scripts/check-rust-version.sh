@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Check rust-toolchain file
 TOOLCHAIN_VERSION=$(cat rust-toolchain)
