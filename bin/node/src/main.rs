@@ -72,14 +72,12 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::Start { command, config } => {
-            match command {
-                StartCommand::Node => start_node(config).await,
-                StartCommand::BlockProducer => start_block_producer(config).await,
-                StartCommand::Rpc => start_rpc(config).await,
-                StartCommand::Store => start_store(config).await,
-            }
-        }
+        Command::Start { command, config } => match command {
+            StartCommand::Node => start_node(config).await,
+            StartCommand::BlockProducer => start_block_producer(config).await,
+            StartCommand::Rpc => start_rpc(config).await,
+            StartCommand::Store => start_store(config).await,
+        },
         Command::MakeGenesis {
             output_path,
             force,
