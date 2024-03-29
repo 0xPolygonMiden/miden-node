@@ -25,7 +25,6 @@ genesis.dat
 *.sqlite3-shm
 *.sqlite3-wal
 
-
 # Docs ignore
 .code
 .idea
