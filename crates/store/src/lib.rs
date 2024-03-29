@@ -1,16 +1,15 @@
 use std::path::Path;
 
 use anyhow::Result;
-
-use db::Db;
 use config::StoreTopLevelConfig;
+use db::Db;
 use miden_node_utils::config::load_config;
 
-mod nullifier_tree;
 pub mod config;
 pub mod db;
 pub mod errors;
 pub mod genesis;
+mod nullifier_tree;
 pub mod server;
 pub mod state;
 pub mod types;
