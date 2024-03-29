@@ -16,10 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - name: Install cargo make
         run: cargo install cargo-make
       - name: cargo make - test
