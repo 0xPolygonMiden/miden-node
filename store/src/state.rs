@@ -12,7 +12,7 @@ use miden_objects::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteMetadata, Nullifier, NOTE_LEAF_DEPTH},
+    notes::{NoteMetadata, NoteType, Nullifier, NOTE_LEAF_DEPTH},
     transaction::AccountDetails,
     AccountError, BlockHeader, Word, ACCOUNT_TREE_DEPTH,
 };
@@ -493,6 +493,7 @@ pub fn build_notes_tree(
     for note in notes.iter() {
         let note_metadata = NoteMetadata::new(
             note.sender.try_into()?,
+            NoteType::OffChain, // TODO: provide correct note type
             note.tag
                 .try_into()
                 .expect("tag value is greater than or equal to the field modulus"),

@@ -1,15 +1,26 @@
+use miden_lib::transaction::TransactionKernel;
+use miden_mock::mock::account::{
+    generate_account_seed, mock_account_code, AccountSeedType,
+    ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
+};
 use miden_objects::{
+    accounts::{
+        Account, AccountDelta, AccountId, AccountStorage, AccountStorageDelta, AccountVaultDelta,
+        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+    },
+    assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, MerklePath, SimpleSmt},
     },
     notes::{Nullifier, NOTE_LEAF_DEPTH},
-    BlockHeader, Felt, FieldElement,
+    transaction::AccountDetails,
+    BlockHeader, Felt, FieldElement, Word, ONE, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 
 use super::{sql, AccountInfo, Note, NoteCreated, NullifierInfo};
-use crate::db::migrations;
+use crate::{db::migrations, errors::DatabaseError};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -177,6 +188,124 @@ fn test_sql_select_accounts() {
         let accounts = sql::select_accounts(&mut conn).unwrap();
         assert_eq!(accounts, state);
     }
+}
+
+#[test]
+fn test_sql_public_account_details() {
+    let mut conn = create_db();
+
+    let block_num = 1;
+    create_block(&mut conn, block_num);
+
+    let (account_id, _seed) =
+        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let fungible_faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+    let non_fungible_faucet_id =
+        AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+
+    let mut storage = AccountStorage::new(vec![]).unwrap();
+    storage.set_item(1, num_to_word(1)).unwrap();
+    storage.set_item(3, num_to_word(3)).unwrap();
+    storage.set_item(5, num_to_word(5)).unwrap();
+
+    let nft1 = Asset::NonFungible(
+        NonFungibleAsset::new(
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![1, 2, 3]).unwrap(),
+        )
+        .unwrap(),
+    );
+
+    let mut account = Account::new(
+        account_id,
+        AssetVault::new(&[
+            Asset::Fungible(FungibleAsset::new(fungible_faucet_id, 150).unwrap()),
+            nft1,
+        ])
+        .unwrap(),
+        storage,
+        mock_account_code(&TransactionKernel::assembler()),
+        ZERO,
+    );
+
+    // test querying empty table
+    let res = sql::get_account_details(&mut conn, account_id.into());
+    assert!(matches!(res, Err(DatabaseError::AccountNotOnChain(_))));
+
+    let transaction = conn.transaction().unwrap();
+    let inserted = sql::upsert_accounts(
+        &transaction,
+        &[(account_id.into(), Some(AccountDetails::Full(account.clone())), account.hash())],
+        block_num,
+    )
+    .unwrap();
+
+    assert_eq!(inserted, 1, "One element must have been inserted");
+
+    transaction.commit().unwrap();
+
+    let account_read = sql::get_account_details(&mut conn, account_id.into()).unwrap();
+
+    // TODO: substitute by a single check, once code imports deserialization is fixed:
+    // assert_eq!(account_read, account);
+    assert_eq!(account_read.id(), account.id());
+    assert_eq!(account_read.vault(), account.vault());
+    assert_eq!(account_read.storage(), account.storage());
+    assert_eq!(account_read.nonce(), account.nonce());
+
+    let storage_delta = AccountStorageDelta {
+        cleared_items: vec![3],
+        updated_items: vec![(4, num_to_word(5)), (5, num_to_word(6))],
+    };
+
+    let nft2 = Asset::NonFungible(
+        NonFungibleAsset::new(
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![4, 5, 6]).unwrap(),
+        )
+        .unwrap(),
+    );
+
+    let vault_delta = AccountVaultDelta {
+        added_assets: vec![nft2],
+        removed_assets: vec![nft1],
+    };
+
+    let delta = AccountDelta::new(storage_delta, vault_delta, Some(ONE)).unwrap();
+
+    account.apply_delta(&delta).unwrap();
+
+    let transaction = conn.transaction().unwrap();
+    let inserted = sql::upsert_accounts(
+        &transaction,
+        &[(account_id.into(), Some(AccountDetails::Delta(delta.clone())), account.hash())],
+        block_num,
+    )
+    .unwrap();
+
+    assert_eq!(inserted, 1, "One element must have been inserted");
+
+    transaction.commit().unwrap();
+
+    let mut account_read = sql::get_account_details(&mut conn, account_id.into()).unwrap();
+
+    assert_eq!(account_read.id(), account.id());
+    assert_eq!(account_read.vault(), account.vault());
+    assert_eq!(account_read.nonce(), account.nonce());
+
+    // Cleared item was not serialized, check it and apply delta only with clear item second time:
+    assert_eq!(account_read.storage().get_item(3), RpoDigest::default());
+
+    let storage_delta = AccountStorageDelta {
+        cleared_items: vec![3],
+        updated_items: vec![],
+    };
+    account_read
+        .apply_delta(
+            &AccountDelta::new(storage_delta, AccountVaultDelta::default(), Some(Felt::new(2)))
+                .unwrap(),
+        )
+        .unwrap();
+
+    assert_eq!(account_read.storage(), account.storage());
 }
 
 #[test]
@@ -519,7 +648,11 @@ fn test_notes() {
 // UTILITIES
 // -------------------------------------------------------------------------------------------
 fn num_to_rpo_digest(n: u64) -> RpoDigest {
-    RpoDigest::new([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(n)])
+    RpoDigest::new(num_to_word(n))
+}
+
+fn num_to_word(n: u64) -> Word {
+    [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(n)]
 }
 
 fn num_to_nullifier(n: u64) -> Nullifier {

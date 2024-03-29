@@ -24,6 +24,7 @@ exclude = [".github/"]
 [workspace.dependencies]
 miden-air = { version = "0.8", default-features = false }
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
+miden-mock = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-processor = { version = "0.8" }
 miden-stdlib = { version = "0.8", default-features = false }

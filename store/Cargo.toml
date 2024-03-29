@@ -42,4 +42,5 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
+miden-mock = { workspace = true }
 miden-node-utils = { path = "../utils", version = "0.2", features = ["tracing-forest"] }
