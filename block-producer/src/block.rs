@@ -9,7 +9,6 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
     notes::{NoteEnvelope, Nullifier},
-    transaction::AccountDetails,
     BlockHeader, Digest,
 };
 
@@ -18,10 +17,11 @@ use crate::store::BlockInputsError;
 #[derive(Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
-    pub updated_accounts: Vec<(AccountId, Option<AccountDetails>, Digest)>,
+    pub updated_accounts: Vec<(AccountId, Digest)>,
     pub created_notes: BTreeMap<u64, NoteEnvelope>,
     pub produced_nullifiers: Vec<Nullifier>,
     // TODO:
+    // - full states for updated public accounts
     // - full states for created public notes
     // - zk proof
 }

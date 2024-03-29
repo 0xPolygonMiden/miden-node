@@ -388,14 +388,11 @@ impl TryFrom<&AccountDetailsPb> for AccountDetails {
 // INTO ACCOUNT UPDATE
 // ================================================================================================
 
-impl From<(AccountId, Option<AccountDetails>, Digest)> for AccountUpdate {
-    fn from(
-        (account_id, details, account_hash): (AccountId, Option<AccountDetails>, Digest)
-    ) -> Self {
+impl From<(AccountId, Digest)> for AccountUpdate {
+    fn from((account_id, account_hash): (AccountId, Digest)) -> Self {
         Self {
             account_id: Some(account_id.into()),
             account_hash: Some(account_hash.into()),
-            details: details.as_ref().map(Into::into),
         }
     }
 }

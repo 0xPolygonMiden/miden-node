@@ -1,7 +1,7 @@
 # Miden node store
 
-The **Store** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in
-the store, the node does not consider it to be part of the chain.
+The **Store** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in 
+the store, the node does not consider it to be part of the chain. 
 **Store** is one of components of the [Miden node](..).
 
 ## Architecture
@@ -22,11 +22,9 @@ cargo install --path store
 
 ### Running the Store
 
-In order to run Store, you must provide a genesis file. To generate a genesis file you will need to
-use [Miden node](../README.md#generating-the-genesis-file)'s `make-genesis` command.
+In order to run Store, you must provide a genesis file. To generate a genesis file you will need to use [Miden node](../README.md#generating-the-genesis-file)'s `make-genesis` command. 
 
-You will also need to provide a configuration file. We have an example config file
-in [store-example.toml](store-example.toml).
+You will also need to provide a configuration file. We have an example config file in [store-example.toml](store-example.toml).
 
 Then, to run the Store:
 
@@ -36,8 +34,7 @@ miden-node-store serve --config <path-to-store-config-file>
 
 ## API
 
-The **Store** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned
-configuration file.
+The **Store** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file. 
 Here is a brief description of supported methods.
 
 ### ApplyBlock
@@ -73,8 +70,7 @@ Retrieves block header by given block number.
 
 **Parameters**
 
-* `block_num`: `uint32` *(optional)* – the block number of the target block. If not provided, the latest known block
-  will be returned.
+* `block_num`: `uint32` *(optional)* – the block number of the target block. If not provided, the latest known block will be returned.
 
 **Returns:**
 
@@ -86,7 +82,7 @@ Returns data needed by the block producer to construct and prove the next block.
 
 **Parameters**
 
-* `account_ids`: `[AccountId]` – array of account IDs.
+* `account_ids`: `[AccountId]` – array of account IDs. 
 * `nullifiers`: `[Digest]` – array of nullifier hashes (not currently in use).
 
 **Returns**
@@ -98,7 +94,7 @@ Returns data needed by the block producer to construct and prove the next block.
 
 ### GetTransactionInputs
 
-Returns the data needed by the block producer to check validity of an incoming transaction.
+Returns the data needed by the block producer to check validity of an incoming transaction. 
 
 **Parameters**
 
@@ -107,26 +103,21 @@ Returns the data needed by the block producer to check validity of an incoming t
 
 **Returns**
 
-* `account_state`: `AccountTransactionInputRecord` – account's descriptors.
-* `nullifiers`: `[NullifierTransactionInputRecord]` – the block numbers at which corresponding nullifiers have been
-  consumed, zero if not consumed.
+* `account_state`: `AccountTransactionInputRecord` – account's descriptors. 
+* `nullifiers`: `[NullifierTransactionInputRecord]` – the block numbers at which corresponding nullifiers have been consumed, zero if not consumed.
 
 ### SyncState
 
 Returns info which can be used by the client to sync up to the latest state of the chain
 for the objects (accounts, notes, nullifiers) the client is interested in.
 
-This request returns the next block containing requested data. It also returns `chain_tip` which is the latest block
-number in the chain.
-Client is expected to repeat these requests in a loop until `response.block_header.block_num == response.chain_tip`, at
-which point the client is fully synchronized with the chain.
+This request returns the next block containing requested data. It also returns `chain_tip` which is the latest block number in the chain.
+Client is expected to repeat these requests in a loop until `response.block_header.block_num == response.chain_tip`, at which point the client is fully synchronized with the chain.
 
-Each request also returns info about new notes, nullifiers etc. created. It also returns Chain MMR delta that can be
-used to update the state of Chain MMR.
+Each request also returns info about new notes, nullifiers etc. created. It also returns Chain MMR delta that can be used to update the state of Chain MMR.
 This includes both chain MMR peaks and chain MMR nodes.
 
-For preserving some degree of privacy, note tags and nullifiers filters contain only high part of hashes. Thus, returned
-data
+For preserving some degree of privacy, note tags and nullifiers filters contain only high part of hashes. Thus, returned data
 contains excessive notes and nullifiers, client can make additional filtering of that data on its side.
 
 **Parameters**
@@ -141,22 +132,9 @@ contains excessive notes and nullifiers, client can make additional filtering of
 * `chain_tip`: `uint32` – number of the latest block in the chain.
 * `block_header`: `BlockHeader` – block header of the block with the first note matching the specified criteria.
 * `mmr_delta`: `MmrDelta` – data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`.
-* `accounts`: `[AccountHashUpdate]` – a list of account hashes updated after `block_num + 1` but not
-  after `block_header.block_num`.
+* `accounts`: `[AccountHashUpdate]` – a list of account hashes updated after `block_num + 1` but not after `block_header.block_num`.
 * `notes`: `[NoteSyncRecord]` – a list of all notes together with the Merkle paths from `block_header.note_root`.
 * `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `block_num + 1` and `block_header.block_num`.
-
-### GetPublicAccountDetails
-
-Returns details for public (on-chain) account by id.
-
-**Parameters**
-
-* `account_id`: `AccountId` – account id.
-
-**Returns**
-
-* `details`: `AccountFullDetails` – public account full details.
 
 ## Methods for testing purposes
 
@@ -170,7 +148,7 @@ This request doesn't have any parameters.
 
 **Returns**
 
-* `nullifiers`: `[NullifierLeaf]` – lists of all nullifiers of the current chain.
+* `nullifiers`: `[NullifierLeaf]` – lists of all nullifiers of the current chain. 
 
 ### ListAccounts
 
@@ -197,5 +175,4 @@ This request doesn't have any parameters.
 * `notes`: `[Note]` – list of all notes of the current chain.
 
 ## License
-
 This project is [MIT licensed](../LICENSE).

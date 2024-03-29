@@ -8,22 +8,22 @@ use miden_node_proto::{
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
-            GetBlockInputsRequest, GetPublicAccountDetailsRequest, GetTransactionInputsRequest,
-            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountHashUpdate, AccountTransactionInputRecord, ApplyBlockResponse,
             CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetPublicAccountDetailsResponse, GetTransactionInputsResponse, ListAccountsResponse,
-            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
-            NullifierUpdate, SyncStateResponse,
+            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
+            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
     },
     AccountState,
 };
-use miden_objects::{notes::Nullifier, transaction::AccountDetails, BlockHeader, Felt, ZERO};
+use miden_objects::{notes::Nullifier, BlockHeader, Felt, ZERO};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -159,32 +159,6 @@ impl api_server::Api for StoreApi {
         }))
     }
 
-    /// Returns details for public (on-chain) account by id.
-    #[instrument(
-        target = "miden-store",
-        name = "store:get_public_account_details",
-        skip_all,
-        ret(level = "debug"),
-        err
-    )]
-    async fn get_public_account_details(
-        &self,
-        request: tonic::Request<GetPublicAccountDetailsRequest>,
-    ) -> Result<Response<GetPublicAccountDetailsResponse>, Status> {
-        let request = request.into_inner();
-        let account = self
-            .state
-            .get_account_details(
-                request.account_id.ok_or(invalid_argument("Account missing id"))?.into(),
-            )
-            .await
-            .map_err(internal_error)?;
-
-        Ok(Response::new(GetPublicAccountDetailsResponse {
-            details: Some((&account).into()),
-        }))
-    }
-
     // BLOCK PRODUCER ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
@@ -216,16 +190,11 @@ impl api_server::Api for StoreApi {
             .accounts
             .into_iter()
             .map(|account_update| {
-                let account_details: Option<AccountDetails> =
-                    account_update.details.as_ref().map(TryInto::try_into).transpose().map_err(
-                        |err: ConversionError| Status::invalid_argument(err.to_string()),
-                    )?;
                 let account_state: AccountState = account_update
                     .try_into()
                     .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
                 Ok((
                     account_state.account_id.into(),
-                    account_details,
                     account_state
                         .account_hash
                         .ok_or(invalid_argument("Account update missing account hash"))?,

@@ -235,7 +235,7 @@ async fn test_compute_account_root_success() {
             account_ids
                 .iter()
                 .zip(account_final_states.iter())
-                .map(|(&account_id, &account_hash)| (account_id, None, account_hash.into()))
+                .map(|(&account_id, &account_hash)| (account_id, account_hash.into()))
                 .collect(),
         )
         .build();

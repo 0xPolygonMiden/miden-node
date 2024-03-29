@@ -7,13 +7,11 @@ use std::{mem, sync::Arc};
 use miden_node_proto::{AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
-    accounts::Account,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteMetadata, NoteType, Nullifier, NOTE_LEAF_DEPTH},
-    transaction::AccountDetails,
     AccountError, BlockHeader, Word, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{
@@ -107,7 +105,7 @@ impl State {
         &self,
         block_header: BlockHeader,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<(AccountId, Option<AccountDetails>, RpoDigest)>,
+        accounts: Vec<(AccountId, RpoDigest)>,
         notes: Vec<NoteCreated>,
     ) -> Result<(), ApplyBlockError> {
         let _ = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
@@ -181,7 +179,7 @@ impl State {
 
             // update account tree
             let mut account_tree = inner.account_tree.clone();
-            for (account_id, _, account_hash) in accounts.iter() {
+            for (account_id, account_hash) in accounts.iter() {
                 account_tree.insert(LeafIndex::new_max_depth(*account_id), account_hash.into());
             }
 
@@ -468,14 +466,6 @@ impl State {
     /// Lists all known notes, intended for testing.
     pub async fn list_notes(&self) -> Result<Vec<Note>, DatabaseError> {
         self.db.select_notes().await
-    }
-
-    /// Returns details for public (on-chain) account.
-    pub async fn get_account_details(
-        &self,
-        id: AccountId,
-    ) -> Result<Account, DatabaseError> {
-        self.db.get_account_details(id).await
     }
 }
 
