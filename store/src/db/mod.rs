@@ -2,6 +2,7 @@ use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_objects::{
+    accounts::Account,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::Nullifier,
     BlockHeader, GENESIS_BLOCK,
@@ -196,6 +197,22 @@ impl Db {
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select account hashes task failed: {err}"))
+            })?
+    }
+
+    /// Loads public account details from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn get_account_details(
+        &self,
+        id: AccountId,
+    ) -> Result<Account> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::get_account_details(conn, id))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Get account details task failed: {err}"))
             })?
     }
 

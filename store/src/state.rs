@@ -7,6 +7,7 @@ use std::{mem, sync::Arc};
 use miden_node_proto::{AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
+    accounts::Account,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
@@ -466,6 +467,14 @@ impl State {
     /// Lists all known notes, intended for testing.
     pub async fn list_notes(&self) -> Result<Vec<Note>, DatabaseError> {
         self.db.select_notes().await
+    }
+
+    /// Returns details for public (on-chain) account.
+    pub async fn get_account_details(
+        &self,
+        id: AccountId,
+    ) -> Result<Account, DatabaseError> {
+        self.db.get_account_details(id).await
     }
 }
 

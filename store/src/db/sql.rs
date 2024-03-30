@@ -2,7 +2,9 @@
 use std::rc::Rc;
 
 use miden_objects::{
-    crypto::hash::rpo::RpoDigest,
+    accounts::{Account, AccountCode, AccountStorage},
+    assets::AssetVault,
+    crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::Nullifier,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
@@ -30,7 +32,7 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
     let mut accounts = vec![];
     while let Some(row) = rows.next()? {
         let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = deserialize(account_hash_data)?;
+        let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
         let account_id = column_value_as_u64(row, 0)?;
         let block_num = row.get(2)?;
 
@@ -57,7 +59,7 @@ pub fn select_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, Rp
     while let Some(row) = rows.next()? {
         let account_id = column_value_as_u64(row, 0)?;
         let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = deserialize(account_hash_data)?;
+        let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
 
         result.push((account_id, account_hash));
     }
@@ -100,7 +102,7 @@ pub fn select_accounts_by_block_range(
     while let Some(row) = rows.next()? {
         let account_id = column_value_as_u64(row, 0)?;
         let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = deserialize(account_hash_data)?;
+        let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
         let block_num = row.get(2)?;
 
         result.push(AccountInfo {
@@ -111,6 +113,35 @@ pub fn select_accounts_by_block_range(
     }
 
     Ok(result)
+}
+
+/// Select the latest account details by account id from the DB using the given [Connection].
+///
+/// # Returns
+///
+/// The latest account details, or an error.
+pub fn get_account_details(
+    conn: &mut Connection,
+    account_id: AccountId,
+) -> Result<Account> {
+    let mut stmt = conn.prepare(
+        "SELECT nonce, vault, storage, code FROM account_details WHERE account_id = ?1;",
+    )?;
+
+    let mut rows = stmt.query(params![u64_to_value(account_id)])?;
+    let Some(row) = rows.next()? else {
+        return Err(DatabaseError::AccountNotOnChain(account_id));
+    };
+
+    let account = Account::new(
+        account_id.try_into()?,
+        AssetVault::read_from_bytes(row.get_ref(1)?.as_blob()?)?,
+        AccountStorage::read_from_bytes(row.get_ref(2)?.as_blob()?)?,
+        AccountCode::read_from_bytes(row.get_ref(3)?.as_blob()?)?,
+        column_value_as_u64(row, 0)?.try_into().map_err(DatabaseError::CorruptedData)?,
+    );
+
+    Ok(account)
 }
 
 /// Inserts or updates accounts to the DB using the given [Transaction].
@@ -157,7 +188,7 @@ pub fn insert_nullifiers_for_block(
     block_num: BlockNumber,
 ) -> Result<usize> {
     let mut stmt = transaction.prepare(
-        "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_number) VALUES (?1, ?2, ?3);",
+        "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_num) VALUES (?1, ?2, ?3);",
     )?;
 
     let mut count = 0;
@@ -175,13 +206,13 @@ pub fn insert_nullifiers_for_block(
 /// A vector with nullifiers and the block height at which they were created, or an error.
 pub fn select_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, BlockNumber)>> {
     let mut stmt =
-        conn.prepare("SELECT nullifier, block_number FROM nullifiers ORDER BY block_number ASC;")?;
+        conn.prepare("SELECT nullifier, block_num FROM nullifiers ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
 
     let mut result = vec![];
     while let Some(row) = rows.next()? {
         let nullifier_data = row.get_ref(0)?.as_blob()?;
-        let nullifier = deserialize(nullifier_data)?;
+        let nullifier = Nullifier::read_from_bytes(nullifier_data)?;
         let block_number = row.get(1)?;
         result.push((nullifier, block_number));
     }
@@ -211,15 +242,15 @@ pub fn select_nullifiers_by_block_range(
         "
         SELECT
             nullifier,
-            block_number
+            block_num
         FROM
             nullifiers
         WHERE
-            block_number > ?1 AND
-            block_number <= ?2 AND
+            block_num > ?1 AND
+            block_num <= ?2 AND
             nullifier_prefix IN rarray(?3)
         ORDER BY
-            block_number ASC
+            block_num ASC
     ",
     )?;
 
@@ -228,7 +259,7 @@ pub fn select_nullifiers_by_block_range(
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
         let nullifier_data = row.get_ref(0)?.as_blob()?;
-        let nullifier = deserialize(nullifier_data)?;
+        let nullifier = Nullifier::read_from_bytes(nullifier_data)?;
         let block_num = row.get(1)?;
         result.push(NullifierInfo {
             nullifier,
@@ -254,10 +285,10 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
     let mut notes = vec![];
     while let Some(row) = rows.next()? {
         let note_id_data = row.get_ref(2)?.as_blob()?;
-        let note_id = deserialize(note_id_data)?;
+        let note_id = RpoDigest::read_from_bytes(note_id_data)?;
 
         let merkle_path_data = row.get_ref(5)?.as_blob()?;
-        let merkle_path = deserialize(merkle_path_data)?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
         notes.push(Note {
             block_num: row.get(0)?,
@@ -378,11 +409,11 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let block_num = row.get(0)?;
         let note_index = row.get(1)?;
         let note_id_data = row.get_ref(2)?.as_blob()?;
-        let note_id = deserialize(note_id_data)?;
+        let note_id = RpoDigest::read_from_bytes(note_id_data)?;
         let sender = column_value_as_u64(row, 3)?;
         let tag = column_value_as_u64(row, 4)?;
         let merkle_path_data = row.get_ref(5)?.as_blob()?;
-        let merkle_path = deserialize(merkle_path_data)?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
         let note = Note {
             block_num,
@@ -448,7 +479,7 @@ pub fn select_block_header_by_block_num(
     match rows.next()? {
         Some(row) => {
             let data = row.get_ref(0)?.as_blob()?;
-            Ok(Some(deserialize(data)?))
+            Ok(Some(BlockHeader::read_from_bytes(data)?))
         },
         None => Ok(None),
     }
@@ -466,7 +497,7 @@ pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
     let mut result = vec![];
     while let Some(row) = rows.next()? {
         let block_header_data = row.get_ref(0)?.as_blob()?;
-        let block_header = deserialize(block_header_data)?;
+        let block_header = BlockHeader::read_from_bytes(block_header_data)?;
         result.push(block_header);
     }
 
@@ -550,11 +581,6 @@ pub fn apply_block(
 
 // UTILITIES
 // ================================================================================================
-
-/// Decodes a blob from the database into a corresponding deserializable.
-fn deserialize<T: Deserializable>(data: &[u8]) -> Result<T, DatabaseError> {
-    T::read_from_bytes(data).map_err(DatabaseError::DeserializationError)
-}
 
 /// Returns the high 16 bits of the provided nullifier.
 pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {

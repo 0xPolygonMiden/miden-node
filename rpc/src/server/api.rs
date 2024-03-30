@@ -2,12 +2,12 @@ use anyhow::Result;
 use miden_node_proto::generated::{
     block_producer::api_client as block_producer_client,
     requests::{
-        CheckNullifiersRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,
-        SyncStateRequest,
+        CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetPublicAccountDetailsRequest,
+        SubmitProvenTransactionRequest, SyncStateRequest,
     },
     responses::{
-        CheckNullifiersResponse, GetBlockHeaderByNumberResponse, SubmitProvenTransactionResponse,
-        SyncStateResponse,
+        CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetPublicAccountDetailsResponse,
+        SubmitProvenTransactionResponse, SyncStateResponse,
     },
     rpc::api_server,
     store::api_client as store_client,
@@ -131,5 +131,22 @@ impl api_server::Api for RpcApi {
         })?;
 
         self.block_producer.clone().submit_proven_transaction(request).await
+    }
+
+    /// Returns details for public (on-chain) account by id.
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_public_account_details",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_public_account_details(
+        &self,
+        request: tonic::Request<GetPublicAccountDetailsRequest>,
+    ) -> std::result::Result<Response<GetPublicAccountDetailsResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
+        self.store.clone().get_public_account_details(request).await
     }
 }

@@ -136,6 +136,18 @@ contains excessive notes and nullifiers, client can make additional filtering of
 * `notes`: `[NoteSyncRecord]` – a list of all notes together with the Merkle paths from `block_header.note_root`.
 * `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `block_num + 1` and `block_header.block_num`.
 
+### GetPublicAccountDetails
+
+Returns details for public (on-chain) account by id.
+
+**Parameters**
+
+* `account_id`: `AccountId` – account id.
+
+**Returns**
+
+* `details`: `AccountFullDetails` – public account full details.
+
 ## Methods for testing purposes
 
 ### ListNullifiers

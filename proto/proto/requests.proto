@@ -84,3 +84,8 @@ message ListNullifiersRequest {}
 message ListAccountsRequest {}
 
 message ListNotesRequest {}
+
+message GetPublicAccountDetailsRequest {
+    // Public account ID to get details.
+    account.AccountId account_id = 1;
+}
