@@ -3,8 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::{Account, AccountId},
-    crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    transaction::AccountDetails,
+    crypto::{hash::rpo::RpoDigest, merkle::MerklePath}, transaction::AccountDetails,
     utils::Serializable,
     Digest,
 };
@@ -48,6 +47,12 @@ impl Debug for AccountIdPb {
 impl From<u64> for AccountIdPb {
     fn from(value: u64) -> Self {
         AccountIdPb { id: value }
+    }
+}
+
+impl From<&AccountId> for AccountIdPb {
+    fn from(account_id: &AccountId) -> Self {
+        (*account_id).into()
     }
 }
 
@@ -112,18 +117,18 @@ impl From<&AccountInfo> for AccountInfoPb {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UpdatedAccount {
+pub struct AccountDetailsUpdate {
     pub account_id: AccountId,
     pub final_state_hash: Digest,
     pub details: Option<AccountDetails>,
 }
 
-impl From<&UpdatedAccount> for AccountUpdate {
-    fn from(update: &UpdatedAccount) -> Self {
+impl From<&AccountDetailsUpdate> for AccountUpdate {
+    fn from(update: &AccountDetailsUpdate) -> Self {
         Self {
             account_id: Some(update.account_id.into()),
             account_hash: Some(update.final_state_hash.into()),
-            // details: update.details.to_bytes(),
+            details: update.details.as_ref().map(|details| details.to_bytes()),
         }
     }
 }

@@ -119,7 +119,7 @@ where
         info!(target: COMPONENT, block_num, %block_hash, "block built");
         debug!(target: COMPONENT, ?block);
 
-        self.state_view.apply_block(block).await?;
+        self.state_view.apply_block(&block).await?;
 
         info!(target: COMPONENT, block_num, %block_hash, "block committed");
 

@@ -4,7 +4,9 @@
 //! data is atomically written, and that reads are consistent.
 use std::{mem, sync::Arc};
 
-use miden_node_proto::{domain::accounts::AccountInfo, AccountInputRecord, NullifierWitness};
+use miden_node_proto::{
+    domain::accounts::{AccountDetailsUpdate, AccountInfo}, AccountInputRecord, NullifierWitness,
+};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
     block::BlockNoteTree,
@@ -13,7 +15,6 @@ use miden_objects::{
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteMetadata, NoteType, Nullifier},
-    transaction::AccountDetails,
     AccountError, BlockHeader, NoteError, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
@@ -107,7 +108,7 @@ impl State {
         &self,
         block_header: BlockHeader,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<(AccountId, Option<AccountDetails>, RpoDigest)>,
+        accounts: Vec<AccountDetailsUpdate>,
         notes: Vec<NoteCreated>,
     ) -> Result<(), ApplyBlockError> {
         let _ = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
@@ -181,8 +182,11 @@ impl State {
 
             // update account tree
             let mut account_tree = inner.account_tree.clone();
-            for (account_id, _details, account_hash) in accounts.iter() {
-                account_tree.insert(LeafIndex::new_max_depth(*account_id), account_hash.into());
+            for update in &accounts {
+                account_tree.insert(
+                    LeafIndex::new_max_depth(update.account_id.into()),
+                    update.final_state_hash.into(),
+                );
             }
 
             if account_tree.root() != block_header.account_root() {

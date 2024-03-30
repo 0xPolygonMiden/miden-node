@@ -49,7 +49,7 @@ pub trait Store: ApplyBlock {
 pub trait ApplyBlock: Send + Sync + 'static {
     async fn apply_block(
         &self,
-        block: Block,
+        block: &Block,
     ) -> Result<(), ApplyBlockError>;
 }
 
@@ -131,13 +131,13 @@ impl ApplyBlock for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn apply_block(
         &self,
-        block: Block,
+        block: &Block,
     ) -> Result<(), ApplyBlockError> {
         let request = tonic::Request::new(ApplyBlockRequest {
-            block: Some(block.header.into()),
+            block: Some((&block.header).into()),
             accounts: convert(&block.updated_accounts),
-            nullifiers: convert(block.produced_nullifiers),
-            notes: convert(block.created_notes),
+            nullifiers: convert(&block.produced_nullifiers),
+            notes: convert(&block.created_notes),
         });
 
         let _ = self

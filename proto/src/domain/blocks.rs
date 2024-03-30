@@ -8,8 +8,8 @@ use crate::{
 // BLOCK HEADER
 // ================================================================================================
 
-impl From<BlockHeader> for block_header::BlockHeader {
-    fn from(header: BlockHeader) -> Self {
+impl From<&BlockHeader> for block_header::BlockHeader {
+    fn from(header: &BlockHeader) -> Self {
         Self {
             prev_hash: Some(header.prev_hash().into()),
             block_num: header.block_num(),
@@ -24,6 +24,12 @@ impl From<BlockHeader> for block_header::BlockHeader {
                 .expect("Failed to convert BlockHeader.version into u32"),
             timestamp: header.timestamp().into(),
         }
+    }
+}
+
+impl From<BlockHeader> for block_header::BlockHeader {
+    fn from(header: BlockHeader) -> Self {
+        (&header).into()
     }
 }
 
