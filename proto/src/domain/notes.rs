@@ -25,7 +25,7 @@ impl From<(u64, NoteEnvelope)> for note::NoteCreated {
         Self {
             note_id: Some(note.note_id().into()),
             sender: Some(note.metadata().sender().into()),
-            tag: note.metadata().tag().into(),
+            tag: u32::from(note.metadata().tag()).into(),
             note_index: note_idx as u32,
         }
     }

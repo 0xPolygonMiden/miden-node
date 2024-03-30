@@ -12,7 +12,7 @@ use miden_objects::{
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteMetadata, NoteType, Nullifier, NOTE_LEAF_DEPTH},
-    AccountError, BlockHeader, Word, ACCOUNT_TREE_DEPTH,
+    AccountError, BlockHeader, Word, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -484,10 +484,11 @@ pub fn build_notes_tree(
         let note_metadata = NoteMetadata::new(
             note.sender.try_into()?,
             NoteType::OffChain, // TODO: provide correct note type
-            note.tag
-                .try_into()
-                .expect("tag value is greater than or equal to the field modulus"),
-        );
+            u32::try_from(note.tag)
+                .expect("tag value is greater than or equal to the field modulus")
+                .into(),
+            ZERO,
+        )?;
         let index = note.note_index as u64;
         entries.push((index, note.note_id.into()));
         entries.push((index + 1, note_metadata.into()));

@@ -383,7 +383,7 @@ async fn test_compute_note_root_success() {
     .map(|(note_digest, &account_id)| {
         NoteEnvelope::new(
             note_digest.into(),
-            NoteMetadata::new(account_id, NoteType::OffChain, Felt::new(1u64)),
+            NoteMetadata::new(account_id, NoteType::OffChain, 0.into(), ONE).unwrap(),
         )
     })
     .collect();
