@@ -129,9 +129,7 @@ pub fn get_account_details(
     )?;
 
     let mut rows = stmt.query(params![u64_to_value(account_id)])?;
-    let Some(row) = rows.next()? else {
-        return Err(DatabaseError::AccountNotOnChain(account_id));
-    };
+    let row = rows.next()?.ok_or(DatabaseError::AccountNotOnChain(account_id))?;
 
     let account = Account::new(
         account_id.try_into()?,
