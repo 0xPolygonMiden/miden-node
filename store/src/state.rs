@@ -12,7 +12,7 @@ use miden_objects::{
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteMetadata, NoteType, Nullifier, NOTE_LEAF_DEPTH},
-    AccountError, BlockHeader, Word, ACCOUNT_TREE_DEPTH, ZERO,
+    AccountError, BlockHeader, NoteError, Word, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -481,12 +481,13 @@ pub fn build_notes_tree(
     let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
+        let note_type = NoteType::OffChain; // TODO: provide correct note type
         let note_metadata = NoteMetadata::new(
             note.sender.try_into()?,
-            NoteType::OffChain, // TODO: provide correct note type
-            u32::try_from(note.tag)
-                .expect("tag value is greater than or equal to the field modulus")
-                .into(),
+            note_type,
+            note.tag
+                .try_into()
+                .map_err(|_| NoteError::InconsistentNoteTag(note_type, note.tag))?,
             ZERO,
         )?;
         let index = note.note_index as u64;
