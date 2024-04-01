@@ -13,7 +13,8 @@ use miden_node_proto::generated::{
     store::api_client as store_client,
 };
 use miden_objects::{
-    transaction::ProvenTransaction, utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
+    accounts::AccountId, transaction::ProvenTransaction, utils::serde::Deserializable, Digest,
+    MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
@@ -146,6 +147,15 @@ impl api_server::Api for RpcApi {
         request: tonic::Request<GetPublicAccountDetailsRequest>,
     ) -> std::result::Result<Response<GetPublicAccountDetailsResponse>, Status> {
         debug!(target: COMPONENT, request = ?request.get_ref());
+
+        // Validating account using conversion:
+        let _account_id: AccountId = request
+            .get_ref()
+            .account_id
+            .clone()
+            .ok_or(Status::invalid_argument("account_id is missing"))?
+            .try_into()
+            .map_err(|err| Status::invalid_argument(format!("Invalid account id: {err}")))?;
 
         self.store.clone().get_public_account_details(request).await
     }
