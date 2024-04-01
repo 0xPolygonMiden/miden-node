@@ -53,7 +53,7 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
 
             PRIMARY KEY (account_id),
             CONSTRAINT account_details_nonce_non_negative CHECK (nonce >= 0),
-            FOREIGN KEY (account_id) REFERENCES accounts (account_id)
+            CONSTRAINT fk_account_id FOREIGN KEY (account_id) REFERENCES accounts (account_id)
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE
