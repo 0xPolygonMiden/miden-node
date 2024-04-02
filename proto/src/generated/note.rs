@@ -35,11 +35,13 @@ pub struct NoteSyncRecord {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NoteCreated {
     #[prost(uint32, tag = "1")]
+    pub batch_index: u32,
+    #[prost(uint32, tag = "2")]
     pub note_index: u32,
-    #[prost(message, optional, tag = "2")]
-    pub note_id: ::core::option::Option<super::digest::Digest>,
     #[prost(message, optional, tag = "3")]
+    pub note_id: ::core::option::Option<super::digest::Digest>,
+    #[prost(message, optional, tag = "4")]
     pub sender: ::core::option::Option<super::account::AccountId>,
-    #[prost(fixed64, tag = "4")]
+    #[prost(fixed64, tag = "5")]
     pub tag: u64,
 }

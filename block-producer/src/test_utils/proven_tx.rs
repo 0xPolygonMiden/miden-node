@@ -6,7 +6,7 @@ use miden_objects::{
     notes::{NoteEnvelope, NoteMetadata, NoteType, Nullifier},
     transaction::{ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
-    Digest, Felt, Hasher, ONE, ZERO,
+    Digest, Felt, Hasher, ONE,
 };
 use winterfell::StarkProof;
 

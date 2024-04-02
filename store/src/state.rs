@@ -13,7 +13,7 @@ use miden_objects::{
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteMetadata, NoteType, Nullifier},
-    AccountError, BlockHeader, NoteError, ACCOUNT_TREE_DEPTH, MAX_NOTES_PER_BATCH, ZERO,
+    AccountError, BlockHeader, NoteError, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -199,10 +199,11 @@ impl State {
             let notes = notes
                 .into_iter()
                 .map(|note_created| {
-                    let (batch_idx, note_idx_in_batch) =
-                        extract_batch_idx_and_note_idx_in_batch(note_created.note_index);
                     let merkle_path = note_tree
-                        .merkle_path(batch_idx, note_idx_in_batch)
+                        .merkle_path(
+                            note_created.batch_index as usize,
+                            note_created.note_index as usize,
+                        )
                         .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
 
                     Ok(Note {
@@ -467,7 +468,7 @@ impl State {
 // UTILITIES
 // ================================================================================================
 
-/// Creates a [SimpleSmt] tree from the `notes`.
+/// Creates a [BlockNoteTree] from the `notes`.
 #[instrument(target = "miden-store", skip_all)]
 pub fn build_note_tree(notes: &[NoteCreated]) -> Result<BlockNoteTree, ApplyBlockError> {
     // TODO: create SimpleSmt without this allocation
@@ -484,9 +485,11 @@ pub fn build_note_tree(notes: &[NoteCreated]) -> Result<BlockNoteTree, ApplyBloc
                 .map_err(|_| NoteError::InconsistentNoteTag(note_type, note.tag))?,
             ZERO,
         )?;
-        let (batch_idx, note_idx_in_batch) =
-            extract_batch_idx_and_note_idx_in_batch(note.note_index);
-        entries.push((batch_idx, note_idx_in_batch, (note.note_id, note_metadata)));
+        entries.push((
+            note.batch_index as usize,
+            note.note_index as usize,
+            (note.note_id, note_metadata),
+        ));
     }
 
     BlockNoteTree::with_entries(entries).map_err(ApplyBlockError::FailedToCreateNoteTree)
@@ -532,14 +535,4 @@ async fn load_accounts(
 
     SimpleSmt::with_leaves(account_data)
         .map_err(StateInitializationError::FailedToCreateAccountsTree)
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-
-fn extract_batch_idx_and_note_idx_in_batch(note_index: u32) -> (usize, usize) {
-    let batch_idx = note_index as usize / MAX_NOTES_PER_BATCH;
-    let note_idx_in_batch = note_index as usize % MAX_NOTES_PER_BATCH;
-
-    (batch_idx, note_idx_in_batch)
 }

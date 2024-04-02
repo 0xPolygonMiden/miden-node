@@ -1,11 +1,9 @@
-use std::collections::BTreeMap;
-
 use miden_objects::{
     accounts::AccountId,
+    block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt},
     notes::{NoteEnvelope, Nullifier},
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_NOTES_PER_BATCH,
-    ONE, ZERO,
+    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, ONE, ZERO,
 };
 
 use super::MockStoreSuccess;
@@ -92,7 +90,7 @@ pub struct MockBlockBuilder {
     last_block_header: BlockHeader,
 
     updated_accounts: Option<Vec<(AccountId, Digest)>>,
-    created_notes: Option<BTreeMap<u64, NoteEnvelope>>,
+    created_notes: Option<Vec<(usize, usize, NoteEnvelope)>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
 
@@ -124,7 +122,7 @@ impl MockBlockBuilder {
 
     pub fn created_notes(
         mut self,
-        created_notes: BTreeMap<u64, NoteEnvelope>,
+        created_notes: Vec<(usize, usize, NoteEnvelope)>,
     ) -> Self {
         self.created_notes = Some(created_notes);
 
@@ -149,7 +147,7 @@ impl MockBlockBuilder {
             self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
             self.store_accounts.root(),
             Digest::default(),
-            note_created_smt_from_envelopes(created_notes.iter()).root(),
+            note_created_smt_from_envelopes(created_notes.iter().cloned()).root(),
             Digest::default(),
             Digest::default(),
             ZERO,
@@ -165,28 +163,23 @@ impl MockBlockBuilder {
     }
 }
 
-pub(crate) fn note_created_smt_from_envelopes<'a>(
-    note_iterator: impl Iterator<Item = (&'a u64, &'a NoteEnvelope)>
-) -> SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH> {
-    SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(note_iterator.flat_map(
-        |(note_idx_in_block, note)| {
-            let index = note_idx_in_block * 2;
-            [(index, note.note_id().into()), (index + 1, note.metadata().into())]
-        },
-    ))
+pub(crate) fn note_created_smt_from_envelopes(
+    note_iterator: impl Iterator<Item = (usize, usize, NoteEnvelope)>
+) -> BlockNoteTree {
+    BlockNoteTree::with_entries(note_iterator.map(|(batch_idx, note_idx_in_batch, note)| {
+        (batch_idx, note_idx_in_batch, (note.note_id().into(), *note.metadata()))
+    }))
     .unwrap()
 }
 
 pub(crate) fn note_created_smt_from_batches<'a>(
     batches: impl Iterator<Item = &'a TransactionBatch>
-) -> SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH> {
-    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_index, batch)| {
-        let subtree_index = batch_index * MAX_NOTES_PER_BATCH * 2;
-        batch.created_notes().enumerate().flat_map(move |(note_index, note)| {
-            let index = (subtree_index + note_index * 2) as u64;
-            [(index, note.note_id().into()), (index + 1, note.metadata().into())]
+) -> BlockNoteTree {
+    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
+        batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
+            (batch_idx, note_idx_in_batch, (note.note_id().into(), *note.metadata()))
         })
     });
 
-    SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(note_leaf_iterator).unwrap()
+    BlockNoteTree::with_entries(note_leaf_iterator).unwrap()
 }
