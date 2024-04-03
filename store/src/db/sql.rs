@@ -120,7 +120,7 @@ pub fn select_accounts_by_block_range(
 /// # Returns
 ///
 /// The latest account details, or an error.
-pub fn get_account_details(
+pub fn select_account_details(
     conn: &mut Connection,
     account_id: AccountId,
 ) -> Result<Account> {

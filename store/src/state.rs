@@ -474,7 +474,7 @@ impl State {
         &self,
         id: AccountId,
     ) -> Result<Account, DatabaseError> {
-        self.db.get_account_details(id).await
+        self.db.select_account_details(id).await
     }
 }
 
