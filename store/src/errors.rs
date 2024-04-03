@@ -3,7 +3,6 @@ use std::io;
 use deadpool_sqlite::PoolError;
 use miden_objects::{
     crypto::{
-        hash::rpo::RpoDigest,
         merkle::{MerkleError, MmrError},
         utils::DeserializationError,
     },
@@ -55,12 +54,6 @@ pub enum DatabaseError {
     ApplyBlockFailedClosedChannel(RecvError),
     #[error("Public account ({0}) details not found on-chain")]
     AccountNotOnChain(AccountId),
-    #[error("Failed to apply block because of on-chain account final hashes mismatch (expected {expected}, \
-        but calculated is {calculated}")]
-    ApplyBlockFailedAccountHashesMismatch {
-        expected: RpoDigest,
-        calculated: RpoDigest,
-    },
 }
 
 impl From<DeserializationError> for DatabaseError {
