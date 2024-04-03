@@ -163,6 +163,6 @@ pub struct ListNotesResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetPublicAccountDetailsResponse {
     /// Public account full details.
-    #[prost(message, optional, tag = "1")]
-    pub details: ::core::option::Option<super::account::AccountFullDetails>,
+    #[prost(bytes = "vec", tag = "1")]
+    pub details: ::prost::alloc::vec::Vec<u8>,
 }

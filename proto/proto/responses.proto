@@ -116,5 +116,5 @@ message ListNotesResponse {
 
 message GetPublicAccountDetailsResponse {
     // Public account full details.
-    account.AccountFullDetails details = 1;
+    bytes details = 1;
 }

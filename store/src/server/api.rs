@@ -23,7 +23,7 @@ use miden_node_proto::{
     },
     AccountState,
 };
-use miden_objects::{notes::Nullifier, BlockHeader, Felt, ZERO};
+use miden_objects::{notes::Nullifier, utils::Serializable, BlockHeader, Felt, ZERO};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -181,7 +181,7 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)?;
 
         Ok(Response::new(GetPublicAccountDetailsResponse {
-            details: Some((&account).into()),
+            details: account.to_bytes(),
         }))
     }
 
