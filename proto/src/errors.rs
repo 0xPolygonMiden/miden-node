@@ -1,10 +1,6 @@
 use std::any::type_name;
 
-use miden_objects::{
-    crypto::merkle::{SmtLeafError, SmtProofError},
-    utils::DeserializationError,
-    AccountDeltaError, AssetError, AssetVaultError,
-};
+use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -15,20 +11,10 @@ pub enum ConversionError {
     SmtLeafError(#[from] SmtLeafError),
     #[error("SMT proof error: {0}")]
     SmtProofError(#[from] SmtProofError),
-    #[error("Account delta error: {0}")]
-    AccountDeltaError(#[from] AccountDeltaError),
-    #[error("Asset error: {0}")]
-    AssetError(#[from] AssetError),
-    #[error("Asset vault error: {0}")]
-    AssetVaultError(#[from] AssetVaultError),
-    #[error("Deserialization error: {0}")]
-    DeserializationError(DeserializationError),
     #[error("Too much data, expected {expected}, got {got}")]
     TooMuchData { expected: usize, got: usize },
     #[error("Not enough data, expected {expected}, got {got}")]
     InsufficientData { expected: usize, got: usize },
-    #[error("Number of MmrPeaks doesn't fit into memory")]
-    TooManyMmrPeaks,
     #[error("Value is not in the range 0..MODULUS")]
     NotAValidFelt,
     #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
@@ -36,12 +22,6 @@ pub enum ConversionError {
         entity: &'static str,
         field_name: &'static str,
     },
-}
-
-impl From<DeserializationError> for ConversionError {
-    fn from(value: DeserializationError) -> Self {
-        Self::DeserializationError(value)
-    }
 }
 
 pub trait MissingFieldHelper {
