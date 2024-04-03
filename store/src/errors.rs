@@ -9,6 +9,8 @@ use miden_objects::{
     notes::Nullifier,
     AccountError, BlockHeader, NoteError,
 };
+use miden_objects::accounts::AccountId;
+use miden_objects::crypto::hash::rpo::RpoDigest;
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
@@ -52,6 +54,12 @@ pub enum DatabaseError {
     ApplyBlockFailedClosedChannel(RecvError),
     #[error("Account {0} not found in the database")]
     AccountNotFoundInDb(AccountId),
+    #[error("Failed to apply block because of on-chain account final hashes mismatch (expected {expected}, \
+        but calculated is {calculated}")]
+    ApplyBlockFailedAccountHashesMismatch {
+        expected: RpoDigest,
+        calculated: RpoDigest,
+    },
 }
 
 impl From<DeserializationError> for DatabaseError {
