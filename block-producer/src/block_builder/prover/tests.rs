@@ -6,7 +6,7 @@ use miden_objects::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
         SMT_DEPTH,
     },
-    notes::{NoteEnvelope, NoteMetadata},
+    notes::{NoteEnvelope, NoteMetadata, NoteType},
     BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
@@ -381,7 +381,10 @@ async fn test_compute_note_root_success() {
     .into_iter()
     .zip(account_ids.iter())
     .map(|(note_digest, &account_id)| {
-        NoteEnvelope::new(note_digest.into(), NoteMetadata::new(account_id, Felt::new(1u64)))
+        NoteEnvelope::new(
+            note_digest.into(),
+            NoteMetadata::new(account_id, NoteType::OffChain, 0.into(), ONE).unwrap(),
+        )
     })
     .collect();
 

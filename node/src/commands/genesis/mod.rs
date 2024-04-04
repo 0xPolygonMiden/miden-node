@@ -15,7 +15,7 @@ use miden_objects::{
     accounts::{Account, AccountData, AccountType, AuthData},
     assets::TokenSymbol,
     crypto::{
-        dsa::rpo_falcon512::KeyPair,
+        dsa::rpo_falcon512::SecretKey,
         utils::{hex_to_bytes, Serializable},
     },
     Felt, ONE,
@@ -184,6 +184,7 @@ fn parse_auth_inputs(
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
             let auth_seed = hex_to_bytes(auth_seed)?;
+            SecretKey::
             let keypair = KeyPair::from_seed(&auth_seed)?;
 
             let auth_scheme = AuthScheme::RpoFalcon512 {
