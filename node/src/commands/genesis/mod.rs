@@ -20,6 +20,7 @@ use miden_objects::{
     },
     Felt, ONE,
 };
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
 mod inputs;
 
@@ -183,12 +184,13 @@ fn parse_auth_inputs(
 ) -> Result<(AuthScheme, AuthData)> {
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
-            let auth_seed = hex_to_bytes(auth_seed)?;
-            SecretKey::
-            let keypair = KeyPair::from_seed(&auth_seed)?;
+            let auth_seed: [u8; 40] = hex_to_bytes(auth_seed)?;
+            // Get the first 32 bytes, ignore remaining:
+            let mut rng = ChaCha20Rng::from_seed(auth_seed[..32].try_into().expect("Unreachable"));
+            let secret = SecretKey::with_rng(&mut rng);
 
             let auth_scheme = AuthScheme::RpoFalcon512 {
-                pub_key: keypair.public_key(),
+                pub_key: secret.public_key(),
             };
             let auth_info = AuthData::RpoFalcon512Seed(auth_seed);
 

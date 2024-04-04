@@ -1675,6 +1675,7 @@ dependencies = [
  "miden-node-store",
  "miden-node-utils 0.2.0",
  "miden-objects 0.2.0",
+ "rand_chacha",
  "serde",
  "tokio",
  "tracing",
