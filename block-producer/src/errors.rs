@@ -7,7 +7,7 @@ use miden_objects::{
     transaction::{InputNotes, ProvenTransaction, TransactionId},
     Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH, MAX_NOTES_PER_BATCH,
 };
-use miden_processor::ExecutionError;
+use miden_processor::{ExecutionError, InputError};
 use thiserror::Error;
 
 // Transaction verification errors
@@ -92,6 +92,8 @@ pub enum BlockProverError {
     ProgramExecutionFailed(ExecutionError),
     #[error("Failed to retrieve {0} root from stack outputs")]
     InvalidRootOutput(&'static str),
+    #[error("Failed to construct stack inputs: {0}")]
+    FailedToConstructStackInputs(InputError),
 }
 
 // Block inputs errors
