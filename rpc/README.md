@@ -60,6 +60,18 @@ Retrieves block header by given block number.
 
 * `block_header`: `BlockHeader` – block header.
 
+### GetNotesById
+
+Returns a list of Note's matching a certain list of NoteId's.
+
+**Parameters**
+
+* `note_ids`: `NoteId` - ID of the Note that we want to query.
+
+**Returns**
+
+* `notes`: `Note` - List of notes matching the list of NoteId's.
+
 ### SyncState
 
 Returns info which can be used by the client to sync up to the latest state of the chain

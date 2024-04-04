@@ -106,6 +106,18 @@ Returns the data needed by the block producer to check validity of an incoming t
 * `account_state`: `AccountTransactionInputRecord` – account's descriptors. 
 * `nullifiers`: `[NullifierTransactionInputRecord]` – the block numbers at which corresponding nullifiers have been consumed, zero if not consumed.
 
+### GetNotesById
+
+Returns a list of Note's matching a certain list of NoteId's.
+
+**Parameters**
+
+* `note_ids`: `NoteId` - ID of the Note that we want to query.
+
+**Returns**
+
+* `notes`: `Note` - List of notes matching the list of NoteId's.
+
 ### SyncState
 
 Returns info which can be used by the client to sync up to the latest state of the chain
