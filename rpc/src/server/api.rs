@@ -1,19 +1,23 @@
 use anyhow::Result;
-use miden_node_proto::{generated::{
-    block_producer::api_client as block_producer_client,
-    requests::{
-        CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
-        SubmitProvenTransactionRequest, SyncStateRequest,
+use miden_node_proto::{
+    generated::{
+        block_producer::api_client as block_producer_client,
+        requests::{
+            CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
+            SubmitProvenTransactionRequest, SyncStateRequest,
+        },
+        responses::{
+            CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetNotesByIdResponse,
+            SubmitProvenTransactionResponse, SyncStateResponse,
+        },
+        rpc::api_server,
+        store::api_client as store_client,
     },
-    responses::{
-        CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetNotesByIdResponse,
-        SubmitProvenTransactionResponse, SyncStateResponse,
-    },
-    rpc::api_server,
-    store::api_client as store_client,
-}, try_convert};
+    try_convert,
+};
 use miden_objects::{
-    notes::NoteId, transaction::ProvenTransaction, utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL
+    notes::NoteId, transaction::ProvenTransaction, utils::serde::Deserializable, Digest,
+    MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
