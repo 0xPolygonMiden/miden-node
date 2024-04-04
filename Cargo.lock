@@ -1524,17 +1524,18 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74fe3da3cee72178aa6d8cdd0e88a4d11a983f6c79a0257abfb6f04056177bee"
 dependencies = [
- "miden-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miden-core 0.8.0",
  "winter-air",
  "winter-prover",
 ]
 
 [[package]]
 name = "miden-air"
-version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits#44b00d4dc93cf94fd77ffe51080e41f32fb51763"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c695ee3a51649711a6c202e4c7280222b66e987c8abefce9090fdc49412bbcbe"
 dependencies = [
- "miden-core 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
+ "miden-core 0.9.1",
  "winter-air",
  "winter-prover",
 ]
@@ -1545,17 +1546,18 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f4261c0b2593e540004ddff8eb4e04419cf06d4c3794dbaa03bac6b51d09bf5"
 dependencies = [
- "miden-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miden-core 0.8.0",
  "num_enum",
  "tracing",
 ]
 
 [[package]]
 name = "miden-assembly"
-version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits#44b00d4dc93cf94fd77ffe51080e41f32fb51763"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "015abf93a083b1255a45c5bde02479e5203468c662fd33dd092b6daf1e4a3988"
 dependencies = [
- "miden-core 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
+ "miden-core 0.9.1",
  "num_enum",
  "tracing",
 ]
@@ -1571,10 +1573,10 @@ dependencies = [
  "comfy-table",
  "figment",
  "lazy_static",
- "miden-lib 0.1.0",
+ "miden-lib",
  "miden-node-proto 0.1.0",
- "miden-objects 0.1.1",
- "miden-tx 0.1.0",
+ "miden-objects",
+ "miden-tx",
  "rand",
  "rusqlite",
  "rusqlite_migration",
@@ -1599,8 +1601,9 @@ dependencies = [
 
 [[package]]
 name = "miden-core"
-version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits#44b00d4dc93cf94fd77ffe51080e41f32fb51763"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bc7219af4b6c5fb6a01d80b9dfdad68962157ccf986f7a923df01103e853e74"
 dependencies = [
  "miden-crypto 0.9.1",
  "winter-math",
@@ -1647,19 +1650,9 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "825bc94780153bd3783d9adbdf276ea38fab2ff3ce0815067badaa4d404c5fae"
 dependencies = [
- "miden-assembly 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-objects 0.1.1",
- "miden-stdlib 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "miden-lib"
-version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-minimal-error-traits#323475a3269f25f8762f7657b6659964eff1880d"
-dependencies = [
- "miden-assembly 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-objects 0.2.0",
- "miden-stdlib 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
+ "miden-assembly 0.8.0",
+ "miden-objects",
+ "miden-stdlib 0.8.0",
 ]
 
 [[package]]
@@ -1669,12 +1662,12 @@ dependencies = [
  "anyhow",
  "clap",
  "figment",
- "miden-lib 0.2.0",
+ "miden-lib",
  "miden-node-block-producer",
  "miden-node-rpc",
  "miden-node-store",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
+ "miden-objects",
  "rand_chacha",
  "serde",
  "tokio",
@@ -1691,15 +1684,15 @@ dependencies = [
  "clap",
  "figment",
  "itertools 0.12.1",
- "miden-air 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
+ "miden-air 0.9.1",
  "miden-node-proto 0.2.0",
  "miden-node-store",
  "miden-node-test-macro",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
- "miden-processor 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-stdlib 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-tx 0.2.0",
+ "miden-objects",
+ "miden-processor 0.9.1",
+ "miden-stdlib 0.9.1",
+ "miden-tx",
  "once_cell",
  "serde",
  "thiserror",
@@ -1723,10 +1716,10 @@ dependencies = [
  "derive_more",
  "figment",
  "miden-client",
- "miden-lib 0.1.0",
+ "miden-lib",
  "miden-node-proto 0.2.0",
  "miden-node-utils 0.2.0",
- "miden-objects 0.1.1",
+ "miden-objects",
  "serde",
  "tracing",
  "tracing-subscriber",
@@ -1740,7 +1733,7 @@ checksum = "3fdcb2af46af307aaf5d80e940200c08e86d7d7491854f5a9cc33bb3ada7e757"
 dependencies = [
  "hex",
  "miden-node-utils 0.1.0",
- "miden-objects 0.1.1",
+ "miden-objects",
  "miette",
  "prost",
  "prost-build",
@@ -1756,7 +1749,7 @@ version = "0.2.0"
 dependencies = [
  "hex",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
+ "miden-objects",
  "miette",
  "proptest",
  "prost",
@@ -1780,8 +1773,8 @@ dependencies = [
  "miden-node-proto 0.2.0",
  "miden-node-store",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
- "miden-tx 0.2.0",
+ "miden-objects",
+ "miden-tx",
  "prost",
  "serde",
  "tokio",
@@ -1801,10 +1794,10 @@ dependencies = [
  "directories",
  "figment",
  "hex",
- "miden-lib 0.2.0",
+ "miden-lib",
  "miden-node-proto 0.2.0",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
+ "miden-objects",
  "once_cell",
  "prost",
  "rusqlite",
@@ -1835,7 +1828,7 @@ dependencies = [
  "anyhow",
  "figment",
  "itertools 0.12.1",
- "miden-objects 0.1.1",
+ "miden-objects",
  "serde",
  "tracing",
  "tracing-subscriber",
@@ -1848,7 +1841,7 @@ dependencies = [
  "anyhow",
  "figment",
  "itertools 0.12.1",
- "miden-objects 0.2.0",
+ "miden-objects",
  "serde",
  "tracing",
  "tracing-forest",
@@ -1861,25 +1854,12 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7379df161104e3ba97812a89e33b4cff8183964af848074d62dd49f34f00aeed"
 dependencies = [
- "miden-assembly 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miden-assembly 0.8.0",
+ "miden-core 0.8.0",
  "miden-crypto 0.8.4",
- "miden-processor 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-verifier 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miden-processor 0.8.0",
+ "miden-verifier",
  "serde",
- "winter-rand-utils",
-]
-
-[[package]]
-name = "miden-objects"
-version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-minimal-error-traits#323475a3269f25f8762f7657b6659964eff1880d"
-dependencies = [
- "miden-assembly 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-core 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-crypto 0.9.1",
- "miden-processor 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-verifier 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
  "winter-rand-utils",
 ]
 
@@ -1889,19 +1869,20 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e355306e8495f40685aac012d7ec62f86c42b89dcd8d88d26a507b363d4e5de5"
 dependencies = [
- "miden-air 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miden-air 0.8.0",
+ "miden-core 0.8.0",
  "tracing",
  "winter-prover",
 ]
 
 [[package]]
 name = "miden-processor"
-version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits#44b00d4dc93cf94fd77ffe51080e41f32fb51763"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "682f881050c637bbf01bee5970d5f13d818b544b7f0ea3ecb1b624aa54ec04e3"
 dependencies = [
- "miden-air 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-core 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
+ "miden-air 0.9.1",
+ "miden-core 0.9.1",
  "tracing",
  "winter-prover",
 ]
@@ -1912,19 +1893,8 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "757e94100fd703d9b76ef0b4772a6e983e895454fd43da8ba8145b57976e9f69"
 dependencies = [
- "miden-air 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-processor 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing",
- "winter-prover",
-]
-
-[[package]]
-name = "miden-prover"
-version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits#44b00d4dc93cf94fd77ffe51080e41f32fb51763"
-dependencies = [
- "miden-air 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-processor 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
+ "miden-air 0.8.0",
+ "miden-processor 0.8.0",
  "tracing",
  "winter-prover",
 ]
@@ -1935,15 +1905,16 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a560cf74e712c121b4f531aa6df2de5f9daef29dfc328a0ee91064ce6720d5d"
 dependencies = [
- "miden-assembly 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miden-assembly 0.8.0",
 ]
 
 [[package]]
 name = "miden-stdlib"
-version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits#44b00d4dc93cf94fd77ffe51080e41f32fb51763"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60994609096a8cb1e32f1fcf1c8ed63bed9b24b32730658609bad841e8caeaf9"
 dependencies = [
- "miden-assembly 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
+ "miden-assembly 0.9.1",
 ]
 
 [[package]]
@@ -1952,23 +1923,11 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d59fa14ff23132a14fd3cf215e681d99aad83d819500319f0b20c251179c671"
 dependencies = [
- "miden-lib 0.1.0",
- "miden-objects 0.1.1",
- "miden-processor 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-prover 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-verifier 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "miden-tx"
-version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-minimal-error-traits#323475a3269f25f8762f7657b6659964eff1880d"
-dependencies = [
- "miden-lib 0.2.0",
- "miden-objects 0.2.0",
- "miden-processor 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-prover 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-verifier 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
+ "miden-lib",
+ "miden-objects",
+ "miden-processor 0.8.0",
+ "miden-prover",
+ "miden-verifier",
 ]
 
 [[package]]
@@ -1977,19 +1936,8 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83a54fb6a52f8a3a0874718bf2cb41526e4a59972e8918db9a7796a7a73ab37f"
 dependencies = [
- "miden-air 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing",
- "winter-verifier",
-]
-
-[[package]]
-name = "miden-verifier"
-version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits#44b00d4dc93cf94fd77ffe51080e41f32fb51763"
-dependencies = [
- "miden-air 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
- "miden-core 0.8.0 (git+https://github.com/0xPolygonMiden/miden-vm.git?branch=polydez-minimal-error-traits)",
+ "miden-air 0.8.0",
+ "miden-core 0.8.0",
  "tracing",
  "winter-verifier",
 ]
