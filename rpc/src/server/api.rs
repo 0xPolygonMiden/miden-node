@@ -1,5 +1,5 @@
 use anyhow::Result;
-use miden_node_proto::generated::{
+use miden_node_proto::{generated::{
     block_producer::api_client as block_producer_client,
     requests::{
         CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
@@ -11,9 +11,9 @@ use miden_node_proto::generated::{
     },
     rpc::api_server,
     store::api_client as store_client,
-};
+}, try_convert};
 use miden_objects::{
-    transaction::ProvenTransaction, utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
+    notes::NoteId, transaction::ProvenTransaction, utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
@@ -121,6 +121,12 @@ impl api_server::Api for RpcApi {
         request: Request<GetNotesByIdRequest>,
     ) -> Result<Response<GetNotesByIdResponse>, Status> {
         debug!(target: COMPONENT, request = ?request.get_ref());
+
+        // Validation checking for correct NoteId's
+        let note_ids = request.get_ref().note_ids.clone();
+
+        let _: Vec<NoteId> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
 
         self.store.clone().get_notes_by_id(request).await
     }
