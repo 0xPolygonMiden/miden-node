@@ -191,6 +191,16 @@ impl TryFrom<digest::Digest> for Digest {
     }
 }
 
+impl TryFrom<digest::Digest> for NoteId {
+    type Error = ParseError;
+
+    fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
+        let digest: Digest = value.try_into()?;
+
+        Ok(Self::from(digest))
+    }
+}
+
 impl TryFrom<&digest::Digest> for [Felt; 4] {
     type Error = ParseError;
 

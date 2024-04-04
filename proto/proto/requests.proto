@@ -80,8 +80,8 @@ message SubmitProvenTransactionRequest {
 }
 
 message GetNotesByIdRequest {
-  // List of NoteId's to be queried from the database
-  repeated digest.Digest note_ids = 1;
+    // List of NoteId's to be queried from the database
+    repeated digest.Digest note_ids = 1;
 }
 
 message ListNullifiersRequest {}

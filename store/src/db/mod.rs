@@ -3,7 +3,7 @@ use std::fs::{self, create_dir_all};
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_objects::{
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::Nullifier,
+    notes::{NoteId, Nullifier},
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -230,11 +230,11 @@ impl Db {
             })?
     }
 
-    /// Loads all the notes matching a certain NoteId from the database.
+    /// Loads all the Note's matching a certain NoteId from the database.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_notes_by_id(
         &self,
-        note_ids: Vec<RpoDigest>,
+        note_ids: Vec<NoteId>,
     ) -> Result<Vec<Note>> {
         self.pool
             .get()

@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
-    notes::Nullifier,
+    notes::{NoteId, Nullifier},
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
@@ -400,21 +400,15 @@ pub fn select_notes_since_block_by_tag_and_sender(
     Ok(res)
 }
 
-/// Select notes matching the tag and account_ids search criteria using the given [Connection].
+/// Select Note's matching the NoteId using the given [Connection].
 ///
 /// # Returns
 ///
-/// - Empty vector if no tag created after `block_num` match `tags` or `account_ids`.
-/// - Otherwise, notes which the 16 high bits match `tags`, or the `sender` is one of the
-///   `account_ids`.
-///
-/// # Note
-///
-/// This method returns notes from a single block. To fetch all notes up to the chain tip,
-/// multiple requests are necessary.
+/// - Empty vector if no matching `note`.
+/// - Otherwise, notes which `note_hash` matches the `NoteId` as bytes.
 pub fn select_notes_by_id(
     conn: &mut Connection,
-    note_ids: &[RpoDigest],
+    note_ids: &[NoteId],
 ) -> Result<Vec<Note>> {
     let note_ids: Vec<Vec<u8>> = note_ids.iter().map(|id| id.to_bytes()).collect();
 

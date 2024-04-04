@@ -138,7 +138,7 @@ pub struct SubmitProvenTransactionResponse {}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNotesByIdResponse {
-    /// List of Note's returned by the database
+    /// Lists Note's returned by the database
     #[prost(message, repeated, tag = "1")]
     pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
 }

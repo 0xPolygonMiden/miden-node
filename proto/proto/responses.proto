@@ -100,8 +100,8 @@ message GetTransactionInputsResponse {
 message SubmitProvenTransactionResponse {}
 
 message GetNotesByIdResponse {
-  // List of Note's returned by the database
-  repeated note.Note notes = 1;
+    // Lists Note's returned by the database
+    repeated note.Note notes = 1;
 }
 
 message ListNullifiersResponse {

@@ -21,9 +21,12 @@ use miden_node_proto::{
         smt::SmtLeafEntry,
         store::api_server,
     },
-    AccountState,
+    try_convert, AccountState,
 };
-use miden_objects::{crypto::hash::rpo::RpoDigest, notes::Nullifier, BlockHeader, Felt, ZERO};
+use miden_objects::{
+    notes::{NoteId, Nullifier},
+    BlockHeader, Felt, ZERO,
+};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -159,6 +162,9 @@ impl api_server::Api for StoreApi {
         }))
     }
 
+    /// Returns a list of Note's for the specified NoteId's.
+    ///
+    /// If the list is empty or no Note matched the requested NoteId and empty list is returned.
     #[instrument(
         target = "miden-store",
         name = "store:get_notes_by_id",
@@ -170,25 +176,16 @@ impl api_server::Api for StoreApi {
         &self,
         request: tonic::Request<GetNotesByIdRequest>,
     ) -> Result<Response<GetNotesByIdResponse>, Status> {
+        info!(target: COMPONENT, ?request);
+
         let note_ids = request.into_inner().note_ids;
 
-        let digests: Result<Vec<RpoDigest>, _> = note_ids
-            .into_iter()
-            .map(|note_id| {
-                note_id
-                    .try_into()
-                    .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))
-            })
-            .collect();
-
-        let digests = match digests {
-            Ok(d) => d,
-            Err(err) => return Err(err),
-        };
+        let note_ids: Vec<NoteId> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
 
         let notes = self
             .state
-            .get_notes_by_id(digests)
+            .get_notes_by_id(note_ids)
             .await
             .map_err(internal_error)?
             .into_iter()

@@ -11,7 +11,7 @@ use miden_objects::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteMetadata, Nullifier, NOTE_LEAF_DEPTH},
+    notes::{NoteId, NoteMetadata, Nullifier, NOTE_LEAF_DEPTH},
     AccountError, BlockHeader, Word, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{
@@ -304,10 +304,13 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
-    /// Get all notes matching a certain NoteId
+    /// Queries a list of [Note] from the database.
+    ///
+    /// If the provided list of [NoteId] given is empty or no [Note] matches the provided [NoteId]
+    /// an empty list is returned.
     pub async fn get_notes_by_id(
         &self,
-        note_ids: Vec<RpoDigest>,
+        note_ids: Vec<NoteId>,
     ) -> Result<Vec<Note>, DatabaseError> {
         self.db.select_notes_by_id(note_ids).await
     }
