@@ -36,24 +36,11 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             account_id INTEGER NOT NULL,
             account_hash BLOB NOT NULL,
             block_num INTEGER NOT NULL,
+            details BLOB NOT NULL,
 
             PRIMARY KEY (account_id),
             CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
             CONSTRAINT accounts_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
-        ) STRICT, WITHOUT ROWID;
-
-        CREATE TABLE
-            account_details
-        (
-            account_id INTEGER NOT NULL,
-            nonce INTEGER NOT NULL,
-            vault BLOB NOT NULL,
-            storage BLOB NOT NULL,
-            code BLOB NOT NULL,
-
-            PRIMARY KEY (account_id),
-            CONSTRAINT account_details_nonce_non_negative CHECK (nonce >= 0),
-            CONSTRAINT fk_account_id FOREIGN KEY (account_id) REFERENCES accounts (account_id)
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE

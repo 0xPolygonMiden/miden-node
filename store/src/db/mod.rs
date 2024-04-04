@@ -2,9 +2,9 @@ use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_objects::{
-    accounts::Account,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::Nullifier,
+    transaction::AccountDetails,
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -36,6 +36,7 @@ pub struct AccountInfo {
     pub account_id: AccountId,
     pub account_hash: RpoDigest,
     pub block_num: BlockNumber,
+    pub details: Option<AccountDetails>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -200,22 +201,6 @@ impl Db {
             })?
     }
 
-    /// Loads public account details from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_account_details(
-        &self,
-        id: AccountId,
-    ) -> Result<Account> {
-        self.pool
-            .get()
-            .await?
-            .interact(move |conn| sql::select_account_details(conn, id))
-            .await
-            .map_err(|err| {
-                DatabaseError::InteractError(format!("Get account details task failed: {err}"))
-            })?
-    }
-
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn get_state_sync(
         &self,
@@ -260,7 +245,7 @@ impl Db {
         block_header: BlockHeader,
         notes: Vec<Note>,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<(AccountId, RpoDigest)>,
+        accounts: Vec<(AccountId, Option<AccountDetails>, RpoDigest)>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -343,7 +328,7 @@ impl Db {
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt
                             .leaves()
-                            .map(|(account_id, state_hash)| (account_id, state_hash.into()))
+                            .map(|(account_id, state_hash)| (account_id, None, state_hash.into()))
                             .collect();
                         sql::apply_block(
                             &transaction,

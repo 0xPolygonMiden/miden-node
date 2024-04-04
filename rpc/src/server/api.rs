@@ -2,19 +2,18 @@ use anyhow::Result;
 use miden_node_proto::generated::{
     block_producer::api_client as block_producer_client,
     requests::{
-        CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetPublicAccountDetailsRequest,
-        SubmitProvenTransactionRequest, SyncStateRequest,
+        CheckNullifiersRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,
+        SyncStateRequest,
     },
     responses::{
-        CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetPublicAccountDetailsResponse,
-        SubmitProvenTransactionResponse, SyncStateResponse,
+        CheckNullifiersResponse, GetBlockHeaderByNumberResponse, SubmitProvenTransactionResponse,
+        SyncStateResponse,
     },
     rpc::api_server,
     store::api_client as store_client,
 };
 use miden_objects::{
-    accounts::AccountId, transaction::ProvenTransaction, utils::serde::Deserializable, Digest,
-    MIN_PROOF_SECURITY_LEVEL,
+    transaction::ProvenTransaction, utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
@@ -132,37 +131,5 @@ impl api_server::Api for RpcApi {
         })?;
 
         self.block_producer.clone().submit_proven_transaction(request).await
-    }
-
-    /// Returns details for public (on-chain) account by id.
-    #[instrument(
-        target = "miden-rpc",
-        name = "rpc:get_public_account_details",
-        skip_all,
-        ret(level = "debug"),
-        err
-    )]
-    async fn get_public_account_details(
-        &self,
-        request: tonic::Request<GetPublicAccountDetailsRequest>,
-    ) -> std::result::Result<Response<GetPublicAccountDetailsResponse>, Status> {
-        debug!(target: COMPONENT, request = ?request.get_ref());
-
-        // Validating account using conversion:
-        let account_id: AccountId = request
-            .get_ref()
-            .account_id
-            .clone()
-            .ok_or(Status::invalid_argument("account_id is missing"))?
-            .try_into()
-            .map_err(|err| Status::invalid_argument(format!("Invalid account id: {err}")))?;
-
-        if !account_id.is_on_chain() {
-            return Err(Status::invalid_argument(
-                "Invalid account id: account required to be public",
-            ));
-        }
-
-        self.store.clone().get_public_account_details(request).await
     }
 }

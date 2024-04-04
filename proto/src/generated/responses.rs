@@ -158,11 +158,3 @@ pub struct ListNotesResponse {
     #[prost(message, repeated, tag = "1")]
     pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
 }
-#[derive(Eq, PartialOrd, Ord, Hash)]
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetPublicAccountDetailsResponse {
-    /// Public account full details.
-    #[prost(bytes = "vec", tag = "1")]
-    pub details: ::prost::alloc::vec::Vec<u8>,
-}

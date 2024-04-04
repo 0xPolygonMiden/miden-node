@@ -2,10 +2,9 @@
 use std::rc::Rc;
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountStorage},
-    assets::AssetVault,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::Nullifier,
+    transaction::AccountDetails,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
@@ -13,7 +12,7 @@ use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{AccountInfo, Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
-    errors::{DatabaseError, StateSyncError},
+    errors::StateSyncError,
     types::{AccountId, BlockNumber},
 };
 
@@ -26,20 +25,34 @@ use crate::{
 ///
 /// A vector with accounts, or an error.
 pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
-    let mut stmt = conn.prepare("SELECT * FROM accounts ORDER BY block_num ASC;")?;
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            account_id,
+            account_hash,
+            block_num,
+            details
+        FROM
+            accounts
+        ORDER BY
+            block_num ASC;
+    ",
+    )?;
     let mut rows = stmt.query([])?;
 
     let mut accounts = vec![];
     while let Some(row) = rows.next()? {
+        let account_id = column_value_as_u64(row, 0)?;
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
-        let account_id = column_value_as_u64(row, 0)?;
         let block_num = row.get(2)?;
+        let details = <Option<AccountDetails>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
 
         accounts.push(AccountInfo {
             account_id,
             account_hash,
             block_num,
+            details,
         })
     }
     Ok(accounts)
@@ -84,7 +97,10 @@ pub fn select_accounts_by_block_range(
     let mut stmt = conn.prepare(
         "
         SELECT
-            account_id, account_hash, block_num
+            account_id,
+            account_hash,
+            block_num,
+            details
         FROM
             accounts
         WHERE
@@ -104,42 +120,17 @@ pub fn select_accounts_by_block_range(
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
         let block_num = row.get(2)?;
+        let details = <Option<AccountDetails>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
 
         result.push(AccountInfo {
             account_id,
             account_hash,
             block_num,
+            details,
         });
     }
 
     Ok(result)
-}
-
-/// Select the latest account details by account id from the DB using the given [Connection].
-///
-/// # Returns
-///
-/// The latest account details, or an error.
-pub fn select_account_details(
-    conn: &mut Connection,
-    account_id: AccountId,
-) -> Result<Account> {
-    let mut stmt = conn.prepare(
-        "SELECT nonce, vault, storage, code FROM account_details WHERE account_id = ?1;",
-    )?;
-
-    let mut rows = stmt.query(params![u64_to_value(account_id)])?;
-    let row = rows.next()?.ok_or(DatabaseError::AccountNotOnChain(account_id))?;
-
-    let account = Account::new(
-        account_id.try_into()?,
-        AssetVault::read_from_bytes(row.get_ref(1)?.as_blob()?)?,
-        AccountStorage::read_from_bytes(row.get_ref(2)?.as_blob()?)?,
-        AccountCode::read_from_bytes(row.get_ref(3)?.as_blob()?)?,
-        column_value_as_u64(row, 0)?.try_into().map_err(DatabaseError::CorruptedData)?,
-    );
-
-    Ok(account)
 }
 
 /// Inserts or updates accounts to the DB using the given [Transaction].
@@ -154,15 +145,27 @@ pub fn select_account_details(
 /// transaction.
 pub fn upsert_accounts(
     transaction: &Transaction,
-    accounts: &[(AccountId, RpoDigest)],
+    accounts: &[(AccountId, Option<AccountDetails>, RpoDigest)],
     block_num: BlockNumber,
 ) -> Result<usize> {
-    let mut stmt = transaction.prepare("INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num) VALUES (?1, ?2, ?3);")?;
+    let mut stmt = transaction.prepare(
+        "
+        INSERT OR REPLACE INTO
+            accounts (account_id, account_hash, block_num, details)
+        VALUES (?1, ?2, ?3, ?4);
+    ",
+    )?;
 
     let mut count = 0;
-    for (account_id, account_hash) in accounts.iter() {
-        count +=
-            stmt.execute(params![u64_to_value(*account_id), account_hash.to_bytes(), block_num])?
+    for (account_id, details, account_hash) in accounts.iter() {
+        // TODO: Process account details/delta (in the next PR)
+
+        count += stmt.execute(params![
+            u64_to_value(*account_id),
+            account_hash.to_bytes(),
+            block_num,
+            details.to_bytes(),
+        ])?
     }
     Ok(count)
 }
@@ -567,7 +570,7 @@ pub fn apply_block(
     block_header: &BlockHeader,
     notes: &[Note],
     nullifiers: &[Nullifier],
-    accounts: &[(AccountId, RpoDigest)],
+    accounts: &[(AccountId, Option<AccountDetails>, RpoDigest)],
 ) -> Result<usize> {
     let mut count = 0;
     count += insert_block_header(transaction, block_header)?;
