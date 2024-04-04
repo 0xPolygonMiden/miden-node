@@ -18,8 +18,8 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             notes
         (
             block_num INTEGER NOT NULL,
-            batch_index INTEGER NOT NULL,
-            note_index INTEGER NOT NULL,
+            batch_index INTEGER NOT NULL,   -- Index of batch in block, starting from 0
+            note_index INTEGER NOT NULL,    -- Index of note in batch, starting from 0
             note_hash BLOB NOT NULL,
             sender INTEGER NOT NULL,
             tag INTEGER NOT NULL,
