@@ -1,6 +1,7 @@
 //! Wrapper functions for SQL statements.
 
 use std::rc::Rc;
+
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
     notes::Nullifier,
