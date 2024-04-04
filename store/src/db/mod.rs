@@ -2,6 +2,7 @@ use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_objects::{
+    accounts::Account,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::Nullifier,
     transaction::AccountDetails,
@@ -36,7 +37,7 @@ pub struct AccountInfo {
     pub account_id: AccountId,
     pub account_hash: RpoDigest,
     pub block_num: BlockNumber,
-    pub details: Option<AccountDetails>,
+    pub details: Option<Account>,
 }
 
 #[derive(Debug, PartialEq)]

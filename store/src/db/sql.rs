@@ -2,6 +2,7 @@
 use std::rc::Rc;
 
 use miden_objects::{
+    accounts::Account,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::Nullifier,
     transaction::AccountDetails,
@@ -46,7 +47,7 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
         let block_num = row.get(2)?;
-        let details = <Option<AccountDetails>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
+        let details = <Option<Account>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
 
         accounts.push(AccountInfo {
             account_id,
@@ -120,7 +121,7 @@ pub fn select_accounts_by_block_range(
         let account_hash_data = row.get_ref(1)?.as_blob()?;
         let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
         let block_num = row.get(2)?;
-        let details = <Option<AccountDetails>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
+        let details = <Option<Account>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
 
         result.push(AccountInfo {
             account_id,
