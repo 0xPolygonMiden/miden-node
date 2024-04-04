@@ -1,13 +1,13 @@
 //! Wrapper functions for SQL statements.
-use std::rc::Rc;
 
+use std::rc::Rc;
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
     notes::Nullifier,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
-use rusqlite::{params, types::Value, Connection, Transaction};
+use rusqlite::{params, params_from_iter, types::Value, Connection, Transaction};
 
 use super::{AccountInfo, Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
@@ -301,7 +301,7 @@ pub fn insert_notes(
         )
         VALUES
         (
-            ?1, ?2, ?3, ?4, ?5, ?6 
+            ?1, ?2, ?3, ?4, ?5, ?6
         );",
     )?;
 
@@ -397,6 +397,54 @@ pub fn select_notes_since_block_by_tag_and_sender(
         res.push(note);
     }
     Ok(res)
+}
+
+/// Select notes matching the tag and account_ids search criteria using the given [Connection].
+///
+/// # Returns
+///
+/// - Empty vector if no tag created after `block_num` match `tags` or `account_ids`.
+/// - Otherwise, notes which the 16 high bits match `tags`, or the `sender` is one of the
+///   `account_ids`.
+///
+/// # Note
+///
+/// This method returns notes from a single block. To fetch all notes up to the chain tip,
+/// multiple requests are necessary.
+pub fn select_notes_by_id(
+    conn: &mut Connection,
+    note_ids: &[RpoDigest],
+) -> Result<Vec<Note>> {
+    let note_ids: Vec<Vec<u8>> = note_ids.iter().map(|id| id.to_bytes()).collect();
+
+    let placeholders = note_ids.iter().map(|_| "?").collect::<Vec<&str>>().join(", ");
+
+    let query = &format!("SELECT * FROM notes WHERE note_hash IN ({})", placeholders);
+
+    let mut stmt = conn.prepare(query)?;
+
+    let mut rows = stmt.query(params_from_iter(note_ids))?;
+
+    let mut notes = Vec::new();
+    while let Some(row) = rows.next()? {
+        let note_id_data = row.get_ref(2)?.as_blob()?;
+        let note_id = deserialize(note_id_data)?;
+
+        let merkle_path_data = row.get_ref(5)?.as_blob()?;
+        let merkle_path = deserialize(merkle_path_data)?;
+
+        notes.push(Note {
+            block_num: row.get(0)?,
+            note_created: NoteCreated {
+                note_index: row.get(1)?,
+                note_id,
+                sender: column_value_as_u64(row, 3)?,
+                tag: column_value_as_u64(row, 4)?,
+            },
+            merkle_path,
+        })
+    }
+    Ok(notes)
 }
 
 // BLOCK CHAIN QUERIES

@@ -79,6 +79,11 @@ message SubmitProvenTransactionRequest {
     bytes transaction = 1;
 }
 
+message GetNotesByIdRequest {
+  // List of NoteId's to be queried from the database
+  repeated digest.Digest note_ids = 1;
+}
+
 message ListNullifiersRequest {}
 
 message ListAccountsRequest {}

@@ -103,6 +103,14 @@ pub struct SubmitProvenTransactionRequest {
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetNotesByIdRequest {
+    /// List of NoteId's to be queried from the database
+    #[prost(message, repeated, tag = "1")]
+    pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
+}
+#[derive(Eq, PartialOrd, Ord, Hash)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListNullifiersRequest {}
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]

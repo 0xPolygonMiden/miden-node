@@ -8,22 +8,22 @@ use miden_node_proto::{
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
-            GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest,
-            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            GetBlockInputsRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountHashUpdate, AccountTransactionInputRecord, ApplyBlockResponse,
             CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
-            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
-            SyncStateResponse,
+            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
+            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
+            NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
     },
     AccountState,
 };
-use miden_objects::{notes::Nullifier, BlockHeader, Felt, ZERO};
+use miden_objects::{crypto::hash::rpo::RpoDigest, notes::Nullifier, BlockHeader, Felt, ZERO};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -157,6 +157,52 @@ impl api_server::Api for StoreApi {
             notes,
             nullifiers,
         }))
+    }
+
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_notes_by_id",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_notes_by_id(
+        &self,
+        request: tonic::Request<GetNotesByIdRequest>,
+    ) -> Result<Response<GetNotesByIdResponse>, Status> {
+        let note_ids = request.into_inner().note_ids;
+
+        let digests: Result<Vec<RpoDigest>, _> = note_ids
+            .into_iter()
+            .map(|note_id| {
+                note_id
+                    .try_into()
+                    .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))
+            })
+            .collect();
+
+        let digests = match digests {
+            Ok(d) => d,
+            Err(err) => return Err(err),
+        };
+
+        let notes = self
+            .state
+            .get_notes_by_id(digests)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|note| generated::note::Note {
+                block_num: note.block_num,
+                note_index: note.note_created.note_index,
+                note_id: Some(note.note_created.note_id.into()),
+                sender: Some(note.note_created.sender.into()),
+                tag: note.note_created.tag,
+                merkle_path: Some(note.merkle_path.into()),
+            })
+            .collect();
+
+        Ok(Response::new(GetNotesByIdResponse { notes }))
     }
 
     // BLOCK PRODUCER ENDPOINTS

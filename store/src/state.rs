@@ -304,6 +304,14 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
+    /// Get all notes matching a certain NoteId
+    pub async fn get_notes_by_id(
+        &self,
+        note_ids: Vec<RpoDigest>,
+    ) -> Result<Vec<Note>, DatabaseError> {
+        self.db.select_notes_by_id(note_ids).await
+    }
+
     /// Loads data to synchronize a client.
     ///
     /// The client's request contains a list of tag prefixes, this method will return the first
