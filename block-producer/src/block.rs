@@ -9,7 +9,7 @@ use miden_node_proto::{
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes:: Nullifier,
+    notes::Nullifier,
     BlockHeader, Digest,
 };
 
