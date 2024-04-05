@@ -258,7 +258,8 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
             note_hash,
             sender,
             tag,
-            merkle_path
+            merkle_path,
+            details
         FROM
             notes
         ORDER BY
@@ -275,6 +276,9 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
         let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = deserialize(merkle_path_data)?;
 
+        let details_data = row.get_ref(7)?.as_blob()?;
+        let details = deserialize(details_data)?;
+
         notes.push(Note {
             block_num: row.get(0)?,
             note_created: NoteCreated {
@@ -283,6 +287,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
                 note_id,
                 sender: column_value_as_u64(row, 4)?,
                 tag: column_value_as_u64(row, 5)?,
+                details,
             },
             merkle_path,
         })
@@ -315,11 +320,12 @@ pub fn insert_notes(
             note_hash,
             sender,
             tag,
-            merkle_path
+            merkle_path,
+            details
         )
         VALUES
         (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8
         );",
     )?;
 
@@ -333,6 +339,7 @@ pub fn insert_notes(
             u64_to_value(note.note_created.sender),
             u64_to_value(note.note_created.tag),
             note.merkle_path.to_bytes(),
+            note.note_created.details.to_bytes()
         ])?;
     }
 
@@ -369,7 +376,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
             note_hash,
             sender,
             tag,
-            merkle_path
+            merkle_path,
+            details
         FROM
             notes
         WHERE
@@ -404,6 +412,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let tag = column_value_as_u64(row, 5)?;
         let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = deserialize(merkle_path_data)?;
+        let details_data = row.get_ref(7)?.as_blob()?;
+        let details = deserialize(details_data)?;
 
         let note = Note {
             block_num,
@@ -413,6 +423,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
                 note_id,
                 sender,
                 tag,
+                details,
             },
             merkle_path,
         };
@@ -449,6 +460,9 @@ pub fn select_notes_by_id(
         let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = deserialize(merkle_path_data)?;
 
+        let details_data = row.get_ref(7)?.as_blob()?;
+        let details = deserialize(details_data)?;
+
         notes.push(Note {
             block_num: row.get(0)?,
             note_created: NoteCreated {
@@ -457,6 +471,7 @@ pub fn select_notes_by_id(
                 note_id,
                 sender: column_value_as_u64(row, 4)?,
                 tag: column_value_as_u64(row, 5)?,
+                details,
             },
             merkle_path,
         })

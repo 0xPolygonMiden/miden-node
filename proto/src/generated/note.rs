@@ -44,4 +44,6 @@ pub struct NoteCreated {
     pub sender: ::core::option::Option<super::account::AccountId>,
     #[prost(fixed64, tag = "5")]
     pub tag: u64,
+    #[prost(bytes = "vec", optional, tag = "6")]
+    pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

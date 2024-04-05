@@ -259,6 +259,7 @@ impl api_server::Api for StoreApi {
                         .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?,
                     sender: note.sender.ok_or(invalid_argument("Note missing sender"))?.into(),
                     tag: note.tag,
+                    details: note.details,
                 })
             })
             .collect::<Result<Vec<_>, Status>>()?;

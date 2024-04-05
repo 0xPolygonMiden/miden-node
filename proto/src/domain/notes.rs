@@ -28,6 +28,7 @@ impl From<(usize, usize, NoteEnvelope)> for note::NoteCreated {
             note_id: Some(note.note_id().into()),
             sender: Some(note.metadata().sender().into()),
             tag: note.metadata().tag().into(),
+            details: None,
         }
     }
 }

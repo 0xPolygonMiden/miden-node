@@ -133,6 +133,7 @@ fn test_sql_select_notes() {
                 note_id: num_to_rpo_digest(i as u64),
                 sender: i as u64,
                 tag: i as u64,
+                details: Some(vec![1, 2, 3]),
             },
             merkle_path: MerklePath::new(vec![]),
         };
@@ -446,6 +447,7 @@ fn test_notes() {
     let values = [(batch_index as usize, note_index as usize, (note_id, note_metadata))];
     let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
     let merkle_path = notes_db.merkle_path(batch_index as usize, note_index as usize).unwrap();
+    let details = Some(vec![1, 2, 3]);
 
     let note = Note {
         block_num: block_num_1,
@@ -455,6 +457,7 @@ fn test_notes() {
             note_id,
             sender: sender.into(),
             tag,
+            details,
         },
         merkle_path: merkle_path.clone(),
     };
@@ -499,6 +502,7 @@ fn test_notes() {
             note_id: num_to_rpo_digest(3),
             sender: note.note_created.sender,
             tag: note.note_created.tag,
+            details: note.note_created.details.clone(),
         },
         merkle_path,
     };

@@ -50,6 +50,7 @@ pub struct NoteCreated {
     pub note_id: RpoDigest,
     pub sender: AccountId,
     pub tag: u64,
+    pub details: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

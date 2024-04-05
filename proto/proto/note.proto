@@ -28,4 +28,5 @@ message NoteCreated {
     digest.Digest note_id = 3;
     account.AccountId sender  = 4;
     fixed64 tag = 5;
+    optional bytes details = 6;
 }
