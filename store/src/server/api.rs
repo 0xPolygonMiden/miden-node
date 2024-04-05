@@ -199,7 +199,7 @@ impl api_server::Api for StoreApi {
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
                 merkle_path: Some(note.merkle_path.into()),
-                details: note.note_created.details
+                details: note.note_created.details,
             })
             .collect();
 
@@ -391,7 +391,7 @@ impl api_server::Api for StoreApi {
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
                 merkle_path: Some(note.merkle_path.into()),
-                details: note.note_created.details
+                details: note.note_created.details,
             })
             .collect();
         Ok(Response::new(ListNotesResponse { notes }))
