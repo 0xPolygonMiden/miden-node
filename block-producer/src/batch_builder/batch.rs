@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use miden_node_proto::domain::accounts::UpdatedAccount;
 use miden_objects::{
     accounts::AccountId,
     batches::BatchNoteTree,
@@ -108,10 +109,14 @@ impl TransactionBatch {
 
     /// Returns an iterator over (account_id, new_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
-    pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
+    pub fn updated_accounts(&self) -> impl Iterator<Item = UpdatedAccount> + '_ {
         self.updated_accounts
             .iter()
-            .map(|(account_id, account_states)| (*account_id, account_states.final_state))
+            .map(|(&account_id, account_states)| UpdatedAccount {
+                account_id,
+                final_state_hash: account_states.final_state,
+                details: None, // TODO: In the next PR: account_states.details.clone(),
+            })
     }
 
     /// Returns an iterator over produced nullifiers for all consumed notes.

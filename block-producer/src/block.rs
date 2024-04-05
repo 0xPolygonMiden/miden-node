@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use miden_node_proto::{
-    errors::{MissingFieldHelper, ParseError},
+    domain::accounts::UpdatedAccount,
+    errors::{ConversionError, MissingFieldHelper},
     generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
@@ -17,7 +18,7 @@ use crate::store::BlockInputsError;
 #[derive(Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
-    pub updated_accounts: Vec<(AccountId, Digest)>,
+    pub updated_accounts: Vec<UpdatedAccount>,
     pub created_notes: Vec<(usize, usize, NoteEnvelope)>,
     pub produced_nullifiers: Vec<Nullifier>,
     // TODO:
@@ -94,7 +95,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
                 };
                 Ok((domain.account_id, witness))
             })
-            .collect::<Result<BTreeMap<_, _>, ParseError>>()?;
+            .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
         let nullifiers = get_block_inputs
             .nullifiers
@@ -103,7 +104,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
                 let witness: NullifierWitness = entry.try_into()?;
                 Ok((witness.nullifier, witness.proof))
             })
-            .collect::<Result<BTreeMap<_, _>, ParseError>>()?;
+            .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
         Ok(Self {
             block_header,
