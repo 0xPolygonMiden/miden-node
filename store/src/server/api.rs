@@ -7,16 +7,16 @@ use miden_node_proto::{
         self,
         note::NoteSyncRecord,
         requests::{
-            ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
-            GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest,
-            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetTransactionInputsRequest,
+            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountHashUpdate, AccountTransactionInputRecord, ApplyBlockResponse,
-            CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
-            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
-            SyncStateResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
+            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
+            NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -156,6 +156,34 @@ impl api_server::Api for StoreApi {
             accounts,
             notes,
             nullifiers,
+        }))
+    }
+
+    /// Returns details for public (on-chain) account by id.
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_account_details",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_details(
+        &self,
+        request: tonic::Request<GetAccountDetailsRequest>,
+    ) -> Result<Response<GetAccountDetailsResponse>, Status> {
+        let request = request.into_inner();
+        let account = self
+            .state
+            .get_account_details(
+                request.account_id.ok_or(invalid_argument("Account missing id"))?.into(),
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Response::new(GetAccountDetailsResponse {
+            account_hash,
+            block_num,
+            details, // TODO: account.to_bytes(),
         }))
     }
 

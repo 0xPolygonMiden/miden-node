@@ -10,4 +10,5 @@ service Api {
     rpc GetBlockHeaderByNumber(requests.GetBlockHeaderByNumberRequest) returns (responses.GetBlockHeaderByNumberResponse) {}
     rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
     rpc SubmitProvenTransaction(requests.SubmitProvenTransactionRequest) returns (responses.SubmitProvenTransactionResponse) {}
+    rpc GetAccountDetails(requests.GetAccountDetailsRequest) returns (responses.GetAccountDetailsResponse) {}
 }

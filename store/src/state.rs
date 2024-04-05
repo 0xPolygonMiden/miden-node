@@ -468,6 +468,14 @@ impl State {
     pub async fn list_notes(&self) -> Result<Vec<Note>, DatabaseError> {
         self.db.select_notes().await
     }
+
+    /// Returns details for public (on-chain) account.
+    pub async fn get_account_details(
+        &self,
+        id: AccountId,
+    ) -> Result<Account, DatabaseError> {
+        self.db.select_account_details(id).await
+    }
 }
 
 // UTILITIES

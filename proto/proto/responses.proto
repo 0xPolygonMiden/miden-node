@@ -71,7 +71,7 @@ message GetBlockInputsResponse {
     // Peaks of the above block's mmr, The `forest` value is equal to the block number.
     repeated digest.Digest mmr_peaks = 2;
 
-    // The hashes of the requested accouts and their authentication paths
+    // The hashes of the requested accounts and their authentication paths
     repeated AccountBlockInputRecord account_states = 3;
 
     // The requested nullifiers and their authentication paths
@@ -112,4 +112,13 @@ message ListAccountsResponse {
 message ListNotesResponse {
     // Lists all notes of the current chain
     repeated note.Note notes = 1;
+}
+
+message GetAccountDetailsResponse {
+    // Account final hash
+    digest.Digest account_hash = 1;
+    // Block number of the last update
+    fixed32 block_num = 2;
+    // Account full details encoded using miden's native format
+    bytes details = 3;
 }

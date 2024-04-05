@@ -13,7 +13,7 @@ use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{AccountInfo, Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
-    errors::StateSyncError,
+    errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
 };
 
@@ -43,18 +43,7 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
 
     let mut accounts = vec![];
     while let Some(row) = rows.next()? {
-        let account_id = column_value_as_u64(row, 0)?;
-        let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
-        let block_num = row.get(2)?;
-        let details = <Option<Account>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
-
-        accounts.push(AccountInfo {
-            account_id,
-            account_hash,
-            block_num,
-            details,
-        })
+        accounts.push(account_info_from_row(row)?)
     }
     Ok(accounts)
 }
@@ -117,21 +106,39 @@ pub fn select_accounts_by_block_range(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        let account_id = column_value_as_u64(row, 0)?;
-        let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
-        let block_num = row.get(2)?;
-        let details = <Option<Account>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
-
-        result.push(AccountInfo {
-            account_id,
-            account_hash,
-            block_num,
-            details,
-        });
+        result.push(account_info_from_row(row)?)
     }
 
     Ok(result)
+}
+
+/// Select the latest account details by account id from the DB using the given [Connection].
+///
+/// # Returns
+///
+/// The latest account details, or an error.
+pub fn select_account(
+    conn: &mut Connection,
+    account_id: AccountId,
+) -> Result<AccountInfo> {
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            account_id,
+            account_hash,
+            block_num,
+            details
+        FROM
+            accounts
+        WHERE
+            account_id = ?1;
+    ",
+    )?;
+
+    let mut rows = stmt.query(params![u64_to_value(account_id)])?;
+    let row = rows.next()?.ok_or(DatabaseError::AccountNotFoundInDb(account_id))?;
+
+    account_info_from_row(row)
 }
 
 /// Inserts or updates accounts to the DB using the given [Transaction].
@@ -615,4 +622,22 @@ fn column_value_as_u64<I: rusqlite::RowIndex>(
 ) -> rusqlite::Result<u64> {
     let value: i64 = row.get(index)?;
     Ok(value as u64)
+}
+
+/// Constructs `AccountInfo` from the row of `accounts` table.
+///
+/// Note: field ordering must be the same, as in `accounts` table!
+fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
+    let account_id = column_value_as_u64(row, 0)?;
+    let account_hash_data = row.get_ref(1)?.as_blob()?;
+    let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
+    let block_num = row.get(2)?;
+    let details = <Option<Account>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
+
+    Ok(AccountInfo {
+        account_id,
+        account_hash,
+        block_num,
+        details,
+    })
 }
