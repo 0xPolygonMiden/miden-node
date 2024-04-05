@@ -50,7 +50,9 @@ impl BlockWitness {
                 .iter()
                 .flat_map(|batch| batch.updated_accounts())
                 .map(
-                    |UpdatedAccount {account_id, final_state_hash,
+                    |UpdatedAccount {
+                         account_id,
+                         final_state_hash,
                          ..
                      }| {
                         let initial_state_hash = account_initial_states
