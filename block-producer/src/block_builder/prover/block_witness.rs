@@ -93,7 +93,7 @@ impl BlockWitness {
     pub(super) fn into_program_inputs(
         self
     ) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
-        let stack_inputs = self.build_stack_inputs()?;
+        let stack_inputs = self.build_stack_inputs();
         let advice_inputs = self.build_advice_inputs()?;
 
         Ok((advice_inputs, stack_inputs))
@@ -191,7 +191,7 @@ impl BlockWitness {
     }
 
     /// Builds the stack inputs to the block kernel
-    fn build_stack_inputs(&self) -> Result<StackInputs, BlockProverError> {
+    fn build_stack_inputs(&self) -> StackInputs {
         // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
         // from the bottom to the top
         let mut stack_inputs = Vec::new();
