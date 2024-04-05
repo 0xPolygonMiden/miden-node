@@ -14,6 +14,8 @@ pub struct Note {
     pub tag: u64,
     #[prost(message, optional, tag = "7")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
+    #[prost(bytes = "vec", optional, tag = "8")]
+    pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]

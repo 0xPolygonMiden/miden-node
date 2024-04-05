@@ -12,6 +12,7 @@ message Note {
     account.AccountId sender  = 4;
     fixed64 tag = 5;
     merkle.MerklePath merkle_path = 7;
+    optional bytes details = 8;
 }
 
 message NoteSyncRecord {
