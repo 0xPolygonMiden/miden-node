@@ -1,8 +1,5 @@
-use std::collections::BTreeMap;
-
 use miden_node_proto::domain::accounts::UpdatedAccount;
 use miden_objects::{
-    accounts::AccountId,
     block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt},
     notes::{NoteEnvelope, Nullifier},

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
-use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
+use miden_objects::notes::Nullifier;
 use tracing::{debug, info, instrument};
 
 use crate::{
