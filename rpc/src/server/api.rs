@@ -16,8 +16,8 @@ use miden_node_proto::{
     try_convert,
 };
 use miden_objects::{
-    notes::NoteId, transaction::ProvenTransaction, utils::serde::Deserializable, Digest,
-    MIN_PROOF_SECURITY_LEVEL,
+    crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction, utils::serde::Deserializable,
+    Digest, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
@@ -129,7 +129,7 @@ impl api_server::Api for RpcApi {
         // Validation checking for correct NoteId's
         let note_ids = request.get_ref().note_ids.clone();
 
-        let _: Vec<NoteId> = try_convert(note_ids)
+        let _: Vec<RpoDigest> = try_convert(note_ids)
             .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
 
         self.store.clone().get_notes_by_id(request).await
