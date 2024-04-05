@@ -2,7 +2,7 @@ use miden_objects::{
     accounts::AccountId,
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteMetadata, NoteType, Nullifier},
+    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
     BlockHeader, Digest, Felt, FieldElement, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
@@ -530,6 +530,14 @@ fn test_notes() {
     )
     .unwrap();
     assert_eq!(res, vec![note2.clone()]);
+
+    // test query notes by id
+    let notes = vec![note, note2];
+    let note_ids: Vec<RpoDigest> = notes.clone().iter().map(|note| note.note_created.note_id.into()).collect();
+    let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
+
+    let res = sql::select_notes_by_id(&mut conn, &note_ids).unwrap();
+    assert_eq!(res, notes);
 }
 
 // UTILITIES

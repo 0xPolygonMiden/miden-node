@@ -8,7 +8,7 @@ use miden_objects::{
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
-use rusqlite::{params, params_from_iter, types::Value, Connection, Transaction};
+use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{AccountInfo, Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
@@ -442,15 +442,25 @@ pub fn select_notes_by_id(
     conn: &mut Connection,
     note_ids: &[NoteId],
 ) -> Result<Vec<Note>> {
-    let note_ids: Vec<Vec<u8>> = note_ids.iter().map(|id| id.to_bytes()).collect();
+    let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
-    let placeholders = note_ids.iter().map(|_| "?").collect::<Vec<&str>>().join(", ");
-
-    let query = &format!("SELECT * FROM notes WHERE note_hash IN ({})", placeholders);
-
-    let mut stmt = conn.prepare(query)?;
-
-    let mut rows = stmt.query(params_from_iter(note_ids))?;
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            block_num,
+            batch_index,
+            note_index,
+            note_hash,
+            sender,
+            tag,
+            merkle_path
+        FROM
+            notes
+        WHERE
+            note_hash IN rarray(?1)
+        ",
+    )?;
+    let mut rows = stmt.query(params![Rc::new(note_ids)])?;
 
     let mut notes = Vec::new();
     while let Some(row) = rows.next()? {

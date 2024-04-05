@@ -112,11 +112,11 @@ Returns a list of Note's matching a certain list of NoteId's.
 
 **Parameters**
 
-* `note_ids`: `NoteId` - ID of the Note that we want to query.
+* `note_ids`: `[NoteId]` - list of ID's of the Note's we want to query.
 
 **Returns**
 
-* `notes`: `Note` - List of notes matching the list of NoteId's.
+* `notes`: `[Note]` - List of notes matching the list of requested NoteId's.
 
 ### SyncState
 
