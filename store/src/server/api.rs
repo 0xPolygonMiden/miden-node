@@ -24,6 +24,7 @@ use miden_node_proto::{
     try_convert, AccountState,
 };
 use miden_objects::{
+    crypto::hash::rpo::RpoDigest,
     notes::{NoteId, Nullifier},
     BlockHeader, Felt, ZERO,
 };
@@ -180,8 +181,10 @@ impl api_server::Api for StoreApi {
 
         let note_ids = request.into_inner().note_ids;
 
-        let note_ids: Vec<NoteId> = try_convert(note_ids)
+        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
             .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
 
         let notes = self
             .state
