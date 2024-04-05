@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use miden_node_proto::domain::accounts::UpdatedAccount;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
@@ -48,23 +49,29 @@ impl BlockWitness {
             batches
                 .iter()
                 .flat_map(|batch| batch.updated_accounts())
-                .map(|(account_id, final_state_hash)| {
-                    let initial_state_hash = account_initial_states
-                        .remove(&account_id)
-                        .expect("already validated that key exists");
-                    let proof = account_merkle_proofs
-                        .remove(&account_id)
-                        .expect("already validated that key exists");
+                .map(
+                    |UpdatedAccount {
+                         account_id,
+                         final_state_hash,
+                         ..
+                     }| {
+                        let initial_state_hash = account_initial_states
+                            .remove(&account_id)
+                            .expect("already validated that key exists");
+                        let proof = account_merkle_proofs
+                            .remove(&account_id)
+                            .expect("already validated that key exists");
 
-                    (
-                        account_id,
-                        AccountUpdate {
-                            initial_state_hash,
-                            final_state_hash,
-                            proof,
-                        },
-                    )
-                })
+                        (
+                            account_id,
+                            AccountUpdate {
+                                initial_state_hash,
+                                final_state_hash,
+                                proof,
+                            },
+                        )
+                    },
+                )
                 .collect()
         };
 

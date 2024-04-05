@@ -16,6 +16,11 @@ target/
 # VS Code
 .vscode/
 
+# JetBrains IDEs
+.idea/
+.code/
+.fleet/
+
 # Genesis files
 /accounts
 genesis.dat
@@ -26,8 +31,6 @@ genesis.dat
 *.sqlite3-wal
 
 # Docs ignore
-.code
-.idea
 site/
 venv/
 env/
