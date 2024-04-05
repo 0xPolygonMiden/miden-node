@@ -16,6 +16,10 @@ target/
 # VS Code
 .vscode/
 
+# JetBrains IDEs
+.idea/
+.fleet/
+
 # Genesis files
 /accounts
 genesis.dat
@@ -25,3 +29,7 @@ genesis.dat
 *.sqlite3-shm
 *.sqlite3-wal
 db/
+
+# Configs
+/genesis.toml
+/miden.toml
