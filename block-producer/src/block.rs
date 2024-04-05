@@ -3,13 +3,13 @@ use std::collections::BTreeMap;
 use miden_node_proto::{
     domain::accounts::UpdatedAccount,
     errors::{ConversionError, MissingFieldHelper},
-    generated::responses::GetBlockInputsResponse,
+    generated::{note::NoteCreated, responses::GetBlockInputsResponse},
     AccountInputRecord, NullifierWitness,
 };
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes::{NoteEnvelope, Nullifier},
+    notes:: Nullifier,
     BlockHeader, Digest,
 };
 
@@ -19,7 +19,7 @@ use crate::store::BlockInputsError;
 pub struct Block {
     pub header: BlockHeader,
     pub updated_accounts: Vec<UpdatedAccount>,
-    pub created_notes: Vec<(usize, usize, NoteEnvelope)>,
+    pub created_notes: Vec<(usize, usize, NoteCreated)>,
     pub produced_nullifiers: Vec<Nullifier>,
     // TODO:
     // - full states for updated public accounts
