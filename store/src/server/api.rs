@@ -207,6 +207,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|note| {
                 Ok(NoteCreated {
+                    batch_index: note.batch_index,
                     note_index: note.note_index,
                     note_id: note
                         .note_id
