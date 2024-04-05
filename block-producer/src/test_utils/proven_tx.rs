@@ -84,7 +84,7 @@ impl MockProvenTxBuilder {
 
                 NoteEnvelope::new(
                     note_hash.into(),
-                    NoteMetadata::new(self.account_id, NoteType::OffChain, 0.into(), ZERO).unwrap(),
+                    NoteMetadata::new(self.account_id, NoteType::OffChain, 0.into(), ONE).unwrap(),
                 )
             })
             .collect();

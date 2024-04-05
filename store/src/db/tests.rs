@@ -1,10 +1,9 @@
 use miden_objects::{
-    crypto::{
-        hash::rpo::RpoDigest,
-        merkle::{LeafIndex, MerklePath, SimpleSmt},
-    },
-    notes::{Nullifier, NOTE_LEAF_DEPTH},
-    BlockHeader, Felt, FieldElement,
+    accounts::AccountId,
+    block::BlockNoteTree,
+    crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
+    notes::{NoteMetadata, NoteType, Nullifier},
+    BlockHeader, Digest, Felt, FieldElement, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 
@@ -129,6 +128,7 @@ fn test_sql_select_notes() {
         let note = Note {
             block_num,
             note_created: NoteCreated {
+                batch_index: 0,
                 note_index: i,
                 note_id: num_to_rpo_digest(i as u64),
                 sender: i as u64,
@@ -431,20 +431,32 @@ fn test_notes() {
     assert!(res.is_empty());
 
     // test insertion
+    let batch_index = 0u32;
     let note_index = 2u32;
-    let tag = 5;
-    let note_hash = num_to_rpo_digest(3);
-    let values = [(note_index as u64, *note_hash)];
-    let notes_db = SimpleSmt::<NOTE_LEAF_DEPTH>::with_leaves(values.iter().cloned()).unwrap();
-    let idx = LeafIndex::<NOTE_LEAF_DEPTH>::new(note_index as u64).unwrap();
-    let merkle_path = MerklePath::new(notes_db.open(&idx).path.nodes().to_vec());
+    let note_id = num_to_rpo_digest(3);
+    let tag = 5u64;
+    // Precomputed seed for regular off-chain account for zeroed initial seed:
+    let seed = [
+        Felt::new(9826372627067279707),
+        Felt::new(8305692282416592320),
+        Felt::new(2014458279716538454),
+        Felt::new(11038932562555857644),
+    ];
+    let sender = AccountId::new(seed, Digest::default(), Digest::default()).unwrap();
+    let note_metadata =
+        NoteMetadata::new(sender, NoteType::OffChain, (tag as u32).into(), ZERO).unwrap();
+
+    let values = [(batch_index as usize, note_index as usize, (note_id, note_metadata))];
+    let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
+    let merkle_path = notes_db.merkle_path(batch_index as usize, note_index as usize).unwrap();
 
     let note = Note {
         block_num: block_num_1,
         note_created: NoteCreated {
+            batch_index,
             note_index,
-            note_id: num_to_rpo_digest(3),
-            sender: 4,
+            note_id,
+            sender: sender.into(),
             tag,
         },
         merkle_path: merkle_path.clone(),
@@ -485,6 +497,7 @@ fn test_notes() {
     let note2 = Note {
         block_num: block_num_2,
         note_created: NoteCreated {
+            batch_index: note.note_created.batch_index,
             note_index: note.note_created.note_index,
             note_id: num_to_rpo_digest(3),
             sender: note.note_created.sender,

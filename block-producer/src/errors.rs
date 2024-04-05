@@ -13,7 +13,7 @@ use thiserror::Error;
 // Transaction verification errors
 // =================================================================================================
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum VerifyTxError {
     /// The account that the transaction modifies has already been modified and isn't yet committed
     /// to a block
@@ -49,7 +49,7 @@ pub enum VerifyTxError {
 // Transaction adding errors
 // =================================================================================================
 
-#[derive(Error, Debug)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum AddTransactionError {
     #[error("Transaction verification failed: {0}")]
     VerificationFailed(#[from] VerifyTxError),
@@ -63,7 +63,7 @@ pub enum AddTransactionError {
 /// These errors are returned from the batch builder to the transaction queue, instead of
 /// dropping the transactions, they are included into the error values, so that the transaction
 /// queue can re-queue them.
-#[derive(Error, Debug)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum BuildBatchError {
     #[error("Too many notes in the batch. Got: {0}, max: {}", MAX_NOTES_PER_BATCH)]
     TooManyNotesCreated(usize, Vec<ProvenTransaction>),
@@ -84,13 +84,13 @@ impl BuildBatchError {
 // Block prover errors
 // =================================================================================================
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum BlockProverError {
     #[error("Received invalid merkle path")]
     InvalidMerklePaths(MerkleError),
-    #[error("program execution failed")]
+    #[error("Program execution failed")]
     ProgramExecutionFailed(ExecutionError),
-    #[error("failed to retrieve {0} root from stack outputs")]
+    #[error("Failed to retrieve {0} root from stack outputs")]
     InvalidRootOutput(&'static str),
 }
 
@@ -98,7 +98,7 @@ pub enum BlockProverError {
 // =================================================================================================
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum BlockInputsError {
     #[error("failed to parse protobuf message: {0}")]
     ConversionError(#[from] ConversionError),
@@ -120,7 +120,7 @@ pub enum ApplyBlockError {
 // Block building errors
 // =================================================================================================
 
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum BuildBlockError {
     #[error("failed to compute new block: {0}")]
     BlockProverFailed(#[from] BlockProverError),
@@ -144,7 +144,7 @@ pub enum BuildBlockError {
 // Transaction inputs errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum TxInputsError {
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),

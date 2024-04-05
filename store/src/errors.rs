@@ -139,7 +139,7 @@ pub enum ApplyBlockError {
     #[error("Block applying was broken because of closed channel on database side: {0}")]
     BlockApplyingBrokenBecauseOfClosedChannel(RecvError),
     #[error("Failed to create notes tree: {0}")]
-    FailedToCreateNotesTree(MerkleError),
+    FailedToCreateNoteTree(MerkleError),
     #[error("Database doesn't have any block header data")]
     DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]

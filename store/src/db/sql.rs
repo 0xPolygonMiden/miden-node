@@ -288,24 +288,40 @@ pub fn select_nullifiers_by_block_range(
 ///
 /// A vector with notes, or an error.
 pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
-    let mut stmt = conn.prepare("SELECT * FROM notes ORDER BY block_num ASC;")?;
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            block_num,
+            batch_index,
+            note_index,
+            note_hash,
+            sender,
+            tag,
+            merkle_path
+        FROM
+            notes
+        ORDER BY
+            block_num ASC;
+        ",
+    )?;
     let mut rows = stmt.query([])?;
 
     let mut notes = vec![];
     while let Some(row) = rows.next()? {
-        let note_id_data = row.get_ref(2)?.as_blob()?;
+        let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
 
-        let merkle_path_data = row.get_ref(5)?.as_blob()?;
+        let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
         notes.push(Note {
             block_num: row.get(0)?,
             note_created: NoteCreated {
-                note_index: row.get(1)?,
+                batch_index: row.get(1)?,
+                note_index: row.get(2)?,
                 note_id,
-                sender: column_value_as_u64(row, 3)?,
-                tag: column_value_as_u64(row, 4)?,
+                sender: column_value_as_u64(row, 4)?,
+                tag: column_value_as_u64(row, 5)?,
             },
             merkle_path,
         })
@@ -333,6 +349,7 @@ pub fn insert_notes(
         notes
         (
             block_num,
+            batch_index,
             note_index,
             note_hash,
             sender,
@@ -341,7 +358,7 @@ pub fn insert_notes(
         )
         VALUES
         (
-            ?1, ?2, ?3, ?4, ?5, ?6 
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7
         );",
     )?;
 
@@ -349,6 +366,7 @@ pub fn insert_notes(
     for note in notes.iter() {
         count += stmt.execute(params![
             note.block_num,
+            note.note_created.batch_index,
             note.note_created.note_index,
             note.note_created.note_id.to_bytes(),
             u64_to_value(note.note_created.sender),
@@ -385,6 +403,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
         "
         SELECT
             block_num,
+            batch_index,
             note_index,
             note_hash,
             sender,
@@ -416,17 +435,19 @@ pub fn select_notes_since_block_by_tag_and_sender(
     let mut res = Vec::new();
     while let Some(row) = rows.next()? {
         let block_num = row.get(0)?;
-        let note_index = row.get(1)?;
-        let note_id_data = row.get_ref(2)?.as_blob()?;
+        let batch_index = row.get(1)?;
+        let note_index = row.get(2)?;
+        let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
-        let sender = column_value_as_u64(row, 3)?;
-        let tag = column_value_as_u64(row, 4)?;
-        let merkle_path_data = row.get_ref(5)?.as_blob()?;
+        let sender = column_value_as_u64(row, 4)?;
+        let tag = column_value_as_u64(row, 5)?;
+        let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
         let note = Note {
             block_num,
             note_created: NoteCreated {
+                batch_index,
                 note_index,
                 note_id,
                 sender,

@@ -15,11 +15,12 @@ use miden_objects::{
     accounts::{Account, AccountData, AccountType, AuthData},
     assets::TokenSymbol,
     crypto::{
-        dsa::rpo_falcon512::KeyPair,
+        dsa::rpo_falcon512::SecretKey,
         utils::{hex_to_bytes, Serializable},
     },
     Felt, ONE,
 };
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
 mod inputs;
 
@@ -183,11 +184,12 @@ fn parse_auth_inputs(
 ) -> Result<(AuthScheme, AuthData)> {
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
-            let auth_seed = hex_to_bytes(auth_seed)?;
-            let keypair = KeyPair::from_seed(&auth_seed)?;
+            let auth_seed: [u8; 32] = hex_to_bytes(auth_seed)?;
+            let mut rng = ChaCha20Rng::from_seed(auth_seed);
+            let secret = SecretKey::with_rng(&mut rng);
 
             let auth_scheme = AuthScheme::RpoFalcon512 {
-                pub_key: keypair.public_key(),
+                pub_key: secret.public_key(),
             };
             let auth_info = AuthData::RpoFalcon512Seed(auth_seed);
 
@@ -226,13 +228,13 @@ mod tests {
                 type = "BasicWallet"
                 init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
-                auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
                 [[accounts]]
                 type = "BasicFungibleFaucet"
                 init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
-                auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 token_symbol = "POL"
                 decimals = 12
                 max_supply = 1000000
