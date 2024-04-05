@@ -19,4 +19,6 @@ pub struct AccountInfo {
     pub account_hash: ::core::option::Option<super::digest::Digest>,
     #[prost(fixed32, tag = "3")]
     pub block_num: u32,
+    #[prost(bytes = "vec", optional, tag = "4")]
+    pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

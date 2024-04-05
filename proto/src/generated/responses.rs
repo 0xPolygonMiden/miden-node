@@ -162,13 +162,6 @@ pub struct ListNotesResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsResponse {
-    /// Account final hash
     #[prost(message, optional, tag = "1")]
-    pub account_hash: ::core::option::Option<super::digest::Digest>,
-    /// Block number of the last update
-    #[prost(fixed32, tag = "2")]
-    pub block_num: u32,
-    /// Account full details encoded using miden's native format
-    #[prost(bytes = "vec", tag = "3")]
-    pub details: ::prost::alloc::vec::Vec<u8>,
+    pub account: ::core::option::Option<super::account::AccountInfo>,
 }

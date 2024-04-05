@@ -1,11 +1,13 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
+use miden_node_proto::generated::account::AccountInfo as AccountInfoPb;
 use miden_objects::{
     accounts::Account,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::Nullifier,
     transaction::AccountDetails,
+    utils::Serializable,
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -38,6 +40,17 @@ pub struct AccountInfo {
     pub account_hash: RpoDigest,
     pub block_num: BlockNumber,
     pub details: Option<Account>,
+}
+
+impl From<AccountInfo> for AccountInfoPb {
+    fn from(account: AccountInfo) -> Self {
+        Self {
+            account_id: Some(account.account_id.into()),
+            account_hash: Some(account.account_hash.into()),
+            block_num: account.block_num,
+            details: account.details.map(|account| account.to_bytes()),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

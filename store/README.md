@@ -116,9 +116,7 @@ Returns account details by given account id.
 
 **Returns**
 
-* `account_hash`: `Digest` – account state hash.
-* `block_num`: `uint32` – block number of last account update.
-* `details`: `bytes` – account full details encoded using Miden's native format. For off-chain (private) accounts it will be `None`.
+* `account`: `AccountInfo` – account information.
 
 ### SyncState
 

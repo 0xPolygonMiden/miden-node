@@ -115,10 +115,5 @@ message ListNotesResponse {
 }
 
 message GetAccountDetailsResponse {
-    // Account final hash
-    digest.Digest account_hash = 1;
-    // Block number of the last update
-    fixed32 block_num = 2;
-    // Account full details encoded using miden's native format
-    bytes details = 3;
+    account.AccountInfo account = 1;
 }

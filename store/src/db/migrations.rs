@@ -38,7 +38,7 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             account_id INTEGER NOT NULL,
             account_hash BLOB NOT NULL,
             block_num INTEGER NOT NULL,
-            details BLOB NOT NULL,
+            details BLOB,
 
             PRIMARY KEY (account_id),
             CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),

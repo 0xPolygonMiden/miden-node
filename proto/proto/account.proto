@@ -14,4 +14,5 @@ message AccountInfo {
     AccountId account_id = 1;
     digest.Digest account_hash = 2;
     fixed32 block_num = 3;
+    optional bytes details = 4;
 }

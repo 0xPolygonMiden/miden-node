@@ -23,7 +23,7 @@ use miden_node_proto::{
     },
     AccountState,
 };
-use miden_objects::{notes::Nullifier, utils::Serializable, BlockHeader, Felt, ZERO};
+use miden_objects::{notes::Nullifier, BlockHeader, Felt, ZERO};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -181,9 +181,7 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)?;
 
         Ok(Response::new(GetAccountDetailsResponse {
-            account_hash: Some(account_info.account_hash.into()),
-            block_num: account_info.block_num,
-            details: account_info.details.to_bytes(),
+            account: Some(account_info.into()),
         }))
     }
 
@@ -397,11 +395,7 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?
             .into_iter()
-            .map(|account_info| generated::account::AccountInfo {
-                account_id: Some(account_info.account_id.into()),
-                account_hash: Some(account_info.account_hash.into()),
-                block_num: account_info.block_num,
-            })
+            .map(Into::into)
             .collect();
         Ok(Response::new(ListAccountsResponse { accounts }))
     }

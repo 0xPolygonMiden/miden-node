@@ -172,7 +172,7 @@ pub fn upsert_accounts(
             u64_to_value(*account_id),
             account_hash.to_bytes(),
             block_num,
-            details.to_bytes(),
+            details.as_ref().map(|details| details.to_bytes()),
         ])?
     }
     Ok(count)
@@ -653,7 +653,8 @@ fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
     let block_num = row.get(2)?;
-    let details = <Option<Account>>::read_from_bytes(row.get_ref(3)?.as_bytes()?)?;
+    let details = row.get_ref(3)?.as_bytes_or_null()?;
+    let details = details.map(|data| Account::read_from_bytes(data)).transpose()?;
 
     Ok(AccountInfo {
         account_id,
