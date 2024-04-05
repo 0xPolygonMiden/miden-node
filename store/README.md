@@ -106,6 +106,20 @@ Returns the data needed by the block producer to check validity of an incoming t
 * `account_state`: `AccountTransactionInputRecord` – account's descriptors. 
 * `nullifiers`: `[NullifierTransactionInputRecord]` – the block numbers at which corresponding nullifiers have been consumed, zero if not consumed.
 
+### GetAccountDetails
+
+Returns account details by given account id.
+
+**Parameters**
+
+* `account_id`: `AccountId` – account id.
+
+**Returns**
+
+* `account_hash`: `Digest` – account state hash.
+* `block_num`: `uint32` – block number of last account update.
+* `details`: `bytes` – account full details encoded using Miden's native format. For off-chain (private) accounts it will be `None`.
+
 ### SyncState
 
 Returns info which can be used by the client to sync up to the latest state of the chain

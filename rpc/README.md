@@ -60,6 +60,20 @@ Retrieves block header by given block number.
 
 * `block_header`: `BlockHeader` – block header.
 
+### GetAccountDetails
+
+Returns account details by given account id.
+
+**Parameters**
+
+* `account_id`: `AccountId` – account id.
+
+**Returns**
+
+* `account_hash`: `Digest` – account state hash.
+* `block_num`: `uint32` – block number of last account update.
+* `details`: `bytes` – account full details encoded using Miden's native format. For off-chain (private) accounts it will be `None`.
+
 ### SyncState
 
 Returns info which can be used by the client to sync up to the latest state of the chain
