@@ -6,7 +6,7 @@ use std::{
 use async_trait::async_trait;
 use miden_node_proto::{
     convert,
-    errors::{MissingFieldHelper, ParseError},
+    errors::{ConversionError, MissingFieldHelper},
     generated::{
         account, digest,
         requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
@@ -83,7 +83,7 @@ impl Display for TransactionInputs {
 }
 
 impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(response: GetTransactionInputsResponse) -> Result<Self, Self::Error> {
         let AccountState {
@@ -135,7 +135,7 @@ impl ApplyBlock for DefaultStore {
     ) -> Result<(), ApplyBlockError> {
         let request = tonic::Request::new(ApplyBlockRequest {
             block: Some(block.header.into()),
-            accounts: convert(block.updated_accounts),
+            accounts: convert(&block.updated_accounts),
             nullifiers: convert(block.produced_nullifiers),
             notes: convert(block.created_notes),
         });

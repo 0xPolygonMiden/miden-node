@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use miden_node_proto::{
     convert,
-    errors::ParseError,
+    errors::ConversionError,
     generated::{
         self,
         note::NoteSyncRecord,
@@ -227,7 +227,7 @@ impl api_server::Api for StoreApi {
             .block
             .ok_or(invalid_argument("Apply block missing block header"))?
             .try_into()
-            .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?;
+            .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
 
         info!(target: COMPONENT, block_num = block_header.block_num(), block_hash = %block_header.hash());
 
@@ -238,7 +238,7 @@ impl api_server::Api for StoreApi {
             .map(|account_update| {
                 let account_state: AccountState = account_update
                     .try_into()
-                    .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?;
+                    .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
                 Ok((
                     account_state.account_id.into(),
                     account_state
@@ -259,7 +259,9 @@ impl api_server::Api for StoreApi {
                         .note_id
                         .ok_or(invalid_argument("Note missing id"))?
                         .try_into()
-                        .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?,
+                        .map_err(|err: ConversionError| {
+                            Status::invalid_argument(err.to_string())
+                        })?,
                     sender: note.sender.ok_or(invalid_argument("Note missing sender"))?.into(),
                     tag: note.tag,
                 })
@@ -440,6 +442,6 @@ fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<N
         .iter()
         .cloned()
         .map(TryInto::try_into)
-        .collect::<Result<_, ParseError>>()
+        .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }
