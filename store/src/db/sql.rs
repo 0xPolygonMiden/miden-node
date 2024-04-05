@@ -453,7 +453,8 @@ pub fn select_notes_by_id(
             note_hash,
             sender,
             tag,
-            merkle_path
+            merkle_path,
+            details
         FROM
             notes
         WHERE
