@@ -2,12 +2,10 @@ use std::collections::BTreeMap;
 
 use miden_objects::{
     accounts::AccountId,
-    crypto::{
-        hash::blake::{Blake3Digest, Blake3_256},
-        merkle::SimpleSmt,
-    },
+    batches::BatchNoteTree,
+    crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteEnvelope, Nullifier},
-    Digest, BATCH_OUTPUT_NOTES_TREE_DEPTH, MAX_NOTES_PER_BATCH,
+    Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
 
@@ -27,7 +25,7 @@ pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Nullifier>,
-    created_notes_smt: SimpleSmt<BATCH_OUTPUT_NOTES_TREE_DEPTH>,
+    created_notes_smt: BatchNoteTree,
     /// The notes stored `created_notes_smt`
     created_notes: Vec<NoteEnvelope>,
 }
@@ -74,10 +72,10 @@ impl TransactionBatch {
             // TODO: document under what circumstances SMT creating can fail
             (
                 created_notes.clone(),
-                SimpleSmt::<BATCH_OUTPUT_NOTES_TREE_DEPTH>::with_contiguous_leaves(
-                    created_notes.into_iter().flat_map(|note_envelope| {
-                        [note_envelope.note_id().into(), note_envelope.metadata().into()]
-                    }),
+                BatchNoteTree::with_contiguous_leaves(
+                    created_notes
+                        .iter()
+                        .map(|note_envelope| (note_envelope.note_id(), note_envelope.metadata())),
                 )
                 .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?,
             )
