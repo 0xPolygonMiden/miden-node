@@ -3,7 +3,7 @@ use std::any::type_name;
 use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use thiserror::Error;
 
-#[derive(Error, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Error)]
 pub enum ParseError {
     #[error("Hex error: {0}")]
     HexError(#[from] hex::FromHexError),
@@ -25,6 +25,8 @@ pub enum ParseError {
         field_name: &'static str,
     },
 }
+
+impl Eq for ParseError {}
 
 pub trait MissingFieldHelper {
     fn missing_field(field_name: &'static str) -> ParseError;
