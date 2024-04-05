@@ -127,18 +127,13 @@ where
         let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
 
         // Remove account ids of transactions in block
-        let account_ids_in_block = block
-            .updated_accounts
-            .iter()
-            .map(|(account_id, _final_account_hash)| account_id);
-
-        for account_id in account_ids_in_block {
-            let was_in_flight = locked_accounts_in_flight.remove(account_id);
+        for update in &block.updated_accounts {
+            let was_in_flight = locked_accounts_in_flight.remove(&update.account_id);
             debug_assert!(was_in_flight);
         }
 
         // Remove new nullifiers of transactions in block
-        for nullifier in block.produced_nullifiers.iter() {
+        for nullifier in &block.produced_nullifiers {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
         }

@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, iter};
 
+use miden_node_proto::domain::accounts::UpdatedAccount;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{
@@ -235,7 +236,11 @@ async fn test_compute_account_root_success() {
             account_ids
                 .iter()
                 .zip(account_final_states.iter())
-                .map(|(&account_id, &account_hash)| (account_id, account_hash.into()))
+                .map(|(&account_id, &account_hash)| UpdatedAccount {
+                    account_id,
+                    final_state_hash: account_hash.into(),
+                    details: None,
+                })
                 .collect(),
         )
         .build();
