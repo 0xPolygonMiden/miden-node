@@ -184,9 +184,7 @@ fn parse_auth_inputs(
 ) -> Result<(AuthScheme, AuthData)> {
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
-            let auth_seed: [u8; 40] = hex_to_bytes(auth_seed)?;
-            // Get the first 32 bytes, ignore remaining:
-            let auth_seed: [u8; 32] = auth_seed[..32].try_into().expect("Unreachable");
+            let auth_seed: [u8; 32] = hex_to_bytes(auth_seed)?;
             let mut rng = ChaCha20Rng::from_seed(auth_seed);
             let secret = SecretKey::with_rng(&mut rng);
 
