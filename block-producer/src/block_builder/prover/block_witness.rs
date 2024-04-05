@@ -261,7 +261,9 @@ impl BlockWitness {
                 .expect("updated accounts number is greater than or equal to the field modulus"),
         );
 
-        StackInputs::new(stack_inputs)
+        // TODO: We need provide produced nullifier different way, because such big stack inputs
+        //       will cause problem in recursive proofs
+        StackInputs::new(stack_inputs).expect("Stack inputs count extends max limit")
     }
 
     /// Builds the advice inputs to the block kernel

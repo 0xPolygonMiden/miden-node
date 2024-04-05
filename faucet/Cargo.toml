@@ -15,11 +15,11 @@ actix-files = "0.6.5"
 actix-cors = "0.7.0"
 derive_more = "0.99.17"
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-lib = { workspace = true }
+miden-lib = { version = "0.1.0" } # Version of miden-base is pinned due to client requirement
 miden-client = { version = "0.1.0", features = ["concurrent"] }
 miden-node-proto = { path = "../proto", version = "0.2" }
 miden-node-utils = { path = "../utils", version = "0.2" }
-miden-objects = { workspace = true }
+miden-objects = { version = "0.1.0" } # Version of miden-base is pinned due to client requirement
 serde = { version = "1.0", features = ["derive"] }
 clap = { version = "4.5.1", features = ["derive"] }
 async-mutex = "1.4.0"
