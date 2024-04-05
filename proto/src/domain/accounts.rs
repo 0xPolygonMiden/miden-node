@@ -1,7 +1,9 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use miden_node_utils::formatting::format_opt;
-use miden_objects::{accounts::AccountId, crypto::merkle::MerklePath, Digest};
+use miden_objects::{
+    accounts::AccountId, crypto::merkle::MerklePath, transaction::AccountDetails, Digest,
+};
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
@@ -82,7 +84,7 @@ impl From<&UpdatedAccount> for AccountUpdate {
         Self {
             account_id: Some(update.account_id.into()),
             account_hash: Some(update.final_state_hash.into()),
-            details: update.details.to_bytes(),
+            // details: update.details.to_bytes(),
         }
     }
 }

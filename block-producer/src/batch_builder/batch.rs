@@ -117,7 +117,7 @@ impl TransactionBatch {
             .map(|(&account_id, account_states)| UpdatedAccount {
                 account_id,
                 final_state_hash: account_states.final_state,
-                details: account_states.details.clone(),
+                details: None, // TODO: In the next PR: account_states.details.clone(),
             })
     }
 
