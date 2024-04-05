@@ -1,9 +1,15 @@
 // block builder tests (higher level)
 // `apply_block()` is called
-use miden_objects::Felt;
 
-use super::*;
-use crate::test_utils::{MockProvenTxBuilder, MockStoreFailure, MockStoreSuccessBuilder};
+use std::sync::Arc;
+
+use miden_objects::{accounts::AccountId, Digest, Felt};
+
+use crate::{
+    batch_builder::TransactionBatch,
+    block_builder::{BlockBuilder, BuildBlockError, DefaultBlockBuilder},
+    test_utils::{MockProvenTxBuilder, MockStoreFailure, MockStoreSuccessBuilder},
+};
 
 /// Tests that `build_block()` succeeds when the transaction batches are not empty
 #[tokio::test]

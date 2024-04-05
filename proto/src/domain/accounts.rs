@@ -67,14 +67,22 @@ impl TryFrom<AccountIdPb> for AccountId {
     }
 }
 
-// INTO ACCOUNT UPDATE
+// ACCOUNT UPDATE
 // ================================================================================================
 
-impl From<(AccountId, Digest)> for AccountUpdate {
-    fn from((account_id, account_hash): (AccountId, Digest)) -> Self {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpdatedAccount {
+    pub account_id: AccountId,
+    pub final_state_hash: Digest,
+    pub details: Option<AccountDetails>,
+}
+
+impl From<&UpdatedAccount> for AccountUpdate {
+    fn from(update: &UpdatedAccount) -> Self {
         Self {
-            account_id: Some(account_id.into()),
-            account_hash: Some(account_hash.into()),
+            account_id: Some(update.account_id.into()),
+            account_hash: Some(update.final_state_hash.into()),
+            details: update.details.to_bytes(),
         }
     }
 }
