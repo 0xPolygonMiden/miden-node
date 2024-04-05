@@ -6,7 +6,7 @@ use miden_objects::{
     notes::{NoteEnvelope, NoteMetadata, NoteType, Nullifier},
     transaction::{ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
-    Digest, Felt, Hasher, ONE, ZERO,
+    Digest, Felt, Hasher, ONE,
 };
 use winterfell::StarkProof;
 
@@ -84,7 +84,7 @@ impl MockProvenTxBuilder {
 
                 NoteEnvelope::new(
                     note_hash.into(),
-                    NoteMetadata::new(self.account_id, NoteType::OffChain, 0.into(), ZERO).unwrap(),
+                    NoteMetadata::new(self.account_id, NoteType::OffChain, 0.into(), ONE).unwrap(),
                 )
             })
             .collect();

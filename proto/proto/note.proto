@@ -23,8 +23,9 @@ message NoteSyncRecord {
 }
 
 message NoteCreated {
-    uint32 note_index = 1;
-    digest.Digest note_id = 2;
-    account.AccountId sender  = 3;
-    fixed64 tag = 4;
+    uint32 batch_index = 1;
+    uint32 note_index = 2;
+    digest.Digest note_id = 3;
+    account.AccountId sender  = 4;
+    fixed64 tag = 5;
 }

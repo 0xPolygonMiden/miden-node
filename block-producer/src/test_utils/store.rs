@@ -2,9 +2,10 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use miden_objects::{
+    block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::{NoteEnvelope, Nullifier},
-    BlockHeader, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
+    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
 };
 
 use super::*;
@@ -22,7 +23,7 @@ use crate::{
 #[derive(Debug)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    notes: Option<SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH>>,
+    notes: Option<BlockNoteTree>,
     produced_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
     block_num: Option<u32>,
@@ -68,9 +69,9 @@ impl MockStoreSuccessBuilder {
         }
     }
 
-    pub fn initial_notes<'a>(
+    pub fn initial_notes(
         mut self,
-        notes: impl Iterator<Item = (&'a u64, &'a NoteEnvelope)>,
+        notes: impl Iterator<Item = (usize, usize, NoteEnvelope)>,
     ) -> Self {
         self.notes = Some(note_created_smt_from_envelopes(notes));
 
@@ -107,7 +108,7 @@ impl MockStoreSuccessBuilder {
     pub fn build(self) -> MockStoreSuccess {
         let block_num = self.block_num.unwrap_or(1);
         let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new().unwrap());
-        let notes_smt = self.notes.unwrap_or(SimpleSmt::new().unwrap());
+        let notes_smt = self.notes.unwrap_or_default();
         let chain_mmr = self.chain_mmr.unwrap_or_default();
         let nullifiers_smt = self
             .produced_nullifiers
