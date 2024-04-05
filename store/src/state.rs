@@ -469,8 +469,8 @@ impl State {
     pub async fn get_account_details(
         &self,
         id: AccountId,
-    ) -> Result<Account, DatabaseError> {
-        self.db.select_account_details(id).await
+    ) -> Result<AccountInfo, DatabaseError> {
+        self.db.select_account(id).await
     }
 }
 

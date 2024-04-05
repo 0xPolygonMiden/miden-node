@@ -23,7 +23,7 @@ use miden_node_proto::{
     },
     AccountState,
 };
-use miden_objects::{notes::Nullifier, BlockHeader, Felt, ZERO};
+use miden_objects::{notes::Nullifier, utils::Serializable, BlockHeader, Felt, ZERO};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -172,7 +172,7 @@ impl api_server::Api for StoreApi {
         request: tonic::Request<GetAccountDetailsRequest>,
     ) -> Result<Response<GetAccountDetailsResponse>, Status> {
         let request = request.into_inner();
-        let account = self
+        let account_info = self
             .state
             .get_account_details(
                 request.account_id.ok_or(invalid_argument("Account missing id"))?.into(),
@@ -181,9 +181,9 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)?;
 
         Ok(Response::new(GetAccountDetailsResponse {
-            account_hash,
-            block_num,
-            details, // TODO: account.to_bytes(),
+            account_hash: Some(account_info.account_hash.into()),
+            block_num: account_info.block_num,
+            details: account_info.details.to_bytes(),
         }))
     }
 

@@ -203,6 +203,22 @@ impl Db {
             })?
     }
 
+    /// Loads public account details from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_account(
+        &self,
+        id: AccountId,
+    ) -> Result<AccountInfo> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_account(conn, id))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Get account details task failed: {err}"))
+            })?
+    }
+
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn get_state_sync(
         &self,
