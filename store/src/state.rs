@@ -7,12 +7,13 @@ use std::{mem, sync::Arc};
 use miden_node_proto::{AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
+    block::BlockNoteTree,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteId, NoteMetadata, Nullifier, NOTE_LEAF_DEPTH},
-    AccountError, BlockHeader, Word, ACCOUNT_TREE_DEPTH,
+    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
+    AccountError, BlockHeader, NoteError, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -188,7 +189,7 @@ impl State {
             }
 
             // build notes tree
-            let note_tree = build_notes_tree(&notes)?;
+            let note_tree = build_note_tree(&notes)?;
             if note_tree.root() != block_header.note_root() {
                 return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
             }
@@ -197,22 +198,17 @@ impl State {
 
             let notes = notes
                 .into_iter()
-                .map(|note| {
-                    // Safety: This should never happen, the note_tree is created directly form
-                    // this list of notes
-                    let leaf_index = LeafIndex::<NOTE_LEAF_DEPTH>::new(note.note_index as u64)
+                .map(|note_created| {
+                    let merkle_path = note_tree
+                        .merkle_path(
+                            note_created.batch_index as usize,
+                            note_created.note_index as usize,
+                        )
                         .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
-
-                    let merkle_path = note_tree.open(&leaf_index).path;
 
                     Ok(Note {
                         block_num: block_header.block_num(),
-                        note_created: NoteCreated {
-                            note_id: note.note_id,
-                            sender: note.sender,
-                            note_index: note.note_index,
-                            tag: note.tag,
-                        },
+                        note_created,
                         merkle_path,
                     })
                 })
@@ -483,27 +479,31 @@ impl State {
 // UTILITIES
 // ================================================================================================
 
-/// Creates a [SimpleSmt] tree from the `notes`.
+/// Creates a [BlockNoteTree] from the `notes`.
 #[instrument(target = "miden-store", skip_all)]
-pub fn build_notes_tree(
-    notes: &[NoteCreated]
-) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, ApplyBlockError> {
+pub fn build_note_tree(notes: &[NoteCreated]) -> Result<BlockNoteTree, ApplyBlockError> {
     // TODO: create SimpleSmt without this allocation
-    let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
+    let mut entries: Vec<(usize, usize, (RpoDigest, NoteMetadata))> =
+        Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
+        let note_type = NoteType::OffChain; // TODO: Provide correct note type
         let note_metadata = NoteMetadata::new(
             note.sender.try_into()?,
+            note_type,
             note.tag
                 .try_into()
-                .expect("tag value is greater than or equal to the field modulus"),
-        );
-        let index = note.note_index as u64;
-        entries.push((index, note.note_id.into()));
-        entries.push((index + 1, note_metadata.into()));
+                .map_err(|_| NoteError::InconsistentNoteTag(note_type, note.tag))?,
+            ZERO,
+        )?;
+        entries.push((
+            note.batch_index as usize,
+            note.note_index as usize,
+            (note.note_id, note_metadata),
+        ));
     }
 
-    SimpleSmt::with_leaves(entries).map_err(ApplyBlockError::FailedToCreateNotesTree)
+    BlockNoteTree::with_entries(entries).map_err(ApplyBlockError::FailedToCreateNoteTree)
 }
 
 #[instrument(target = "miden-store", skip_all)]

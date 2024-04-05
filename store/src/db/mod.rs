@@ -45,6 +45,7 @@ pub struct NullifierInfo {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoteCreated {
+    pub batch_index: u32,
     pub note_index: u32,
     pub note_id: RpoDigest,
     pub sender: AccountId,

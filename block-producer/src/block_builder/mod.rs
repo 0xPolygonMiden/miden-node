@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
-use miden_objects::{accounts::AccountId, notes::Nullifier, Digest, MAX_NOTES_PER_BATCH};
+use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
 use tracing::{debug, info, instrument};
 
 use crate::{
@@ -83,10 +83,10 @@ where
             .iter()
             .enumerate()
             .flat_map(|(batch_idx, batch)| {
-                batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
-                    let note_idx_in_block = batch_idx * MAX_NOTES_PER_BATCH + note_idx_in_batch;
-                    (note_idx_in_block as u64, *note)
-                })
+                batch
+                    .created_notes()
+                    .enumerate()
+                    .map(move |(note_idx_in_batch, note)| (batch_idx, note_idx_in_batch, *note))
             })
             .collect();
         let produced_nullifiers: Vec<Nullifier> =

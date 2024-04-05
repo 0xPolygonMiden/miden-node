@@ -7,7 +7,7 @@ use miden_objects::{
         utils::DeserializationError,
     },
     notes::Nullifier,
-    AccountError, BlockHeader,
+    AccountError, BlockHeader, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -108,6 +108,8 @@ pub enum ApplyBlockError {
     DatabaseError(#[from] DatabaseError),
     #[error("Account error: {0}")]
     AccountError(#[from] AccountError),
+    #[error("Note error: {0}")]
+    NoteError(#[from] NoteError),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
     #[error("New block number must be 1 greater than the current block number")]
@@ -129,7 +131,7 @@ pub enum ApplyBlockError {
     #[error("Block applying was broken because of closed channel on database side: {0}")]
     BlockApplyingBrokenBecauseOfClosedChannel(RecvError),
     #[error("Failed to create notes tree: {0}")]
-    FailedToCreateNotesTree(MerkleError),
+    FailedToCreateNoteTree(MerkleError),
     #[error("Database doesn't have any block header data")]
     DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]

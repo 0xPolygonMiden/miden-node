@@ -25,6 +25,7 @@ miden-node-rpc = { path = "../rpc", version = "0.2" }
 miden-node-store = { path = "../store", version = "0.2" }
 miden-node-utils = { path = "../utils", version = "0.2" }
 miden-objects = { workspace = true }
+rand_chacha = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 tracing = { workspace = true }
