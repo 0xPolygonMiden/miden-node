@@ -654,7 +654,7 @@ fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
     let block_num = row.get(2)?;
     let details = row.get_ref(3)?.as_bytes_or_null()?;
-    let details = details.map(|data| Account::read_from_bytes(data)).transpose()?;
+    let details = details.map(Account::read_from_bytes).transpose()?;
 
     Ok(AccountInfo {
         account_id,
