@@ -6,7 +6,6 @@ use miden_objects::{
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::Nullifier,
-    transaction::AccountDetails,
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;

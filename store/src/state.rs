@@ -5,7 +5,8 @@
 use std::{mem, sync::Arc};
 
 use miden_node_proto::{
-    domain::accounts::{AccountDetailsUpdate, AccountInfo}, AccountInputRecord, NullifierWitness,
+    domain::accounts::{AccountDetailsUpdate, AccountInfo},
+    AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
@@ -15,7 +16,6 @@ use miden_objects::{
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteMetadata, NoteType, Nullifier},
-    transaction::AccountDetails,
     AccountError, BlockHeader, NoteError, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{

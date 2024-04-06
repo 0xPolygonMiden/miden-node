@@ -1,11 +1,12 @@
 use miden_lib::transaction::TransactionKernel;
-use miden_mock::mock::account::{generate_account_seed, mock_account_code, AccountSeedType};
+use miden_mock::mock::account::mock_account_code;
 use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountHashUpdate};
 use miden_objects::{
     accounts::{
         Account, AccountDelta, AccountId, AccountStorage, AccountStorageDelta, AccountVaultDelta,
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
-        ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     },
     assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::BlockNoteTree,
@@ -205,8 +206,8 @@ fn test_sql_public_account_details() {
     let block_num = 1;
     create_block(&mut conn, block_num);
 
-    let (account_id, _seed) =
-        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let account_id =
+        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap();
     let fungible_faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
     let non_fungible_faucet_id =
         AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
@@ -261,7 +262,7 @@ fn test_sql_public_account_details() {
 
     let account_read = accounts_in_db.pop().unwrap().details.unwrap();
     // TODO: substitute by a single check, once code imports deserialization is fixed
-    //       (possibly after merging: https://github.com/0xPolygonMiden/miden-vm/pull/1277):
+    //       (possibly after merging of https://github.com/0xPolygonMiden/miden-vm/pull/1277):
     // assert_eq!(account_read, account);
     assert_eq!(account_read.id(), account.id());
     assert_eq!(account_read.vault(), account.vault());
