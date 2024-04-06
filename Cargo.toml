@@ -36,4 +36,3 @@ tracing-subscriber = { version = "0.3", features = [
   "json",
   "env-filter",
 ] }
-winter-rand-utils = "0.8.3"

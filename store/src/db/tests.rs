@@ -1,13 +1,14 @@
 use miden_node_proto::domain::accounts::AccountHashUpdate;
 use miden_objects::{
-    accounts::{AccountId, AccountType},
+    accounts::{
+        AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+    },
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteMetadata, NoteType, Nullifier},
     BlockHeader, Felt, FieldElement, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
-use winter_rand_utils::rand_array;
 
 use super::{sql, AccountInfo, Note, NoteCreated, NullifierInfo};
 use crate::db::migrations;
@@ -164,11 +165,11 @@ fn test_sql_select_accounts() {
     let mut state = vec![];
     for i in 0..10 {
         let account_id =
-            AccountId::new_dummy(rand_array(), AccountType::RegularAccountImmutableCode);
+            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN + (i << 32) + 0b1111100000;
         let account_hash = num_to_rpo_digest(i);
         state.push(AccountInfo {
             update: AccountHashUpdate {
-                account_id,
+                account_id: account_id.try_into().unwrap(),
                 account_hash,
                 block_num,
             },
@@ -176,16 +177,11 @@ fn test_sql_select_accounts() {
         });
 
         let transaction = conn.transaction().unwrap();
-        let res = sql::upsert_accounts(
-            &transaction,
-            &[(account_id.into(), None, account_hash)],
-            block_num,
-        );
+        let res =
+            sql::upsert_accounts(&transaction, &[(account_id, None, account_hash)], block_num);
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
-        let mut accounts = sql::select_accounts(&mut conn).unwrap();
-        accounts.sort_by_key(|acc| acc.update.account_id);
-        state.sort_by_key(|acc| acc.update.account_id);
+        let accounts = sql::select_accounts(&mut conn).unwrap();
         assert_eq!(accounts, state);
     }
 }
@@ -387,18 +383,17 @@ fn test_db_account() {
     create_block(&mut conn, block_num);
 
     // test empty table
-    let account_id = AccountId::new_dummy(rand_array(), AccountType::RegularAccountImmutableCode);
-    let account_ids = vec![account_id.into(), 1, 2, 3, 4, 5];
+    let account_ids = vec![ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, 1, 2, 3, 4, 5];
     let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert!(res.is_empty());
 
     // test insertion
+    let account_id = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
     let account_hash = num_to_rpo_digest(0);
 
     let transaction = conn.transaction().unwrap();
     let row_count =
-        sql::upsert_accounts(&transaction, &[(account_id.into(), None, account_hash)], block_num)
-            .unwrap();
+        sql::upsert_accounts(&transaction, &[(account_id, None, account_hash)], block_num).unwrap();
     transaction.commit().unwrap();
 
     assert_eq!(row_count, 1);
@@ -408,7 +403,7 @@ fn test_db_account() {
     assert_eq!(
         res,
         vec![AccountHashUpdate {
-            account_id,
+            account_id: account_id.try_into().unwrap(),
             account_hash,
             block_num,
         }]
@@ -445,7 +440,7 @@ fn test_notes() {
     let note_index = 2u32;
     let note_id = num_to_rpo_digest(3);
     let tag = 5u64;
-    let sender = AccountId::new_dummy(rand_array(), AccountType::RegularAccountImmutableCode);
+    let sender = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
     let note_metadata =
         NoteMetadata::new(sender, NoteType::OffChain, (tag as u32).into(), ZERO).unwrap();
 
