@@ -1,4 +1,7 @@
-use miden_objects::{accounts::get_account_seed, Hasher};
+use miden_objects::{
+    accounts::{get_account_seed, AccountStorageType},
+    Hasher,
+};
 
 use super::*;
 
@@ -20,7 +23,7 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
         let account_seed = get_account_seed(
             init_seed,
             miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
-            false,
+            AccountStorageType::OffChain,
             Digest::default(),
             Digest::default(),
         )

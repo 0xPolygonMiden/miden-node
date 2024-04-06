@@ -4,7 +4,7 @@
 //! data is atomically written, and that reads are consistent.
 use std::{mem, sync::Arc};
 
-use miden_node_proto::{AccountInputRecord, NullifierWitness};
+use miden_node_proto::{domain::accounts::AccountInfo, AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
     block::BlockNoteTree,
@@ -23,7 +23,7 @@ use tokio::{
 use tracing::{error, info, info_span, instrument};
 
 use crate::{
-    db::{AccountInfo, Db, Note, NoteCreated, NullifierInfo, StateSyncUpdate},
+    db::{Db, Note, NoteCreated, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockInputsError, StateInitializationError,
         StateSyncError,
@@ -201,7 +201,7 @@ impl State {
                 .into_iter()
                 .map(|note_created| {
                     let merkle_path = note_tree
-                        .merkle_path(
+                        .get_note_path(
                             note_created.batch_index as usize,
                             note_created.note_index as usize,
                         )

@@ -1658,7 +1658,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#d6af2ae8ce3da19e9dcd66ce3ad81a724a8d8a7a"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#1d32f951e29c2e12526520f734aaba02555e8f79"
 dependencies = [
  "miden-assembly 0.9.1",
  "miden-objects 0.2.0",
@@ -1711,6 +1711,7 @@ dependencies = [
  "tonic",
  "tracing",
  "tracing-subscriber",
+ "winter-rand-utils",
  "winterfell",
 ]
 
@@ -1819,6 +1820,7 @@ dependencies = [
  "tonic",
  "tracing",
  "tracing-subscriber",
+ "winter-rand-utils",
 ]
 
 [[package]]
@@ -1876,7 +1878,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#d6af2ae8ce3da19e9dcd66ce3ad81a724a8d8a7a"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#1d32f951e29c2e12526520f734aaba02555e8f79"
 dependencies = [
  "miden-assembly 0.9.1",
  "miden-core 0.9.1",
@@ -1968,7 +1970,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#d6af2ae8ce3da19e9dcd66ce3ad81a724a8d8a7a"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#1d32f951e29c2e12526520f734aaba02555e8f79"
 dependencies = [
  "miden-lib 0.2.0",
  "miden-objects 0.2.0",
