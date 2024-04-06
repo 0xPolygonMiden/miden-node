@@ -340,7 +340,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|note| generated::note::Note {
                 block_num: note.block_num,
-                note_index: note.note_created.note_index,
+                note_index: note.note_created.absolute_note_index(),
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
