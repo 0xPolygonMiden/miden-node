@@ -445,7 +445,7 @@ fn test_notes() {
 
     let values = [(batch_index as usize, note_index as usize, (note_id, note_metadata))];
     let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
-    let merkle_path = notes_db.merkle_path(batch_index as usize, note_index as usize).unwrap();
+    let merkle_path = notes_db.get_note_path(batch_index as usize, note_index as usize).unwrap();
 
     let note = Note {
         block_num: block_num_1,

@@ -1,4 +1,7 @@
-use miden_objects::{accounts::{get_account_seed, AccountStorage}, Hasher};
+use miden_objects::{
+    accounts::{get_account_seed},
+    Hasher,
+};
 
 use super::*;
 
