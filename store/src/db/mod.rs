@@ -2,6 +2,7 @@ use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_objects::{
+    block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::Nullifier,
     BlockHeader, GENESIS_BLOCK,
@@ -50,6 +51,14 @@ pub struct NoteCreated {
     pub note_id: RpoDigest,
     pub sender: AccountId,
     pub tag: u64,
+}
+
+impl NoteCreated {
+    /// Returns the absolute position on the note tree based on the calculated subtree index
+    /// and local-to-the-subtree index
+    pub fn absolute_note_index(&self) -> u32 {
+        BlockNoteTree::leaf_index(self.batch_index as usize, self.note_index as usize) as u32
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
