@@ -1,4 +1,5 @@
 use miden_objects::notes::NoteEnvelope;
+
 use crate::generated::note;
 
 // NoteCreated
