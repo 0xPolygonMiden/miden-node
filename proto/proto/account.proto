@@ -10,8 +10,13 @@ message AccountId {
     fixed64 id = 1;
 }
 
-message AccountInfo {
-    AccountId account_id = 1;
+message AccountHashUpdate {
+    account.AccountId account_id = 1;
     digest.Digest account_hash = 2;
-    fixed32 block_num = 3;
+    uint32 block_num = 3;
+}
+
+message AccountInfo {
+    AccountHashUpdate update = 1;
+    optional bytes details = 2;
 }

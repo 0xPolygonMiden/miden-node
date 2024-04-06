@@ -20,12 +20,6 @@ message GetBlockHeaderByNumberResponse {
     block_header.BlockHeader block_header = 1;
 }
 
-message AccountHashUpdate {
-    account.AccountId account_id = 1;
-    digest.Digest account_hash = 2;
-    uint32 block_num = 3;
-}
-
 message NullifierUpdate {
     digest.Digest nullifier = 1;
     fixed32 block_num = 2;
@@ -42,7 +36,7 @@ message SyncStateResponse {
     mmr.MmrDelta mmr_delta = 3;
 
     // a list of account hashes updated after `block_num + 1` but not after `block_header.block_num`
-    repeated AccountHashUpdate accounts = 5;
+    repeated account.AccountHashUpdate accounts = 5;
 
     // a list of all notes together with the Merkle paths from `block_header.note_root`
     repeated note.NoteSyncRecord notes = 6;
@@ -71,7 +65,7 @@ message GetBlockInputsResponse {
     // Peaks of the above block's mmr, The `forest` value is equal to the block number.
     repeated digest.Digest mmr_peaks = 2;
 
-    // The hashes of the requested accouts and their authentication paths
+    // The hashes of the requested accounts and their authentication paths
     repeated AccountBlockInputRecord account_states = 3;
 
     // The requested nullifiers and their authentication paths
@@ -112,4 +106,9 @@ message ListAccountsResponse {
 message ListNotesResponse {
     // Lists all notes of the current chain
     repeated note.Note notes = 1;
+}
+
+message GetAccountDetailsResponse {
+    // Account info (with details for on-chain accounts)
+    account.AccountInfo account = 1;
 }

@@ -60,6 +60,19 @@ Retrieves block header by given block number.
 
 * `block_header`: `BlockHeader` – block header.
 
+### GetAccountDetails
+
+Returns the latest state of an account with the specified ID.
+
+**Parameters**
+
+* `account_id`: `AccountId` – account ID.
+
+**Returns**
+
+* `account`: `AccountInfo` – account state information. For public accounts there is also details describing current state, stored on-chain;
+  for private accounts only hash of the latest known state is returned.
+
 ### SyncState
 
 Returns info which can be used by the client to sync up to the latest state of the chain

@@ -2,13 +2,20 @@ use std::fmt::{Debug, Display, Formatter};
 
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::AccountId, crypto::merkle::MerklePath, transaction::AccountDetails, Digest,
+    accounts::{Account, AccountId},
+    crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
+    transaction::AccountDetails,
+    utils::Serializable,
+    Digest,
 };
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
-        account::AccountId as AccountIdPb,
+        account::{
+            AccountHashUpdate as AccountHashUpdatePb, AccountId as AccountIdPb,
+            AccountInfo as AccountInfoPb,
+        },
         requests::AccountUpdate,
         responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
@@ -71,6 +78,38 @@ impl TryFrom<AccountIdPb> for AccountId {
 
 // ACCOUNT UPDATE
 // ================================================================================================
+
+#[derive(Debug, PartialEq)]
+pub struct AccountHashUpdate {
+    pub account_id: AccountId,
+    pub account_hash: RpoDigest,
+    pub block_num: u32,
+}
+
+impl From<&AccountHashUpdate> for AccountHashUpdatePb {
+    fn from(update: &AccountHashUpdate) -> Self {
+        Self {
+            account_id: Some(update.account_id.into()),
+            account_hash: Some(update.account_hash.into()),
+            block_num: update.block_num,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AccountInfo {
+    pub update: AccountHashUpdate,
+    pub details: Option<Account>,
+}
+
+impl From<&AccountInfo> for AccountInfoPb {
+    fn from(AccountInfo { update, details }: &AccountInfo) -> Self {
+        Self {
+            update: Some(update.into()),
+            details: details.as_ref().map(|account| account.to_bytes()),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdatedAccount {
