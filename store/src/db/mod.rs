@@ -54,7 +54,7 @@ pub struct NoteCreated {
 }
 
 impl NoteCreated {
-    /// Returns the absolute position on the note tree based on the calculated subtree index
+    /// Returns the absolute position on the note tree based on the batch index
     /// and local-to-the-subtree index
     pub fn absolute_note_index(&self) -> u32 {
         BlockNoteTree::leaf_index(self.batch_index as usize, self.note_index as usize) as u32
