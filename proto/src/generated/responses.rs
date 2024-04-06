@@ -20,17 +20,6 @@ pub struct GetBlockHeaderByNumberResponse {
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AccountHashUpdate {
-    #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account::AccountId>,
-    #[prost(message, optional, tag = "2")]
-    pub account_hash: ::core::option::Option<super::digest::Digest>,
-    #[prost(uint32, tag = "3")]
-    pub block_num: u32,
-}
-#[derive(Eq, PartialOrd, Ord, Hash)]
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NullifierUpdate {
     #[prost(message, optional, tag = "1")]
     pub nullifier: ::core::option::Option<super::digest::Digest>,
@@ -52,7 +41,7 @@ pub struct SyncStateResponse {
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
     /// a list of account hashes updated after `block_num + 1` but not after `block_header.block_num`
     #[prost(message, repeated, tag = "5")]
-    pub accounts: ::prost::alloc::vec::Vec<AccountHashUpdate>,
+    pub accounts: ::prost::alloc::vec::Vec<super::account::AccountHashUpdate>,
     /// a list of all notes together with the Merkle paths from `block_header.note_root`
     #[prost(message, repeated, tag = "6")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
@@ -162,6 +151,7 @@ pub struct ListNotesResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsResponse {
+    /// Account info (with details for on-chain accounts)
     #[prost(message, optional, tag = "1")]
     pub account: ::core::option::Option<super::account::AccountInfo>,
 }

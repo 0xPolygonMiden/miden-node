@@ -108,15 +108,16 @@ Returns the data needed by the block producer to check validity of an incoming t
 
 ### GetAccountDetails
 
-Returns account details by given account id.
+Returns the latest state of an account with the specified ID.
 
 **Parameters**
 
-* `account_id`: `AccountId` – account id.
+* `account_id`: `AccountId` – account ID.
 
 **Returns**
 
-* `account`: `AccountInfo` – account information.
+* `account`: `AccountInfo` – account state information. For public accounts there is also details describing current state, stored on-chain; 
+for private accounts only hash of the latest known state is returned.
 
 ### SyncState
 

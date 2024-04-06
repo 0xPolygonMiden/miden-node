@@ -5,6 +5,7 @@ use miden_node_proto::{
     errors::ConversionError,
     generated::{
         self,
+        account::AccountHashUpdate,
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
@@ -12,11 +13,11 @@ use miden_node_proto::{
             ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
-            AccountHashUpdate, AccountTransactionInputRecord, ApplyBlockResponse,
-            CheckNullifiersResponse, GetAccountDetailsResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetTransactionInputsResponse, ListAccountsResponse,
-            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
-            NullifierUpdate, SyncStateResponse,
+            AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
+            GetAccountDetailsResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
+            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
+            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -181,7 +182,7 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)?;
 
         Ok(Response::new(GetAccountDetailsResponse {
-            account: Some(account_info.into()),
+            account: Some((&account_info).into()),
         }))
     }
 
@@ -394,7 +395,7 @@ impl api_server::Api for StoreApi {
             .list_accounts()
             .await
             .map_err(internal_error)?
-            .into_iter()
+            .iter()
             .map(Into::into)
             .collect();
         Ok(Response::new(ListAccountsResponse { accounts }))

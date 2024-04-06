@@ -1,6 +1,7 @@
 //! Wrapper functions for SQL statements.
 use std::rc::Rc;
 
+use miden_node_proto::domain::accounts::{AccountHashUpdate, AccountInfo};
 use miden_objects::{
     accounts::Account,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
@@ -11,7 +12,7 @@ use miden_objects::{
 };
 use rusqlite::{params, types::Value, Connection, Transaction};
 
-use super::{AccountInfo, Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
+use super::{Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -81,7 +82,7 @@ pub fn select_accounts_by_block_range(
     block_start: BlockNumber,
     block_end: BlockNumber,
     account_ids: &[AccountId],
-) -> Result<Vec<AccountInfo>> {
+) -> Result<Vec<AccountHashUpdate>> {
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
@@ -89,8 +90,7 @@ pub fn select_accounts_by_block_range(
         SELECT
             account_id,
             account_hash,
-            block_num,
-            details
+            block_num
         FROM
             accounts
         WHERE
@@ -106,7 +106,7 @@ pub fn select_accounts_by_block_range(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        result.push(account_info_from_row(row)?)
+        result.push(account_hash_update_from_row(row)?)
     }
 
     Ok(result)
@@ -645,21 +645,30 @@ fn column_value_as_u64<I: rusqlite::RowIndex>(
     Ok(value as u64)
 }
 
-/// Constructs `AccountInfo` from the row of `accounts` table.
+/// Constructs `AccountHashUpdate` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
-fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
+fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> Result<AccountHashUpdate> {
     let account_id = column_value_as_u64(row, 0)?;
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
     let block_num = row.get(2)?;
+
+    Ok(AccountHashUpdate {
+        account_id: account_id.try_into()?,
+        account_hash,
+        block_num,
+    })
+}
+
+/// Constructs `AccountInfo` from the row of `accounts` table.
+///
+/// Note: field ordering must be the same, as in `accounts` table!
+fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
+    let update = account_hash_update_from_row(row)?;
+
     let details = row.get_ref(3)?.as_bytes_or_null()?;
     let details = details.map(Account::read_from_bytes).transpose()?;
 
-    Ok(AccountInfo {
-        account_id,
-        account_hash,
-        block_num,
-        details,
-    })
+    Ok(AccountInfo { update, details })
 }
