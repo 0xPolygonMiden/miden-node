@@ -3,7 +3,8 @@ use std::fmt::{Debug, Display, Formatter};
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::{Account, AccountId},
-    crypto::{hash::rpo::RpoDigest, merkle::MerklePath}, transaction::AccountDetails,
+    crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
+    transaction::AccountDetails,
     utils::Serializable,
     Digest,
 };
