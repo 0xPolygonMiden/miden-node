@@ -3,7 +3,10 @@
 
 use std::sync::Arc;
 
-use miden_objects::{accounts::AccountId, Digest, Felt};
+use miden_objects::{
+    accounts::{AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER},
+    Digest, Felt,
+};
 
 use crate::{
     batch_builder::TransactionBatch,
@@ -15,7 +18,7 @@ use crate::{
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_apply_block_called_nonempty_batches() {
-    let account_id = AccountId::new_unchecked(42u32.into());
+    let account_id = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
     let account_initial_hash: Digest =
         [Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)].into();
     let store = Arc::new(
@@ -49,7 +52,7 @@ async fn test_apply_block_called_nonempty_batches() {
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_apply_block_called_empty_batches() {
-    let account_id = AccountId::new_unchecked(42u32.into());
+    let account_id = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
     let account_hash: Digest =
         [Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)].into();
     let store = Arc::new(

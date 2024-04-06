@@ -200,7 +200,7 @@ impl State {
                 .into_iter()
                 .map(|note_created| {
                     let merkle_path = note_tree
-                        .merkle_path(
+                        .get_note_path(
                             note_created.batch_index as usize,
                             note_created.note_index as usize,
                         )

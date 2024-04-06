@@ -1,9 +1,9 @@
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER},
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteMetadata, NoteType, Nullifier},
-    BlockHeader, Digest, Felt, FieldElement, ZERO,
+    BlockHeader, Felt, FieldElement, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 
@@ -433,19 +433,13 @@ fn test_notes() {
     let note_id = num_to_rpo_digest(3);
     let tag = 5u64;
     // Precomputed seed for regular off-chain account for zeroed initial seed:
-    let seed = [
-        Felt::new(9826372627067279707),
-        Felt::new(8305692282416592320),
-        Felt::new(2014458279716538454),
-        Felt::new(11038932562555857644),
-    ];
-    let sender = AccountId::new(seed, Digest::default(), Digest::default()).unwrap();
+    let sender = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
     let note_metadata =
         NoteMetadata::new(sender, NoteType::OffChain, (tag as u32).into(), ZERO).unwrap();
 
     let values = [(batch_index as usize, note_index as usize, (note_id, note_metadata))];
     let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
-    let merkle_path = notes_db.merkle_path(batch_index as usize, note_index as usize).unwrap();
+    let merkle_path = notes_db.get_note_path(batch_index as usize, note_index as usize).unwrap();
 
     let note = Note {
         block_num: block_num_1,
