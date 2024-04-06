@@ -84,3 +84,9 @@ message ListNullifiersRequest {}
 message ListAccountsRequest {}
 
 message ListNotesRequest {}
+
+// Returns the latest state of an account with the specified ID.
+message GetAccountDetailsRequest {
+    // Account ID to get details.
+    account.AccountId account_id = 1;
+}

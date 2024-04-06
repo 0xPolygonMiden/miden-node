@@ -1,5 +1,8 @@
+use miden_node_proto::domain::accounts::AccountHashUpdate;
 use miden_objects::{
-    accounts::{AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER},
+    accounts::{
+        AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+    },
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteMetadata, NoteType, Nullifier},
@@ -161,16 +164,21 @@ fn test_sql_select_accounts() {
     // test multiple entries
     let mut state = vec![];
     for i in 0..10 {
-        let account_id = i;
+        let account_id =
+            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN + (i << 32) + 0b1111100000;
         let account_hash = num_to_rpo_digest(i);
         state.push(AccountInfo {
-            account_id,
-            account_hash,
-            block_num,
+            update: AccountHashUpdate {
+                account_id: account_id.try_into().unwrap(),
+                account_hash,
+                block_num,
+            },
+            details: None,
         });
 
         let transaction = conn.transaction().unwrap();
-        let res = sql::upsert_accounts(&transaction, &[(account_id, account_hash)], block_num);
+        let res =
+            sql::upsert_accounts(&transaction, &[(account_id, None, account_hash)], block_num);
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
         let accounts = sql::select_accounts(&mut conn).unwrap();
@@ -375,17 +383,17 @@ fn test_db_account() {
     create_block(&mut conn, block_num);
 
     // test empty table
-    let account_ids = vec![0, 1, 2, 3, 4, 5];
+    let account_ids = vec![ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, 1, 2, 3, 4, 5];
     let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert!(res.is_empty());
 
     // test insertion
-    let account_id = 0;
+    let account_id = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
     let account_hash = num_to_rpo_digest(0);
 
     let transaction = conn.transaction().unwrap();
     let row_count =
-        sql::upsert_accounts(&transaction, &[(account_id, account_hash)], block_num).unwrap();
+        sql::upsert_accounts(&transaction, &[(account_id, None, account_hash)], block_num).unwrap();
     transaction.commit().unwrap();
 
     assert_eq!(row_count, 1);
@@ -394,10 +402,10 @@ fn test_db_account() {
     let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert_eq!(
         res,
-        vec![AccountInfo {
-            account_id,
+        vec![AccountHashUpdate {
+            account_id: account_id.try_into().unwrap(),
             account_hash,
-            block_num
+            block_num,
         }]
     );
 
@@ -432,7 +440,6 @@ fn test_notes() {
     let note_index = 2u32;
     let note_id = num_to_rpo_digest(3);
     let tag = 5u64;
-    // Precomputed seed for regular off-chain account for zeroed initial seed:
     let sender = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
     let note_metadata =
         NoteMetadata::new(sender, NoteType::OffChain, (tag as u32).into(), ZERO).unwrap();
