@@ -1,7 +1,7 @@
 //! Wrapper functions for SQL statements.
 use std::{borrow::Cow, rc::Rc};
 
-use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountHashUpdate, AccountInfo};
+use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountInfo, AccountSummary};
 use miden_objects::{
     accounts::{Account, AccountDelta},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
@@ -75,18 +75,18 @@ pub fn select_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, Rp
     Ok(result)
 }
 
-/// Select [AccountHashUpdate] from the DB using the given [Connection], given that the account
+/// Select [AccountSummary] from the DB using the given [Connection], given that the account
 /// update was done between `(block_start, block_end]`.
 ///
 /// # Returns
 ///
-/// The vector of [AccountHashUpdate] with the matching accounts.
+/// The vector of [AccountSummary] with the matching accounts.
 pub fn select_accounts_by_block_range(
     conn: &mut Connection,
     block_start: BlockNumber,
     block_end: BlockNumber,
     account_ids: &[AccountId],
-) -> Result<Vec<AccountHashUpdate>> {
+) -> Result<Vec<AccountSummary>> {
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
@@ -672,16 +672,16 @@ fn column_value_as_u64<I: rusqlite::RowIndex>(
     Ok(value as u64)
 }
 
-/// Constructs `AccountHashUpdate` from the row of `accounts` table.
+/// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
-fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> Result<AccountHashUpdate> {
+fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> Result<AccountSummary> {
     let account_id = column_value_as_u64(row, 0)?;
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
     let block_num = row.get(2)?;
 
-    Ok(AccountHashUpdate {
+    Ok(AccountSummary {
         account_id: account_id.try_into()?,
         account_hash,
         block_num,
@@ -697,7 +697,10 @@ fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
     let details = row.get_ref(3)?.as_blob_or_null()?;
     let details = details.map(Account::read_from_bytes).transpose()?;
 
-    Ok(AccountInfo { update, details })
+    Ok(AccountInfo {
+        summary: update,
+        details,
+    })
 }
 
 /// Deserializes account and applies account delta.

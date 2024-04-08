@@ -12,7 +12,7 @@ pub struct AccountId {
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AccountHashUpdate {
+pub struct AccountSummary {
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<AccountId>,
     #[prost(message, optional, tag = "2")]
@@ -25,7 +25,7 @@ pub struct AccountHashUpdate {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountInfo {
     #[prost(message, optional, tag = "1")]
-    pub update: ::core::option::Option<AccountHashUpdate>,
+    pub summary: ::core::option::Option<AccountSummary>,
     #[prost(bytes = "vec", optional, tag = "2")]
     pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

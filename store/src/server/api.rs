@@ -6,7 +6,7 @@ use miden_node_proto::{
     errors::ConversionError,
     generated::{
         self,
-        account::AccountHashUpdate,
+        account::AccountSummary,
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
@@ -125,7 +125,7 @@ impl api_server::Api for StoreApi {
         let accounts = state
             .account_updates
             .into_iter()
-            .map(|account_info| AccountHashUpdate {
+            .map(|account_info| AccountSummary {
                 account_id: Some(account_info.account_id.into()),
                 account_hash: Some(account_info.account_hash.into()),
                 block_num: account_info.block_num,

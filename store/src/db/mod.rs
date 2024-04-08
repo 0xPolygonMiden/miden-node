@@ -1,7 +1,7 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountHashUpdate, AccountInfo};
+use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountInfo, AccountSummary};
 use miden_objects::{
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
@@ -67,7 +67,7 @@ pub struct StateSyncUpdate {
     pub notes: Vec<Note>,
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
-    pub account_updates: Vec<AccountHashUpdate>,
+    pub account_updates: Vec<AccountSummary>,
     pub nullifiers: Vec<NullifierInfo>,
 }
 

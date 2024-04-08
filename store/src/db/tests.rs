@@ -1,6 +1,6 @@
 use miden_lib::transaction::TransactionKernel;
 use miden_mock::mock::account::mock_account_code;
-use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountHashUpdate};
+use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountSummary};
 use miden_objects::{
     accounts::{
         Account, AccountDelta, AccountId, AccountStorage, AccountStorageDelta, AccountVaultDelta,
@@ -174,7 +174,7 @@ fn test_sql_select_accounts() {
             ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN + (i << 32) + 0b1111100000;
         let account_hash = num_to_rpo_digest(i);
         state.push(AccountInfo {
-            update: AccountHashUpdate {
+            summary: AccountSummary {
                 account_id: account_id.try_into().unwrap(),
                 account_hash,
                 block_num,
@@ -557,7 +557,7 @@ fn test_db_account() {
     let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert_eq!(
         res,
-        vec![AccountHashUpdate {
+        vec![AccountSummary {
             account_id: account_id.try_into().unwrap(),
             account_hash,
             block_num,

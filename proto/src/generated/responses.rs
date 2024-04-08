@@ -41,7 +41,7 @@ pub struct SyncStateResponse {
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
     /// a list of account hashes updated after `block_num + 1` but not after `block_header.block_num`
     #[prost(message, repeated, tag = "5")]
-    pub accounts: ::prost::alloc::vec::Vec<super::account::AccountHashUpdate>,
+    pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
     /// a list of all notes together with the Merkle paths from `block_header.note_root`
     #[prost(message, repeated, tag = "6")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
