@@ -70,8 +70,7 @@ Returns the latest state of an account with the specified ID.
 
 **Returns**
 
-* `account`: `AccountInfo` – account state information. For public accounts there is also details describing current state, stored on-chain;
-  for private accounts only hash of the latest known state is returned.
+* `account`: `AccountInfo` – latest state of the account. For public accounts, this will include full details describing the current account state. For private accounts, only the hash of the latest state and the time of the last update is returned.
 
 ### SyncState
 
