@@ -44,7 +44,7 @@ dependencies = [
 ]
 
 # testing
-[tasks.test-all]
+[tasks.test]
 command = "cargo"
 args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
 

@@ -108,15 +108,15 @@ Returns the data needed by the block producer to check validity of an incoming t
 
 ### GetNotesById
 
-Returns a list of Note's matching a certain list of NoteId's.
+Returns a list of notes matching the provided note IDs.
 
 **Parameters**
 
-- `note_ids`: `[NoteId]` - list of ID's of the Note's we want to query.
+- `note_ids`: `[NoteId]` - list of IDs of the notes we want to query.
 
 **Returns**
 
-- # `notes`: `[Note]` - List of notes matching the list of requested NoteId's.
+- `notes`: `[Note]` - List of notes matching the list of requested NoteIds.
 
 ### GetAccountDetails
 
