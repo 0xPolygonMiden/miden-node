@@ -1,20 +1,23 @@
 use anyhow::Result;
-use miden_node_proto::generated::{
-    block_producer::api_client as block_producer_client,
-    requests::{
-        CheckNullifiersRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
-        SubmitProvenTransactionRequest, SyncStateRequest,
+use miden_node_proto::{
+    generated::{
+        block_producer::api_client as block_producer_client,
+        requests::{
+            CheckNullifiersRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
+            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+        },
+        responses::{
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetBlockHeaderByNumberResponse,
+            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncStateResponse,
+        },
+        rpc::api_server,
+        store::api_client as store_client,
     },
-    responses::{
-        CheckNullifiersResponse, GetAccountDetailsResponse, GetBlockHeaderByNumberResponse,
-        SubmitProvenTransactionResponse, SyncStateResponse,
-    },
-    rpc::api_server,
-    store::api_client as store_client,
+    try_convert,
 };
 use miden_objects::{
-    accounts::AccountId, transaction::ProvenTransaction, utils::serde::Deserializable, Digest,
-    MIN_PROOF_SECURITY_LEVEL,
+    accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
+    utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
@@ -108,6 +111,28 @@ impl api_server::Api for RpcApi {
         debug!(target: COMPONENT, request = ?request.get_ref());
 
         self.store.clone().sync_state(request).await
+    }
+
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_notes_by_id",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_notes_by_id(
+        &self,
+        request: Request<GetNotesByIdRequest>,
+    ) -> Result<Response<GetNotesByIdResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
+        // Validation checking for correct NoteId's
+        let note_ids = request.get_ref().note_ids.clone();
+
+        let _: Vec<RpoDigest> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        self.store.clone().get_notes_by_id(request).await
     }
 
     #[instrument(target = "miden-rpc", name = "rpc:submit_proven_transaction", skip_all, err)]
