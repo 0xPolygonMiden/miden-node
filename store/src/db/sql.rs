@@ -438,6 +438,12 @@ pub fn select_notes_since_block_by_tag_and_sender(
 ///
 /// - Empty vector if no matching `note`.
 /// - Otherwise, notes which `note_hash` matches the `NoteId` as bytes.
+///
+/// # Note
+///
+/// Two types of [Note] are available in the Miden protocol: on-chain and off-chain.
+/// - On-chain will contain `details` which is the serialised [Note].
+/// - Off-chain will have the `details` field `Nullified`.
 pub fn select_notes_by_id(
     conn: &mut Connection,
     note_ids: &[NoteId],
