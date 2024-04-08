@@ -11,7 +11,7 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             block_header BLOB NOT NULL,
 
             PRIMARY KEY (block_num),
-            CONSTRAINT block_header_block_num_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296)
+            CONSTRAINT block_header_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE
@@ -25,11 +25,11 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             tag INTEGER NOT NULL,
             merkle_path BLOB NOT NULL,
 
-            PRIMARY KEY (block_num, note_index),
+            PRIMARY KEY (block_num, batch_index, note_index),
             CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
-            CONSTRAINT notes_block_number_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296),
+            CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
             CONSTRAINT notes_batch_index_is_u32 CHECK (batch_index BETWEEN 0 AND 0xFFFFFFFF)
-            CONSTRAINT notes_note_index_is_u32 CHECK (note_index >= 0 AND note_index < 4294967296)
+            CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE
@@ -38,10 +38,11 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             account_id INTEGER NOT NULL,
             account_hash BLOB NOT NULL,
             block_num INTEGER NOT NULL,
+            details BLOB,
 
             PRIMARY KEY (account_id),
             CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
-            CONSTRAINT accounts_block_num_is_u32 CHECK (block_num >= 0 AND block_num < 4294967296)
+            CONSTRAINT accounts_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
         ) STRICT, WITHOUT ROWID;
 
         CREATE TABLE
@@ -49,13 +50,13 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
         (
             nullifier BLOB NOT NULL,
             nullifier_prefix INTEGER NOT NULL,
-            block_number INTEGER NOT NULL,
+            block_num INTEGER NOT NULL,
 
             PRIMARY KEY (nullifier),
-            CONSTRAINT fk_block_num FOREIGN KEY (block_number) REFERENCES block_headers (block_num),
+            CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
             CONSTRAINT nullifiers_nullifier_is_digest CHECK (length(nullifier) = 32),
-            CONSTRAINT nullifiers_nullifier_prefix_is_u16 CHECK (nullifier_prefix >= 0 AND nullifier_prefix < 65536),
-            CONSTRAINT nullifiers_block_number_is_u32 CHECK (block_number >= 0 AND block_number < 4294967296)
+            CONSTRAINT nullifiers_nullifier_prefix_is_u16 CHECK (nullifier_prefix BETWEEN 0 AND 0xFFFF),
+            CONSTRAINT nullifiers_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
         ) STRICT, WITHOUT ROWID;
         ",
     )])

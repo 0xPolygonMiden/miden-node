@@ -13,7 +13,7 @@ use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 
-use crate::types::BlockNumber;
+use crate::types::{AccountId, BlockNumber};
 
 // INTERNAL ERRORS
 // =================================================================================================
@@ -42,12 +42,22 @@ pub enum DatabaseError {
     FromSqlError(#[from] FromSqlError),
     #[error("I/O error: {0}")]
     IoError(#[from] io::Error),
+    #[error("Account error: {0}")]
+    AccountError(#[from] AccountError),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
     #[error("Deserialization of BLOB data from database failed: {0}")]
     DeserializationError(DeserializationError),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
     ApplyBlockFailedClosedChannel(RecvError),
+    #[error("Account {0} not found in the database")]
+    AccountNotFoundInDb(AccountId),
+}
+
+impl From<DeserializationError> for DatabaseError {
+    fn from(value: DeserializationError) -> Self {
+        Self::DeserializationError(value)
+    }
 }
 
 // INITIALIZATION ERRORS

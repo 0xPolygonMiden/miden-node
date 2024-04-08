@@ -3,12 +3,12 @@ use miden_node_proto::{
     generated::{
         block_producer::api_client as block_producer_client,
         requests::{
-            CheckNullifiersRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
-            SubmitProvenTransactionRequest, SyncStateRequest,
+            CheckNullifiersRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
+            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncStateRequest,
         },
         responses::{
-            CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetNotesByIdResponse,
-            SubmitProvenTransactionResponse, SyncStateResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetBlockHeaderByNumberResponse,
+            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -16,8 +16,8 @@ use miden_node_proto::{
     try_convert,
 };
 use miden_objects::{
-    crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction, utils::serde::Deserializable,
-    Digest, MIN_PROOF_SECURITY_LEVEL,
+    accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
+    utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
@@ -157,5 +157,31 @@ impl api_server::Api for RpcApi {
         })?;
 
         self.block_producer.clone().submit_proven_transaction(request).await
+    }
+
+    /// Returns details for public (on-chain) account by id.
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_account_details",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_details(
+        &self,
+        request: Request<GetAccountDetailsRequest>,
+    ) -> std::result::Result<Response<GetAccountDetailsResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
+        // Validating account using conversion:
+        let _account_id: AccountId = request
+            .get_ref()
+            .account_id
+            .clone()
+            .ok_or(Status::invalid_argument("account_id is missing"))?
+            .try_into()
+            .map_err(|err| Status::invalid_argument(format!("Invalid account id: {err}")))?;
+
+        self.store.clone().get_account_details(request).await
     }
 }

@@ -5,15 +5,17 @@ use miden_node_proto::{
     errors::ConversionError,
     generated::{
         self,
+        account::AccountHashUpdate,
         note::NoteSyncRecord,
         requests::{
-            ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
-            GetBlockInputsRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
-            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
+            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
+            ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
-            AccountHashUpdate, AccountTransactionInputRecord, ApplyBlockResponse,
-            CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
+            AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
+            GetAccountDetailsResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
             GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
             ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
             NullifierUpdate, SyncStateResponse,
@@ -136,7 +138,7 @@ impl api_server::Api for StoreApi {
             .notes
             .into_iter()
             .map(|note| NoteSyncRecord {
-                note_index: note.note_created.note_index,
+                note_index: note.note_created.absolute_note_index(),
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
@@ -205,6 +207,32 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetNotesByIdResponse { notes }))
     }
 
+    /// Returns details for public (on-chain) account by id.
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_account_details",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_details(
+        &self,
+        request: tonic::Request<GetAccountDetailsRequest>,
+    ) -> Result<Response<GetAccountDetailsResponse>, Status> {
+        let request = request.into_inner();
+        let account_info = self
+            .state
+            .get_account_details(
+                request.account_id.ok_or(invalid_argument("Account missing id"))?.into(),
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Response::new(GetAccountDetailsResponse {
+            account: Some((&account_info).into()),
+        }))
+    }
+
     // BLOCK PRODUCER ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
@@ -241,6 +269,7 @@ impl api_server::Api for StoreApi {
                     .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
                 Ok((
                     account_state.account_id.into(),
+                    None, // TODO: Process account details (next PR)
                     account_state
                         .account_hash
                         .ok_or(invalid_argument("Account update missing account hash"))?,
@@ -386,7 +415,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|note| generated::note::Note {
                 block_num: note.block_num,
-                note_index: note.note_created.note_index,
+                note_index: note.note_created.absolute_note_index(),
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
@@ -413,12 +442,8 @@ impl api_server::Api for StoreApi {
             .list_accounts()
             .await
             .map_err(internal_error)?
-            .into_iter()
-            .map(|account_info| generated::account::AccountInfo {
-                account_id: Some(account_info.account_id.into()),
-                account_hash: Some(account_info.account_hash.into()),
-                block_num: account_info.block_num,
-            })
+            .iter()
+            .map(Into::into)
             .collect();
         Ok(Response::new(ListAccountsResponse { accounts }))
     }
