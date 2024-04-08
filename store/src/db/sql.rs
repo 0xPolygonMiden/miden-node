@@ -175,6 +175,13 @@ pub fn upsert_accounts(
                 debug_assert!(account.is_new());
                 debug_assert_eq!(account_id, u64::from(account.id()));
 
+                if account.hash() != update.final_state_hash {
+                    return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
+                        calculated: account.hash(),
+                        expected: update.final_state_hash,
+                    });
+                }
+
                 Some(Cow::Borrowed(account))
             },
             Some(AccountDetails::Delta(delta)) => {
