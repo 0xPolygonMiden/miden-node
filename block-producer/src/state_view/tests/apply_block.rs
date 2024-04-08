@@ -6,7 +6,7 @@
 
 use std::iter;
 
-use miden_node_proto::domain::accounts::AccountDetailsUpdate;
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 
 use super::*;
 use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
@@ -34,7 +34,7 @@ async fn test_apply_block_ab1() {
         .await
         .account_updates(
             std::iter::once(account)
-                .map(|mock_account| AccountDetailsUpdate {
+                .map(|mock_account| AccountUpdateDetails {
                     account_id: mock_account.id,
                     final_state_hash: mock_account.states[1],
                     details: None,
@@ -81,7 +81,7 @@ async fn test_apply_block_ab2() {
         .account_updates(
             accounts_in_block
                 .into_iter()
-                .map(|mock_account| AccountDetailsUpdate {
+                .map(|mock_account| AccountUpdateDetails {
                     account_id: mock_account.id,
                     final_state_hash: mock_account.states[1],
                     details: None,
@@ -130,7 +130,7 @@ async fn test_apply_block_ab3() {
             accounts
                 .clone()
                 .into_iter()
-                .map(|mock_account| AccountDetailsUpdate {
+                .map(|mock_account| AccountUpdateDetails {
                     account_id: mock_account.id,
                     final_state_hash: mock_account.states[1],
                     details: None,

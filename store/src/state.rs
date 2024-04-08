@@ -5,7 +5,7 @@
 use std::{mem, sync::Arc};
 
 use miden_node_proto::{
-    domain::accounts::{AccountDetailsUpdate, AccountInfo},
+    domain::accounts::{AccountInfo, AccountUpdateDetails},
     AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
@@ -109,7 +109,7 @@ impl State {
         &self,
         block_header: BlockHeader,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<AccountDetailsUpdate>,
+        accounts: Vec<AccountUpdateDetails>,
         notes: Vec<NoteCreated>,
     ) -> Result<(), ApplyBlockError> {
         let _ = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;

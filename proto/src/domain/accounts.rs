@@ -118,14 +118,14 @@ impl From<&AccountInfo> for AccountInfoPb {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AccountDetailsUpdate {
+pub struct AccountUpdateDetails {
     pub account_id: AccountId,
     pub final_state_hash: Digest,
     pub details: Option<AccountDetails>,
 }
 
-impl From<&AccountDetailsUpdate> for AccountUpdate {
-    fn from(update: &AccountDetailsUpdate) -> Self {
+impl From<&AccountUpdateDetails> for AccountUpdate {
+    fn from(update: &AccountUpdateDetails) -> Self {
         Self {
             account_id: Some(update.account_id.into()),
             account_hash: Some(update.final_state_hash.into()),

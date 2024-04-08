@@ -1,5 +1,5 @@
 use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountSummary};
+use miden_node_proto::domain::accounts::{AccountSummary, AccountUpdateDetails};
 use miden_objects::{
     accounts::{
         Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStorageDelta,
@@ -186,7 +186,7 @@ fn test_sql_select_accounts() {
         let transaction = conn.transaction().unwrap();
         let res = sql::upsert_accounts(
             &transaction,
-            &[AccountDetailsUpdate {
+            &[AccountUpdateDetails {
                 account_id: account_id.try_into().unwrap(),
                 final_state_hash: account_hash,
                 details: None,
@@ -244,7 +244,7 @@ fn test_sql_public_account_details() {
     let transaction = conn.transaction().unwrap();
     let inserted = sql::upsert_accounts(
         &transaction,
-        &[AccountDetailsUpdate {
+        &[AccountUpdateDetails {
             account_id,
             final_state_hash: account.hash(),
             details: Some(AccountDetails::Full(account.clone())),
@@ -288,7 +288,7 @@ fn test_sql_public_account_details() {
     let transaction = conn.transaction().unwrap();
     let inserted = sql::upsert_accounts(
         &transaction,
-        &[AccountDetailsUpdate {
+        &[AccountUpdateDetails {
             account_id,
             final_state_hash: account.hash(),
             details: Some(AccountDetails::Delta(delta.clone())),
@@ -536,7 +536,7 @@ fn test_db_account() {
     let transaction = conn.transaction().unwrap();
     let row_count = sql::upsert_accounts(
         &transaction,
-        &[AccountDetailsUpdate {
+        &[AccountUpdateDetails {
             account_id: account_id.try_into().unwrap(),
             final_state_hash: account_hash,
             details: None,

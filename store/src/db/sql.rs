@@ -1,7 +1,7 @@
 //! Wrapper functions for SQL statements.
 use std::{borrow::Cow, rc::Rc};
 
-use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountInfo, AccountSummary};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
 use miden_objects::{
     accounts::{Account, AccountDelta},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
@@ -157,7 +157,7 @@ pub fn select_account(
 /// transaction.
 pub fn upsert_accounts(
     transaction: &Transaction,
-    accounts: &[AccountDetailsUpdate],
+    accounts: &[AccountUpdateDetails],
     block_num: BlockNumber,
 ) -> Result<usize> {
     let mut upsert_stmt = transaction.prepare(
@@ -626,7 +626,7 @@ pub fn apply_block(
     block_header: &BlockHeader,
     notes: &[Note],
     nullifiers: &[Nullifier],
-    accounts: &[AccountDetailsUpdate],
+    accounts: &[AccountUpdateDetails],
 ) -> Result<usize> {
     let mut count = 0;
     count += insert_block_header(transaction, block_header)?;

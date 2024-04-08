@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use miden_node_proto::{
     convert,
-    domain::accounts::AccountDetailsUpdate,
+    domain::accounts::AccountUpdateDetails,
     errors::ConversionError,
     generated::{
         self,
@@ -243,7 +243,7 @@ impl api_server::Api for StoreApi {
                     .transpose()
                     .map_err(|err| Status::invalid_argument(err.to_string()))?;
 
-                Ok(AccountDetailsUpdate {
+                Ok(AccountUpdateDetails {
                     account_id: account_state.account_id,
                     details,
                     final_state_hash: account_state
