@@ -1,13 +1,14 @@
 use miden_lib::transaction::TransactionKernel;
-use miden_mock::mock::account::mock_account_code;
 use miden_node_proto::domain::accounts::{AccountDetailsUpdate, AccountSummary};
 use miden_objects::{
     accounts::{
-        Account, AccountDelta, AccountId, AccountStorage, AccountStorageDelta, AccountVaultDelta,
-        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
-        ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStorageDelta,
+        AccountVaultDelta, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+        ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER,
+        ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     },
+    assembly::{Assembler, ModuleAst},
     assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
@@ -261,13 +262,7 @@ fn test_sql_public_account_details() {
     assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
 
     let account_read = accounts_in_db.pop().unwrap().details.unwrap();
-    // TODO: substitute by a single check, once code imports deserialization is fixed
-    //       (possibly after merging of https://github.com/0xPolygonMiden/miden-vm/pull/1277):
-    // assert_eq!(account_read, account);
-    assert_eq!(account_read.id(), account.id());
-    assert_eq!(account_read.vault(), account.vault());
-    assert_eq!(account_read.storage(), account.storage());
-    assert_eq!(account_read.nonce(), account.nonce());
+    assert_eq!(account_read, account);
 
     let storage_delta = AccountStorageDelta {
         cleared_items: vec![3],
@@ -696,4 +691,15 @@ fn num_to_word(n: u64) -> Word {
 
 fn num_to_nullifier(n: u64) -> Nullifier {
     Nullifier::from(num_to_rpo_digest(n))
+}
+
+pub fn mock_account_code(assembler: &Assembler) -> AccountCode {
+    let account_code = "\
+            export.account_procedure_1
+                push.1.2
+                add
+            end
+            ";
+    let account_module_ast = ModuleAst::parse(account_code).unwrap();
+    AccountCode::new(account_module_ast, assembler).unwrap()
 }
