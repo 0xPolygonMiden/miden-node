@@ -57,6 +57,9 @@ pub struct DefaultBatchBuilder<BB> {
     options: DefaultBatchBuilderOptions,
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 impl<BB> DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
@@ -117,6 +120,9 @@ where
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
 where

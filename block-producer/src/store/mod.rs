@@ -126,6 +126,9 @@ impl DefaultStore {
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl ApplyBlock for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
@@ -151,6 +154,9 @@ impl ApplyBlock for DefaultStore {
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl Store for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]

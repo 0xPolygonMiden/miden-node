@@ -65,8 +65,12 @@ impl TransactionBatch {
             txs.iter().flat_map(|tx| tx.input_notes().iter()).cloned().collect();
 
         let (created_notes, created_notes_smt) = {
-            let created_notes: Vec<NoteEnvelope> =
-                txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
+            let created_notes: Vec<NoteEnvelope> = txs
+                .iter()
+                .flat_map(|tx| tx.output_notes().iter())
+                .cloned()
+                .map(NoteEnvelope::from)
+                .collect();
 
             if created_notes.len() > MAX_NOTES_PER_BATCH {
                 return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
@@ -78,7 +82,7 @@ impl TransactionBatch {
                 BatchNoteTree::with_contiguous_leaves(
                     created_notes
                         .iter()
-                        .map(|note_envelope| (note_envelope.note_id(), note_envelope.metadata())),
+                        .map(|note_envelope| (note_envelope.id(), note_envelope.metadata())),
                 )
                 .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?,
             )

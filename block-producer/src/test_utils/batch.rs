@@ -26,7 +26,9 @@ impl TransactionBatchConstructor for TransactionBatch {
             .map(|(index, &num_notes)| {
                 let starting_note_index = starting_account_index as u64 + index as u64;
                 MockProvenTxBuilder::with_account_index(starting_account_index + index as u32)
-                    .notes_created_range(starting_note_index..(starting_note_index + num_notes))
+                    .private_notes_created_range(
+                        starting_note_index..(starting_note_index + num_notes),
+                    )
                     .build()
             })
             .collect();

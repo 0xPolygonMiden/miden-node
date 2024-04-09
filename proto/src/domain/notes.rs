@@ -10,7 +10,7 @@ impl From<&(usize, usize, NoteEnvelope)> for note::NoteCreated {
         Self {
             batch_index: *batch_idx as u32,
             note_index: *note_idx as u32,
-            note_id: Some(note.note_id().into()),
+            note_id: Some(note.id().into()),
             sender: Some(note.metadata().sender().into()),
             tag: note.metadata().tag().into(),
         }
