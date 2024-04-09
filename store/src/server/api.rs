@@ -28,7 +28,10 @@ use miden_node_proto::{
 };
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
-    notes::{NoteId, Nullifier}, transaction::AccountDetails, utils::Deserializable, BlockHeader, Felt, ZERO,
+    notes::{NoteId, Nullifier},
+    transaction::AccountDetails,
+    utils::Deserializable,
+    BlockHeader, Felt, ZERO,
 };
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
