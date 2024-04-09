@@ -10,23 +10,25 @@ use miden_node_proto::{
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetTransactionInputsRequest,
-            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
+            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
+            ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
             GetAccountDetailsResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
-            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
-            SyncStateResponse,
+            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
+            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
+            NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
     },
-    AccountState,
+    try_convert, AccountState,
 };
 use miden_objects::{
-    notes::Nullifier, transaction::AccountDetails, utils::Deserializable, BlockHeader, Felt, ZERO,
+    crypto::hash::rpo::RpoDigest,
+    notes::{NoteId, Nullifier}, transaction::AccountDetails, utils::Deserializable, BlockHeader, Felt, ZERO,
 };
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
@@ -161,6 +163,48 @@ impl api_server::Api for StoreApi {
             notes,
             nullifiers,
         }))
+    }
+
+    /// Returns a list of Note's for the specified NoteId's.
+    ///
+    /// If the list is empty or no Note matched the requested NoteId and empty list is returned.
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_notes_by_id",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_notes_by_id(
+        &self,
+        request: tonic::Request<GetNotesByIdRequest>,
+    ) -> Result<Response<GetNotesByIdResponse>, Status> {
+        info!(target: COMPONENT, ?request);
+
+        let note_ids = request.into_inner().note_ids;
+
+        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
+
+        let notes = self
+            .state
+            .get_notes_by_id(note_ids)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|note| generated::note::Note {
+                block_num: note.block_num,
+                note_index: note.note_created.note_index,
+                note_id: Some(note.note_created.note_id.into()),
+                sender: Some(note.note_created.sender.into()),
+                tag: note.note_created.tag,
+                merkle_path: Some(note.merkle_path.into()),
+            })
+            .collect();
+
+        Ok(Response::new(GetNotesByIdResponse { notes }))
     }
 
     /// Returns details for public (on-chain) account by id.

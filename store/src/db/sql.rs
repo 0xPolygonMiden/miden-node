@@ -1,11 +1,12 @@
 //! Wrapper functions for SQL statements.
+
 use std::{borrow::Cow, rc::Rc};
 
 use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
 use miden_objects::{
     accounts::{Account, AccountDelta},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::Nullifier,
+    notes::{NoteId, Nullifier},
     transaction::AccountDetails,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
@@ -492,6 +493,59 @@ pub fn select_notes_since_block_by_tag_and_sender(
         res.push(note);
     }
     Ok(res)
+}
+
+/// Select Note's matching the NoteId using the given [Connection].
+///
+/// # Returns
+///
+/// - Empty vector if no matching `note`.
+/// - Otherwise, notes which `note_hash` matches the `NoteId` as bytes.
+pub fn select_notes_by_id(
+    conn: &mut Connection,
+    note_ids: &[NoteId],
+) -> Result<Vec<Note>> {
+    let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
+
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            block_num,
+            batch_index,
+            note_index,
+            note_hash,
+            sender,
+            tag,
+            merkle_path
+        FROM
+            notes
+        WHERE
+            note_hash IN rarray(?1)
+        ",
+    )?;
+    let mut rows = stmt.query(params![Rc::new(note_ids)])?;
+
+    let mut notes = Vec::new();
+    while let Some(row) = rows.next()? {
+        let note_id_data = row.get_ref(3)?.as_blob()?;
+        let note_id = NoteId::read_from_bytes(note_id_data)?;
+
+        let merkle_path_data = row.get_ref(6)?.as_blob()?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
+
+        notes.push(Note {
+            block_num: row.get(0)?,
+            note_created: NoteCreated {
+                batch_index: row.get(1)?,
+                note_index: row.get(2)?,
+                note_id: note_id.into(),
+                sender: column_value_as_u64(row, 4)?,
+                tag: column_value_as_u64(row, 5)?,
+            },
+            merkle_path,
+        })
+    }
+    Ok(notes)
 }
 
 // BLOCK CHAIN QUERIES

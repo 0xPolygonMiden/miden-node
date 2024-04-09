@@ -15,7 +15,7 @@ use miden_objects::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteMetadata, NoteType, Nullifier},
+    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
     AccountError, BlockHeader, NoteError, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
@@ -304,6 +304,17 @@ impl State {
     ) -> Vec<SmtProof> {
         let inner = self.inner.read().await;
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
+    }
+
+    /// Queries a list of [Note] from the database.
+    ///
+    /// If the provided list of [NoteId] given is empty or no [Note] matches the provided [NoteId]
+    /// an empty list is returned.
+    pub async fn get_notes_by_id(
+        &self,
+        note_ids: Vec<NoteId>,
+    ) -> Result<Vec<Note>, DatabaseError> {
+        self.db.select_notes_by_id(note_ids).await
     }
 
     /// Loads data to synchronize a client.

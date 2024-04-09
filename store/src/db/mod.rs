@@ -5,7 +5,7 @@ use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpd
 use miden_objects::{
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::Nullifier,
+    notes::{NoteId, Nullifier},
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -247,6 +247,22 @@ impl Db {
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get state sync task failed: {err}"))
+            })?
+    }
+
+    /// Loads all the Note's matching a certain NoteId from the database.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_notes_by_id(
+        &self,
+        note_ids: Vec<NoteId>,
+    ) -> Result<Vec<Note>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_notes_by_id(conn, &note_ids))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
             })?
     }
 

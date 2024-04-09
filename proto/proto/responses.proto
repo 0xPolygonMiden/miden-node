@@ -93,6 +93,11 @@ message GetTransactionInputsResponse {
 
 message SubmitProvenTransactionResponse {}
 
+message GetNotesByIdResponse {
+    // Lists Note's returned by the database
+    repeated note.Note notes = 1;
+}
+
 message ListNullifiersResponse {
     // Lists all nullifiers of the current chain
     repeated smt.SmtLeafEntry nullifiers = 1;
