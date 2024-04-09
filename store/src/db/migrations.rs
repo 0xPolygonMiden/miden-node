@@ -24,7 +24,7 @@ pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
             sender INTEGER NOT NULL,
             tag INTEGER NOT NULL,
             merkle_path BLOB NOT NULL,
-            details BLOB NOT NULL,
+            details BLOB,
 
             PRIMARY KEY (block_num, batch_index, note_index),
             CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),

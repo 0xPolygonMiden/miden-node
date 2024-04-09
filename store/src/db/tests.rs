@@ -653,7 +653,7 @@ fn test_notes() {
             note_id: num_to_rpo_digest(3),
             sender: note.note_created.sender,
             tag: note.note_created.tag,
-            details: note.note_created.details.clone(),
+            details: None,
         },
         merkle_path,
     };
@@ -690,6 +690,12 @@ fn test_notes() {
 
     let res = sql::select_notes_by_id(&mut conn, &note_ids).unwrap();
     assert_eq!(res, notes);
+
+    // test notes have correct details
+    let note_0 = res[0].clone();
+    let note_1 = res[1].clone();
+    assert_eq!(note_0.note_created.details, Some(vec![1, 2, 3]));
+    assert_eq!(note_1.note_created.details, None)
 }
 
 // UTILITIES
