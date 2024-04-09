@@ -4,7 +4,7 @@ use miden_air::HashFunction;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteEnvelope, NoteMetadata, NoteType, Nullifier},
-    transaction::{ProvenTransaction, ProvenTransactionBuilder},
+    transaction::{OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
 };
@@ -16,7 +16,7 @@ pub struct MockProvenTxBuilder {
     account_id: AccountId,
     initial_account_hash: Digest,
     final_account_hash: Digest,
-    notes_created: Option<Vec<NoteEnvelope>>,
+    notes_created: Option<Vec<OutputNote>>,
     nullifiers: Option<Vec<Nullifier>>,
 }
 
@@ -52,7 +52,7 @@ impl MockProvenTxBuilder {
 
     pub fn notes_created(
         mut self,
-        notes: Vec<NoteEnvelope>,
+        notes: Vec<OutputNote>,
     ) -> Self {
         self.notes_created = Some(notes);
 
@@ -74,18 +74,17 @@ impl MockProvenTxBuilder {
         self.nullifiers(nullifiers)
     }
 
-    pub fn notes_created_range(
+    pub fn private_notes_created_range(
         self,
         range: Range<u64>,
     ) -> Self {
         let notes = range
             .map(|note_index| {
                 let note_hash = Hasher::hash(&note_index.to_be_bytes());
+                let note_metadata =
+                    NoteMetadata::new(self.account_id, NoteType::OffChain, 0.into(), ONE).unwrap();
 
-                NoteEnvelope::new(
-                    note_hash.into(),
-                    NoteMetadata::new(self.account_id, NoteType::OffChain, 0.into(), ONE).unwrap(),
-                )
+                OutputNote::Private(NoteEnvelope::new(note_hash.into(), note_metadata).unwrap())
             })
             .collect();
 
