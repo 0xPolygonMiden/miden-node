@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use miden_node_proto::domain::accounts::UpdatedAccount;
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
@@ -38,7 +38,7 @@ impl BlockWitness {
 
         let updated_accounts = {
             let mut account_initial_states: BTreeMap<AccountId, Digest> =
-                batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
+                batches.iter().flat_map(TransactionBatch::account_initial_states).collect();
 
             let mut account_merkle_proofs: BTreeMap<AccountId, MerklePath> = block_inputs
                 .accounts
@@ -48,9 +48,9 @@ impl BlockWitness {
 
             batches
                 .iter()
-                .flat_map(|batch| batch.updated_accounts())
+                .flat_map(TransactionBatch::updated_accounts)
                 .map(
-                    |UpdatedAccount {
+                    |AccountUpdateDetails {
                          account_id,
                          final_state_hash,
                          ..

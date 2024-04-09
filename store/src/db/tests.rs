@@ -1,12 +1,20 @@
-use miden_node_proto::domain::accounts::AccountHashUpdate;
+use miden_lib::transaction::TransactionKernel;
+use miden_node_proto::domain::accounts::{AccountSummary, AccountUpdateDetails};
 use miden_objects::{
     accounts::{
-        AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStorageDelta,
+        AccountVaultDelta, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+        ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER,
+        ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     },
+    assembly::{Assembler, ModuleAst},
+    assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
-    BlockHeader, Felt, FieldElement, ZERO,
+    transaction::AccountDetails,
+    BlockHeader, Felt, FieldElement, Word, ONE, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 
@@ -160,7 +168,6 @@ fn test_sql_select_accounts() {
     // test querying empty table
     let accounts = sql::select_accounts(&mut conn).unwrap();
     assert!(accounts.is_empty());
-
     // test multiple entries
     let mut state = vec![];
     for i in 0..10 {
@@ -168,7 +175,7 @@ fn test_sql_select_accounts() {
             ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN + (i << 32) + 0b1111100000;
         let account_hash = num_to_rpo_digest(i);
         state.push(AccountInfo {
-            update: AccountHashUpdate {
+            summary: AccountSummary {
                 account_id: account_id.try_into().unwrap(),
                 account_hash,
                 block_num,
@@ -177,13 +184,148 @@ fn test_sql_select_accounts() {
         });
 
         let transaction = conn.transaction().unwrap();
-        let res =
-            sql::upsert_accounts(&transaction, &[(account_id, None, account_hash)], block_num);
+        let res = sql::upsert_accounts(
+            &transaction,
+            &[AccountUpdateDetails {
+                account_id: account_id.try_into().unwrap(),
+                final_state_hash: account_hash,
+                details: None,
+            }],
+            block_num,
+        );
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
         let accounts = sql::select_accounts(&mut conn).unwrap();
         assert_eq!(accounts, state);
     }
+}
+
+#[test]
+fn test_sql_public_account_details() {
+    let mut conn = create_db();
+
+    let block_num = 1;
+    create_block(&mut conn, block_num);
+
+    let account_id =
+        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap();
+    let fungible_faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+    let non_fungible_faucet_id =
+        AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+
+    let mut storage = AccountStorage::new(vec![]).unwrap();
+    storage.set_item(1, num_to_word(1)).unwrap();
+    storage.set_item(3, num_to_word(3)).unwrap();
+    storage.set_item(5, num_to_word(5)).unwrap();
+
+    let nft1 = Asset::NonFungible(
+        NonFungibleAsset::new(
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![1, 2, 3]).unwrap(),
+        )
+        .unwrap(),
+    );
+
+    let mut account = Account::new(
+        account_id,
+        AssetVault::new(&[
+            Asset::Fungible(FungibleAsset::new(fungible_faucet_id, 150).unwrap()),
+            nft1,
+        ])
+        .unwrap(),
+        storage,
+        mock_account_code(&TransactionKernel::assembler()),
+        ZERO,
+    );
+
+    // test querying empty table
+    let accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+    assert!(accounts_in_db.is_empty());
+
+    let transaction = conn.transaction().unwrap();
+    let inserted = sql::upsert_accounts(
+        &transaction,
+        &[AccountUpdateDetails {
+            account_id,
+            final_state_hash: account.hash(),
+            details: Some(AccountDetails::Full(account.clone())),
+        }],
+        block_num,
+    )
+    .unwrap();
+
+    assert_eq!(inserted, 1, "One element must have been inserted");
+
+    transaction.commit().unwrap();
+
+    let mut accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+
+    assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
+
+    let account_read = accounts_in_db.pop().unwrap().details.unwrap();
+    assert_eq!(account_read, account);
+
+    let storage_delta = AccountStorageDelta {
+        cleared_items: vec![3],
+        updated_items: vec![(4, num_to_word(5)), (5, num_to_word(6))],
+    };
+
+    let nft2 = Asset::NonFungible(
+        NonFungibleAsset::new(
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![4, 5, 6]).unwrap(),
+        )
+        .unwrap(),
+    );
+
+    let vault_delta = AccountVaultDelta {
+        added_assets: vec![nft2],
+        removed_assets: vec![nft1],
+    };
+
+    let delta = AccountDelta::new(storage_delta, vault_delta, Some(ONE)).unwrap();
+
+    account.apply_delta(&delta).unwrap();
+
+    let transaction = conn.transaction().unwrap();
+    let inserted = sql::upsert_accounts(
+        &transaction,
+        &[AccountUpdateDetails {
+            account_id,
+            final_state_hash: account.hash(),
+            details: Some(AccountDetails::Delta(delta.clone())),
+        }],
+        block_num,
+    )
+    .unwrap();
+
+    assert_eq!(inserted, 1, "One element must have been inserted");
+
+    transaction.commit().unwrap();
+
+    let mut accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+
+    assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
+
+    let mut account_read = accounts_in_db.pop().unwrap().details.unwrap();
+
+    assert_eq!(account_read.id(), account.id());
+    assert_eq!(account_read.vault(), account.vault());
+    assert_eq!(account_read.nonce(), account.nonce());
+
+    // Cleared item was not serialized, check it and apply delta only with clear item second time:
+    assert_eq!(account_read.storage().get_item(3), RpoDigest::default());
+
+    let storage_delta = AccountStorageDelta {
+        cleared_items: vec![3],
+        updated_items: vec![],
+    };
+    account_read
+        .apply_delta(
+            &AccountDelta::new(storage_delta, AccountVaultDelta::default(), Some(Felt::new(2)))
+                .unwrap(),
+        )
+        .unwrap();
+
+    assert_eq!(account_read.storage(), account.storage());
 }
 
 #[test]
@@ -392,8 +534,16 @@ fn test_db_account() {
     let account_hash = num_to_rpo_digest(0);
 
     let transaction = conn.transaction().unwrap();
-    let row_count =
-        sql::upsert_accounts(&transaction, &[(account_id, None, account_hash)], block_num).unwrap();
+    let row_count = sql::upsert_accounts(
+        &transaction,
+        &[AccountUpdateDetails {
+            account_id: account_id.try_into().unwrap(),
+            final_state_hash: account_hash,
+            details: None,
+        }],
+        block_num,
+    )
+    .unwrap();
     transaction.commit().unwrap();
 
     assert_eq!(row_count, 1);
@@ -402,7 +552,7 @@ fn test_db_account() {
     let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert_eq!(
         res,
-        vec![AccountHashUpdate {
+        vec![AccountSummary {
             account_id: account_id.try_into().unwrap(),
             account_hash,
             block_num,
@@ -541,9 +691,24 @@ fn test_notes() {
 // UTILITIES
 // -------------------------------------------------------------------------------------------
 fn num_to_rpo_digest(n: u64) -> RpoDigest {
-    RpoDigest::new([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(n)])
+    RpoDigest::new(num_to_word(n))
+}
+
+fn num_to_word(n: u64) -> Word {
+    [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(n)]
 }
 
 fn num_to_nullifier(n: u64) -> Nullifier {
     Nullifier::from(num_to_rpo_digest(n))
+}
+
+pub fn mock_account_code(assembler: &Assembler) -> AccountCode {
+    let account_code = "\
+            export.account_procedure_1
+                push.1.2
+                add
+            end
+            ";
+    let account_module_ast = ModuleAst::parse(account_code).unwrap();
+    AccountCode::new(account_module_ast, assembler).unwrap()
 }

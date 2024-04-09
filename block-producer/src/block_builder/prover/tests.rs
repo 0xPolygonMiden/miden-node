@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, iter};
 
-use miden_node_proto::domain::accounts::UpdatedAccount;
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::{
         AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
@@ -239,7 +239,7 @@ async fn test_compute_account_root_success() {
             account_ids
                 .iter()
                 .zip(account_final_states.iter())
-                .map(|(&account_id, &account_hash)| UpdatedAccount {
+                .map(|(&account_id, &account_hash)| AccountUpdateDetails {
                     account_id,
                     final_state_hash: account_hash.into(),
                     details: None,

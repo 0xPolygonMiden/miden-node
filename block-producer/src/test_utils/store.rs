@@ -174,7 +174,7 @@ impl MockStoreSuccess {
 impl ApplyBlock for MockStoreSuccess {
     async fn apply_block(
         &self,
-        block: Block,
+        block: &Block,
     ) -> Result<(), ApplyBlockError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
@@ -187,7 +187,7 @@ impl ApplyBlock for MockStoreSuccess {
         debug_assert_eq!(locked_accounts.root(), block.header.account_root());
 
         // update nullifiers
-        for nullifier in block.produced_nullifiers {
+        for nullifier in &block.produced_nullifiers {
             locked_produced_nullifiers
                 .insert(nullifier.inner(), [block.header.block_num().into(), ZERO, ZERO, ZERO]);
         }
@@ -291,7 +291,7 @@ pub struct MockStoreFailure;
 impl ApplyBlock for MockStoreFailure {
     async fn apply_block(
         &self,
-        _block: Block,
+        _block: &Block,
     ) -> Result<(), ApplyBlockError> {
         Err(ApplyBlockError::GrpcClientError(String::new()))
     }

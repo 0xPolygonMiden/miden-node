@@ -1,4 +1,4 @@
-use miden_node_proto::domain::accounts::UpdatedAccount;
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt},
@@ -68,7 +68,7 @@ pub async fn build_actual_block_header(
     let updated_accounts: Vec<_> =
         batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
     let produced_nullifiers: Vec<Nullifier> =
-        batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+        batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
     let block_inputs_from_store: BlockInputs = store
         .get_block_inputs(
@@ -89,7 +89,7 @@ pub struct MockBlockBuilder {
     store_chain_mmr: Mmr,
     last_block_header: BlockHeader,
 
-    updated_accounts: Option<Vec<UpdatedAccount>>,
+    updated_accounts: Option<Vec<AccountUpdateDetails>>,
     created_notes: Option<Vec<(usize, usize, NoteEnvelope)>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
@@ -109,7 +109,7 @@ impl MockBlockBuilder {
 
     pub fn account_updates(
         mut self,
-        updated_accounts: Vec<UpdatedAccount>,
+        updated_accounts: Vec<AccountUpdateDetails>,
     ) -> Self {
         for update in &updated_accounts {
             self.store_accounts

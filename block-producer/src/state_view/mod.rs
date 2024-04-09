@@ -119,9 +119,9 @@ where
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn apply_block(
         &self,
-        block: Block,
+        block: &Block,
     ) -> Result<(), ApplyBlockError> {
-        self.store.apply_block(block.clone()).await?;
+        self.store.apply_block(block).await?;
 
         let mut locked_accounts_in_flight = self.accounts_in_flight.write().await;
         let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;

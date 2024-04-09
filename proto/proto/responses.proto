@@ -36,7 +36,7 @@ message SyncStateResponse {
     mmr.MmrDelta mmr_delta = 3;
 
     // a list of account hashes updated after `block_num + 1` but not after `block_header.block_num`
-    repeated account.AccountHashUpdate accounts = 5;
+    repeated account.AccountSummary accounts = 5;
 
     // a list of all notes together with the Merkle paths from `block_header.note_root`
     repeated note.NoteSyncRecord notes = 6;
