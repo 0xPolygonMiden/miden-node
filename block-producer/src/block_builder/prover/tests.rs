@@ -2,7 +2,9 @@ use std::{collections::BTreeMap, iter};
 
 use miden_node_proto::domain::accounts::UpdatedAccount;
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{
+        AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+    },
     crypto::merkle::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
         SMT_DEPTH,
@@ -31,9 +33,9 @@ use crate::{
 /// The store will contain accounts 1 & 2, while the transaction batches will contain 2 & 3.
 #[test]
 fn test_block_witness_validation_inconsistent_account_ids() {
-    let account_id_1 = AccountId::new_unchecked(ZERO);
-    let account_id_2 = AccountId::new_unchecked(ONE);
-    let account_id_3 = AccountId::new_unchecked(Felt::new(42));
+    let account_id_1 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
+    let account_id_2 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 1));
+    let account_id_3 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2));
 
     let block_inputs_from_store: BlockInputs = {
         let block_header = BlockHeader::mock(0, None, None, &[]);
@@ -92,8 +94,9 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 /// Only account 1 will have a different state hash
 #[test]
 fn test_block_witness_validation_inconsistent_account_hashes() {
-    let account_id_1 = AccountId::new_unchecked(ZERO);
-    let account_id_2 = AccountId::new_unchecked(ONE);
+    let account_id_1 =
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN));
+    let account_id_2 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
 
     let account_1_hash_store =
         Digest::new([Felt::new(1u64), Felt::new(2u64), Felt::new(3u64), Felt::new(4u64)]);
@@ -162,11 +165,11 @@ async fn test_compute_account_root_success() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
-        AccountId::new_unchecked(Felt::new(0b0000_0000_0000_0000u64)),
-        AccountId::new_unchecked(Felt::new(0b1111_0000_0000_0000u64)),
-        AccountId::new_unchecked(Felt::new(0b1111_1111_0000_0000u64)),
-        AccountId::new_unchecked(Felt::new(0b1111_1111_1111_0000u64)),
-        AccountId::new_unchecked(Felt::new(0b1111_1111_1111_1111u64)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 1)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 3)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 4)),
     ];
 
     let account_initial_states = [
@@ -373,9 +376,9 @@ async fn test_compute_note_root_empty_notes_success() {
 #[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_success() {
     let account_ids = [
-        AccountId::new_unchecked(Felt::new(0u64)),
-        AccountId::new_unchecked(Felt::new(1u64)),
-        AccountId::new_unchecked(Felt::new(2u64)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 1)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2)),
     ];
 
     let notes_created: Vec<NoteEnvelope> = [
