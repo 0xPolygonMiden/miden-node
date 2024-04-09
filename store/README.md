@@ -118,7 +118,6 @@ Returns a list of notes matching the provided note IDs.
 
 - `notes`: `[Note]` - List of notes matching the list of requested NoteIds.
 
-
 ### GetAccountDetails
 
 Returns the latest state of an account with the specified ID.
@@ -130,18 +129,6 @@ Returns the latest state of an account with the specified ID.
 **Returns**
 
 - `account`: `AccountInfo` – latest state of the account. For public accounts, this will include full details describing the current account state. For private accounts, only the hash of the latest state and the time of the last update is returned.
-
-### GetNotesById
-
-Returns a list of Note's matching a certain list of NoteId's.
-
-**Parameters**
-
-* `note_ids`: `[NoteId]` - list of ID's of the Note's we want to query.
-
-**Returns**
-
-* `notes`: `[Note]` - List of notes matching the list of requested NoteId's.
 
 ### SyncState
 
