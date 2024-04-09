@@ -6,7 +6,7 @@ use miden_objects::{
         hash::{blake::Blake3Digest, Digest},
         utils::bytes_to_hex_string,
     },
-    notes::{NoteEnvelope, Nullifier},
+    notes::Nullifier,
     transaction::{InputNotes, OutputNotes},
 };
 
@@ -22,12 +22,12 @@ pub fn format_input_notes(notes: &InputNotes<Nullifier>) -> String {
     format_array(notes.iter().map(Nullifier::to_hex))
 }
 
-pub fn format_output_notes(notes: &OutputNotes<NoteEnvelope>) -> String {
-    format_array(notes.iter().map(|envelope| {
-        let metadata = envelope.metadata();
+pub fn format_output_notes(notes: &OutputNotes) -> String {
+    format_array(notes.iter().map(|output_note| {
+        let metadata = output_note.metadata();
         format!(
             "{{ note_id: {}, note_metadata: {{sender: {}, tag: {} }}}}",
-            envelope.note_id().to_hex(),
+            output_note.id().to_hex(),
             metadata.sender(),
             metadata.tag(),
         )

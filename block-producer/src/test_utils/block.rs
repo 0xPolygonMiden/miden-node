@@ -168,7 +168,7 @@ pub(crate) fn note_created_smt_from_envelopes(
     note_iterator: impl Iterator<Item = (usize, usize, NoteEnvelope)>
 ) -> BlockNoteTree {
     BlockNoteTree::with_entries(note_iterator.map(|(batch_idx, note_idx_in_batch, note)| {
-        (batch_idx, note_idx_in_batch, (note.note_id().into(), *note.metadata()))
+        (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
     }))
     .unwrap()
 }
@@ -178,7 +178,7 @@ pub(crate) fn note_created_smt_from_batches<'a>(
 ) -> BlockNoteTree {
     let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
         batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
-            (batch_idx, note_idx_in_batch, (note.note_id().into(), *note.metadata()))
+            (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
         })
     });
 

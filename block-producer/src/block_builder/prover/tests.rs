@@ -10,6 +10,7 @@ use miden_objects::{
         SMT_DEPTH,
     },
     notes::{NoteEnvelope, NoteMetadata, NoteType},
+    transaction::OutputNote,
     BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
@@ -393,6 +394,7 @@ async fn test_compute_note_root_success() {
             note_digest.into(),
             NoteMetadata::new(account_id, NoteType::OffChain, 0.into(), ONE).unwrap(),
         )
+        .unwrap()
     })
     .collect();
 
@@ -413,8 +415,9 @@ async fn test_compute_note_root_success() {
             .iter()
             .zip(account_ids.iter())
             .map(|(note, &account_id)| {
+                let note = OutputNote::Private(*note);
                 MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
-                    .notes_created(vec![*note])
+                    .notes_created(vec![note])
                     .build()
             })
             .collect();
@@ -441,11 +444,11 @@ async fn test_compute_note_root_success() {
     // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
     // the second subtree of depth 12
     let notes_smt = SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(vec![
-        (0u64, notes_created[0].note_id().into()),
+        (0u64, notes_created[0].id().into()),
         (1u64, notes_created[0].metadata().into()),
-        (2u64, notes_created[1].note_id().into()),
+        (2u64, notes_created[1].id().into()),
         (3u64, notes_created[1].metadata().into()),
-        (2u64.pow(13), notes_created[2].note_id().into()),
+        (2u64.pow(13), notes_created[2].id().into()),
         (2u64.pow(13) + 1, notes_created[2].metadata().into()),
     ])
     .unwrap();
