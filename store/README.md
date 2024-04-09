@@ -118,6 +118,7 @@ Returns a list of notes matching the provided note IDs.
 
 - `notes`: `[Note]` - List of notes matching the list of requested NoteIds.
 
+
 ### GetAccountDetails
 
 Returns the latest state of an account with the specified ID.
