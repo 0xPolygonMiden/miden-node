@@ -156,7 +156,7 @@ contains excessive notes and nullifiers, client can make additional filtering of
 - `chain_tip`: `uint32` – number of the latest block in the chain.
 - `block_header`: `BlockHeader` – block header of the block with the first note matching the specified criteria.
 - `mmr_delta`: `MmrDelta` – data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`.
-- `accounts`: `[AccountSummary]` – a list of account hashes updated after `block_num + 1` but not after `block_header.block_num`.
+- `accounts`: `[AccountSummary]` – account summaries for accounts updated after `block_num + 1` but not after `block_header.block_num`.
 - `notes`: `[NoteSyncRecord]` – a list of all notes together with the Merkle paths from `block_header.note_root`.
 - `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `block_num + 1` and `block_header.block_num`.
 
