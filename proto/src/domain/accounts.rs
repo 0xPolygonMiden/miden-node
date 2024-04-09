@@ -13,8 +13,8 @@ use crate::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         account::{
-            AccountHashUpdate as AccountHashUpdatePb, AccountId as AccountIdPb,
-            AccountInfo as AccountInfoPb,
+            AccountId as AccountIdPb, AccountInfo as AccountInfoPb,
+            AccountSummary as AccountSummaryPb,
         },
         requests::AccountUpdate,
         responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
@@ -51,6 +51,12 @@ impl From<u64> for AccountIdPb {
     }
 }
 
+impl From<&AccountId> for AccountIdPb {
+    fn from(account_id: &AccountId) -> Self {
+        (*account_id).into()
+    }
+}
+
 impl From<AccountId> for AccountIdPb {
     fn from(account_id: AccountId) -> Self {
         Self {
@@ -80,14 +86,14 @@ impl TryFrom<AccountIdPb> for AccountId {
 // ================================================================================================
 
 #[derive(Debug, PartialEq)]
-pub struct AccountHashUpdate {
+pub struct AccountSummary {
     pub account_id: AccountId,
     pub account_hash: RpoDigest,
     pub block_num: u32,
 }
 
-impl From<&AccountHashUpdate> for AccountHashUpdatePb {
-    fn from(update: &AccountHashUpdate) -> Self {
+impl From<&AccountSummary> for AccountSummaryPb {
+    fn from(update: &AccountSummary) -> Self {
         Self {
             account_id: Some(update.account_id.into()),
             account_hash: Some(update.account_hash.into()),
@@ -98,32 +104,32 @@ impl From<&AccountHashUpdate> for AccountHashUpdatePb {
 
 #[derive(Debug, PartialEq)]
 pub struct AccountInfo {
-    pub update: AccountHashUpdate,
+    pub summary: AccountSummary,
     pub details: Option<Account>,
 }
 
 impl From<&AccountInfo> for AccountInfoPb {
-    fn from(AccountInfo { update, details }: &AccountInfo) -> Self {
+    fn from(AccountInfo { summary, details }: &AccountInfo) -> Self {
         Self {
-            update: Some(update.into()),
+            summary: Some(summary.into()),
             details: details.as_ref().map(|account| account.to_bytes()),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UpdatedAccount {
+pub struct AccountUpdateDetails {
     pub account_id: AccountId,
     pub final_state_hash: Digest,
     pub details: Option<AccountDetails>,
 }
 
-impl From<&UpdatedAccount> for AccountUpdate {
-    fn from(update: &UpdatedAccount) -> Self {
+impl From<&AccountUpdateDetails> for AccountUpdate {
+    fn from(update: &AccountUpdateDetails) -> Self {
         Self {
             account_id: Some(update.account_id.into()),
             account_hash: Some(update.final_state_hash.into()),
-            // details: update.details.to_bytes(),
+            details: update.details.as_ref().map(|details| details.to_bytes()),
         }
     }
 }

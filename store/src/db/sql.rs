@@ -1,17 +1,21 @@
 //! Wrapper functions for SQL statements.
 
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc};
 
-use miden_node_proto::domain::accounts::{AccountHashUpdate, AccountInfo};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
 use miden_objects::{
-    accounts::Account,
+    accounts::{Account, AccountDelta},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, Nullifier},
     transaction::AccountDetails,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
-use rusqlite::{params, types::Value, Connection, Transaction};
+use rusqlite::{
+    params,
+    types::{Value, ValueRef},
+    Connection, Transaction,
+};
 
 use super::{Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
@@ -72,18 +76,18 @@ pub fn select_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, Rp
     Ok(result)
 }
 
-/// Select [AccountHashUpdate] from the DB using the given [Connection], given that the account
+/// Select [AccountSummary] from the DB using the given [Connection], given that the account
 /// update was done between `(block_start, block_end]`.
 ///
 /// # Returns
 ///
-/// The vector of [AccountHashUpdate] with the matching accounts.
+/// The vector of [AccountSummary] with the matching accounts.
 pub fn select_accounts_by_block_range(
     conn: &mut Connection,
     block_start: BlockNumber,
     block_end: BlockNumber,
     account_ids: &[AccountId],
-) -> Result<Vec<AccountHashUpdate>> {
+) -> Result<Vec<AccountSummary>> {
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
@@ -154,28 +158,58 @@ pub fn select_account(
 /// transaction.
 pub fn upsert_accounts(
     transaction: &Transaction,
-    accounts: &[(AccountId, Option<AccountDetails>, RpoDigest)],
+    accounts: &[AccountUpdateDetails],
     block_num: BlockNumber,
 ) -> Result<usize> {
-    let mut stmt = transaction.prepare(
-        "
-        INSERT OR REPLACE INTO
-            accounts (account_id, account_hash, block_num, details)
-        VALUES (?1, ?2, ?3, ?4);
-    ",
+    let mut upsert_stmt = transaction.prepare(
+        "INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num, details) VALUES (?1, ?2, ?3, ?4);",
     )?;
+    let mut select_details_stmt =
+        transaction.prepare("SELECT details FROM accounts WHERE account_id = ?1;")?;
 
     let mut count = 0;
-    for (account_id, details, account_hash) in accounts.iter() {
-        // TODO: Process account details/delta (in the next PR)
+    for update in accounts.iter() {
+        let account_id = update.account_id.into();
+        let full_account = match &update.details {
+            None => None,
+            Some(AccountDetails::Full(account)) => {
+                debug_assert!(account.is_new());
+                debug_assert_eq!(account_id, u64::from(account.id()));
 
-        count += stmt.execute(params![
-            u64_to_value(*account_id),
-            account_hash.to_bytes(),
+                if account.hash() != update.final_state_hash {
+                    return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
+                        calculated: account.hash(),
+                        expected: update.final_state_hash,
+                    });
+                }
+
+                Some(Cow::Borrowed(account))
+            },
+            Some(AccountDetails::Delta(delta)) => {
+                let mut rows = select_details_stmt.query(params![u64_to_value(account_id)])?;
+                let Some(row) = rows.next()? else {
+                    return Err(DatabaseError::AccountNotFoundInDb(account_id));
+                };
+
+                let account =
+                    apply_delta(account_id, &row.get_ref(0)?, delta, &update.final_state_hash)?;
+
+                Some(Cow::Owned(account))
+            },
+        };
+
+        let inserted = upsert_stmt.execute(params![
+            u64_to_value(account_id),
+            update.final_state_hash.to_bytes(),
             block_num,
-            details.as_ref().map(|details| details.to_bytes()),
-        ])?
+            full_account.as_ref().map(|account| account.to_bytes()),
+        ])?;
+
+        debug_assert_eq!(inserted, 1);
+
+        count += inserted;
     }
+
     Ok(count)
 }
 
@@ -669,7 +703,7 @@ pub fn apply_block(
     block_header: &BlockHeader,
     notes: &[Note],
     nullifiers: &[Nullifier],
-    accounts: &[(AccountId, Option<AccountDetails>, RpoDigest)],
+    accounts: &[AccountUpdateDetails],
 ) -> Result<usize> {
     let mut count = 0;
     count += insert_block_header(transaction, block_header)?;
@@ -715,16 +749,16 @@ fn column_value_as_u64<I: rusqlite::RowIndex>(
     Ok(value as u64)
 }
 
-/// Constructs `AccountHashUpdate` from the row of `accounts` table.
+/// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
-fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> Result<AccountHashUpdate> {
+fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> Result<AccountSummary> {
     let account_id = column_value_as_u64(row, 0)?;
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
     let block_num = row.get(2)?;
 
-    Ok(AccountHashUpdate {
+    Ok(AccountSummary {
         account_id: account_id.try_into()?,
         account_hash,
         block_num,
@@ -737,8 +771,38 @@ fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> Result<AccountHashUp
 fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
     let update = account_hash_update_from_row(row)?;
 
-    let details = row.get_ref(3)?.as_bytes_or_null()?;
+    let details = row.get_ref(3)?.as_blob_or_null()?;
     let details = details.map(Account::read_from_bytes).transpose()?;
 
-    Ok(AccountInfo { update, details })
+    Ok(AccountInfo {
+        summary: update,
+        details,
+    })
+}
+
+/// Deserializes account and applies account delta.
+fn apply_delta(
+    account_id: u64,
+    value: &ValueRef<'_>,
+    delta: &AccountDelta,
+    final_state_hash: &RpoDigest,
+) -> Result<Account, DatabaseError> {
+    let account = value.as_blob_or_null()?;
+    let account = account.map(Account::read_from_bytes).transpose()?;
+
+    let Some(mut account) = account else {
+        return Err(DatabaseError::AccountNotOnChain(account_id));
+    };
+
+    account.apply_delta(delta)?;
+
+    let actual_hash = account.hash();
+    if &actual_hash != final_state_hash {
+        return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
+            calculated: actual_hash,
+            expected: *final_state_hash,
+        });
+    }
+
+    Ok(account)
 }

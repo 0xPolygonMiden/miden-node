@@ -128,8 +128,7 @@ Returns the latest state of an account with the specified ID.
 
 **Returns**
 
-- `account`: `AccountInfo` – account state information. For public accounts there is also details describing current state, stored on-chain;
-  for private accounts only hash of the latest known state is returned.
+- `account`: `AccountInfo` – latest state of the account. For public accounts, this will include full details describing the current account state. For private accounts, only the hash of the latest state and the time of the last update is returned.
 
 ### GetNotesById
 
@@ -169,7 +168,7 @@ contains excessive notes and nullifiers, client can make additional filtering of
 - `chain_tip`: `uint32` – number of the latest block in the chain.
 - `block_header`: `BlockHeader` – block header of the block with the first note matching the specified criteria.
 - `mmr_delta`: `MmrDelta` – data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`.
-- `accounts`: `[AccountHashUpdate]` – a list of account hashes updated after `block_num + 1` but not after `block_header.block_num`.
+- `accounts`: `[AccountSummary]` – account summaries for accounts updated after `block_num + 1` but not after `block_header.block_num`.
 - `notes`: `[NoteSyncRecord]` – a list of all notes together with the Merkle paths from `block_header.note_root`.
 - `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `block_num + 1` and `block_header.block_num`.
 

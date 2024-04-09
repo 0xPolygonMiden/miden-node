@@ -1,12 +1,11 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_node_proto::domain::accounts::{AccountHashUpdate, AccountInfo};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
 use miden_objects::{
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, Nullifier},
-    transaction::AccountDetails,
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -69,7 +68,7 @@ pub struct StateSyncUpdate {
     pub notes: Vec<Note>,
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
-    pub account_updates: Vec<AccountHashUpdate>,
+    pub account_updates: Vec<AccountSummary>,
     pub nullifiers: Vec<NullifierInfo>,
 }
 
@@ -281,7 +280,7 @@ impl Db {
         block_header: BlockHeader,
         notes: Vec<Note>,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<(AccountId, Option<AccountDetails>, RpoDigest)>,
+        accounts: Vec<AccountUpdateDetails>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -364,8 +363,14 @@ impl Db {
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt
                             .leaves()
-                            .map(|(account_id, state_hash)| (account_id, None, state_hash.into()))
-                            .collect();
+                            .map(|(account_id, state_hash)| {
+                                Ok(AccountUpdateDetails {
+                                    account_id: account_id.try_into()?,
+                                    final_state_hash: state_hash.into(),
+                                    details: None,
+                                })
+                            })
+                            .collect::<Result<_, DatabaseError>>()?;
                         sql::apply_block(
                             &transaction,
                             &expected_genesis_header,

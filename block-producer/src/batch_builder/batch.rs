@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
-use miden_node_proto::domain::accounts::UpdatedAccount;
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::AccountId,
     batches::BatchNoteTree,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteEnvelope, Nullifier},
+    transaction::AccountDetails,
     Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
@@ -54,6 +55,7 @@ impl TransactionBatch {
                     AccountStates {
                         initial_state: tx.initial_account_hash(),
                         final_state: tx.final_account_hash(),
+                        details: tx.account_details().cloned(),
                     },
                 )
             })
@@ -107,15 +109,15 @@ impl TransactionBatch {
             .map(|(account_id, account_states)| (*account_id, account_states.initial_state))
     }
 
-    /// Returns an iterator over (account_id, new_state_hash) tuples for accounts that were
+    /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
-    pub fn updated_accounts(&self) -> impl Iterator<Item = UpdatedAccount> + '_ {
+    pub fn updated_accounts(&self) -> impl Iterator<Item = AccountUpdateDetails> + '_ {
         self.updated_accounts
             .iter()
-            .map(|(&account_id, account_states)| UpdatedAccount {
+            .map(|(&account_id, account_states)| AccountUpdateDetails {
                 account_id,
                 final_state_hash: account_states.final_state,
-                details: None, // TODO: In the next PR: account_states.details.clone(),
+                details: account_states.details.clone(),
             })
     }
 
@@ -150,8 +152,9 @@ impl TransactionBatch {
 /// account.
 ///
 /// TODO: should this be moved into domain objects?
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct AccountStates {
     initial_state: Digest,
     final_state: Digest,
+    details: Option<AccountDetails>,
 }
