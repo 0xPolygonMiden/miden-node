@@ -360,7 +360,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
                 note_index: row.get(2)?,
                 note_id,
                 sender: column_value_as_u64(row, 4)?,
-                tag: column_value_as_u64(row, 5)?,
+                tag: row.get(5)?,
                 details,
             },
             merkle_path,
@@ -413,7 +413,7 @@ pub fn insert_notes(
             note.note_created.note_index,
             note.note_created.note_id.to_bytes(),
             u64_to_value(note.note_created.sender),
-            u64_to_value(note.note_created.tag),
+            note.note_created.tag,
             note.merkle_path.to_bytes(),
             details
         ])?;
@@ -464,7 +464,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
                 FROM
                     notes
                 WHERE
-                    ((tag >> 48) IN rarray(?1) OR sender IN rarray(?2)) AND
+                    (tag IN rarray(?1) OR sender IN rarray(?2)) AND
                     block_num > ?3
                 ORDER BY
                     block_num ASC
@@ -472,7 +472,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
                     1
             ) AND
             -- filter the block's notes and return only the ones matching the requested tags
-            ((tag >> 48) IN rarray(?1) OR sender IN rarray(?2));
+            (tag IN rarray(?1) OR sender IN rarray(?2));
     ",
     )?;
     let mut rows = stmt.query(params![Rc::new(tags), Rc::new(account_ids), block_num])?;
@@ -485,7 +485,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
         let sender = column_value_as_u64(row, 4)?;
-        let tag = column_value_as_u64(row, 5)?;
+        let tag = row.get(5)?;
         let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
         let details_data = row.get_ref(7)?.as_blob_or_null()?;
@@ -558,7 +558,7 @@ pub fn select_notes_by_id(
                 details,
                 note_id: note_id.into(),
                 sender: column_value_as_u64(row, 4)?,
-                tag: column_value_as_u64(row, 5)?,
+                tag: row.get(5)?,
             },
             merkle_path,
         })

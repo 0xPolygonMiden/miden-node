@@ -145,6 +145,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|note| NoteSyncRecord {
                 note_index: note.note_created.absolute_note_index(),
+                note_type: note.note_created.note_type() as u32,
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
