@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 ###############
-# Remove bor installs
+# Remove miden installs
 ##############
 sudo rm -rf /lib/systemd/system/miden-node.service
 sudo deluser miden
