@@ -143,7 +143,7 @@ fn test_sql_select_notes() {
                 note_index: i,
                 note_id: num_to_rpo_digest(i as u64),
                 sender: i as u64,
-                tag: i as u64,
+                tag: i,
                 details: Some(vec![1, 2, 3]),
             },
             merkle_path: MerklePath::new(vec![]),
@@ -590,10 +590,9 @@ fn test_notes() {
     let batch_index = 0u32;
     let note_index = 2u32;
     let note_id = num_to_rpo_digest(3);
-    let tag = 5u64;
+    let tag = 5u32;
     let sender = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
-    let note_metadata =
-        NoteMetadata::new(sender, NoteType::OffChain, (tag as u32).into(), ZERO).unwrap();
+    let note_metadata = NoteMetadata::new(sender, NoteType::OffChain, tag.into(), ZERO).unwrap();
 
     let values = [(batch_index as usize, note_index as usize, (note_id, note_metadata))];
     let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
@@ -624,7 +623,7 @@ fn test_notes() {
     // test no updates
     let res = sql::select_notes_since_block_by_tag_and_sender(
         &mut conn,
-        &[(tag >> 48) as u32],
+        &[(tag >> 16)],
         &[],
         block_num_1,
     )
@@ -634,7 +633,7 @@ fn test_notes() {
     // test match
     let res = sql::select_notes_since_block_by_tag_and_sender(
         &mut conn,
-        &[(tag >> 48) as u32],
+        &[(tag >> 16)],
         &[],
         block_num_1 - 1,
     )
@@ -665,7 +664,7 @@ fn test_notes() {
     // only first note is returned
     let res = sql::select_notes_since_block_by_tag_and_sender(
         &mut conn,
-        &[(tag >> 48) as u32],
+        &[(tag >> 16)],
         &[],
         block_num_1 - 1,
     )
@@ -675,7 +674,7 @@ fn test_notes() {
     // only the second note is returned
     let res = sql::select_notes_since_block_by_tag_and_sender(
         &mut conn,
-        &[(tag >> 48) as u32],
+        &[(tag >> 16)],
         &[],
         block_num_1,
     )

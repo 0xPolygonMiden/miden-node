@@ -121,7 +121,7 @@ fn create_accounts(
     let mut final_accounts = Vec::new();
 
     for account in accounts {
-        // build account data from account inputs
+        // build offchain account data from account inputs
         let mut account_data = match account {
             AccountInput::BasicWallet(inputs) => {
                 print!("Creating basic wallet account...");
