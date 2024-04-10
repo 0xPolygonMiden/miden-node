@@ -14,6 +14,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     config::StoreConfig,
+    db::migrations::MIGRATIONS,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
     genesis::GenesisState,
     types::{AccountId, BlockNumber},
@@ -124,11 +125,9 @@ impl Db {
 
         let conn = pool.get().await.map_err(DatabaseError::MissingDbConnection)?;
 
-        conn.interact(|conn| migrations::MIGRATIONS.to_latest(conn))
-            .await
-            .map_err(|err| {
-                DatabaseError::InteractError(format!("Migration task failed: {err}"))
-            })??;
+        conn.interact(|conn| MIGRATIONS.to_latest(conn)).await.map_err(|err| {
+            DatabaseError::InteractError(format!("Migration task failed: {err}"))
+        })??;
 
         let db = Db { pool };
         db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy())
