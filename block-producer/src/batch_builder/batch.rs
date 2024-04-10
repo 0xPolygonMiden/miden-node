@@ -65,7 +65,7 @@ impl TransactionBatch {
             txs.iter().flat_map(|tx| tx.input_notes().iter()).cloned().collect();
 
         let (created_note_envelopes_with_details, created_notes_smt) = {
-            let created_note_envelopes_with_details: Vec<(NoteEnvelope, Option<Vec<u8>>)> = txs
+            let created_notes: Vec<(NoteEnvelope, Option<Vec<u8>>)> = txs
                 .iter()
                 .flat_map(|tx| tx.output_notes().iter())
                 .map(|note| match note {
@@ -74,18 +74,15 @@ impl TransactionBatch {
                 })
                 .collect();
 
-            if created_note_envelopes_with_details.len() > MAX_NOTES_PER_BATCH {
-                return Err(BuildBatchError::TooManyNotesCreated(
-                    created_note_envelopes_with_details.len(),
-                    txs,
-                ));
+            if created_notes.len() > MAX_NOTES_PER_BATCH {
+                return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
             }
 
             // TODO: document under what circumstances SMT creating can fail
             (
-                created_note_envelopes_with_details.clone(),
+                created_notes.clone(),
                 BatchNoteTree::with_contiguous_leaves(
-                    created_note_envelopes_with_details
+                    created_notes
                         .iter()
                         .map(|(note_envelope, _)| (note_envelope.id(), note_envelope.metadata())),
                 )
