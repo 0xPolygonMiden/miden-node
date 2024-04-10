@@ -15,6 +15,10 @@ pub struct Note {
     pub tag: u64,
     #[prost(message, optional, tag = "7")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
+    /// This field will be present when the note is on-chain.
+    /// details contain the `Note` in a serialized format.
+    #[prost(bytes = "vec", optional, tag = "8")]
+    pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -45,4 +49,8 @@ pub struct NoteCreated {
     pub sender: ::core::option::Option<super::account::AccountId>,
     #[prost(fixed64, tag = "5")]
     pub tag: u64,
+    /// This field will be present when the note is on-chain.
+    /// details contain the `Note` in a serialized format.
+    #[prost(bytes = "vec", optional, tag = "6")]
+    pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

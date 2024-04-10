@@ -332,7 +332,8 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
             note_hash,
             sender,
             tag,
-            merkle_path
+            merkle_path,
+            details
         FROM
             notes
         ORDER BY
@@ -349,6 +350,9 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
         let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
+        let details_data = row.get_ref(7)?.as_blob_or_null()?;
+        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+
         notes.push(Note {
             block_num: row.get(0)?,
             note_created: NoteCreated {
@@ -357,6 +361,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
                 note_id,
                 sender: column_value_as_u64(row, 4)?,
                 tag: column_value_as_u64(row, 5)?,
+                details,
             },
             merkle_path,
         })
@@ -389,16 +394,19 @@ pub fn insert_notes(
             note_hash,
             sender,
             tag,
-            merkle_path
+            merkle_path,
+            details
         )
         VALUES
         (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8
         );",
     )?;
 
     let mut count = 0;
     for note in notes.iter() {
+        let details = note.note_created.details.as_ref().map(|details| details.to_bytes());
+
         count += stmt.execute(params![
             note.block_num,
             note.note_created.batch_index,
@@ -407,6 +415,7 @@ pub fn insert_notes(
             u64_to_value(note.note_created.sender),
             u64_to_value(note.note_created.tag),
             note.merkle_path.to_bytes(),
+            details
         ])?;
     }
 
@@ -443,7 +452,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
             note_hash,
             sender,
             tag,
-            merkle_path
+            merkle_path,
+            details
         FROM
             notes
         WHERE
@@ -478,6 +488,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let tag = column_value_as_u64(row, 5)?;
         let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
+        let details_data = row.get_ref(7)?.as_blob_or_null()?;
+        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         let note = Note {
             block_num,
@@ -487,6 +499,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
                 note_id,
                 sender,
                 tag,
+                details,
             },
             merkle_path,
         };
@@ -516,7 +529,8 @@ pub fn select_notes_by_id(
             note_hash,
             sender,
             tag,
-            merkle_path
+            merkle_path,
+            details
         FROM
             notes
         WHERE
@@ -533,11 +547,15 @@ pub fn select_notes_by_id(
         let merkle_path_data = row.get_ref(6)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
+        let details_data = row.get_ref(7)?.as_blob_or_null()?;
+        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+
         notes.push(Note {
             block_num: row.get(0)?,
             note_created: NoteCreated {
                 batch_index: row.get(1)?,
                 note_index: row.get(2)?,
+                details,
                 note_id: note_id.into(),
                 sender: column_value_as_u64(row, 4)?,
                 tag: column_value_as_u64(row, 5)?,
