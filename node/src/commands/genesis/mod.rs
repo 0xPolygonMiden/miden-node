@@ -12,7 +12,7 @@ use miden_lib::{
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::config::load_config;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountType, AuthData, AccountStorageType},
+    accounts::{Account, AccountData, AccountStorageType, AccountType, AuthData},
     assets::TokenSymbol,
     crypto::{
         dsa::rpo_falcon512::SecretKey,
