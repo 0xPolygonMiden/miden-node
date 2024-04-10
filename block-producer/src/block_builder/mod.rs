@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use miden_node_proto::generated::note::NoteCreated;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::notes::Nullifier;
 use tracing::{debug, info, instrument};
@@ -82,16 +83,17 @@ where
 
         let updated_accounts: Vec<_> =
             batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
-        let created_notes = batches
+
+        let created_notes: Vec<(usize, usize, NoteCreated)> = batches
             .iter()
             .enumerate()
             .flat_map(|(batch_idx, batch)| {
-                batch
-                    .created_notes()
-                    .enumerate()
-                    .map(move |(note_idx_in_batch, note)| (batch_idx, note_idx_in_batch, *note))
+                batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
+                    (batch_idx, note_idx_in_batch, note.clone())
+                })
             })
             .collect();
+
         let produced_nullifiers: Vec<Nullifier> =
             batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 

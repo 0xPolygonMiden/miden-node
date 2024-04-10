@@ -19,5 +19,5 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Install cargo make
         run: cargo install cargo-make
-      - name: cargo make - test
+      - name: cargo make - test-all
         run: cargo make test-all
