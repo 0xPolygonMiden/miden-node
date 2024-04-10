@@ -12,6 +12,9 @@ message Note {
     account.AccountId sender  = 4;
     fixed64 tag = 5;
     merkle.MerklePath merkle_path = 7;
+    // This field will be present when the note is on-chain.
+    // details contain the `Note` in a serialized format.
+    optional bytes details = 8;
 }
 
 message NoteSyncRecord {
@@ -28,4 +31,7 @@ message NoteCreated {
     digest.Digest note_id = 3;
     account.AccountId sender  = 4;
     fixed64 tag = 5;
+    // This field will be present when the note is on-chain.
+    // details contain the `Note` in a serialized format.
+    optional bytes details = 6;
 }
