@@ -12,7 +12,7 @@ use miden_lib::{
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::config::load_config;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountType, AuthData},
+    accounts::{Account, AccountData, AccountStorageType, AccountType, AuthData},
     assets::TokenSymbol,
     crypto::{
         dsa::rpo_falcon512::SecretKey,
@@ -134,6 +134,7 @@ fn create_accounts(
                     init_seed,
                     auth_scheme,
                     AccountType::RegularAccountImmutableCode,
+                    AccountStorageType::OffChain,
                 )?;
 
                 AccountData::new(account, Some(account_seed), auth_info)
@@ -151,6 +152,7 @@ fn create_accounts(
                     inputs.decimals,
                     Felt::try_from(inputs.max_supply)
                         .expect("max supply value is greater than or equal to the field modulus"),
+                    AccountStorageType::OffChain,
                     auth_scheme,
                 )?;
 
