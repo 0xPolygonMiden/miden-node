@@ -140,7 +140,7 @@ impl ApplyBlock for DefaultStore {
             block: Some((&block.header).into()),
             accounts: convert(&block.updated_accounts),
             nullifiers: convert(&block.produced_nullifiers),
-            notes: convert(&block.created_notes),
+            notes: block.created_notes.clone(),
         });
 
         let _ = self

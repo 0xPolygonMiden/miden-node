@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use miden_node_proto::{domain::accounts::AccountUpdateDetails, generated::note::NoteCreated};
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::AccountId,
     batches::BatchNoteTree,
@@ -28,10 +28,8 @@ pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Nullifier>,
-    /// The notes stored `created_notes_smt`
     created_notes_smt: BatchNoteTree,
-    created_notes: Vec<NoteCreated>,
-    created_note_envelopes: Vec<NoteEnvelope>,
+    created_note_envelopes_with_details: Vec<(NoteEnvelope, Option<Vec<u8>>)>,
 }
 
 impl TransactionBatch {
@@ -66,52 +64,32 @@ impl TransactionBatch {
         let produced_nullifiers =
             txs.iter().flat_map(|tx| tx.input_notes().iter()).cloned().collect();
 
-        let (created_notes, created_notes_smt, created_note_envelopes) = {
-            let created_note_envelopes: Vec<NoteEnvelope> = txs
+        let (created_note_envelopes_with_details, created_notes_smt) = {
+            let created_note_envelopes_with_details: Vec<(NoteEnvelope, Option<Vec<u8>>)> = txs
                 .iter()
                 .flat_map(|tx| tx.output_notes().iter())
-                .cloned()
-                .map(NoteEnvelope::from)
-                .collect();
-
-            let created_notes: Vec<NoteCreated> = txs
-                .iter()
-                .flat_map(|tx| {
-                    tx.output_notes().iter().map(|note| match note {
-                        OutputNote::Public(note) => NoteCreated {
-                            batch_index: 0,
-                            note_index: 0,
-                            note_id: Some(note.id().into()),
-                            sender: Some(note.metadata().sender().into()),
-                            tag: note.metadata().tag().into(),
-                            details: Some(note.to_bytes()),
-                        },
-                        OutputNote::Private(note_envelope) => NoteCreated {
-                            batch_index: 0,
-                            note_index: 0,
-                            note_id: Some(note_envelope.id().into()),
-                            sender: Some(note_envelope.metadata().sender().into()),
-                            tag: note_envelope.metadata().tag().into(),
-                            details: None,
-                        },
-                    })
+                .map(|note| match note {
+                    OutputNote::Public(note) => (note.into(), Some(note.to_bytes())),
+                    OutputNote::Private(envelope) => (*envelope, None),
                 })
                 .collect();
 
-            if created_notes.len() > MAX_NOTES_PER_BATCH {
-                return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
+            if created_note_envelopes_with_details.len() > MAX_NOTES_PER_BATCH {
+                return Err(BuildBatchError::TooManyNotesCreated(
+                    created_note_envelopes_with_details.len(),
+                    txs,
+                ));
             }
 
             // TODO: document under what circumstances SMT creating can fail
             (
-                created_notes.clone(),
+                created_note_envelopes_with_details.clone(),
                 BatchNoteTree::with_contiguous_leaves(
-                    created_note_envelopes
+                    created_note_envelopes_with_details
                         .iter()
-                        .map(|note_envelope| (note_envelope.id(), note_envelope.metadata())),
+                        .map(|(note_envelope, _)| (note_envelope.id(), note_envelope.metadata())),
                 )
                 .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?,
-                created_note_envelopes,
             )
         };
 
@@ -120,8 +98,7 @@ impl TransactionBatch {
             updated_accounts,
             produced_nullifiers,
             created_notes_smt,
-            created_notes,
-            created_note_envelopes,
+            created_note_envelopes_with_details,
         })
     }
 
@@ -158,20 +135,16 @@ impl TransactionBatch {
         self.produced_nullifiers.iter().cloned()
     }
 
-    /// Returns an iterator over created notes.
-    pub fn created_notes(&self) -> impl Iterator<Item = &NoteCreated> + '_ {
-        self.created_notes.iter()
-    }
-
     /// Returns the root hash of the created notes SMT.
     pub fn created_notes_root(&self) -> Digest {
         self.created_notes_smt.root()
     }
 
-    #[allow(dead_code)]
     /// Returns an iterator over created note envelopes.
-    pub fn created_notes_envelopes(&self) -> impl Iterator<Item = &NoteEnvelope> + '_ {
-        self.created_note_envelopes.iter()
+    pub fn created_note_envelopes_with_details(
+        &self
+    ) -> impl Iterator<Item = &(NoteEnvelope, Option<Vec<u8>>)> + '_ {
+        self.created_note_envelopes_with_details.iter()
     }
 
     // HELPER FUNCTIONS

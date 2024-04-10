@@ -19,7 +19,7 @@ use crate::store::BlockInputsError;
 pub struct Block {
     pub header: BlockHeader,
     pub updated_accounts: Vec<AccountUpdateDetails>,
-    pub created_notes: Vec<(usize, usize, NoteCreated)>,
+    pub created_notes: Vec<NoteCreated>,
     pub produced_nullifiers: Vec<Nullifier>,
     // TODO:
     // - full states for created public notes

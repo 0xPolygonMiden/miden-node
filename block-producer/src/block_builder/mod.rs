@@ -84,13 +84,20 @@ where
         let updated_accounts: Vec<_> =
             batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
 
-        let created_notes: Vec<(usize, usize, NoteCreated)> = batches
+        let created_notes: Vec<NoteCreated> = batches
             .iter()
             .enumerate()
-            .flat_map(|(batch_idx, batch)| {
-                batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
-                    (batch_idx, note_idx_in_batch, note.clone())
-                })
+            .flat_map(|(batch_index, batch)| {
+                batch.created_note_envelopes_with_details().enumerate().map(
+                    move |(note_index, (note_envelope, details))| NoteCreated {
+                        batch_index: batch_index as u32,
+                        note_index: note_index as u32,
+                        note_id: Some(note_envelope.id().into()),
+                        sender: Some(note_envelope.metadata().sender().into()),
+                        tag: note_envelope.metadata().tag().into(),
+                        details: details.clone(),
+                    },
+                )
             })
             .collect();
 

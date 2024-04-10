@@ -79,7 +79,7 @@ impl BlockWitness {
             .iter()
             .enumerate()
             .filter_map(|(batch_index, batch)| {
-                if batch.created_notes().next().is_none() {
+                if batch.created_note_envelopes_with_details().next().is_none() {
                     None
                 } else {
                     Some((batch_index, batch.created_notes_root()))

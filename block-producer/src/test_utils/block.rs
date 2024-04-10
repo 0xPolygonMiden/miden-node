@@ -90,7 +90,6 @@ pub struct MockBlockBuilder {
     last_block_header: BlockHeader,
 
     updated_accounts: Option<Vec<AccountUpdateDetails>>,
-    created_notes: Option<Vec<(usize, usize, NoteCreated)>>,
     created_note_envelopes: Option<Vec<(usize, usize, NoteEnvelope)>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
@@ -103,7 +102,6 @@ impl MockBlockBuilder {
             last_block_header: *store.last_block_header.read().await,
 
             updated_accounts: None,
-            created_notes: None,
             created_note_envelopes: None,
             produced_nullifiers: None,
         }
@@ -119,15 +117,6 @@ impl MockBlockBuilder {
         }
 
         self.updated_accounts = Some(updated_accounts);
-
-        self
-    }
-
-    pub fn created_notes(
-        mut self,
-        created_notes: Vec<(usize, usize, NoteCreated)>,
-    ) -> Self {
-        self.created_notes = Some(created_notes);
 
         self
     }
@@ -151,8 +140,19 @@ impl MockBlockBuilder {
     }
 
     pub fn build(self) -> Block {
-        let created_notes = self.created_notes.unwrap_or_default();
         let created_note_envelopes = self.created_note_envelopes.unwrap_or_default();
+
+        let created_notes = created_note_envelopes
+            .iter()
+            .map(|(batch_index, note_index, note_envelope)| NoteCreated {
+                batch_index: *batch_index as u32,
+                note_index: *note_index as u32,
+                note_id: Some(note_envelope.id().into()),
+                tag: note_envelope.metadata().tag().into(),
+                sender: Some(note_envelope.metadata().sender().into()),
+                details: None,
+            })
+            .collect();
 
         let header = BlockHeader::new(
             self.last_block_header.hash(),
@@ -189,12 +189,11 @@ pub(crate) fn note_created_smt_from_batches<'a>(
     batches: impl Iterator<Item = &'a TransactionBatch>
 ) -> BlockNoteTree {
     let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
-        batch
-            .created_notes_envelopes()
-            .enumerate()
-            .map(move |(note_idx_in_batch, note)| {
+        batch.created_note_envelopes_with_details().enumerate().map(
+            move |(note_idx_in_batch, (note, _))| {
                 (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
-            })
+            },
+        )
     });
 
     BlockNoteTree::with_entries(note_leaf_iterator).unwrap()
