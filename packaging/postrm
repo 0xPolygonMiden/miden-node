@@ -1,0 +1,8 @@
+#!/bin/bash
+#
+###############
+# Remove bor installs
+##############
+sudo rm -rf /lib/systemd/system/miden-node.service
+sudo deluser miden
+sudo systemctl daemon-reload
