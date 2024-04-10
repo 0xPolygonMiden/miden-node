@@ -621,23 +621,14 @@ fn test_notes() {
     assert!(res.is_empty());
 
     // test no updates
-    let res = sql::select_notes_since_block_by_tag_and_sender(
-        &mut conn,
-        &[(tag >> 16)],
-        &[],
-        block_num_1,
-    )
-    .unwrap();
+    let res = sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[tag], &[], block_num_1)
+        .unwrap();
     assert!(res.is_empty());
 
     // test match
-    let res = sql::select_notes_since_block_by_tag_and_sender(
-        &mut conn,
-        &[(tag >> 16)],
-        &[],
-        block_num_1 - 1,
-    )
-    .unwrap();
+    let res =
+        sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[tag], &[], block_num_1 - 1)
+            .unwrap();
     assert_eq!(res, vec![note.clone()]);
 
     let block_num_2 = note.block_num + 1;
@@ -662,23 +653,14 @@ fn test_notes() {
     transaction.commit().unwrap();
 
     // only first note is returned
-    let res = sql::select_notes_since_block_by_tag_and_sender(
-        &mut conn,
-        &[(tag >> 16)],
-        &[],
-        block_num_1 - 1,
-    )
-    .unwrap();
+    let res =
+        sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[tag], &[], block_num_1 - 1)
+            .unwrap();
     assert_eq!(res, vec![note.clone()]);
 
     // only the second note is returned
-    let res = sql::select_notes_since_block_by_tag_and_sender(
-        &mut conn,
-        &[(tag >> 16)],
-        &[],
-        block_num_1,
-    )
-    .unwrap();
+    let res = sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[tag], &[], block_num_1)
+        .unwrap();
     assert_eq!(res, vec![note2.clone()]);
 
     // test query notes by id
