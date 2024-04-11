@@ -82,16 +82,9 @@ where
 
         let updated_accounts: Vec<_> =
             batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
-        let created_notes = batches
-            .iter()
-            .enumerate()
-            .flat_map(|(batch_idx, batch)| {
-                batch
-                    .created_notes()
-                    .enumerate()
-                    .map(move |(note_idx_in_batch, note)| (batch_idx, note_idx_in_batch, *note))
-            })
-            .collect();
+
+        let created_notes = batches.iter().map(|batch| batch.created_notes().clone()).collect();
+
         let produced_nullifiers: Vec<Nullifier> =
             batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 

@@ -2,13 +2,14 @@ use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt},
-    notes::{NoteEnvelope, Nullifier},
+    notes::Nullifier,
+    transaction::OutputNote,
     BlockHeader, Digest, ACCOUNT_TREE_DEPTH, ONE, ZERO,
 };
 
 use super::MockStoreSuccess;
 use crate::{
-    block::{Block, BlockInputs},
+    block::{Block, BlockInputs, NoteBatch},
     block_builder::prover::{block_witness::BlockWitness, BlockProver},
     store::Store,
     TransactionBatch,
@@ -51,7 +52,7 @@ pub async fn build_expected_block_header(
         new_account_root,
         // FIXME: FILL IN CORRECT NULLIFIER ROOT
         Digest::default(),
-        note_created_smt_from_batches(batches.iter()).root(),
+        note_created_smt_from_batches(batches).root(),
         Digest::default(),
         Digest::default(),
         ZERO,
@@ -90,7 +91,7 @@ pub struct MockBlockBuilder {
     last_block_header: BlockHeader,
 
     updated_accounts: Option<Vec<AccountUpdateDetails>>,
-    created_notes: Option<Vec<(usize, usize, NoteEnvelope)>>,
+    created_note: Option<Vec<NoteBatch>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
 
@@ -102,7 +103,7 @@ impl MockBlockBuilder {
             last_block_header: *store.last_block_header.read().await,
 
             updated_accounts: None,
-            created_notes: None,
+            created_note: None,
             produced_nullifiers: None,
         }
     }
@@ -121,15 +122,6 @@ impl MockBlockBuilder {
         self
     }
 
-    pub fn created_notes(
-        mut self,
-        created_notes: Vec<(usize, usize, NoteEnvelope)>,
-    ) -> Self {
-        self.created_notes = Some(created_notes);
-
-        self
-    }
-
     pub fn produced_nullifiers(
         mut self,
         produced_nullifiers: Vec<Nullifier>,
@@ -140,7 +132,7 @@ impl MockBlockBuilder {
     }
 
     pub fn build(self) -> Block {
-        let created_notes = self.created_notes.unwrap_or_default();
+        let created_notes = self.created_note.unwrap_or_default();
 
         let header = BlockHeader::new(
             self.last_block_header.hash(),
@@ -148,7 +140,7 @@ impl MockBlockBuilder {
             self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
             self.store_accounts.root(),
             Digest::default(),
-            note_created_smt_from_envelopes(created_notes.iter().cloned()).root(),
+            note_created_smt_from_note_batches(created_notes.iter()).root(),
             Digest::default(),
             Digest::default(),
             ZERO,
@@ -164,23 +156,18 @@ impl MockBlockBuilder {
     }
 }
 
-pub(crate) fn note_created_smt_from_envelopes(
-    note_iterator: impl Iterator<Item = (usize, usize, NoteEnvelope)>
-) -> BlockNoteTree {
-    BlockNoteTree::with_entries(note_iterator.map(|(batch_idx, note_idx_in_batch, note)| {
-        (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
-    }))
-    .unwrap()
-}
-
-pub(crate) fn note_created_smt_from_batches<'a>(
-    batches: impl Iterator<Item = &'a TransactionBatch>
+pub(crate) fn note_created_smt_from_note_batches<'a>(
+    batches: impl Iterator<Item = &'a (impl IntoIterator<Item = OutputNote> + Clone + 'a)>
 ) -> BlockNoteTree {
     let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
-        batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
+        batch.clone().into_iter().enumerate().map(move |(note_idx_in_batch, note)| {
             (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
         })
     });
 
     BlockNoteTree::with_entries(note_leaf_iterator).unwrap()
+}
+
+pub(crate) fn note_created_smt_from_batches(batches: &[TransactionBatch]) -> BlockNoteTree {
+    note_created_smt_from_note_batches(batches.iter().map(|batch| batch.created_notes()))
 }

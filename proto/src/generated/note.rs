@@ -11,8 +11,10 @@ pub struct Note {
     pub note_id: ::core::option::Option<super::digest::Digest>,
     #[prost(message, optional, tag = "4")]
     pub sender: ::core::option::Option<super::account::AccountId>,
-    #[prost(fixed64, tag = "5")]
-    pub tag: u64,
+    #[prost(fixed32, tag = "5")]
+    pub tag: u32,
+    #[prost(uint32, tag = "6")]
+    pub note_type: u32,
     #[prost(message, optional, tag = "7")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
     /// This field will be present when the note is on-chain.
@@ -30,8 +32,10 @@ pub struct NoteSyncRecord {
     pub note_id: ::core::option::Option<super::digest::Digest>,
     #[prost(message, optional, tag = "3")]
     pub sender: ::core::option::Option<super::account::AccountId>,
-    #[prost(fixed64, tag = "4")]
-    pub tag: u64,
+    #[prost(fixed32, tag = "4")]
+    pub tag: u32,
+    #[prost(uint32, tag = "5")]
+    pub note_type: u32,
     #[prost(message, optional, tag = "6")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
 }
@@ -45,12 +49,14 @@ pub struct NoteCreated {
     pub note_index: u32,
     #[prost(message, optional, tag = "3")]
     pub note_id: ::core::option::Option<super::digest::Digest>,
-    #[prost(message, optional, tag = "4")]
+    #[prost(uint32, tag = "4")]
+    pub note_type: u32,
+    #[prost(message, optional, tag = "5")]
     pub sender: ::core::option::Option<super::account::AccountId>,
-    #[prost(fixed64, tag = "5")]
-    pub tag: u64,
+    #[prost(fixed32, tag = "6")]
+    pub tag: u32,
     /// This field will be present when the note is on-chain.
     /// details contain the `Note` in a serialized format.
-    #[prost(bytes = "vec", optional, tag = "6")]
+    #[prost(bytes = "vec", optional, tag = "7")]
     pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

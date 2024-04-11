@@ -342,9 +342,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.81"
+version = "1.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0952808a6c2afd1aa8947271f3a60f1a6763c7b912d210184c5149b5cf147247"
+checksum = "f538837af36e6f6a9be0faa67f9a314f8119e4e4b5867c6ab40ed60360142519"
 
 [[package]]
 name = "arrayref"
@@ -391,9 +391,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.79"
+version = "0.1.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a507401cad91ec6a857ed5513a2073c82a9b9048762b885bb98655b306964681"
+checksum = "c6fa2087f2753a7da8cc1c0dbfcf89579dd57458e36769de5ac750b4671737ca"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -927,9 +927,9 @@ checksum = "11157ac094ffbdde99aa67b23417ebdd801842852b500e395a45a9c0aac03e4a"
 
 [[package]]
 name = "encoding_rs"
-version = "0.8.33"
+version = "0.8.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7268b386296a025e474d5140678f75d6de9493ae55a5d709eeb9dd08149945e1"
+checksum = "b45de904aa0b010bce2ab45264d0631681847fa7b6f2eaa7dab7619943bc4f59"
 dependencies = [
  "cfg-if",
 ]
@@ -1320,9 +1320,9 @@ checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
 name = "jobserver"
-version = "0.1.28"
+version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab46a6e9526ddef3ae7f787c06f0f2600639ba80ea3eade3d8e670a2230f51d6"
+checksum = "f08474e32172238f2827bd160c67871cdb2801430f65c3979184dc362e3ca118"
 dependencies = [
  "libc",
 ]
@@ -1671,11 +1671,12 @@ dependencies = [
 
 [[package]]
 name = "miden-lib"
-version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#9830b5a3f2fe5ddb09d0b45342ecdf956ea2a7ae"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "855aceec1ac4d01fc486a7c9c9cb348d05b3310c842580b25c5b79a65bd942e2"
 dependencies = [
  "miden-assembly 0.9.1",
- "miden-objects 0.2.0",
+ "miden-objects 0.2.1",
  "miden-stdlib 0.9.1",
 ]
 
@@ -1686,12 +1687,12 @@ dependencies = [
  "anyhow",
  "clap",
  "figment",
- "miden-lib 0.2.0",
+ "miden-lib 0.2.1",
  "miden-node-block-producer",
  "miden-node-rpc",
  "miden-node-store",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
+ "miden-objects 0.2.1",
  "rand_chacha",
  "serde",
  "tokio",
@@ -1713,7 +1714,7 @@ dependencies = [
  "miden-node-store",
  "miden-node-test-macro",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
+ "miden-objects 0.2.1",
  "miden-processor 0.9.1",
  "miden-stdlib 0.9.1",
  "miden-tx 0.2.0",
@@ -1773,7 +1774,7 @@ version = "0.2.0"
 dependencies = [
  "hex",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
+ "miden-objects 0.2.1",
  "miette",
  "proptest",
  "prost",
@@ -1797,7 +1798,7 @@ dependencies = [
  "miden-node-proto 0.2.0",
  "miden-node-store",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
+ "miden-objects 0.2.1",
  "miden-tx 0.2.0",
  "prost",
  "serde",
@@ -1818,10 +1819,10 @@ dependencies = [
  "directories",
  "figment",
  "hex",
- "miden-lib 0.2.0",
+ "miden-lib 0.2.1",
  "miden-node-proto 0.2.0",
  "miden-node-utils 0.2.0",
- "miden-objects 0.2.0",
+ "miden-objects 0.2.1",
  "once_cell",
  "prost",
  "rusqlite",
@@ -1865,7 +1866,7 @@ dependencies = [
  "anyhow",
  "figment",
  "itertools",
- "miden-objects 0.2.0",
+ "miden-objects 0.2.1",
  "serde",
  "tracing",
  "tracing-forest",
@@ -1889,8 +1890,9 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#9830b5a3f2fe5ddb09d0b45342ecdf956ea2a7ae"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f87a635484967ad871332d99791d7e1cada6857aa32cc4f72f1a8817c4016b4"
 dependencies = [
  "miden-assembly 0.9.1",
  "miden-core 0.9.1",
@@ -1982,10 +1984,11 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#9830b5a3f2fe5ddb09d0b45342ecdf956ea2a7ae"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8deca145a7d66cb2db075517451948fbc823c9f1983ac77c800d463663a3376b"
 dependencies = [
- "miden-lib 0.2.0",
- "miden-objects 0.2.0",
+ "miden-lib 0.2.1",
+ "miden-objects 0.2.1",
  "miden-processor 0.9.1",
  "miden-prover 0.9.1",
  "miden-verifier 0.9.1",
@@ -2541,9 +2544,9 @@ checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
 name = "quote"
-version = "1.0.35"
+version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "291ec9ab5efd934aaf503a6466c5d5251535d108ee747472c3977cc5acc868ef"
+checksum = "0fa76aaf39101c457836aec0ce2316dbdc3ab723cdda1c6bd4e6ad4208acaca7"
 dependencies = [
  "proc-macro2",
 ]
@@ -3032,9 +3035,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.34"
+version = "0.3.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8248b6521bb14bc45b4067159b9b6ad792e2d6d754d6c41fb50e29fefe38749"
+checksum = "5dfd88e563464686c916c7e46e623e520ddc6d79fa6641390f2e3fa86e83e885"
 dependencies = [
  "deranged",
  "itoa",
@@ -3053,9 +3056,9 @@ checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
 
 [[package]]
 name = "time-macros"
-version = "0.2.17"
+version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ba3a3ef41e6672a2f0f001392bb5dcd3ff0a9992d618ca761a11c3121547774"
+checksum = "3f252a68540fde3a3877aeea552b832b40ab9a69e318efd078774a01ddee1ccf"
 dependencies = [
  "num-conv",
  "time-core",
@@ -3183,7 +3186,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.6.5",
+ "winnow 0.6.6",
 ]
 
 [[package]]
@@ -3708,9 +3711,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dffa400e67ed5a4dd237983829e66475f0a4a26938c4b04c21baede6262215b8"
+checksum = "f0c976aaaa0e1f90dbb21e9587cdaf1d9679a1cde8875c0d6bd83ab96a208352"
 dependencies = [
  "memchr",
 ]

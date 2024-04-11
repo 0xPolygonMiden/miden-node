@@ -5,7 +5,7 @@ use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpd
 use miden_objects::{
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteType, Nullifier},
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -43,14 +43,15 @@ pub struct NoteCreated {
     pub batch_index: u32,
     pub note_index: u32,
     pub note_id: RpoDigest,
+    pub note_type: NoteType,
     pub sender: AccountId,
-    pub tag: u64,
+    pub tag: u32,
     pub details: Option<Vec<u8>>,
 }
 
 impl NoteCreated {
     /// Returns the absolute position on the note tree based on the batch index
-    /// and local-to-the-subtree index
+    /// and local-to-the-subtree index.
     pub fn absolute_note_index(&self) -> u32 {
         BlockNoteTree::note_index(self.batch_index as usize, self.note_index as usize) as u32
     }
