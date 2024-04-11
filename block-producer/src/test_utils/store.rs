@@ -71,7 +71,7 @@ impl MockStoreSuccessBuilder {
 
     pub fn initial_notes(
         mut self,
-        notes: impl Iterator<Item = (usize, usize, NoteEnvelope)>,
+        notes: impl Iterator<Item = Vec<NoteEnvelope>>,
     ) -> Self {
         self.notes = Some(note_created_smt_from_envelopes(notes));
 

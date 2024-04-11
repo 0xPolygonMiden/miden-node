@@ -1,4 +1,4 @@
-use miden_node_proto::{domain::accounts::AccountUpdateDetails, generated::note::NoteCreated};
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt},
@@ -8,7 +8,7 @@ use miden_objects::{
 
 use super::MockStoreSuccess;
 use crate::{
-    block::{Block, BlockInputs},
+    block::{Block, BlockInputs, NoteBatch},
     block_builder::prover::{block_witness::BlockWitness, BlockProver},
     store::Store,
     TransactionBatch,
@@ -90,7 +90,7 @@ pub struct MockBlockBuilder {
     last_block_header: BlockHeader,
 
     updated_accounts: Option<Vec<AccountUpdateDetails>>,
-    created_note_envelopes: Option<Vec<(usize, usize, NoteEnvelope)>>,
+    created_note_envelopes: Option<Vec<NoteBatch>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
 
@@ -123,7 +123,7 @@ impl MockBlockBuilder {
 
     pub fn created_note_envelopes(
         mut self,
-        created_note_envelopes: Vec<(usize, usize, NoteEnvelope)>,
+        created_note_envelopes: Vec<NoteBatch>,
     ) -> Self {
         self.created_note_envelopes = Some(created_note_envelopes);
 
@@ -140,19 +140,7 @@ impl MockBlockBuilder {
     }
 
     pub fn build(self) -> Block {
-        let created_note_envelopes = self.created_note_envelopes.unwrap_or_default();
-
-        let created_notes = created_note_envelopes
-            .iter()
-            .map(|(batch_index, note_index, note_envelope)| NoteCreated {
-                batch_index: *batch_index as u32,
-                note_index: *note_index as u32,
-                note_id: Some(note_envelope.id().into()),
-                tag: note_envelope.metadata().tag().into(),
-                sender: Some(note_envelope.metadata().sender().into()),
-                details: None,
-            })
-            .collect();
+        let created_notes = self.created_note_envelopes.unwrap_or_default();
 
         let header = BlockHeader::new(
             self.last_block_header.hash(),
@@ -160,7 +148,10 @@ impl MockBlockBuilder {
             self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
             self.store_accounts.root(),
             Digest::default(),
-            note_created_smt_from_envelopes(created_note_envelopes.iter().cloned()).root(),
+            note_created_smt_from_envelopes(
+                created_notes.iter().map(|batch| batch.iter().map(|(note, _)| *note).collect()),
+            )
+            .root(),
             Digest::default(),
             Digest::default(),
             ZERO,
@@ -177,23 +168,28 @@ impl MockBlockBuilder {
 }
 
 pub(crate) fn note_created_smt_from_envelopes(
-    note_iterator: impl Iterator<Item = (usize, usize, NoteEnvelope)>
+    batches: impl Iterator<Item = Vec<NoteEnvelope>>
 ) -> BlockNoteTree {
-    BlockNoteTree::with_entries(note_iterator.map(|(batch_idx, note_idx_in_batch, note)| {
-        (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
-    }))
-    .unwrap()
+    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, created_notes)| {
+        created_notes
+            .iter()
+            .enumerate()
+            .map(|(note_idx_in_batch, note)| {
+                (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
+            })
+            .collect::<Vec<_>>()
+    });
+
+    BlockNoteTree::with_entries(note_leaf_iterator).unwrap()
 }
 
 pub(crate) fn note_created_smt_from_batches<'a>(
     batches: impl Iterator<Item = &'a TransactionBatch>
 ) -> BlockNoteTree {
     let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
-        batch.created_note_envelopes_with_details().enumerate().map(
-            move |(note_idx_in_batch, (note, _))| {
-                (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
-            },
-        )
+        batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
+            (batch_idx, note_idx_in_batch, (note.id().into(), note.metadata()))
+        })
     });
 
     BlockNoteTree::with_entries(note_leaf_iterator).unwrap()

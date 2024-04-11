@@ -9,6 +9,7 @@ use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         account, digest,
+        note::NoteCreated,
         requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
@@ -136,11 +137,31 @@ impl ApplyBlock for DefaultStore {
         &self,
         block: &Block,
     ) -> Result<(), ApplyBlockError> {
+        let notes = block
+            .created_notes
+            .iter()
+            .enumerate()
+            .flat_map(|(batch_idx, batch)| {
+                batch
+                    .iter()
+                    .enumerate()
+                    .map(|(note_idx_in_batch, (note, details))| NoteCreated {
+                        batch_index: batch_idx as u32,
+                        note_index: note_idx_in_batch as u32,
+                        note_id: Some(note.id().into()),
+                        sender: Some(note.metadata().sender().into()),
+                        tag: note.metadata().tag().into(),
+                        details: details.clone(),
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+
         let request = tonic::Request::new(ApplyBlockRequest {
             block: Some((&block.header).into()),
             accounts: convert(&block.updated_accounts),
             nullifiers: convert(&block.produced_nullifiers),
-            notes: block.created_notes.clone(),
+            notes,
         });
 
         let _ = self

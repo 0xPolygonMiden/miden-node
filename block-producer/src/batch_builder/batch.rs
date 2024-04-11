@@ -5,9 +5,8 @@ use miden_objects::{
     accounts::AccountId,
     batches::BatchNoteTree,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
-    notes::{NoteEnvelope, Nullifier},
+    notes::Nullifier,
     transaction::{AccountDetails, OutputNote},
-    utils::serde::Serializable,
     Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
@@ -29,7 +28,7 @@ pub struct TransactionBatch {
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Nullifier>,
     created_notes_smt: BatchNoteTree,
-    created_note_envelopes_with_details: Vec<(NoteEnvelope, Option<Vec<u8>>)>,
+    created_notes: Vec<OutputNote>,
 }
 
 impl TransactionBatch {
@@ -62,40 +61,36 @@ impl TransactionBatch {
             .collect();
 
         let produced_nullifiers =
-            txs.iter().flat_map(|tx| tx.input_notes().iter()).cloned().collect();
+            txs.iter().flat_map(|tx| tx.input_notes().iter()).copied().collect();
 
-        let (created_note_envelopes_with_details, created_notes_smt) = {
-            let created_notes: Vec<(NoteEnvelope, Option<Vec<u8>>)> = txs
-                .iter()
-                .flat_map(|tx| tx.output_notes().iter())
-                .map(|note| match note {
-                    OutputNote::Public(note) => (note.into(), Some(note.to_bytes())),
-                    OutputNote::Private(envelope) => (*envelope, None),
-                })
-                .collect();
+        let created_notes: Vec<_> =
+            txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
 
-            if created_notes.len() > MAX_NOTES_PER_BATCH {
-                return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
-            }
+        if created_notes.len() > MAX_NOTES_PER_BATCH {
+            return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
+        }
 
-            // TODO: document under what circumstances SMT creating can fail
-            (
-                created_notes.clone(),
-                BatchNoteTree::with_contiguous_leaves(
-                    created_notes
-                        .iter()
-                        .map(|(note_envelope, _)| (note_envelope.id(), note_envelope.metadata())),
+        // TODO: document under what circumstances SMT creating can fail
+        let created_notes_smt =
+            BatchNoteTree::with_contiguous_leaves(created_notes.iter().map(|note| {
+                (
+                    note.id(),
+                    // TODO: Substitute by using just note.metadata() once this getter returns reference
+                    //       Tracking PR: https://github.com/0xPolygonMiden/miden-base/pull/593
+                    match note {
+                        OutputNote::Public(note) => note.metadata(),
+                        OutputNote::Private(note) => note.metadata(),
+                    },
                 )
-                .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?,
-            )
-        };
+            }))
+            .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?;
 
         Ok(Self {
             id,
             updated_accounts,
             produced_nullifiers,
             created_notes_smt,
-            created_note_envelopes_with_details,
+            created_notes,
         })
     }
 
@@ -138,10 +133,8 @@ impl TransactionBatch {
     }
 
     /// Returns an iterator over created note envelopes.
-    pub fn created_note_envelopes_with_details(
-        &self
-    ) -> impl Iterator<Item = &(NoteEnvelope, Option<Vec<u8>>)> + '_ {
-        self.created_note_envelopes_with_details.iter()
+    pub fn created_notes(&self) -> impl Iterator<Item = &OutputNote> + '_ {
+        self.created_notes.iter()
     }
 
     // HELPER FUNCTIONS

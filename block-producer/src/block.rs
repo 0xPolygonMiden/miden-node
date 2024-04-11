@@ -3,23 +3,25 @@ use std::collections::BTreeMap;
 use miden_node_proto::{
     domain::accounts::AccountUpdateDetails,
     errors::{ConversionError, MissingFieldHelper},
-    generated::{note::NoteCreated, responses::GetBlockInputsResponse},
+    generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes::Nullifier,
+    notes::{NoteEnvelope, Nullifier},
     BlockHeader, Digest,
 };
 
 use crate::store::BlockInputsError;
 
+pub(crate) type NoteBatch = Vec<(NoteEnvelope, Option<Vec<u8>>)>;
+
 #[derive(Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
     pub updated_accounts: Vec<AccountUpdateDetails>,
-    pub created_notes: Vec<NoteCreated>,
+    pub created_notes: Vec<NoteBatch>,
     pub produced_nullifiers: Vec<Nullifier>,
     // TODO:
     // - full states for created public notes
