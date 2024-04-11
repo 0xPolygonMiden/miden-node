@@ -2,7 +2,7 @@ use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt},
-    notes::{NoteEnvelope, Nullifier},
+    notes::Nullifier,
     BlockHeader, Digest, ACCOUNT_TREE_DEPTH, ONE, ZERO,
 };
 
@@ -148,10 +148,7 @@ impl MockBlockBuilder {
             self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
             self.store_accounts.root(),
             Digest::default(),
-            note_created_smt_from_envelopes(
-                created_notes.iter().map(|batch| batch.iter().map(|(note, _)| *note).collect()),
-            )
-            .root(),
+            note_created_smt_from_note_batches(created_notes.iter()).root(),
             Digest::default(),
             Digest::default(),
             ZERO,
@@ -167,17 +164,13 @@ impl MockBlockBuilder {
     }
 }
 
-pub(crate) fn note_created_smt_from_envelopes(
-    batches: impl Iterator<Item = Vec<NoteEnvelope>>
+pub(crate) fn note_created_smt_from_note_batches<'a>(
+    batches: impl Iterator<Item = &'a NoteBatch>
 ) -> BlockNoteTree {
-    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, created_notes)| {
-        created_notes
-            .iter()
-            .enumerate()
-            .map(|(note_idx_in_batch, note)| {
-                (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
-            })
-            .collect::<Vec<_>>()
+    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
+        batch.iter().enumerate().map(move |(note_idx_in_batch, note)| {
+            (batch_idx, note_idx_in_batch, (note.id().into(), note.metadata()))
+        })
     });
 
     BlockNoteTree::with_entries(note_leaf_iterator).unwrap()

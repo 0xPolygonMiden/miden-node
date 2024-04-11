@@ -9,13 +9,14 @@ use miden_node_proto::{
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes::{NoteEnvelope, Nullifier},
+    notes::Nullifier,
+    transaction::OutputNote,
     BlockHeader, Digest,
 };
 
 use crate::store::BlockInputsError;
 
-pub(crate) type NoteBatch = Vec<(NoteEnvelope, Option<Vec<u8>>)>;
+pub(crate) type NoteBatch = Vec<OutputNote>;
 
 #[derive(Debug, Clone)]
 pub struct Block {

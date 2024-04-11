@@ -17,7 +17,9 @@ use miden_node_proto::{
     AccountState,
 };
 use miden_node_utils::formatting::{format_map, format_opt};
-use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
+use miden_objects::{
+    accounts::AccountId, notes::Nullifier, transaction::OutputNote, utils::Serializable, Digest,
+};
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
@@ -145,14 +147,20 @@ impl ApplyBlock for DefaultStore {
                 batch
                     .iter()
                     .enumerate()
-                    .map(|(note_idx_in_batch, (note, details))| NoteCreated {
-                        batch_index: batch_idx as u32,
-                        note_index: note_idx_in_batch as u32,
-                        note_id: Some(note.id().into()),
-                        note_type: note.metadata().note_type() as u32,
-                        sender: Some(note.metadata().sender().into()),
-                        tag: note.metadata().tag().into(),
-                        details: details.clone(),
+                    .map(|(note_idx_in_batch, note)| {
+                        let details = match note {
+                            OutputNote::Public(note) => Some(note.to_bytes()),
+                            OutputNote::Private(_) => None,
+                        };
+                        NoteCreated {
+                            batch_index: batch_idx as u32,
+                            note_index: note_idx_in_batch as u32,
+                            note_id: Some(note.id().into()),
+                            note_type: note.metadata().note_type() as u32,
+                            sender: Some(note.metadata().sender().into()),
+                            tag: note.metadata().tag().into(),
+                            details,
+                        }
                     })
                     .collect::<Vec<_>>()
             })

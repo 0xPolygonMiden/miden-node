@@ -4,18 +4,18 @@ use async_trait::async_trait;
 use miden_objects::{
     block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    notes::{NoteEnvelope, Nullifier},
+    notes::Nullifier,
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
 };
 
 use super::*;
 use crate::{
     batch_builder::TransactionBatch,
-    block::{AccountWitness, Block, BlockInputs},
+    block::{AccountWitness, Block, BlockInputs, NoteBatch},
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
-    test_utils::block::{note_created_smt_from_batches, note_created_smt_from_envelopes},
+    test_utils::block::{note_created_smt_from_batches, note_created_smt_from_note_batches},
     ProvenTransaction,
 };
 
@@ -69,11 +69,11 @@ impl MockStoreSuccessBuilder {
         }
     }
 
-    pub fn initial_notes(
+    pub fn initial_notes<'a>(
         mut self,
-        notes: impl Iterator<Item = Vec<NoteEnvelope>>,
+        notes: impl Iterator<Item = &'a NoteBatch>,
     ) -> Self {
-        self.notes = Some(note_created_smt_from_envelopes(notes));
+        self.notes = Some(note_created_smt_from_note_batches(notes));
 
         self
     }
