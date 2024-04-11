@@ -43,6 +43,7 @@ pub struct NoteCreated {
     pub batch_index: u32,
     pub note_index: u32,
     pub note_id: RpoDigest,
+    pub note_type: NoteType,
     pub sender: AccountId,
     pub tag: u32,
     pub details: Option<Vec<u8>>,
@@ -53,15 +54,6 @@ impl NoteCreated {
     /// and local-to-the-subtree index.
     pub fn absolute_note_index(&self) -> u32 {
         BlockNoteTree::note_index(self.batch_index as usize, self.note_index as usize) as u32
-    }
-
-    // Returns the note type based on available details.
-    pub fn note_type(&self) -> NoteType {
-        if self.details.is_some() {
-            NoteType::Public
-        } else {
-            NoteType::OffChain
-        }
     }
 }
 

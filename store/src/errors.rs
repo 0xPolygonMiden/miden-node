@@ -45,6 +45,8 @@ pub enum DatabaseError {
     IoError(#[from] io::Error),
     #[error("Account error: {0}")]
     AccountError(#[from] AccountError),
+    #[error("Note error: {0}")]
+    NoteError(#[from] NoteError),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
     #[error("Deserialization of BLOB data from database failed: {0}")]

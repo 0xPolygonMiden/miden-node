@@ -149,6 +149,7 @@ impl ApplyBlock for DefaultStore {
                         batch_index: batch_idx as u32,
                         note_index: note_idx_in_batch as u32,
                         note_id: Some(note.id().into()),
+                        note_type: note.metadata().note_type() as u32,
                         sender: Some(note.metadata().sender().into()),
                         tag: note.metadata().tag().into(),
                         details: details.clone(),

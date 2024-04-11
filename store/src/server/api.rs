@@ -31,7 +31,7 @@ use miden_objects::{
     notes::{NoteId, Nullifier},
     transaction::AccountDetails,
     utils::Deserializable,
-    BlockHeader, Felt, ZERO,
+    BlockHeader, Felt, NoteError, ZERO,
 };
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
@@ -145,7 +145,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|note| NoteSyncRecord {
                 note_index: note.note_created.absolute_note_index(),
-                note_type: note.note_created.note_type() as u32,
+                note_type: note.note_created.note_type as u32,
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
@@ -319,6 +319,11 @@ impl api_server::Api for StoreApi {
                         .map_err(|err: ConversionError| {
                             Status::invalid_argument(err.to_string())
                         })?,
+                    note_type: Felt::new(note.note_type as u64).try_into().map_err(
+                        |err: NoteError| {
+                            Status::invalid_argument(format!("Invalid NoteType: {err}",))
+                        },
+                    )?,
                     sender: note.sender.ok_or(invalid_argument("Note missing sender"))?.into(),
                     tag: note.tag,
                     details: note.details,

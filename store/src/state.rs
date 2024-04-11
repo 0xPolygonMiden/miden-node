@@ -502,7 +502,7 @@ pub fn build_note_tree(notes: &[NoteCreated]) -> Result<BlockNoteTree, ApplyBloc
 
     for note in notes.iter() {
         let note_metadata =
-            NoteMetadata::new(note.sender.try_into()?, note.note_type(), note.tag.into(), ZERO)?;
+            NoteMetadata::new(note.sender.try_into()?, note.note_type, note.tag.into(), ZERO)?;
         entries.push((
             note.batch_index as usize,
             note.note_index as usize,

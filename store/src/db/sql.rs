@@ -6,10 +6,10 @@ use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpd
 use miden_objects::{
     accounts::{Account, AccountDelta},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteType, Nullifier},
     transaction::AccountDetails,
     utils::serde::{Deserializable, Serializable},
-    BlockHeader,
+    BlockHeader, Felt,
 };
 use rusqlite::{
     params,
@@ -330,6 +330,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
             batch_index,
             note_index,
             note_hash,
+            note_type,
             sender,
             tag,
             merkle_path,
@@ -347,10 +348,10 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
 
-        let merkle_path_data = row.get_ref(6)?.as_blob()?;
+        let merkle_path_data = row.get_ref(7)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
-        let details_data = row.get_ref(7)?.as_blob_or_null()?;
+        let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         notes.push(Note {
@@ -359,8 +360,9 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
                 batch_index: row.get(1)?,
                 note_index: row.get(2)?,
                 note_id,
-                sender: column_value_as_u64(row, 4)?,
-                tag: row.get(5)?,
+                note_type: column_value_as_note_type(row, 4)?,
+                sender: column_value_as_u64(row, 5)?,
+                tag: row.get(6)?,
                 details,
             },
             merkle_path,
@@ -392,6 +394,7 @@ pub fn insert_notes(
             batch_index,
             note_index,
             note_hash,
+            note_type,
             sender,
             tag,
             merkle_path,
@@ -399,7 +402,7 @@ pub fn insert_notes(
         )
         VALUES
         (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
         );",
     )?;
 
@@ -412,6 +415,7 @@ pub fn insert_notes(
             note.note_created.batch_index,
             note.note_created.note_index,
             note.note_created.note_id.to_bytes(),
+            note_type_to_value(note.note_created.note_type),
             u64_to_value(note.note_created.sender),
             note.note_created.tag,
             note.merkle_path.to_bytes(),
@@ -450,6 +454,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
             batch_index,
             note_index,
             note_hash,
+            note_type,
             sender,
             tag,
             merkle_path,
@@ -484,11 +489,12 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note_index = row.get(2)?;
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
-        let sender = column_value_as_u64(row, 4)?;
-        let tag = row.get(5)?;
-        let merkle_path_data = row.get_ref(6)?.as_blob()?;
+        let note_type = column_value_as_note_type(row, 4)?;
+        let sender = column_value_as_u64(row, 5)?;
+        let tag = row.get(6)?;
+        let merkle_path_data = row.get_ref(7)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(7)?.as_blob_or_null()?;
+        let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         let note = Note {
@@ -497,6 +503,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
                 batch_index,
                 note_index,
                 note_id,
+                note_type,
                 sender,
                 tag,
                 details,
@@ -527,6 +534,7 @@ pub fn select_notes_by_id(
             batch_index,
             note_index,
             note_hash,
+            note_type,
             sender,
             tag,
             merkle_path,
@@ -544,10 +552,10 @@ pub fn select_notes_by_id(
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = NoteId::read_from_bytes(note_id_data)?;
 
-        let merkle_path_data = row.get_ref(6)?.as_blob()?;
+        let merkle_path_data = row.get_ref(7)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
-        let details_data = row.get_ref(7)?.as_blob_or_null()?;
+        let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         notes.push(Note {
@@ -557,8 +565,9 @@ pub fn select_notes_by_id(
                 note_index: row.get(2)?,
                 details,
                 note_id: note_id.into(),
-                sender: column_value_as_u64(row, 4)?,
-                tag: row.get(5)?,
+                note_type: column_value_as_note_type(row, 4)?,
+                sender: column_value_as_u64(row, 5)?,
+                tag: row.get(6)?,
             },
             merkle_path,
         })
@@ -739,7 +748,15 @@ fn u32_to_value(v: u32) -> Value {
     Value::Integer(v)
 }
 
-/// Gets a `u64`` value from the database.
+/// Converts a 'NoteType' into a [Value].
+///
+/// Sqlite uses `i64` as its internal representation format.
+fn note_type_to_value(v: NoteType) -> Value {
+    let felt: Felt = v.into();
+    u64_to_value(felt.into())
+}
+
+/// Gets a `u64` value from the database.
 ///
 /// Sqlite uses `i64` as its internal representation format, and so when retrieving
 /// we need to make sure we cast as `u64` to get the original value
@@ -749,6 +766,18 @@ fn column_value_as_u64<I: rusqlite::RowIndex>(
 ) -> rusqlite::Result<u64> {
     let value: i64 = row.get(index)?;
     Ok(value as u64)
+}
+
+/// Gets a `NoteType` value from the database.
+///
+/// Sqlite uses `i64` as its internal representation format, and so when retrieving
+/// we need to make sure we cast as `NoteType` to get the original value
+fn column_value_as_note_type<I: rusqlite::RowIndex>(
+    row: &rusqlite::Row<'_>,
+    index: I,
+) -> Result<NoteType, DatabaseError> {
+    let felt = Felt::new(column_value_as_u64(row, index)?);
+    Ok(NoteType::try_from(felt)?)
 }
 
 /// Constructs `AccountSummary` from the row of `accounts` table.
