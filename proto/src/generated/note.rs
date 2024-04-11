@@ -13,6 +13,8 @@ pub struct Note {
     pub sender: ::core::option::Option<super::account::AccountId>,
     #[prost(fixed32, tag = "5")]
     pub tag: u32,
+    #[prost(uint32, tag = "6")]
+    pub note_type: u32,
     #[prost(message, optional, tag = "7")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
     /// This field will be present when the note is on-chain.
@@ -32,7 +34,7 @@ pub struct NoteSyncRecord {
     pub sender: ::core::option::Option<super::account::AccountId>,
     #[prost(fixed32, tag = "4")]
     pub tag: u32,
-    #[prost(fixed32, tag = "5")]
+    #[prost(uint32, tag = "5")]
     pub note_type: u32,
     #[prost(message, optional, tag = "6")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,

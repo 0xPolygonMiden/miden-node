@@ -207,6 +207,7 @@ impl api_server::Api for StoreApi {
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
+                note_type: note.note_created.note_type as u32,
                 merkle_path: Some(note.merkle_path.into()),
                 details: note.note_created.details,
             })
@@ -453,6 +454,7 @@ impl api_server::Api for StoreApi {
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
+                note_type: note.note_created.note_type as u32,
                 merkle_path: Some(note.merkle_path.into()),
                 details: note.note_created.details,
             })
