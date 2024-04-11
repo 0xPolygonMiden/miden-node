@@ -29,8 +29,6 @@ jobs:
           NUMERIC_VERSION=$( echo ${{ env.GIT_TAG }} | sed 's/[^0-9.]//g' ) 
           echo "VERSION=$NUMERIC_VERSION" >> $GITHUB_ENV
 
-      - name: Cleaning repo
-        run: cargo clean
       - name: Building for amd64
         run: cargo build --release
 
@@ -72,6 +70,9 @@ jobs:
           echo "Architecture: amd64" >> packaging/deb/miden-node/DEBIAN/control
           echo "Maintainer: devops@polygon.technology" >> packaging/deb/miden-node/DEBIAN/control
           echo "Description: miden-node binary package" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Homepage: https://polygon.technology/polygon-miden" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Vcs-Git: git@github.com:0xPolygonMiden/miden-node.git" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Vcs-Browser: https://github.com/0xPolygonMiden/miden-node" >> packaging/deb/miden-node/DEBIAN/control
 
       - name: Creating package for binary for miden-node ${{ env.ARCH }}
         run: cp -rp packaging/deb/miden-node packaging/deb/miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}
