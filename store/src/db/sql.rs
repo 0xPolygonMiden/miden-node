@@ -359,7 +359,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
                 batch_index: row.get(1)?,
                 note_index: row.get(2)?,
                 note_id,
-                note_type: column_value_as_note_type(row, 4)?,
+                note_type: row.get::<_, u8>(4)?.try_into()?,
                 sender: column_value_as_u64(row, 5)?,
                 tag: row.get(6)?,
                 details,
@@ -488,7 +488,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note_index = row.get(2)?;
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
-        let note_type = column_value_as_note_type(row, 4)?;
+        let note_type = row.get::<_, u8>(4)?.try_into()?;
         let sender = column_value_as_u64(row, 5)?;
         let tag = row.get(6)?;
         let merkle_path_data = row.get_ref(7)?.as_blob()?;
@@ -564,7 +564,7 @@ pub fn select_notes_by_id(
                 note_index: row.get(2)?,
                 details,
                 note_id: note_id.into(),
-                note_type: column_value_as_note_type(row, 4)?,
+                note_type: row.get::<_, u8>(4)?.try_into()?,
                 sender: column_value_as_u64(row, 5)?,
                 tag: row.get(6)?,
             },
@@ -757,18 +757,6 @@ fn column_value_as_u64<I: rusqlite::RowIndex>(
 ) -> rusqlite::Result<u64> {
     let value: i64 = row.get(index)?;
     Ok(value as u64)
-}
-
-/// Gets a `NoteType` value from the database.
-///
-/// Sqlite uses `i64` as its internal representation format, and so when retrieving
-/// we need to make sure we cast as `NoteType` to get the original value
-fn column_value_as_note_type<I: rusqlite::RowIndex>(
-    row: &rusqlite::Row<'_>,
-    index: I,
-) -> Result<NoteType, DatabaseError> {
-    let felt = Felt::new(column_value_as_u64(row, index)?);
-    Ok(NoteType::try_from(felt)?)
 }
 
 /// Constructs `AccountSummary` from the row of `accounts` table.

@@ -28,7 +28,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteType, Nullifier},
     transaction::AccountDetails,
     utils::Deserializable,
     BlockHeader, Felt, NoteError, ZERO,
@@ -320,11 +320,8 @@ impl api_server::Api for StoreApi {
                         .map_err(|err: ConversionError| {
                             Status::invalid_argument(err.to_string())
                         })?,
-                    note_type: Felt::new(note.note_type as u64).try_into().map_err(
-                        |err: NoteError| {
-                            Status::invalid_argument(format!("Invalid NoteType: {err}",))
-                        },
-                    )?,
+                    note_type: NoteType::try_from(note.note_type)
+                        .map_err(|err: NoteError| Status::invalid_argument(err.to_string()))?,
                     sender: note.sender.ok_or(invalid_argument("Note missing sender"))?.into(),
                     tag: note.tag,
                     details: note.details,
