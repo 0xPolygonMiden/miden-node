@@ -68,7 +68,7 @@ jobs:
           echo "Section: base" >> packaging/deb/miden-node/DEBIAN/control
           echo "Priority: optional" >> packaging/deb/miden-node/DEBIAN/control
           echo "Architecture: amd64" >> packaging/deb/miden-node/DEBIAN/control
-          echo "Maintainer: devops@polygon.technology" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Maintainer: Polygon Devops <devops@polygon.technology>" >> packaging/deb/miden-node/DEBIAN/control
           echo "Description: miden-node binary package" >> packaging/deb/miden-node/DEBIAN/control
           echo "Homepage: https://polygon.technology/polygon-miden" >> packaging/deb/miden-node/DEBIAN/control
           echo "Vcs-Git: git@github.com:0xPolygonMiden/miden-node.git" >> packaging/deb/miden-node/DEBIAN/control
