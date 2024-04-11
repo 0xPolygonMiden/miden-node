@@ -173,7 +173,6 @@ pub fn upsert_accounts(
         let full_account = match &update.details {
             None => None,
             Some(AccountDetails::Full(account)) => {
-                debug_assert!(account.is_new());
                 debug_assert_eq!(account_id, u64::from(account.id()));
 
                 if account.hash() != update.final_state_hash {
