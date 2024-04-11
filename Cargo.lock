@@ -1672,7 +1672,8 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#9830b5a3f2fe5ddb09d0b45342ecdf956ea2a7ae"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f9ebf04c9cabb8b8ab612f7f49cfabb0e95ff627118e943c5db8ba64919a1cf"
 dependencies = [
  "miden-assembly 0.9.1",
  "miden-objects 0.2.0",
@@ -1890,7 +1891,8 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#9830b5a3f2fe5ddb09d0b45342ecdf956ea2a7ae"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aae509ecf544171ab3d7e375eaa069c11fb2591e04e15cbba6ed2763b0fb80e4"
 dependencies = [
  "miden-assembly 0.9.1",
  "miden-core 0.9.1",
@@ -1982,7 +1984,8 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.2.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#9830b5a3f2fe5ddb09d0b45342ecdf956ea2a7ae"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8deca145a7d66cb2db075517451948fbc823c9f1983ac77c800d463663a3376b"
 dependencies = [
  "miden-lib 0.2.0",
  "miden-objects 0.2.0",
@@ -3032,9 +3035,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.35"
+version = "0.3.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef89ece63debf11bc32d1ed8d078ac870cbeb44da02afb02a9ff135ae7ca0582"
+checksum = "5dfd88e563464686c916c7e46e623e520ddc6d79fa6641390f2e3fa86e83e885"
 dependencies = [
  "deranged",
  "itoa",
