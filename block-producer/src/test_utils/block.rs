@@ -91,7 +91,7 @@ pub struct MockBlockBuilder {
     last_block_header: BlockHeader,
 
     updated_accounts: Option<Vec<AccountUpdateDetails>>,
-    created_note_envelopes: Option<Vec<NoteBatch>>,
+    created_note: Option<Vec<NoteBatch>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
 
@@ -103,7 +103,7 @@ impl MockBlockBuilder {
             last_block_header: *store.last_block_header.read().await,
 
             updated_accounts: None,
-            created_note_envelopes: None,
+            created_note: None,
             produced_nullifiers: None,
         }
     }
@@ -122,15 +122,6 @@ impl MockBlockBuilder {
         self
     }
 
-    pub fn created_note_envelopes(
-        mut self,
-        created_note_envelopes: Vec<NoteBatch>,
-    ) -> Self {
-        self.created_note_envelopes = Some(created_note_envelopes);
-
-        self
-    }
-
     pub fn produced_nullifiers(
         mut self,
         produced_nullifiers: Vec<Nullifier>,
@@ -141,7 +132,7 @@ impl MockBlockBuilder {
     }
 
     pub fn build(self) -> Block {
-        let created_notes = self.created_note_envelopes.unwrap_or_default();
+        let created_notes = self.created_note.unwrap_or_default();
 
         let header = BlockHeader::new(
             self.last_block_header.hash(),
