@@ -414,7 +414,7 @@ pub fn insert_notes(
             note.note_created.batch_index,
             note.note_created.note_index,
             note.note_created.note_id.to_bytes(),
-            note_type_to_value(note.note_created.note_type),
+            note.note_created.note_type as u8,
             u64_to_value(note.note_created.sender),
             note.note_created.tag,
             note.merkle_path.to_bytes(),
@@ -745,14 +745,6 @@ fn u64_to_value(v: u64) -> Value {
 fn u32_to_value(v: u32) -> Value {
     let v: i64 = v.into();
     Value::Integer(v)
-}
-
-/// Converts a 'NoteType' into a [Value].
-///
-/// Sqlite uses `i64` as its internal representation format.
-fn note_type_to_value(v: NoteType) -> Value {
-    let felt: Felt = v.into();
-    u64_to_value(felt.into())
 }
 
 /// Gets a `u64` value from the database.
