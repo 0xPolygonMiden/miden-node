@@ -15,7 +15,7 @@ use miden_objects::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
+    notes::{NoteId, NoteMetadata, Nullifier},
     AccountError, BlockHeader, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
