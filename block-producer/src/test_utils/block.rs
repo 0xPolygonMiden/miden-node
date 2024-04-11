@@ -170,7 +170,7 @@ pub(crate) fn note_created_smt_from_note_batches<'a>(
 ) -> BlockNoteTree {
     let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
         batch.clone().into_iter().enumerate().map(move |(note_idx_in_batch, note)| {
-            (batch_idx, note_idx_in_batch, (note.id().into(), note.metadata()))
+            (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
         })
     });
 

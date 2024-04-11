@@ -6,10 +6,10 @@ use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpd
 use miden_objects::{
     accounts::{Account, AccountDelta},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteId, NoteType, Nullifier},
+    notes::{NoteId, Nullifier},
     transaction::AccountDetails,
     utils::serde::{Deserializable, Serializable},
-    BlockHeader, Felt,
+    BlockHeader,
 };
 use rusqlite::{
     params,
