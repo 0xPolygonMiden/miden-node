@@ -28,10 +28,10 @@ use miden_node_proto::{
 };
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteType, Nullifier},
     transaction::AccountDetails,
     utils::Deserializable,
-    BlockHeader, Felt, ZERO,
+    BlockHeader, Felt, NoteError, ZERO,
 };
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
@@ -145,6 +145,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|note| NoteSyncRecord {
                 note_index: note.note_created.absolute_note_index(),
+                note_type: note.note_created.note_type as u32,
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
@@ -206,6 +207,7 @@ impl api_server::Api for StoreApi {
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
+                note_type: note.note_created.note_type as u32,
                 merkle_path: Some(note.merkle_path.into()),
                 details: note.note_created.details,
             })
@@ -318,6 +320,8 @@ impl api_server::Api for StoreApi {
                         .map_err(|err: ConversionError| {
                             Status::invalid_argument(err.to_string())
                         })?,
+                    note_type: NoteType::try_from(note.note_type as u64)
+                        .map_err(|err: NoteError| Status::invalid_argument(err.to_string()))?,
                     sender: note.sender.ok_or(invalid_argument("Note missing sender"))?.into(),
                     tag: note.tag,
                     details: note.details,
@@ -447,6 +451,7 @@ impl api_server::Api for StoreApi {
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
+                note_type: note.note_created.note_type as u32,
                 merkle_path: Some(note.merkle_path.into()),
                 details: note.note_created.details,
             })

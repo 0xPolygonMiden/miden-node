@@ -9,17 +9,20 @@ use miden_node_proto::{
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes::{NoteEnvelope, Nullifier},
+    notes::Nullifier,
+    transaction::OutputNote,
     BlockHeader, Digest,
 };
 
 use crate::store::BlockInputsError;
 
+pub(crate) type NoteBatch = Vec<OutputNote>;
+
 #[derive(Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
     pub updated_accounts: Vec<AccountUpdateDetails>,
-    pub created_notes: Vec<(usize, usize, NoteEnvelope)>,
+    pub created_notes: Vec<NoteBatch>,
     pub produced_nullifiers: Vec<Nullifier>,
     // TODO:
     // - full states for created public notes

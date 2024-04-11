@@ -15,8 +15,8 @@ use miden_objects::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
-    AccountError, BlockHeader, NoteError, ACCOUNT_TREE_DEPTH, ZERO,
+    notes::{NoteId, NoteMetadata, Nullifier},
+    AccountError, BlockHeader, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -501,15 +501,8 @@ pub fn build_note_tree(notes: &[NoteCreated]) -> Result<BlockNoteTree, ApplyBloc
         Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
-        let note_type = NoteType::OffChain; // TODO: Provide correct note type
-        let note_metadata = NoteMetadata::new(
-            note.sender.try_into()?,
-            note_type,
-            note.tag
-                .try_into()
-                .map_err(|_| NoteError::InconsistentNoteTag(note_type, note.tag))?,
-            ZERO,
-        )?;
+        let note_metadata =
+            NoteMetadata::new(note.sender.try_into()?, note.note_type, note.tag.into(), ZERO)?;
         entries.push((
             note.batch_index as usize,
             note.note_index as usize,
