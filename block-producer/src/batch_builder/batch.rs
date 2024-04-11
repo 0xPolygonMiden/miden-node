@@ -132,9 +132,9 @@ impl TransactionBatch {
         self.created_notes_smt.root()
     }
 
-    /// Returns an iterator over created note envelopes.
-    pub fn created_notes(&self) -> impl Iterator<Item = &OutputNote> + '_ {
-        self.created_notes.iter()
+    /// Returns created notes list.
+    pub fn created_notes(&self) -> &Vec<OutputNote> {
+        &self.created_notes
     }
 
     // HELPER FUNCTIONS

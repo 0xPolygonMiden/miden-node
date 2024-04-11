@@ -3,6 +3,7 @@ use miden_objects::{
     block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt},
     notes::Nullifier,
+    transaction::OutputNote,
     BlockHeader, Digest, ACCOUNT_TREE_DEPTH, ONE, ZERO,
 };
 
@@ -51,7 +52,7 @@ pub async fn build_expected_block_header(
         new_account_root,
         // FIXME: FILL IN CORRECT NULLIFIER ROOT
         Digest::default(),
-        note_created_smt_from_batches(batches.iter()).root(),
+        note_created_smt_from_batches(batches).root(),
         Digest::default(),
         Digest::default(),
         ZERO,
@@ -165,10 +166,10 @@ impl MockBlockBuilder {
 }
 
 pub(crate) fn note_created_smt_from_note_batches<'a>(
-    batches: impl Iterator<Item = &'a NoteBatch>
+    batches: impl Iterator<Item = &'a (impl IntoIterator<Item = OutputNote> + Clone + 'a)>
 ) -> BlockNoteTree {
     let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
-        batch.iter().enumerate().map(move |(note_idx_in_batch, note)| {
+        batch.clone().into_iter().enumerate().map(move |(note_idx_in_batch, note)| {
             (batch_idx, note_idx_in_batch, (note.id().into(), note.metadata()))
         })
     });
@@ -176,14 +177,6 @@ pub(crate) fn note_created_smt_from_note_batches<'a>(
     BlockNoteTree::with_entries(note_leaf_iterator).unwrap()
 }
 
-pub(crate) fn note_created_smt_from_batches<'a>(
-    batches: impl Iterator<Item = &'a TransactionBatch>
-) -> BlockNoteTree {
-    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
-        batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
-            (batch_idx, note_idx_in_batch, (note.id().into(), note.metadata()))
-        })
-    });
-
-    BlockNoteTree::with_entries(note_leaf_iterator).unwrap()
+pub(crate) fn note_created_smt_from_batches(batches: &[TransactionBatch]) -> BlockNoteTree {
+    note_created_smt_from_note_batches(batches.iter().map(|batch| batch.created_notes()))
 }

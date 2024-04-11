@@ -83,8 +83,7 @@ where
         let updated_accounts: Vec<_> =
             batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
 
-        let created_notes =
-            batches.iter().map(|batch| batch.created_notes().cloned().collect()).collect();
+        let created_notes = batches.iter().map(|batch| batch.created_notes().clone()).collect();
 
         let produced_nullifiers: Vec<Nullifier> =
             batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();

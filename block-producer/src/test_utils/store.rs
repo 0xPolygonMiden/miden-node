@@ -5,13 +5,14 @@ use miden_objects::{
     block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::Nullifier,
+    transaction::OutputNote,
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
 };
 
 use super::*;
 use crate::{
     batch_builder::TransactionBatch,
-    block::{AccountWitness, Block, BlockInputs, NoteBatch},
+    block::{AccountWitness, Block, BlockInputs},
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
@@ -31,18 +32,17 @@ pub struct MockStoreSuccessBuilder {
 
 impl MockStoreSuccessBuilder {
     pub fn from_batches<'a>(batches: impl Iterator<Item = &'a TransactionBatch>) -> Self {
-        let batches: Vec<_> = batches.collect();
+        let batches: Vec<_> = batches.cloned().collect();
 
         let accounts_smt = {
             let accounts = batches
                 .iter()
-                .cloned()
                 .flat_map(TransactionBatch::account_initial_states)
                 .map(|(account_id, hash)| (account_id.into(), hash.into()));
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
-        let created_notes = note_created_smt_from_batches(batches.iter().cloned());
+        let created_notes = note_created_smt_from_batches(&batches);
 
         Self {
             accounts: Some(accounts_smt),
@@ -71,7 +71,7 @@ impl MockStoreSuccessBuilder {
 
     pub fn initial_notes<'a>(
         mut self,
-        notes: impl Iterator<Item = &'a NoteBatch>,
+        notes: impl Iterator<Item = &'a (impl Iterator<Item = OutputNote> + Clone + 'a)>,
     ) -> Self {
         self.notes = Some(note_created_smt_from_note_batches(notes));
 
