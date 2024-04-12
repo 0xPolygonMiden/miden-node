@@ -1,0 +1,102 @@
+name: deb_packager
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - '**'
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-*'
+
+jobs:
+  build:
+    permissions:
+      id-token: write
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      ##### TAG Variable #####
+      - name: Adding TAG to ENV
+        run: echo "GIT_TAG=`echo $(git describe --tags --abbrev=0)`" >> $GITHUB_ENV
+      - name: adding version
+        run: |
+          NUMERIC_VERSION=$( echo ${{ env.GIT_TAG }} | sed 's/[^0-9.]//g' ) 
+          echo "VERSION=$NUMERIC_VERSION" >> $GITHUB_ENV
+
+      - name: cleaning repo
+        run: cargo clean
+
+      - name: Building for amd64
+        run: cargo build --release
+
+      - name: create packaging subdir
+        run: mkdir -p packaging/deb/miden-node/DEBIAN
+
+      - name: making directory for binary
+        run: mkdir -p packaging/deb/miden-node/usr/bin
+
+      - name: create systemd location
+        run: mkdir -p packaging/deb/miden-node/lib/systemd/system
+
+      - name: copy the miden-node service file
+        run: cp packaging/miden-node.service packaging/deb/miden-node/lib/systemd/system/
+
+      - name: make directory for example configs
+        run: mkdir -p packaging/deb/miden-node/etc/miden
+
+      - name: copy the miden-node.toml file
+        run: cp node/miden.toml packaging/deb/miden-node/etc/miden/
+
+      - name: copy over the postinst
+        run: cp packaging/postinst packaging/deb/miden-node/DEBIAN/postinst
+
+      - name: copy over the postrm
+        run: cp packaging/postrm packaging/deb/miden-node/DEBIAN/postrm
+
+      - name: copying over the build
+        run: cp -rp target/release/miden-node packaging/deb/miden-node/usr/bin/
+
+      ########### Control file creation for amd64 ##########
+      - name: create control file
+        run: |
+          touch packaging/deb/miden-node/DEBIAN/control
+          echo "Package: miden-node" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Version: ${{ env.VERSION }}" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Section: base" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Priority: optional" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Architecture: amd64" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Maintainer: Polygon Devops <devops@polygon.technology>" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Description: miden-node binary package" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Homepage: https://polygon.technology/polygon-miden" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Vcs-Git: git@github.com:0xPolygonMiden/miden-node.git" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Vcs-Browser: https://github.com/0xPolygonMiden/miden-node" >> packaging/deb/miden-node/DEBIAN/control
+
+      - name: Creating package for binary for miden-node ${{ env.ARCH }}
+        run: cp -rp packaging/deb/miden-node packaging/deb/miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}
+        env:
+          ARCH: amd64
+
+      - name: Running package build
+        run: dpkg-deb --build --root-owner-group packaging/deb/miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}
+        env:
+          ARCH: amd64
+
+      - name: shasum the package
+        run: cd packaging/deb/ && sha256sum miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb > miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb.checksum
+        env:
+          ARCH: amd64
+
+      - name: release miden-node Packages
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.GIT_TAG }}
+          prerelease: true
+          files: |
+            packaging/deb/miden-node**.deb
+            packaging/deb/miden-node**.deb.checksum

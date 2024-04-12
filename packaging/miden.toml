@@ -1,0 +1,18 @@
+# This is an example configuration file for the Miden node.
+
+[block_producer]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-block-producer', 1)) % 2**16
+endpoint = { host = "localhost", port = 48046 }
+store_url = "http://localhost:28943"
+
+[rpc]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-rpc', 1)) % 2**16
+endpoint = { host = "localhost", port = 57291 }
+block_producer_url = "http://localhost:48046"
+store_url = "http://localhost:28943"
+
+[store]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-store', 1)) % 2**16
+endpoint = { host = "localhost", port = 28943 }
+database_filepath = "/opt/miden/miden-store.sqlite3"
+genesis_filepath = "/opt/miden/genesis.dat"

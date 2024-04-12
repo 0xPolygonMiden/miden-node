@@ -1,0 +1,12 @@
+#!/bin/bash
+# This is a postinstallation script so the service can be configured and started when requested
+#
+sudo adduser --disabled-password --disabled-login --shell /usr/sbin/nologin --quiet --system --no-create-home --home /nonexistent miden
+if [ -d "/opt/miden" ]
+then
+    echo "Directory /opt/miden exists."
+else
+    mkdir -p /opt/miden
+    sudo chown -R miden /opt/miden
+fi
+sudo systemctl daemon-reload

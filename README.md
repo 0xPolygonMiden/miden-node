@@ -91,5 +91,28 @@ Please, refer to each component's documentation:
 
 Each directory containing the executables also contains an example configuration file. Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are valid and point to the right endpoint.
 
+
+### Debian Packages
+
+The debian packages allow for easy install for miden on debian based systems. Note that there are checksums available for the package.
+Current support is for amd64, arm64 support coming soon. 
+
+To install the debian package:
+```sh
+sudo dpkg -i $package_name.deb
+```
+Note, when using the debian package to run the `make-genesis` function, you should define the location of your output:
+```sh
+miden-node make-genesis -i $input_location_for_gensis.toml -o $output_for_gensis.dat_and_accounts
+```
+The debian package has a checksum, you can verify this checksum by download the debian package and checksum file to the same directory and running the following command:
+```sh
+sha256sum --check $checksumfile
+```
+Please make sure you have the sha256sum program installed, for most linux operating systems this is already installed. If you wish to installe it on your macOS, you can use brew:
+```sh
+brew install coreutils
+```
+
 ## License
 This project is [MIT licensed](./LICENSE).
