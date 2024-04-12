@@ -10,6 +10,8 @@ import "note.proto";
 message AccountUpdate {
     account.AccountId account_id = 1;
     digest.Digest account_hash = 2;
+    // Details for public (on-chain) account.
+    optional bytes details = 3;
 }
 
 message ApplyBlockRequest {
@@ -79,8 +81,19 @@ message SubmitProvenTransactionRequest {
     bytes transaction = 1;
 }
 
+message GetNotesByIdRequest {
+    // List of NoteId's to be queried from the database
+    repeated digest.Digest note_ids = 1;
+}
+
 message ListNullifiersRequest {}
 
 message ListAccountsRequest {}
 
 message ListNotesRequest {}
+
+// Returns the latest state of an account with the specified ID.
+message GetAccountDetailsRequest {
+    // Account ID to get details.
+    account.AccountId account_id = 1;
+}

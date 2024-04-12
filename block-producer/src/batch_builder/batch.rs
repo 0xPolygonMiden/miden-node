@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::AccountId,
-    crypto::{
-        hash::blake::{Blake3Digest, Blake3_256},
-        merkle::SimpleSmt,
-    },
-    notes::{NoteEnvelope, Nullifier},
-    Digest, BATCH_OUTPUT_NOTES_TREE_DEPTH, MAX_NOTES_PER_BATCH,
+    batches::BatchNoteTree,
+    crypto::hash::blake::{Blake3Digest, Blake3_256},
+    notes::Nullifier,
+    transaction::{AccountDetails, OutputNote},
+    Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
 
@@ -27,9 +27,8 @@ pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: BTreeMap<AccountId, AccountStates>,
     produced_nullifiers: Vec<Nullifier>,
-    created_notes_smt: SimpleSmt<BATCH_OUTPUT_NOTES_TREE_DEPTH>,
-    /// The notes stored `created_notes_smt`
-    created_notes: Vec<NoteEnvelope>,
+    created_notes_smt: BatchNoteTree,
+    created_notes: Vec<OutputNote>,
 }
 
 impl TransactionBatch {
@@ -55,33 +54,36 @@ impl TransactionBatch {
                     AccountStates {
                         initial_state: tx.initial_account_hash(),
                         final_state: tx.final_account_hash(),
+                        details: tx.account_details().cloned(),
                     },
                 )
             })
             .collect();
 
         let produced_nullifiers =
-            txs.iter().flat_map(|tx| tx.input_notes().iter()).cloned().collect();
+            txs.iter().flat_map(|tx| tx.input_notes().iter()).copied().collect();
 
-        let (created_notes, created_notes_smt) = {
-            let created_notes: Vec<NoteEnvelope> =
-                txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
+        let created_notes: Vec<_> =
+            txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
 
-            if created_notes.len() > MAX_NOTES_PER_BATCH {
-                return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
-            }
+        if created_notes.len() > MAX_NOTES_PER_BATCH {
+            return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
+        }
 
-            // TODO: document under what circumstances SMT creating can fail
-            (
-                created_notes.clone(),
-                SimpleSmt::<BATCH_OUTPUT_NOTES_TREE_DEPTH>::with_contiguous_leaves(
-                    created_notes.into_iter().flat_map(|note_envelope| {
-                        [note_envelope.note_id().into(), note_envelope.metadata().into()]
-                    }),
+        // TODO: document under what circumstances SMT creating can fail
+        let created_notes_smt =
+            BatchNoteTree::with_contiguous_leaves(created_notes.iter().map(|note| {
+                (
+                    note.id(),
+                    // TODO: Substitute by using just note.metadata() once this getter returns reference
+                    //       Tracking PR: https://github.com/0xPolygonMiden/miden-base/pull/593
+                    match note {
+                        OutputNote::Public(note) => note.metadata(),
+                        OutputNote::Private(note) => note.metadata(),
+                    },
                 )
-                .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?,
-            )
-        };
+            }))
+            .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?;
 
         Ok(Self {
             id,
@@ -108,12 +110,16 @@ impl TransactionBatch {
             .map(|(account_id, account_states)| (*account_id, account_states.initial_state))
     }
 
-    /// Returns an iterator over (account_id, new_state_hash) tuples for accounts that were
+    /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
-    pub fn updated_accounts(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
+    pub fn updated_accounts(&self) -> impl Iterator<Item = AccountUpdateDetails> + '_ {
         self.updated_accounts
             .iter()
-            .map(|(account_id, account_states)| (*account_id, account_states.final_state))
+            .map(|(&account_id, account_states)| AccountUpdateDetails {
+                account_id,
+                final_state_hash: account_states.final_state,
+                details: account_states.details.clone(),
+            })
     }
 
     /// Returns an iterator over produced nullifiers for all consumed notes.
@@ -121,14 +127,14 @@ impl TransactionBatch {
         self.produced_nullifiers.iter().cloned()
     }
 
-    /// Returns an iterator over created notes.
-    pub fn created_notes(&self) -> impl Iterator<Item = &NoteEnvelope> + '_ {
-        self.created_notes.iter()
-    }
-
     /// Returns the root hash of the created notes SMT.
     pub fn created_notes_root(&self) -> Digest {
         self.created_notes_smt.root()
+    }
+
+    /// Returns created notes list.
+    pub fn created_notes(&self) -> &Vec<OutputNote> {
+        &self.created_notes
     }
 
     // HELPER FUNCTIONS
@@ -147,8 +153,9 @@ impl TransactionBatch {
 /// account.
 ///
 /// TODO: should this be moved into domain objects?
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct AccountStates {
     initial_state: Digest,
     final_state: Digest,
+    details: Option<AccountDetails>,
 }

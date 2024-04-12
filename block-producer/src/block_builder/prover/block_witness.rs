@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
@@ -37,7 +38,7 @@ impl BlockWitness {
 
         let updated_accounts = {
             let mut account_initial_states: BTreeMap<AccountId, Digest> =
-                batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
+                batches.iter().flat_map(TransactionBatch::account_initial_states).collect();
 
             let mut account_merkle_proofs: BTreeMap<AccountId, MerklePath> = block_inputs
                 .accounts
@@ -47,8 +48,8 @@ impl BlockWitness {
 
             batches
                 .iter()
-                .flat_map(|batch| batch.updated_accounts())
-                .map(|(account_id, final_state_hash)| {
+                .flat_map(TransactionBatch::updated_accounts)
+                .map(|AccountUpdateDetails { account_id, final_state_hash, .. }| {
                     let initial_state_hash = account_initial_states
                         .remove(&account_id)
                         .expect("already validated that key exists");
@@ -71,13 +72,8 @@ impl BlockWitness {
         let batch_created_notes_roots = batches
             .iter()
             .enumerate()
-            .filter_map(|(batch_index, batch)| {
-                if batch.created_notes().next().is_none() {
-                    None
-                } else {
-                    Some((batch_index, batch.created_notes_root()))
-                }
-            })
+            .filter(|(_, batch)| !batch.created_notes().is_empty())
+            .map(|(batch_index, batch)| (batch_index, batch.created_notes_root()))
             .collect();
 
         Ok(Self {
@@ -91,7 +87,7 @@ impl BlockWitness {
 
     /// Converts [`BlockWitness`] into inputs to the block kernel program
     pub(super) fn into_program_inputs(
-        self
+        self,
     ) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
         let stack_inputs = self.build_stack_inputs();
         let advice_inputs = self.build_advice_inputs()?;
@@ -261,7 +257,9 @@ impl BlockWitness {
                 .expect("updated accounts number is greater than or equal to the field modulus"),
         );
 
-        StackInputs::new(stack_inputs)
+        // TODO: We need provide produced nullifier different way, because such big stack inputs
+        //       will cause problem in recursive proofs
+        StackInputs::new(stack_inputs).expect("Stack inputs count extends max limit")
     }
 
     /// Builds the advice inputs to the block kernel

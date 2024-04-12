@@ -1,12 +1,16 @@
 use std::{collections::BTreeMap, iter};
 
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{
+        AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+    },
     crypto::merkle::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
         SMT_DEPTH,
     },
-    notes::{NoteEnvelope, NoteMetadata},
+    notes::{NoteEnvelope, NoteMetadata, NoteType},
+    transaction::OutputNote,
     BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
@@ -30,9 +34,9 @@ use crate::{
 /// The store will contain accounts 1 & 2, while the transaction batches will contain 2 & 3.
 #[test]
 fn test_block_witness_validation_inconsistent_account_ids() {
-    let account_id_1 = AccountId::new_unchecked(ZERO);
-    let account_id_2 = AccountId::new_unchecked(ONE);
-    let account_id_3 = AccountId::new_unchecked(Felt::new(42));
+    let account_id_1 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
+    let account_id_2 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 1));
+    let account_id_3 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2));
 
     let block_inputs_from_store: BlockInputs = {
         let block_header = BlockHeader::mock(0, None, None, &[]);
@@ -91,8 +95,9 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 /// Only account 1 will have a different state hash
 #[test]
 fn test_block_witness_validation_inconsistent_account_hashes() {
-    let account_id_1 = AccountId::new_unchecked(ZERO);
-    let account_id_2 = AccountId::new_unchecked(ONE);
+    let account_id_1 =
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN));
+    let account_id_2 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
 
     let account_1_hash_store =
         Digest::new([Felt::new(1u64), Felt::new(2u64), Felt::new(3u64), Felt::new(4u64)]);
@@ -161,11 +166,11 @@ async fn test_compute_account_root_success() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
-        AccountId::new_unchecked(Felt::new(0b0000_0000_0000_0000u64)),
-        AccountId::new_unchecked(Felt::new(0b1111_0000_0000_0000u64)),
-        AccountId::new_unchecked(Felt::new(0b1111_1111_0000_0000u64)),
-        AccountId::new_unchecked(Felt::new(0b1111_1111_1111_0000u64)),
-        AccountId::new_unchecked(Felt::new(0b1111_1111_1111_1111u64)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 1)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 3)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 4)),
     ];
 
     let account_initial_states = [
@@ -235,7 +240,11 @@ async fn test_compute_account_root_success() {
             account_ids
                 .iter()
                 .zip(account_final_states.iter())
-                .map(|(&account_id, &account_hash)| (account_id, account_hash.into()))
+                .map(|(&account_id, &account_hash)| AccountUpdateDetails {
+                    account_id,
+                    final_state_hash: account_hash.into(),
+                    details: None,
+                })
                 .collect(),
         )
         .build();
@@ -368,9 +377,9 @@ async fn test_compute_note_root_empty_notes_success() {
 #[miden_node_test_macro::enable_logging]
 async fn test_compute_note_root_success() {
     let account_ids = [
-        AccountId::new_unchecked(Felt::new(0u64)),
-        AccountId::new_unchecked(Felt::new(1u64)),
-        AccountId::new_unchecked(Felt::new(2u64)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 1)),
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2)),
     ];
 
     let notes_created: Vec<NoteEnvelope> = [
@@ -381,7 +390,11 @@ async fn test_compute_note_root_success() {
     .into_iter()
     .zip(account_ids.iter())
     .map(|(note_digest, &account_id)| {
-        NoteEnvelope::new(note_digest.into(), NoteMetadata::new(account_id, Felt::new(1u64)))
+        NoteEnvelope::new(
+            note_digest.into(),
+            NoteMetadata::new(account_id, NoteType::OffChain, 0.into(), ONE).unwrap(),
+        )
+        .expect("Hardcoded values should not fail")
     })
     .collect();
 
@@ -402,8 +415,9 @@ async fn test_compute_note_root_success() {
             .iter()
             .zip(account_ids.iter())
             .map(|(note, &account_id)| {
+                let note = OutputNote::Private(*note);
                 MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
-                    .notes_created(vec![*note])
+                    .notes_created(vec![note])
                     .build()
             })
             .collect();
@@ -430,11 +444,11 @@ async fn test_compute_note_root_success() {
     // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
     // the second subtree of depth 12
     let notes_smt = SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(vec![
-        (0u64, notes_created[0].note_id().into()),
+        (0u64, notes_created[0].id().into()),
         (1u64, notes_created[0].metadata().into()),
-        (2u64, notes_created[1].note_id().into()),
+        (2u64, notes_created[1].id().into()),
         (3u64, notes_created[1].metadata().into()),
-        (2u64.pow(13), notes_created[2].note_id().into()),
+        (2u64.pow(13), notes_created[2].id().into()),
         (2u64.pow(13) + 1, notes_created[2].metadata().into()),
     ])
     .unwrap();
@@ -482,13 +496,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
             .iter()
             .flat_map(|batch| batch.account_initial_states())
             .map(|(account_id, hash)| {
-                (
-                    account_id,
-                    AccountWitness {
-                        hash,
-                        proof: MerklePath::default(),
-                    },
-                )
+                (account_id, AccountWitness { hash, proof: MerklePath::default() })
             })
             .collect();
 

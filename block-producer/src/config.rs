@@ -32,10 +32,7 @@ impl BlockProducerConfig {
 }
 
 impl Display for BlockProducerConfig {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{{ endpoint: \"{}\", store_url: \"{}\" }}",
             self.endpoint, self.store_url

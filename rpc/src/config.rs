@@ -24,10 +24,7 @@ impl RpcConfig {
 }
 
 impl Display for RpcConfig {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{{ endpoint: \"{}\", store_url: \"{}\", block_producer_url: \"{}\" }}",
             self.endpoint, self.store_url, self.block_producer_url

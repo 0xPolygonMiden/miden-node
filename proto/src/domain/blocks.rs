@@ -1,15 +1,15 @@
 use miden_objects::BlockHeader;
 
 use crate::{
-    errors::{MissingFieldHelper, ParseError},
+    errors::{ConversionError, MissingFieldHelper},
     generated::block_header,
 };
 
 // BLOCK HEADER
 // ================================================================================================
 
-impl From<BlockHeader> for block_header::BlockHeader {
-    fn from(header: BlockHeader) -> Self {
+impl From<&BlockHeader> for block_header::BlockHeader {
+    fn from(header: &BlockHeader) -> Self {
         Self {
             prev_hash: Some(header.prev_hash().into()),
             block_num: header.block_num(),
@@ -27,8 +27,14 @@ impl From<BlockHeader> for block_header::BlockHeader {
     }
 }
 
+impl From<BlockHeader> for block_header::BlockHeader {
+    fn from(header: BlockHeader) -> Self {
+        (&header).into()
+    }
+}
+
 impl TryFrom<&block_header::BlockHeader> for BlockHeader {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: &block_header::BlockHeader) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -36,7 +42,7 @@ impl TryFrom<&block_header::BlockHeader> for BlockHeader {
 }
 
 impl TryFrom<block_header::BlockHeader> for BlockHeader {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: block_header::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(

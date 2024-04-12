@@ -39,10 +39,7 @@ impl<S> DefaultStateView<S>
 where
     S: Store,
 {
-    pub fn new(
-        store: Arc<S>,
-        verify_tx_proofs: bool,
-    ) -> Self {
+    pub fn new(store: Arc<S>, verify_tx_proofs: bool) -> Self {
         Self {
             store,
             verify_tx_proofs,
@@ -52,16 +49,16 @@ where
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl<S> TransactionValidator for DefaultStateView<S>
 where
     S: Store,
 {
     #[instrument(skip_all, err)]
-    async fn verify_tx(
-        &self,
-        candidate_tx: &ProvenTransaction,
-    ) -> Result<(), VerifyTxError> {
+    async fn verify_tx(&self, candidate_tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
         if self.verify_tx_proofs {
             // Make sure that the transaction proof is valid and meets the required security level
             let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
@@ -111,34 +108,29 @@ where
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl<S> ApplyBlock for DefaultStateView<S>
 where
     S: Store,
 {
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn apply_block(
-        &self,
-        block: Block,
-    ) -> Result<(), ApplyBlockError> {
-        self.store.apply_block(block.clone()).await?;
+    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
+        self.store.apply_block(block).await?;
 
         let mut locked_accounts_in_flight = self.accounts_in_flight.write().await;
         let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
 
         // Remove account ids of transactions in block
-        let account_ids_in_block = block
-            .updated_accounts
-            .iter()
-            .map(|(account_id, _final_account_hash)| account_id);
-
-        for account_id in account_ids_in_block {
-            let was_in_flight = locked_accounts_in_flight.remove(account_id);
+        for update in &block.updated_accounts {
+            let was_in_flight = locked_accounts_in_flight.remove(&update.account_id);
             debug_assert!(was_in_flight);
         }
 
         // Remove new nullifiers of transactions in block
-        for nullifier in block.produced_nullifiers.iter() {
+        for nullifier in &block.produced_nullifiers {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
         }

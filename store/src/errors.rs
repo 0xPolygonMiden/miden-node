@@ -3,14 +3,32 @@ use std::io;
 use deadpool_sqlite::PoolError;
 use miden_objects::{
     crypto::{
+        hash::rpo::RpoDigest,
         merkle::{MerkleError, MmrError},
         utils::DeserializationError,
     },
-    AccountError, BlockHeader, Digest,
+    notes::Nullifier,
+    AccountError, BlockHeader, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
+
+use crate::types::{AccountId, BlockNumber};
+
+// INTERNAL ERRORS
+// =================================================================================================
+
+#[derive(Debug, Error)]
+pub enum NullifierTreeError {
+    #[error("Merkle error: {0}")]
+    MerkleError(#[from] MerkleError),
+    #[error("Nullifier {nullifier} for block #{block_num} already exists in the nullifier tree")]
+    NullifierAlreadyExists {
+        nullifier: Nullifier,
+        block_num: BlockNumber,
+    },
+}
 
 // DATABASE ERRORS
 // =================================================================================================
@@ -25,12 +43,34 @@ pub enum DatabaseError {
     FromSqlError(#[from] FromSqlError),
     #[error("I/O error: {0}")]
     IoError(#[from] io::Error),
+    #[error("Account error: {0}")]
+    AccountError(#[from] AccountError),
+    #[error("Note error: {0}")]
+    NoteError(#[from] NoteError),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
     #[error("Deserialization of BLOB data from database failed: {0}")]
     DeserializationError(DeserializationError),
+    #[error("Corrupted data: {0}")]
+    CorruptedData(String),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
     ApplyBlockFailedClosedChannel(RecvError),
+    #[error("Account {0} not found in the database")]
+    AccountNotFoundInDb(AccountId),
+    #[error("Account {0} is not on the chain")]
+    AccountNotOnChain(AccountId),
+    #[error("Failed to apply block because of on-chain account final hashes mismatch (expected {expected}, \
+        but calculated is {calculated}")]
+    ApplyBlockFailedAccountHashesMismatch {
+        expected: RpoDigest,
+        calculated: RpoDigest,
+    },
+}
+
+impl From<DeserializationError> for DatabaseError {
+    fn from(value: DeserializationError) -> Self {
+        Self::DeserializationError(value)
+    }
 }
 
 // INITIALIZATION ERRORS
@@ -40,8 +80,8 @@ pub enum DatabaseError {
 pub enum StateInitializationError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("Failed to create nullifiers tree: {0}")]
-    FailedToCreateNullifiersTree(MerkleError),
+    #[error("Failed to create nullifier tree: {0}")]
+    FailedToCreateNullifierTree(NullifierTreeError),
     #[error("Failed to create accounts tree: {0}")]
     FailedToCreateAccountsTree(MerkleError),
 }
@@ -91,6 +131,8 @@ pub enum ApplyBlockError {
     DatabaseError(#[from] DatabaseError),
     #[error("Account error: {0}")]
     AccountError(#[from] AccountError),
+    #[error("Note error: {0}")]
+    NoteError(#[from] NoteError),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
     #[error("New block number must be 1 greater than the current block number")]
@@ -106,17 +148,19 @@ pub enum ApplyBlockError {
     #[error("Received invalid nullifier root")]
     NewBlockInvalidNullifierRoot,
     #[error("Duplicated nullifiers {0:?}")]
-    DuplicatedNullifiers(Vec<Digest>),
+    DuplicatedNullifiers(Vec<Nullifier>),
     #[error("Unable to create proof for note: {0}")]
     UnableToCreateProofForNote(MerkleError),
     #[error("Block applying was broken because of closed channel on database side: {0}")]
     BlockApplyingBrokenBecauseOfClosedChannel(RecvError),
     #[error("Failed to create notes tree: {0}")]
-    FailedToCreateNotesTree(MerkleError),
+    FailedToCreateNoteTree(MerkleError),
     #[error("Database doesn't have any block header data")]
     DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
+    #[error("Failed to update nullifier tree: {0}")]
+    FailedToUpdateNullifierTree(NullifierTreeError),
 }
 
 #[derive(Error, Debug)]

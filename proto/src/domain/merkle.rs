@@ -5,7 +5,7 @@ use miden_objects::{
 
 use super::{convert, try_convert};
 use crate::{
-    errors::{MissingFieldHelper, ParseError},
+    errors::{ConversionError, MissingFieldHelper},
     generated,
 };
 
@@ -20,7 +20,7 @@ impl From<MerklePath> for generated::merkle::MerklePath {
 }
 
 impl TryFrom<generated::merkle::MerklePath> for MerklePath {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(merkle_path: generated::merkle::MerklePath) -> Result<Self, Self::Error> {
         merkle_path.siblings.into_iter().map(Digest::try_from).collect()
@@ -33,18 +33,15 @@ impl TryFrom<generated::merkle::MerklePath> for MerklePath {
 impl From<MmrDelta> for generated::mmr::MmrDelta {
     fn from(value: MmrDelta) -> Self {
         let data = value.data.into_iter().map(generated::digest::Digest::from).collect();
-        generated::mmr::MmrDelta {
-            forest: value.forest as u64,
-            data,
-        }
+        generated::mmr::MmrDelta { forest: value.forest as u64, data }
     }
 }
 
 impl TryFrom<generated::mmr::MmrDelta> for MmrDelta {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: generated::mmr::MmrDelta) -> Result<Self, Self::Error> {
-        let data: Result<Vec<_>, ParseError> =
+        let data: Result<Vec<_>, ConversionError> =
             value.data.into_iter().map(Digest::try_from).collect();
 
         Ok(MmrDelta {
@@ -61,7 +58,7 @@ impl TryFrom<generated::mmr::MmrDelta> for MmrDelta {
 // ------------------------------------------------------------------------------------------------
 
 impl TryFrom<generated::smt::SmtLeaf> for SmtLeaf {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: generated::smt::SmtLeaf) -> Result<Self, Self::Error> {
         let leaf = value.leaf.ok_or(generated::smt::SmtLeaf::missing_field(stringify!(leaf)))?;
@@ -91,9 +88,9 @@ impl From<SmtLeaf> for generated::smt::SmtLeaf {
         let leaf = match smt_leaf {
             SmtLeaf::Empty(leaf_index) => Leaf::Empty(leaf_index.value()),
             SmtLeaf::Single(entry) => Leaf::Single(entry.into()),
-            SmtLeaf::Multiple(entries) => Leaf::Multiple(generated::smt::SmtLeafEntries {
-                entries: convert(entries),
-            }),
+            SmtLeaf::Multiple(entries) => {
+                Leaf::Multiple(generated::smt::SmtLeafEntries { entries: convert(entries) })
+            },
         };
 
         Self { leaf: Some(leaf) }
@@ -104,7 +101,7 @@ impl From<SmtLeaf> for generated::smt::SmtLeaf {
 // ------------------------------------------------------------------------------------------------
 
 impl TryFrom<generated::smt::SmtLeafEntry> for (Digest, Word) {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(entry: generated::smt::SmtLeafEntry) -> Result<Self, Self::Error> {
         let key: Digest = entry
@@ -133,7 +130,7 @@ impl From<(Digest, Word)> for generated::smt::SmtLeafEntry {
 // ------------------------------------------------------------------------------------------------
 
 impl TryFrom<generated::smt::SmtOpening> for SmtProof {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(opening: generated::smt::SmtOpening) -> Result<Self, Self::Error> {
         let path: MerklePath = opening

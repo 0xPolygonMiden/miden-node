@@ -1,0 +1,90 @@
+input:focus {
+    outline: none;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: url(./background.png);
+    background-repeat: repeat;
+}
+
+#error-message {
+    display: none;
+    color: red;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+#navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: rgb(17, 24, 39);
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#title {
+    font-size: x-large;
+    text-align: center;
+    font-weight: bold;
+    color: white;
+    margin: 0;
+}
+
+#center-container {
+    background-color: rgb(17, 24, 39);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    padding: 30px;
+}
+
+#subtitle {
+    font-size: large;
+    text-align: center;
+    font-weight: bold;
+    color: white;
+    margin: 0;
+    margin-bottom: 20px;
+}
+
+#account-id {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    margin-bottom: 30px;
+    width: 300px;
+}
+
+#faucetId {
+  color: white;
+  margin-top: 4px;
+}
+
+#button {
+    color: white;
+    border-radius: 10px;
+    font-weight: bold;
+    padding: 10px 20px;
+    background-color: rgb(124, 58, 237);
+    width: 300px;
+}

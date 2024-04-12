@@ -7,16 +7,28 @@ members = [
   "store",
   "utils",
   "test-macro",
+  "faucet"
 ]
+
 resolver = "2"
 
+[workspace.package]
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+authors = ["Miden contributors"]
+readme = "README.md"
+homepage = "https://polygon.technology/polygon-miden"
+repository = "https://github.com/0xPolygonMiden/miden-node"
+exclude = [".github/"]
+
 [workspace.dependencies]
-miden-air = { version = "0.8", default-features = false }
-miden-lib = { version = "0.1" }
-miden-objects = { version = "0.1" }
-miden-processor = { version = "0.8" }
-miden-stdlib = { version = "0.8", default-features = false }
-miden-tx = { version = "0.1" }
+miden-air = { version = "0.9", default-features = false }
+miden-lib = { version = "0.2"}
+miden-objects = { version = "0.2" }
+miden-processor = { version = "0.9" }
+miden-stdlib = { version = "0.9", default-features = false }
+miden-tx = { version = "0.2" }
 thiserror = { version = "1.0" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [

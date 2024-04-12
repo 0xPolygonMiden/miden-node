@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
-use miden_objects::{accounts::AccountId, notes::Nullifier, Digest, MAX_NOTES_PER_BATCH};
+use miden_objects::notes::Nullifier;
 use tracing::{debug, info, instrument};
 
 use crate::{
@@ -30,10 +30,7 @@ pub trait BlockBuilder: Send + Sync + 'static {
     ///
     /// The `BlockBuilder` relies on `build_block()` to be called as a precondition to creating a
     /// block. In other words, if `build_block()` is never called, then no blocks are produced.
-    async fn build_block(
-        &self,
-        batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError>;
+    async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError>;
 }
 
 #[derive(Debug)]
@@ -48,10 +45,7 @@ where
     S: Store,
     A: ApplyBlock,
 {
-    pub fn new(
-        store: Arc<S>,
-        state_view: Arc<A>,
-    ) -> Self {
+    pub fn new(store: Arc<S>, state_view: Arc<A>) -> Self {
         Self {
             store,
             state_view,
@@ -60,6 +54,9 @@ where
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl<S, A> BlockBuilder for DefaultBlockBuilder<S, A>
 where
@@ -67,35 +64,25 @@ where
     A: ApplyBlock,
 {
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn build_block(
-        &self,
-        batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError> {
+    async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
         info!(
             target: COMPONENT,
             num_batches = batches.len(),
             batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))),
         );
 
-        let updated_accounts: Vec<(AccountId, Digest)> =
+        let updated_accounts: Vec<_> =
             batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
-        let created_notes = batches
-            .iter()
-            .enumerate()
-            .flat_map(|(batch_idx, batch)| {
-                batch.created_notes().enumerate().map(move |(note_idx_in_batch, note)| {
-                    let note_idx_in_block = batch_idx * MAX_NOTES_PER_BATCH + note_idx_in_batch;
-                    (note_idx_in_block as u64, *note)
-                })
-            })
-            .collect();
+
+        let created_notes = batches.iter().map(|batch| batch.created_notes().clone()).collect();
+
         let produced_nullifiers: Vec<Nullifier> =
             batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
         let block_inputs = self
             .store
             .get_block_inputs(
-                updated_accounts.iter().map(|(account_id, _)| account_id),
+                updated_accounts.iter().map(|update| &update.account_id),
                 produced_nullifiers.iter(),
             )
             .await?;
@@ -119,7 +106,7 @@ where
         info!(target: COMPONENT, block_num, %block_hash, "block built");
         debug!(target: COMPONENT, ?block);
 
-        self.state_view.apply_block(block).await?;
+        self.state_view.apply_block(&block).await?;
 
         info!(target: COMPONENT, block_num, %block_hash, "block committed");
 

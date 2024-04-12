@@ -2,28 +2,37 @@ use std::sync::Arc;
 
 use miden_node_proto::{
     convert,
-    errors::ParseError,
+    domain::accounts::AccountUpdateDetails,
+    errors::ConversionError,
     generated::{
         self,
+        account::AccountSummary,
         note::NoteSyncRecord,
         requests::{
-            ApplyBlockRequest, CheckNullifiersRequest, GetBlockHeaderByNumberRequest,
-            GetBlockInputsRequest, GetTransactionInputsRequest, ListAccountsRequest,
-            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
+            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
+            ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
-            AccountHashUpdate, AccountTransactionInputRecord, ApplyBlockResponse,
-            CheckNullifiersResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
-            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
-            SyncStateResponse,
+            AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
+            GetAccountDetailsResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
+            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
+            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
+            NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
     },
-    AccountState,
+    try_convert, AccountState,
 };
-use miden_objects::{crypto::hash::rpo::RpoDigest, BlockHeader, Felt, ZERO};
+use miden_objects::{
+    crypto::hash::rpo::RpoDigest,
+    notes::{NoteId, NoteType, Nullifier},
+    transaction::AccountDetails,
+    utils::Deserializable,
+    BlockHeader, Felt, NoteError, ZERO,
+};
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -36,6 +45,9 @@ pub struct StoreApi {
     pub(super) state: Arc<State>,
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[tonic::async_trait]
 impl api_server::Api for StoreApi {
     // CLIENT ENDPOINTS
@@ -90,9 +102,7 @@ impl api_server::Api for StoreApi {
         // Query the state for the request's nullifiers
         let proofs = self.state.check_nullifiers(&nullifiers).await;
 
-        Ok(Response::new(CheckNullifiersResponse {
-            proofs: convert(proofs),
-        }))
+        Ok(Response::new(CheckNullifiersResponse { proofs: convert(proofs) }))
     }
 
     /// Returns info which can be used by the client to sync up to the latest state of the chain
@@ -121,7 +131,7 @@ impl api_server::Api for StoreApi {
         let accounts = state
             .account_updates
             .into_iter()
-            .map(|account_info| AccountHashUpdate {
+            .map(|account_info| AccountSummary {
                 account_id: Some(account_info.account_id.into()),
                 account_hash: Some(account_info.account_hash.into()),
                 block_num: account_info.block_num,
@@ -132,7 +142,8 @@ impl api_server::Api for StoreApi {
             .notes
             .into_iter()
             .map(|note| NoteSyncRecord {
-                note_index: note.note_created.note_index,
+                note_index: note.note_created.absolute_note_index(),
+                note_type: note.note_created.note_type as u32,
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
@@ -159,6 +170,76 @@ impl api_server::Api for StoreApi {
         }))
     }
 
+    /// Returns a list of Note's for the specified NoteId's.
+    ///
+    /// If the list is empty or no Note matched the requested NoteId and empty list is returned.
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_notes_by_id",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_notes_by_id(
+        &self,
+        request: tonic::Request<GetNotesByIdRequest>,
+    ) -> Result<Response<GetNotesByIdResponse>, Status> {
+        info!(target: COMPONENT, ?request);
+
+        let note_ids = request.into_inner().note_ids;
+
+        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
+
+        let notes = self
+            .state
+            .get_notes_by_id(note_ids)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|note| generated::note::Note {
+                block_num: note.block_num,
+                note_index: note.note_created.absolute_note_index(),
+                note_id: Some(note.note_created.note_id.into()),
+                sender: Some(note.note_created.sender.into()),
+                tag: note.note_created.tag,
+                note_type: note.note_created.note_type as u32,
+                merkle_path: Some(note.merkle_path.into()),
+                details: note.note_created.details,
+            })
+            .collect();
+
+        Ok(Response::new(GetNotesByIdResponse { notes }))
+    }
+
+    /// Returns details for public (on-chain) account by id.
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_account_details",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_details(
+        &self,
+        request: tonic::Request<GetAccountDetailsRequest>,
+    ) -> Result<Response<GetAccountDetailsResponse>, Status> {
+        let request = request.into_inner();
+        let account_info = self
+            .state
+            .get_account_details(
+                request.account_id.ok_or(invalid_argument("Account missing id"))?.into(),
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Response::new(GetAccountDetailsResponse {
+            account: Some((&account_info).into()),
+        }))
+    }
+
     // BLOCK PRODUCER ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
@@ -181,24 +262,45 @@ impl api_server::Api for StoreApi {
             .block
             .ok_or(invalid_argument("Apply block missing block header"))?
             .try_into()
-            .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?;
+            .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
 
         info!(target: COMPONENT, block_num = block_header.block_num(), block_hash = %block_header.hash());
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let accounts = request
             .accounts
-            .into_iter()
+            .iter()
             .map(|account_update| {
                 let account_state: AccountState = account_update
                     .try_into()
-                    .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?;
-                Ok((
-                    account_state.account_id.into(),
-                    account_state
+                    .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
+
+                match (account_state.account_id.is_on_chain(), account_update.details.is_some()) {
+                    (true, false) => {
+                        return Err(Status::invalid_argument("On-chain account must have details"));
+                    },
+                    (false, true) => {
+                        return Err(Status::invalid_argument(
+                            "Off-chain account must not have details",
+                        ));
+                    },
+                    _ => (),
+                }
+
+                let details = account_update
+                    .details
+                    .as_ref()
+                    .map(|data| AccountDetails::read_from_bytes(data))
+                    .transpose()
+                    .map_err(|err| Status::invalid_argument(err.to_string()))?;
+
+                Ok(AccountUpdateDetails {
+                    account_id: account_state.account_id,
+                    details,
+                    final_state_hash: account_state
                         .account_hash
                         .ok_or(invalid_argument("Account update missing account hash"))?,
-                ))
+                })
             })
             .collect::<Result<Vec<_>, Status>>()?;
 
@@ -207,14 +309,20 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|note| {
                 Ok(NoteCreated {
+                    batch_index: note.batch_index,
                     note_index: note.note_index,
                     note_id: note
                         .note_id
                         .ok_or(invalid_argument("Note missing id"))?
                         .try_into()
-                        .map_err(|err: ParseError| Status::invalid_argument(err.to_string()))?,
+                        .map_err(|err: ConversionError| {
+                            Status::invalid_argument(err.to_string())
+                        })?,
+                    note_type: NoteType::try_from(note.note_type as u64)
+                        .map_err(|err: NoteError| Status::invalid_argument(err.to_string()))?,
                     sender: note.sender.ok_or(invalid_argument("Note missing sender"))?.into(),
                     tag: note.tag,
+                    details: note.details,
                 })
             })
             .collect::<Result<Vec<_>, Status>>()?;
@@ -284,7 +392,7 @@ impl api_server::Api for StoreApi {
                 .nullifiers
                 .into_iter()
                 .map(|nullifier| NullifierTransactionInputRecord {
-                    nullifier: Some(nullifier.nullifier.inner().into()),
+                    nullifier: Some(nullifier.nullifier.into()),
                     block_num: nullifier.block_num,
                 })
                 .collect(),
@@ -337,11 +445,13 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|note| generated::note::Note {
                 block_num: note.block_num,
-                note_index: note.note_created.note_index,
+                note_index: note.note_created.absolute_note_index(),
                 note_id: Some(note.note_created.note_id.into()),
                 sender: Some(note.note_created.sender.into()),
                 tag: note.note_created.tag,
+                note_type: note.note_created.note_type as u32,
                 merkle_path: Some(note.merkle_path.into()),
+                details: note.note_created.details,
             })
             .collect();
         Ok(Response::new(ListNotesResponse { notes }))
@@ -364,12 +474,8 @@ impl api_server::Api for StoreApi {
             .list_accounts()
             .await
             .map_err(internal_error)?
-            .into_iter()
-            .map(|account_info| generated::account::AccountInfo {
-                account_id: Some(account_info.account_id.into()),
-                account_hash: Some(account_info.account_hash.into()),
-                block_num: account_info.block_num,
-            })
+            .iter()
+            .map(Into::into)
             .collect();
         Ok(Response::new(ListAccountsResponse { accounts }))
     }
@@ -388,10 +494,11 @@ fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
 }
 
 #[instrument(target = "miden-store", skip_all, err)]
-fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<RpoDigest>, Status> {
+fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Nullifier>, Status> {
     nullifiers
         .iter()
+        .cloned()
         .map(TryInto::try_into)
-        .collect::<Result<_, ParseError>>()
+        .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }

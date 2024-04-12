@@ -29,12 +29,9 @@ pub trait TransactionValidator: Send + Sync + 'static {
     /// This method should:
     /// - Verify the transaction is valid, against the current's rollup state, and also against
     ///   in-flight transactions.
-    /// - Track the necessary state of the transaction until it is commited to the `store`, to
+    /// - Track the necessary state of the transaction until it is committed to the `store`, to
     ///   perform the check above.
-    async fn verify_tx(
-        &self,
-        tx: &ProvenTransaction,
-    ) -> Result<(), VerifyTxError>;
+    async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<(), VerifyTxError>;
 }
 
 // TRANSACTION QUEUE
@@ -148,10 +145,7 @@ where
     /// This method will validate the `tx` and ensure it is valid w.r.t. the rollup state, and the
     /// current in-flight transactions.
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    pub async fn add_transaction(
-        &self,
-        tx: ProvenTransaction,
-    ) -> Result<(), AddTransactionError> {
+    pub async fn add_transaction(&self, tx: ProvenTransaction) -> Result<(), AddTransactionError> {
         info!(target: COMPONENT, tx_id = %tx.id().to_hex(), account_id = %tx.account_id().to_hex());
 
         self.tx_validator

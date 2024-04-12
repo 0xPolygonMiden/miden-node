@@ -12,14 +12,15 @@ use miden_lib::{
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::config::load_config;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountType, AuthData},
+    accounts::{Account, AccountData, AccountStorageType, AccountType, AuthData},
     assets::TokenSymbol,
     crypto::{
-        dsa::rpo_falcon512::KeyPair,
+        dsa::rpo_falcon512::SecretKey,
         utils::{hex_to_bytes, Serializable},
     },
     Felt, ONE,
 };
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
 mod inputs;
 
@@ -41,11 +42,7 @@ const DEFAULT_ACCOUNTS_DIR: &str = "accounts/";
 /// This function returns a `Result` type. On successful creation of the genesis file, it returns
 /// `Ok(())`. If it fails at any point, due to issues like file existence checks or read/write
 /// operations, it returns an `Err` with a detailed error message.
-pub fn make_genesis(
-    inputs_path: &PathBuf,
-    output_path: &PathBuf,
-    force: &bool,
-) -> Result<()> {
+pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) -> Result<()> {
     let inputs_path = Path::new(inputs_path);
     let output_path = Path::new(output_path);
 
@@ -120,7 +117,7 @@ fn create_accounts(
     let mut final_accounts = Vec::new();
 
     for account in accounts {
-        // build account data from account inputs
+        // build offchain account data from account inputs
         let mut account_data = match account {
             AccountInput::BasicWallet(inputs) => {
                 print!("Creating basic wallet account...");
@@ -133,6 +130,7 @@ fn create_accounts(
                     init_seed,
                     auth_scheme,
                     AccountType::RegularAccountImmutableCode,
+                    AccountStorageType::OffChain,
                 )?;
 
                 AccountData::new(account, Some(account_seed), auth_info)
@@ -150,6 +148,7 @@ fn create_accounts(
                     inputs.decimals,
                     Felt::try_from(inputs.max_supply)
                         .expect("max supply value is greater than or equal to the field modulus"),
+                    AccountStorageType::OffChain,
                     auth_scheme,
                 )?;
 
@@ -183,12 +182,11 @@ fn parse_auth_inputs(
 ) -> Result<(AuthScheme, AuthData)> {
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
-            let auth_seed = hex_to_bytes(auth_seed)?;
-            let keypair = KeyPair::from_seed(&auth_seed)?;
+            let auth_seed: [u8; 32] = hex_to_bytes(auth_seed)?;
+            let mut rng = ChaCha20Rng::from_seed(auth_seed);
+            let secret = SecretKey::with_rng(&mut rng);
 
-            let auth_scheme = AuthScheme::RpoFalcon512 {
-                pub_key: keypair.public_key(),
-            };
+            let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
             let auth_info = AuthData::RpoFalcon512Seed(auth_seed);
 
             Ok((auth_scheme, auth_info))
@@ -226,13 +224,13 @@ mod tests {
                 type = "BasicWallet"
                 init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
-                auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
                 [[accounts]]
                 type = "BasicFungibleFaucet"
                 init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
-                auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 token_symbol = "POL"
                 decimals = 12
                 max_supply = 1000000

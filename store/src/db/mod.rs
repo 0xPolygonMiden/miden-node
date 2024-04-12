@@ -1,9 +1,11 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
 use miden_objects::{
+    block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::Nullifier,
+    notes::{NoteId, NoteType, Nullifier},
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -31,13 +33,6 @@ pub struct Db {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct AccountInfo {
-    pub account_id: AccountId,
-    pub account_hash: RpoDigest,
-    pub block_num: BlockNumber,
-}
-
-#[derive(Debug, PartialEq)]
 pub struct NullifierInfo {
     pub nullifier: Nullifier,
     pub block_num: BlockNumber,
@@ -45,10 +40,21 @@ pub struct NullifierInfo {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoteCreated {
+    pub batch_index: u32,
     pub note_index: u32,
     pub note_id: RpoDigest,
+    pub note_type: NoteType,
     pub sender: AccountId,
-    pub tag: u64,
+    pub tag: u32,
+    pub details: Option<Vec<u8>>,
+}
+
+impl NoteCreated {
+    /// Returns the absolute position on the note tree based on the batch index
+    /// and local-to-the-subtree index.
+    pub fn absolute_note_index(&self) -> u32 {
+        BlockNoteTree::note_index(self.batch_index as usize, self.note_index as usize) as u32
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -63,7 +69,7 @@ pub struct StateSyncUpdate {
     pub notes: Vec<Note>,
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
-    pub account_updates: Vec<AccountInfo>,
+    pub account_updates: Vec<AccountSummary>,
     pub nullifiers: Vec<NullifierInfo>,
 }
 
@@ -133,7 +139,7 @@ impl Db {
 
     /// Loads all the nullifiers from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_nullifiers(&self) -> Result<Vec<(RpoDigest, BlockNumber)>> {
+    pub async fn select_nullifiers(&self) -> Result<Vec<(Nullifier, BlockNumber)>> {
         self.pool.get().await?.interact(sql::select_nullifiers).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
         })?
@@ -199,6 +205,19 @@ impl Db {
             })?
     }
 
+    /// Loads public account details from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_account(&self, id: AccountId) -> Result<AccountInfo> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_account(conn, id))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Get account details task failed: {err}"))
+            })?
+    }
+
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn get_state_sync(
         &self,
@@ -230,6 +249,19 @@ impl Db {
             })?
     }
 
+    /// Loads all the Note's matching a certain NoteId from the database.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<Note>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_notes_by_id(conn, &note_ids))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
+            })?
+    }
+
     /// Inserts the data of a new block into the DB.
     ///
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
@@ -242,8 +274,8 @@ impl Db {
         acquire_done: oneshot::Receiver<()>,
         block_header: BlockHeader,
         notes: Vec<Note>,
-        nullifiers: Vec<RpoDigest>,
-        accounts: Vec<(AccountId, RpoDigest)>,
+        nullifiers: Vec<Nullifier>,
+        accounts: Vec<AccountUpdateDetails>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -279,10 +311,7 @@ impl Db {
     /// genesis block in the database is consistent with the genesis block data in the genesis JSON
     /// file.
     #[instrument(target = "miden-store", skip_all, err)]
-    async fn ensure_genesis_block(
-        &self,
-        genesis_filepath: &str,
-    ) -> Result<(), GenesisError> {
+    async fn ensure_genesis_block(&self, genesis_filepath: &str) -> Result<(), GenesisError> {
         let (expected_genesis_header, account_smt) = {
             let file_contents = fs::read(genesis_filepath).map_err(|error| {
                 GenesisError::FailedToReadGenesisFile {
@@ -326,8 +355,14 @@ impl Db {
                         let transaction = conn.transaction()?;
                         let accounts: Vec<_> = account_smt
                             .leaves()
-                            .map(|(account_id, state_hash)| (account_id, state_hash.into()))
-                            .collect();
+                            .map(|(account_id, state_hash)| {
+                                Ok(AccountUpdateDetails {
+                                    account_id: account_id.try_into()?,
+                                    final_state_hash: state_hash.into(),
+                                    details: None,
+                                })
+                            })
+                            .collect::<Result<_, DatabaseError>>()?;
                         sql::apply_block(
                             &transaction,
                             &expected_genesis_header,

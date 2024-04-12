@@ -1,16 +1,15 @@
-use std::collections::BTreeMap;
-
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
-    accounts::AccountId,
+    block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt},
-    notes::{NoteEnvelope, Nullifier},
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_NOTES_PER_BATCH,
-    ONE, ZERO,
+    notes::Nullifier,
+    transaction::OutputNote,
+    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, ONE, ZERO,
 };
 
 use super::MockStoreSuccess;
 use crate::{
-    block::{Block, BlockInputs},
+    block::{Block, BlockInputs, NoteBatch},
     block_builder::prover::{block_witness::BlockWitness, BlockProver},
     store::Store,
     TransactionBatch,
@@ -25,12 +24,12 @@ pub async fn build_expected_block_header(
     let last_block_header = *store.last_block_header.read().await;
 
     // Compute new account root
-    let updated_accounts: Vec<(AccountId, Digest)> =
+    let updated_accounts: Vec<_> =
         batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
     let new_account_root = {
         let mut store_accounts = store.accounts.read().await.clone();
-        for (account_id, new_account_state) in updated_accounts {
-            store_accounts.insert(account_id.into(), new_account_state.into());
+        for update in updated_accounts {
+            store_accounts.insert(update.account_id.into(), update.final_state_hash.into());
         }
 
         store_accounts.root()
@@ -53,7 +52,7 @@ pub async fn build_expected_block_header(
         new_account_root,
         // FIXME: FILL IN CORRECT NULLIFIER ROOT
         Digest::default(),
-        note_created_smt_from_batches(batches.iter()).root(),
+        note_created_smt_from_batches(batches).root(),
         Digest::default(),
         Digest::default(),
         ZERO,
@@ -67,14 +66,14 @@ pub async fn build_actual_block_header(
     store: &MockStoreSuccess,
     batches: Vec<TransactionBatch>,
 ) -> BlockHeader {
-    let updated_accounts: Vec<(AccountId, Digest)> =
-        batches.iter().flat_map(|batch| batch.updated_accounts()).collect();
+    let updated_accounts: Vec<_> =
+        batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
     let produced_nullifiers: Vec<Nullifier> =
-        batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+        batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
     let block_inputs_from_store: BlockInputs = store
         .get_block_inputs(
-            updated_accounts.iter().map(|(account_id, _)| account_id),
+            updated_accounts.iter().map(|update| &update.account_id),
             produced_nullifiers.iter(),
         )
         .await
@@ -91,8 +90,8 @@ pub struct MockBlockBuilder {
     store_chain_mmr: Mmr,
     last_block_header: BlockHeader,
 
-    updated_accounts: Option<Vec<(AccountId, Digest)>>,
-    created_notes: Option<BTreeMap<u64, NoteEnvelope>>,
+    updated_accounts: Option<Vec<AccountUpdateDetails>>,
+    created_note: Option<Vec<NoteBatch>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
 
@@ -104,17 +103,15 @@ impl MockBlockBuilder {
             last_block_header: *store.last_block_header.read().await,
 
             updated_accounts: None,
-            created_notes: None,
+            created_note: None,
             produced_nullifiers: None,
         }
     }
 
-    pub fn account_updates(
-        mut self,
-        updated_accounts: Vec<(AccountId, Digest)>,
-    ) -> Self {
-        for &(account_id, new_account_state) in updated_accounts.iter() {
-            self.store_accounts.insert(account_id.into(), new_account_state.into());
+    pub fn account_updates(mut self, updated_accounts: Vec<AccountUpdateDetails>) -> Self {
+        for update in &updated_accounts {
+            self.store_accounts
+                .insert(update.account_id.into(), update.final_state_hash.into());
         }
 
         self.updated_accounts = Some(updated_accounts);
@@ -122,26 +119,14 @@ impl MockBlockBuilder {
         self
     }
 
-    pub fn created_notes(
-        mut self,
-        created_notes: BTreeMap<u64, NoteEnvelope>,
-    ) -> Self {
-        self.created_notes = Some(created_notes);
-
-        self
-    }
-
-    pub fn produced_nullifiers(
-        mut self,
-        produced_nullifiers: Vec<Nullifier>,
-    ) -> Self {
+    pub fn produced_nullifiers(mut self, produced_nullifiers: Vec<Nullifier>) -> Self {
         self.produced_nullifiers = Some(produced_nullifiers);
 
         self
     }
 
     pub fn build(self) -> Block {
-        let created_notes = self.created_notes.unwrap_or_default();
+        let created_notes = self.created_note.unwrap_or_default();
 
         let header = BlockHeader::new(
             self.last_block_header.hash(),
@@ -149,7 +134,7 @@ impl MockBlockBuilder {
             self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
             self.store_accounts.root(),
             Digest::default(),
-            note_created_smt_from_envelopes(created_notes.iter()).root(),
+            note_created_smt_from_note_batches(created_notes.iter()).root(),
             Digest::default(),
             Digest::default(),
             ZERO,
@@ -165,28 +150,18 @@ impl MockBlockBuilder {
     }
 }
 
-pub(crate) fn note_created_smt_from_envelopes<'a>(
-    note_iterator: impl Iterator<Item = (&'a u64, &'a NoteEnvelope)>
-) -> SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH> {
-    SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(note_iterator.flat_map(
-        |(note_idx_in_block, note)| {
-            let index = note_idx_in_block * 2;
-            [(index, note.note_id().into()), (index + 1, note.metadata().into())]
-        },
-    ))
-    .unwrap()
-}
-
-pub(crate) fn note_created_smt_from_batches<'a>(
-    batches: impl Iterator<Item = &'a TransactionBatch>
-) -> SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH> {
-    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_index, batch)| {
-        let subtree_index = batch_index * MAX_NOTES_PER_BATCH * 2;
-        batch.created_notes().enumerate().flat_map(move |(note_index, note)| {
-            let index = (subtree_index + note_index * 2) as u64;
-            [(index, note.note_id().into()), (index + 1, note.metadata().into())]
+pub(crate) fn note_created_smt_from_note_batches<'a>(
+    batches: impl Iterator<Item = &'a (impl IntoIterator<Item = OutputNote> + Clone + 'a)>,
+) -> BlockNoteTree {
+    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
+        batch.clone().into_iter().enumerate().map(move |(note_idx_in_batch, note)| {
+            (batch_idx, note_idx_in_batch, (note.id().into(), *note.metadata()))
         })
     });
 
-    SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(note_leaf_iterator).unwrap()
+    BlockNoteTree::with_entries(note_leaf_iterator).unwrap()
+}
+
+pub(crate) fn note_created_smt_from_batches(batches: &[TransactionBatch]) -> BlockNoteTree {
+    note_created_smt_from_note_batches(batches.iter().map(|batch| batch.created_notes()))
 }

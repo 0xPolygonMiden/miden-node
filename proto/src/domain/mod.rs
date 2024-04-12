@@ -2,7 +2,6 @@ pub mod accounts;
 pub mod blocks;
 pub mod digest;
 pub mod merkle;
-pub mod notes;
 pub mod nullifiers;
 
 // UTILITIES

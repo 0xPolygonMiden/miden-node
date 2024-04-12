@@ -1,8 +1,9 @@
 # Miden node
 
-<a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-<a href="https://github.com/0xPolygonMiden/miden-node/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-node/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-<a href="https://crates.io/crates/miden-node"><img src="https://img.shields.io/crates/v/miden-node"></a>
+[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE)
+[![test](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml)
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.77+-lightgray.svg)]()
+[![crates.io](https://img.shields.io/crates/v/miden-node)](https://crates.io/crates/miden-node)
 
 This repository holds the Miden node; that is, the software which processes transactions and creates blocks for the Miden rollup.
 
@@ -27,12 +28,12 @@ The diagram below illustrates high-level design of each component as well as bas
 
 ## Usage
 
-Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.1 requires Rust version **1.75** or later.
+Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.2 requires Rust version **1.77** or later.
 
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 
 ```sh
-sudo apt install gcc llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
+sudo apt install llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
 ```
 
 ### Installing the node
@@ -91,6 +92,34 @@ Please, refer to each component's documentation:
 
 Each directory containing the executables also contains an example configuration file. Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are valid and point to the right endpoint.
 
+### Running the node using Docker
+
+If you intend on running the node inside a Docker container, you will need to follow these steps:
+
+1. Build the docker image from source
+
+    ```sh
+    cargo make docker-build-node
+    ```
+
+    This command will build the docker image for the Miden node and save it locally.
+
+2. Run the Docker container
+
+    ```sh
+    docker run --name miden-node -p 57291:57291 -d miden-node-image
+    ```
+
+    This command will run the node as a container named `miden-node` using the `miden-node-image` and make port `57291` available (rpc endpoint).
+
+3. Monitor container
+
+    ```sh
+    docker ps
+    ```
+
+    After running this command you should see the name of the container `miden-node` being outputed and marked as `Up`.
+
 
 ### Debian Packages
 
@@ -105,11 +134,11 @@ Note, when using the debian package to run the `make-genesis` function, you shou
 ```sh
 miden-node make-genesis -i $input_location_for_gensis.toml -o $output_for_gensis.dat_and_accounts
 ```
-The debian package has a checksum, you can verify this checksum by download the debian package and checksum file to the same directory and running the following command:
+The debian package has a checksum, you can verify this checksum by downloading the debian package and checksum file to the same directory and running the following command:
 ```sh
 sha256sum --check $checksumfile
 ```
-Please make sure you have the sha256sum program installed, for most linux operating systems this is already installed. If you wish to installe it on your macOS, you can use brew:
+Please make sure you have the sha256sum program installed, for most linux operating systems this is already installed. If you wish to install it on your macOS, you can use brew:
 ```sh
 brew install coreutils
 ```

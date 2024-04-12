@@ -1,12 +1,21 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use miden_node_utils::formatting::format_opt;
-use miden_objects::{accounts::AccountId, crypto::merkle::MerklePath, Digest};
+use miden_objects::{
+    accounts::{Account, AccountId},
+    crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
+    transaction::AccountDetails,
+    utils::Serializable,
+    Digest,
+};
 
 use crate::{
-    errors::{MissingFieldHelper, ParseError},
+    errors::{ConversionError, MissingFieldHelper},
     generated::{
-        self,
+        account::{
+            AccountId as AccountIdPb, AccountInfo as AccountInfoPb,
+            AccountSummary as AccountSummaryPb,
+        },
         requests::AccountUpdate,
         responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
@@ -15,20 +24,14 @@ use crate::{
 // ACCOUNT ID
 // ================================================================================================
 
-impl Display for generated::account::AccountId {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+impl Display for AccountIdPb {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("0x{:x}", self.id))
     }
 }
 
-impl Debug for generated::account::AccountId {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+impl Debug for AccountIdPb {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }
@@ -36,45 +39,89 @@ impl Debug for generated::account::AccountId {
 // INTO PROTO ACCOUNT ID
 // ------------------------------------------------------------------------------------------------
 
-impl From<u64> for generated::account::AccountId {
+impl From<u64> for AccountIdPb {
     fn from(value: u64) -> Self {
-        generated::account::AccountId { id: value }
+        AccountIdPb { id: value }
     }
 }
 
-impl From<AccountId> for generated::account::AccountId {
+impl From<&AccountId> for AccountIdPb {
+    fn from(account_id: &AccountId) -> Self {
+        (*account_id).into()
+    }
+}
+
+impl From<AccountId> for AccountIdPb {
     fn from(account_id: AccountId) -> Self {
-        Self {
-            id: account_id.into(),
-        }
+        Self { id: account_id.into() }
     }
 }
 
 // FROM PROTO ACCOUNT ID
 // ------------------------------------------------------------------------------------------------
 
-impl From<generated::account::AccountId> for u64 {
-    fn from(value: generated::account::AccountId) -> Self {
+impl From<AccountIdPb> for u64 {
+    fn from(value: AccountIdPb) -> Self {
         value.id
     }
 }
 
-impl TryFrom<generated::account::AccountId> for AccountId {
-    type Error = ParseError;
+impl TryFrom<AccountIdPb> for AccountId {
+    type Error = ConversionError;
 
-    fn try_from(account_id: generated::account::AccountId) -> Result<Self, Self::Error> {
-        account_id.id.try_into().map_err(|_| ParseError::NotAValidFelt)
+    fn try_from(account_id: AccountIdPb) -> Result<Self, Self::Error> {
+        account_id.id.try_into().map_err(|_| ConversionError::NotAValidFelt)
     }
 }
 
-// INTO ACCOUNT UPDATE
+// ACCOUNT UPDATE
 // ================================================================================================
 
-impl From<(AccountId, Digest)> for AccountUpdate {
-    fn from((account_id, account_hash): (AccountId, Digest)) -> Self {
+#[derive(Debug, PartialEq)]
+pub struct AccountSummary {
+    pub account_id: AccountId,
+    pub account_hash: RpoDigest,
+    pub block_num: u32,
+}
+
+impl From<&AccountSummary> for AccountSummaryPb {
+    fn from(update: &AccountSummary) -> Self {
         Self {
-            account_id: Some(account_id.into()),
-            account_hash: Some(account_hash.into()),
+            account_id: Some(update.account_id.into()),
+            account_hash: Some(update.account_hash.into()),
+            block_num: update.block_num,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AccountInfo {
+    pub summary: AccountSummary,
+    pub details: Option<Account>,
+}
+
+impl From<&AccountInfo> for AccountInfoPb {
+    fn from(AccountInfo { summary, details }: &AccountInfo) -> Self {
+        Self {
+            summary: Some(summary.into()),
+            details: details.as_ref().map(|account| account.to_bytes()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountUpdateDetails {
+    pub account_id: AccountId,
+    pub final_state_hash: Digest,
+    pub details: Option<AccountDetails>,
+}
+
+impl From<&AccountUpdateDetails> for AccountUpdate {
+    fn from(update: &AccountUpdateDetails) -> Self {
+        Self {
+            account_id: Some(update.account_id.into()),
+            account_hash: Some(update.final_state_hash.into()),
+            details: update.details.as_ref().map(|details| details.to_bytes()),
         }
     }
 }
@@ -100,7 +147,7 @@ impl From<AccountInputRecord> for AccountBlockInputRecord {
 }
 
 impl TryFrom<AccountBlockInputRecord> for AccountInputRecord {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(account_input_record: AccountBlockInputRecord) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -133,10 +180,7 @@ pub struct AccountState {
 }
 
 impl Display for AccountState {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{{ account_id: {}, account_hash: {} }}",
             self.account_id,
@@ -155,7 +199,7 @@ impl From<AccountState> for AccountTransactionInputRecord {
 }
 
 impl TryFrom<AccountTransactionInputRecord> for AccountState {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(from: AccountTransactionInputRecord) -> Result<Self, Self::Error> {
         let account_id = from
@@ -177,15 +221,12 @@ impl TryFrom<AccountTransactionInputRecord> for AccountState {
             Some(account_hash)
         };
 
-        Ok(Self {
-            account_id,
-            account_hash,
-        })
+        Ok(Self { account_id, account_hash })
     }
 }
 
 impl TryFrom<AccountUpdate> for AccountState {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -199,7 +240,7 @@ impl TryFrom<AccountUpdate> for AccountState {
 }
 
 impl TryFrom<&AccountUpdate> for AccountState {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: &AccountUpdate) -> Result<Self, Self::Error> {
         value.clone().try_into()

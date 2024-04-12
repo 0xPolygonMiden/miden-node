@@ -12,10 +12,7 @@ struct BlockBuilderSuccess {
 
 #[async_trait]
 impl BlockBuilder for BlockBuilderSuccess {
-    async fn build_block(
-        &self,
-        batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError> {
+    async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
         if batches.is_empty() {
             *self.num_empty_batches_received.write().await += 1;
         } else {
@@ -31,10 +28,7 @@ struct BlockBuilderFailure;
 
 #[async_trait]
 impl BlockBuilder for BlockBuilderFailure {
-    async fn build_block(
-        &self,
-        _batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError> {
+    async fn build_block(&self, _batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
         Err(BuildBlockError::TooManyBatchesInBlock(0))
     }
 }
@@ -53,10 +47,7 @@ async fn test_block_size_doesnt_exceed_limit() {
 
     let batch_builder = Arc::new(DefaultBatchBuilder::new(
         block_builder.clone(),
-        DefaultBatchBuilderOptions {
-            block_frequency,
-            max_batches_per_block,
-        },
+        DefaultBatchBuilderOptions { block_frequency, max_batches_per_block },
     ));
 
     // Add 3 batches in internal queue (remember: 2 batches/block)
@@ -94,10 +85,7 @@ async fn test_build_block_called_when_no_batches() {
 
     let batch_builder = Arc::new(DefaultBatchBuilder::new(
         block_builder.clone(),
-        DefaultBatchBuilderOptions {
-            block_frequency,
-            max_batches_per_block,
-        },
+        DefaultBatchBuilderOptions { block_frequency, max_batches_per_block },
     ));
 
     // start batch builder
@@ -122,10 +110,7 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
 
     let batch_builder = Arc::new(DefaultBatchBuilder::new(
         block_builder.clone(),
-        DefaultBatchBuilderOptions {
-            block_frequency,
-            max_batches_per_block,
-        },
+        DefaultBatchBuilderOptions { block_frequency, max_batches_per_block },
     ));
 
     let internal_ready_batches = batch_builder.ready_batches.clone();
@@ -151,13 +136,10 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
 // HELPERS
 // ================================================================================================
 
-fn dummy_tx_batch(
-    starting_acccount_index: u32,
-    num_txs_in_batch: usize,
-) -> TransactionBatch {
+fn dummy_tx_batch(starting_account_index: u32, num_txs_in_batch: usize) -> TransactionBatch {
     let txs = (0..num_txs_in_batch)
         .map(|index| {
-            MockProvenTxBuilder::with_account_index(starting_acccount_index + index as u32).build()
+            MockProvenTxBuilder::with_account_index(starting_account_index + index as u32).build()
         })
         .collect();
     TransactionBatch::new(txs).unwrap()

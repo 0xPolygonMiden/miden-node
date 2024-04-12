@@ -6,9 +6,10 @@ use std::{
 use async_trait::async_trait;
 use miden_node_proto::{
     convert,
-    errors::{MissingFieldHelper, ParseError},
+    errors::{ConversionError, MissingFieldHelper},
     generated::{
         account, digest,
+        note::NoteCreated,
         requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
@@ -16,7 +17,9 @@ use miden_node_proto::{
     AccountState,
 };
 use miden_node_utils::formatting::{format_map, format_opt};
-use miden_objects::{accounts::AccountId, notes::Nullifier, Digest};
+use miden_objects::{
+    accounts::AccountId, notes::Nullifier, transaction::OutputNote, utils::Serializable, Digest,
+};
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
@@ -47,10 +50,7 @@ pub trait Store: ApplyBlock {
 
 #[async_trait]
 pub trait ApplyBlock: Send + Sync + 'static {
-    async fn apply_block(
-        &self,
-        block: Block,
-    ) -> Result<(), ApplyBlockError>;
+    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError>;
 }
 
 // TRANSACTION INPUTS
@@ -69,10 +69,7 @@ pub struct TransactionInputs {
 }
 
 impl Display for TransactionInputs {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{{ account_id: {}, account_hash: {}, nullifiers: {} }}",
             self.account_id,
@@ -83,13 +80,10 @@ impl Display for TransactionInputs {
 }
 
 impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(response: GetTransactionInputsResponse) -> Result<Self, Self::Error> {
-        let AccountState {
-            account_id,
-            account_hash,
-        } = response
+        let AccountState { account_id, account_hash } = response
             .account_state
             .ok_or(GetTransactionInputsResponse::missing_field(stringify!(account_state)))?
             .try_into()?;
@@ -104,11 +98,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             nullifiers.insert(nullifier, nullifier_record.block_num);
         }
 
-        Ok(Self {
-            account_id,
-            account_hash,
-            nullifiers,
-        })
+        Ok(Self { account_id, account_hash, nullifiers })
     }
 }
 
@@ -126,18 +116,45 @@ impl DefaultStore {
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl ApplyBlock for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn apply_block(
-        &self,
-        block: Block,
-    ) -> Result<(), ApplyBlockError> {
+    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
+        let notes = block
+            .created_notes
+            .iter()
+            .enumerate()
+            .flat_map(|(batch_idx, batch)| {
+                batch
+                    .iter()
+                    .enumerate()
+                    .map(|(note_idx_in_batch, note)| {
+                        let details = match note {
+                            OutputNote::Public(note) => Some(note.to_bytes()),
+                            OutputNote::Private(_) => None,
+                        };
+                        NoteCreated {
+                            batch_index: batch_idx as u32,
+                            note_index: note_idx_in_batch as u32,
+                            note_id: Some(note.id().into()),
+                            note_type: note.metadata().note_type() as u32,
+                            sender: Some(note.metadata().sender().into()),
+                            tag: note.metadata().tag().into(),
+                            details,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+
         let request = tonic::Request::new(ApplyBlockRequest {
-            block: Some(block.header.into()),
-            accounts: convert(block.updated_accounts),
-            nullifiers: convert(block.produced_nullifiers),
-            notes: convert(block.created_notes),
+            block: Some((&block.header).into()),
+            accounts: convert(&block.updated_accounts),
+            nullifiers: convert(&block.produced_nullifiers),
+            notes,
         });
 
         let _ = self
@@ -151,6 +168,9 @@ impl ApplyBlock for DefaultStore {
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl Store for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]

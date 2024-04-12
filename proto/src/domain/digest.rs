@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use hex::{FromHex, ToHex};
 use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
 
-use crate::{errors::ParseError, generated::digest};
+use crate::{errors::ConversionError, generated::digest};
 
 // CONSTANTS
 // ================================================================================================
@@ -14,19 +14,13 @@ pub const DIGEST_DATA_SIZE: usize = 32;
 // ================================================================================================
 
 impl Display for digest::Digest {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.encode_hex::<String>())
     }
 }
 
 impl Debug for digest::Digest {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }
@@ -62,20 +56,18 @@ impl ToHex for digest::Digest {
 }
 
 impl FromHex for digest::Digest {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let data = hex::decode(hex)?;
 
         match data.len() {
-            size if size < DIGEST_DATA_SIZE => Err(ParseError::InsufficientData {
-                expected: DIGEST_DATA_SIZE,
-                got: size,
-            }),
-            size if size > DIGEST_DATA_SIZE => Err(ParseError::TooMuchData {
-                expected: DIGEST_DATA_SIZE,
-                got: size,
-            }),
+            size if size < DIGEST_DATA_SIZE => {
+                Err(ConversionError::InsufficientData { expected: DIGEST_DATA_SIZE, got: size })
+            },
+            size if size > DIGEST_DATA_SIZE => {
+                Err(ConversionError::TooMuchData { expected: DIGEST_DATA_SIZE, got: size })
+            },
             _ => {
                 let d0 = u64::from_be_bytes(data[..8].try_into().unwrap());
                 let d1 = u64::from_be_bytes(data[8..16].try_into().unwrap());
@@ -164,14 +156,14 @@ impl From<digest::Digest> for [u64; 4] {
 }
 
 impl TryFrom<digest::Digest> for [Felt; 4] {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         if ![value.d0, value.d1, value.d2, value.d3]
             .iter()
             .all(|v| *v < <Felt as StarkField>::MODULUS)
         {
-            Err(ParseError::NotAValidFelt)
+            Err(ConversionError::NotAValidFelt)
         } else {
             Ok([
                 Felt::new(value.d0),
@@ -184,7 +176,7 @@ impl TryFrom<digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<digest::Digest> for Digest {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         Ok(Self::new(value.try_into()?))
@@ -192,7 +184,7 @@ impl TryFrom<digest::Digest> for Digest {
 }
 
 impl TryFrom<&digest::Digest> for [Felt; 4] {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -200,7 +192,7 @@ impl TryFrom<&digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<&digest::Digest> for Digest {
-    type Error = ParseError;
+    type Error = ConversionError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -229,12 +221,7 @@ mod test {
         let round_trip: Result<Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
         assert_eq!(digest, round_trip.unwrap());
 
-        let digest = Digest {
-            d0: 0,
-            d1: 0,
-            d2: 0,
-            d3: 0,
-        };
+        let digest = Digest { d0: 0, d1: 0, d2: 0, d3: 0 };
         let encoded: String = ToHex::encode_hex(&digest);
         let round_trip: Result<Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
         assert_eq!(digest, round_trip.unwrap());

@@ -6,6 +6,8 @@
 
 use std::iter;
 
+use miden_node_proto::domain::accounts::AccountUpdateDetails;
+
 use super::*;
 use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 
@@ -32,12 +34,16 @@ async fn test_apply_block_ab1() {
         .await
         .account_updates(
             std::iter::once(account)
-                .map(|mock_account| (mock_account.id, mock_account.states[1]))
+                .map(|mock_account| AccountUpdateDetails {
+                    account_id: mock_account.id,
+                    final_state_hash: mock_account.states[1],
+                    details: None,
+                })
                 .collect(),
         )
         .build();
 
-    let apply_block_res = state_view.apply_block(block).await;
+    let apply_block_res = state_view.apply_block(&block).await;
     assert!(apply_block_res.is_ok());
 
     assert_eq!(*store.num_apply_block_called.read().await, 1);
@@ -75,12 +81,16 @@ async fn test_apply_block_ab2() {
         .account_updates(
             accounts_in_block
                 .into_iter()
-                .map(|mock_account| (mock_account.id, mock_account.states[1]))
+                .map(|mock_account| AccountUpdateDetails {
+                    account_id: mock_account.id,
+                    final_state_hash: mock_account.states[1],
+                    details: None,
+                })
                 .collect(),
         )
         .build();
 
-    let apply_block_res = state_view.apply_block(block).await;
+    let apply_block_res = state_view.apply_block(&block).await;
     assert!(apply_block_res.is_ok());
 
     let accounts_still_in_flight = state_view.accounts_in_flight.read().await;
@@ -120,12 +130,16 @@ async fn test_apply_block_ab3() {
             accounts
                 .clone()
                 .into_iter()
-                .map(|mock_account| (mock_account.id, mock_account.states[1]))
+                .map(|mock_account| AccountUpdateDetails {
+                    account_id: mock_account.id,
+                    final_state_hash: mock_account.states[1],
+                    details: None,
+                })
                 .collect(),
         )
         .build();
 
-    let apply_block_res = state_view.apply_block(block).await;
+    let apply_block_res = state_view.apply_block(&block).await;
     assert!(apply_block_res.is_ok());
 
     // Craft a new transaction which tries to consume the same note that was consumed in the

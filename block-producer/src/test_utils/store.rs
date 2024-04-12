@@ -2,9 +2,11 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use miden_objects::{
+    block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    notes::{NoteEnvelope, Nullifier},
-    BlockHeader, ACCOUNT_TREE_DEPTH, BLOCK_OUTPUT_NOTES_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
+    notes::Nullifier,
+    transaction::OutputNote,
+    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
 };
 
 use super::*;
@@ -14,7 +16,7 @@ use crate::{
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
-    test_utils::block::{note_created_smt_from_batches, note_created_smt_from_envelopes},
+    test_utils::block::{note_created_smt_from_batches, note_created_smt_from_note_batches},
     ProvenTransaction,
 };
 
@@ -22,7 +24,7 @@ use crate::{
 #[derive(Debug)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    notes: Option<SimpleSmt<BLOCK_OUTPUT_NOTES_TREE_DEPTH>>,
+    notes: Option<BlockNoteTree>,
     produced_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
     block_num: Option<u32>,
@@ -30,18 +32,17 @@ pub struct MockStoreSuccessBuilder {
 
 impl MockStoreSuccessBuilder {
     pub fn from_batches<'a>(batches: impl Iterator<Item = &'a TransactionBatch>) -> Self {
-        let batches: Vec<_> = batches.collect();
+        let batches: Vec<_> = batches.cloned().collect();
 
         let accounts_smt = {
             let accounts = batches
                 .iter()
-                .cloned()
                 .flat_map(TransactionBatch::account_initial_states)
                 .map(|(account_id, hash)| (account_id.into(), hash.into()));
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
-        let created_notes = note_created_smt_from_batches(batches.iter().cloned());
+        let created_notes = note_created_smt_from_batches(&batches);
 
         Self {
             accounts: Some(accounts_smt),
@@ -70,35 +71,26 @@ impl MockStoreSuccessBuilder {
 
     pub fn initial_notes<'a>(
         mut self,
-        notes: impl Iterator<Item = (&'a u64, &'a NoteEnvelope)>,
+        notes: impl Iterator<Item = &'a (impl Iterator<Item = OutputNote> + Clone + 'a)>,
     ) -> Self {
-        self.notes = Some(note_created_smt_from_envelopes(notes));
+        self.notes = Some(note_created_smt_from_note_batches(notes));
 
         self
     }
 
-    pub fn initial_nullifiers(
-        mut self,
-        nullifiers: BTreeSet<Digest>,
-    ) -> Self {
+    pub fn initial_nullifiers(mut self, nullifiers: BTreeSet<Digest>) -> Self {
         self.produced_nullifiers = Some(nullifiers);
 
         self
     }
 
-    pub fn initial_chain_mmr(
-        mut self,
-        chain_mmr: Mmr,
-    ) -> Self {
+    pub fn initial_chain_mmr(mut self, chain_mmr: Mmr) -> Self {
         self.chain_mmr = Some(chain_mmr);
 
         self
     }
 
-    pub fn initial_block_num(
-        mut self,
-        block_num: u32,
-    ) -> Self {
+    pub fn initial_block_num(mut self, block_num: u32) -> Self {
         self.block_num = Some(block_num);
 
         self
@@ -107,7 +99,7 @@ impl MockStoreSuccessBuilder {
     pub fn build(self) -> MockStoreSuccess {
         let block_num = self.block_num.unwrap_or(1);
         let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new().unwrap());
-        let notes_smt = self.notes.unwrap_or(SimpleSmt::new().unwrap());
+        let notes_smt = self.notes.unwrap_or_default();
         let chain_mmr = self.chain_mmr.unwrap_or_default();
         let nullifiers_smt = self
             .produced_nullifiers
@@ -171,22 +163,19 @@ impl MockStoreSuccess {
 
 #[async_trait]
 impl ApplyBlock for MockStoreSuccess {
-    async fn apply_block(
-        &self,
-        block: Block,
-    ) -> Result<(), ApplyBlockError> {
+    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
         let mut locked_produced_nullifiers = self.produced_nullifiers.write().await;
 
         // update accounts
-        for &(account_id, account_hash) in block.updated_accounts.iter() {
-            locked_accounts.insert(account_id.into(), account_hash.into());
+        for update in &block.updated_accounts {
+            locked_accounts.insert(update.account_id.into(), update.final_state_hash.into());
         }
         debug_assert_eq!(locked_accounts.root(), block.header.account_root());
 
         // update nullifiers
-        for nullifier in block.produced_nullifiers {
+        for nullifier in &block.produced_nullifiers {
             locked_produced_nullifiers
                 .insert(nullifier.inner(), [block.header.block_num().into(), ZERO, ZERO, ZERO]);
         }
@@ -260,10 +249,8 @@ impl Store for MockStoreSuccess {
         let accounts = {
             updated_accounts
                 .map(|&account_id| {
-                    let ValuePath {
-                        value: hash,
-                        path: proof,
-                    } = locked_accounts.open(&account_id.into());
+                    let ValuePath { value: hash, path: proof } =
+                        locked_accounts.open(&account_id.into());
 
                     (account_id, AccountWitness { hash, proof })
                 })
@@ -288,10 +275,7 @@ pub struct MockStoreFailure;
 
 #[async_trait]
 impl ApplyBlock for MockStoreFailure {
-    async fn apply_block(
-        &self,
-        _block: Block,
-    ) -> Result<(), ApplyBlockError> {
+    async fn apply_block(&self, _block: &Block) -> Result<(), ApplyBlockError> {
         Err(ApplyBlockError::GrpcClientError(String::new()))
     }
 }

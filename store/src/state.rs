@@ -4,15 +4,19 @@
 //! data is atomically written, and that reads are consistent.
 use std::{mem, sync::Arc};
 
-use miden_node_proto::{AccountInputRecord, NullifierWitness};
+use miden_node_proto::{
+    domain::accounts::{AccountInfo, AccountUpdateDetails},
+    AccountInputRecord, NullifierWitness,
+};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
+    block::BlockNoteTree,
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, Smt, SmtProof, ValuePath},
+        merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteMetadata, NOTE_LEAF_DEPTH},
-    AccountError, BlockHeader, Felt, FieldElement, Word, ACCOUNT_TREE_DEPTH, EMPTY_WORD,
+    notes::{NoteId, NoteMetadata, Nullifier},
+    AccountError, BlockHeader, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -21,11 +25,12 @@ use tokio::{
 use tracing::{error, info, info_span, instrument};
 
 use crate::{
-    db::{AccountInfo, Db, Note, NoteCreated, NullifierInfo, StateSyncUpdate},
+    db::{Db, Note, NoteCreated, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockInputsError, StateInitializationError,
         StateSyncError,
     },
+    nullifier_tree::NullifierTree,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
@@ -41,7 +46,7 @@ pub struct TransactionInputs {
 
 /// Container for state that needs to be updated atomically.
 struct InnerState {
-    nullifier_tree: Smt,
+    nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
 }
@@ -68,11 +73,7 @@ impl State {
         let chain_mmr = load_mmr(&mut db).await?;
         let account_tree = load_accounts(&mut db).await?;
 
-        let inner = RwLock::new(InnerState {
-            nullifier_tree,
-            chain_mmr,
-            account_tree,
-        });
+        let inner = RwLock::new(InnerState { nullifier_tree, chain_mmr, account_tree });
 
         let writer = Mutex::new(());
         let db = Arc::new(db);
@@ -103,8 +104,8 @@ impl State {
     pub async fn apply_block(
         &self,
         block_header: BlockHeader,
-        nullifiers: Vec<RpoDigest>,
-        accounts: Vec<(AccountId, RpoDigest)>,
+        nullifiers: Vec<Nullifier>,
+        accounts: Vec<AccountUpdateDetails>,
         notes: Vec<NoteCreated>,
     ) -> Result<(), ApplyBlockError> {
         let _ = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
@@ -132,7 +133,7 @@ impl State {
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = nullifiers
                 .iter()
-                .filter(|&n| inner.nullifier_tree.get_value(n) != EMPTY_WORD)
+                .filter(|&n| inner.nullifier_tree.get_block_num(n).is_some())
                 .cloned()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
@@ -164,9 +165,10 @@ impl State {
             // update nullifier tree
             let nullifier_tree = {
                 let mut nullifier_tree = inner.nullifier_tree.clone();
-                let nullifier_data = block_num_to_nullifier_value(block_header.block_num());
                 for nullifier in nullifiers.iter() {
-                    nullifier_tree.insert(*nullifier, nullifier_data);
+                    nullifier_tree
+                        .insert(nullifier, block_header.block_num())
+                        .map_err(ApplyBlockError::FailedToUpdateNullifierTree)?;
                 }
 
                 if nullifier_tree.root() != block_header.nullifier_root() {
@@ -177,8 +179,11 @@ impl State {
 
             // update account tree
             let mut account_tree = inner.account_tree.clone();
-            for (account_id, account_hash) in accounts.iter() {
-                account_tree.insert(LeafIndex::new_max_depth(*account_id), account_hash.into());
+            for update in &accounts {
+                account_tree.insert(
+                    LeafIndex::new_max_depth(update.account_id.into()),
+                    update.final_state_hash.into(),
+                );
             }
 
             if account_tree.root() != block_header.account_root() {
@@ -186,7 +191,7 @@ impl State {
             }
 
             // build notes tree
-            let note_tree = build_notes_tree(&notes)?;
+            let note_tree = build_note_tree(&notes)?;
             if note_tree.root() != block_header.note_root() {
                 return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
             }
@@ -195,22 +200,17 @@ impl State {
 
             let notes = notes
                 .into_iter()
-                .map(|note| {
-                    // Safety: This should never happen, the note_tree is created directly form
-                    // this list of notes
-                    let leaf_index = LeafIndex::<NOTE_LEAF_DEPTH>::new(note.note_index as u64)
+                .map(|note_created| {
+                    let merkle_path = note_tree
+                        .get_note_path(
+                            note_created.batch_index as usize,
+                            note_created.note_index as usize,
+                        )
                         .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
-
-                    let merkle_path = note_tree.open(&leaf_index).path;
 
                     Ok(Note {
                         block_num: block_header.block_num(),
-                        note_created: NoteCreated {
-                            note_id: note.note_id,
-                            sender: note.sender,
-                            note_index: note.note_index,
-                            tag: note.tag,
-                        },
+                        note_created,
                         merkle_path,
                     })
                 })
@@ -294,12 +294,17 @@ impl State {
     ///
     /// Note: these proofs are invalidated once the nullifier tree is modified, i.e. on a new block.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"))]
-    pub async fn check_nullifiers(
-        &self,
-        nullifiers: &[RpoDigest],
-    ) -> Vec<SmtProof> {
+    pub async fn check_nullifiers(&self, nullifiers: &[Nullifier]) -> Vec<SmtProof> {
         let inner = self.inner.read().await;
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
+    }
+
+    /// Queries a list of [Note] from the database.
+    ///
+    /// If the provided list of [NoteId] given is empty or no [Note] matches the provided [NoteId]
+    /// an empty list is returned.
+    pub async fn get_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<Note>, DatabaseError> {
+        self.db.select_notes_by_id(note_ids).await
     }
 
     /// Loads data to synchronize a client.
@@ -335,10 +340,7 @@ impl State {
 
         let delta = if block_num == state_sync.block_header.block_num() {
             // The client is in sync with the chain tip.
-            MmrDelta {
-                forest: block_num as usize,
-                data: vec![],
-            }
+            MmrDelta { forest: block_num as usize, data: vec![] }
         } else {
             // Important notes about the boundary conditions:
             //
@@ -363,7 +365,7 @@ impl State {
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
-        nullifiers: &[RpoDigest],
+        nullifiers: &[Nullifier],
     ) -> Result<
         (BlockHeader, MmrPeaks, Vec<AccountInputRecord>, Vec<NullifierWitness>),
         GetBlockInputsError,
@@ -396,10 +398,8 @@ impl State {
             .iter()
             .cloned()
             .map(|account_id| {
-                let ValuePath {
-                    value: account_hash,
-                    path: proof,
-                } = inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
+                let ValuePath { value: account_hash, path: proof } =
+                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
                 Ok(AccountInputRecord {
                     account_id: account_id.try_into()?,
                     account_hash,
@@ -413,10 +413,7 @@ impl State {
             .map(|nullifier| {
                 let proof = inner.nullifier_tree.open(nullifier);
 
-                NullifierWitness {
-                    nullifier: (*nullifier).into(),
-                    proof,
-                }
+                NullifierWitness { nullifier: *nullifier, proof }
             })
             .collect();
 
@@ -428,7 +425,7 @@ impl State {
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
-        nullifiers: &[RpoDigest],
+        nullifiers: &[Nullifier],
     ) -> TransactionInputs {
         info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
 
@@ -438,26 +435,17 @@ impl State {
 
         let nullifiers = nullifiers
             .iter()
-            .cloned()
-            .map(|nullifier| {
-                let value = inner.nullifier_tree.get_value(&nullifier);
-                let block_num = nullifier_value_to_block_num(value);
-
-                NullifierInfo {
-                    nullifier: nullifier.into(),
-                    block_num,
-                }
+            .map(|nullifier| NullifierInfo {
+                nullifier: *nullifier,
+                block_num: inner.nullifier_tree.get_block_num(nullifier).unwrap_or_default(),
             })
             .collect();
 
-        TransactionInputs {
-            account_hash,
-            nullifiers,
-        }
+        TransactionInputs { account_hash, nullifiers }
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
-    pub async fn list_nullifiers(&self) -> Result<Vec<(RpoDigest, u32)>, DatabaseError> {
+    pub async fn list_nullifiers(&self) -> Result<Vec<(Nullifier, u32)>, DatabaseError> {
         self.db.select_nullifiers().await
     }
 
@@ -471,58 +459,44 @@ impl State {
     pub async fn list_notes(&self) -> Result<Vec<Note>, DatabaseError> {
         self.db.select_notes().await
     }
+
+    /// Returns details for public (on-chain) account.
+    pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
+        self.db.select_account(id).await
+    }
 }
 
 // UTILITIES
 // ================================================================================================
 
-/// Returns the nullifier's leaf value in the SMT by its block number.
-fn block_num_to_nullifier_value(block: BlockNumber) -> Word {
-    [Felt::from(block), Felt::ZERO, Felt::ZERO, Felt::ZERO]
-}
-
-/// Given the leaf value of the nullifier SMT, returns the nullifier's block number.
-///
-/// There are no nullifiers in the genesis block. The value zero is instead used to signal absence
-/// of a value.
-fn nullifier_value_to_block_num(value: Word) -> BlockNumber {
-    value[0].as_int().try_into().expect("invalid block number found in store")
-}
-
-/// Creates a [SimpleSmt] tree from the `notes`.
+/// Creates a [BlockNoteTree] from the `notes`.
 #[instrument(target = "miden-store", skip_all)]
-pub fn build_notes_tree(
-    notes: &[NoteCreated]
-) -> Result<SimpleSmt<NOTE_LEAF_DEPTH>, ApplyBlockError> {
+pub fn build_note_tree(notes: &[NoteCreated]) -> Result<BlockNoteTree, ApplyBlockError> {
     // TODO: create SimpleSmt without this allocation
-    let mut entries: Vec<(u64, Word)> = Vec::with_capacity(notes.len() * 2);
+    let mut entries: Vec<(usize, usize, (RpoDigest, NoteMetadata))> =
+        Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
-        let note_metadata = NoteMetadata::new(
-            note.sender.try_into()?,
-            note.tag
-                .try_into()
-                .expect("tag value is greater than or equal to the field modulus"),
-        );
-        let index = note.note_index as u64;
-        entries.push((index, note.note_id.into()));
-        entries.push((index + 1, note_metadata.into()));
+        let note_metadata =
+            NoteMetadata::new(note.sender.try_into()?, note.note_type, note.tag.into(), ZERO)?;
+        entries.push((
+            note.batch_index as usize,
+            note.note_index as usize,
+            (note.note_id, note_metadata),
+        ));
     }
 
-    SimpleSmt::with_leaves(entries).map_err(ApplyBlockError::FailedToCreateNotesTree)
+    BlockNoteTree::with_entries(entries).map_err(ApplyBlockError::FailedToCreateNoteTree)
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_nullifier_tree(db: &mut Db) -> Result<Smt, StateInitializationError> {
+async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitializationError> {
     let nullifiers = db.select_nullifiers().await?;
     let len = nullifiers.len();
-    let leaves = nullifiers
-        .into_iter()
-        .map(|(nullifier, block)| (nullifier, block_num_to_nullifier_value(block)));
 
     let now = Instant::now();
-    let nullifier_tree = Smt::with_entries(leaves)
-        .map_err(StateInitializationError::FailedToCreateNullifiersTree)?;
+    let nullifier_tree = NullifierTree::with_entries(nullifiers)
+        .map_err(StateInitializationError::FailedToCreateNullifierTree)?;
     let elapsed = now.elapsed().as_secs();
 
     info!(
@@ -544,7 +518,7 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
 
 #[instrument(target = "miden-store", skip_all)]
 async fn load_accounts(
-    db: &mut Db
+    db: &mut Db,
 ) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
     let account_data: Vec<_> = db
         .select_account_hashes()
@@ -555,28 +529,4 @@ async fn load_accounts(
 
     SimpleSmt::with_leaves(account_data)
         .map_err(StateInitializationError::FailedToCreateAccountsTree)
-}
-
-#[cfg(test)]
-mod tests {
-    use miden_objects::{Felt, ZERO};
-
-    use super::{block_num_to_nullifier_value, nullifier_value_to_block_num};
-
-    #[test]
-    fn test_nullifier_data_encoding() {
-        let block_num = 123;
-        let nullifier_value = block_num_to_nullifier_value(block_num);
-
-        assert_eq!(nullifier_value, [Felt::from(block_num), ZERO, ZERO, ZERO])
-    }
-
-    #[test]
-    fn test_nullifier_data_decoding() {
-        let block_num = 123;
-        let nullifier_value = [Felt::from(block_num), ZERO, ZERO, ZERO];
-        let decoded_block_num = nullifier_value_to_block_num(nullifier_value);
-
-        assert_eq!(decoded_block_num, block_num);
-    }
 }

@@ -12,10 +12,7 @@ mod api;
 // STORE INITIALIZER
 // ================================================================================================
 
-pub async fn serve(
-    config: StoreConfig,
-    db: Db,
-) -> Result<()> {
+pub async fn serve(config: StoreConfig, db: Db) -> Result<()> {
     info!(target: COMPONENT, %config, "Initializing server");
 
     let state = Arc::new(State::load(db).await?);

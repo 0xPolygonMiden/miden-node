@@ -30,10 +30,7 @@ use crate::errors::BuildBatchError;
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {
     /// Start proving of a new batch.
-    async fn build_batch(
-        &self,
-        txs: Vec<ProvenTransaction>,
-    ) -> Result<(), BuildBatchError>;
+    async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError>;
 }
 
 // DEFAULT BATCH BUILDER
@@ -57,6 +54,9 @@ pub struct DefaultBatchBuilder<BB> {
     options: DefaultBatchBuilderOptions,
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 impl<BB> DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
@@ -65,10 +65,7 @@ where
     // --------------------------------------------------------------------------------------------
     /// Returns an new [BatchBuilder] instantiated with the provided [BlockBuilder] and the
     /// specified options.
-    pub fn new(
-        block_builder: Arc<BB>,
-        options: DefaultBatchBuilderOptions,
-    ) -> Self {
+    pub fn new(block_builder: Arc<BB>, options: DefaultBatchBuilderOptions) -> Self {
         Self {
             ready_batches: Arc::new(RwLock::new(Vec::new())),
             block_builder,
@@ -117,16 +114,16 @@ where
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
 where
     BB: BlockBuilder,
 {
     #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
-    async fn build_batch(
-        &self,
-        txs: Vec<ProvenTransaction>,
-    ) -> Result<(), BuildBatchError> {
+    async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError> {
         let num_txs = txs.len();
 
         info!(target: COMPONENT, num_txs, "Building a transaction batch");

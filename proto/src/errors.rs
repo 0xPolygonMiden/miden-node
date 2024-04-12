@@ -3,8 +3,8 @@ use std::any::type_name;
 use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use thiserror::Error;
 
-#[derive(Error, Debug, Clone, PartialEq)]
-pub enum ParseError {
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum ConversionError {
     #[error("Hex error: {0}")]
     HexError(#[from] hex::FromHexError),
     #[error("SMT leaf error: {0}")]
@@ -15,8 +15,6 @@ pub enum ParseError {
     TooMuchData { expected: usize, got: usize },
     #[error("Not enough data, expected {expected}, got {got}")]
     InsufficientData { expected: usize, got: usize },
-    #[error("Number of MmrPeaks doesn't fit into memory")]
-    TooManyMmrPeaks,
     #[error("Value is not in the range 0..MODULUS")]
     NotAValidFelt,
     #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
@@ -26,13 +24,15 @@ pub enum ParseError {
     },
 }
 
+impl Eq for ConversionError {}
+
 pub trait MissingFieldHelper {
-    fn missing_field(field_name: &'static str) -> ParseError;
+    fn missing_field(field_name: &'static str) -> ConversionError;
 }
 
 impl<T: prost::Message> MissingFieldHelper for T {
-    fn missing_field(field_name: &'static str) -> ParseError {
-        ParseError::MissingFieldInProtobufRepresentation {
+    fn missing_field(field_name: &'static str) -> ConversionError {
+        ConversionError::MissingFieldInProtobufRepresentation {
             entity: type_name::<T>(),
             field_name,
         }

@@ -1,19 +1,23 @@
 use anyhow::Result;
-use miden_node_proto::generated::{
-    block_producer::api_client as block_producer_client,
-    requests::{
-        CheckNullifiersRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,
-        SyncStateRequest,
+use miden_node_proto::{
+    generated::{
+        block_producer::api_client as block_producer_client,
+        requests::{
+            CheckNullifiersRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
+            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+        },
+        responses::{
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetBlockHeaderByNumberResponse,
+            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncStateResponse,
+        },
+        rpc::api_server,
+        store::api_client as store_client,
     },
-    responses::{
-        CheckNullifiersResponse, GetBlockHeaderByNumberResponse, SubmitProvenTransactionResponse,
-        SyncStateResponse,
-    },
-    rpc::api_server,
-    store::api_client as store_client,
+    try_convert,
 };
 use miden_objects::{
-    transaction::ProvenTransaction, utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
+    accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
+    utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
@@ -45,13 +49,13 @@ impl RpcApi {
             "Block producer client initialized",
         );
 
-        Ok(Self {
-            store,
-            block_producer,
-        })
+        Ok(Self { store, block_producer })
     }
 }
 
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
     #[instrument(
@@ -109,6 +113,28 @@ impl api_server::Api for RpcApi {
         self.store.clone().sync_state(request).await
     }
 
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_notes_by_id",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_notes_by_id(
+        &self,
+        request: Request<GetNotesByIdRequest>,
+    ) -> Result<Response<GetNotesByIdResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
+        // Validation checking for correct NoteId's
+        let note_ids = request.get_ref().note_ids.clone();
+
+        let _: Vec<RpoDigest> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        self.store.clone().get_notes_by_id(request).await
+    }
+
     #[instrument(target = "miden-rpc", name = "rpc:submit_proven_transaction", skip_all, err)]
     async fn submit_proven_transaction(
         &self,
@@ -131,5 +157,31 @@ impl api_server::Api for RpcApi {
         })?;
 
         self.block_producer.clone().submit_proven_transaction(request).await
+    }
+
+    /// Returns details for public (on-chain) account by id.
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_account_details",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_details(
+        &self,
+        request: Request<GetAccountDetailsRequest>,
+    ) -> std::result::Result<Response<GetAccountDetailsResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
+        // Validating account using conversion:
+        let _account_id: AccountId = request
+            .get_ref()
+            .account_id
+            .clone()
+            .ok_or(Status::invalid_argument("account_id is missing"))?
+            .try_into()
+            .map_err(|err| Status::invalid_argument(format!("Invalid account id: {err}")))?;
+
+        self.store.clone().get_account_details(request).await
     }
 }
