@@ -47,6 +47,8 @@ pub enum DatabaseError {
     AccountError(#[from] AccountError),
     #[error("Note error: {0}")]
     NoteError(#[from] NoteError),
+    #[error("Migration error: {0}")]
+    MigrationError(#[from] rusqlite_migration::Error),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
     #[error("Deserialization of BLOB data from database failed: {0}")]
@@ -65,6 +67,9 @@ pub enum DatabaseError {
         expected: RpoDigest,
         calculated: RpoDigest,
     },
+    #[error("Unsupported database version. There is no migration chain from/to this version. Remove database files \
+        and try again.")]
+    UnsupportedDatabaseVersion,
 }
 
 impl From<DeserializationError> for DatabaseError {

@@ -19,12 +19,12 @@ use miden_objects::{
 use rusqlite::{vtab::array, Connection};
 
 use super::{sql, AccountInfo, Note, NoteCreated, NullifierInfo};
-use crate::db::migrations::MIGRATIONS;
+use crate::db::migrations::apply_migrations;
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
     array::load_module(&conn).unwrap();
-    MIGRATIONS.to_latest(&mut conn).unwrap();
+    apply_migrations(&mut conn).unwrap();
     conn
 }
 

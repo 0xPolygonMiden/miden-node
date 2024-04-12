@@ -14,7 +14,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     config::StoreConfig,
-    db::migrations::MIGRATIONS,
+    db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
     genesis::GenesisState,
     types::{AccountId, BlockNumber},
@@ -24,6 +24,7 @@ use crate::{
 mod migrations;
 mod sql;
 
+mod settings;
 #[cfg(test)]
 mod tests;
 
@@ -125,7 +126,7 @@ impl Db {
 
         let conn = pool.get().await.map_err(DatabaseError::MissingDbConnection)?;
 
-        conn.interact(|conn| MIGRATIONS.to_latest(conn)).await.map_err(|err| {
+        conn.interact(apply_migrations).await.map_err(|err| {
             DatabaseError::InteractError(format!("Migration task failed: {err}"))
         })??;
 
