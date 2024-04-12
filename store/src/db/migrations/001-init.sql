@@ -1,4 +1,14 @@
 CREATE TABLE
+    settings
+(
+    name  TEXT NOT NULL,
+    value BLOB,
+
+    PRIMARY KEY (name),
+    CONSTRAINT settings_name_is_not_empty CHECK (length(name) > 0)
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE
     block_headers
 (
     block_num    INTEGER NOT NULL,
@@ -15,6 +25,7 @@ CREATE TABLE
     batch_index INTEGER NOT NULL, -- Index of batch in block, starting from 0
     note_index  INTEGER NOT NULL, -- Index of note in batch, starting from 0
     note_hash   BLOB    NOT NULL,
+    note_type   INTEGER NOT NULL, -- 1-Public (0b01), 2-OffChain (0b10), 3-Encrypted (0b11)
     sender      INTEGER NOT NULL,
     tag         INTEGER NOT NULL,
     merkle_path BLOB    NOT NULL,
@@ -22,6 +33,7 @@ CREATE TABLE
 
     PRIMARY KEY (block_num, batch_index, note_index),
     CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
+    CONSTRAINT notes_type_in_enum CHECK (note_type BETWEEN 1 AND 3),
     CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_batch_index_is_u32 CHECK (batch_index BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
