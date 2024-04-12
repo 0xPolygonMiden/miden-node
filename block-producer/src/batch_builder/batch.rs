@@ -71,19 +71,10 @@ impl TransactionBatch {
         }
 
         // TODO: document under what circumstances SMT creating can fail
-        let created_notes_smt =
-            BatchNoteTree::with_contiguous_leaves(created_notes.iter().map(|note| {
-                (
-                    note.id(),
-                    // TODO: Substitute by using just note.metadata() once this getter returns reference
-                    //       Tracking PR: https://github.com/0xPolygonMiden/miden-base/pull/593
-                    match note {
-                        OutputNote::Public(note) => note.metadata(),
-                        OutputNote::Private(note) => note.metadata(),
-                    },
-                )
-            }))
-            .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?;
+        let created_notes_smt = BatchNoteTree::with_contiguous_leaves(
+            created_notes.iter().map(|note| (note.id(), note.metadata())),
+        )
+        .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?;
 
         Ok(Self {
             id,
