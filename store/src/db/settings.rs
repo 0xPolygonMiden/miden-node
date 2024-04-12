@@ -11,10 +11,7 @@ impl Settings {
         table_exists(conn, DB_TABLE_NAME)
     }
 
-    pub fn get_value(
-        conn: &Connection,
-        name: &str,
-    ) -> rusqlite::Result<Option<Vec<u8>>> {
+    pub fn get_value(conn: &Connection, name: &str) -> rusqlite::Result<Option<Vec<u8>>> {
         conn.query_row(
             &format!("SELECT value FROM {DB_TABLE_NAME} WHERE name = $1"),
             params![name],
@@ -23,11 +20,7 @@ impl Settings {
         .optional()
     }
 
-    pub fn set_value(
-        conn: &Connection,
-        name: &str,
-        value: &[u8],
-    ) -> rusqlite::Result<()> {
+    pub fn set_value(conn: &Connection, name: &str, value: &[u8]) -> rusqlite::Result<()> {
         let count = conn.execute(
             &format!("INSERT OR REPLACE INTO {DB_TABLE_NAME} (name, value) VALUES (?, ?)"),
             params![name, value],

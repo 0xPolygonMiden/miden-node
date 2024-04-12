@@ -717,10 +717,7 @@ pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
 }
 
 /// Checks if a table exists in the database.
-pub(crate) fn table_exists(
-    conn: &Connection,
-    table_name: &str,
-) -> rusqlite::Result<bool> {
+pub(crate) fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<bool> {
     Ok(conn
         .query_row(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $1",
