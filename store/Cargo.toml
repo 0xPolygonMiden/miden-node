@@ -2,12 +2,12 @@
 name = "miden-node-store"
 version = "0.2.0"
 description = "Miden node's state store component"
+readme = "README.md"
 keywords = ["miden", "node", "store"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
-readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
