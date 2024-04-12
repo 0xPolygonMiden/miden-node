@@ -11,10 +11,7 @@ struct TransactionValidatorSuccess;
 
 #[async_trait]
 impl TransactionValidator for TransactionValidatorSuccess {
-    async fn verify_tx(
-        &self,
-        _tx: &ProvenTransaction,
-    ) -> Result<(), VerifyTxError> {
+    async fn verify_tx(&self, _tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
         Ok(())
     }
 }
@@ -24,10 +21,7 @@ struct TransactionValidatorFailure;
 
 #[async_trait]
 impl TransactionValidator for TransactionValidatorFailure {
-    async fn verify_tx(
-        &self,
-        tx: &ProvenTransaction,
-    ) -> Result<(), VerifyTxError> {
+    async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
         Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(tx.account_id()))
     }
 }
@@ -45,10 +39,7 @@ impl BatchBuilderSuccess {
 
 #[async_trait]
 impl BatchBuilder for BatchBuilderSuccess {
-    async fn build_batch(
-        &self,
-        txs: Vec<ProvenTransaction>,
-    ) -> Result<(), BuildBatchError> {
+    async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError> {
         let batch = TransactionBatch::new(txs).expect("Tx batch building should have succeeded");
         self.ready_batches
             .send(batch)
@@ -64,10 +55,7 @@ struct BatchBuilderFailure;
 
 #[async_trait]
 impl BatchBuilder for BatchBuilderFailure {
-    async fn build_batch(
-        &self,
-        txs: Vec<ProvenTransaction>,
-    ) -> Result<(), BuildBatchError> {
+    async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError> {
         Err(BuildBatchError::TooManyNotesCreated(0, txs))
     }
 }
@@ -87,10 +75,7 @@ async fn test_build_batch_success() {
     let tx_queue = Arc::new(TransactionQueue::new(
         Arc::new(TransactionValidatorSuccess),
         Arc::new(BatchBuilderSuccess::new(sender)),
-        TransactionQueueOptions {
-            build_batch_frequency,
-            batch_size,
-        },
+        TransactionQueueOptions { build_batch_frequency, batch_size },
     ));
 
     // Starts the transaction queue task.
@@ -179,10 +164,7 @@ async fn test_tx_verify_failure() {
     let tx_queue = Arc::new(TransactionQueue::new(
         Arc::new(TransactionValidatorFailure),
         batch_builder.clone(),
-        TransactionQueueOptions {
-            build_batch_frequency,
-            batch_size,
-        },
+        TransactionQueueOptions { build_batch_frequency, batch_size },
     ));
 
     // Start the queue
@@ -215,10 +197,7 @@ async fn test_build_batch_failure() {
     let tx_queue = TransactionQueue::new(
         Arc::new(TransactionValidatorSuccess),
         batch_builder.clone(),
-        TransactionQueueOptions {
-            build_batch_frequency,
-            batch_size,
-        },
+        TransactionQueueOptions { build_batch_frequency, batch_size },
     );
 
     let internal_ready_queue = tx_queue.ready_queue.clone();

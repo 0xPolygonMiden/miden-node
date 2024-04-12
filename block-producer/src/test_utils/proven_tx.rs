@@ -41,28 +41,19 @@ impl MockProvenTxBuilder {
         }
     }
 
-    pub fn nullifiers(
-        mut self,
-        nullifiers: Vec<Nullifier>,
-    ) -> Self {
+    pub fn nullifiers(mut self, nullifiers: Vec<Nullifier>) -> Self {
         self.nullifiers = Some(nullifiers);
 
         self
     }
 
-    pub fn notes_created(
-        mut self,
-        notes: Vec<OutputNote>,
-    ) -> Self {
+    pub fn notes_created(mut self, notes: Vec<OutputNote>) -> Self {
         self.notes_created = Some(notes);
 
         self
     }
 
-    pub fn nullifiers_range(
-        self,
-        range: Range<u64>,
-    ) -> Self {
+    pub fn nullifiers_range(self, range: Range<u64>) -> Self {
         let nullifiers = range
             .map(|index| {
                 let nullifier = Digest::from([ONE, ONE, ONE, Felt::new(index)]);
@@ -74,10 +65,7 @@ impl MockProvenTxBuilder {
         self.nullifiers(nullifiers)
     }
 
-    pub fn private_notes_created_range(
-        self,
-        range: Range<u64>,
-    ) -> Self {
+    pub fn private_notes_created_range(self, range: Range<u64>) -> Self {
         let notes = range
             .map(|note_index| {
                 let note_hash = Hasher::hash(&note_index.to_be_bytes());

@@ -50,10 +50,7 @@ pub trait Store: ApplyBlock {
 
 #[async_trait]
 pub trait ApplyBlock: Send + Sync + 'static {
-    async fn apply_block(
-        &self,
-        block: &Block,
-    ) -> Result<(), ApplyBlockError>;
+    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError>;
 }
 
 // TRANSACTION INPUTS
@@ -72,10 +69,7 @@ pub struct TransactionInputs {
 }
 
 impl Display for TransactionInputs {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{{ account_id: {}, account_hash: {}, nullifiers: {} }}",
             self.account_id,
@@ -89,10 +83,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
     type Error = ConversionError;
 
     fn try_from(response: GetTransactionInputsResponse) -> Result<Self, Self::Error> {
-        let AccountState {
-            account_id,
-            account_hash,
-        } = response
+        let AccountState { account_id, account_hash } = response
             .account_state
             .ok_or(GetTransactionInputsResponse::missing_field(stringify!(account_state)))?
             .try_into()?;
@@ -107,11 +98,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             nullifiers.insert(nullifier, nullifier_record.block_num);
         }
 
-        Ok(Self {
-            account_id,
-            account_hash,
-            nullifiers,
-        })
+        Ok(Self { account_id, account_hash, nullifiers })
     }
 }
 
@@ -135,10 +122,7 @@ impl DefaultStore {
 #[async_trait]
 impl ApplyBlock for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn apply_block(
-        &self,
-        block: &Block,
-    ) -> Result<(), ApplyBlockError> {
+    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
         let notes = block
             .created_notes
             .iter()

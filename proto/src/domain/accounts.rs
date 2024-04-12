@@ -25,19 +25,13 @@ use crate::{
 // ================================================================================================
 
 impl Display for AccountIdPb {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("0x{:x}", self.id))
     }
 }
 
 impl Debug for AccountIdPb {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }
@@ -59,9 +53,7 @@ impl From<&AccountId> for AccountIdPb {
 
 impl From<AccountId> for AccountIdPb {
     fn from(account_id: AccountId) -> Self {
-        Self {
-            id: account_id.into(),
-        }
+        Self { id: account_id.into() }
     }
 }
 
@@ -188,10 +180,7 @@ pub struct AccountState {
 }
 
 impl Display for AccountState {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{{ account_id: {}, account_hash: {} }}",
             self.account_id,
@@ -232,10 +221,7 @@ impl TryFrom<AccountTransactionInputRecord> for AccountState {
             Some(account_hash)
         };
 
-        Ok(Self {
-            account_id,
-            account_hash,
-        })
+        Ok(Self { account_id, account_hash })
     }
 }
 

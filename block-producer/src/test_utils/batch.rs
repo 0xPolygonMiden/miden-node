@@ -3,23 +3,14 @@ use crate::{test_utils::MockProvenTxBuilder, TransactionBatch};
 pub trait TransactionBatchConstructor {
     /// Returns a `TransactionBatch` with `notes_per_tx.len()` transactions, where the i'th
     /// transaction has `notes_per_tx[i]` notes created
-    fn from_notes_created(
-        starting_account_index: u32,
-        notes_per_tx: &[u64],
-    ) -> Self;
+    fn from_notes_created(starting_account_index: u32, notes_per_tx: &[u64]) -> Self;
 
     /// Returns a `TransactionBatch` which contains `num_txs_in_batch` transactions
-    fn from_txs(
-        starting_account_index: u32,
-        num_txs_in_batch: u64,
-    ) -> Self;
+    fn from_txs(starting_account_index: u32, num_txs_in_batch: u64) -> Self;
 }
 
 impl TransactionBatchConstructor for TransactionBatch {
-    fn from_notes_created(
-        starting_account_index: u32,
-        notes_per_tx: &[u64],
-    ) -> Self {
+    fn from_notes_created(starting_account_index: u32, notes_per_tx: &[u64]) -> Self {
         let txs: Vec<_> = notes_per_tx
             .iter()
             .enumerate()
@@ -36,10 +27,7 @@ impl TransactionBatchConstructor for TransactionBatch {
         Self::new(txs).unwrap()
     }
 
-    fn from_txs(
-        starting_account_index: u32,
-        num_txs_in_batch: u64,
-    ) -> Self {
+    fn from_txs(starting_account_index: u32, num_txs_in_batch: u64) -> Self {
         let txs: Vec<_> = (0..num_txs_in_batch)
             .enumerate()
             .map(|(index, _)| {

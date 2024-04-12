@@ -33,10 +33,7 @@ impl TryFrom<generated::merkle::MerklePath> for MerklePath {
 impl From<MmrDelta> for generated::mmr::MmrDelta {
     fn from(value: MmrDelta) -> Self {
         let data = value.data.into_iter().map(generated::digest::Digest::from).collect();
-        generated::mmr::MmrDelta {
-            forest: value.forest as u64,
-            data,
-        }
+        generated::mmr::MmrDelta { forest: value.forest as u64, data }
     }
 }
 
@@ -91,9 +88,9 @@ impl From<SmtLeaf> for generated::smt::SmtLeaf {
         let leaf = match smt_leaf {
             SmtLeaf::Empty(leaf_index) => Leaf::Empty(leaf_index.value()),
             SmtLeaf::Single(entry) => Leaf::Single(entry.into()),
-            SmtLeaf::Multiple(entries) => Leaf::Multiple(generated::smt::SmtLeafEntries {
-                entries: convert(entries),
-            }),
+            SmtLeaf::Multiple(entries) => {
+                Leaf::Multiple(generated::smt::SmtLeafEntries { entries: convert(entries) })
+            },
         };
 
         Self { leaf: Some(leaf) }

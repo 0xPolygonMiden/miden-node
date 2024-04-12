@@ -28,10 +28,7 @@ fn create_db() -> Connection {
     conn
 }
 
-fn create_block(
-    conn: &mut Connection,
-    block_num: u32,
-) {
+fn create_block(conn: &mut Connection, block_num: u32) {
     let block_header = BlockHeader::new(
         num_to_rpo_digest(1),
         block_num,

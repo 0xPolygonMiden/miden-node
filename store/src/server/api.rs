@@ -102,9 +102,7 @@ impl api_server::Api for StoreApi {
         // Query the state for the request's nullifiers
         let proofs = self.state.check_nullifiers(&nullifiers).await;
 
-        Ok(Response::new(CheckNullifiersResponse {
-            proofs: convert(proofs),
-        }))
+        Ok(Response::new(CheckNullifiersResponse { proofs: convert(proofs) }))
     }
 
     /// Returns info which can be used by the client to sync up to the latest state of the chain

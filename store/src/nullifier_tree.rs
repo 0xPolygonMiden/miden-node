@@ -16,7 +16,7 @@ pub struct NullifierTree(Smt);
 impl NullifierTree {
     /// Construct new nullifier tree from list of items.
     pub fn with_entries(
-        entries: impl IntoIterator<Item = (Nullifier, BlockNumber)>
+        entries: impl IntoIterator<Item = (Nullifier, BlockNumber)>,
     ) -> Result<Self, NullifierTreeError> {
         let leaves = entries.into_iter().map(|(nullifier, block_num)| {
             (nullifier.inner(), Self::block_num_to_leaf_value(block_num))
@@ -33,10 +33,7 @@ impl NullifierTree {
     }
 
     /// Returns an opening of the leaf associated with the given nullifier.
-    pub fn open(
-        &self,
-        nullifier: &Nullifier,
-    ) -> SmtProof {
+    pub fn open(&self, nullifier: &Nullifier) -> SmtProof {
         self.0.open(&nullifier.inner())
     }
 
@@ -62,10 +59,7 @@ impl NullifierTree {
 
     /// Returns block number stored for the given nullifier or `None` if the nullifier wasn't
     /// consumed.
-    pub fn get_block_num(
-        &self,
-        nullifier: &Nullifier,
-    ) -> Option<BlockNumber> {
+    pub fn get_block_num(&self, nullifier: &Nullifier) -> Option<BlockNumber> {
         let value = self.0.get_value(&nullifier.inner());
         if value == Smt::EMPTY_VALUE {
             return None;

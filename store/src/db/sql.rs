@@ -122,10 +122,7 @@ pub fn select_accounts_by_block_range(
 /// # Returns
 ///
 /// The latest account details, or an error.
-pub fn select_account(
-    conn: &mut Connection,
-    account_id: AccountId,
-) -> Result<AccountInfo> {
+pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<AccountInfo> {
     let mut stmt = conn.prepare(
         "
         SELECT
@@ -304,10 +301,7 @@ pub fn select_nullifiers_by_block_range(
         let nullifier_data = row.get_ref(0)?.as_blob()?;
         let nullifier = Nullifier::read_from_bytes(nullifier_data)?;
         let block_num = row.get(1)?;
-        result.push(NullifierInfo {
-            nullifier,
-            block_num,
-        });
+        result.push(NullifierInfo { nullifier, block_num });
     }
     Ok(result)
 }
@@ -380,10 +374,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
 ///
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
-pub fn insert_notes(
-    transaction: &Transaction,
-    notes: &[Note],
-) -> Result<usize> {
+pub fn insert_notes(transaction: &Transaction, notes: &[Note]) -> Result<usize> {
     let mut stmt = transaction.prepare(
         "
         INSERT INTO
@@ -520,10 +511,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
 ///
 /// - Empty vector if no matching `note`.
 /// - Otherwise, notes which `note_hash` matches the `NoteId` as bytes.
-pub fn select_notes_by_id(
-    conn: &mut Connection,
-    note_ids: &[NoteId],
-) -> Result<Vec<Note>> {
+pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<Note>> {
     let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
     let mut stmt = conn.prepare(
@@ -587,10 +575,7 @@ pub fn select_notes_by_id(
 ///
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
-pub fn insert_block_header(
-    transaction: &Transaction,
-    block_header: &BlockHeader,
-) -> Result<usize> {
+pub fn insert_block_header(transaction: &Transaction, block_header: &BlockHeader) -> Result<usize> {
     let mut stmt = transaction
         .prepare("INSERT INTO block_headers (block_num, block_header) VALUES (?1, ?2);")?;
     Ok(stmt.execute(params![block_header.block_num(), block_header.to_bytes()])?)
@@ -784,10 +769,7 @@ fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
     let details = row.get_ref(3)?.as_blob_or_null()?;
     let details = details.map(Account::read_from_bytes).transpose()?;
 
-    Ok(AccountInfo {
-        summary: update,
-        details,
-    })
+    Ok(AccountInfo { summary: update, details })
 }
 
 /// Deserializes account and applies account delta.

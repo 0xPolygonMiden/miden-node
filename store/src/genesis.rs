@@ -18,21 +18,13 @@ pub struct GenesisState {
 }
 
 impl GenesisState {
-    pub fn new(
-        accounts: Vec<Account>,
-        version: u64,
-        timestamp: u64,
-    ) -> Self {
-        Self {
-            accounts,
-            version,
-            timestamp,
-        }
+    pub fn new(accounts: Vec<Account>, version: u64, timestamp: u64) -> Self {
+        Self { accounts, version, timestamp }
     }
 
     /// Returns the block header and the account SMT
     pub fn into_block_parts(
-        self
+        self,
     ) -> Result<(BlockHeader, SimpleSmt<ACCOUNT_TREE_DEPTH>), MerkleError> {
         let account_smt: SimpleSmt<ACCOUNT_TREE_DEPTH> = SimpleSmt::with_leaves(
             self.accounts
@@ -65,10 +57,7 @@ impl GenesisState {
 // ================================================================================================
 
 impl Serializable for GenesisState {
-    fn write_into<W: ByteWriter>(
-        &self,
-        target: &mut W,
-    ) {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
         assert!(self.accounts.len() <= u64::MAX as usize, "too many accounts in GenesisState");
         target.write_usize(self.accounts.len());
         target.write_many(&self.accounts);

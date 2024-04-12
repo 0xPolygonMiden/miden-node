@@ -49,10 +49,7 @@ impl RpcApi {
             "Block producer client initialized",
         );
 
-        Ok(Self {
-            store,
-            block_producer,
-        })
+        Ok(Self { store, block_producer })
     }
 }
 

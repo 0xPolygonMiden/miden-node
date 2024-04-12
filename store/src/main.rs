@@ -39,17 +39,13 @@ async fn main() -> Result<()> {
 /// Sends a gRPC request as specified by `command`.
 ///
 /// The request is sent to the endpoint defined in `config`.
-async fn query(
-    config: StoreTopLevelConfig,
-    command: Query,
-) -> Result<()> {
+async fn query(config: StoreTopLevelConfig, command: Query) -> Result<()> {
     let mut client = api_client::ApiClient::connect(config.store.endpoint.to_string()).await?;
 
     match command {
         Query::GetBlockHeaderByNumber(args) => {
-            let request = tonic::Request::new(GetBlockHeaderByNumberRequest {
-                block_num: args.block_num,
-            });
+            let request =
+                tonic::Request::new(GetBlockHeaderByNumberRequest { block_num: args.block_num });
             let response = client.get_block_header_by_number(request).await?.into_inner();
             match response.block_header {
                 Some(block_header) => {

@@ -3,10 +3,7 @@ use quote::ToTokens;
 use syn::{parse_macro_input, parse_quote, Block, ItemFn};
 
 #[proc_macro_attribute]
-pub fn enable_logging(
-    _attr: TokenStream,
-    item: TokenStream,
-) -> TokenStream {
+pub fn enable_logging(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut function = parse_macro_input!(item as ItemFn);
 
     let name = function.sig.ident.to_string();

@@ -58,10 +58,8 @@ async fn main() -> anyhow::Result<()> {
 
     match &cli.command {
         Command::Start { config } => commands::start_node(config).await,
-        Command::MakeGenesis {
-            output_path,
-            force,
-            inputs_path,
-        } => commands::make_genesis(inputs_path, output_path, force),
+        Command::MakeGenesis { output_path, force, inputs_path } => {
+            commands::make_genesis(inputs_path, output_path, force)
+        },
     }
 }

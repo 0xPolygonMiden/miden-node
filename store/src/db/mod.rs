@@ -207,10 +207,7 @@ impl Db {
 
     /// Loads public account details from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_account(
-        &self,
-        id: AccountId,
-    ) -> Result<AccountInfo> {
+    pub async fn select_account(&self, id: AccountId) -> Result<AccountInfo> {
         self.pool
             .get()
             .await?
@@ -254,10 +251,7 @@ impl Db {
 
     /// Loads all the Note's matching a certain NoteId from the database.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes_by_id(
-        &self,
-        note_ids: Vec<NoteId>,
-    ) -> Result<Vec<Note>> {
+    pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<Note>> {
         self.pool
             .get()
             .await?
@@ -317,10 +311,7 @@ impl Db {
     /// genesis block in the database is consistent with the genesis block data in the genesis JSON
     /// file.
     #[instrument(target = "miden-store", skip_all, err)]
-    async fn ensure_genesis_block(
-        &self,
-        genesis_filepath: &str,
-    ) -> Result<(), GenesisError> {
+    async fn ensure_genesis_block(&self, genesis_filepath: &str) -> Result<(), GenesisError> {
         let (expected_genesis_header, account_smt) = {
             let file_contents = fs::read(genesis_filepath).map_err(|error| {
                 GenesisError::FailedToReadGenesisFile {

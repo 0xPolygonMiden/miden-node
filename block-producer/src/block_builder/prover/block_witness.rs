@@ -49,29 +49,23 @@ impl BlockWitness {
             batches
                 .iter()
                 .flat_map(TransactionBatch::updated_accounts)
-                .map(
-                    |AccountUpdateDetails {
-                         account_id,
-                         final_state_hash,
-                         ..
-                     }| {
-                        let initial_state_hash = account_initial_states
-                            .remove(&account_id)
-                            .expect("already validated that key exists");
-                        let proof = account_merkle_proofs
-                            .remove(&account_id)
-                            .expect("already validated that key exists");
+                .map(|AccountUpdateDetails { account_id, final_state_hash, .. }| {
+                    let initial_state_hash = account_initial_states
+                        .remove(&account_id)
+                        .expect("already validated that key exists");
+                    let proof = account_merkle_proofs
+                        .remove(&account_id)
+                        .expect("already validated that key exists");
 
-                        (
-                            account_id,
-                            AccountUpdate {
-                                initial_state_hash,
-                                final_state_hash,
-                                proof,
-                            },
-                        )
-                    },
-                )
+                    (
+                        account_id,
+                        AccountUpdate {
+                            initial_state_hash,
+                            final_state_hash,
+                            proof,
+                        },
+                    )
+                })
                 .collect()
         };
 
@@ -93,7 +87,7 @@ impl BlockWitness {
 
     /// Converts [`BlockWitness`] into inputs to the block kernel program
     pub(super) fn into_program_inputs(
-        self
+        self,
     ) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
         let stack_inputs = self.build_stack_inputs();
         let advice_inputs = self.build_advice_inputs()?;

@@ -39,10 +39,7 @@ impl<S> DefaultStateView<S>
 where
     S: Store,
 {
-    pub fn new(
-        store: Arc<S>,
-        verify_tx_proofs: bool,
-    ) -> Self {
+    pub fn new(store: Arc<S>, verify_tx_proofs: bool) -> Self {
         Self {
             store,
             verify_tx_proofs,
@@ -61,10 +58,7 @@ where
     S: Store,
 {
     #[instrument(skip_all, err)]
-    async fn verify_tx(
-        &self,
-        candidate_tx: &ProvenTransaction,
-    ) -> Result<(), VerifyTxError> {
+    async fn verify_tx(&self, candidate_tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
         if self.verify_tx_proofs {
             // Make sure that the transaction proof is valid and meets the required security level
             let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
@@ -123,10 +117,7 @@ where
     S: Store,
 {
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn apply_block(
-        &self,
-        block: &Block,
-    ) -> Result<(), ApplyBlockError> {
+    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
         self.store.apply_block(block).await?;
 
         let mut locked_accounts_in_flight = self.accounts_in_flight.write().await;

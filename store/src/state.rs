@@ -73,11 +73,7 @@ impl State {
         let chain_mmr = load_mmr(&mut db).await?;
         let account_tree = load_accounts(&mut db).await?;
 
-        let inner = RwLock::new(InnerState {
-            nullifier_tree,
-            chain_mmr,
-            account_tree,
-        });
+        let inner = RwLock::new(InnerState { nullifier_tree, chain_mmr, account_tree });
 
         let writer = Mutex::new(());
         let db = Arc::new(db);
@@ -298,10 +294,7 @@ impl State {
     ///
     /// Note: these proofs are invalidated once the nullifier tree is modified, i.e. on a new block.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"))]
-    pub async fn check_nullifiers(
-        &self,
-        nullifiers: &[Nullifier],
-    ) -> Vec<SmtProof> {
+    pub async fn check_nullifiers(&self, nullifiers: &[Nullifier]) -> Vec<SmtProof> {
         let inner = self.inner.read().await;
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
@@ -310,10 +303,7 @@ impl State {
     ///
     /// If the provided list of [NoteId] given is empty or no [Note] matches the provided [NoteId]
     /// an empty list is returned.
-    pub async fn get_notes_by_id(
-        &self,
-        note_ids: Vec<NoteId>,
-    ) -> Result<Vec<Note>, DatabaseError> {
+    pub async fn get_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<Note>, DatabaseError> {
         self.db.select_notes_by_id(note_ids).await
     }
 
@@ -350,10 +340,7 @@ impl State {
 
         let delta = if block_num == state_sync.block_header.block_num() {
             // The client is in sync with the chain tip.
-            MmrDelta {
-                forest: block_num as usize,
-                data: vec![],
-            }
+            MmrDelta { forest: block_num as usize, data: vec![] }
         } else {
             // Important notes about the boundary conditions:
             //
@@ -411,10 +398,8 @@ impl State {
             .iter()
             .cloned()
             .map(|account_id| {
-                let ValuePath {
-                    value: account_hash,
-                    path: proof,
-                } = inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
+                let ValuePath { value: account_hash, path: proof } =
+                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
                 Ok(AccountInputRecord {
                     account_id: account_id.try_into()?,
                     account_hash,
@@ -428,10 +413,7 @@ impl State {
             .map(|nullifier| {
                 let proof = inner.nullifier_tree.open(nullifier);
 
-                NullifierWitness {
-                    nullifier: *nullifier,
-                    proof,
-                }
+                NullifierWitness { nullifier: *nullifier, proof }
             })
             .collect();
 
@@ -459,10 +441,7 @@ impl State {
             })
             .collect();
 
-        TransactionInputs {
-            account_hash,
-            nullifiers,
-        }
+        TransactionInputs { account_hash, nullifiers }
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
@@ -482,10 +461,7 @@ impl State {
     }
 
     /// Returns details for public (on-chain) account.
-    pub async fn get_account_details(
-        &self,
-        id: AccountId,
-    ) -> Result<AccountInfo, DatabaseError> {
+    pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await
     }
 }
@@ -542,7 +518,7 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
 
 #[instrument(target = "miden-store", skip_all)]
 async fn load_accounts(
-    db: &mut Db
+    db: &mut Db,
 ) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
     let account_data: Vec<_> = db
         .select_account_hashes()

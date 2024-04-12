@@ -58,9 +58,7 @@ pub fn create_fungible_faucet(
     // Instantiate keypair and authscheme
     let auth_seed: [u8; 40] = [0; 40];
     let keypair = KeyPair::from_seed(&auth_seed).expect("Failed to generate keypair.");
-    let auth_scheme = AuthScheme::RpoFalcon512 {
-        pub_key: keypair.public_key(),
-    };
+    let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: keypair.public_key() };
 
     let (account, account_seed) = create_basic_fungible_faucet(
         init_seed,

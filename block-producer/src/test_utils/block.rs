@@ -108,10 +108,7 @@ impl MockBlockBuilder {
         }
     }
 
-    pub fn account_updates(
-        mut self,
-        updated_accounts: Vec<AccountUpdateDetails>,
-    ) -> Self {
+    pub fn account_updates(mut self, updated_accounts: Vec<AccountUpdateDetails>) -> Self {
         for update in &updated_accounts {
             self.store_accounts
                 .insert(update.account_id.into(), update.final_state_hash.into());
@@ -122,10 +119,7 @@ impl MockBlockBuilder {
         self
     }
 
-    pub fn produced_nullifiers(
-        mut self,
-        produced_nullifiers: Vec<Nullifier>,
-    ) -> Self {
+    pub fn produced_nullifiers(mut self, produced_nullifiers: Vec<Nullifier>) -> Self {
         self.produced_nullifiers = Some(produced_nullifiers);
 
         self
@@ -157,7 +151,7 @@ impl MockBlockBuilder {
 }
 
 pub(crate) fn note_created_smt_from_note_batches<'a>(
-    batches: impl Iterator<Item = &'a (impl IntoIterator<Item = OutputNote> + Clone + 'a)>
+    batches: impl Iterator<Item = &'a (impl IntoIterator<Item = OutputNote> + Clone + 'a)>,
 ) -> BlockNoteTree {
     let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
         batch.clone().into_iter().enumerate().map(move |(note_idx_in_batch, note)| {

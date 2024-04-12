@@ -496,13 +496,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
             .iter()
             .flat_map(|batch| batch.account_initial_states())
             .map(|(account_id, hash)| {
-                (
-                    account_id,
-                    AccountWitness {
-                        hash,
-                        proof: MerklePath::default(),
-                    },
-                )
+                (account_id, AccountWitness { hash, proof: MerklePath::default() })
             })
             .collect();
 

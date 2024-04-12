@@ -203,16 +203,11 @@ impl BlockProver {
                 .expect("failed to load account update program")
         };
 
-        Self {
-            kernel: account_program,
-        }
+        Self { kernel: account_program }
     }
 
     // Note: this will eventually all be done in the VM, and also return an `ExecutionProof`
-    pub fn prove(
-        &self,
-        witness: BlockWitness,
-    ) -> Result<BlockHeader, BuildBlockError> {
+    pub fn prove(&self, witness: BlockWitness) -> Result<BlockHeader, BuildBlockError> {
         let prev_hash = witness.prev_header.hash();
         let block_num = witness.prev_header.block_num() + 1;
         let version = witness.prev_header.version();

@@ -30,10 +30,7 @@ pub trait BlockBuilder: Send + Sync + 'static {
     ///
     /// The `BlockBuilder` relies on `build_block()` to be called as a precondition to creating a
     /// block. In other words, if `build_block()` is never called, then no blocks are produced.
-    async fn build_block(
-        &self,
-        batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError>;
+    async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError>;
 }
 
 #[derive(Debug)]
@@ -48,10 +45,7 @@ where
     S: Store,
     A: ApplyBlock,
 {
-    pub fn new(
-        store: Arc<S>,
-        state_view: Arc<A>,
-    ) -> Self {
+    pub fn new(store: Arc<S>, state_view: Arc<A>) -> Self {
         Self {
             store,
             state_view,
@@ -70,10 +64,7 @@ where
     A: ApplyBlock,
 {
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn build_block(
-        &self,
-        batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError> {
+    async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
         info!(
             target: COMPONENT,
             num_batches = batches.len(),

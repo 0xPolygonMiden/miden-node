@@ -14,19 +14,13 @@ pub const DIGEST_DATA_SIZE: usize = 32;
 // ================================================================================================
 
 impl Display for digest::Digest {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.encode_hex::<String>())
     }
 }
 
 impl Debug for digest::Digest {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }
@@ -68,14 +62,12 @@ impl FromHex for digest::Digest {
         let data = hex::decode(hex)?;
 
         match data.len() {
-            size if size < DIGEST_DATA_SIZE => Err(ConversionError::InsufficientData {
-                expected: DIGEST_DATA_SIZE,
-                got: size,
-            }),
-            size if size > DIGEST_DATA_SIZE => Err(ConversionError::TooMuchData {
-                expected: DIGEST_DATA_SIZE,
-                got: size,
-            }),
+            size if size < DIGEST_DATA_SIZE => {
+                Err(ConversionError::InsufficientData { expected: DIGEST_DATA_SIZE, got: size })
+            },
+            size if size > DIGEST_DATA_SIZE => {
+                Err(ConversionError::TooMuchData { expected: DIGEST_DATA_SIZE, got: size })
+            },
             _ => {
                 let d0 = u64::from_be_bytes(data[..8].try_into().unwrap());
                 let d1 = u64::from_be_bytes(data[8..16].try_into().unwrap());
@@ -229,12 +221,7 @@ mod test {
         let round_trip: Result<Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
         assert_eq!(digest, round_trip.unwrap());
 
-        let digest = Digest {
-            d0: 0,
-            d1: 0,
-            d2: 0,
-            d3: 0,
-        };
+        let digest = Digest { d0: 0, d1: 0, d2: 0, d3: 0 };
         let encoded: String = ToHex::encode_hex(&digest);
         let round_trip: Result<Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
         assert_eq!(digest, round_trip.unwrap());

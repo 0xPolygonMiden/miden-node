@@ -25,10 +25,7 @@ impl FaucetConfig {
 }
 
 impl Display for FaucetConfig {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{{ endpoint: \"{}\", store_url: \"{}\", block_producer_url: \"{}\" }}",
             self.endpoint, self.database_filepath, self.rpc_url

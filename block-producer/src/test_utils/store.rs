@@ -78,28 +78,19 @@ impl MockStoreSuccessBuilder {
         self
     }
 
-    pub fn initial_nullifiers(
-        mut self,
-        nullifiers: BTreeSet<Digest>,
-    ) -> Self {
+    pub fn initial_nullifiers(mut self, nullifiers: BTreeSet<Digest>) -> Self {
         self.produced_nullifiers = Some(nullifiers);
 
         self
     }
 
-    pub fn initial_chain_mmr(
-        mut self,
-        chain_mmr: Mmr,
-    ) -> Self {
+    pub fn initial_chain_mmr(mut self, chain_mmr: Mmr) -> Self {
         self.chain_mmr = Some(chain_mmr);
 
         self
     }
 
-    pub fn initial_block_num(
-        mut self,
-        block_num: u32,
-    ) -> Self {
+    pub fn initial_block_num(mut self, block_num: u32) -> Self {
         self.block_num = Some(block_num);
 
         self
@@ -172,10 +163,7 @@ impl MockStoreSuccess {
 
 #[async_trait]
 impl ApplyBlock for MockStoreSuccess {
-    async fn apply_block(
-        &self,
-        block: &Block,
-    ) -> Result<(), ApplyBlockError> {
+    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
         let mut locked_produced_nullifiers = self.produced_nullifiers.write().await;
@@ -261,10 +249,8 @@ impl Store for MockStoreSuccess {
         let accounts = {
             updated_accounts
                 .map(|&account_id| {
-                    let ValuePath {
-                        value: hash,
-                        path: proof,
-                    } = locked_accounts.open(&account_id.into());
+                    let ValuePath { value: hash, path: proof } =
+                        locked_accounts.open(&account_id.into());
 
                     (account_id, AccountWitness { hash, proof })
                 })
@@ -289,10 +275,7 @@ pub struct MockStoreFailure;
 
 #[async_trait]
 impl ApplyBlock for MockStoreFailure {
-    async fn apply_block(
-        &self,
-        _block: &Block,
-    ) -> Result<(), ApplyBlockError> {
+    async fn apply_block(&self, _block: &Block) -> Result<(), ApplyBlockError> {
         Err(ApplyBlockError::GrpcClientError(String::new()))
     }
 }

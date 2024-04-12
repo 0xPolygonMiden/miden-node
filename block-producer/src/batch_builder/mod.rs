@@ -30,10 +30,7 @@ use crate::errors::BuildBatchError;
 #[async_trait]
 pub trait BatchBuilder: Send + Sync + 'static {
     /// Start proving of a new batch.
-    async fn build_batch(
-        &self,
-        txs: Vec<ProvenTransaction>,
-    ) -> Result<(), BuildBatchError>;
+    async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError>;
 }
 
 // DEFAULT BATCH BUILDER
@@ -68,10 +65,7 @@ where
     // --------------------------------------------------------------------------------------------
     /// Returns an new [BatchBuilder] instantiated with the provided [BlockBuilder] and the
     /// specified options.
-    pub fn new(
-        block_builder: Arc<BB>,
-        options: DefaultBatchBuilderOptions,
-    ) -> Self {
+    pub fn new(block_builder: Arc<BB>, options: DefaultBatchBuilderOptions) -> Self {
         Self {
             ready_batches: Arc::new(RwLock::new(Vec::new())),
             block_builder,
@@ -129,10 +123,7 @@ where
     BB: BlockBuilder,
 {
     #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
-    async fn build_batch(
-        &self,
-        txs: Vec<ProvenTransaction>,
-    ) -> Result<(), BuildBatchError> {
+    async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError> {
         let num_txs = txs.len();
 
         info!(target: COMPONENT, num_txs, "Building a transaction batch");

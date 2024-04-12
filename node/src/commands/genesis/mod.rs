@@ -42,11 +42,7 @@ const DEFAULT_ACCOUNTS_DIR: &str = "accounts/";
 /// This function returns a `Result` type. On successful creation of the genesis file, it returns
 /// `Ok(())`. If it fails at any point, due to issues like file existence checks or read/write
 /// operations, it returns an `Err` with a detailed error message.
-pub fn make_genesis(
-    inputs_path: &PathBuf,
-    output_path: &PathBuf,
-    force: &bool,
-) -> Result<()> {
+pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) -> Result<()> {
     let inputs_path = Path::new(inputs_path);
     let output_path = Path::new(output_path);
 
@@ -190,9 +186,7 @@ fn parse_auth_inputs(
             let mut rng = ChaCha20Rng::from_seed(auth_seed);
             let secret = SecretKey::with_rng(&mut rng);
 
-            let auth_scheme = AuthScheme::RpoFalcon512 {
-                pub_key: secret.public_key(),
-            };
+            let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
             let auth_info = AuthData::RpoFalcon512Seed(auth_seed);
 
             Ok((auth_scheme, auth_info))

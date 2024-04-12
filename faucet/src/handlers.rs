@@ -47,10 +47,7 @@ pub async fn get_tokens(
         FungibleAsset::new(state.id, state.asset_amount).expect("Failed to instantiate asset.");
 
     // Instantiate transaction template
-    let tx_template = TransactionTemplate::MintFungibleAsset {
-        asset,
-        target_account_id,
-    };
+    let tx_template = TransactionTemplate::MintFungibleAsset { asset, target_account_id };
 
     // Run transaction executor & execute transaction
     let tx_result = client

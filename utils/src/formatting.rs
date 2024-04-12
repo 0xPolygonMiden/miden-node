@@ -35,7 +35,7 @@ pub fn format_output_notes(notes: &OutputNotes) -> String {
 }
 
 pub fn format_map<'a, K: Display + 'a, V: Display + 'a>(
-    map: impl IntoIterator<Item = (&'a K, &'a V)>
+    map: impl IntoIterator<Item = (&'a K, &'a V)>,
 ) -> String {
     let map_str = map.into_iter().map(|(key, val)| format!("{key}: {val}")).join(", ");
     if map_str.is_empty() {

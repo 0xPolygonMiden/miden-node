@@ -16,10 +16,7 @@ pub struct MockPrivateAccount<const NUM_STATES: usize = 3> {
 }
 
 impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
-    fn new(
-        init_seed: [u8; 32],
-        new_account: bool,
-    ) -> Self {
+    fn new(init_seed: [u8; 32], new_account: bool) -> Self {
         let account_seed = get_account_seed(
             init_seed,
             AccountType::RegularAccountUpdatableCode,
