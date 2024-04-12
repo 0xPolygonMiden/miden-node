@@ -1,8 +1,9 @@
 # Miden node
 
-<a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-<a href="https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml"><img src="https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml/badge.svg?branch=main"></a>
-<a href="https://crates.io/crates/miden-node"><img src="https://img.shields.io/crates/v/miden-node"></a>
+[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE)
+[![test](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml)
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.77+-lightgray.svg)]()
+[![crates.io](https://img.shields.io/crates/v/miden-node)](https://crates.io/crates/miden-node)
 
 This repository holds the Miden node; that is, the software which processes transactions and creates blocks for the Miden rollup.
 
@@ -27,7 +28,7 @@ The diagram below illustrates high-level design of each component as well as bas
 
 ## Usage
 
-Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.1 requires Rust version **1.77** or later.
+Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.2 requires Rust version **1.77** or later.
 
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 

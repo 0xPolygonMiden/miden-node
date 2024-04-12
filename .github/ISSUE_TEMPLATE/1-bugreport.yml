@@ -12,7 +12,7 @@ body:
     attributes:
       label: "Version"
       description: "Which node version are you running?"
-      placeholder: "v0.1.0"
+      placeholder: "v0.2.0"
     validations:
       required: true
   - type: textarea
@@ -20,14 +20,14 @@ body:
     attributes:
       label: "Other packages versions"
       description: "Let us know of the versions of any other packages used. For example, which version of the client are you using?"
-      placeholder: "miden-client: v0.1.0"
+      placeholder: "miden-client: v0.2.0"
     validations:
       required: false
   - type: textarea
     id: what-happened
     attributes:
       label: "What happened?"
-      description: "Describe the behaviour you are experiencing."
+      description: "Describe the behavior you are experiencing."
       placeholder: "Tell us what you see!"
     validations:
       required: true
@@ -35,7 +35,7 @@ body:
     id: expected-to-happen
     attributes:
       label: "What should have happened?"
-      description: "Describe the behaviour you expected to see."
+      description: "Describe the behavior you expected to see."
       placeholder: "Tell us what should have happened!"
     validations:
       required: true
@@ -43,7 +43,7 @@ body:
     id: reproduce-steps
     attributes:
       label: "How can this be reproduced?"
-      description: "If possible, describe how to replicate the unexpected behaviour that you see."
+      description: "If possible, describe how to replicate the unexpected behavior that you see."
       placeholder: "Steps!"
     validations:
       required: true
