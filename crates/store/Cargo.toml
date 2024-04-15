@@ -11,12 +11,6 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
-[[bin]]
-name = "miden-node-store"
-path = "src/main.rs"
-bench = false
-doctest = false
-
 [dependencies]
 anyhow = { version = "1.0" }
 clap = { version = "4.3", features = ["derive"] }

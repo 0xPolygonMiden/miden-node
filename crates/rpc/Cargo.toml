@@ -13,7 +13,6 @@ repository.workspace = true
 
 [dependencies]
 anyhow = { version = "1.0" }
-clap = { version = "4.3", features = ["derive"] }
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 hex = { version = "0.4" }

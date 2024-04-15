@@ -11,19 +11,12 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
-[[bin]]
-name = "miden-node-block-producer"
-path = "src/main.rs"
-bench = false
-doctest = false
-
 [features]
 tracing-forest = ["miden-node-utils/tracing-forest"]
 
 [dependencies]
 anyhow = { version = "1.0" }
 async-trait = { version = "0.1" }
-clap = { version = "4.3", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
 miden-node-proto = { path = "../proto", version = "0.2" }
