@@ -68,25 +68,19 @@ mod tests {
                 NODE_CONFIG_FILE_PATH,
                 r#"
                     [block_producer]
+                    endpoint = { host = "127.0.0.1",  port = 8080 }
                     store_url = "http://store:8000"
                     verify_tx_proofs = true
 
-                    [block_producer.endpoint]
-                    host = "127.0.0.1"
-                    port = 8080
-
                     [rpc]
+                    endpoint = { host = "127.0.0.1",  port = 8080 }
                     store_url = "http://store:8000"
                     block_producer_url = "http://block_producer:8001"
-                    endpoint = { host = "127.0.0.1",  port = 8080 }
 
                     [store]
+                    endpoint = { host = "127.0.0.1",  port = 8080 }
                     database_filepath = "local.sqlite3"
                     genesis_filepath = "genesis.dat"
-
-                    [store.endpoint]
-                    host = "127.0.0.1"
-                    port = 8080
                 "#,
             )?;
 

@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
+use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use commands::start_node;
 use miden_node_block_producer::start_block_producer;
+use miden_node_faucet::start_faucet;
 use miden_node_rpc::start_rpc;
 use miden_node_store::start_store;
 
@@ -78,7 +80,9 @@ async fn main() -> anyhow::Result<()> {
             StartCommand::BlockProducer => start_block_producer(config).await,
             StartCommand::Rpc => start_rpc(config).await,
             StartCommand::Store => start_store(config).await,
-            StartCommand::Faucet => Ok(println!("Faucet has been started.")),
+            StartCommand::Faucet => {
+                start_faucet(config).await.map_err(|err| anyhow!("Faucet error: {err}"))
+            },
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {
             commands::make_genesis(inputs_path, output_path, force)

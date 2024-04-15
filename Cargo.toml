@@ -1,10 +1,10 @@
 [workspace]
 members = [
   "bin/node",
+  "crates/faucet",
   "crates/block-producer",
   "crates/proto",
   "crates/rpc",
-  "crates/faucet",
   "crates/store",
   "crates/utils",
   "crates/test-macro",

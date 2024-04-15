@@ -24,6 +24,7 @@ miden-node-block-producer = { path = "../../crates/block-producer", version = "0
 miden-node-rpc = { path = "../../crates/rpc", version = "0.2" }
 miden-node-store = { path = "../../crates/store", version = "0.2" }
 miden-node-utils = { path = "../../crates/utils", version = "0.2" }
+miden-node-faucet = { path = "../../crates/faucet", version = "0.1" }
 miden-objects = { workspace = true }
 rand_chacha = "0.3"
 serde = { version = "1.0", features = ["derive"] }

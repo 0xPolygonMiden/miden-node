@@ -1,7 +1,10 @@
 use actix_web::{get, http::header, post, web, HttpResponse, Result};
-use miden_client::client::transactions::TransactionTemplate;
+use miden_client::client::transactions::transaction_request::TransactionTemplate;
 use miden_objects::{
-    accounts::AccountId, assets::FungibleAsset, notes::NoteId, utils::serde::Serializable,
+    accounts::AccountId,
+    assets::FungibleAsset,
+    notes::{NoteId, NoteType},
+    utils::serde::Serializable,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -46,14 +49,24 @@ pub async fn get_tokens(
     let asset =
         FungibleAsset::new(state.id, state.asset_amount).expect("Failed to instantiate asset.");
 
+    // Instantiate note type
+    let note_type = NoteType::OffChain;
+
     // Instantiate transaction template
-    let tx_template = TransactionTemplate::MintFungibleAsset { asset, target_account_id };
+    let tx_template = TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type);
+
+    // Instantiate transaction request
+    let tx_request = client
+        .lock()
+        .await
+        .build_transaction_request(tx_template)
+        .expect("Failed to build transaction request.");
 
     // Run transaction executor & execute transaction
     let tx_result = client
         .lock()
         .await
-        .new_transaction(tx_template)
+        .new_transaction(tx_request)
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
     // Get note id
@@ -66,22 +79,23 @@ pub async fn get_tokens(
         .id();
 
     // Run transaction prover & send transaction to node
-    {
-        let mut client_guard = client.lock().await;
-        client_guard
-            .send_transaction(tx_result)
-            .await
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
-    }
+    client
+        .lock()
+        .await
+        .submit_transaction(tx_result)
+        .await
+        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+
+    println!("Before note input");
 
     // Get note from client store
-    let input_note = state
-        .client
-        .clone()
+    let input_note = client
         .lock()
         .await
         .get_input_note(note_id)
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+
+    println!("After note_input");
 
     // Serialize note for transport
     let bytes = input_note.to_bytes();

@@ -1,22 +1,18 @@
-use std::{
-    fs::File,
-    io::{self, Read},
-    path::{Path, PathBuf},
-};
+use std::io;
 
 use miden_client::{
-    client::{rpc::TonicRpcClient, Client},
+    client::{get_random_coin, rpc::TonicRpcClient, Client},
     config::{RpcConfig, StoreConfig},
     store::{sqlite_store::SqliteStore, AuthInfo},
 };
 use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_objects::{
-    accounts::{Account, AccountData},
+    accounts::{Account, AccountStorageType},
     assets::TokenSymbol,
-    crypto::dsa::rpo_falcon512::KeyPair,
-    utils::serde::Deserializable,
+    crypto::dsa::rpo_falcon512::SecretKey,
     Felt,
 };
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
 use crate::FaucetClient;
 
@@ -39,8 +35,11 @@ pub fn build_client(database_filepath: String) -> FaucetClient {
     let rpc_config = RpcConfig::default();
     let api = TonicRpcClient::new(&rpc_config.endpoint.to_string());
 
+    // Setup the rng
+    let rng = get_random_coin();
+
     // Setup the client
-    Client::new(api, store, executor_store).expect("Failed to instantiate client.")
+    Client::new(api, rng, store, executor_store).expect("Failed to instantiate client.")
 }
 
 /// Creates a Miden fungible faucet from arguments
@@ -56,45 +55,26 @@ pub fn create_fungible_faucet(
     let init_seed: [u8; 32] = [0; 32];
 
     // Instantiate keypair and authscheme
-    let auth_seed: [u8; 40] = [0; 40];
-    let keypair = KeyPair::from_seed(&auth_seed).expect("Failed to generate keypair.");
-    let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: keypair.public_key() };
+    let auth_seed: [u8; 32] = [0; 32];
+    let mut rng = ChaCha20Rng::from_seed(auth_seed);
+    let secret = SecretKey::with_rng(&mut rng);
+    let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
 
     let (account, account_seed) = create_basic_fungible_faucet(
         init_seed,
         token_symbol,
         *decimals,
         Felt::try_from(*max_supply).expect("Max_supply is outside of the possible range."),
+        AccountStorageType::OffChain,
         auth_scheme,
     )
     .expect("Failed to generate faucet account.");
 
     client
-        .insert_account(&account, Some(account_seed), &AuthInfo::RpoFalcon512(keypair))
+        .insert_account(&account, Some(account_seed), &AuthInfo::RpoFalcon512(secret))
         .map_err(|_| {
             io::Error::new(io::ErrorKind::InvalidData, "Failed to insert account into client.")
         })?;
 
     Ok(account)
-}
-
-/// Imports a Miden fungible faucet from a file
-pub fn import_fungible_faucet(
-    faucet_path: &PathBuf,
-    client: &mut FaucetClient,
-) -> Result<Account, io::Error> {
-    let path = Path::new(faucet_path);
-    let mut file = File::open(path).expect("Failed to open file.");
-
-    let mut contents = Vec::new();
-    let _ = file.read_to_end(&mut contents);
-
-    let account_data =
-        AccountData::read_from_bytes(&contents).expect("Failed to deserialize faucet from file.");
-
-    client.import_account(account_data.clone()).map_err(|_| {
-        io::Error::new(io::ErrorKind::InvalidData, "Failed to import account into client.")
-    })?;
-
-    Ok(account_data.account)
 }
