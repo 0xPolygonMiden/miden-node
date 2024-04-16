@@ -1,7 +1,10 @@
 use actix_web::{get, http::header, post, web, HttpResponse, Result};
 use miden_client::client::transactions::transaction_request::TransactionTemplate;
 use miden_objects::{
-    accounts::AccountId, assets::FungibleAsset, notes::NoteType, utils::serde::Serializable,
+    accounts::AccountId,
+    assets::FungibleAsset,
+    notes::{NoteId, NoteType},
+    utils::serde::Serializable,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -77,15 +80,22 @@ pub async fn get_tokens(
         .await
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
+    let note_id: NoteId;
+
     // Serialize note into bytes
     let bytes = match created_notes.first() {
-        Some(note) => note.to_bytes(),
+        Some(note) => {
+            note_id = note.id();
+            note.to_bytes()
+        },
         None => {
             return Err(
                 FaucetError::InternalServerError("Failed to generate note.".to_string()).into()
             )
         },
     };
+
+    info!("A new note has been created: {}", note_id);
 
     // Send generated note to user
     Ok(HttpResponse::Ok()

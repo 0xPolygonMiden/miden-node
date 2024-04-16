@@ -1680,7 +1680,6 @@ dependencies = [
  "actix-files",
  "actix-web",
  "async-mutex",
- "clap",
  "derive_more",
  "figment",
  "miden-client",
@@ -1691,7 +1690,6 @@ dependencies = [
  "rand_chacha",
  "serde",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

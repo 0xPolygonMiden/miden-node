@@ -51,17 +51,16 @@ pub fn create_fungible_faucet(
 ) -> Result<Account, io::Error> {
     let token_symbol = TokenSymbol::new(token_symbol).expect("Failed to parse token_symbol.");
 
-    // Instantiate init_seed
-    let init_seed: [u8; 32] = [0; 32];
+    // Instantiate seed
+    let seed: [u8; 32] = [0; 32];
 
     // Instantiate keypair and authscheme
-    let auth_seed: [u8; 32] = [0; 32];
-    let mut rng = ChaCha20Rng::from_seed(auth_seed);
+    let mut rng = ChaCha20Rng::from_seed(seed);
     let secret = SecretKey::with_rng(&mut rng);
     let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
 
     let (account, account_seed) = create_basic_fungible_faucet(
-        init_seed,
+        seed,
         token_symbol,
         *decimals,
         Felt::try_from(*max_supply).expect("Max_supply is outside of the possible range."),

@@ -1,12 +1,10 @@
 use miden_node_utils::config::Endpoint;
-use serde::{Deserialize, Serialize};
-
-pub const CONFIG_FILENAME: &str = "miden-faucet.toml";
+use serde::Deserialize;
 
 // Faucet config
 // ================================================================================================
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize)]
 pub struct FaucetConfig {
     /// Endpoint of the faucet
     pub endpoint: Endpoint,
@@ -32,7 +30,7 @@ impl FaucetConfig {
 // ================================================================================================
 
 /// Faucet top-level configuration.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize)]
 pub struct FaucetTopLevelConfig {
     pub faucet: FaucetConfig,
 }
