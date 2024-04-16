@@ -1,7 +1,6 @@
 use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::Result;
-
 use batch_builder::batch::TransactionBatch;
 use config::BlockProducerTopLevelConfig;
 use miden_node_utils::config::load_config;

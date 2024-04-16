@@ -66,7 +66,7 @@ pub async fn start_faucet(config_filepath: &Path) -> std::io::Result<()> {
     // Instantiate faucet state
     let faucet_state = FaucetState {
         id: faucet_account.id(),
-        asset_amount: config.asset_amount.clone(),
+        asset_amount: config.asset_amount,
         client: Arc::new(Mutex::new(client)),
     };
 

@@ -1,10 +1,7 @@
 use actix_web::{get, http::header, post, web, HttpResponse, Result};
 use miden_client::client::transactions::transaction_request::TransactionTemplate;
 use miden_objects::{
-    accounts::AccountId,
-    assets::FungibleAsset,
-    notes::{NoteId, NoteType},
-    utils::serde::Serializable,
+    accounts::AccountId, assets::FungibleAsset, notes::NoteType, utils::serde::Serializable,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -69,14 +66,8 @@ pub async fn get_tokens(
         .new_transaction(tx_request)
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
-    // Get note id
-    let note_id: NoteId = tx_result
-        .created_notes()
-        .first()
-        .ok_or_else(|| {
-            FaucetError::InternalServerError("Failed to access generated note.".to_string())
-        })?
-        .id();
+    // Get created notes from transaction result
+    let created_notes = tx_result.created_notes().clone();
 
     // Run transaction prover & send transaction to node
     client
@@ -86,19 +77,15 @@ pub async fn get_tokens(
         .await
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
-    println!("Before note input");
-
-    // Get note from client store
-    let input_note = client
-        .lock()
-        .await
-        .get_input_note(note_id)
-        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
-
-    println!("After note_input");
-
-    // Serialize note for transport
-    let bytes = input_note.to_bytes();
+    // Serialize note into bytes
+    let bytes = match created_notes.first() {
+        Some(note) => note.to_bytes(),
+        None => {
+            return Err(
+                FaucetError::InternalServerError("Failed to generate note.".to_string()).into()
+            )
+        },
+    };
 
     // Send generated note to user
     Ok(HttpResponse::Ok()

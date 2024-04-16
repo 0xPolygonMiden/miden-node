@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use anyhow::Result;
-
 use config::StoreTopLevelConfig;
 use db::Db;
 use miden_node_utils::config::load_config;
