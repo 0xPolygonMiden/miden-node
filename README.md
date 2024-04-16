@@ -9,13 +9,14 @@ This repository holds the Miden node; that is, the software which processes tran
 
 ### Status
 
-The Miden node is still under heavy development and the project can be considered to be in an *alpha* stage. Many features are yet to be implemented and there is a number of limitations which we will lift in the near future.
+The Miden node is still under heavy development and the project can be considered to be in an _alpha_ stage. Many features are yet to be implemented and there is a number of limitations which we will lift in the near future.
 
 At this point, we are developing the Miden node for a centralized operator. Thus, the work does not yet include such components as P2P networking and consensus. These will also be added in the future.
 
 ## Architecture
 
 The Miden node is made up of 3 main components, which communicate over gRPC:
+
 - **[RPC](rpc):** an externally-facing component through which clients can interact with the node. It receives client requests (e.g., to synchronize with the latest state of the chain, or to submit transactions), performs basic validation, and forwards the requests to the appropriate internal components.
 - **[Store](store):** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in the store, the node does not consider it to be part of the chain.
 - **[Block Producer](block-producer):** accepts transactions from the RPC component, creates blocks containing those transactions, and sends them to the store.
@@ -39,6 +40,7 @@ sudo apt install llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
 ### Installing the node
 
 To install for production use cases, run:
+
 ```sh
 cargo install --path node
 ```
@@ -46,6 +48,7 @@ cargo install --path node
 This will install the executable `miden-node` in your PATH, at `~/.cargo/bin/miden-node`.
 
 Otherwise, if only to try the node out for testing, run:
+
 ```sh
 cargo install --features testing --path node
 ```
@@ -56,13 +59,14 @@ Currently, the only difference between the two is how long the `make-genesis` co
 
 Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](node/genesis.toml)
 
-
 To generate the genesis file, run:
+
 ```sh
 miden-node make-genesis
 ```
 
 By default this will generate 1 file and 1 folder in the current directory:
+
 - `genesis.dat`: the genesis file.
 - `accounts` directory containing `.mac` files (one per account) for the accounts defined in the genesis inputs file. Each `.mac` file contains full serialization of an account, including code, storage, and authentication info.
 
@@ -75,6 +79,7 @@ miden-node start --config <path-to-config-file>
 ```
 
 Or, if your config file is named `miden-node.toml` and is in the current directory, you can simply run:
+
 ```sh
 miden-node start
 ```
@@ -86,9 +91,9 @@ Note that the `store.genesis_filepath` field in the config file must point to th
 If you intend on running the node as different processes, you will need to install and run each component separately.
 Please, refer to each component's documentation:
 
-* [RPC](rpc/README.md#usage)
-* [Store](store/README.md#usage)
-* [Block Producer](block-producer/README.md#usage)
+- [RPC](rpc/README.md#usage)
+- [Store](store/README.md#usage)
+- [Block Producer](block-producer/README.md#usage)
 
 Each directory containing the executables also contains an example configuration file. Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are valid and point to the right endpoint.
 
@@ -98,50 +103,65 @@ If you intend on running the node inside a Docker container, you will need to fo
 
 1. Build the docker image from source
 
-    ```sh
-    cargo make docker-build-node
-    ```
+   ```sh
+   cargo make docker-build-node
+   ```
 
-    This command will build the docker image for the Miden node and save it locally.
+   This command will build the docker image for the Miden node and save it locally.
 
 2. Run the Docker container
 
-    ```sh
-    docker run --name miden-node -p 57291:57291 -d miden-node-image
-    ```
+   ```sh
+   docker run --name miden-node -p 57291:57291 -d miden-node-image
+   ```
 
-    This command will run the node as a container named `miden-node` using the `miden-node-image` and make port `57291` available (rpc endpoint).
+   This command will run the node as a container named `miden-node` using the `miden-node-image` and make port `57291` available (rpc endpoint).
 
 3. Monitor container
 
-    ```sh
-    docker ps
-    ```
+   ```sh
+   docker ps
+   ```
 
-    After running this command you should see the name of the container `miden-node` being outputed and marked as `Up`.
+   After running this command you should see the name of the container `miden-node` being outputed and marked as `Up`.
 
+### Testing
+
+In order to test the node run the following command:
+
+```sh
+cargo-make test-all
+```
 
 ### Debian Packages
 
 The debian packages allow for easy install for miden on debian based systems. Note that there are checksums available for the package.
-Current support is for amd64, arm64 support coming soon. 
+Current support is for amd64, arm64 support coming soon.
 
 To install the debian package:
+
 ```sh
 sudo dpkg -i $package_name.deb
 ```
+
 Note, when using the debian package to run the `make-genesis` function, you should define the location of your output:
+
 ```sh
 miden-node make-genesis -i $input_location_for_gensis.toml -o $output_for_gensis.dat_and_accounts
 ```
+
 The debian package has a checksum, you can verify this checksum by downloading the debian package and checksum file to the same directory and running the following command:
+
 ```sh
 sha256sum --check $checksumfile
 ```
+
 Please make sure you have the sha256sum program installed, for most linux operating systems this is already installed. If you wish to install it on your macOS, you can use brew:
+
 ```sh
 brew install coreutils
 ```
 
 ## License
+
 This project is [MIT licensed](./LICENSE).
