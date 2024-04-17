@@ -2,10 +2,12 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
-use commands::{start_block_producer, start_node, start_rpc, start_store, StartCommandConfig};
+use commands::start::{start_block_producer, start_node, start_rpc, start_store};
+use config::NodeConfig;
 use miden_node_utils::config::load_config;
 
 mod commands;
+mod config;
 
 // CONSTANTS
 // ================================================================================================
@@ -73,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
 
     match &cli.command {
         Command::Start { command, config } => {
-            let config: StartCommandConfig = load_config(config).extract().map_err(|err| {
+            let config: NodeConfig = load_config(config).extract().map_err(|err| {
                 anyhow!("failed to load config file `{}`: {err}", config.display())
             })?;
             match command {
