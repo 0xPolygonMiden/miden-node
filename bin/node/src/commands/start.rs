@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use miden_node_block_producer::{config::BlockProducerConfig, server as block_producer_server};
 use miden_node_faucet::{config::FaucetConfig, server as faucet_server, utils::build_faucet_state};
 use miden_node_rpc::{config::RpcConfig, server as rpc_server};
@@ -14,18 +14,18 @@ use crate::config::NodeConfig;
 
 pub async fn start_node(config: NodeConfig) -> Result<()> {
     let mut join_set = JoinSet::new();
-    let db = Db::setup(config.store.clone().expect("Missing store configuration.")).await?;
-    join_set.spawn(store_server::serve(config.store.expect("Missing store configuration"), db));
+    let db = Db::setup(config.store.clone().context("Missing store configuration.")?).await?;
+    join_set.spawn(store_server::serve(config.store.context("Missing store configuration")?, db));
 
     // wait for store before starting block producer
     tokio::time::sleep(Duration::from_secs(1)).await;
     join_set.spawn(block_producer_server::serve(
-        config.block_producer.expect("Missing block-producer configuration"),
+        config.block_producer.context("Missing block-producer configuration")?,
     ));
 
     // wait for block producer before starting rpc
     tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(rpc_server::serve(config.rpc.expect("Missing rpc configuration.")));
+    join_set.spawn(rpc_server::serve(config.rpc.context("Missing rpc configuration.")?));
 
     // block on all tasks
     while let Some(res) = join_set.join_next().await {
@@ -37,27 +37,37 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
 }
 
 pub async fn start_block_producer(config: BlockProducerConfig) -> Result<()> {
-    block_producer_server::serve(config).await?;
+    block_producer_server::serve(config)
+        .await
+        .map_err(|err| anyhow!("Failed to serve block-producer: {}", err))?;
 
     Ok(())
 }
 
 pub async fn start_rpc(config: RpcConfig) -> Result<()> {
-    rpc_server::serve(config).await?;
+    rpc_server::serve(config)
+        .await
+        .map_err(|err| anyhow!("Failed to serve rpc: {}", err))?;
 
     Ok(())
 }
 
 pub async fn start_store(config: StoreConfig) -> Result<()> {
-    let db = Db::setup(config.clone()).await?;
+    let db = Db::setup(config.clone())
+        .await
+        .map_err(|err| anyhow!("Failed to setup database: {}", err))?;
 
-    store_server::serve(config, db).await?;
+    store_server::serve(config, db)
+        .await
+        .map_err(|err| anyhow!("Failed to serve store: {}", err))?;
 
     Ok(())
 }
 
 pub async fn start_faucet(config: FaucetConfig) -> Result<()> {
-    let faucet_state = build_faucet_state(config.clone()).await?;
+    let faucet_state = build_faucet_state(config.clone())
+        .await
+        .map_err(|err| anyhow!("Failed to build faucet: {}", err))?;
 
     faucet_server::serve(config, faucet_state).await?;
 

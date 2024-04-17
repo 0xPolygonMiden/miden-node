@@ -48,8 +48,8 @@ pub async fn get_tokens(
         .map_err(|err| FaucetError::BadRequest(err.to_string()))?;
 
     // Instantiate asset
-    let asset =
-        FungibleAsset::new(state.id, state.asset_amount).expect("Failed to instantiate asset.");
+    let asset = FungibleAsset::new(state.id, state.asset_amount)
+        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
     // Instantiate note type
     let note_type = NoteType::OffChain;
@@ -62,7 +62,7 @@ pub async fn get_tokens(
         .lock()
         .await
         .build_transaction_request(tx_template)
-        .expect("Failed to build transaction request.");
+        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
     // Run transaction executor & execute transaction
     let tx_result = client

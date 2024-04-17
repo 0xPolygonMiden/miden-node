@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use commands::start::{start_block_producer, start_faucet, start_node, start_rpc, start_store};
 use config::NodeConfig;
@@ -82,18 +82,18 @@ async fn main() -> anyhow::Result<()> {
                 StartCommand::Node => start_node(config).await,
                 StartCommand::BlockProducer => {
                     start_block_producer(
-                        config.block_producer.expect("Missing block-producer configuration."),
+                        config.block_producer.context("Missing block-producer configuration.")?,
                     )
                     .await
                 },
                 StartCommand::Rpc => {
-                    start_rpc(config.rpc.expect("Missing rpc configuration.")).await
+                    start_rpc(config.rpc.context("Missing rpc configuration.")?).await
                 },
                 StartCommand::Store => {
-                    start_store(config.store.expect("Missing store configuration.")).await
+                    start_store(config.store.context("Missing store configuration.")?).await
                 },
                 StartCommand::Faucet => {
-                    start_faucet(config.faucet.expect("Missing faucet configuration.")).await
+                    start_faucet(config.faucet.context("Missing faucet configuration.")?).await
                 },
             }
         },

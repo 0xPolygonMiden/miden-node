@@ -1,7 +1,8 @@
 use std::{net::ToSocketAddrs, sync::Arc};
 
 use miden_node_proto::generated::{block_producer::api_server, store::api_client as store_client};
-use tonic::transport::{Error, Server};
+use miden_node_utils::errors::ApiError;
+use tonic::transport::Server;
 use tracing::info;
 
 use crate::{
@@ -20,11 +21,13 @@ pub mod api;
 // BLOCK PRODUCER INITIALIZER
 // ================================================================================================
 
-pub async fn serve(config: BlockProducerConfig) -> Result<(), Error> {
+pub async fn serve(config: BlockProducerConfig) -> Result<(), ApiError> {
     info!(target: COMPONENT, %config, "Initializing server");
 
     let store = Arc::new(DefaultStore::new(
-        store_client::ApiClient::connect(config.store_url.to_string()).await?,
+        store_client::ApiClient::connect(config.store_url.to_string())
+            .await
+            .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
     ));
     let state_view = Arc::new(DefaultStateView::new(store.clone(), config.verify_tx_proofs));
 
@@ -56,11 +59,16 @@ pub async fn serve(config: BlockProducerConfig) -> Result<(), Error> {
     let addr = config
         .endpoint
         .to_socket_addrs()
-        .expect("Failed to turn address into socket address.")
+        .map_err(|err| ApiError::EndpointToSocketFailed(err.to_string()))?
         .next()
-        .expect("Failed to resolve address.");
+        .ok_or("Failed to resolve address.")
+        .map_err(|err| ApiError::AddressResolutionFailed(err.to_string()))?;
 
-    Server::builder().add_service(block_producer).serve(addr).await?;
+    Server::builder()
+        .add_service(block_producer)
+        .serve(addr)
+        .await
+        .map_err(|err| ApiError::ApiServeFailed(err.to_string()))?;
 
     Ok(())
 }

@@ -9,6 +9,11 @@ use derive_more::Display;
 pub enum FaucetError {
     BadRequest(String),
     InternalServerError(String),
+    InitializationError(String),
+    DatabaseError(String),
+    SyncError(String),
+    ClientCreationError(String),
+    AccountCreationError(String),
 }
 
 impl error::ResponseError for FaucetError {
@@ -16,6 +21,11 @@ impl error::ResponseError for FaucetError {
         let message = match self {
             FaucetError::BadRequest(msg) => msg,
             FaucetError::InternalServerError(msg) => msg,
+            FaucetError::SyncError(msg) => msg,
+            FaucetError::InitializationError(msg) => msg,
+            FaucetError::ClientCreationError(msg) => msg,
+            FaucetError::AccountCreationError(msg) => msg,
+            FaucetError::DatabaseError(msg) => msg,
         };
 
         HttpResponse::build(self.status_code())
@@ -25,8 +35,8 @@ impl error::ResponseError for FaucetError {
 
     fn status_code(&self) -> actix_web::http::StatusCode {
         match *self {
-            FaucetError::InternalServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             FaucetError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

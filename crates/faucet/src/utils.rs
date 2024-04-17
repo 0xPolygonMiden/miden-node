@@ -1,5 +1,4 @@
-use core::panic;
-use std::{io, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
 use async_mutex::Mutex;
 use miden_client::{
@@ -17,7 +16,7 @@ use miden_objects::{
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use tracing::info;
 
-use crate::config::FaucetConfig;
+use crate::{config::FaucetConfig, errors::FaucetError};
 
 pub type FaucetClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
@@ -29,8 +28,9 @@ pub struct FaucetState {
 }
 
 /// Instatiantes the Miden faucet
-pub async fn build_faucet_state(config: FaucetConfig) -> std::io::Result<FaucetState> {
-    let mut client = build_client(config.database_filepath.clone());
+pub async fn build_faucet_state(config: FaucetConfig) -> Result<FaucetState, FaucetError> {
+    let mut client = build_client(config.database_filepath.clone())
+        .map_err(|err| FaucetError::ClientCreationError(err.to_string()))?;
 
     let faucet_account = create_fungible_faucet(
         &config.token_symbol,
@@ -38,17 +38,13 @@ pub async fn build_faucet_state(config: FaucetConfig) -> std::io::Result<FaucetS
         &config.max_supply,
         &mut client,
     )
-    .map_err(|err| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("Failed to create faucet account: {}", err),
-        )
-    })?;
+    .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
 
     // Sync client
-    client.sync_state().await.map_err(|e| {
-        io::Error::new(io::ErrorKind::NotConnected, format!("Failed to sync state: {e:?}"))
-    })?;
+    client
+        .sync_state()
+        .await
+        .map_err(|err| FaucetError::SyncError(err.to_string()))?;
 
     info!("Faucet initialization successful, account id: {}", faucet_account.id());
 
@@ -60,25 +56,31 @@ pub async fn build_faucet_state(config: FaucetConfig) -> std::io::Result<FaucetS
 }
 
 /// Instantiates the Miden client
-pub fn build_client(database_filepath: PathBuf) -> FaucetClient {
+pub fn build_client(database_filepath: PathBuf) -> Result<FaucetClient, FaucetError> {
     let database_filepath_os_string = database_filepath.into_os_string();
     let database_filepath = match database_filepath_os_string.into_string() {
         Ok(string) => string,
-        Err(e) => panic!("Failed to read database filepath: {:?}", e),
+        Err(e) => {
+            return Err(FaucetError::DatabaseError(format!(
+                "Failed to read database filepath: {:?}",
+                e
+            )))
+        },
     };
 
     // Setup store
     let store_config = StoreConfig {
         database_filepath: database_filepath.clone(),
     };
-    let store = SqliteStore::new(store_config).expect("Failed to instantiate store.");
+    let store = SqliteStore::new(store_config)
+        .map_err(|err| FaucetError::DatabaseError(err.to_string()))?;
 
     // Setup the executor store
     let executor_store_config = StoreConfig {
         database_filepath: database_filepath.clone(),
     };
-    let executor_store =
-        SqliteStore::new(executor_store_config).expect("Failed to instantiate datastore store");
+    let executor_store = SqliteStore::new(executor_store_config)
+        .map_err(|err| FaucetError::DatabaseError(err.to_string()))?;
 
     // Setup the tonic rpc client
     let rpc_config = RpcConfig::default();
@@ -90,7 +92,8 @@ pub fn build_client(database_filepath: PathBuf) -> FaucetClient {
     info!("Successfully built client");
 
     // Setup the client
-    Client::new(api, rng, store, executor_store).expect("Failed to instantiate client.")
+    Client::new(api, rng, store, executor_store)
+        .map_err(|err| FaucetError::ClientCreationError(err.to_string()))
 }
 
 /// Creates a Miden fungible faucet from arguments
@@ -99,8 +102,9 @@ pub fn create_fungible_faucet(
     decimals: &u8,
     max_supply: &u64,
     client: &mut FaucetClient,
-) -> Result<Account, io::Error> {
-    let token_symbol = TokenSymbol::new(token_symbol).expect("Failed to parse token_symbol.");
+) -> Result<Account, FaucetError> {
+    let token_symbol = TokenSymbol::new(token_symbol)
+        .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
 
     // Instantiate seed
     let seed: [u8; 32] = [0; 32];
@@ -114,17 +118,16 @@ pub fn create_fungible_faucet(
         seed,
         token_symbol,
         *decimals,
-        Felt::try_from(*max_supply).expect("Max_supply is outside of the possible range."),
+        Felt::try_from(*max_supply)
+            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?,
         AccountStorageType::OffChain,
         auth_scheme,
     )
-    .expect("Failed to generate faucet account.");
+    .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
 
     client
         .insert_account(&account, Some(account_seed), &AuthInfo::RpoFalcon512(secret))
-        .map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidData, "Failed to insert account into client.")
-        })?;
+        .map_err(|err| FaucetError::DatabaseError(err.to_string()))?;
 
     Ok(account)
 }
