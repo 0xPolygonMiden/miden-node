@@ -26,6 +26,13 @@ exclude = [".github/"]
 [workspace.dependencies]
 miden-air = { version = "0.9", default-features = false }
 miden-lib = { version = "0.2"}
+miden-node-block-producer = { path = "crates/block-producer", version = "0.2" }
+miden-node-faucet = { path = "crates/faucet", version = "0.1" }
+miden-node-proto = { path = "crates/proto", version = "0.2" }
+miden-node-rpc = { path = "crates/rpc", version = "0.2" }
+miden-node-store = { path = "crates/store", version = "0.2" }
+miden-node-test-macro = { path = "crates/test-macro", version = "0.1"}
+miden-node-utils = { path = "crates/utils", version = "0.2" }
 miden-objects = { version = "0.2" }
 miden-processor = { version = "0.9" }
 miden-stdlib = { version = "0.9", default-features = false }

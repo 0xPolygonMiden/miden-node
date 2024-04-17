@@ -24,8 +24,8 @@ derive_more = "0.99.17"
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { version = "0.2.0", features = ["concurrent"] }
 miden-lib = { workspace = true }
-miden-node-proto = { path = "../proto", version = "0.2" }
-miden-node-utils = { path = "../utils", version = "0.2" }
+miden-node-proto = { workspace = true }
+miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
 rand_chacha = "0.3"
 serde = { version = "1.0", features = ["derive"] }
