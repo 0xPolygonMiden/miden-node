@@ -12,8 +12,6 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-anyhow = { version = "1.0" }
-clap = { version = "4.3", features = ["derive"] }
 deadpool-sqlite = { version = "0.7", features = ["rt_tokio_1"] }
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }

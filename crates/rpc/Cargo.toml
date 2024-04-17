@@ -12,7 +12,6 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-anyhow = { version = "1.0" }
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 hex = { version = "0.4" }

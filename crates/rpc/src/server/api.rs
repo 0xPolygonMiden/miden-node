@@ -1,4 +1,3 @@
-use anyhow::Result;
 use miden_node_proto::{
     generated::{
         block_producer::api_client as block_producer_client,

@@ -1648,7 +1648,6 @@ dependencies = [
 name = "miden-node-block-producer"
 version = "0.2.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "figment",
  "itertools",
@@ -1731,7 +1730,6 @@ dependencies = [
 name = "miden-node-rpc"
 version = "0.2.0"
 dependencies = [
- "anyhow",
  "directories",
  "figment",
  "hex",
@@ -1754,8 +1752,6 @@ dependencies = [
 name = "miden-node-store"
 version = "0.2.0"
 dependencies = [
- "anyhow",
- "clap",
  "deadpool-sqlite",
  "directories",
  "figment",

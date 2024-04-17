@@ -1,8 +1,7 @@
 use std::net::ToSocketAddrs;
 
-use anyhow::{anyhow, Result};
 use miden_node_proto::generated::rpc::api_server;
-use tonic::transport::Server;
+use tonic::transport::{Error, Server};
 use tracing::info;
 
 use crate::{config::RpcConfig, COMPONENT};
@@ -12,7 +11,7 @@ mod api;
 // RPC INITIALIZER
 // ================================================================================================
 
-pub async fn serve(config: RpcConfig) -> Result<()> {
+pub async fn serve(config: RpcConfig) -> Result<(), Error> {
     info!(target: COMPONENT, %config, "Initializing server");
 
     let api = api::RpcApi::from_config(&config).await?;
@@ -22,9 +21,11 @@ pub async fn serve(config: RpcConfig) -> Result<()> {
 
     let addr = config
         .endpoint
-        .to_socket_addrs()?
+        .to_socket_addrs()
+        .expect("Failed to turn address into socket address.")
         .next()
-        .ok_or(anyhow!("Couldn't resolve server address"))?;
+        .expect("Failed to resolve address.");
+
     Server::builder().add_service(rpc).serve(addr).await?;
 
     Ok(())

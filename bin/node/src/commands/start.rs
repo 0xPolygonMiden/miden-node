@@ -1,32 +1,17 @@
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use miden_node_block_producer::{config::BlockProducerConfig, server as block_producer_server};
 use miden_node_rpc::{config::RpcConfig, server as rpc_server};
 use miden_node_store::{config::StoreConfig, db::Db, server as store_server};
-use miden_node_utils::config::load_config;
-use serde::{Deserialize, Serialize};
 use tokio::task::JoinSet;
 
-// Top-level config
-// ================================================================================================
-
-/// Node top-level configuration.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
-pub struct StartCommandConfig {
-    pub block_producer: BlockProducerConfig,
-    pub rpc: RpcConfig,
-    pub store: StoreConfig,
-}
+use crate::StartCommandConfig;
 
 // START
 // ===================================================================================================
 
-pub async fn start_node(config_filepath: &Path) -> Result<()> {
-    let config: StartCommandConfig = load_config(config_filepath).extract().map_err(|err| {
-        anyhow!("failed to load config file `{}`: {err}", config_filepath.display())
-    })?;
-
+pub async fn start_node(config: StartCommandConfig) -> Result<()> {
     let mut join_set = JoinSet::new();
     let db = Db::setup(config.store.clone()).await?;
     join_set.spawn(store_server::serve(config.store, db));
@@ -44,6 +29,26 @@ pub async fn start_node(config_filepath: &Path) -> Result<()> {
         // For now, if one of the components fails, crash the node
         res.unwrap().unwrap();
     }
+
+    Ok(())
+}
+
+pub async fn start_block_producer(config: BlockProducerConfig) -> Result<()> {
+    block_producer_server::serve(config).await?;
+
+    Ok(())
+}
+
+pub async fn start_rpc(config: RpcConfig) -> Result<()> {
+    rpc_server::serve(config).await?;
+
+    Ok(())
+}
+
+pub async fn start_store(config: StoreConfig) -> Result<()> {
+    let db = Db::setup(config.clone()).await?;
+
+    store_server::serve(config, db).await?;
 
     Ok(())
 }

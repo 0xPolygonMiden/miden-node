@@ -1,9 +1,6 @@
-use std::{path::Path, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use anyhow::Result;
 use batch_builder::batch::TransactionBatch;
-use config::BlockProducerTopLevelConfig;
-use miden_node_utils::config::load_config;
 use miden_objects::transaction::ProvenTransaction;
 use tokio::sync::RwLock;
 
@@ -44,14 +41,3 @@ const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
 
 /// Maximum number of batches per block
 const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
-
-// MAIN FUNCTION
-// =================================================================================================
-
-pub async fn start_block_producer(config_filepath: &Path) -> Result<()> {
-    let config: BlockProducerTopLevelConfig = load_config(config_filepath).extract()?;
-
-    server::serve(config.block_producer).await?;
-
-    Ok(())
-}

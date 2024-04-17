@@ -2,13 +2,27 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
-use commands::start_node;
-use miden_node_block_producer::start_block_producer;
-use miden_node_faucet::start_faucet;
-use miden_node_rpc::start_rpc;
-use miden_node_store::start_store;
+use commands::{start_block_producer, start_node, start_rpc, start_store};
+use miden_node_block_producer::config::BlockProducerConfig;
+// use miden_node_faucet::{config::FaucetConfig, start_faucet};
+use miden_node_rpc::config::RpcConfig;
+use miden_node_store::config::StoreConfig;
+use miden_node_utils::config::load_config;
+use serde::{Deserialize, Serialize};
 
 mod commands;
+
+// Top-level config
+// ================================================================================================
+
+/// Node top-level configuration.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+pub struct StartCommandConfig {
+    pub block_producer: BlockProducerConfig,
+    pub rpc: RpcConfig,
+    pub store: StoreConfig,
+    // pub fauecet: FaucetConfig
+}
 
 // CONSTANTS
 // ================================================================================================
@@ -75,14 +89,20 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::Start { command, config } => match command {
-            StartCommand::Node => start_node(config).await,
-            StartCommand::BlockProducer => start_block_producer(config).await,
-            StartCommand::Rpc => start_rpc(config).await,
-            StartCommand::Store => start_store(config).await,
-            StartCommand::Faucet => {
-                start_faucet(config).await.map_err(|err| anyhow!("Faucet error: {err}"))
-            },
+        Command::Start { command, config } => {
+            let config: StartCommandConfig = load_config(config).extract().map_err(|err| {
+                anyhow!("failed to load config file `{}`: {err}", config.display())
+            })?;
+            match command {
+                StartCommand::Node => start_node(config).await,
+                StartCommand::BlockProducer => start_block_producer(config.block_producer).await,
+                StartCommand::Rpc => start_rpc(config.rpc).await,
+                StartCommand::Store => start_store(config.store).await,
+                StartCommand::Faucet => {
+                    // start_faucet(config).await.map_err(|err| anyhow!("Faucet error: {err}"))
+                    Ok(())
+                },
+            }
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {
             commands::make_genesis(inputs_path, output_path, force)

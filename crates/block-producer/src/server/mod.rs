@@ -1,8 +1,7 @@
 use std::{net::ToSocketAddrs, sync::Arc};
 
-use anyhow::{anyhow, Result};
 use miden_node_proto::generated::{block_producer::api_server, store::api_client as store_client};
-use tonic::transport::Server;
+use tonic::transport::{Error, Server};
 use tracing::info;
 
 use crate::{
@@ -21,7 +20,7 @@ pub mod api;
 // BLOCK PRODUCER INITIALIZER
 // ================================================================================================
 
-pub async fn serve(config: BlockProducerConfig) -> Result<()> {
+pub async fn serve(config: BlockProducerConfig) -> Result<(), Error> {
     info!(target: COMPONENT, %config, "Initializing server");
 
     let store = Arc::new(DefaultStore::new(
@@ -56,9 +55,11 @@ pub async fn serve(config: BlockProducerConfig) -> Result<()> {
 
     let addr = config
         .endpoint
-        .to_socket_addrs()?
+        .to_socket_addrs()
+        .expect("Failed to turn address into socket address.")
         .next()
-        .ok_or(anyhow!("Couldn't resolve server address"))?;
+        .expect("Failed to resolve address.");
+
     Server::builder().add_service(block_producer).serve(addr).await?;
 
     Ok(())

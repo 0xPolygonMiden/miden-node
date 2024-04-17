@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::Result;
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
     responses::SubmitProvenTransactionResponse,
