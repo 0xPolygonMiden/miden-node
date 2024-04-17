@@ -4,9 +4,19 @@ use anyhow::Result;
 use miden_node_block_producer::{config::BlockProducerConfig, server as block_producer_server};
 use miden_node_rpc::{config::RpcConfig, server as rpc_server};
 use miden_node_store::{config::StoreConfig, db::Db, server as store_server};
+use serde::{Deserialize, Serialize};
 use tokio::task::JoinSet;
 
-use crate::StartCommandConfig;
+// Config
+// ================================================================================================
+
+/// Node configuration.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+pub struct StartCommandConfig {
+    pub block_producer: BlockProducerConfig,
+    pub rpc: RpcConfig,
+    pub store: StoreConfig,
+}
 
 // START
 // ===================================================================================================
