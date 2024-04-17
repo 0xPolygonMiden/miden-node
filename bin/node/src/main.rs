@@ -80,10 +80,21 @@ async fn main() -> anyhow::Result<()> {
             })?;
             match command {
                 StartCommand::Node => start_node(config).await,
-                StartCommand::BlockProducer => start_block_producer(config.block_producer).await,
-                StartCommand::Rpc => start_rpc(config.rpc).await,
-                StartCommand::Store => start_store(config.store).await,
-                StartCommand::Faucet => start_faucet(config.faucet).await,
+                StartCommand::BlockProducer => {
+                    start_block_producer(
+                        config.block_producer.expect("Missing block-producer configuration."),
+                    )
+                    .await
+                },
+                StartCommand::Rpc => {
+                    start_rpc(config.rpc.expect("Missing rpc configuration.")).await
+                },
+                StartCommand::Store => {
+                    start_store(config.store.expect("Missing store configuration.")).await
+                },
+                StartCommand::Faucet => {
+                    start_faucet(config.faucet.expect("Missing faucet configuration.")).await
+                },
             }
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {

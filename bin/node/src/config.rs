@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 /// Node top-level configuration.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct NodeConfig {
-    pub block_producer: BlockProducerConfig,
-    pub rpc: RpcConfig,
-    pub store: StoreConfig,
-    pub faucet: FaucetConfig,
+    pub block_producer: Option<BlockProducerConfig>,
+    pub rpc: Option<RpcConfig>,
+    pub store: Option<StoreConfig>,
+    pub faucet: Option<FaucetConfig>,
 }
 
 #[cfg(test)]
@@ -64,31 +64,31 @@ mod tests {
             assert_eq!(
                 config,
                 NodeConfig {
-                    block_producer: BlockProducerConfig {
+                    block_producer: Some(BlockProducerConfig {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
                         store_url: "http://store:8000".to_string(),
                         verify_tx_proofs: true
-                    },
-                    rpc: RpcConfig {
+                    }),
+                    rpc: Some(RpcConfig {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
                         store_url: "http://store:8000".to_string(),
                         block_producer_url: "http://block_producer:8001".to_string(),
-                    },
-                    store: StoreConfig {
+                    }),
+                    store: Some(StoreConfig {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into()
-                    },
-                    faucet: FaucetConfig {
+                    }),
+                    faucet: Some(FaucetConfig {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
@@ -98,7 +98,7 @@ mod tests {
                         token_symbol: "POL".to_string(),
                         decimals: 8,
                         max_supply: 1000000
-                    }
+                    })
                 }
             );
 

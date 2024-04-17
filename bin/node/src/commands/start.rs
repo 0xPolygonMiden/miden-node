@@ -14,16 +14,18 @@ use crate::config::NodeConfig;
 
 pub async fn start_node(config: NodeConfig) -> Result<()> {
     let mut join_set = JoinSet::new();
-    let db = Db::setup(config.store.clone()).await?;
-    join_set.spawn(store_server::serve(config.store, db));
+    let db = Db::setup(config.store.clone().expect("Missing store configuration.")).await?;
+    join_set.spawn(store_server::serve(config.store.expect("Missing store configuration"), db));
 
     // wait for store before starting block producer
     tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(block_producer_server::serve(config.block_producer));
+    join_set.spawn(block_producer_server::serve(
+        config.block_producer.expect("Missing block-producer configuration"),
+    ));
 
     // wait for block producer before starting rpc
     tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(rpc_server::serve(config.rpc));
+    join_set.spawn(rpc_server::serve(config.rpc.expect("Missing rpc configuration.")));
 
     // block on all tasks
     while let Some(res) = join_set.join_next().await {
