@@ -9,7 +9,7 @@ use miden_objects::{
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::{errors::FaucetError, FaucetState};
+use crate::{errors::FaucetError, utils::FaucetState};
 
 #[derive(Deserialize)]
 struct FaucetRequest {

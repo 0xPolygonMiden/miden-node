@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
-use commands::start::{start_block_producer, start_node, start_rpc, start_store};
+use commands::start::{start_block_producer, start_faucet, start_node, start_rpc, start_store};
 use config::NodeConfig;
 use miden_node_utils::config::load_config;
 
@@ -83,7 +83,7 @@ async fn main() -> anyhow::Result<()> {
                 StartCommand::BlockProducer => start_block_producer(config.block_producer).await,
                 StartCommand::Rpc => start_rpc(config.rpc).await,
                 StartCommand::Store => start_store(config.store).await,
-                StartCommand::Faucet => Ok(()),
+                StartCommand::Faucet => start_faucet(config.faucet).await,
             }
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {

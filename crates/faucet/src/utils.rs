@@ -1,5 +1,7 @@
-use std::io;
+use core::panic;
+use std::{io, path::PathBuf, sync::Arc};
 
+use async_mutex::Mutex;
 use miden_client::{
     client::{get_random_coin, rpc::TonicRpcClient, Client},
     config::{RpcConfig, StoreConfig},
@@ -7,17 +9,64 @@ use miden_client::{
 };
 use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_objects::{
-    accounts::{Account, AccountStorageType},
+    accounts::{Account, AccountId, AccountStorageType},
     assets::TokenSymbol,
-    crypto::dsa::rpo_falcon512::SecretKey,
+    crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
     Felt,
 };
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use tracing::info;
 
-use crate::FaucetClient;
+use crate::config::FaucetConfig;
+
+pub type FaucetClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
+
+#[derive(Clone)]
+pub struct FaucetState {
+    pub id: AccountId,
+    pub asset_amount: u64,
+    pub client: Arc<Mutex<FaucetClient>>,
+}
+
+/// Instatiantes the Miden faucet
+pub async fn build_faucet_state(config: FaucetConfig) -> std::io::Result<FaucetState> {
+    let mut client = build_client(config.database_filepath.clone());
+
+    let faucet_account = create_fungible_faucet(
+        &config.token_symbol,
+        &config.decimals,
+        &config.max_supply,
+        &mut client,
+    )
+    .map_err(|err| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("Failed to create faucet account: {}", err),
+        )
+    })?;
+
+    // Sync client
+    client.sync_state().await.map_err(|e| {
+        io::Error::new(io::ErrorKind::NotConnected, format!("Failed to sync state: {e:?}"))
+    })?;
+
+    info!("Faucet initialization successful, account id: {}", faucet_account.id());
+
+    Ok(FaucetState {
+        id: faucet_account.id(),
+        asset_amount: config.asset_amount,
+        client: Arc::new(Mutex::new(client)),
+    })
+}
 
 /// Instantiates the Miden client
-pub fn build_client(database_filepath: String) -> FaucetClient {
+pub fn build_client(database_filepath: PathBuf) -> FaucetClient {
+    let database_filepath_os_string = database_filepath.into_os_string();
+    let database_filepath = match database_filepath_os_string.into_string() {
+        Ok(string) => string,
+        Err(e) => panic!("Failed to read database filepath: {:?}", e),
+    };
+
     // Setup store
     let store_config = StoreConfig {
         database_filepath: database_filepath.clone(),
@@ -37,6 +86,8 @@ pub fn build_client(database_filepath: String) -> FaucetClient {
 
     // Setup the rng
     let rng = get_random_coin();
+
+    info!("Successfully built client");
 
     // Setup the client
     Client::new(api, rng, store, executor_store).expect("Failed to instantiate client.")
