@@ -1,5 +1,7 @@
 use actix_web::{get, http::header, post, web, HttpResponse, Result};
-use miden_client::client::transactions::transaction_request::TransactionTemplate;
+use miden_client::{
+    client::transactions::transaction_request::TransactionTemplate, store::InputNoteRecord,
+};
 use miden_objects::{
     accounts::AccountId,
     assets::FungibleAsset,
@@ -86,7 +88,7 @@ pub async fn get_tokens(
     let bytes = match created_notes.first() {
         Some(note) => {
             note_id = note.id();
-            note.to_bytes()
+            InputNoteRecord::from(note.clone()).to_bytes()
         },
         None => {
             return Err(
