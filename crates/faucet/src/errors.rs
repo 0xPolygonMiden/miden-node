@@ -8,19 +8,15 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum FaucetError {
-    /// Client has submitted a bad request
     #[error("Client has submitted a bad request: {0}")]
     BadRequest(String),
 
-    /// Server has encountered an internal error
     #[error("Server has encountered an internal error: {0}")]
     InternalServerError(String),
 
-    /// Database has encountered an error
     #[error("Database has encountered an error: {0}")]
     DatabaseError(String),
 
-    /// Encountered an error while trying to sync state
     #[error("Failed to sync state: {0}")]
     SyncError(ClientError),
 
