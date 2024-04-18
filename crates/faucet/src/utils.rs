@@ -29,22 +29,17 @@ pub struct FaucetState {
 
 /// Instatiantes the Miden faucet
 pub async fn build_faucet_state(config: FaucetConfig) -> Result<FaucetState, FaucetError> {
-    let mut client = build_client(config.database_filepath.clone())
-        .map_err(|err| FaucetError::ClientCreationError(err.to_string()))?;
+    let mut client = build_client(config.database_filepath.clone())?;
 
     let faucet_account = create_fungible_faucet(
         &config.token_symbol,
         &config.decimals,
         &config.max_supply,
         &mut client,
-    )
-    .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
+    )?;
 
     // Sync client
-    client
-        .sync_state()
-        .await
-        .map_err(|err| FaucetError::SyncError(err.to_string()))?;
+    client.sync_state().await.map_err(FaucetError::SyncError)?;
 
     info!("Faucet initialization successful, account id: {}", faucet_account.id());
 
@@ -92,8 +87,7 @@ pub fn build_client(database_filepath: PathBuf) -> Result<FaucetClient, FaucetEr
     info!("Successfully built client");
 
     // Setup the client
-    Client::new(api, rng, store, executor_store)
-        .map_err(|err| FaucetError::ClientCreationError(err.to_string()))
+    Client::new(api, rng, store, executor_store).map_err(FaucetError::ClientCreationError)
 }
 
 /// Creates a Miden fungible faucet from arguments

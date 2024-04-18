@@ -1688,6 +1688,7 @@ dependencies = [
  "miden-objects",
  "rand_chacha",
  "serde",
+ "thiserror",
  "tracing",
 ]
 
@@ -1790,6 +1791,8 @@ dependencies = [
  "itertools",
  "miden-objects",
  "serde",
+ "thiserror",
+ "tonic",
  "tracing",
  "tracing-forest",
  "tracing-subscriber",

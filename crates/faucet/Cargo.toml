@@ -31,3 +31,4 @@ miden-objects = { workspace = true }
 rand_chacha = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 tracing = { workspace = true }
+thiserror = { workspace = true }

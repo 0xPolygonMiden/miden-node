@@ -27,7 +27,7 @@ pub async fn serve(config: StoreConfig, db: Db) -> Result<(), ApiError> {
     let addr = config
         .endpoint
         .to_socket_addrs()
-        .map_err(|err| ApiError::EndpointToSocketFailed(err.to_string()))?
+        .map_err(ApiError::EndpointToSocketFailed)?
         .next()
         .ok_or("Failed to resolve address.")
         .map_err(|err| ApiError::AddressResolutionFailed(err.to_string()))?;
@@ -36,7 +36,7 @@ pub async fn serve(config: StoreConfig, db: Db) -> Result<(), ApiError> {
         .add_service(store)
         .serve(addr)
         .await
-        .map_err(|err| ApiError::ApiServeFailed(err.to_string()))?;
+        .map_err(ApiError::ApiServeFailed)?;
 
     Ok(())
 }
