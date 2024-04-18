@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 
 use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountDelta, AccountId},
     batches::BatchNoteTree,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::Nullifier,
-    transaction::{AccountDetails, OutputNote},
+    transaction::OutputNote,
     Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
@@ -54,7 +54,7 @@ impl TransactionBatch {
                     AccountStates {
                         initial_state: tx.initial_account_hash(),
                         final_state: tx.final_account_hash(),
-                        details: tx.account_details().cloned(),
+                        delta: tx.account_delta().cloned(),
                     },
                 )
             })
@@ -109,7 +109,7 @@ impl TransactionBatch {
             .map(|(&account_id, account_states)| AccountUpdateDetails {
                 account_id,
                 final_state_hash: account_states.final_state,
-                details: account_states.details.clone(),
+                delta: account_states.delta.clone(),
             })
     }
 
@@ -148,5 +148,5 @@ impl TransactionBatch {
 struct AccountStates {
     initial_state: Digest,
     final_state: Digest,
-    details: Option<AccountDetails>,
+    delta: Option<AccountDelta>,
 }

@@ -243,7 +243,7 @@ async fn test_compute_account_root_success() {
                 .map(|(&account_id, &account_hash)| AccountUpdateDetails {
                     account_id,
                     final_state_hash: account_hash.into(),
-                    details: None,
+                    delta: None,
                 })
                 .collect(),
         )

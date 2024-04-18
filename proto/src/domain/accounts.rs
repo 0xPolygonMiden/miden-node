@@ -2,9 +2,8 @@ use std::fmt::{Debug, Display, Formatter};
 
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::{Account, AccountId},
+    accounts::{Account, AccountDelta, AccountId},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    transaction::AccountDetails,
     utils::Serializable,
     Digest,
 };
@@ -113,7 +112,7 @@ impl From<&AccountInfo> for AccountInfoPb {
 pub struct AccountUpdateDetails {
     pub account_id: AccountId,
     pub final_state_hash: Digest,
-    pub details: Option<AccountDetails>,
+    pub delta: Option<AccountDelta>,
 }
 
 impl From<&AccountUpdateDetails> for AccountUpdate {
@@ -121,7 +120,7 @@ impl From<&AccountUpdateDetails> for AccountUpdate {
         Self {
             account_id: Some(update.account_id.into()),
             account_hash: Some(update.final_state_hash.into()),
-            details: update.details.as_ref().map(|details| details.to_bytes()),
+            delta: update.delta.as_ref().map(|delta| delta.to_bytes()),
         }
     }
 }

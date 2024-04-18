@@ -27,9 +27,9 @@ use miden_node_proto::{
     try_convert, AccountState,
 };
 use miden_objects::{
+    accounts::AccountDelta,
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, NoteType, Nullifier},
-    transaction::AccountDetails,
     utils::Deserializable,
     BlockHeader, Felt, NoteError, ZERO,
 };
@@ -275,7 +275,7 @@ impl api_server::Api for StoreApi {
                     .try_into()
                     .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
 
-                match (account_state.account_id.is_on_chain(), account_update.details.is_some()) {
+                match (account_state.account_id.is_on_chain(), account_update.delta.is_some()) {
                     (true, false) => {
                         return Err(Status::invalid_argument("On-chain account must have details"));
                     },
@@ -287,16 +287,16 @@ impl api_server::Api for StoreApi {
                     _ => (),
                 }
 
-                let details = account_update
-                    .details
+                let delta = account_update
+                    .delta
                     .as_ref()
-                    .map(|data| AccountDetails::read_from_bytes(data))
+                    .map(|data| AccountDelta::read_from_bytes(data))
                     .transpose()
                     .map_err(|err| Status::invalid_argument(err.to_string()))?;
 
                 Ok(AccountUpdateDetails {
                     account_id: account_state.account_id,
-                    details,
+                    delta,
                     final_state_hash: account_state
                         .account_hash
                         .ok_or(invalid_argument("Account update missing account hash"))?,

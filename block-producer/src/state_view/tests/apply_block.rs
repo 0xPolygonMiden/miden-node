@@ -37,7 +37,7 @@ async fn test_apply_block_ab1() {
                 .map(|mock_account| AccountUpdateDetails {
                     account_id: mock_account.id,
                     final_state_hash: mock_account.states[1],
-                    details: None,
+                    delta: None,
                 })
                 .collect(),
         )
@@ -84,7 +84,7 @@ async fn test_apply_block_ab2() {
                 .map(|mock_account| AccountUpdateDetails {
                     account_id: mock_account.id,
                     final_state_hash: mock_account.states[1],
-                    details: None,
+                    delta: None,
                 })
                 .collect(),
         )
@@ -133,7 +133,7 @@ async fn test_apply_block_ab3() {
                 .map(|mock_account| AccountUpdateDetails {
                     account_id: mock_account.id,
                     final_state_hash: mock_account.states[1],
-                    details: None,
+                    delta: None,
                 })
                 .collect(),
         )

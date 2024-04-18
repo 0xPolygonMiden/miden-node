@@ -359,7 +359,7 @@ impl Db {
                                 Ok(AccountUpdateDetails {
                                     account_id: account_id.try_into()?,
                                     final_state_hash: state_hash.into(),
-                                    details: None,
+                                    delta: None,
                                 })
                             })
                             .collect::<Result<_, DatabaseError>>()?;

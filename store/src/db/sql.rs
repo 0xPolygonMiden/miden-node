@@ -1,13 +1,12 @@
 //! Wrapper functions for SQL statements.
 
-use std::{borrow::Cow, rc::Rc};
+use std::rc::Rc;
 
 use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
 use miden_objects::{
     accounts::{Account, AccountDelta},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, Nullifier},
-    transaction::AccountDetails,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
@@ -167,30 +166,24 @@ pub fn upsert_accounts(
     let mut count = 0;
     for update in accounts.iter() {
         let account_id = update.account_id.into();
-        let full_account = match &update.details {
-            None => None,
-            Some(AccountDetails::Full(account)) => {
-                debug_assert_eq!(account_id, u64::from(account.id()));
+        let final_account = match &update.delta {
+            None => {
+                debug_assert!(!update.account_id.is_on_chain());
 
-                if account.hash() != update.final_state_hash {
-                    return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
-                        calculated: account.hash(),
-                        expected: update.final_state_hash,
-                    });
-                }
-
-                Some(Cow::Borrowed(account))
+                None
             },
-            Some(AccountDetails::Delta(delta)) => {
+            Some(delta) => {
+                debug_assert!(update.account_id.is_on_chain());
+
                 let mut rows = select_details_stmt.query(params![u64_to_value(account_id)])?;
                 let Some(row) = rows.next()? else {
                     return Err(DatabaseError::AccountNotFoundInDb(account_id));
                 };
 
-                let account =
+                let final_account =
                     apply_delta(account_id, &row.get_ref(0)?, delta, &update.final_state_hash)?;
 
-                Some(Cow::Owned(account))
+                Some(final_account)
             },
         };
 
@@ -198,7 +191,7 @@ pub fn upsert_accounts(
             u64_to_value(account_id),
             update.final_state_hash.to_bytes(),
             block_num,
-            full_account.as_ref().map(|account| account.to_bytes()),
+            final_account.as_ref().map(|account| account.to_bytes()),
         ])?;
 
         debug_assert_eq!(inserted, 1);
@@ -779,16 +772,18 @@ fn apply_delta(
     delta: &AccountDelta,
     final_state_hash: &RpoDigest,
 ) -> Result<Account, DatabaseError> {
-    let account = value.as_blob_or_null()?;
-    let account = account.map(Account::read_from_bytes).transpose()?;
+    let initial_account = value.as_blob_or_null()?;
+    let initial_account = initial_account.map(Account::read_from_bytes).transpose()?;
 
-    let Some(mut account) = account else {
-        return Err(DatabaseError::AccountNotOnChain(account_id));
+    let final_account = match initial_account {
+        None => Account::from_delta(account_id.try_into()?, delta)?,
+        Some(mut account) => {
+            account.apply_delta(delta)?;
+            account
+        },
     };
 
-    account.apply_delta(delta)?;
-
-    let actual_hash = account.hash();
+    let actual_hash = final_account.hash();
     if &actual_hash != final_state_hash {
         return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
             calculated: actual_hash,
@@ -796,5 +791,5 @@ fn apply_delta(
         });
     }
 
-    Ok(account)
+    Ok(final_account)
 }
