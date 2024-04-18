@@ -42,7 +42,7 @@ sudo apt install llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
 To install for production use cases, run:
 
 ```sh
-cargo install --path node
+cargo install --path bin/node
 ```
 
 This will install the executable `miden-node` in your PATH, at `~/.cargo/bin/miden-node`.
@@ -50,7 +50,7 @@ This will install the executable `miden-node` in your PATH, at `~/.cargo/bin/mid
 Otherwise, if only to try the node out for testing, run:
 
 ```sh
-cargo install --features testing --path node
+cargo install --features testing --path bin/node
 ```
 
 Currently, the only difference between the two is how long the `make-genesis` command will take to run (see next subsection).
@@ -75,13 +75,13 @@ By default this will generate 1 file and 1 folder in the current directory:
 To run the node you will need to provide a configuration file. We have an example config file in [node/miden-node.toml](/node/miden-node.toml). Then, to run the node, run:
 
 ```sh
-miden-node start --config <path-to-config-file>
+miden-node start --config <path-to-config-file> <component-to-be-started>
 ```
 
 Or, if your config file is named `miden-node.toml` and is in the current directory, you can simply run:
 
 ```sh
-miden-node start
+miden-node start <component-to-be-started>
 ```
 
 Note that the `store.genesis_filepath` field in the config file must point to the `genesis.dat` file that you generated in the previous step.
@@ -112,6 +112,10 @@ If you intend on running the node inside a Docker container, you will need to fo
 2. Run the Docker container
 
    ```sh
+   # Using cargo-make
+   cargo make docker-run-node
+
+   # Manually
    docker run --name miden-node -p 57291:57291 -d miden-node-image
    ```
 
