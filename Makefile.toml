@@ -53,13 +53,13 @@ args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
 workspace = false
 script = '''
 CREATED=$(date)
-VERSION=$(cat node/Cargo.toml | grep -m 1 '^version' | cut -d '"' -f 2)
+VERSION=$(cat bin/node/Cargo.toml | grep -m 1 '^version' | cut -d '"' -f 2)
 COMMIT=$(git rev-parse HEAD)
 
 docker build --build-arg CREATED="$CREATED" \
              --build-arg VERSION="$VERSION" \
              --build-arg COMMIT="$COMMIT" \
-             -f node/Dockerfile \
+             -f bin/node/Dockerfile \
              -t miden-node-image .
 '''
 
@@ -68,7 +68,7 @@ workspace = false
 script = '''
 docker volume create miden-db
 
-ABSOLUTE_PATH="$(pwd)/node/miden-node.toml"
+ABSOLUTE_PATH="$(pwd)/bin/node/miden-node.toml"
 
 docker run --name miden-node \
            -p 57291:57291 \

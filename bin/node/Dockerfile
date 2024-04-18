@@ -14,8 +14,8 @@ WORKDIR /app
 COPY . .
 
 # Build the node crate
-RUN cargo install --features testing --path node
-RUN miden-node make-genesis --inputs-path node/genesis.toml
+RUN cargo install --features testing --path bin/node
+RUN miden-node make-genesis --inputs-path bin/node/genesis.toml
 
 # Run Miden node
 FROM debian:bookworm-slim
@@ -53,4 +53,4 @@ EXPOSE 57291
 
 # Start the Miden node
 # Miden node does not spawn sub-processes, so it can be used as the PID1
-CMD miden-node start --config miden-node.toml
+CMD miden-node start --config miden-node.toml node
