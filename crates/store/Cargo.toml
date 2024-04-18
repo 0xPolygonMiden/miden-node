@@ -1,0 +1,37 @@
+[package]
+name = "miden-node-store"
+version = "0.2.0"
+description = "Miden node's state store component"
+readme = "README.md"
+keywords = ["miden", "node", "store"]
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+deadpool-sqlite = { version = "0.7", features = ["rt_tokio_1"] }
+directories = { version = "5.0" }
+figment = { version = "0.10", features = ["toml", "env"] }
+hex = { version = "0.4" }
+miden-lib = { workspace = true }
+miden-node-proto = { workspace = true }
+miden-node-utils = { workspace = true }
+miden-objects = { workspace = true }
+once_cell = { version = "1.18.0" }
+prost = { version = "0.12" }
+rusqlite = { version = "0.30", features = ["array", "buildtime_bindgen", "bundled"] }
+rusqlite_migration = { version = "1.0" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = { workspace = true }
+tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
+toml = { version = "0.8" }
+tonic = { version = "0.11" }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+figment = { version = "0.10", features = ["toml", "env", "test"] }
+miden-node-utils = { workspace = true, features = ["tracing-forest"] }
