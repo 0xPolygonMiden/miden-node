@@ -61,8 +61,7 @@ pub async fn serve(config: BlockProducerConfig) -> Result<(), ApiError> {
         .to_socket_addrs()
         .map_err(ApiError::EndpointToSocketFailed)?
         .next()
-        .ok_or(config.endpoint.to_string())
-        .map_err(ApiError::AddressResolutionFailed)?;
+        .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))?;
 
     Server::builder()
         .add_service(block_producer)

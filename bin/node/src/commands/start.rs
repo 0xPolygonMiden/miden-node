@@ -31,7 +31,7 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
     // block on all tasks
     while let Some(res) = join_set.join_next().await {
         // For now, if one of the components fails, crash the node
-        res.unwrap().unwrap();
+        res??;
     }
 
     Ok(())
