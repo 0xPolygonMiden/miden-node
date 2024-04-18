@@ -28,7 +28,7 @@ pub async fn serve(config: RpcConfig) -> Result<(), ApiError> {
         .map_err(ApiError::EndpointToSocketFailed)?
         .next()
         .ok_or(config.endpoint.to_string())
-        .map_err(|err| ApiError::AddressResolutionFailed(err))?;
+        .map_err(ApiError::AddressResolutionFailed)?;
 
     Server::builder()
         .add_service(rpc)
