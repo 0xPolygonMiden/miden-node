@@ -129,6 +129,14 @@ If you intend on running the node inside a Docker container, you will need to fo
 
    After running this command you should see the name of the container `miden-node` being outputed and marked as `Up`.
 
+### Testing
+
+In order to test the node run the following command:
+
+```sh
+cargo-make test-all
+```
+
 ### Debian Packages
 
 The debian packages allow for easy install for miden on debian based systems. Note that there are checksums available for the package.
