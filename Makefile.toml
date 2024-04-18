@@ -6,6 +6,7 @@
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
 # --- linting -------------------------------------------------------------------------------------
+
 [tasks.format]
 toolchain = "nightly"
 command = "cargo"
