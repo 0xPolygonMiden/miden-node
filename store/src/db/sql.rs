@@ -10,11 +10,7 @@ use miden_objects::{
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
-use rusqlite::{
-    params,
-    types::{Value, ValueRef},
-    Connection, Transaction,
-};
+use rusqlite::{params, types::Value, Connection, Row, Transaction};
 
 use super::{Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
@@ -176,12 +172,17 @@ pub fn upsert_accounts(
                 debug_assert!(update.account_id.is_on_chain());
 
                 let mut rows = select_details_stmt.query(params![u64_to_value(account_id)])?;
-                let Some(row) = rows.next()? else {
-                    return Err(DatabaseError::AccountNotFoundInDb(account_id));
-                };
+                let row = rows.next()?;
 
-                let final_account =
-                    apply_delta(account_id, &row.get_ref(0)?, delta, &update.final_state_hash)?;
+                let final_account = apply_delta(account_id, row, delta)?;
+
+                let actual_hash = final_account.hash();
+                if actual_hash != update.final_state_hash {
+                    return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
+                        calculated: actual_hash,
+                        expected: update.final_state_hash,
+                    });
+                }
 
                 Some(final_account)
             },
@@ -768,28 +769,20 @@ fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
 /// Deserializes account and applies account delta.
 fn apply_delta(
     account_id: u64,
-    value: &ValueRef<'_>,
+    row: Option<&Row>,
     delta: &AccountDelta,
-    final_state_hash: &RpoDigest,
 ) -> Result<Account, DatabaseError> {
-    let initial_account = value.as_blob_or_null()?;
-    let initial_account = initial_account.map(Account::read_from_bytes).transpose()?;
-
-    let final_account = match initial_account {
-        None => Account::from_delta(account_id.try_into()?, delta)?,
-        Some(mut account) => {
+    match row {
+        None => Ok(Account::from_delta(account_id.try_into()?, delta)?),
+        Some(row) => {
+            let initial_account_data = row
+                .get_ref(0)?
+                .as_blob_or_null()?
+                .ok_or(DatabaseError::AccountNotOnChain(account_id))?;
+            let mut account = Account::read_from_bytes(initial_account_data)?;
             account.apply_delta(delta)?;
-            account
+
+            Ok(account)
         },
-    };
-
-    let actual_hash = final_account.hash();
-    if &actual_hash != final_state_hash {
-        return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
-            calculated: actual_hash,
-            expected: *final_state_hash,
-        });
     }
-
-    Ok(final_account)
 }
