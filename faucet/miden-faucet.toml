@@ -1,3 +1,0 @@
-endpoint = { protocol = "http", host = "localhost", port = 8080 }
-rpc_url = "http://localhost:57291"
-database_filepath = "miden-faucet.sqlite3"
