@@ -6,7 +6,7 @@ CREATE TABLE
 
     PRIMARY KEY (name),
     CONSTRAINT settings_name_is_not_empty CHECK (length(name) > 0)
-) STRICT, WITHOUT ROWID;
+) WITHOUT ROWID;
 
 CREATE TABLE
     block_headers

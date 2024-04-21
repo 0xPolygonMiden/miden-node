@@ -729,7 +729,7 @@ pub(crate) fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Res
 }
 
 /// Returns the schema version of the database.
-pub(crate) fn schema_version(conn: &Connection) -> rusqlite::Result<u32> {
+pub(crate) fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
     conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
 }
 

@@ -41,6 +41,8 @@ pub enum DatabaseError {
     SqliteError(#[from] rusqlite::Error),
     #[error("SQLite error: {0}")]
     FromSqlError(#[from] FromSqlError),
+    #[error("Hex parsing error: {0}")]
+    FromHexError(#[from] hex::FromHexError),
     #[error("I/O error: {0}")]
     IoError(#[from] io::Error),
     #[error("Account error: {0}")]

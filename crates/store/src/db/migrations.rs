@@ -1,11 +1,8 @@
-use miden_objects::{
-    crypto::hash::blake::{Blake3Digest, Blake3_160},
-    utils::{Deserializable, Serializable},
-};
+use miden_objects::crypto::hash::blake::{Blake3Digest, Blake3_160};
 use once_cell::sync::Lazy;
 use rusqlite::Connection;
 use rusqlite_migration::{Migrations, SchemaVersion, M};
-use tracing::{debug, info, instrument};
+use tracing::{debug, error, info, instrument};
 
 use crate::{
     db::{settings::Settings, sql::schema_version},
@@ -30,55 +27,60 @@ const DB_SCHEMA_VERSION_FIELD: &str = "db-schema-version";
 pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
     let version_before = MIGRATIONS.current_version(conn)?;
 
-    info!(target: COMPONENT, version_before = %version_before, "Running database migrations");
+    info!(target: COMPONENT, %version_before, "Running database migrations");
 
     if let SchemaVersion::Inside(ver) = version_before {
         if !Settings::exists(conn)? {
+            error!(target: COMPONENT, "No settings table in the database");
             return Err(DatabaseError::UnsupportedDatabaseVersion);
         }
 
-        let last_schema_version = last_schema_version(conn)?;
+        let last_schema_version: usize = Settings::get_value(conn, DB_SCHEMA_VERSION_FIELD)?
+            .ok_or_else(|| {
+                error!(target: COMPONENT, "No schema version in the settings table");
+                DatabaseError::UnsupportedDatabaseVersion
+            })?;
         let current_schema_version = schema_version(conn)?;
 
         if last_schema_version != current_schema_version {
+            error!(target: COMPONENT, last_schema_version, current_schema_version, "Schema version mismatch");
             return Err(DatabaseError::UnsupportedDatabaseVersion);
         }
 
-        let expected_hash = MIGRATION_HASHES[ver.get() - 1].to_bytes();
-        let actual_hash = Settings::get_value(conn, DB_MIGRATION_HASH_FIELD)?;
+        let expected_hash = &*MIGRATION_HASHES[ver.get() - 1];
+        let actual_hash = hex::decode(
+            Settings::get_value::<String>(conn, DB_MIGRATION_HASH_FIELD)?
+                .ok_or(DatabaseError::UnsupportedDatabaseVersion)?,
+        )?;
 
-        debug!(
-            target: COMPONENT,
-            expected_hash = %hex::encode(&expected_hash),
-            actual_hash = ?actual_hash.as_ref().map(hex::encode),
-            "Comparing migration hashes",
-        );
-
-        if actual_hash != Some(expected_hash) {
+        if actual_hash != expected_hash {
+            error!(
+                target: COMPONENT,
+                expected_hash = hex::encode(expected_hash),
+                actual_hash = hex::encode(&*actual_hash),
+                "Migration hashes mismatch",
+            );
             return Err(DatabaseError::UnsupportedDatabaseVersion);
         }
     }
 
     MIGRATIONS.to_latest(conn).map_err(DatabaseError::MigrationError)?;
 
-    if version_before != MIGRATIONS.current_version(conn)? {
-        let last_hash = MIGRATION_HASHES[MIGRATION_HASHES.len() - 1].to_bytes();
-        debug!(target: COMPONENT, new_hash = %hex::encode(&last_hash), "Updating migration hash in settings table");
-        Settings::set_value(conn, DB_MIGRATION_HASH_FIELD, &last_hash)?;
+    let version_after = MIGRATIONS.current_version(conn)?;
+
+    if version_before != version_after {
+        let new_hash = hex::encode(&*MIGRATION_HASHES[MIGRATION_HASHES.len() - 1]);
+        debug!(target: COMPONENT, new_hash, "Updating migration hash in settings table");
+        Settings::set_value(conn, DB_MIGRATION_HASH_FIELD, &new_hash)?;
     }
 
     let new_schema_version = schema_version(conn)?;
-    Settings::set_value(conn, DB_SCHEMA_VERSION_FIELD, &new_schema_version.to_bytes())?;
+    debug!(target: COMPONENT, new_schema_version, "Updating schema version in settings table");
+    Settings::set_value(conn, DB_SCHEMA_VERSION_FIELD, &new_schema_version)?;
+
+    info!(target: COMPONENT, %version_after, "Finished database migrations");
 
     Ok(())
-}
-
-fn last_schema_version(conn: &Connection) -> super::Result<u32> {
-    let Some(schema_version) = Settings::get_value(conn, DB_SCHEMA_VERSION_FIELD)? else {
-        return Err(DatabaseError::UnsupportedDatabaseVersion);
-    };
-
-    u32::read_from_bytes(&schema_version).map_err(Into::into)
 }
 
 fn prepare_migrations() -> Migrations<'static> {
