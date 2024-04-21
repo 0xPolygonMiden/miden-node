@@ -728,6 +728,11 @@ pub(crate) fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Res
         .is_some())
 }
 
+/// Returns the schema version of the database.
+pub(crate) fn schema_version(conn: &Connection) -> rusqlite::Result<u32> {
+    conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
+}
+
 /// Converts a `u64` into a [Value].
 ///
 /// Sqlite uses `i64` as its internal representation format. Note that the `as` operator performs a

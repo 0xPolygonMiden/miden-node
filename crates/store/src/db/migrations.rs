@@ -1,13 +1,17 @@
 use miden_objects::{
     crypto::hash::blake::{Blake3Digest, Blake3_160},
-    utils::Serializable,
+    utils::{Deserializable, Serializable},
 };
 use once_cell::sync::Lazy;
 use rusqlite::Connection;
 use rusqlite_migration::{Migrations, SchemaVersion, M};
 use tracing::{debug, info, instrument};
 
-use crate::{db::settings::Settings, errors::DatabaseError, COMPONENT};
+use crate::{
+    db::{settings::Settings, sql::schema_version},
+    errors::DatabaseError,
+    COMPONENT,
+};
 
 type Hash = Blake3Digest<20>;
 
@@ -20,6 +24,7 @@ fn up(s: &'static str) -> M<'static> {
 }
 
 const DB_MIGRATION_HASH_FIELD: &str = "db-migration-hash";
+const DB_SCHEMA_VERSION_FIELD: &str = "db-schema-version";
 
 #[instrument(target = "miden-store", skip_all, err)]
 pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
@@ -29,6 +34,13 @@ pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
 
     if let SchemaVersion::Inside(ver) = version_before {
         if !Settings::exists(conn)? {
+            return Err(DatabaseError::UnsupportedDatabaseVersion);
+        }
+
+        let last_schema_version = last_schema_version(conn)?;
+        let current_schema_version = schema_version(conn)?;
+
+        if last_schema_version != current_schema_version {
             return Err(DatabaseError::UnsupportedDatabaseVersion);
         }
 
@@ -55,7 +67,18 @@ pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
         Settings::set_value(conn, DB_MIGRATION_HASH_FIELD, &last_hash)?;
     }
 
+    let new_schema_version = schema_version(conn)?;
+    Settings::set_value(conn, DB_SCHEMA_VERSION_FIELD, &new_schema_version.to_bytes())?;
+
     Ok(())
+}
+
+fn last_schema_version(conn: &Connection) -> super::Result<u32> {
+    let Some(schema_version) = Settings::get_value(conn, DB_SCHEMA_VERSION_FIELD)? else {
+        return Err(DatabaseError::UnsupportedDatabaseVersion);
+    };
+
+    u32::read_from_bytes(&schema_version).map_err(Into::into)
 }
 
 fn prepare_migrations() -> Migrations<'static> {
