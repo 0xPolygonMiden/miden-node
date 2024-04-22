@@ -1,4 +1,4 @@
-use miden_node_proto::domain::accounts::AccountUpdateDetails;
+use miden_node_proto::domain::accounts::AccountUpdateData;
 use miden_objects::{
     block::BlockNoteTree,
     crypto::merkle::{Mmr, SimpleSmt},
@@ -90,7 +90,7 @@ pub struct MockBlockBuilder {
     store_chain_mmr: Mmr,
     last_block_header: BlockHeader,
 
-    updated_accounts: Option<Vec<AccountUpdateDetails>>,
+    updated_accounts: Option<Vec<AccountUpdateData>>,
     created_note: Option<Vec<NoteBatch>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
@@ -108,7 +108,7 @@ impl MockBlockBuilder {
         }
     }
 
-    pub fn account_updates(mut self, updated_accounts: Vec<AccountUpdateDetails>) -> Self {
+    pub fn account_updates(mut self, updated_accounts: Vec<AccountUpdateData>) -> Self {
         for update in &updated_accounts {
             self.store_accounts
                 .insert(update.account_id.into(), update.final_state_hash.into());

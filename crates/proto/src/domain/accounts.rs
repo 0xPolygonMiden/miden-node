@@ -4,7 +4,7 @@ use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    transaction::AccountDetails,
+    transaction::AccountUpdateDetails,
     utils::Serializable,
     Digest,
 };
@@ -16,7 +16,7 @@ use crate::{
             AccountId as AccountIdPb, AccountInfo as AccountInfoPb,
             AccountSummary as AccountSummaryPb,
         },
-        requests::AccountUpdate,
+        requests::AccountUpdateData as AccountUpdateDataPb,
         responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
 };
@@ -110,18 +110,18 @@ impl From<&AccountInfo> for AccountInfoPb {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AccountUpdateDetails {
+pub struct AccountUpdateData {
     pub account_id: AccountId,
     pub final_state_hash: Digest,
-    pub details: Option<AccountDetails>,
+    pub details: AccountUpdateDetails,
 }
 
-impl From<&AccountUpdateDetails> for AccountUpdate {
-    fn from(update: &AccountUpdateDetails) -> Self {
+impl From<&AccountUpdateData> for AccountUpdateDataPb {
+    fn from(update: &AccountUpdateData) -> Self {
         Self {
             account_id: Some(update.account_id.into()),
-            account_hash: Some(update.final_state_hash.into()),
-            details: update.details.as_ref().map(|details| details.to_bytes()),
+            final_state_hash: Some(update.final_state_hash.into()),
+            details: update.details.to_bytes(),
         }
     }
 }
@@ -225,24 +225,24 @@ impl TryFrom<AccountTransactionInputRecord> for AccountState {
     }
 }
 
-impl TryFrom<AccountUpdate> for AccountState {
+impl TryFrom<AccountUpdateDataPb> for AccountState {
     type Error = ConversionError;
 
-    fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
+    fn try_from(value: AccountUpdateDataPb) -> Result<Self, Self::Error> {
         Ok(Self {
             account_id: value
                 .account_id
-                .ok_or(AccountUpdate::missing_field(stringify!(account_id)))?
+                .ok_or(AccountUpdateDataPb::missing_field(stringify!(account_id)))?
                 .try_into()?,
-            account_hash: value.account_hash.map(TryInto::try_into).transpose()?,
+            account_hash: value.final_state_hash.map(TryInto::try_into).transpose()?,
         })
     }
 }
 
-impl TryFrom<&AccountUpdate> for AccountState {
+impl TryFrom<&AccountUpdateDataPb> for AccountState {
     type Error = ConversionError;
 
-    fn try_from(value: &AccountUpdate) -> Result<Self, Self::Error> {
+    fn try_from(value: &AccountUpdateDataPb) -> Result<Self, Self::Error> {
         value.clone().try_into()
     }
 }

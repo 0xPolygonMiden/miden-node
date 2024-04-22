@@ -1,11 +1,12 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateData};
 use miden_objects::{
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteType, Nullifier},
+    transaction::AccountUpdateDetails,
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -275,7 +276,7 @@ impl Db {
         block_header: BlockHeader,
         notes: Vec<Note>,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<AccountUpdateDetails>,
+        accounts: Vec<AccountUpdateData>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -356,10 +357,10 @@ impl Db {
                         let accounts: Vec<_> = account_smt
                             .leaves()
                             .map(|(account_id, state_hash)| {
-                                Ok(AccountUpdateDetails {
+                                Ok(AccountUpdateData {
                                     account_id: account_id.try_into()?,
                                     final_state_hash: state_hash.into(),
-                                    details: None,
+                                    details: AccountUpdateDetails::Private,
                                 })
                             })
                             .collect::<Result<_, DatabaseError>>()?;

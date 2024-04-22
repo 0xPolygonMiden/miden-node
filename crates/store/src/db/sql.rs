@@ -2,12 +2,12 @@
 
 use std::{borrow::Cow, rc::Rc};
 
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateData};
 use miden_objects::{
     accounts::{Account, AccountDelta},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, Nullifier},
-    transaction::AccountDetails,
+    transaction::AccountUpdateDetails,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
@@ -155,7 +155,7 @@ pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<Ac
 /// transaction.
 pub fn upsert_accounts(
     transaction: &Transaction,
-    accounts: &[AccountUpdateDetails],
+    accounts: &[AccountUpdateData],
     block_num: BlockNumber,
 ) -> Result<usize> {
     let mut upsert_stmt = transaction.prepare(
@@ -168,8 +168,8 @@ pub fn upsert_accounts(
     for update in accounts.iter() {
         let account_id = update.account_id.into();
         let full_account = match &update.details {
-            None => None,
-            Some(AccountDetails::Full(account)) => {
+            AccountUpdateDetails::Private => None,
+            AccountUpdateDetails::New(account) => {
                 debug_assert_eq!(account_id, u64::from(account.id()));
 
                 if account.hash() != update.final_state_hash {
@@ -181,7 +181,7 @@ pub fn upsert_accounts(
 
                 Some(Cow::Borrowed(account))
             },
-            Some(AccountDetails::Delta(delta)) => {
+            AccountUpdateDetails::Delta(delta) => {
                 let mut rows = select_details_stmt.query(params![u64_to_value(account_id)])?;
                 let Some(row) = rows.next()? else {
                     return Err(DatabaseError::AccountNotFoundInDb(account_id));
@@ -698,7 +698,7 @@ pub fn apply_block(
     block_header: &BlockHeader,
     notes: &[Note],
     nullifiers: &[Nullifier],
-    accounts: &[AccountUpdateDetails],
+    accounts: &[AccountUpdateData],
 ) -> Result<usize> {
     let mut count = 0;
     count += insert_block_header(transaction, block_header)?;

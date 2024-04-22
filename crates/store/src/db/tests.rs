@@ -1,5 +1,5 @@
 use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::domain::accounts::{AccountSummary, AccountUpdateDetails};
+use miden_node_proto::domain::accounts::{AccountSummary, AccountUpdateData};
 use miden_objects::{
     accounts::{
         Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStorageDelta,
@@ -13,7 +13,7 @@ use miden_objects::{
     block::BlockNoteTree,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
-    transaction::AccountDetails,
+    transaction::AccountUpdateDetails,
     BlockHeader, Felt, FieldElement, Word, ONE, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
@@ -185,10 +185,10 @@ fn test_sql_select_accounts() {
         let transaction = conn.transaction().unwrap();
         let res = sql::upsert_accounts(
             &transaction,
-            &[AccountUpdateDetails {
+            &[AccountUpdateData {
                 account_id: account_id.try_into().unwrap(),
                 final_state_hash: account_hash,
-                details: None,
+                details: AccountUpdateDetails::Private,
             }],
             block_num,
         );
@@ -212,7 +212,7 @@ fn test_sql_public_account_details() {
     let non_fungible_faucet_id =
         AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
 
-    let mut storage = AccountStorage::new(vec![]).unwrap();
+    let mut storage = AccountStorage::new(vec![], vec![]).unwrap();
     storage.set_item(1, num_to_word(1)).unwrap();
     storage.set_item(3, num_to_word(3)).unwrap();
     storage.set_item(5, num_to_word(5)).unwrap();
@@ -243,10 +243,10 @@ fn test_sql_public_account_details() {
     let transaction = conn.transaction().unwrap();
     let inserted = sql::upsert_accounts(
         &transaction,
-        &[AccountUpdateDetails {
+        &[AccountUpdateData {
             account_id,
             final_state_hash: account.hash(),
-            details: Some(AccountDetails::Full(account.clone())),
+            details: AccountUpdateDetails::New(account.clone()),
         }],
         block_num,
     )
@@ -266,6 +266,7 @@ fn test_sql_public_account_details() {
     let storage_delta = AccountStorageDelta {
         cleared_items: vec![3],
         updated_items: vec![(4, num_to_word(5)), (5, num_to_word(6))],
+        updated_maps: vec![],
     };
 
     let nft2 = Asset::NonFungible(
@@ -287,10 +288,10 @@ fn test_sql_public_account_details() {
     let transaction = conn.transaction().unwrap();
     let inserted = sql::upsert_accounts(
         &transaction,
-        &[AccountUpdateDetails {
+        &[AccountUpdateData {
             account_id,
             final_state_hash: account.hash(),
-            details: Some(AccountDetails::Delta(delta.clone())),
+            details: AccountUpdateDetails::Delta(delta.clone()),
         }],
         block_num,
     )
@@ -316,6 +317,7 @@ fn test_sql_public_account_details() {
     let storage_delta = AccountStorageDelta {
         cleared_items: vec![3],
         updated_items: vec![],
+        updated_maps: vec![],
     };
     account_read
         .apply_delta(
@@ -535,10 +537,10 @@ fn test_db_account() {
     let transaction = conn.transaction().unwrap();
     let row_count = sql::upsert_accounts(
         &transaction,
-        &[AccountUpdateDetails {
+        &[AccountUpdateData {
             account_id: account_id.try_into().unwrap(),
             final_state_hash: account_hash,
-            details: None,
+            details: AccountUpdateDetails::Private,
         }],
         block_num,
     )

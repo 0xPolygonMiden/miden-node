@@ -1566,10 +1566,10 @@ dependencies = [
  "comfy-table",
  "figment",
  "lazy_static",
- "miden-lib",
+ "miden-lib 0.2.1",
  "miden-node-proto 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-objects",
- "miden-tx",
+ "miden-objects 0.2.1",
+ "miden-tx 0.2.1",
  "rand",
  "rusqlite",
  "rusqlite_migration",
@@ -1620,7 +1620,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "855aceec1ac4d01fc486a7c9c9cb348d05b3310c842580b25c5b79a65bd942e2"
 dependencies = [
  "miden-assembly",
- "miden-objects",
+ "miden-objects 0.2.1",
+ "miden-stdlib",
+]
+
+[[package]]
+name = "miden-lib"
+version = "0.3.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=polydez-refactor-account-update#57eb86cd48ca8ece7a2dddd5783c4064ef2641a4"
+dependencies = [
+ "miden-assembly",
+ "miden-objects 0.3.0",
  "miden-stdlib",
 ]
 
@@ -1631,13 +1641,13 @@ dependencies = [
  "anyhow",
  "clap",
  "figment",
- "miden-lib",
+ "miden-lib 0.3.0",
  "miden-node-block-producer",
  "miden-node-faucet",
  "miden-node-rpc",
  "miden-node-store",
  "miden-node-utils 0.2.0",
- "miden-objects",
+ "miden-objects 0.3.0",
  "rand_chacha",
  "serde",
  "tokio",
@@ -1657,10 +1667,10 @@ dependencies = [
  "miden-node-store",
  "miden-node-test-macro",
  "miden-node-utils 0.2.0",
- "miden-objects",
+ "miden-objects 0.3.0",
  "miden-processor",
  "miden-stdlib",
- "miden-tx",
+ "miden-tx 0.3.0",
  "once_cell",
  "serde",
  "thiserror",
@@ -1683,10 +1693,10 @@ dependencies = [
  "derive_more",
  "figment",
  "miden-client",
- "miden-lib",
+ "miden-lib 0.2.1",
  "miden-node-proto 0.2.0",
  "miden-node-utils 0.2.0",
- "miden-objects",
+ "miden-objects 0.2.1",
  "rand_chacha",
  "serde",
  "thiserror",
@@ -1699,7 +1709,7 @@ version = "0.2.0"
 dependencies = [
  "hex",
  "miden-node-utils 0.2.0",
- "miden-objects",
+ "miden-objects 0.3.0",
  "miette",
  "proptest",
  "prost",
@@ -1718,7 +1728,7 @@ checksum = "90dee1b77725d5430e390806572ab9c2511b79992541807b993035fceeb7428b"
 dependencies = [
  "hex",
  "miden-node-utils 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-objects",
+ "miden-objects 0.2.1",
  "miette",
  "prost",
  "prost-build",
@@ -1739,8 +1749,8 @@ dependencies = [
  "miden-node-proto 0.2.0",
  "miden-node-store",
  "miden-node-utils 0.2.0",
- "miden-objects",
- "miden-tx",
+ "miden-objects 0.3.0",
+ "miden-tx 0.3.0",
  "prost",
  "serde",
  "tokio",
@@ -1758,10 +1768,10 @@ dependencies = [
  "directories",
  "figment",
  "hex",
- "miden-lib",
+ "miden-lib 0.3.0",
  "miden-node-proto 0.2.0",
  "miden-node-utils 0.2.0",
- "miden-objects",
+ "miden-objects 0.3.0",
  "once_cell",
  "prost",
  "rusqlite",
@@ -1790,7 +1800,7 @@ dependencies = [
  "anyhow",
  "figment",
  "itertools",
- "miden-objects",
+ "miden-objects 0.3.0",
  "serde",
  "thiserror",
  "tonic",
@@ -1808,7 +1818,7 @@ dependencies = [
  "anyhow",
  "figment",
  "itertools",
- "miden-objects",
+ "miden-objects 0.2.1",
  "serde",
  "tracing",
  "tracing-subscriber",
@@ -1826,6 +1836,19 @@ dependencies = [
  "miden-processor",
  "miden-verifier",
  "serde",
+ "winter-rand-utils",
+]
+
+[[package]]
+name = "miden-objects"
+version = "0.3.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=polydez-refactor-account-update#57eb86cd48ca8ece7a2dddd5783c4064ef2641a4"
+dependencies = [
+ "miden-assembly",
+ "miden-core",
+ "miden-crypto",
+ "miden-processor",
+ "miden-verifier",
  "winter-rand-utils",
 ]
 
@@ -1868,8 +1891,20 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c3264a1c775dd80dff46c527993259e0cddd8dd7ed0a9b66eb7f558eb734ddf"
 dependencies = [
- "miden-lib",
- "miden-objects",
+ "miden-lib 0.2.1",
+ "miden-objects 0.2.1",
+ "miden-processor",
+ "miden-prover",
+ "miden-verifier",
+]
+
+[[package]]
+name = "miden-tx"
+version = "0.3.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=polydez-refactor-account-update#57eb86cd48ca8ece7a2dddd5783c4064ef2641a4"
+dependencies = [
+ "miden-lib 0.3.0",
+ "miden-objects 0.3.0",
  "miden-processor",
  "miden-prover",
  "miden-verifier",

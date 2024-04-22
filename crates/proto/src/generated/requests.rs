@@ -2,14 +2,13 @@
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AccountUpdate {
+pub struct AccountUpdateData {
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,
     #[prost(message, optional, tag = "2")]
-    pub account_hash: ::core::option::Option<super::digest::Digest>,
-    /// Details for public (on-chain) account.
-    #[prost(bytes = "vec", optional, tag = "3")]
-    pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    pub final_state_hash: ::core::option::Option<super::digest::Digest>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub details: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Eq, PartialOrd, Ord, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -18,7 +17,7 @@ pub struct ApplyBlockRequest {
     #[prost(message, optional, tag = "1")]
     pub block: ::core::option::Option<super::block_header::BlockHeader>,
     #[prost(message, repeated, tag = "2")]
-    pub accounts: ::prost::alloc::vec::Vec<AccountUpdate>,
+    pub accounts: ::prost::alloc::vec::Vec<AccountUpdateData>,
     #[prost(message, repeated, tag = "3")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
     #[prost(message, repeated, tag = "4")]

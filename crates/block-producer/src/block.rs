@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use miden_node_proto::{
-    domain::accounts::AccountUpdateDetails,
+    domain::accounts::AccountUpdateData,
     errors::{ConversionError, MissingFieldHelper},
     generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
@@ -21,7 +21,7 @@ pub(crate) type NoteBatch = Vec<OutputNote>;
 #[derive(Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
-    pub updated_accounts: Vec<AccountUpdateDetails>,
+    pub updated_accounts: Vec<AccountUpdateData>,
     pub created_notes: Vec<NoteBatch>,
     pub produced_nullifiers: Vec<Nullifier>,
     // TODO:

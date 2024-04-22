@@ -7,16 +7,15 @@ import "digest.proto";
 import "note.proto";
 
 
-message AccountUpdate {
+message AccountUpdateData {
     account.AccountId account_id = 1;
-    digest.Digest account_hash = 2;
-    // Details for public (on-chain) account.
-    optional bytes details = 3;
+    digest.Digest final_state_hash = 2;
+    bytes details = 3;
 }
 
 message ApplyBlockRequest {
     block_header.BlockHeader block = 1;
-    repeated AccountUpdate accounts = 2;
+    repeated AccountUpdateData accounts = 2;
     repeated digest.Digest nullifiers = 3;
     repeated note.NoteCreated notes = 4;
 }

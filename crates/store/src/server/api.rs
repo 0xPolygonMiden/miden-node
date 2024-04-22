@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use miden_node_proto::{
     convert,
-    domain::accounts::AccountUpdateDetails,
+    domain::accounts::AccountUpdateData,
     errors::ConversionError,
     generated::{
         self,
@@ -29,7 +29,7 @@ use miden_node_proto::{
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, NoteType, Nullifier},
-    transaction::AccountDetails,
+    transaction::AccountUpdateDetails,
     utils::Deserializable,
     BlockHeader, Felt, NoteError, ZERO,
 };
@@ -275,11 +275,14 @@ impl api_server::Api for StoreApi {
                     .try_into()
                     .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
 
-                match (account_state.account_id.is_on_chain(), account_update.details.is_some()) {
-                    (true, false) => {
+                let details = AccountUpdateDetails::read_from_bytes(&account_update.details)
+                    .map_err(|err| Status::invalid_argument(err.to_string()))?;
+
+                match (account_state.account_id.is_on_chain(), details.is_private()) {
+                    (true, true) => {
                         return Err(Status::invalid_argument("On-chain account must have details"));
                     },
-                    (false, true) => {
+                    (false, false) => {
                         return Err(Status::invalid_argument(
                             "Off-chain account must not have details",
                         ));
@@ -287,19 +290,12 @@ impl api_server::Api for StoreApi {
                     _ => (),
                 }
 
-                let details = account_update
-                    .details
-                    .as_ref()
-                    .map(|data| AccountDetails::read_from_bytes(data))
-                    .transpose()
-                    .map_err(|err| Status::invalid_argument(err.to_string()))?;
-
-                Ok(AccountUpdateDetails {
+                Ok(AccountUpdateData {
                     account_id: account_state.account_id,
-                    details,
                     final_state_hash: account_state
                         .account_hash
                         .ok_or(invalid_argument("Account update missing account hash"))?,
+                    details,
                 })
             })
             .collect::<Result<Vec<_>, Status>>()?;

@@ -190,9 +190,9 @@ fn ensure_tx_inputs_constraints(
         // if the account is present in the Store, make sure that the account state hash
         // from the received transaction is the same as the one from the Store
         Some(store_account_hash) => {
-            if candidate_tx.initial_account_hash() != store_account_hash {
+            if candidate_tx.account_update().init_hash() != store_account_hash {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
-                    tx_initial_account_hash: candidate_tx.initial_account_hash(),
+                    tx_initial_account_hash: candidate_tx.account_update().init_hash(),
                     store_account_hash: Some(store_account_hash),
                 });
             }
@@ -201,9 +201,9 @@ fn ensure_tx_inputs_constraints(
         None => {
             // if the initial account hash is not equal to `Digest::default()` it
             // signifies that the account is not new but is also not recorded in the Store
-            if candidate_tx.initial_account_hash() != Digest::default() {
+            if candidate_tx.account_update().init_hash() != Digest::default() {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
-                    tx_initial_account_hash: candidate_tx.initial_account_hash(),
+                    tx_initial_account_hash: candidate_tx.account_update().init_hash(),
                     store_account_hash: None,
                 });
             }
