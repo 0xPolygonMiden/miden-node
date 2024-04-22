@@ -118,7 +118,7 @@ If you intend on running the node inside a Docker container, you will need to fo
     docker ps
     ```
 
-    After running this command you should see the name of the container `miden-node` being outputed and marked as `Up`.
+    After running this command you should see the name of the container `miden-node` being outputted and marked as `Up`.
 
 
 ### Debian Packages
