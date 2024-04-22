@@ -113,7 +113,7 @@ async fn test_build_batch_success() {
         tx_queue
             .add_transaction(tx.clone())
             .await
-            .expect("Transaciton queue is running");
+            .expect("Transaction queue is running");
         txs.push(tx.clone())
     }
     tokio::time::advance(build_batch_frequency).await;
@@ -132,7 +132,7 @@ async fn test_build_batch_success() {
         tx_queue
             .add_transaction(tx.clone())
             .await
-            .expect("Transaciton queue is running");
+            .expect("Transaction queue is running");
         txs.push(tx.clone())
     }
     for expected_batch in txs.chunks(batch_size).map(|txs| txs.to_vec()) {
