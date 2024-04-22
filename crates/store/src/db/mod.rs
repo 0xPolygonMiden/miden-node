@@ -1,9 +1,10 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
-    block::BlockNoteTree,
+    accounts::delta::AccountUpdateDetails,
+    block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteType, Nullifier},
     BlockHeader, GENESIS_BLOCK,
@@ -40,8 +41,7 @@ pub struct NullifierInfo {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoteCreated {
-    pub batch_index: u32,
-    pub note_index: u32,
+    pub note_index: BlockNoteIndex,
     pub note_id: RpoDigest,
     pub note_type: NoteType,
     pub sender: AccountId,
@@ -53,7 +53,7 @@ impl NoteCreated {
     /// Returns the absolute position on the note tree based on the batch index
     /// and local-to-the-subtree index.
     pub fn absolute_note_index(&self) -> u32 {
-        BlockNoteTree::note_index(self.batch_index as usize, self.note_index as usize) as u32
+        self.note_index.note_index() as u32
     }
 }
 
@@ -275,7 +275,7 @@ impl Db {
         block_header: BlockHeader,
         notes: Vec<Note>,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<AccountUpdateDetails>,
+        accounts: Vec<BlockAccountUpdate>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -356,11 +356,11 @@ impl Db {
                         let accounts: Vec<_> = account_smt
                             .leaves()
                             .map(|(account_id, state_hash)| {
-                                Ok(AccountUpdateDetails {
-                                    account_id: account_id.try_into()?,
-                                    final_state_hash: state_hash.into(),
-                                    details: None,
-                                })
+                                Ok(BlockAccountUpdate::new(
+                                    account_id.try_into()?,
+                                    state_hash.into(),
+                                    AccountUpdateDetails::Private,
+                                ))
                             })
                             .collect::<Result<_, DatabaseError>>()?;
                         sql::apply_block(

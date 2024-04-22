@@ -2,12 +2,12 @@
 
 use std::{borrow::Cow, rc::Rc};
 
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
-    accounts::{Account, AccountDelta},
+    accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
+    block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, Nullifier},
-    transaction::AccountDetails,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
@@ -155,7 +155,7 @@ pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<Ac
 /// transaction.
 pub fn upsert_accounts(
     transaction: &Transaction,
-    accounts: &[AccountUpdateDetails],
+    accounts: &[BlockAccountUpdate],
     block_num: BlockNumber,
 ) -> Result<usize> {
     let mut upsert_stmt = transaction.prepare(
@@ -166,29 +166,29 @@ pub fn upsert_accounts(
 
     let mut count = 0;
     for update in accounts.iter() {
-        let account_id = update.account_id.into();
-        let full_account = match &update.details {
-            None => None,
-            Some(AccountDetails::Full(account)) => {
+        let account_id = update.account_id().into();
+        let full_account = match update.details() {
+            AccountUpdateDetails::Private => None,
+            AccountUpdateDetails::New(account) => {
                 debug_assert_eq!(account_id, u64::from(account.id()));
 
-                if account.hash() != update.final_state_hash {
+                if account.hash() != update.new_state_hash() {
                     return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
                         calculated: account.hash(),
-                        expected: update.final_state_hash,
+                        expected: update.new_state_hash(),
                     });
                 }
 
                 Some(Cow::Borrowed(account))
             },
-            Some(AccountDetails::Delta(delta)) => {
+            AccountUpdateDetails::Delta(delta) => {
                 let mut rows = select_details_stmt.query(params![u64_to_value(account_id)])?;
                 let Some(row) = rows.next()? else {
                     return Err(DatabaseError::AccountNotFoundInDb(account_id));
                 };
 
                 let account =
-                    apply_delta(account_id, &row.get_ref(0)?, delta, &update.final_state_hash)?;
+                    apply_delta(account_id, &row.get_ref(0)?, delta, &update.new_state_hash())?;
 
                 Some(Cow::Owned(account))
             },
@@ -196,7 +196,7 @@ pub fn upsert_accounts(
 
         let inserted = upsert_stmt.execute(params![
             u64_to_value(account_id),
-            update.final_state_hash.to_bytes(),
+            update.new_state_hash().to_bytes(),
             block_num,
             full_account.as_ref().map(|account| account.to_bytes()),
         ])?;
@@ -350,8 +350,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
         notes.push(Note {
             block_num: row.get(0)?,
             note_created: NoteCreated {
-                batch_index: row.get(1)?,
-                note_index: row.get(2)?,
+                note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
                 note_id,
                 note_type: row.get::<_, u8>(4)?.try_into()?,
                 sender: column_value_as_u64(row, 5)?,
@@ -402,8 +401,8 @@ pub fn insert_notes(transaction: &Transaction, notes: &[Note]) -> Result<usize> 
 
         count += stmt.execute(params![
             note.block_num,
-            note.note_created.batch_index,
-            note.note_created.note_index,
+            note.note_created.note_index.batch_idx(),
+            note.note_created.note_index.note_idx_in_batch(),
             note.note_created.note_id.to_bytes(),
             note.note_created.note_type as u8,
             u64_to_value(note.note_created.sender),
@@ -475,8 +474,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     let mut res = Vec::new();
     while let Some(row) = rows.next()? {
         let block_num = row.get(0)?;
-        let batch_index = row.get(1)?;
-        let note_index = row.get(2)?;
+        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?);
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
         let note_type = row.get::<_, u8>(4)?.try_into()?;
@@ -490,7 +488,6 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note = Note {
             block_num,
             note_created: NoteCreated {
-                batch_index,
                 note_index,
                 note_id,
                 note_type,
@@ -548,8 +545,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         notes.push(Note {
             block_num: row.get(0)?,
             note_created: NoteCreated {
-                batch_index: row.get(1)?,
-                note_index: row.get(2)?,
+                note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
                 details,
                 note_id: note_id.into(),
                 note_type: row.get::<_, u8>(4)?.try_into()?,
@@ -698,7 +694,7 @@ pub fn apply_block(
     block_header: &BlockHeader,
     notes: &[Note],
     nullifiers: &[Nullifier],
-    accounts: &[AccountUpdateDetails],
+    accounts: &[BlockAccountUpdate],
 ) -> Result<usize> {
     let mut count = 0;
     count += insert_block_header(transaction, block_header)?;

@@ -4,13 +4,10 @@
 //! data is atomically written, and that reads are consistent.
 use std::{mem, sync::Arc};
 
-use miden_node_proto::{
-    domain::accounts::{AccountInfo, AccountUpdateDetails},
-    AccountInputRecord, NullifierWitness,
-};
+use miden_node_proto::{domain::accounts::AccountInfo, AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
-    block::BlockNoteTree,
+    block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
@@ -105,7 +102,7 @@ impl State {
         &self,
         block_header: BlockHeader,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<AccountUpdateDetails>,
+        accounts: Vec<BlockAccountUpdate>,
         notes: Vec<NoteCreated>,
     ) -> Result<(), ApplyBlockError> {
         let _ = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
@@ -181,8 +178,8 @@ impl State {
             let mut account_tree = inner.account_tree.clone();
             for update in &accounts {
                 account_tree.insert(
-                    LeafIndex::new_max_depth(update.account_id.into()),
-                    update.final_state_hash.into(),
+                    LeafIndex::new_max_depth(update.account_id().into()),
+                    update.new_state_hash().into(),
                 );
             }
 
@@ -202,10 +199,7 @@ impl State {
                 .into_iter()
                 .map(|note_created| {
                     let merkle_path = note_tree
-                        .get_note_path(
-                            note_created.batch_index as usize,
-                            note_created.note_index as usize,
-                        )
+                        .get_note_path(note_created.note_index)
                         .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
 
                     Ok(Note {
@@ -473,17 +467,13 @@ impl State {
 #[instrument(target = "miden-store", skip_all)]
 pub fn build_note_tree(notes: &[NoteCreated]) -> Result<BlockNoteTree, ApplyBlockError> {
     // TODO: create SimpleSmt without this allocation
-    let mut entries: Vec<(usize, usize, (RpoDigest, NoteMetadata))> =
+    let mut entries: Vec<(BlockNoteIndex, RpoDigest, NoteMetadata)> =
         Vec::with_capacity(notes.len() * 2);
 
     for note in notes.iter() {
         let note_metadata =
             NoteMetadata::new(note.sender.try_into()?, note.note_type, note.tag.into(), ZERO)?;
-        entries.push((
-            note.batch_index as usize,
-            note.note_index as usize,
-            (note.note_id, note_metadata),
-        ));
+        entries.push((note.note_index, note.note_id, note_metadata));
     }
 
     BlockNoteTree::with_entries(entries).map_err(ApplyBlockError::FailedToCreateNoteTree)

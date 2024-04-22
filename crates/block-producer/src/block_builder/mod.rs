@@ -2,12 +2,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
-use miden_objects::notes::Nullifier;
+use miden_objects::{block::Block, notes::Nullifier};
 use tracing::{debug, info, instrument};
 
 use crate::{
     batch_builder::batch::TransactionBatch,
-    block::Block,
     errors::BuildBlockError,
     store::{ApplyBlock, Store},
     COMPONENT,
@@ -82,7 +81,7 @@ where
         let block_inputs = self
             .store
             .get_block_inputs(
-                updated_accounts.iter().map(|update| &update.account_id),
+                updated_accounts.iter().map(|update| update.account_id()),
                 produced_nullifiers.iter(),
             )
             .await?;
@@ -93,15 +92,11 @@ where
 
         let block_num = new_block_header.block_num();
 
-        let block = Block {
-            header: new_block_header,
-            updated_accounts,
-            created_notes,
-            produced_nullifiers,
-        };
+        let block =
+            Block::new(new_block_header, updated_accounts, created_notes, produced_nullifiers);
 
         // TODO: Change to block.hash(), once it implemented
-        let block_hash = block.header.hash();
+        let block_hash = block.header().hash();
 
         info!(target: COMPONENT, block_num, %block_hash, "block built");
         debug!(target: COMPONENT, ?block);

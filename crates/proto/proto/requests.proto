@@ -9,9 +9,8 @@ import "note.proto";
 
 message AccountUpdate {
     account.AccountId account_id = 1;
-    digest.Digest account_hash = 2;
-    // Details for public (on-chain) account.
-    optional bytes details = 3;
+    digest.Digest final_state_hash = 2;
+    bytes details = 3;
 }
 
 message ApplyBlockRequest {

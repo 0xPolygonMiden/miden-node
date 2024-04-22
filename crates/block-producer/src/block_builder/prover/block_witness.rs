@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
@@ -49,19 +48,19 @@ impl BlockWitness {
             batches
                 .iter()
                 .flat_map(TransactionBatch::updated_accounts)
-                .map(|AccountUpdateDetails { account_id, final_state_hash, .. }| {
+                .map(|update| {
                     let initial_state_hash = account_initial_states
-                        .remove(&account_id)
+                        .remove(&update.account_id())
                         .expect("already validated that key exists");
                     let proof = account_merkle_proofs
-                        .remove(&account_id)
+                        .remove(&update.account_id())
                         .expect("already validated that key exists");
 
                     (
-                        account_id,
+                        update.account_id(),
                         AccountUpdate {
                             initial_state_hash,
-                            final_state_hash,
+                            final_state_hash: update.new_state_hash(),
                             proof,
                         },
                     )

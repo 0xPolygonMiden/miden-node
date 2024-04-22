@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::AccountId, notes::Nullifier, transaction::InputNotes, Digest,
+    accounts::AccountId, block::Block, notes::Nullifier, transaction::InputNotes, Digest,
     MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
@@ -11,7 +11,6 @@ use tokio::sync::RwLock;
 use tracing::{debug, instrument};
 
 use crate::{
-    block::Block,
     errors::VerifyTxError,
     store::{ApplyBlock, ApplyBlockError, Store, TransactionInputs},
     txqueue::TransactionValidator,
@@ -124,13 +123,13 @@ where
         let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
 
         // Remove account ids of transactions in block
-        for update in &block.updated_accounts {
-            let was_in_flight = locked_accounts_in_flight.remove(&update.account_id);
+        for update in block.updated_accounts() {
+            let was_in_flight = locked_accounts_in_flight.remove(&update.account_id());
             debug_assert!(was_in_flight);
         }
 
         // Remove new nullifiers of transactions in block
-        for nullifier in &block.produced_nullifiers {
+        for nullifier in block.created_nullifiers() {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
         }
@@ -190,9 +189,9 @@ fn ensure_tx_inputs_constraints(
         // if the account is present in the Store, make sure that the account state hash
         // from the received transaction is the same as the one from the Store
         Some(store_account_hash) => {
-            if candidate_tx.initial_account_hash() != store_account_hash {
+            if candidate_tx.account_update().init_state_hash() != store_account_hash {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
-                    tx_initial_account_hash: candidate_tx.initial_account_hash(),
+                    tx_initial_account_hash: candidate_tx.account_update().init_state_hash(),
                     store_account_hash: Some(store_account_hash),
                 });
             }
@@ -201,9 +200,9 @@ fn ensure_tx_inputs_constraints(
         None => {
             // if the initial account hash is not equal to `Digest::default()` it
             // signifies that the account is not new but is also not recorded in the Store
-            if candidate_tx.initial_account_hash() != Digest::default() {
+            if candidate_tx.account_update().init_state_hash() != Digest::default() {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
-                    tx_initial_account_hash: candidate_tx.initial_account_hash(),
+                    tx_initial_account_hash: candidate_tx.account_update().init_state_hash(),
                     store_account_hash: None,
                 });
             }

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use miden_node_proto::{
     convert,
-    domain::accounts::AccountUpdateDetails,
     errors::ConversionError,
     generated::{
         self,
@@ -27,9 +26,10 @@ use miden_node_proto::{
     try_convert, AccountState,
 };
 use miden_objects::{
+    accounts::delta::AccountUpdateDetails,
+    block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, NoteType, Nullifier},
-    transaction::AccountDetails,
     utils::Deserializable,
     BlockHeader, Felt, NoteError, ZERO,
 };
@@ -275,11 +275,14 @@ impl api_server::Api for StoreApi {
                     .try_into()
                     .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
 
-                match (account_state.account_id.is_on_chain(), account_update.details.is_some()) {
-                    (true, false) => {
+                let details = AccountUpdateDetails::read_from_bytes(&account_update.details)
+                    .map_err(|err| Status::invalid_argument(err.to_string()))?;
+
+                match (account_state.account_id.is_on_chain(), details.is_private()) {
+                    (true, true) => {
                         return Err(Status::invalid_argument("On-chain account must have details"));
                     },
-                    (false, true) => {
+                    (false, false) => {
                         return Err(Status::invalid_argument(
                             "Off-chain account must not have details",
                         ));
@@ -287,20 +290,13 @@ impl api_server::Api for StoreApi {
                     _ => (),
                 }
 
-                let details = account_update
-                    .details
-                    .as_ref()
-                    .map(|data| AccountDetails::read_from_bytes(data))
-                    .transpose()
-                    .map_err(|err| Status::invalid_argument(err.to_string()))?;
-
-                Ok(AccountUpdateDetails {
-                    account_id: account_state.account_id,
-                    details,
-                    final_state_hash: account_state
+                Ok(BlockAccountUpdate::new(
+                    account_state.account_id,
+                    account_state
                         .account_hash
                         .ok_or(invalid_argument("Account update missing account hash"))?,
-                })
+                    details,
+                ))
             })
             .collect::<Result<Vec<_>, Status>>()?;
 
@@ -309,8 +305,10 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|note| {
                 Ok(NoteCreated {
-                    batch_index: note.batch_index,
-                    note_index: note.note_index,
+                    note_index: BlockNoteIndex::new(
+                        note.batch_index as usize,
+                        note.note_index as usize,
+                    ),
                     note_id: note
                         .note_id
                         .ok_or(invalid_argument("Note missing id"))?

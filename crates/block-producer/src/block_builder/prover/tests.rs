@@ -1,10 +1,14 @@
 use std::{collections::BTreeMap, iter};
 
-use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::{
-        AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        account_id::testing::{
+            ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        },
+        delta::AccountUpdateDetails,
+        AccountId,
     },
+    block::BlockAccountUpdate,
     crypto::merkle::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
         SMT_DEPTH,
@@ -204,8 +208,10 @@ async fn test_compute_account_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches: Vec<TransactionBatch> = {
         let txs: Vec<_> = account_ids
@@ -240,10 +246,12 @@ async fn test_compute_account_root_success() {
             account_ids
                 .iter()
                 .zip(account_final_states.iter())
-                .map(|(&account_id, &account_hash)| AccountUpdateDetails {
-                    account_id,
-                    final_state_hash: account_hash.into(),
-                    details: None,
+                .map(|(&account_id, &account_hash)| {
+                    BlockAccountUpdate::new(
+                        account_id,
+                        account_hash.into(),
+                        AccountUpdateDetails::Private,
+                    )
                 })
                 .collect(),
         )
@@ -251,7 +259,7 @@ async fn test_compute_account_root_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    assert_eq!(block_header.account_root(), block.header.account_root());
+    assert_eq!(block_header.account_root(), block.header().account_root());
 }
 
 /// Test that the current account root is returned if the batches are empty
@@ -407,8 +415,10 @@ async fn test_compute_note_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches: Vec<TransactionBatch> = {
         let txs: Vec<_> = notes_created
@@ -573,8 +583,10 @@ async fn test_compute_nullifier_root_empty_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .await
+        .unwrap();
 
     let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
@@ -632,8 +644,10 @@ async fn test_compute_nullifier_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(account_ids.iter(), nullifiers.iter()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(account_ids.into_iter(), nullifiers.iter())
+        .await
+        .unwrap();
 
     let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
