@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 (2024-04-24)
+
+* Combined node components into a single binary (#323).
+
 ## 0.2.0 (2024-04-11)
 
 * Implemented Docker-based node deployment (#257).

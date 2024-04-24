@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-rpc"
-version = "0.2.0"
+version = "0.2.1"
 description = "Miden node's front-end RPC server"
 readme = "README.md"
 keywords = ["miden", "node", "rpc"]
