@@ -35,3 +35,4 @@ tracing-subscriber = { workspace = true }
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
 miden-node-utils = { workspace = true, features = ["tracing-forest"] }
+miden-objects = { workspace = true, features = ["testing"] }

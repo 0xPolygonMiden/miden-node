@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-faucet"
-version = "0.2.0"
+version = "0.2.1"
 description = "Miden node token faucet"
 keywords = ["miden", "node", "faucet"]
 edition.workspace = true
