@@ -1,0 +1,34 @@
+[package]
+name = "miden-node-faucet"
+version = "0.2.1"
+description = "Miden node token faucet"
+keywords = ["miden", "node", "faucet"]
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[features]
+# Makes `make-genesis` subcommand run faster. Is only suitable for testing.
+# INFO: Make sure that all your components have matching features for them to function.
+testing = ["miden-client/testing"]
+
+[dependencies]
+actix-cors = "0.7.0"
+actix-files = "0.6.5"
+actix-web = "4"
+async-mutex = "1.4.0"
+derive_more = "0.99.17"
+figment = { version = "0.10", features = ["toml", "env"] }
+miden-client = { version = "0.2", features = ["concurrent"] }
+miden-lib = { workspace = true }
+miden-node-proto = { workspace = true }
+miden-node-utils = { workspace = true }
+miden-objects = { workspace = true }
+rand_chacha = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+tracing = { workspace = true }
+thiserror = { workspace = true }

@@ -5,70 +5,91 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
-# linting
+# --- linting -------------------------------------------------------------------------------------
+
+[tasks.fix]
+description = "Runs Fix"
+command = "cargo"
+toolchain = "nightly"
+args = ["fix", "--allow-staged", "--allow-dirty", "--all-targets", "--all-features"]
+
 [tasks.format]
 toolchain = "nightly"
 command = "cargo"
 args = ["fmt", "--all"]
 
 [tasks.format-check]
+description = "Runs Rustfmt on check mode"
 toolchain = "nightly"
 command = "cargo"
 args = ["fmt", "--all", "--", "--check"]
 
 [tasks.clippy-default]
+description = "Runs Clippy on default mode"
 command = "cargo"
 args = ["clippy","--workspace", "--all-targets", "--", "-D", "clippy::all", "-D", "warnings"]
 
 [tasks.clippy-all-features]
+description = "Runs Clippy with all features"
 command = "cargo"
 args = ["clippy","--workspace", "--all-targets", "--all-features", "--", "-D", "clippy::all", "-D", "warnings"]
 
 [tasks.clippy]
+description = "Runs all Clippy tasks"
 dependencies = [
   "clippy-default",
   "clippy-all-features"
 ]
 
-[tasks.doc]
-env = { "RUSTDOCFLAGS" = "-D warnings" }
-command = "cargo"
-args = ["doc", "--verbose", "--all-features", "--keep-going", "--release"]
-
 [tasks.lint]
+description = "Runs all linting tasks (Clippy, fixing, formatting, docs)"
 dependencies = [
-    "format",
-    "format-check",
-    "clippy",
-    "docs"
+  "fix",
+  "format",
+  "clippy",
 ]
 
-# testing
+# --- docs ----------------------------------------------------------------------------------------
+
+[tasks.doc]
+description = "Runs docs verification"
+env = { "RUSTDOCFLAGS" = "-D warnings" }
+command = "cargo"
+args = ["doc", "--all-features", "--keep-going", "--release"]
+
+# --- testing -------------------------------------------------------------------------------------
+
+[tasks.test]
+disabled = true
+
 [tasks.test-all]
+description = "Runs all tests"
 command = "cargo"
 args = ["test", "--all-features", "--workspace", "--", "--nocapture"]
 
-# docker
+# --- docker -------------------------------------------------------------------------------------
+
 [tasks.docker-build-node]
+description = "Builds the Miden node using Docker"
 workspace = false
 script = '''
 CREATED=$(date)
-VERSION=$(cat node/Cargo.toml | grep -m 1 '^version' | cut -d '"' -f 2)
+VERSION=$(cat bin/node/Cargo.toml | grep -m 1 '^version' | cut -d '"' -f 2)
 COMMIT=$(git rev-parse HEAD)
-
 docker build --build-arg CREATED="$CREATED" \
              --build-arg VERSION="$VERSION" \
              --build-arg COMMIT="$COMMIT" \
-             -f node/Dockerfile \
+             -f bin/node/Dockerfile \
              -t miden-node-image .
 '''
 
 [tasks.docker-run-node]
+description = "Runs the Miden node using Docker"
 workspace = false
 script = '''
 docker volume create miden-db
 
-ABSOLUTE_PATH="$(pwd)/node/miden-node.toml"
+ABSOLUTE_PATH="$(pwd)/bin/node/miden-node.toml"
 
 docker run --name miden-node \
            -p 57291:57291 \

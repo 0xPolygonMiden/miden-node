@@ -1,14 +1,15 @@
 [workspace]
 members = [
-  "block-producer",
-  "node",
-  "proto",
-  "rpc",
-  "store",
-  "utils",
-  "test-macro",
-  "faucet"
+  "bin/node",
+  "crates/faucet",
+  "crates/block-producer",
+  "crates/proto",
+  "crates/rpc",
+  "crates/store",
+  "crates/utils",
+  "crates/test-macro",
 ]
+default-members = ["bin/node"]
 
 resolver = "2"
 
@@ -24,6 +25,13 @@ exclude = [".github/"]
 [workspace.dependencies]
 miden-air = { version = "0.9", default-features = false }
 miden-lib = { version = "0.2"}
+miden-node-block-producer = { path = "crates/block-producer" }
+miden-node-faucet = { path = "crates/faucet" }
+miden-node-proto = { path = "crates/proto" }
+miden-node-rpc = { path = "crates/rpc" }
+miden-node-store = { path = "crates/store" }
+miden-node-test-macro = { path = "crates/test-macro" }
+miden-node-utils = { path = "crates/utils" }
 miden-objects = { version = "0.2" }
 miden-processor = { version = "0.9" }
 miden-stdlib = { version = "0.9", default-features = false }
