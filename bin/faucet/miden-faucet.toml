@@ -1,5 +1,6 @@
 endpoint = { host = "localhost",  port = 8080 }
 database_filepath = "store.sqlite3"
+node_url = "http://localhost:57291"
 
 # Data used to construct the faucet account of the faucet
 asset_amount = 333
