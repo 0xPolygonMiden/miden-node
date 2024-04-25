@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
-use commands::start::{start_block_producer, start_faucet, start_node, start_rpc, start_store};
+use commands::start::{start_block_producer, start_node, start_rpc, start_store};
 use config::NodeConfig;
 use miden_node_utils::config::load_config;
 
@@ -64,7 +64,6 @@ pub enum StartCommand {
     BlockProducer,
     Rpc,
     Store,
-    Faucet,
 }
 
 #[tokio::main]
@@ -91,9 +90,6 @@ async fn main() -> anyhow::Result<()> {
                 },
                 StartCommand::Store => {
                     start_store(config.store.context("Missing store configuration.")?).await
-                },
-                StartCommand::Faucet => {
-                    start_faucet(config.faucet.context("Missing faucet configuration.")?).await
                 },
             }
         },

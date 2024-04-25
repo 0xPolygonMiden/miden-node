@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use miden_node_block_producer::{config::BlockProducerConfig, server as block_producer_server};
-use miden_node_faucet::{config::FaucetConfig, server as faucet_server, utils::build_faucet_state};
 use miden_node_rpc::{config::RpcConfig, server as rpc_server};
 use miden_node_store::{config::StoreConfig, db::Db, server as store_server};
 use tokio::task::JoinSet;
@@ -61,16 +60,6 @@ pub async fn start_store(config: StoreConfig) -> Result<()> {
     store_server::serve(config, db)
         .await
         .map_err(|err| anyhow!("Failed to serve store: {}", err))?;
-
-    Ok(())
-}
-
-pub async fn start_faucet(config: FaucetConfig) -> Result<()> {
-    let faucet_state = build_faucet_state(config.clone())
-        .await
-        .map_err(|err| anyhow!("Failed to build faucet: {}", err))?;
-
-    faucet_server::serve(config, faucet_state).await?;
 
     Ok(())
 }

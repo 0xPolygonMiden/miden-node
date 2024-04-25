@@ -1,0 +1,8 @@
+endpoint = { host = "localhost",  port = 8080 }
+database_filepath = "store.sqlite3"
+
+# Data used to construct the faucet account of the faucet
+asset_amount = 333
+token_symbol = "POL"
+decimals = 8
+max_supply = 1000000

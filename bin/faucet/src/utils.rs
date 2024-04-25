@@ -87,7 +87,7 @@ pub fn build_client(database_filepath: PathBuf) -> Result<FaucetClient, FaucetEr
     info!("Successfully built client");
 
     // Setup the client
-    Client::new(api, rng, store, executor_store).map_err(FaucetError::ClientCreationError)
+    Ok(Client::new(api, rng, store, executor_store, false))
 }
 
 /// Creates a Miden fungible faucet from arguments
