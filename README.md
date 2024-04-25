@@ -57,7 +57,7 @@ Currently, the only difference between the two is how long the `make-genesis` co
 
 ### Generating the genesis file
 
-Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](node/genesis.toml)
+Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](bin/node/genesis.toml)
 
 To generate the genesis file, run:
 
@@ -72,7 +72,7 @@ By default this will generate 1 file and 1 folder in the current directory:
 
 ### Running the node
 
-To run the node you will need to provide a configuration file. We have an example config file in [node/miden-node.toml](/node/miden-node.toml). Then, to run the node, run:
+To run the node you will need to provide a configuration file. We have an example config file in [node/miden-node.toml](bin/node/miden-node.toml). Then, to run the node, run:
 
 ```sh
 miden-node start --config <path-to-config-file> <component-to-be-started>
