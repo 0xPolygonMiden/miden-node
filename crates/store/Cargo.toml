@@ -1,13 +1,13 @@
 [package]
 name = "miden-node-store"
-version = "0.2.0"
+version = "0.2.1"
 description = "Miden node's state store component"
+readme = "README.md"
 keywords = ["miden", "node", "store"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
-readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
@@ -35,3 +35,4 @@ tracing-subscriber = { workspace = true }
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
 miden-node-utils = { workspace = true, features = ["tracing-forest"] }
+miden-objects = { workspace = true, features = ["testing"] }

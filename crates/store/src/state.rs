@@ -250,7 +250,7 @@ impl State {
 
         match handle.await {
             // These errors should never happen. It is unclear if the state of the node would be
-            // valid because the apply_block task may have failed when commiting the transaction, so
+            // valid because the apply_block task may have failed when committing the transaction, so
             // the in-memory and the DB state would be out-of-sync.
             //
             // TODO: shutdown #91

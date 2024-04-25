@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-faucet"
-version = "0.1.0"
+version = "0.2.1"
 description = "Miden node token faucet"
 keywords = ["miden", "node", "faucet"]
 edition.workspace = true
@@ -23,7 +23,7 @@ actix-web = "4"
 async-mutex = "1.4.0"
 derive_more = "0.99.17"
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-client = { version = "0.2.0", features = ["concurrent"] }
+miden-client = { version = "0.2", features = ["concurrent"] }
 miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }

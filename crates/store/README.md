@@ -89,7 +89,7 @@ Returns data needed by the block producer to construct and prove the next block.
 
 - `block_header`: `[BlockHeader]` – the latest block header.
 - `mmr_peaks`: `[Digest]` – peaks of the above block's mmr, The `forest` value is equal to the block number.
-- `account_states`: `[AccountBlockInputRecord]` – the hashes of the requested accouts and their authentication paths.
+- `account_states`: `[AccountBlockInputRecord]` – the hashes of the requested accounts and their authentication paths.
 - `nullifiers`: `[NullifierBlockInputRecord]` – the requested nullifiers and their authentication paths.
 
 ### GetTransactionInputs

@@ -51,7 +51,7 @@ jobs:
         run: mkdir -p packaging/deb/miden-node/etc/miden
 
       - name: copy the miden-node.toml file
-        run: cp node/miden.toml packaging/deb/miden-node/etc/miden/
+        run: cp node/miden-node.toml packaging/deb/miden-node/etc/miden/
 
       - name: copy over the postinst
         run: cp packaging/postinst packaging/deb/miden-node/DEBIAN/postinst

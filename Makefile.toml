@@ -7,6 +7,12 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
 # --- linting -------------------------------------------------------------------------------------
 
+[tasks.fix]
+description = "Runs Fix"
+command = "cargo"
+toolchain = "nightly"
+args = ["fix", "--allow-staged", "--allow-dirty", "--all-targets", "--all-features"]
+
 [tasks.format]
 toolchain = "nightly"
 command = "cargo"
@@ -35,20 +41,21 @@ dependencies = [
   "clippy-all-features"
 ]
 
+[tasks.lint]
+description = "Runs all linting tasks (Clippy, fixing, formatting, docs)"
+dependencies = [
+  "fix",
+  "format",
+  "clippy",
+]
+
+# --- docs ----------------------------------------------------------------------------------------
+
 [tasks.doc]
 description = "Runs docs verification"
 env = { "RUSTDOCFLAGS" = "-D warnings" }
 command = "cargo"
-args = ["doc", "--verbose", "--all-features", "--keep-going", "--release"]
-
-[tasks.lint]
-description = "Runs all linting tasks (Clippy, fixing, formatting, docs)"
-dependencies = [
-  "format",
-  "format-check",
-  "clippy",
-  "doc"
-]
+args = ["doc", "--all-features", "--keep-going", "--release"]
 
 # --- testing -------------------------------------------------------------------------------------
 
