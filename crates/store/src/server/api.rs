@@ -278,16 +278,14 @@ impl api_server::Api for StoreApi {
                 let details = AccountUpdateDetails::read_from_bytes(&account_update.details)
                     .map_err(|err| Status::invalid_argument(err.to_string()))?;
 
-                match (account_state.account_id.is_on_chain(), details.is_private()) {
-                    (true, true) => {
-                        return Err(Status::invalid_argument("On-chain account must have details"));
-                    },
-                    (false, false) => {
-                        return Err(Status::invalid_argument(
-                            "Off-chain account must not have details",
-                        ));
-                    },
-                    _ => (),
+                let is_on_chain = account_state.account_id.is_on_chain();
+                let no_details = details.is_private();
+                if is_on_chain && no_details {
+                    return Err(Status::invalid_argument("On-chain account must have details"));
+                } else if !(is_on_chain || no_details) {
+                    return Err(Status::invalid_argument(
+                        "Off-chain account must not have details",
+                    ));
                 }
 
                 Ok(BlockAccountUpdate::new(
