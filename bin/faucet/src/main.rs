@@ -44,7 +44,7 @@ async fn main() -> Result<(), FaucetError> {
 
     info!(target: COMPONENT, %config, "Initializing server");
 
-    info!("Server is now running on: {}", config.as_url());
+    info!("Server is now running on: {}", config.endpoint_url());
 
     HttpServer::new(move || {
         let cors = Cors::default().allow_any_origin().allow_any_method();

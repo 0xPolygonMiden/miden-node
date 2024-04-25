@@ -24,7 +24,7 @@ pub struct BlockProducerConfig {
 }
 
 impl BlockProducerConfig {
-    pub fn as_url(&self) -> String {
+    pub fn endpoint_url(&self) -> String {
         self.endpoint.to_string()
     }
 }
