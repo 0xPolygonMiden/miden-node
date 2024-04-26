@@ -19,12 +19,3 @@ store_url = "http://localhost:28943"
 endpoint = { host = "localhost", port = 28943 }
 database_filepath = "miden-store.sqlite3"
 genesis_filepath = "genesis.dat"
-
-[faucet]
-endpoint = { host = "localhost",  port = 8080 }
-database_filepath = "store.sqlite3"
-# Data used to construct the faucet account of the faucet
-asset_amount = 333
-token_symbol = "POL"
-decimals = 8
-max_supply = 1000000
