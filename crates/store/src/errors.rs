@@ -129,10 +129,6 @@ pub enum GenesisError {
 pub enum ApplyBlockError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("Account error: {0}")]
-    AccountError(#[from] AccountError),
-    #[error("Note error: {0}")]
-    NoteError(#[from] NoteError),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
     #[error("New block number must be 1 greater than the current block number")]

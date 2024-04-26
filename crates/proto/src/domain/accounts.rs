@@ -3,7 +3,6 @@ use std::fmt::{Debug, Display, Formatter};
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::{Account, AccountId},
-    block::BlockAccountUpdate,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     utils::Serializable,
     Digest,
@@ -16,7 +15,6 @@ use crate::{
             AccountId as AccountIdPb, AccountInfo as AccountInfoPb,
             AccountSummary as AccountSummaryPb,
         },
-        requests::AccountUpdate as AccountUpdatePb,
         responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
 };
@@ -105,16 +103,6 @@ impl From<&AccountInfo> for AccountInfoPb {
         Self {
             summary: Some(summary.into()),
             details: details.as_ref().map(|account| account.to_bytes()),
-        }
-    }
-}
-
-impl From<&BlockAccountUpdate> for AccountUpdatePb {
-    fn from(update: &BlockAccountUpdate) -> Self {
-        Self {
-            account_id: Some(update.account_id().into()),
-            final_state_hash: Some(update.new_state_hash().into()),
-            details: update.details().to_bytes(),
         }
     }
 }
@@ -215,27 +203,5 @@ impl TryFrom<AccountTransactionInputRecord> for AccountState {
         };
 
         Ok(Self { account_id, account_hash })
-    }
-}
-
-impl TryFrom<AccountUpdatePb> for AccountState {
-    type Error = ConversionError;
-
-    fn try_from(value: AccountUpdatePb) -> Result<Self, Self::Error> {
-        Ok(Self {
-            account_id: value
-                .account_id
-                .ok_or(AccountUpdatePb::missing_field(stringify!(account_id)))?
-                .try_into()?,
-            account_hash: value.final_state_hash.map(TryInto::try_into).transpose()?,
-        })
-    }
-}
-
-impl TryFrom<&AccountUpdatePb> for AccountState {
-    type Error = ConversionError;
-
-    fn try_from(value: &AccountUpdatePb) -> Result<Self, Self::Error> {
-        value.clone().try_into()
     }
 }

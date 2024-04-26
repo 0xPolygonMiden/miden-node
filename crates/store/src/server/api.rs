@@ -23,20 +23,19 @@ use miden_node_proto::{
         smt::SmtLeafEntry,
         store::api_server,
     },
-    try_convert, AccountState,
+    try_convert,
 };
 use miden_objects::{
-    accounts::delta::AccountUpdateDetails,
-    block::{BlockAccountUpdate, BlockNoteIndex},
+    block::Block,
     crypto::hash::rpo::RpoDigest,
-    notes::{NoteId, NoteType, Nullifier},
+    notes::{NoteId, Nullifier},
     utils::Deserializable,
-    BlockHeader, Felt, NoteError, ZERO,
+    Felt, ZERO,
 };
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{db::NoteCreated, state::State, types::AccountId, COMPONENT};
+use crate::{state::State, types::AccountId, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -258,72 +257,22 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
-        let block_header: BlockHeader = request
-            .block
-            .ok_or(invalid_argument("Apply block missing block header"))?
-            .try_into()
-            .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
 
-        info!(target: COMPONENT, block_num = block_header.block_num(), block_hash = %block_header.hash());
+        let block = Block::read_from_bytes(&request.block).map_err(|err| {
+            Status::invalid_argument(format!("Block deserialization error: {err}"))
+        })?;
 
-        let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let accounts = request
-            .accounts
-            .iter()
-            .map(|account_update| {
-                let account_state: AccountState = account_update
-                    .try_into()
-                    .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
+        info!(
+            target: COMPONENT,
+            block_num = block.header().block_num(),
+            block_hash = %block.header().hash(),
+            account_count = block.updated_accounts().len(),
+            note_count = block.created_notes().len(),
+            nullifier_count = block.created_nullifiers().len(),
+        );
 
-                let details = AccountUpdateDetails::read_from_bytes(&account_update.details)
-                    .map_err(|err| Status::invalid_argument(err.to_string()))?;
-
-                let is_on_chain = account_state.account_id.is_on_chain();
-                let no_details = details.is_private();
-                if is_on_chain && no_details {
-                    return Err(Status::invalid_argument("On-chain account must have details"));
-                } else if !(is_on_chain || no_details) {
-                    return Err(Status::invalid_argument(
-                        "Off-chain account must not have details",
-                    ));
-                }
-
-                Ok(BlockAccountUpdate::new(
-                    account_state.account_id,
-                    account_state
-                        .account_hash
-                        .ok_or(invalid_argument("Account update missing account hash"))?,
-                    details,
-                ))
-            })
-            .collect::<Result<Vec<_>, Status>>()?;
-
-        let notes = request
-            .notes
-            .into_iter()
-            .map(|note| {
-                Ok(NoteCreated {
-                    note_index: BlockNoteIndex::new(
-                        note.batch_index as usize,
-                        note.note_index as usize,
-                    ),
-                    note_id: note
-                        .note_id
-                        .ok_or(invalid_argument("Note missing id"))?
-                        .try_into()
-                        .map_err(|err: ConversionError| {
-                            Status::invalid_argument(err.to_string())
-                        })?,
-                    note_type: NoteType::try_from(note.note_type as u64)
-                        .map_err(|err: NoteError| Status::invalid_argument(err.to_string()))?,
-                    sender: note.sender.ok_or(invalid_argument("Note missing sender"))?.into(),
-                    tag: note.tag,
-                    details: note.details,
-                })
-            })
-            .collect::<Result<Vec<_>, Status>>()?;
-
-        let _ = self.state.apply_block(block_header, nullifiers, accounts, notes).await;
+        // TODO: Why the error is swallowed here? Fix or add a comment with explanation.
+        let _ = self.state.apply_block(block).await;
 
         Ok(Response::new(ApplyBlockResponse {}))
     }

@@ -6,18 +6,8 @@ import "block_header.proto";
 import "digest.proto";
 import "note.proto";
 
-
-message AccountUpdate {
-    account.AccountId account_id = 1;
-    digest.Digest final_state_hash = 2;
-    bytes details = 3;
-}
-
 message ApplyBlockRequest {
-    block_header.BlockHeader block = 1;
-    repeated AccountUpdate accounts = 2;
-    repeated digest.Digest nullifiers = 3;
-    repeated note.NoteCreated notes = 4;
+    bytes block = 1;
 }
 
 message CheckNullifiersRequest {

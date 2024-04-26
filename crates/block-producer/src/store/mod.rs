@@ -5,11 +5,9 @@ use std::{
 
 use async_trait::async_trait;
 use miden_node_proto::{
-    convert,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
-        note::NoteCreated,
         requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
@@ -18,8 +16,7 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::{format_map, format_opt};
 use miden_objects::{
-    accounts::AccountId, block::Block, notes::Nullifier, transaction::OutputNote,
-    utils::Serializable, Digest,
+    accounts::AccountId, block::Block, notes::Nullifier, utils::Serializable, Digest,
 };
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
@@ -121,39 +118,7 @@ impl DefaultStore {
 impl ApplyBlock for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
-        let notes = block
-            .created_notes()
-            .iter()
-            .enumerate()
-            .flat_map(|(batch_idx, batch)| {
-                batch
-                    .iter()
-                    .enumerate()
-                    .map(|(note_idx_in_batch, note)| {
-                        let details = match note {
-                            OutputNote::Public(note) => Some(note.to_bytes()),
-                            OutputNote::Private(_) => None,
-                        };
-                        NoteCreated {
-                            batch_index: batch_idx as u32,
-                            note_index: note_idx_in_batch as u32,
-                            note_id: Some(note.id().into()),
-                            note_type: note.metadata().note_type() as u32,
-                            sender: Some(note.metadata().sender().into()),
-                            tag: note.metadata().tag().into(),
-                            details,
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-
-        let request = tonic::Request::new(ApplyBlockRequest {
-            block: Some(block.header().into()),
-            accounts: convert(block.updated_accounts()),
-            nullifiers: convert(block.created_nullifiers()),
-            notes,
-        });
+        let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 
         let _ = self
             .store

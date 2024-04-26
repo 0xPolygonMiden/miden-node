@@ -166,5 +166,5 @@ pub(crate) fn note_created_smt_from_note_batches<'a>(
 }
 
 pub(crate) fn note_created_smt_from_batches(batches: &[TransactionBatch]) -> BlockNoteTree {
-    note_created_smt_from_note_batches(batches.iter().map(|batch| batch.created_notes()))
+    note_created_smt_from_note_batches(batches.iter().map(TransactionBatch::created_notes))
 }
