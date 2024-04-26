@@ -20,7 +20,7 @@ use crate::{
 /// Provides inputs to the `BlockKernel` so that it can generate the new header.
 #[derive(Debug, PartialEq)]
 pub struct BlockWitness {
-    pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdate>,
+    pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdateWitness>,
     /// (batch_index, created_notes_root) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
     pub(super) produced_nullifiers: BTreeMap<Nullifier, SmtProof>,
@@ -58,7 +58,7 @@ impl BlockWitness {
 
                     (
                         update.account_id(),
-                        AccountUpdate {
+                        AccountUpdateWitness {
                             initial_state_hash,
                             final_state_hash: update.new_state_hash(),
                             proof,
@@ -271,7 +271,7 @@ impl BlockWitness {
                 .add_merkle_paths(self.updated_accounts.into_iter().map(
                     |(
                         account_id,
-                        AccountUpdate {
+                        AccountUpdateWitness {
                             initial_state_hash,
                             final_state_hash: _,
                             proof,
@@ -310,7 +310,7 @@ impl BlockWitness {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(super) struct AccountUpdate {
+pub(super) struct AccountUpdateWitness {
     pub initial_state_hash: Digest,
     pub final_state_hash: Digest,
     pub proof: MerklePath,

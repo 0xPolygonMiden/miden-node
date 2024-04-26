@@ -17,7 +17,7 @@ use rusqlite::{
     Connection, Transaction,
 };
 
-use super::{Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
+use super::{Note, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -349,14 +349,12 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
 
         notes.push(Note {
             block_num: row.get(0)?,
-            note_created: NoteCreated {
-                note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
-                note_id,
-                note_type: row.get::<_, u8>(4)?.try_into()?,
-                sender: column_value_as_u64(row, 5)?,
-                tag: row.get(6)?,
-                details,
-            },
+            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
+            note_id,
+            note_type: row.get::<_, u8>(4)?.try_into()?,
+            sender: column_value_as_u64(row, 5)?,
+            tag: row.get(6)?,
+            details,
             merkle_path,
         })
     }
@@ -397,16 +395,16 @@ pub fn insert_notes(transaction: &Transaction, notes: &[Note]) -> Result<usize> 
 
     let mut count = 0;
     for note in notes.iter() {
-        let details = note.note_created.details.as_ref().map(|details| details.to_bytes());
+        let details = note.details.as_ref().map(|details| details.to_bytes());
 
         count += stmt.execute(params![
             note.block_num,
-            note.note_created.note_index.batch_idx(),
-            note.note_created.note_index.note_idx_in_batch(),
-            note.note_created.note_id.to_bytes(),
-            note.note_created.note_type as u8,
-            u64_to_value(note.note_created.sender),
-            note.note_created.tag,
+            note.note_index.batch_idx(),
+            note.note_index.note_idx_in_batch(),
+            note.note_id.to_bytes(),
+            note.note_type as u8,
+            u64_to_value(note.sender),
+            note.tag,
             note.merkle_path.to_bytes(),
             details
         ])?;
@@ -487,14 +485,12 @@ pub fn select_notes_since_block_by_tag_and_sender(
 
         let note = Note {
             block_num,
-            note_created: NoteCreated {
-                note_index,
-                note_id,
-                note_type,
-                sender,
-                tag,
-                details,
-            },
+            note_index,
+            note_id,
+            note_type,
+            sender,
+            tag,
+            details,
             merkle_path,
         };
         res.push(note);
@@ -544,14 +540,12 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
 
         notes.push(Note {
             block_num: row.get(0)?,
-            note_created: NoteCreated {
-                note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
-                details,
-                note_id: note_id.into(),
-                note_type: row.get::<_, u8>(4)?.try_into()?,
-                sender: column_value_as_u64(row, 5)?,
-                tag: row.get(6)?,
-            },
+            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
+            details,
+            note_id: note_id.into(),
+            note_type: row.get::<_, u8>(4)?.try_into()?,
+            sender: column_value_as_u64(row, 5)?,
+            tag: row.get(6)?,
             merkle_path,
         })
     }

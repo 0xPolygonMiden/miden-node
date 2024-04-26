@@ -24,7 +24,7 @@ use tokio::{
 use tracing::{error, info, info_span, instrument};
 
 use crate::{
-    db::{Db, Note, NoteCreated, NullifierInfo, StateSyncUpdate},
+    db::{Db, Note, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockInputsError, StateInitializationError,
         StateSyncError,
@@ -121,7 +121,7 @@ impl State {
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
-            let _span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
+            let span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = block
@@ -152,7 +152,7 @@ impl State {
                     return Err(ApplyBlockError::NewBlockInvalidChainRoot);
                 }
 
-                chain_mmr.add(block.header().hash());
+                chain_mmr.add(block.hash());
                 chain_mmr
             };
 
@@ -185,10 +185,15 @@ impl State {
             }
 
             // build note tree
+            // TODO: Once https://github.com/0xPolygonMiden/miden-base/pull/630 is merged, we can
+            //       substitute it with just:
+            //      `let note_tree = block.build_note_tree().map_err(ApplyBlockError::FailedToCreateNoteTree)?;`
             let note_tree = build_note_tree(block.notes())?;
             if note_tree.root() != block.header().note_root() {
                 return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
             }
+
+            drop(span);
 
             let notes = block
                 .notes()
@@ -197,14 +202,6 @@ impl State {
                         OutputNote::Public(note) => Some(note.to_bytes()),
                         OutputNote::Private(_) => None,
                     };
-                    let note_created = NoteCreated {
-                        note_index,
-                        note_id: note.id().into(),
-                        note_type: note.metadata().note_type(),
-                        sender: note.metadata().sender().into(),
-                        tag: note.metadata().tag().into(),
-                        details,
-                    };
 
                     let merkle_path = note_tree
                         .get_note_path(note_index)
@@ -212,7 +209,12 @@ impl State {
 
                     Ok(Note {
                         block_num: block.header().block_num(),
-                        note_created,
+                        note_index,
+                        note_id: note.id().into(),
+                        note_type: note.metadata().note_type(),
+                        sender: note.metadata().sender().into(),
+                        tag: note.metadata().tag().into(),
+                        details,
                         merkle_path,
                     })
                 })
@@ -222,7 +224,7 @@ impl State {
         };
 
         let block_num = block.header().block_num();
-        let block_hash = block.header().hash();
+        let block_hash = block.hash();
 
         // signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();

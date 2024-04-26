@@ -184,7 +184,7 @@ impl ApplyBlock for MockStoreSuccess {
         {
             let mut chain_mmr = self.chain_mmr.write().await;
 
-            chain_mmr.add(block.header().hash());
+            chain_mmr.add(block.hash());
         }
 
         // update last block header

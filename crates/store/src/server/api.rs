@@ -141,11 +141,11 @@ impl api_server::Api for StoreApi {
             .notes
             .into_iter()
             .map(|note| NoteSyncRecord {
-                note_index: note.note_created.absolute_note_index(),
-                note_type: note.note_created.note_type as u32,
-                note_id: Some(note.note_created.note_id.into()),
-                sender: Some(note.note_created.sender.into()),
-                tag: note.note_created.tag,
+                note_index: note.absolute_note_index(),
+                note_type: note.note_type as u32,
+                note_id: Some(note.note_id.into()),
+                sender: Some(note.sender.into()),
+                tag: note.tag,
                 merkle_path: Some(note.merkle_path.into()),
             })
             .collect();
@@ -198,16 +198,7 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?
             .into_iter()
-            .map(|note| generated::note::Note {
-                block_num: note.block_num,
-                note_index: note.note_created.absolute_note_index(),
-                note_id: Some(note.note_created.note_id.into()),
-                sender: Some(note.note_created.sender.into()),
-                tag: note.note_created.tag,
-                note_type: note.note_created.note_type as u32,
-                merkle_path: Some(note.merkle_path.into()),
-                details: note.note_created.details,
-            })
+            .map(Into::into)
             .collect();
 
         Ok(Response::new(GetNotesByIdResponse { notes }))
@@ -265,7 +256,7 @@ impl api_server::Api for StoreApi {
         info!(
             target: COMPONENT,
             block_num = block.header().block_num(),
-            block_hash = %block.header().hash(),
+            block_hash = %block.hash(),
             account_count = block.updated_accounts().len(),
             note_count = block.created_notes().len(),
             nullifier_count = block.created_nullifiers().len(),
@@ -388,16 +379,7 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?
             .into_iter()
-            .map(|note| generated::note::Note {
-                block_num: note.block_num,
-                note_index: note.note_created.absolute_note_index(),
-                note_id: Some(note.note_created.note_id.into()),
-                sender: Some(note.note_created.sender.into()),
-                tag: note.note_created.tag,
-                note_type: note.note_created.note_type as u32,
-                merkle_path: Some(note.merkle_path.into()),
-                details: note.note_created.details,
-            })
+            .map(Into::into)
             .collect();
         Ok(Response::new(ListNotesResponse { notes }))
     }

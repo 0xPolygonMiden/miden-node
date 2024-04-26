@@ -1,7 +1,10 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
+use miden_node_proto::{
+    domain::accounts::{AccountInfo, AccountSummary},
+    generated::note::Note as NotePb,
+};
 use miden_objects::{
     accounts::delta::AccountUpdateDetails,
     block::{BlockAccountUpdate, BlockNoteIndex},
@@ -40,16 +43,18 @@ pub struct NullifierInfo {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct NoteCreated {
+pub struct Note {
+    pub block_num: BlockNumber,
     pub note_index: BlockNoteIndex,
     pub note_id: RpoDigest,
     pub note_type: NoteType,
     pub sender: AccountId,
     pub tag: u32,
     pub details: Option<Vec<u8>>,
+    pub merkle_path: MerklePath,
 }
 
-impl NoteCreated {
+impl Note {
     /// Returns the absolute position on the note tree based on the batch index
     /// and local-to-the-subtree index.
     pub fn absolute_note_index(&self) -> u32 {
@@ -57,11 +62,19 @@ impl NoteCreated {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Note {
-    pub block_num: BlockNumber,
-    pub note_created: NoteCreated,
-    pub merkle_path: MerklePath,
+impl From<Note> for NotePb {
+    fn from(note: Note) -> Self {
+        Self {
+            block_num: note.block_num,
+            note_index: note.absolute_note_index(),
+            note_id: Some(note.note_id.into()),
+            sender: Some(note.sender.into()),
+            tag: note.tag,
+            note_type: note.note_type as u32,
+            merkle_path: Some(note.merkle_path.into()),
+            details: note.details,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

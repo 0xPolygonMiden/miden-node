@@ -44,17 +44,11 @@ impl TransactionBatch {
     pub fn new(txs: Vec<ProvenTransaction>) -> Result<Self, BuildBatchError> {
         let id = Self::compute_id(&txs);
 
-        let updated_accounts = txs
-            .iter()
-            .map(|tx| {
-                TxAccountUpdate::new(
-                    tx.account_id(),
-                    tx.account_update().init_state_hash(),
-                    tx.account_update().final_state_hash(),
-                    tx.account_update().details().clone(),
-                )
-            })
-            .collect();
+        // TODO: we need to handle a possibility that a batch contains multiple transactions against
+        //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
+        //       transaction `y` takes account from state `B` to `C`). These will need to be merged
+        //       into a single "update" `A` to `C`.
+        let updated_accounts = txs.iter().map(ProvenTransaction::account_update).cloned().collect();
 
         let produced_nullifiers =
             txs.iter().flat_map(|tx| tx.input_notes().iter()).copied().collect();

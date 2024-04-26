@@ -20,7 +20,7 @@ use miden_objects::{
 };
 use rusqlite::{vtab::array, Connection};
 
-use super::{sql, AccountInfo, Note, NoteCreated, NullifierInfo};
+use super::{sql, AccountInfo, Note, NullifierInfo};
 use crate::db::migrations;
 
 fn create_db() -> Connection {
@@ -137,14 +137,12 @@ fn test_sql_select_notes() {
     for i in 0..10 {
         let note = Note {
             block_num,
-            note_created: NoteCreated {
-                note_index: BlockNoteIndex::new(0, i as usize),
-                note_id: num_to_rpo_digest(i as u64),
-                note_type: NoteType::Public,
-                sender: i as u64,
-                tag: i,
-                details: Some(vec![1, 2, 3]),
-            },
+            note_index: BlockNoteIndex::new(0, i as usize),
+            note_id: num_to_rpo_digest(i as u64),
+            note_type: NoteType::Public,
+            sender: i as u64,
+            tag: i,
+            details: Some(vec![1, 2, 3]),
             merkle_path: MerklePath::new(vec![]),
         };
         state.push(note.clone());
@@ -601,14 +599,12 @@ fn test_notes() {
 
     let note = Note {
         block_num: block_num_1,
-        note_created: NoteCreated {
-            note_index,
-            note_id,
-            note_type: NoteType::Public,
-            sender: sender.into(),
-            tag,
-            details,
-        },
+        note_index,
+        note_id,
+        note_type: NoteType::Public,
+        sender: sender.into(),
+        tag,
+        details,
         merkle_path: merkle_path.clone(),
     };
 
@@ -637,14 +633,12 @@ fn test_notes() {
     // insertion second note with same tag, but on higher block
     let note2 = Note {
         block_num: block_num_2,
-        note_created: NoteCreated {
-            note_index: note.note_created.note_index,
-            note_id: num_to_rpo_digest(3),
-            note_type: NoteType::OffChain,
-            sender: note.note_created.sender,
-            tag: note.note_created.tag,
-            details: None,
-        },
+        note_index: note.note_index,
+        note_id: num_to_rpo_digest(3),
+        note_type: NoteType::OffChain,
+        sender: note.sender,
+        tag: note.tag,
+        details: None,
         merkle_path,
     };
 
@@ -665,8 +659,7 @@ fn test_notes() {
 
     // test query notes by id
     let notes = vec![note, note2];
-    let note_ids: Vec<RpoDigest> =
-        notes.clone().iter().map(|note| note.note_created.note_id).collect();
+    let note_ids: Vec<RpoDigest> = notes.clone().iter().map(|note| note.note_id).collect();
     let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
 
     let res = sql::select_notes_by_id(&mut conn, &note_ids).unwrap();
@@ -675,8 +668,8 @@ fn test_notes() {
     // test notes have correct details
     let note_0 = res[0].clone();
     let note_1 = res[1].clone();
-    assert_eq!(note_0.note_created.details, Some(vec![1, 2, 3]));
-    assert_eq!(note_1.note_created.details, None)
+    assert_eq!(note_0.details, Some(vec![1, 2, 3]));
+    assert_eq!(note_1.details, None)
 }
 
 // UTILITIES
