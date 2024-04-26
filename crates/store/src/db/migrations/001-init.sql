@@ -4,11 +4,11 @@ CREATE TABLE
     settings
 (
     name  TEXT NOT NULL,
-    value BLOB,
+    value ANY,
 
     PRIMARY KEY (name),
     CONSTRAINT settings_name_is_not_empty CHECK (length(name) > 0)
-) WITHOUT ROWID;
+) STRICT, WITHOUT ROWID;
 
 CREATE TABLE
     block_headers
