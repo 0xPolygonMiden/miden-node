@@ -8,8 +8,14 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum FaucetError {
+    #[error("Failed to start faucet: {0}")]
+    StartError(String),
+
     #[error("Client has submitted a bad request: {0}")]
     BadRequest(String),
+
+    #[error("Failed to configure faucet: {0}")]
+    ConfigurationError(String),
 
     #[error("Server has encountered an internal error: {0}")]
     InternalServerError(String),
@@ -20,11 +26,6 @@ pub enum FaucetError {
     #[error("Failed to sync state: {0}")]
     SyncError(ClientError),
 
-    /// Encountered an error during Miden clien creation
-    #[error("Failed to create Miden client: {0}")]
-    ClientCreationError(ClientError),
-
-    /// Encountered an error during Miden account creation
     #[error("Failed to create Miden account: {0}")]
     AccountCreationError(String),
 }
@@ -32,10 +33,11 @@ pub enum FaucetError {
 impl error::ResponseError for FaucetError {
     fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
         let message = match self {
+            FaucetError::StartError(msg) => msg.to_string(),
             FaucetError::BadRequest(msg) => msg.to_string(),
+            FaucetError::ConfigurationError(msg) => msg.to_string(),
             FaucetError::InternalServerError(msg) => msg.to_string(),
             FaucetError::SyncError(msg) => msg.to_string(),
-            FaucetError::ClientCreationError(msg) => msg.to_string(),
             FaucetError::AccountCreationError(msg) => msg.to_string(),
             FaucetError::DatabaseError(msg) => msg.to_string(),
         };

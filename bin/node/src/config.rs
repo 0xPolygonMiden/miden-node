@@ -1,5 +1,4 @@
 use miden_node_block_producer::config::BlockProducerConfig;
-use miden_node_faucet::config::FaucetConfig;
 use miden_node_rpc::config::RpcConfig;
 use miden_node_store::config::StoreConfig;
 use serde::{Deserialize, Serialize};
@@ -10,7 +9,6 @@ pub struct NodeConfig {
     pub block_producer: Option<BlockProducerConfig>,
     pub rpc: Option<RpcConfig>,
     pub store: Option<StoreConfig>,
-    pub faucet: Option<FaucetConfig>,
 }
 
 #[cfg(test)]
@@ -19,7 +17,6 @@ mod tests {
 
     use figment::Jail;
     use miden_node_block_producer::config::BlockProducerConfig;
-    use miden_node_faucet::config::FaucetConfig;
     use miden_node_rpc::config::RpcConfig;
     use miden_node_store::config::StoreConfig;
     use miden_node_utils::config::{load_config, Endpoint};
@@ -47,14 +44,6 @@ mod tests {
                     endpoint = { host = "127.0.0.1",  port = 8080 }
                     database_filepath = "local.sqlite3"
                     genesis_filepath = "genesis.dat"
-
-                    [faucet]
-                    endpoint = { host = "127.0.0.1",  port = 8080 }
-                    database_filepath = "store.sqlite3"
-                    asset_amount = 333
-                    token_symbol = "POL"
-                    decimals = 8
-                    max_supply = 1000000
                 "#,
             )?;
 
@@ -88,17 +77,6 @@ mod tests {
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into()
                     }),
-                    faucet: Some(FaucetConfig {
-                        endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
-                        },
-                        database_filepath: "store.sqlite3".into(),
-                        asset_amount: 333,
-                        token_symbol: "POL".to_string(),
-                        decimals: 8,
-                        max_supply: 1000000
-                    })
                 }
             );
 

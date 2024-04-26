@@ -1,7 +1,7 @@
 [workspace]
 members = [
   "bin/node",
-  "crates/faucet",
+  "bin/faucet",
   "crates/block-producer",
   "crates/proto",
   "crates/rpc",
@@ -9,7 +9,7 @@ members = [
   "crates/utils",
   "crates/test-macro",
 ]
-default-members = ["bin/node"]
+default-members = ["bin/node", "bin/faucet"]
 
 resolver = "2"
 
@@ -26,7 +26,7 @@ exclude = [".github/"]
 miden-air = { version = "0.9", default-features = false }
 miden-lib = { version = "0.2"}
 miden-node-block-producer = { path = "crates/block-producer" }
-miden-node-faucet = { path = "crates/faucet" }
+miden-node-faucet = { path = "bin/faucet" }
 miden-node-proto = { path = "crates/proto" }
 miden-node-rpc = { path = "crates/rpc" }
 miden-node-store = { path = "crates/store" }

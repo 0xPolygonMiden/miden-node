@@ -1557,9 +1557,9 @@ dependencies = [
 
 [[package]]
 name = "miden-client"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ec1cc4ea7e06871eebd47b803c4d4d66e6fba7499312ff077868be119906e64"
+checksum = "d26dd1eb594629e583fae463c92f07c9e2c932e95a59a0b9cbc1453bf512108f"
 dependencies = [
  "async-trait",
  "clap",
@@ -1614,6 +1614,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "miden-faucet"
+version = "0.2.1"
+dependencies = [
+ "actix-cors",
+ "actix-files",
+ "actix-web",
+ "async-mutex",
+ "derive_more",
+ "figment",
+ "miden-client",
+ "miden-lib",
+ "miden-node-proto 0.2.1",
+ "miden-node-utils 0.2.1",
+ "miden-objects",
+ "rand_chacha",
+ "serde",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "miden-lib"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1633,7 +1654,6 @@ dependencies = [
  "figment",
  "miden-lib",
  "miden-node-block-producer",
- "miden-node-faucet",
  "miden-node-rpc",
  "miden-node-store",
  "miden-node-utils 0.2.1",
@@ -1670,27 +1690,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "winterfell",
-]
-
-[[package]]
-name = "miden-node-faucet"
-version = "0.2.1"
-dependencies = [
- "actix-cors",
- "actix-files",
- "actix-web",
- "async-mutex",
- "derive_more",
- "figment",
- "miden-client",
- "miden-lib",
- "miden-node-proto 0.2.1",
- "miden-node-utils 0.2.1",
- "miden-objects",
- "rand_chacha",
- "serde",
- "thiserror",
- "tracing",
 ]
 
 [[package]]

@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 pub struct FaucetConfig {
     /// Endpoint of the faucet
     pub endpoint: Endpoint,
+    /// Node RPC gRPC endpoint in the format `http://<host>[:<port>]`.
+    pub node_url: String,
     /// Location to store database files
     pub database_filepath: PathBuf,
     /// Amount of asset that should be dispered on each faucet request
@@ -26,7 +28,7 @@ pub struct FaucetConfig {
 }
 
 impl FaucetConfig {
-    pub fn as_url(&self) -> String {
+    pub fn endpoint_url(&self) -> String {
         self.endpoint.to_string()
     }
 }

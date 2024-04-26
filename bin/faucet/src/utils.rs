@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use async_mutex::Mutex;
 use miden_client::{
     client::{get_random_coin, rpc::TonicRpcClient, Client},
-    config::{RpcConfig, StoreConfig},
+    config::StoreConfig,
     store::{sqlite_store::SqliteStore, AuthInfo},
 };
 use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
@@ -29,7 +29,7 @@ pub struct FaucetState {
 
 /// Instatiantes the Miden faucet
 pub async fn build_faucet_state(config: FaucetConfig) -> Result<FaucetState, FaucetError> {
-    let mut client = build_client(config.database_filepath.clone())?;
+    let mut client = build_client(config.database_filepath.clone(), config.node_url.clone())?;
 
     let faucet_account = create_fungible_faucet(
         &config.token_symbol,
@@ -51,7 +51,10 @@ pub async fn build_faucet_state(config: FaucetConfig) -> Result<FaucetState, Fau
 }
 
 /// Instantiates the Miden client
-pub fn build_client(database_filepath: PathBuf) -> Result<FaucetClient, FaucetError> {
+pub fn build_client(
+    database_filepath: PathBuf,
+    node_url: String,
+) -> Result<FaucetClient, FaucetError> {
     let database_filepath_os_string = database_filepath.into_os_string();
     let database_filepath = match database_filepath_os_string.into_string() {
         Ok(string) => string,
@@ -78,8 +81,7 @@ pub fn build_client(database_filepath: PathBuf) -> Result<FaucetClient, FaucetEr
         .map_err(|err| FaucetError::DatabaseError(err.to_string()))?;
 
     // Setup the tonic rpc client
-    let rpc_config = RpcConfig::default();
-    let api = TonicRpcClient::new(&rpc_config.endpoint.to_string());
+    let api = TonicRpcClient::new(&node_url);
 
     // Setup the rng
     let rng = get_random_coin();
@@ -87,7 +89,7 @@ pub fn build_client(database_filepath: PathBuf) -> Result<FaucetClient, FaucetEr
     info!("Successfully built client");
 
     // Setup the client
-    Client::new(api, rng, store, executor_store).map_err(FaucetError::ClientCreationError)
+    Ok(Client::new(api, rng, store, executor_store, false))
 }
 
 /// Creates a Miden fungible faucet from arguments
