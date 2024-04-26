@@ -1,3 +1,5 @@
+-- Table for storing different settings in run-time, which need to persist over runs.
+-- Note: we can store values of different types in the same `value` field.
 CREATE TABLE
     settings
 (

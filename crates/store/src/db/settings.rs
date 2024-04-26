@@ -11,7 +11,7 @@ impl Settings {
 
     pub fn get_value<T: FromSql>(conn: &Connection, name: &str) -> Result<Option<T>> {
         conn.query_row("SELECT value FROM settings WHERE name = $1", params![name], |row| {
-            row.get/*::<_, T>*/(0)
+            row.get(0)
         })
         .optional()
     }
