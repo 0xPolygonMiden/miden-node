@@ -1,71 +1,115 @@
+use miden_objects::crypto::hash::blake::{Blake3Digest, Blake3_160};
 use once_cell::sync::Lazy;
-use rusqlite_migration::{Migrations, M};
+use rusqlite::Connection;
+use rusqlite_migration::{Migrations, SchemaVersion, M};
+use tracing::{debug, error, info, instrument};
 
-pub static MIGRATIONS: Lazy<Migrations> = Lazy::new(|| {
-    Migrations::new(vec![M::up(
-        "
-        CREATE TABLE
-            block_headers
-        (
-            block_num INTEGER NOT NULL,
-            block_header BLOB NOT NULL,
+use crate::{
+    db::{settings::Settings, sql::schema_version},
+    errors::DatabaseError,
+    COMPONENT,
+};
 
-            PRIMARY KEY (block_num),
-            CONSTRAINT block_header_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
-        ) STRICT, WITHOUT ROWID;
+type Hash = Blake3Digest<20>;
 
-        CREATE TABLE
-            notes
-        (
-            block_num INTEGER NOT NULL,
-            batch_index INTEGER NOT NULL,   -- Index of batch in block, starting from 0
-            note_index INTEGER NOT NULL,    -- Index of note in batch, starting from 0
-            note_hash BLOB NOT NULL,
-            note_type INTEGER NOT NULL,
-            sender INTEGER NOT NULL,
-            tag INTEGER NOT NULL,
-            merkle_path BLOB NOT NULL,
-            details BLOB,
+const MIGRATION_SCRIPTS: [&str; 1] = [include_str!("migrations/001-init.sql")];
+static MIGRATION_HASHES: Lazy<Vec<Hash>> = Lazy::new(compute_migration_hashes);
+static MIGRATIONS: Lazy<Migrations> = Lazy::new(prepare_migrations);
 
-            PRIMARY KEY (block_num, batch_index, note_index),
-            CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
-            CONSTRAINT notes_type_in_enum CHECK (note_type BETWEEN 1 AND 3),  -- 1-Public (0b01), 2-OffChain (0b10), 3-Encrypted (0b11)
-            CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
-            CONSTRAINT notes_batch_index_is_u32 CHECK (batch_index BETWEEN 0 AND 0xFFFFFFFF)
-            CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
-        ) STRICT, WITHOUT ROWID;
+fn up(s: &'static str) -> M<'static> {
+    M::up(s).foreign_key_check()
+}
 
-        CREATE TABLE
-            accounts
-        (
-            account_id INTEGER NOT NULL,
-            account_hash BLOB NOT NULL,
-            block_num INTEGER NOT NULL,
-            details BLOB,
+const DB_MIGRATION_HASH_FIELD: &str = "db-migration-hash";
+const DB_SCHEMA_VERSION_FIELD: &str = "db-schema-version";
 
-            PRIMARY KEY (account_id),
-            CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
-            CONSTRAINT accounts_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
-        ) STRICT, WITHOUT ROWID;
+#[instrument(target = "miden-store", skip_all, err)]
+pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
+    let version_before = MIGRATIONS.current_version(conn)?;
 
-        CREATE TABLE
-            nullifiers
-        (
-            nullifier BLOB NOT NULL,
-            nullifier_prefix INTEGER NOT NULL,
-            block_num INTEGER NOT NULL,
+    info!(target: COMPONENT, %version_before, "Running database migrations");
 
-            PRIMARY KEY (nullifier),
-            CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers (block_num),
-            CONSTRAINT nullifiers_nullifier_is_digest CHECK (length(nullifier) = 32),
-            CONSTRAINT nullifiers_nullifier_prefix_is_u16 CHECK (nullifier_prefix BETWEEN 0 AND 0xFFFF),
-            CONSTRAINT nullifiers_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
-        ) STRICT, WITHOUT ROWID;
-        ",
-    )])
-});
+    if let SchemaVersion::Inside(ver) = version_before {
+        if !Settings::exists(conn)? {
+            error!(target: COMPONENT, "No settings table in the database");
+            return Err(DatabaseError::UnsupportedDatabaseVersion);
+        }
+
+        let last_schema_version: usize = Settings::get_value(conn, DB_SCHEMA_VERSION_FIELD)?
+            .ok_or_else(|| {
+                error!(target: COMPONENT, "No schema version in the settings table");
+                DatabaseError::UnsupportedDatabaseVersion
+            })?;
+        let current_schema_version = schema_version(conn)?;
+
+        if last_schema_version != current_schema_version {
+            error!(target: COMPONENT, last_schema_version, current_schema_version, "Schema version mismatch");
+            return Err(DatabaseError::UnsupportedDatabaseVersion);
+        }
+
+        let expected_hash = &*MIGRATION_HASHES[ver.get() - 1];
+        let actual_hash = hex::decode(
+            Settings::get_value::<String>(conn, DB_MIGRATION_HASH_FIELD)?
+                .ok_or(DatabaseError::UnsupportedDatabaseVersion)?,
+        )?;
+
+        if actual_hash != expected_hash {
+            error!(
+                target: COMPONENT,
+                expected_hash = hex::encode(expected_hash),
+                actual_hash = hex::encode(&*actual_hash),
+                "Migration hashes mismatch",
+            );
+            return Err(DatabaseError::UnsupportedDatabaseVersion);
+        }
+    }
+
+    MIGRATIONS.to_latest(conn).map_err(DatabaseError::MigrationError)?;
+
+    let version_after = MIGRATIONS.current_version(conn)?;
+
+    if version_before != version_after {
+        let new_hash = hex::encode(&*MIGRATION_HASHES[MIGRATION_HASHES.len() - 1]);
+        debug!(target: COMPONENT, new_hash, "Updating migration hash in settings table");
+        Settings::set_value(conn, DB_MIGRATION_HASH_FIELD, &new_hash)?;
+    }
+
+    let new_schema_version = schema_version(conn)?;
+    debug!(target: COMPONENT, new_schema_version, "Updating schema version in settings table");
+    Settings::set_value(conn, DB_SCHEMA_VERSION_FIELD, &new_schema_version)?;
+
+    info!(target: COMPONENT, %version_after, "Finished database migrations");
+
+    Ok(())
+}
+
+fn prepare_migrations() -> Migrations<'static> {
+    Migrations::new(MIGRATION_SCRIPTS.map(up).to_vec())
+}
+
+fn compute_migration_hashes() -> Vec<Hash> {
+    let mut accumulator = Hash::default();
+    MIGRATION_SCRIPTS
+        .iter()
+        .map(|sql| {
+            let script_hash = Blake3_160::hash(preprocess_sql(sql).as_bytes());
+            accumulator = Blake3_160::merge(&[accumulator, script_hash]);
+            accumulator
+        })
+        .collect()
+}
+
+fn preprocess_sql(sql: &str) -> String {
+    // TODO: We can also remove all comments here (need to analyze the SQL script in order to remain comments
+    //       in string literals).
+    remove_spaces(sql)
+}
+
+fn remove_spaces(str: &str) -> String {
+    str.chars().filter(|chr| !chr.is_whitespace()).collect()
+}
 
 #[test]
-fn migrations_test() {
+fn migrations_validate() {
     assert_eq!(MIGRATIONS.validate(), Ok(()));
 }

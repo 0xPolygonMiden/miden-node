@@ -14,7 +14,7 @@ use miden_objects::{
 use rusqlite::{
     params,
     types::{Value, ValueRef},
-    Connection, Transaction,
+    Connection, OptionalExtension, Transaction,
 };
 
 use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate};
@@ -704,6 +704,23 @@ pub fn apply_block(
 /// Returns the high 16 bits of the provided nullifier.
 pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
     (nullifier.most_significant_felt().as_int() >> 48) as u32
+}
+
+/// Checks if a table exists in the database.
+pub(crate) fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<bool> {
+    Ok(conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $1",
+            params![table_name],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some())
+}
+
+/// Returns the schema version of the database.
+pub(crate) fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
+    conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
 }
 
 /// Converts a `u64` into a [Value].
