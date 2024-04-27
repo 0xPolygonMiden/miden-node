@@ -20,7 +20,7 @@ use miden_objects::{
 };
 use rusqlite::{vtab::array, Connection};
 
-use super::{sql, AccountInfo, Note, NullifierInfo};
+use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
 use crate::db::migrations;
 
 fn create_db() -> Connection {
@@ -135,7 +135,7 @@ fn test_sql_select_notes() {
     // test multiple entries
     let mut state = vec![];
     for i in 0..10 {
-        let note = Note {
+        let note = NoteRecord {
             block_num,
             note_index: BlockNoteIndex::new(0, i as usize),
             note_id: num_to_rpo_digest(i as u64),
@@ -597,7 +597,7 @@ fn test_notes() {
     let details = Some(vec![1, 2, 3]);
     let merkle_path = notes_db.get_note_path(note_index).unwrap();
 
-    let note = Note {
+    let note = NoteRecord {
         block_num: block_num_1,
         note_index,
         note_id,
@@ -631,7 +631,7 @@ fn test_notes() {
     create_block(&mut conn, block_num_2);
 
     // insertion second note with same tag, but on higher block
-    let note2 = Note {
+    let note2 = NoteRecord {
         block_num: block_num_2,
         note_index: note.note_index,
         note_id: num_to_rpo_digest(3),

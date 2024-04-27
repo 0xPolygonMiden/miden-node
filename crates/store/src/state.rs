@@ -24,7 +24,7 @@ use tokio::{
 use tracing::{error, info, info_span, instrument};
 
 use crate::{
-    db::{Db, Note, NullifierInfo, StateSyncUpdate},
+    db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockInputsError, StateInitializationError,
         StateSyncError,
@@ -207,7 +207,7 @@ impl State {
                         .get_note_path(note_index)
                         .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
 
-                    Ok(Note {
+                    Ok(NoteRecord {
                         block_num: block.header().block_num(),
                         note_index,
                         note_id: note.id().into(),
@@ -308,11 +308,14 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
-    /// Queries a list of [Note] from the database.
+    /// Queries a list of [NoteRecord] from the database.
     ///
-    /// If the provided list of [NoteId] given is empty or no [Note] matches the provided [NoteId]
+    /// If the provided list of [NoteId] given is empty or no [NoteRecord] matches the provided [NoteId]
     /// an empty list is returned.
-    pub async fn get_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<Note>, DatabaseError> {
+    pub async fn get_notes_by_id(
+        &self,
+        note_ids: Vec<NoteId>,
+    ) -> Result<Vec<NoteRecord>, DatabaseError> {
         self.db.select_notes_by_id(note_ids).await
     }
 
@@ -465,7 +468,7 @@ impl State {
     }
 
     /// Lists all known notes, intended for testing.
-    pub async fn list_notes(&self) -> Result<Vec<Note>, DatabaseError> {
+    pub async fn list_notes(&self) -> Result<Vec<NoteRecord>, DatabaseError> {
         self.db.select_notes().await
     }
 

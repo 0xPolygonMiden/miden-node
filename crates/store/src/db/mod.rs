@@ -43,7 +43,7 @@ pub struct NullifierInfo {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Note {
+pub struct NoteRecord {
     pub block_num: BlockNumber,
     pub note_index: BlockNoteIndex,
     pub note_id: RpoDigest,
@@ -54,19 +54,11 @@ pub struct Note {
     pub merkle_path: MerklePath,
 }
 
-impl Note {
-    /// Returns the absolute position on the note tree based on the batch index
-    /// and local-to-the-subtree index.
-    pub fn absolute_note_index(&self) -> u32 {
-        self.note_index.note_index() as u32
-    }
-}
-
-impl From<Note> for NotePb {
-    fn from(note: Note) -> Self {
+impl From<NoteRecord> for NotePb {
+    fn from(note: NoteRecord) -> Self {
         Self {
             block_num: note.block_num,
-            note_index: note.absolute_note_index(),
+            note_index: note.note_index.note_index() as u32,
             note_id: Some(note.note_id.into()),
             sender: Some(note.sender.into()),
             tag: note.tag,
@@ -79,7 +71,7 @@ impl From<Note> for NotePb {
 
 #[derive(Debug, PartialEq)]
 pub struct StateSyncUpdate {
-    pub notes: Vec<Note>,
+    pub notes: Vec<NoteRecord>,
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
@@ -160,7 +152,7 @@ impl Db {
 
     /// Loads all the notes from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes(&self) -> Result<Vec<Note>> {
+    pub async fn select_notes(&self) -> Result<Vec<NoteRecord>> {
         self.pool.get().await?.interact(sql::select_notes).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select notes task failed: {err}"))
         })?
@@ -264,7 +256,7 @@ impl Db {
 
     /// Loads all the Note's matching a certain NoteId from the database.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<Note>> {
+    pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<NoteRecord>> {
         self.pool
             .get()
             .await?
@@ -286,7 +278,7 @@ impl Db {
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
         block_header: BlockHeader,
-        notes: Vec<Note>,
+        notes: Vec<NoteRecord>,
         nullifiers: Vec<Nullifier>,
         accounts: Vec<BlockAccountUpdate>,
     ) -> Result<()> {

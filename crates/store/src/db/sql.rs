@@ -17,7 +17,7 @@ use rusqlite::{
     Connection, Transaction,
 };
 
-use super::{Note, NullifierInfo, Result, StateSyncUpdate};
+use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -315,7 +315,7 @@ pub fn select_nullifiers_by_block_range(
 /// # Returns
 ///
 /// A vector with notes, or an error.
-pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
+pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
     let mut stmt = conn.prepare(
         "
         SELECT
@@ -347,7 +347,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
-        notes.push(Note {
+        notes.push(NoteRecord {
             block_num: row.get(0)?,
             note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
             note_id,
@@ -371,7 +371,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
 ///
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
-pub fn insert_notes(transaction: &Transaction, notes: &[Note]) -> Result<usize> {
+pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<usize> {
     let mut stmt = transaction.prepare(
         "
         INSERT INTO
@@ -430,7 +430,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     tags: &[u32],
     account_ids: &[AccountId],
     block_num: BlockNumber,
-) -> Result<Vec<Note>> {
+) -> Result<Vec<NoteRecord>> {
     let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
@@ -483,7 +483,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
-        let note = Note {
+        let note = NoteRecord {
             block_num,
             note_index,
             note_id,
@@ -504,7 +504,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
 ///
 /// - Empty vector if no matching `note`.
 /// - Otherwise, notes which `note_hash` matches the `NoteId` as bytes.
-pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<Note>> {
+pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<NoteRecord>> {
     let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
     let mut stmt = conn.prepare(
@@ -538,7 +538,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
-        notes.push(Note {
+        notes.push(NoteRecord {
             block_num: row.get(0)?,
             note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
             details,
@@ -686,7 +686,7 @@ pub fn get_state_sync(
 pub fn apply_block(
     transaction: &Transaction,
     block_header: &BlockHeader,
-    notes: &[Note],
+    notes: &[NoteRecord],
     nullifiers: &[Nullifier],
     accounts: &[BlockAccountUpdate],
 ) -> Result<usize> {
