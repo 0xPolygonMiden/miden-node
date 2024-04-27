@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.1 (2024-04-24)
+## 0.2.1 (2024-04-27)
 
 * Combined node components into a single binary (#323).
 
