@@ -2,12 +2,12 @@
 name = "miden-faucet"
 version = "0.2.1"
 description = "Miden node token faucet"
+readme = "README.md"
 keywords = ["miden", "node", "faucet"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
-readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
