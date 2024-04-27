@@ -200,4 +200,4 @@ This request doesn't have any parameters.
 
 ## License
 
-This project is [MIT licensed](../LICENSE).
+This project is [MIT licensed](../../LICENSE).

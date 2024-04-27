@@ -128,4 +128,4 @@ This method doesn't return any data.
 
 ## License
 
-This project is [MIT licensed](../LICENSE).
+This project is [MIT licensed](../../LICENSE).
