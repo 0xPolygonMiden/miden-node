@@ -92,11 +92,12 @@ where
         let block_header_witness = BlockWitness::new(block_inputs, batches)?;
 
         let new_block_header = self.block_kernel.prove(block_header_witness)?;
-
         let block_num = new_block_header.block_num();
 
+        // TODO: return an error?
         let block =
-            Block::new(new_block_header, updated_accounts, created_notes, produced_nullifiers);
+            Block::new(new_block_header, updated_accounts, created_notes, produced_nullifiers)
+                .expect("invalid block components");
 
         let block_hash = block.hash();
 

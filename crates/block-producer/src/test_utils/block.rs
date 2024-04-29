@@ -146,6 +146,7 @@ impl MockBlockBuilder {
             created_notes,
             self.produced_nullifiers.unwrap_or_default(),
         )
+        .unwrap()
     }
 }
 
