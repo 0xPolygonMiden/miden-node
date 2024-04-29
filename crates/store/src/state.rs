@@ -4,19 +4,18 @@
 //! data is atomically written, and that reads are consistent.
 use std::{mem, sync::Arc};
 
-use miden_node_proto::{
-    domain::accounts::{AccountInfo, AccountUpdateDetails},
-    AccountInputRecord, NullifierWitness,
-};
+use miden_node_proto::{domain::accounts::AccountInfo, AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
-    block::BlockNoteTree,
+    block::{Block, BlockNoteIndex, BlockNoteTree},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteId, NoteMetadata, Nullifier},
-    AccountError, BlockHeader, ACCOUNT_TREE_DEPTH, ZERO,
+    notes::{NoteId, Nullifier},
+    transaction::OutputNote,
+    utils::Serializable,
+    AccountError, BlockHeader, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -25,7 +24,7 @@ use tokio::{
 use tracing::{error, info, info_span, instrument};
 
 use crate::{
-    db::{Db, Note, NoteCreated, NullifierInfo, StateSyncUpdate},
+    db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockInputsError, StateInitializationError,
         StateSyncError,
@@ -101,14 +100,8 @@ impl State {
     /// - the in-memory structures are updated, and the lock is released.
     // TODO: This span is logged in a root span, we should connect it to the parent span.
     #[instrument(target = "miden-store", skip_all, err)]
-    pub async fn apply_block(
-        &self,
-        block_header: BlockHeader,
-        nullifiers: Vec<Nullifier>,
-        accounts: Vec<AccountUpdateDetails>,
-        notes: Vec<NoteCreated>,
-    ) -> Result<(), ApplyBlockError> {
-        let _ = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
+    pub async fn apply_block(&self, block: Block) -> Result<(), ApplyBlockError> {
+        let _lock = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
 
         // ensures the right block header is being processed
         let prev_block = self
@@ -117,10 +110,10 @@ impl State {
             .await?
             .ok_or(ApplyBlockError::DbBlockHeaderEmpty)?;
 
-        if block_header.block_num() != prev_block.block_num() + 1 {
+        if block.header().block_num() != prev_block.block_num() + 1 {
             return Err(ApplyBlockError::NewBlockInvalidBlockNum);
         }
-        if block_header.prev_hash() != prev_block.hash() {
+        if block.header().prev_hash() != prev_block.hash() {
             return Err(ApplyBlockError::NewBlockInvalidPrevHash);
         }
 
@@ -131,7 +124,8 @@ impl State {
             let span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
 
             // nullifiers can be produced only once
-            let duplicate_nullifiers: Vec<_> = nullifiers
+            let duplicate_nullifiers: Vec<_> = block
+                .created_nullifiers()
                 .iter()
                 .filter(|&n| inner.nullifier_tree.get_block_num(n).is_some())
                 .cloned()
@@ -154,24 +148,24 @@ impl State {
                         error,
                     }
                 })?;
-                if peaks.hash_peaks() != block_header.chain_root() {
+                if peaks.hash_peaks() != block.header().chain_root() {
                     return Err(ApplyBlockError::NewBlockInvalidChainRoot);
                 }
 
-                chain_mmr.add(block_header.hash());
+                chain_mmr.add(block.hash());
                 chain_mmr
             };
 
             // update nullifier tree
             let nullifier_tree = {
                 let mut nullifier_tree = inner.nullifier_tree.clone();
-                for nullifier in nullifiers.iter() {
+                for nullifier in block.created_nullifiers() {
                     nullifier_tree
-                        .insert(nullifier, block_header.block_num())
+                        .insert(nullifier, block.header().block_num())
                         .map_err(ApplyBlockError::FailedToUpdateNullifierTree)?;
                 }
 
-                if nullifier_tree.root() != block_header.nullifier_root() {
+                if nullifier_tree.root() != block.header().nullifier_root() {
                     return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
                 }
                 nullifier_tree
@@ -179,38 +173,48 @@ impl State {
 
             // update account tree
             let mut account_tree = inner.account_tree.clone();
-            for update in &accounts {
+            for update in block.updated_accounts() {
                 account_tree.insert(
-                    LeafIndex::new_max_depth(update.account_id.into()),
-                    update.final_state_hash.into(),
+                    LeafIndex::new_max_depth(update.account_id().into()),
+                    update.new_state_hash().into(),
                 );
             }
 
-            if account_tree.root() != block_header.account_root() {
+            if account_tree.root() != block.header().account_root() {
                 return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
             }
 
-            // build notes tree
-            let note_tree = build_note_tree(&notes)?;
-            if note_tree.root() != block_header.note_root() {
+            // build note tree
+            // TODO: Once https://github.com/0xPolygonMiden/miden-base/pull/630 is merged, we can
+            //       substitute it with just:
+            //      `let note_tree = block.build_note_tree().map_err(ApplyBlockError::FailedToCreateNoteTree)?;`
+            let note_tree = build_note_tree(block.notes())?;
+            if note_tree.root() != block.header().note_root() {
                 return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
             }
 
             drop(span);
 
-            let notes = notes
-                .into_iter()
-                .map(|note_created| {
+            let notes = block
+                .notes()
+                .map(|(note_index, note)| {
+                    let details = match note {
+                        OutputNote::Public(note) => Some(note.to_bytes()),
+                        OutputNote::Private(_) => None,
+                    };
+
                     let merkle_path = note_tree
-                        .get_note_path(
-                            note_created.batch_index as usize,
-                            note_created.note_index as usize,
-                        )
+                        .get_note_path(note_index)
                         .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
 
-                    Ok(Note {
-                        block_num: block_header.block_num(),
-                        note_created,
+                    Ok(NoteRecord {
+                        block_num: block.header().block_num(),
+                        note_index,
+                        note_id: note.id().into(),
+                        note_type: note.metadata().note_type(),
+                        sender: note.metadata().sender().into(),
+                        tag: note.metadata().tag().into(),
+                        details,
                         merkle_path,
                     })
                 })
@@ -218,6 +222,9 @@ impl State {
 
             (account_tree, chain_mmr, nullifier_tree, notes)
         };
+
+        let block_num = block.header().block_num();
+        let block_hash = block.hash();
 
         // signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
@@ -230,8 +237,15 @@ impl State {
         // spawned.
         let db = self.db.clone();
         let handle = tokio::spawn(async move {
-            db.apply_block(allow_acquire, acquire_done, block_header, notes, nullifiers, accounts)
-                .await
+            db.apply_block(
+                allow_acquire,
+                acquire_done,
+                block.header(),
+                notes,
+                block.created_nullifiers().to_vec(),
+                block.updated_accounts().to_vec(),
+            )
+            .await
         });
 
         acquired_allowed
@@ -266,12 +280,7 @@ impl State {
                 error!(err = err.to_string(), COMPONENT, "apply_block failed with a DB error");
             },
             Ok(Ok(())) => {
-                info!(
-                    block_hash = block_header.hash().to_hex(),
-                    block_num = block_header.block_num(),
-                    COMPONENT,
-                    "apply_block sucessfull"
-                );
+                info!(%block_hash, block_num, COMPONENT, "apply_block successful");
             },
         }
 
@@ -299,11 +308,14 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
-    /// Queries a list of [Note] from the database.
+    /// Queries a list of [NoteRecord] from the database.
     ///
-    /// If the provided list of [NoteId] given is empty or no [Note] matches the provided [NoteId]
+    /// If the provided list of [NoteId] given is empty or no [NoteRecord] matches the provided [NoteId]
     /// an empty list is returned.
-    pub async fn get_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<Note>, DatabaseError> {
+    pub async fn get_notes_by_id(
+        &self,
+        note_ids: Vec<NoteId>,
+    ) -> Result<Vec<NoteRecord>, DatabaseError> {
         self.db.select_notes_by_id(note_ids).await
     }
 
@@ -456,7 +468,7 @@ impl State {
     }
 
     /// Lists all known notes, intended for testing.
-    pub async fn list_notes(&self) -> Result<Vec<Note>, DatabaseError> {
+    pub async fn list_notes(&self) -> Result<Vec<NoteRecord>, DatabaseError> {
         self.db.select_notes().await
     }
 
@@ -471,20 +483,10 @@ impl State {
 
 /// Creates a [BlockNoteTree] from the `notes`.
 #[instrument(target = "miden-store", skip_all)]
-pub fn build_note_tree(notes: &[NoteCreated]) -> Result<BlockNoteTree, ApplyBlockError> {
-    // TODO: create SimpleSmt without this allocation
-    let mut entries: Vec<(usize, usize, (RpoDigest, NoteMetadata))> =
-        Vec::with_capacity(notes.len() * 2);
-
-    for note in notes.iter() {
-        let note_metadata =
-            NoteMetadata::new(note.sender.try_into()?, note.note_type, note.tag.into(), ZERO)?;
-        entries.push((
-            note.batch_index as usize,
-            note.note_index as usize,
-            (note.note_id, note_metadata),
-        ));
-    }
+pub fn build_note_tree<'a>(
+    notes: impl Iterator<Item = (BlockNoteIndex, &'a OutputNote)>,
+) -> Result<BlockNoteTree, ApplyBlockError> {
+    let entries = notes.map(|(note_index, note)| (note_index, note.id().into(), *note.metadata()));
 
     BlockNoteTree::with_entries(entries).map_err(ApplyBlockError::FailedToCreateNoteTree)
 }

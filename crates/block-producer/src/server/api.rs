@@ -4,7 +4,7 @@ use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
     responses::SubmitProvenTransactionResponse,
 };
-use miden_node_utils::formatting::{format_input_notes, format_opt, format_output_notes};
+use miden_node_utils::formatting::{format_input_notes, format_output_notes};
 use miden_objects::{transaction::ProvenTransaction, utils::serde::Deserializable};
 use tonic::Status;
 use tracing::{debug, info, instrument};
@@ -57,11 +57,10 @@ where
             target: COMPONENT,
             tx_id = %tx.id().to_hex(),
             account_id = %tx.account_id().to_hex(),
-            initial_account_hash = %tx.initial_account_hash(),
-            final_account_hash = %tx.final_account_hash(),
+            initial_account_hash = %tx.account_update().init_state_hash(),
+            final_account_hash = %tx.account_update().final_state_hash(),
             input_notes = %format_input_notes(tx.input_notes()),
             output_notes = %format_output_notes(tx.output_notes()),
-            tx_script_root = %format_opt(tx.tx_script_root().as_ref()),
             block_ref = %tx.block_ref(),
             "Deserialized transaction"
         );

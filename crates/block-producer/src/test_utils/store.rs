@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use miden_objects::{
-    block::BlockNoteTree,
+    block::{Block, BlockNoteTree},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::Nullifier,
     transaction::OutputNote,
@@ -12,7 +12,7 @@ use miden_objects::{
 use super::*;
 use crate::{
     batch_builder::TransactionBatch,
-    block::{AccountWitness, Block, BlockInputs},
+    block::{AccountWitness, BlockInputs},
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
@@ -169,26 +169,26 @@ impl ApplyBlock for MockStoreSuccess {
         let mut locked_produced_nullifiers = self.produced_nullifiers.write().await;
 
         // update accounts
-        for update in &block.updated_accounts {
-            locked_accounts.insert(update.account_id.into(), update.final_state_hash.into());
+        for update in block.updated_accounts() {
+            locked_accounts.insert(update.account_id().into(), update.new_state_hash().into());
         }
-        debug_assert_eq!(locked_accounts.root(), block.header.account_root());
+        debug_assert_eq!(locked_accounts.root(), block.header().account_root());
 
         // update nullifiers
-        for nullifier in &block.produced_nullifiers {
+        for nullifier in block.created_nullifiers() {
             locked_produced_nullifiers
-                .insert(nullifier.inner(), [block.header.block_num().into(), ZERO, ZERO, ZERO]);
+                .insert(nullifier.inner(), [block.header().block_num().into(), ZERO, ZERO, ZERO]);
         }
 
         // update chain mmr with new block header hash
         {
             let mut chain_mmr = self.chain_mmr.write().await;
 
-            chain_mmr.add(block.header.hash());
+            chain_mmr.add(block.hash());
         }
 
         // update last block header
-        *self.last_block_header.write().await = block.header;
+        *self.last_block_header.write().await = block.header();
 
         // update num_apply_block_called
         *self.num_apply_block_called.write().await += 1;
@@ -235,7 +235,7 @@ impl Store for MockStoreSuccess {
 
     async fn get_block_inputs(
         &self,
-        updated_accounts: impl Iterator<Item = &AccountId> + Send,
+        updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let locked_accounts = self.accounts.read().await;
@@ -248,7 +248,7 @@ impl Store for MockStoreSuccess {
 
         let accounts = {
             updated_accounts
-                .map(|&account_id| {
+                .map(|account_id| {
                     let ValuePath { value: hash, path: proof } =
                         locked_accounts.open(&account_id.into());
 
@@ -291,7 +291,7 @@ impl Store for MockStoreFailure {
 
     async fn get_block_inputs(
         &self,
-        _updated_accounts: impl Iterator<Item = &AccountId> + Send,
+        _updated_accounts: impl Iterator<Item = AccountId> + Send,
         _produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         Err(BlockInputsError::GrpcClientError(String::new()))

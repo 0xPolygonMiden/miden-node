@@ -26,15 +26,3 @@ message NoteSyncRecord {
     uint32 note_type = 5;
     merkle.MerklePath merkle_path = 6;
 }
-
-message NoteCreated {
-    uint32 batch_index = 1;
-    uint32 note_index = 2;
-    digest.Digest note_id = 3;
-    uint32 note_type = 4;
-    account.AccountId sender  = 5;
-    fixed32 tag = 6;
-    // This field will be present when the note is on-chain.
-    // details contain the `Note` in a serialized format.
-    optional bytes details = 7;
-}

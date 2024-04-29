@@ -4,7 +4,6 @@ use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    transaction::AccountDetails,
     utils::Serializable,
     Digest,
 };
@@ -16,7 +15,6 @@ use crate::{
             AccountId as AccountIdPb, AccountInfo as AccountInfoPb,
             AccountSummary as AccountSummaryPb,
         },
-        requests::AccountUpdate,
         responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
 };
@@ -105,23 +103,6 @@ impl From<&AccountInfo> for AccountInfoPb {
         Self {
             summary: Some(summary.into()),
             details: details.as_ref().map(|account| account.to_bytes()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AccountUpdateDetails {
-    pub account_id: AccountId,
-    pub final_state_hash: Digest,
-    pub details: Option<AccountDetails>,
-}
-
-impl From<&AccountUpdateDetails> for AccountUpdate {
-    fn from(update: &AccountUpdateDetails) -> Self {
-        Self {
-            account_id: Some(update.account_id.into()),
-            account_hash: Some(update.final_state_hash.into()),
-            details: update.details.as_ref().map(|details| details.to_bytes()),
         }
     }
 }
@@ -222,27 +203,5 @@ impl TryFrom<AccountTransactionInputRecord> for AccountState {
         };
 
         Ok(Self { account_id, account_hash })
-    }
-}
-
-impl TryFrom<AccountUpdate> for AccountState {
-    type Error = ConversionError;
-
-    fn try_from(value: AccountUpdate) -> Result<Self, Self::Error> {
-        Ok(Self {
-            account_id: value
-                .account_id
-                .ok_or(AccountUpdate::missing_field(stringify!(account_id)))?
-                .try_into()?,
-            account_hash: value.account_hash.map(TryInto::try_into).transpose()?,
-        })
-    }
-}
-
-impl TryFrom<&AccountUpdate> for AccountState {
-    type Error = ConversionError;
-
-    fn try_from(value: &AccountUpdate) -> Result<Self, Self::Error> {
-        value.clone().try_into()
     }
 }

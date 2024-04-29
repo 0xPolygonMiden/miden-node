@@ -1,9 +1,13 @@
 use std::fs::{self, create_dir_all};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
+use miden_node_proto::{
+    domain::accounts::{AccountInfo, AccountSummary},
+    generated::note::Note as NotePb,
+};
 use miden_objects::{
-    block::BlockNoteTree,
+    accounts::delta::AccountUpdateDetails,
+    block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteType, Nullifier},
     BlockHeader, GENESIS_BLOCK,
@@ -41,34 +45,35 @@ pub struct NullifierInfo {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct NoteCreated {
-    pub batch_index: u32,
-    pub note_index: u32,
+pub struct NoteRecord {
+    pub block_num: BlockNumber,
+    pub note_index: BlockNoteIndex,
     pub note_id: RpoDigest,
     pub note_type: NoteType,
     pub sender: AccountId,
     pub tag: u32,
     pub details: Option<Vec<u8>>,
-}
-
-impl NoteCreated {
-    /// Returns the absolute position on the note tree based on the batch index
-    /// and local-to-the-subtree index.
-    pub fn absolute_note_index(&self) -> u32 {
-        BlockNoteTree::note_index(self.batch_index as usize, self.note_index as usize) as u32
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Note {
-    pub block_num: BlockNumber,
-    pub note_created: NoteCreated,
     pub merkle_path: MerklePath,
+}
+
+impl From<NoteRecord> for NotePb {
+    fn from(note: NoteRecord) -> Self {
+        Self {
+            block_num: note.block_num,
+            note_index: note.note_index.note_index() as u32,
+            note_id: Some(note.note_id.into()),
+            sender: Some(note.sender.into()),
+            tag: note.tag,
+            note_type: note.note_type as u32,
+            merkle_path: Some(note.merkle_path.into()),
+            details: note.details,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct StateSyncUpdate {
-    pub notes: Vec<Note>,
+    pub notes: Vec<NoteRecord>,
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
@@ -147,7 +152,7 @@ impl Db {
 
     /// Loads all the notes from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes(&self) -> Result<Vec<Note>> {
+    pub async fn select_notes(&self) -> Result<Vec<NoteRecord>> {
         self.pool.get().await?.interact(sql::select_notes).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select notes task failed: {err}"))
         })?
@@ -251,7 +256,7 @@ impl Db {
 
     /// Loads all the Note's matching a certain NoteId from the database.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<Note>> {
+    pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<NoteRecord>> {
         self.pool
             .get()
             .await?
@@ -273,9 +278,9 @@ impl Db {
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
         block_header: BlockHeader,
-        notes: Vec<Note>,
+        notes: Vec<NoteRecord>,
         nullifiers: Vec<Nullifier>,
-        accounts: Vec<AccountUpdateDetails>,
+        accounts: Vec<BlockAccountUpdate>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -356,11 +361,11 @@ impl Db {
                         let accounts: Vec<_> = account_smt
                             .leaves()
                             .map(|(account_id, state_hash)| {
-                                Ok(AccountUpdateDetails {
-                                    account_id: account_id.try_into()?,
-                                    final_state_hash: state_hash.into(),
-                                    details: None,
-                                })
+                                Ok(BlockAccountUpdate::new(
+                                    account_id.try_into()?,
+                                    state_hash.into(),
+                                    AccountUpdateDetails::Private,
+                                ))
                             })
                             .collect::<Result<_, DatabaseError>>()?;
                         sql::apply_block(

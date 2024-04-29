@@ -1,24 +1,26 @@
 use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::domain::accounts::{AccountSummary, AccountUpdateDetails};
+use miden_node_proto::domain::accounts::AccountSummary;
 use miden_objects::{
     accounts::{
+        account_id::testing::{
+            ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
+            ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        },
+        delta::AccountUpdateDetails,
         Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStorageDelta,
-        AccountVaultDelta, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-        ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER,
-        ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        AccountVaultDelta,
     },
     assembly::{Assembler, ModuleAst},
     assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
-    block::BlockNoteTree,
+    block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
-    transaction::AccountDetails,
     BlockHeader, Felt, FieldElement, Word, ONE, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 
-use super::{sql, AccountInfo, Note, NoteCreated, NullifierInfo};
+use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
 use crate::db::migrations::apply_migrations;
 
 fn create_db() -> Connection {
@@ -133,17 +135,14 @@ fn test_sql_select_notes() {
     // test multiple entries
     let mut state = vec![];
     for i in 0..10 {
-        let note = Note {
+        let note = NoteRecord {
             block_num,
-            note_created: NoteCreated {
-                batch_index: 0,
-                note_index: i,
-                note_id: num_to_rpo_digest(i as u64),
-                note_type: NoteType::Public,
-                sender: i as u64,
-                tag: i,
-                details: Some(vec![1, 2, 3]),
-            },
+            note_index: BlockNoteIndex::new(0, i as usize),
+            note_id: num_to_rpo_digest(i as u64),
+            note_type: NoteType::Public,
+            sender: i as u64,
+            tag: i,
+            details: Some(vec![1, 2, 3]),
             merkle_path: MerklePath::new(vec![]),
         };
         state.push(note.clone());
@@ -185,11 +184,11 @@ fn test_sql_select_accounts() {
         let transaction = conn.transaction().unwrap();
         let res = sql::upsert_accounts(
             &transaction,
-            &[AccountUpdateDetails {
-                account_id: account_id.try_into().unwrap(),
-                final_state_hash: account_hash,
-                details: None,
-            }],
+            &[BlockAccountUpdate::new(
+                account_id.try_into().unwrap(),
+                account_hash,
+                AccountUpdateDetails::Private,
+            )],
             block_num,
         );
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
@@ -212,7 +211,7 @@ fn test_sql_public_account_details() {
     let non_fungible_faucet_id =
         AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
 
-    let mut storage = AccountStorage::new(vec![]).unwrap();
+    let mut storage = AccountStorage::new(vec![], vec![]).unwrap();
     storage.set_item(1, num_to_word(1)).unwrap();
     storage.set_item(3, num_to_word(3)).unwrap();
     storage.set_item(5, num_to_word(5)).unwrap();
@@ -243,11 +242,11 @@ fn test_sql_public_account_details() {
     let transaction = conn.transaction().unwrap();
     let inserted = sql::upsert_accounts(
         &transaction,
-        &[AccountUpdateDetails {
+        &[BlockAccountUpdate::new(
             account_id,
-            final_state_hash: account.hash(),
-            details: Some(AccountDetails::Full(account.clone())),
-        }],
+            account.hash(),
+            AccountUpdateDetails::New(account.clone()),
+        )],
         block_num,
     )
     .unwrap();
@@ -266,6 +265,7 @@ fn test_sql_public_account_details() {
     let storage_delta = AccountStorageDelta {
         cleared_items: vec![3],
         updated_items: vec![(4, num_to_word(5)), (5, num_to_word(6))],
+        updated_maps: vec![],
     };
 
     let nft2 = Asset::NonFungible(
@@ -287,11 +287,11 @@ fn test_sql_public_account_details() {
     let transaction = conn.transaction().unwrap();
     let inserted = sql::upsert_accounts(
         &transaction,
-        &[AccountUpdateDetails {
+        &[BlockAccountUpdate::new(
             account_id,
-            final_state_hash: account.hash(),
-            details: Some(AccountDetails::Delta(delta.clone())),
-        }],
+            account.hash(),
+            AccountUpdateDetails::Delta(delta.clone()),
+        )],
         block_num,
     )
     .unwrap();
@@ -316,6 +316,7 @@ fn test_sql_public_account_details() {
     let storage_delta = AccountStorageDelta {
         cleared_items: vec![3],
         updated_items: vec![],
+        updated_maps: vec![],
     };
     account_read
         .apply_delta(
@@ -535,11 +536,11 @@ fn test_db_account() {
     let transaction = conn.transaction().unwrap();
     let row_count = sql::upsert_accounts(
         &transaction,
-        &[AccountUpdateDetails {
-            account_id: account_id.try_into().unwrap(),
-            final_state_hash: account_hash,
-            details: None,
-        }],
+        &[BlockAccountUpdate::new(
+            account_id.try_into().unwrap(),
+            account_hash,
+            AccountUpdateDetails::Private,
+        )],
         block_num,
     )
     .unwrap();
@@ -585,29 +586,25 @@ fn test_notes() {
     assert!(res.is_empty());
 
     // test insertion
-    let batch_index = 0u32;
-    let note_index = 2u32;
+    let note_index = BlockNoteIndex::new(0, 2);
     let note_id = num_to_rpo_digest(3);
     let tag = 5u32;
     let sender = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
     let note_metadata = NoteMetadata::new(sender, NoteType::OffChain, tag.into(), ZERO).unwrap();
 
-    let values = [(batch_index as usize, note_index as usize, (note_id, note_metadata))];
+    let values = [(note_index, note_id, note_metadata)];
     let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
     let details = Some(vec![1, 2, 3]);
-    let merkle_path = notes_db.get_note_path(batch_index as usize, note_index as usize).unwrap();
+    let merkle_path = notes_db.get_note_path(note_index).unwrap();
 
-    let note = Note {
+    let note = NoteRecord {
         block_num: block_num_1,
-        note_created: NoteCreated {
-            batch_index,
-            note_index,
-            note_id,
-            note_type: NoteType::Public,
-            sender: sender.into(),
-            tag,
-            details,
-        },
+        note_index,
+        note_id,
+        note_type: NoteType::Public,
+        sender: sender.into(),
+        tag,
+        details,
         merkle_path: merkle_path.clone(),
     };
 
@@ -634,17 +631,14 @@ fn test_notes() {
     create_block(&mut conn, block_num_2);
 
     // insertion second note with same tag, but on higher block
-    let note2 = Note {
+    let note2 = NoteRecord {
         block_num: block_num_2,
-        note_created: NoteCreated {
-            batch_index: note.note_created.batch_index,
-            note_index: note.note_created.note_index,
-            note_id: num_to_rpo_digest(3),
-            note_type: NoteType::OffChain,
-            sender: note.note_created.sender,
-            tag: note.note_created.tag,
-            details: None,
-        },
+        note_index: note.note_index,
+        note_id: num_to_rpo_digest(3),
+        note_type: NoteType::OffChain,
+        sender: note.sender,
+        tag: note.tag,
+        details: None,
         merkle_path,
     };
 
@@ -665,8 +659,7 @@ fn test_notes() {
 
     // test query notes by id
     let notes = vec![note, note2];
-    let note_ids: Vec<RpoDigest> =
-        notes.clone().iter().map(|note| note.note_created.note_id).collect();
+    let note_ids: Vec<RpoDigest> = notes.clone().iter().map(|note| note.note_id).collect();
     let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
 
     let res = sql::select_notes_by_id(&mut conn, &note_ids).unwrap();
@@ -675,8 +668,8 @@ fn test_notes() {
     // test notes have correct details
     let note_0 = res[0].clone();
     let note_1 = res[1].clone();
-    assert_eq!(note_0.note_created.details, Some(vec![1, 2, 3]));
-    assert_eq!(note_1.note_created.details, None)
+    assert_eq!(note_0.details, Some(vec![1, 2, 3]));
+    assert_eq!(note_1.details, None)
 }
 
 // UTILITIES

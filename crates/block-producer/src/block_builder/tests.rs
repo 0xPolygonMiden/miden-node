@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use miden_objects::{
-    accounts::{AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER},
+    accounts::{account_id::testing::ACCOUNT_ID_OFF_CHAIN_SENDER, AccountId},
     Digest, Felt,
 };
 
