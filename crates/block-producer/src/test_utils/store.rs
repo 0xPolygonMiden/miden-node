@@ -122,7 +122,7 @@ impl MockStoreSuccessBuilder {
             notes_smt.root(),
             Digest::default(),
             Digest::default(),
-            ZERO,
+            0,
             1,
         );
 

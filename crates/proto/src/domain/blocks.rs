@@ -19,9 +19,7 @@ impl From<&BlockHeader> for block_header::BlockHeader {
             note_root: Some(header.note_root().into()),
             batch_root: Some(header.batch_root().into()),
             proof_hash: Some(header.proof_hash().into()),
-            version: u64::from(header.version())
-                .try_into()
-                .expect("Failed to convert BlockHeader.version into u32"),
+            version: header.version(),
             timestamp: header.timestamp(),
         }
     }
@@ -75,7 +73,7 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
                 .proof_hash
                 .ok_or(block_header::BlockHeader::missing_field(stringify!(proof_hash)))?
                 .try_into()?,
-            value.version.into(),
+            value.version,
             value.timestamp,
         ))
     }
