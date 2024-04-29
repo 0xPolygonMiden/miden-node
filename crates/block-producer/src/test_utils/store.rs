@@ -6,7 +6,7 @@ use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::Nullifier,
     transaction::OutputNote,
-    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
+    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 
 use super::*;
@@ -123,7 +123,7 @@ impl MockStoreSuccessBuilder {
             Digest::default(),
             Digest::default(),
             ZERO,
-            ONE,
+            1,
         );
 
         MockStoreSuccess {

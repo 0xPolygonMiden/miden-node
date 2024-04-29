@@ -9,7 +9,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 pub struct GenesisInput {
     pub version: u64,
-    pub timestamp: u64,
+    pub timestamp: u32,
     pub accounts: Vec<AccountInput>,
 }
 

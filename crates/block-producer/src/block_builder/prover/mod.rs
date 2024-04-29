@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use miden_objects::{assembly::Assembler, BlockHeader, Digest, Felt};
+use miden_objects::{assembly::Assembler, BlockHeader, Digest};
 use miden_processor::{execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
 
@@ -216,12 +216,12 @@ impl BlockProver {
 
         let batch_root = Digest::default();
         let proof_hash = Digest::default();
-        let timestamp: Felt = SystemTime::now()
+        let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("today is expected to be after 1970")
-            .as_millis()
+            .as_secs()
             .try_into()
-            .expect("timestamp is greater than or equal to the field modulus");
+            .expect("timestamp must fit to `u32`");
 
         Ok(BlockHeader::new(
             prev_hash,
