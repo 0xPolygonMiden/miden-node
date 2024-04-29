@@ -26,7 +26,7 @@ CREATE TABLE
     block_num   INTEGER NOT NULL,
     batch_index INTEGER NOT NULL, -- Index of batch in block, starting from 0
     note_index  INTEGER NOT NULL, -- Index of note in batch, starting from 0
-    note_hash   BLOB    NOT NULL,
+    note_id     BLOB    NOT NULL,
     note_type   INTEGER NOT NULL, -- 1-Public (0b01), 2-OffChain (0b10), 3-Encrypted (0b11)
     sender      INTEGER NOT NULL,
     tag         INTEGER NOT NULL,

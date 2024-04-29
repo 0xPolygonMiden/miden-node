@@ -322,7 +322,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             block_num,
             batch_index,
             note_index,
-            note_hash,
+            note_id,
             note_type,
             sender,
             tag,
@@ -380,7 +380,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             block_num,
             batch_index,
             note_index,
-            note_hash,
+            note_id,
             note_type,
             sender,
             tag,
@@ -440,7 +440,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
             block_num,
             batch_index,
             note_index,
-            note_hash,
+            note_id,
             note_type,
             sender,
             tag,
@@ -503,7 +503,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
 /// # Returns
 ///
 /// - Empty vector if no matching `note`.
-/// - Otherwise, notes which `note_hash` matches the `NoteId` as bytes.
+/// - Otherwise, notes which `note_id` matches the `NoteId` as bytes.
 pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<NoteRecord>> {
     let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
@@ -513,7 +513,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
             block_num,
             batch_index,
             note_index,
-            note_hash,
+            note_id,
             note_type,
             sender,
             tag,
@@ -522,7 +522,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         FROM
             notes
         WHERE
-            note_hash IN rarray(?1)
+            note_id IN rarray(?1)
         ",
     )?;
     let mut rows = stmt.query(params![Rc::new(note_ids)])?;
