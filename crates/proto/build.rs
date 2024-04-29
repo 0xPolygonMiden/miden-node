@@ -28,7 +28,7 @@ fn main() -> miette::Result<()> {
     // Generate the stub of the user facing server from its proto file
     tonic_build::configure()
         .file_descriptor_set_path(&file_descriptor_path)
-        .type_attribute(".", "#[derive(Eq, PartialOrd, Ord, Hash)]")
+        //.type_attribute(".", "#[derive(Eq, PartialOrd, Ord, Hash)]")
         .skip_protoc_run()
         .out_dir("src/generated")
         .compile_with_config(prost_config, protos, includes)

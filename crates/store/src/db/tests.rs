@@ -139,9 +139,13 @@ fn test_sql_select_notes() {
             block_num,
             note_index: BlockNoteIndex::new(0, i as usize),
             note_id: num_to_rpo_digest(i as u64),
-            note_type: NoteType::Public,
-            sender: i as u64,
-            tag: i,
+            metadata: NoteMetadata::new(
+                (i as u64).try_into().unwrap(),
+                NoteType::Public,
+                i.into(),
+                Default::default(),
+            )
+            .unwrap(),
             details: Some(vec![1, 2, 3]),
             merkle_path: MerklePath::new(vec![]),
         };
@@ -601,9 +605,13 @@ fn test_notes() {
         block_num: block_num_1,
         note_index,
         note_id,
-        note_type: NoteType::Public,
-        sender: sender.into(),
-        tag,
+        metadata: NoteMetadata::new(
+            sender,
+            NoteType::Public,
+            tag.into(),
+            Default::default(),
+        )
+        .unwrap(),
         details,
         merkle_path: merkle_path.clone(),
     };
@@ -635,9 +643,7 @@ fn test_notes() {
         block_num: block_num_2,
         note_index: note.note_index,
         note_id: num_to_rpo_digest(3),
-        note_type: NoteType::OffChain,
-        sender: note.sender,
-        tag: note.tag,
+        metadata: note.metadata,
         details: None,
         merkle_path,
     };

@@ -1,0 +1,21 @@
+# This is an example configuration file for the Miden node.
+
+[block_producer]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-block-producer', 1)) % 2**16
+endpoint = { host = "localhost", port = 48046 }
+store_url = "http://localhost:28943"
+# enables or disables the verification of transaction proofs before they are accepted into the
+# transaction queue.
+verify_tx_proofs = true
+
+[rpc]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-rpc', 1)) % 2**16
+endpoint = { host = "0.0.0.0", port = 57291 }
+block_producer_url = "http://localhost:48046"
+store_url = "http://localhost:28943"
+
+[store]
+# port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-store', 1)) % 2**16
+endpoint = { host = "localhost", port = 28943 }
+database_filepath = "db/miden-store.sqlite3"
+genesis_filepath = "genesis.dat"

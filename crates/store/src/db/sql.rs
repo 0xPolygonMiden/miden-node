@@ -7,7 +7,7 @@ use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
@@ -323,9 +323,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             batch_index,
             note_index,
             note_id,
-            note_type,
-            sender,
-            tag,
+            note_metadata,
             merkle_path,
             details
         FROM
@@ -347,13 +345,18 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
+        let note_type = row.get::<_, u8>(4)?.try_into()?;
+        let sender = column_value_as_u64(row, 5)?;
+        let tag: u32 = row.get(6)?;
+
+        let metadata =
+            NoteMetadata::new(sender.try_into()?, note_type, tag.into(), Default::default())?;
+
         notes.push(NoteRecord {
             block_num: row.get(0)?,
             note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
             note_id,
-            note_type: row.get::<_, u8>(4)?.try_into()?,
-            sender: column_value_as_u64(row, 5)?,
-            tag: row.get(6)?,
+            metadata,
             details,
             merkle_path,
         })
@@ -396,15 +399,14 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
     let mut count = 0;
     for note in notes.iter() {
         let details = note.details.as_ref().map(|details| details.to_bytes());
-
         count += stmt.execute(params![
             note.block_num,
             note.note_index.batch_idx(),
             note.note_index.note_idx_in_batch(),
             note.note_id.to_bytes(),
-            note.note_type as u8,
-            u64_to_value(note.sender),
-            note.tag,
+            note.metadata.note_type() as u8,
+            u64_to_value(note.metadata.sender().into()),
+            note.metadata.tag().inner(),
             note.merkle_path.to_bytes(),
             details
         ])?;
@@ -475,22 +477,27 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?);
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
-        let note_type = row.get::<_, u8>(4)?.try_into()?;
+        let note_type = row.get::<_, u8>(4)?;
         let sender = column_value_as_u64(row, 5)?;
-        let tag = row.get(6)?;
+        let tag: u32 = row.get(6)?;
         let merkle_path_data = row.get_ref(7)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
+        let metadata = NoteMetadata::new(
+            sender.try_into()?,
+            NoteType::try_from(note_type)?,
+            tag.into(),
+            Default::default(),
+        )?;
+
         let note = NoteRecord {
             block_num,
             note_index,
             note_id,
-            note_type,
-            sender,
-            tag,
             details,
+            metadata,
             merkle_path,
         };
         res.push(note);
@@ -538,14 +545,19 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
+        let note_type = row.get::<_, u8>(4)?.try_into()?;
+        let sender = column_value_as_u64(row, 5)?;
+        let tag: u32 = row.get(6)?;
+
+        let metadata =
+            NoteMetadata::new(sender.try_into()?, note_type, tag.into(), Default::default())?;
+
         notes.push(NoteRecord {
             block_num: row.get(0)?,
             note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
             details,
             note_id: note_id.into(),
-            note_type: row.get::<_, u8>(4)?.try_into()?,
-            sender: column_value_as_u64(row, 5)?,
-            tag: row.get(6)?,
+            metadata,
             merkle_path,
         })
     }
