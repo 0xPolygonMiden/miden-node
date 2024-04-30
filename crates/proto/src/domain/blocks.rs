@@ -11,6 +11,7 @@ use crate::{
 impl From<&BlockHeader> for block_header::BlockHeader {
     fn from(header: &BlockHeader) -> Self {
         Self {
+            version: header.version(),
             prev_hash: Some(header.prev_hash().into()),
             block_num: header.block_num(),
             chain_root: Some(header.chain_root().into()),
@@ -19,7 +20,6 @@ impl From<&BlockHeader> for block_header::BlockHeader {
             note_root: Some(header.note_root().into()),
             batch_root: Some(header.batch_root().into()),
             proof_hash: Some(header.proof_hash().into()),
-            version: header.version(),
             timestamp: header.timestamp(),
         }
     }
