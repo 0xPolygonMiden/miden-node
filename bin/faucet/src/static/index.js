@@ -1,12 +1,19 @@
 document.addEventListener('DOMContentLoaded', function () {
     const faucetIdElem = document.getElementById('faucetId');
     const button = document.getElementById('button');
+    const privateButton = document.getElementById('button-private');
+    const publicButton = document.getElementById('button-public');
     const accountIdInput = document.getElementById('account-id');
     const errorMessage = document.getElementById('error-message');
+    let isPrivateNote = true;
 
     fetchMetadata();
 
     button.addEventListener('click', handleButtonClick);
+    privateButton.textContent = 'Private Note';
+    publicButton.textContent = 'Public Note';
+    privateButton.addEventListener('click', () => {toggleVisibility(true)});
+    publicButton.addEventListener('click', () => {toggleVisibility(false)});
 
     function fetchMetadata() {
         fetch('http://localhost:8080/get_metadata')
@@ -38,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const response = await fetch('http://localhost:8080/get_tokens', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ account_id: accountId })
+                body: JSON.stringify({ account_id: accountId, is_private_note: isPrivateNote})
             });
 
             if (!response.ok) {
@@ -54,6 +61,21 @@ document.addEventListener('DOMContentLoaded', function () {
         } finally {
             button.textContent = button.dataset.originalText;
         }
+    }
+
+    function toggleVisibility(clickedPrivate) {
+        if (clickedPrivate) {
+            privateButton.classList.add('active');
+            privateButton.classList.remove('inactive');
+            publicButton.classList.remove('active');
+            publicButton.classList.add('inactive');
+        } else {
+            publicButton.classList.add('active');
+            publicButton.classList.remove('inactive');
+            privateButton.classList.remove('active');
+            privateButton.classList.add('inactive');
+        }
+        isPrivateNote = clickedPrivate;
     }
 
     function downloadBlob(blob, filename) {
