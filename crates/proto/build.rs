@@ -3,8 +3,6 @@ use std::{env, fs, path::PathBuf};
 use miette::IntoDiagnostic;
 use prost::Message;
 
-const DERIVES: &str = "#[derive(Eq, PartialOrd, Ord, Hash)]";
-
 fn main() -> miette::Result<()> {
     // Compute the directory of the `proto` definitions
     let cwd: PathBuf = env::current_dir().into_diagnostic()?;
