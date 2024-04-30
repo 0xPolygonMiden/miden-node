@@ -605,13 +605,8 @@ fn test_notes() {
         block_num: block_num_1,
         note_index,
         note_id,
-        metadata: NoteMetadata::new(
-            sender,
-            NoteType::Public,
-            tag.into(),
-            Default::default(),
-        )
-        .unwrap(),
+        metadata: NoteMetadata::new(sender, NoteType::Public, tag.into(), Default::default())
+            .unwrap(),
         details,
         merkle_path: merkle_path.clone(),
     };

@@ -323,7 +323,9 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             batch_index,
             note_index,
             note_id,
-            note_metadata,
+            note_type,
+            sender,
+            tag,
             merkle_path,
             details
         FROM
