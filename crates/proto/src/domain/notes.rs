@@ -21,15 +21,13 @@ impl TryFrom<crate::generated::note::NoteMetadata> for NoteMetadata {
     }
 }
 
-impl TryInto<crate::generated::note::NoteMetadata> for NoteMetadata {
-    type Error = ConversionError;
+impl From<NoteMetadata> for crate::generated::note::NoteMetadata {
+    fn from(val: NoteMetadata) -> Self {
+        let sender = Some(val.sender().into());
+        let note_type = val.note_type() as i32;
+        let tag = val.tag().into();
+        let aux = val.aux().into();
 
-    fn try_into(self) -> Result<crate::generated::note::NoteMetadata, Self::Error> {
-        let sender = Some(self.sender().into());
-        let note_type = self.note_type() as i32;
-        let tag = self.tag().into();
-        let aux = self.aux().into();
-
-        Ok(crate::generated::note::NoteMetadata { sender, note_type, tag, aux })
+        crate::generated::note::NoteMetadata { sender, note_type, tag, aux }
     }
 }

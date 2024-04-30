@@ -143,7 +143,7 @@ impl api_server::Api for StoreApi {
             .map(|note| NoteSyncRecord {
                 note_index: note.note_index.to_absolute_index() as u32,
                 note_id: Some(note.note_id.into()),
-                metadata: Some(note.metadata.try_into().unwrap()),
+                metadata: Some(note.metadata.into()),
                 merkle_path: Some(note.merkle_path.into()),
             })
             .collect();
