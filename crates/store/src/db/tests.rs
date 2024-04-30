@@ -140,7 +140,7 @@ fn test_sql_select_notes() {
             note_index: BlockNoteIndex::new(0, i as usize),
             note_id: num_to_rpo_digest(i as u64),
             metadata: NoteMetadata::new(
-                (i as u64).try_into().unwrap(),
+                ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
                 NoteType::Public,
                 i.into(),
                 Default::default(),
