@@ -32,15 +32,15 @@ fn create_db() -> Connection {
 
 fn create_block(conn: &mut Connection, block_num: u32) {
     let block_header = BlockHeader::new(
-        num_to_rpo_digest(1),
+        1_u8.into(),
+        num_to_rpo_digest(2),
         block_num,
-        num_to_rpo_digest(3),
         num_to_rpo_digest(4),
         num_to_rpo_digest(5),
         num_to_rpo_digest(6),
         num_to_rpo_digest(7),
         num_to_rpo_digest(8),
-        9_u8.into(),
+        num_to_rpo_digest(9),
         10_u8.into(),
     );
 
@@ -462,15 +462,15 @@ fn test_db_block_header() {
     assert!(res.is_empty());
 
     let block_header = BlockHeader::new(
-        num_to_rpo_digest(1),
-        2,
-        num_to_rpo_digest(3),
+        1_u8.into(),
+        num_to_rpo_digest(2),
+        3,
         num_to_rpo_digest(4),
         num_to_rpo_digest(5),
         num_to_rpo_digest(6),
         num_to_rpo_digest(7),
         num_to_rpo_digest(8),
-        9_u8.into(),
+        num_to_rpo_digest(9),
         10_u8.into(),
     );
 
@@ -494,15 +494,15 @@ fn test_db_block_header() {
     assert_eq!(res.unwrap(), block_header);
 
     let block_header2 = BlockHeader::new(
-        num_to_rpo_digest(11),
-        12,
-        num_to_rpo_digest(13),
+        11_u8.into(),
+        num_to_rpo_digest(12),
+        13,
         num_to_rpo_digest(14),
         num_to_rpo_digest(15),
         num_to_rpo_digest(16),
         num_to_rpo_digest(17),
         num_to_rpo_digest(18),
-        19_u8.into(),
+        num_to_rpo_digest(19),
         20_u8.into(),
     );
 

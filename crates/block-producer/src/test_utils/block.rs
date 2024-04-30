@@ -3,7 +3,7 @@ use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt},
     notes::Nullifier,
     transaction::OutputNote,
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, ONE, ZERO,
+    BlockHeader, Digest, ACCOUNT_TREE_DEPTH,
 };
 
 use super::MockStoreSuccess;
@@ -45,6 +45,7 @@ pub async fn build_expected_block_header(
 
     // Build header
     BlockHeader::new(
+        0,
         last_block_header.hash(),
         last_block_header.block_num() + 1,
         new_chain_mmr_root,
@@ -54,8 +55,7 @@ pub async fn build_expected_block_header(
         note_created_smt_from_batches(batches).root(),
         Digest::default(),
         Digest::default(),
-        ZERO,
-        ONE,
+        1,
     )
 }
 
@@ -128,6 +128,7 @@ impl MockBlockBuilder {
         let created_notes = self.created_note.unwrap_or_default();
 
         let header = BlockHeader::new(
+            0,
             self.last_block_header.hash(),
             self.last_block_header.block_num() + 1,
             self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
@@ -136,8 +137,7 @@ impl MockBlockBuilder {
             note_created_smt_from_note_batches(created_notes.iter()).root(),
             Digest::default(),
             Digest::default(),
-            ZERO,
-            ONE,
+            1,
         );
 
         Block::new(
