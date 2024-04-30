@@ -44,6 +44,7 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
 
     fn try_from(value: block_header::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(
+            value.version,
             value
                 .prev_hash
                 .ok_or(block_header::BlockHeader::missing_field(stringify!(prev_hash)))?
@@ -73,7 +74,6 @@ impl TryFrom<block_header::BlockHeader> for BlockHeader {
                 .proof_hash
                 .ok_or(block_header::BlockHeader::missing_field(stringify!(proof_hash)))?
                 .try_into()?,
-            value.version,
             value.timestamp,
         ))
     }

@@ -114,6 +114,7 @@ impl MockStoreSuccessBuilder {
             .unwrap_or_default();
 
         let initial_block_header = BlockHeader::new(
+            0,
             Digest::default(),
             block_num,
             chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
@@ -122,7 +123,6 @@ impl MockStoreSuccessBuilder {
             notes_smt.root(),
             Digest::default(),
             Digest::default(),
-            0,
             1,
         );
 

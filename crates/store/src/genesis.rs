@@ -33,6 +33,7 @@ impl GenesisState {
         )?;
 
         let block_header = BlockHeader::new(
+            self.version,
             Digest::default(),
             GENESIS_BLOCK,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
@@ -41,7 +42,6 @@ impl GenesisState {
             *EmptySubtreeRoots::entry(NOTE_LEAF_DEPTH, 0),
             Digest::default(),
             Digest::default(),
-            self.version,
             self.timestamp,
         );
 

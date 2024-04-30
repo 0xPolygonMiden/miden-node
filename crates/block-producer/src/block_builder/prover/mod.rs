@@ -224,6 +224,7 @@ impl BlockProver {
             .expect("timestamp must fit to `u32`");
 
         Ok(BlockHeader::new(
+            version,
             prev_hash,
             block_num,
             chain_root,
@@ -232,7 +233,6 @@ impl BlockProver {
             note_root,
             batch_root,
             proof_hash,
-            version,
             timestamp,
         ))
     }
