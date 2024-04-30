@@ -16,6 +16,7 @@ use crate::{errors::FaucetError, utils::FaucetState};
 #[derive(Deserialize)]
 struct FaucetRequest {
     account_id: String,
+    is_private_note: bool,
 }
 
 #[derive(Serialize)]
@@ -39,7 +40,7 @@ pub async fn get_tokens(
     req: web::Json<FaucetRequest>,
     state: web::Data<FaucetState>,
 ) -> Result<HttpResponse> {
-    info!("Received a request with account_id: {}", req.account_id);
+    info!("Received a request with account_id: {}, is_private_note: {}", req.account_id, req.is_private_note);
 
     let client = state.client.clone();
 
@@ -52,7 +53,11 @@ pub async fn get_tokens(
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
     // Instantiate note type
-    let note_type = NoteType::OffChain;
+    let note_type = if req.is_private_note {
+        NoteType::OffChain
+    } else {
+        NoteType::Public
+    };
 
     // Instantiate transaction template
     let tx_template = TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type);
