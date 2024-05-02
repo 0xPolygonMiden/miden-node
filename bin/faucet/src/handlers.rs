@@ -40,7 +40,10 @@ pub async fn get_tokens(
     req: web::Json<FaucetRequest>,
     state: web::Data<FaucetState>,
 ) -> Result<HttpResponse> {
-    info!("Received a request with account_id: {}, is_private_note: {}", req.account_id, req.is_private_note);
+    info!(
+        "Received a request with account_id: {}, is_private_note: {}",
+        req.account_id, req.is_private_note
+    );
 
     let client = state.client.clone();
 
