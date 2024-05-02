@@ -108,104 +108,6 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "CheckNullifiers"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn get_block_header_by_number(
-            &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::GetBlockHeaderByNumberRequest,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/rpc.Api/GetBlockHeaderByNumber",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("rpc.Api", "GetBlockHeaderByNumber"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn get_notes_by_id(
-            &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::GetNotesByIdRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetNotesByIdResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetNotesById");
-            let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetNotesById"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn sync_state(
-            &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::SyncStateResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/rpc.Api/SyncState");
-            let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "SyncState"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn submit_proven_transaction(
-            &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::SubmitProvenTransactionRequest,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/rpc.Api/SubmitProvenTransaction",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("rpc.Api", "SubmitProvenTransaction"));
-            self.inner.unary(req, path, codec).await
-        }
         pub async fn get_account_details(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -256,6 +158,104 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetBlockByNumber"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn get_block_header_by_number(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetBlockHeaderByNumberRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/rpc.Api/GetBlockHeaderByNumber",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("rpc.Api", "GetBlockHeaderByNumber"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_notes_by_id(
+            &mut self,
+            request: impl tonic::IntoRequest<super::super::requests::GetNotesByIdRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetNotesByIdResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetNotesById");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetNotesById"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn submit_proven_transaction(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::SubmitProvenTransactionRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/rpc.Api/SubmitProvenTransaction",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("rpc.Api", "SubmitProvenTransaction"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn sync_state(
+            &mut self,
+            request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::SyncStateResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/SyncState");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "SyncState"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -270,6 +270,20 @@ pub mod api_server {
             request: tonic::Request<super::super::requests::CheckNullifiersRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
+            tonic::Status,
+        >;
+        async fn get_account_details(
+            &self,
+            request: tonic::Request<super::super::requests::GetAccountDetailsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetAccountDetailsResponse>,
+            tonic::Status,
+        >;
+        async fn get_block_by_number(
+            &self,
+            request: tonic::Request<super::super::requests::GetBlockByNumberRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetBlockByNumberResponse>,
             tonic::Status,
         >;
         async fn get_block_header_by_number(
@@ -288,13 +302,6 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetNotesByIdResponse>,
             tonic::Status,
         >;
-        async fn sync_state(
-            &self,
-            request: tonic::Request<super::super::requests::SyncStateRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::SyncStateResponse>,
-            tonic::Status,
-        >;
         async fn submit_proven_transaction(
             &self,
             request: tonic::Request<
@@ -304,18 +311,11 @@ pub mod api_server {
             tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
             tonic::Status,
         >;
-        async fn get_account_details(
+        async fn sync_state(
             &self,
-            request: tonic::Request<super::super::requests::GetAccountDetailsRequest>,
+            request: tonic::Request<super::super::requests::SyncStateRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetAccountDetailsResponse>,
-            tonic::Status,
-        >;
-        async fn get_block_by_number(
-            &self,
-            request: tonic::Request<super::super::requests::GetBlockByNumberRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetBlockByNumberResponse>,
+            tonic::Response<super::super::responses::SyncStateResponse>,
             tonic::Status,
         >;
     }
@@ -447,6 +447,104 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
+                "/rpc.Api/GetAccountDetails" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetAccountDetailsSvc<T: Api>(pub Arc<T>);
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::GetAccountDetailsRequest,
+                    > for GetAccountDetailsSvc<T> {
+                        type Response = super::super::responses::GetAccountDetailsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::requests::GetAccountDetailsRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Api>::get_account_details(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetAccountDetailsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/rpc.Api/GetBlockByNumber" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetBlockByNumberSvc<T: Api>(pub Arc<T>);
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::GetBlockByNumberRequest,
+                    > for GetBlockByNumberSvc<T> {
+                        type Response = super::super::responses::GetBlockByNumberResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::requests::GetBlockByNumberRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Api>::get_block_by_number(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetBlockByNumberSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/rpc.Api/GetBlockHeaderByNumber" => {
                     #[allow(non_camel_case_types)]
                     struct GetBlockHeaderByNumberSvc<T: Api>(pub Arc<T>);
@@ -546,55 +644,6 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/rpc.Api/SyncState" => {
-                    #[allow(non_camel_case_types)]
-                    struct SyncStateSvc<T: Api>(pub Arc<T>);
-                    impl<
-                        T: Api,
-                    > tonic::server::UnaryService<
-                        super::super::requests::SyncStateRequest,
-                    > for SyncStateSvc<T> {
-                        type Response = super::super::responses::SyncStateResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<
-                                super::super::requests::SyncStateRequest,
-                            >,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as Api>::sync_state(&inner, request).await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let inner = inner.0;
-                        let method = SyncStateSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
                 "/rpc.Api/SubmitProvenTransaction" => {
                     #[allow(non_camel_case_types)]
                     struct SubmitProvenTransactionSvc<T: Api>(pub Arc<T>);
@@ -644,15 +693,15 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/rpc.Api/GetAccountDetails" => {
+                "/rpc.Api/SyncState" => {
                     #[allow(non_camel_case_types)]
-                    struct GetAccountDetailsSvc<T: Api>(pub Arc<T>);
+                    struct SyncStateSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::GetAccountDetailsRequest,
-                    > for GetAccountDetailsSvc<T> {
-                        type Response = super::super::responses::GetAccountDetailsResponse;
+                        super::super::requests::SyncStateRequest,
+                    > for SyncStateSvc<T> {
+                        type Response = super::super::responses::SyncStateResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -660,12 +709,12 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::GetAccountDetailsRequest,
+                                super::super::requests::SyncStateRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::get_account_details(&inner, request).await
+                                <T as Api>::sync_state(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -677,56 +726,7 @@ pub mod api_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = GetAccountDetailsSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/rpc.Api/GetBlockByNumber" => {
-                    #[allow(non_camel_case_types)]
-                    struct GetBlockByNumberSvc<T: Api>(pub Arc<T>);
-                    impl<
-                        T: Api,
-                    > tonic::server::UnaryService<
-                        super::super::requests::GetBlockByNumberRequest,
-                    > for GetBlockByNumberSvc<T> {
-                        type Response = super::super::responses::GetBlockByNumberResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<
-                                super::super::requests::GetBlockByNumberRequest,
-                            >,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as Api>::get_block_by_number(&inner, request).await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let inner = inner.0;
-                        let method = GetBlockByNumberSvc(inner);
+                        let method = SyncStateSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

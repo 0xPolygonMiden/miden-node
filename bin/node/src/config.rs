@@ -77,7 +77,7 @@ mod tests {
                         },
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into(),
-                        blocks_dir: "blocks".into()
+                        blockstore_dir: "blocks".into()
                     }),
                 }
             );

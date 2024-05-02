@@ -1,4 +1,7 @@
-use std::fs::{self, create_dir_all};
+use std::{
+    fs::{self, create_dir_all},
+    sync::Arc,
+};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
@@ -7,9 +10,10 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::delta::AccountUpdateDetails,
-    block::{BlockAccountUpdate, BlockNoteIndex},
+    block::{Block, BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteType, Nullifier},
+    utils::Serializable,
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -17,6 +21,7 @@ use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
 use crate::{
+    blocks::BlockStorage,
     config::StoreConfig,
     db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
@@ -36,6 +41,7 @@ pub type Result<T, E = DatabaseError> = std::result::Result<T, E>;
 
 pub struct Db {
     pool: Pool,
+    block_storage: Arc<BlockStorage>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -135,11 +141,18 @@ impl Db {
             DatabaseError::InteractError(format!("Migration task failed: {err}"))
         })??;
 
-        let db = Db { pool };
+        let block_storage = Arc::new(BlockStorage::new(config.blockstore_dir).await?);
+
+        let db = Db { pool, block_storage };
         db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy())
             .await?;
 
         Ok(db)
+    }
+
+    /// Returns a reference to the underlying block storage.
+    pub fn block_storage(&self) -> Arc<BlockStorage> {
+        self.block_storage.clone()
     }
 
     /// Loads all the nullifiers from the DB.
@@ -277,11 +290,10 @@ impl Db {
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
-        block_header: BlockHeader,
+        block: Block,
         notes: Vec<NoteRecord>,
-        nullifiers: Vec<Nullifier>,
-        accounts: Vec<BlockAccountUpdate>,
     ) -> Result<()> {
+        let block_storage = Arc::clone(&self.block_storage);
         self.pool
             .get()
             .await?
@@ -290,7 +302,16 @@ impl Db {
                 let _span = info_span!(target: COMPONENT, "write_block_to_db").entered();
 
                 let transaction = conn.transaction()?;
-                sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
+                sql::apply_block(
+                    &transaction,
+                    &block.header(),
+                    &notes,
+                    block.created_nullifiers(),
+                    block.updated_accounts(),
+                )?;
+
+                let block_num = block.header().block_num();
+                block_storage.save_block(block_num, &block.to_bytes())?;
 
                 let _ = allow_acquire.send(());
                 acquire_done

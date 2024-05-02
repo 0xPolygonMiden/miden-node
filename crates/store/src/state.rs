@@ -79,6 +79,11 @@ impl State {
         Ok(Self { db, inner, writer })
     }
 
+    /// Returns a reference to the database.
+    pub fn db(&self) -> Arc<Db> {
+        self.db.clone()
+    }
+
     /// Apply changes of a new block to the DB and in-memory data structures.
     ///
     /// ## Note on state consistency
@@ -236,17 +241,10 @@ impl State {
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
         let db = self.db.clone();
-        let handle = tokio::spawn(async move {
-            db.apply_block(
-                allow_acquire,
-                acquire_done,
-                block.header(),
-                notes,
-                block.created_nullifiers().to_vec(),
-                block.updated_accounts().to_vec(),
-            )
-            .await
-        });
+        let handle =
+            tokio::spawn(
+                async move { db.apply_block(allow_acquire, acquire_done, block, notes).await },
+            );
 
         acquired_allowed
             .await

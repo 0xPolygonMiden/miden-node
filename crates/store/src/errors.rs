@@ -95,6 +95,8 @@ pub enum StateInitializationError {
 
 #[derive(Debug, Error)]
 pub enum DatabaseSetupError {
+    #[error("I/O error: {0}")]
+    IoError(#[from] io::Error),
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
     #[error("Genesis block error: {0}")]

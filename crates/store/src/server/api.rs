@@ -35,21 +35,20 @@ use miden_objects::{
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{blocks::BlockStorage, state::State, types::AccountId, COMPONENT};
+use crate::{state::State, types::AccountId, COMPONENT};
 
 // STORE API
 // ================================================================================================
 
-pub struct StoreApi<BS> {
+pub struct StoreApi {
     pub(super) state: Arc<State>,
-    pub(super) block_storage: Arc<BS>,
 }
 
 // FIXME: remove the allow when the upstream clippy issue is fixed:
 // https://github.com/rust-lang/rust-clippy/issues/12281
 #[allow(clippy::blocks_in_conditions)]
 #[tonic::async_trait]
-impl<BS: BlockStorage> api_server::Api for StoreApi<BS> {
+impl api_server::Api for StoreApi {
     // CLIENT ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
@@ -268,8 +267,6 @@ impl<BS: BlockStorage> api_server::Api for StoreApi<BS> {
         // TODO: Why the error is swallowed here? Fix or add a comment with explanation.
         let _ = self.state.apply_block(block).await;
 
-        self.block_storage.save_block(block_num, &request.block).await?;
-
         Ok(Response::new(ApplyBlockResponse {}))
     }
 
@@ -355,7 +352,13 @@ impl<BS: BlockStorage> api_server::Api for StoreApi<BS> {
 
         debug!(target: COMPONENT, ?request);
 
-        let block = self.block_storage.load_block(request.block_num).await?;
+        let block = self
+            .state
+            .db()
+            .block_storage()
+            .load_block(request.block_num)
+            .await
+            .map_err(internal_error)?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
     }

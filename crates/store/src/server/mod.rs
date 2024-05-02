@@ -5,7 +5,7 @@ use miden_node_utils::errors::ApiError;
 use tonic::transport::Server;
 use tracing::info;
 
-use crate::{blocks::BlockStorageDefault, config::StoreConfig, db::Db, state::State, COMPONENT};
+use crate::{config::StoreConfig, db::Db, state::State, COMPONENT};
 
 mod api;
 
@@ -21,8 +21,7 @@ pub async fn serve(config: StoreConfig, db: Db) -> Result<(), ApiError> {
             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
     );
 
-    let block_storage = Arc::new(BlockStorageDefault::new(config.blocks_dir).await?);
-    let store = api_server::ApiServer::new(api::StoreApi { state, block_storage });
+    let store = api_server::ApiServer::new(api::StoreApi { state });
 
     info!(target: COMPONENT, "Server initialized");
 
