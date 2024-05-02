@@ -17,6 +17,8 @@ pub struct StoreConfig {
     pub database_filepath: PathBuf,
     /// Genesis file
     pub genesis_filepath: PathBuf,
+    /// Blocks directory
+    pub blocks_dir: PathBuf,
 }
 
 impl StoreConfig {
@@ -28,8 +30,8 @@ impl StoreConfig {
 impl Display for StoreConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{{ endpoint: \"{}\",  database_filepath: {:?}, genesis_filepath: {:?} }}",
-            self.endpoint, self.database_filepath, self.genesis_filepath
+            "{{ endpoint: \"{}\",  database_filepath: {:?}, genesis_filepath: {:?}, blocks_dir: {:?} }}",
+            self.endpoint, self.database_filepath, self.genesis_filepath, self.blocks_dir
         ))
     }
 }

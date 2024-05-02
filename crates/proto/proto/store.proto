@@ -19,4 +19,5 @@ service Api {
     rpc ListAccounts(requests.ListAccountsRequest) returns (responses.ListAccountsResponse) {}
     rpc ListNotes(requests.ListNotesRequest) returns (responses.ListNotesResponse) {}
     rpc GetAccountDetails(requests.GetAccountDetailsRequest) returns (responses.GetAccountDetailsResponse) {}
+    rpc GetBlockByNumber(requests.GetBlockByNumberRequest) returns (responses.GetBlockByNumberResponse) {}
 }

@@ -9,16 +9,16 @@ use miden_node_proto::{
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
-            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
-            ListNullifiersRequest, SyncStateRequest,
+            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
-            GetAccountDetailsResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
-            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
-            NullifierUpdate, SyncStateResponse,
+            GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -35,20 +35,21 @@ use miden_objects::{
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, types::AccountId, COMPONENT};
+use crate::{blocks::BlockStorage, state::State, types::AccountId, COMPONENT};
 
 // STORE API
 // ================================================================================================
 
-pub struct StoreApi {
+pub struct StoreApi<BS> {
     pub(super) state: Arc<State>,
+    pub(super) block_storage: Arc<BS>,
 }
 
 // FIXME: remove the allow when the upstream clippy issue is fixed:
 // https://github.com/rust-lang/rust-clippy/issues/12281
 #[allow(clippy::blocks_in_conditions)]
 #[tonic::async_trait]
-impl api_server::Api for StoreApi {
+impl<BS: BlockStorage> api_server::Api for StoreApi<BS> {
     // CLIENT ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
@@ -253,9 +254,11 @@ impl api_server::Api for StoreApi {
             Status::invalid_argument(format!("Block deserialization error: {err}"))
         })?;
 
+        let block_num = block.header().block_num();
+
         info!(
             target: COMPONENT,
-            block_num = block.header().block_num(),
+            block_num,
             block_hash = %block.hash(),
             account_count = block.updated_accounts().len(),
             note_count = block.created_notes().len(),
@@ -264,6 +267,8 @@ impl api_server::Api for StoreApi {
 
         // TODO: Why the error is swallowed here? Fix or add a comment with explanation.
         let _ = self.state.apply_block(block).await;
+
+        self.block_storage.save_block(block_num, &request.block).await?;
 
         Ok(Response::new(ApplyBlockResponse {}))
     }
@@ -333,6 +338,26 @@ impl api_server::Api for StoreApi {
                 })
                 .collect(),
         }))
+    }
+
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_block_by_number",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_block_by_number(
+        &self,
+        request: tonic::Request<GetBlockByNumberRequest>,
+    ) -> Result<Response<GetBlockByNumberResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        let block = self.block_storage.load_block(request.block_num).await?;
+
+        Ok(Response::new(GetBlockByNumberResponse { block }))
     }
 
     // TESTING ENDPOINTS

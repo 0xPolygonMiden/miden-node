@@ -44,6 +44,7 @@ mod tests {
                     endpoint = { host = "127.0.0.1",  port = 8080 }
                     database_filepath = "local.sqlite3"
                     genesis_filepath = "genesis.dat"
+                    blocks_dir = "blocks"
                 "#,
             )?;
 
@@ -75,7 +76,8 @@ mod tests {
                             port: 8080,
                         },
                         database_filepath: "local.sqlite3".into(),
-                        genesis_filepath: "genesis.dat".into()
+                        genesis_filepath: "genesis.dat".into(),
+                        blocks_dir: "blocks".into()
                     }),
                 }
             );
