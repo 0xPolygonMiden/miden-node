@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 #[derive(Debug)]
-pub struct BlockStorage {
+pub struct BlockStore {
     blockstore_dir: PathBuf,
 }
 
-impl BlockStorage {
+impl BlockStore {
     pub async fn new(blockstore_dir: PathBuf) -> Result<Self, std::io::Error> {
         tokio::fs::create_dir_all(&blockstore_dir).await?;
 

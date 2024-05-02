@@ -21,7 +21,7 @@ use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
 use crate::{
-    blocks::BlockStorage,
+    blocks::BlockStore,
     config::StoreConfig,
     db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
@@ -41,7 +41,7 @@ pub type Result<T, E = DatabaseError> = std::result::Result<T, E>;
 
 pub struct Db {
     pool: Pool,
-    block_storage: Arc<BlockStorage>,
+    block_store: Arc<BlockStore>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -141,18 +141,18 @@ impl Db {
             DatabaseError::InteractError(format!("Migration task failed: {err}"))
         })??;
 
-        let block_storage = Arc::new(BlockStorage::new(config.blockstore_dir).await?);
+        let block_store = Arc::new(BlockStore::new(config.blockstore_dir).await?);
 
-        let db = Db { pool, block_storage };
+        let db = Db { pool, block_store };
         db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy())
             .await?;
 
         Ok(db)
     }
 
-    /// Returns a reference to the underlying block storage.
-    pub fn block_storage(&self) -> Arc<BlockStorage> {
-        self.block_storage.clone()
+    /// Returns a reference to the underlying block store.
+    pub fn block_store(&self) -> Arc<BlockStore> {
+        self.block_store.clone()
     }
 
     /// Loads all the nullifiers from the DB.
@@ -293,7 +293,7 @@ impl Db {
         block: Block,
         notes: Vec<NoteRecord>,
     ) -> Result<()> {
-        let block_storage = Arc::clone(&self.block_storage);
+        let block_store = Arc::clone(&self.block_store);
         self.pool
             .get()
             .await?
@@ -311,7 +311,7 @@ impl Db {
                 )?;
 
                 let block_num = block.header().block_num();
-                block_storage.save_block(block_num, &block.to_bytes())?;
+                block_store.save_block(block_num, &block.to_bytes())?;
 
                 let _ = allow_acquire.send(());
                 acquire_done

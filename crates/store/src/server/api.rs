@@ -355,7 +355,7 @@ impl api_server::Api for StoreApi {
         let block = self
             .state
             .db()
-            .block_storage()
+            .block_store()
             .load_block(request.block_num)
             .await
             .map_err(internal_error)?;
