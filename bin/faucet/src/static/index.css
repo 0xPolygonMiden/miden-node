@@ -69,12 +69,29 @@ body {
     margin-bottom: 20px;
 }
 
+#form-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
 #account-id {
     padding: 10px;
     border-radius: 10px;
     border: 1px solid #ccc;
-    margin-bottom: 30px;
-    width: 300px;
+    margin-bottom: 10px;
+    width: 200px;
+}
+
+#asset-amount {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+    width: 95px;
+    background-color: white;
+    margin-left: 5px;
+    text-align: center;
 }
 
 #faucetId {
@@ -82,35 +99,17 @@ body {
   margin-top: 4px;
 }
 
-#button{
+#visibility-buttons button{
     color: white;
     border-radius: 10px;
     font-weight: bold;
-    padding: 10px 20px;
+    padding: 10px;
     background-color: rgb(124, 58, 237);
     width: 300px;
-}
-
-#visibility-buttons button {
-    color: white;
-    border-radius: 10px;
-    font-weight: bold;
-    padding: 10px 20px;
-    background-color: rgb(124, 58, 237);
-    width: 150px;
     margin-top: 10px;
 }
 
-#visibility-buttons button.active{
-    outline: 2px solid white;
-    outline-offset: -6px;
-}
-
-#visibility-buttons button.inactive{
-    background-color: rgb(124, 58, 237, 0.3);
-}
-
- #info-message {
+#info-message {
     color: white;
     font-weight: bold;
     text-align: center;

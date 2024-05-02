@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', function () {
     const faucetIdElem = document.getElementById('faucetId');
-    const button = document.getElementById('button');
     const privateButton = document.getElementById('button-private');
     const publicButton = document.getElementById('button-public');
     const accountIdInput = document.getElementById('account-id');
@@ -9,32 +8,34 @@ document.addEventListener('DOMContentLoaded', function () {
     const importCommand = document.getElementById('import-command');
     const noteIdElem = document.getElementById('note-id');
     const accountIdElem = document.getElementById('command-account-id');
-    let isPrivateNote = true;
+    const assetSelect = document.getElementById('asset-amount');
 
     fetchMetadata();
 
-    button.addEventListener('click', handleButtonClick);
-    privateButton.textContent = 'Private Note';
-    publicButton.textContent = 'Public Note';
-    privateButton.addEventListener('click', () => {toggleVisibility(true)});
-    publicButton.addEventListener('click', () => {toggleVisibility(false)});
+    privateButton.addEventListener('click', () => {handleButtonClick(true)});
+    publicButton.addEventListener('click', () => {handleButtonClick(false)});
 
     function fetchMetadata() {
         fetch('http://localhost:8080/get_metadata')
             .then(response => response.json())
             .then(data => {
                 faucetIdElem.textContent = data.id;
-                button.textContent = `Send me ${data.asset_amount} tokens!`;
-                button.dataset.originalText = button.textContent;
+                for (const amount of data.asset_amount_options){
+                    const option = document.createElement('option');
+                    option.value = amount;
+                    option.textContent = amount;
+                    assetSelect.appendChild(option);
+                }
             })
             .catch(error => {
                 console.error('Error fetching metadata:', error);
                 faucetIdElem.textContent = 'Error loading Faucet ID.';
-                button.textContent = 'Error retrieving Faucet asset amount.';
+                errorMessage.textContent = 'Failed to load metadata. Please try again.';
+                errorMessage.style.display = 'block';
             });
     }
 
-    async function handleButtonClick() {
+    async function handleButtonClick(isPrivateNote) {
         let accountId = accountIdInput.value.trim();
         errorMessage.style.display = 'none';
 
@@ -44,7 +45,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        button.textContent = 'Loading...';
         infoContainer.style.display = 'none';
         importCommand.style.display = 'none';
 
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const response = await fetch('http://localhost:8080/get_tokens', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ account_id: accountId, is_private_note: isPrivateNote})
+                body: JSON.stringify({ account_id: accountId, is_private_note: isPrivateNote, asset_amount: parseInt(assetSelect.value)})
             });
 
             if (!response.ok) {
@@ -73,24 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('Error:', error);
             errorMessage.textContent = 'Failed to receive tokens. Please try again.';
             errorMessage.style.display = 'block';
-        } finally {
-            button.textContent = button.dataset.originalText;
         }
-    }
-
-    function toggleVisibility(clickedPrivate) {
-        if (clickedPrivate) {
-            privateButton.classList.add('active');
-            privateButton.classList.remove('inactive');
-            publicButton.classList.remove('active');
-            publicButton.classList.add('inactive');
-        } else {
-            publicButton.classList.add('active');
-            publicButton.classList.remove('inactive');
-            privateButton.classList.remove('active');
-            privateButton.classList.add('inactive');
-        }
-        isPrivateNote = clickedPrivate;
     }
 
     function downloadBlob(blob, filename) {

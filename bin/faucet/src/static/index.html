@@ -16,11 +16,14 @@
     <div id="center-container">
         <h2 id="subtitle">Request test tokens</h2>
         <span id="error-message"></span>
-        <input type="text" id="account-id" placeholder="Hex encoded Account id" required>
-        <button id="button"></button>
+        <div id="form-container">
+            <input type="text" id="account-id" placeholder="Hex encoded Account id" required>
+            <select id="asset-amount"></select>
+        </div>
         <div id="visibility-buttons">
-            <button id="button-private" class="active"></button>
-            <button id="button-public" class="inactive"></button>
+            <button id="button-private">Send Private Note</button>
+            <br>
+            <button id="button-public">Send Public Note</button>
         </div>
     </div>
     <div id="info-container">

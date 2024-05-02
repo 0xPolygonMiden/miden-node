@@ -17,19 +17,20 @@ use crate::{errors::FaucetError, utils::FaucetState};
 struct FaucetRequest {
     account_id: String,
     is_private_note: bool,
+    asset_amount: u64,
 }
 
 #[derive(Serialize)]
 struct FaucetMetadataReponse {
     id: String,
-    asset_amount: u64,
+    asset_amount_options: Vec<u64>,
 }
 
 #[get("/get_metadata")]
 pub async fn get_metadata(state: web::Data<FaucetState>) -> HttpResponse {
     let response = FaucetMetadataReponse {
         id: state.id.to_string(),
-        asset_amount: state.asset_amount,
+        asset_amount_options: state.asset_amount_options.clone(),
     };
 
     HttpResponse::Ok().json(response)
@@ -41,9 +42,14 @@ pub async fn get_tokens(
     state: web::Data<FaucetState>,
 ) -> Result<HttpResponse> {
     info!(
-        "Received a request with account_id: {}, is_private_note: {}",
-        req.account_id, req.is_private_note
+        "Received a request with account_id: {}, is_private_note: {}, asset_amount: {}",
+        req.account_id, req.is_private_note, req.asset_amount
     );
+
+    // Check that the amount is in the asset amount options
+    if !state.asset_amount_options.contains(&req.asset_amount) {
+        return Err(FaucetError::BadRequest("Invalid asset amount.".to_string()).into());
+    }
 
     let client = state.client.clone();
 
@@ -52,7 +58,7 @@ pub async fn get_tokens(
         .map_err(|err| FaucetError::BadRequest(err.to_string()))?;
 
     // Instantiate asset
-    let asset = FungibleAsset::new(state.id, state.asset_amount)
+    let asset = FungibleAsset::new(state.id, req.asset_amount)
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
     // Instantiate note type
