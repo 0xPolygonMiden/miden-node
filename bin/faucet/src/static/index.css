@@ -17,6 +17,8 @@ body {
     -webkit-font-smoothing: antialiased;
     height: 100vh;
     display: flex;
+    flex-direction: column;
+    padding-top: 100px;
     justify-content: center;
     align-items: center;
     background-image: url(./background.png);
@@ -105,5 +107,27 @@ body {
 }
 
 #visibility-buttons button.inactive{
-    background-color: rgb(124, 58, 237, 0.5);
+    background-color: rgb(124, 58, 237, 0.3);
+}
+
+ #info-message {
+    color: white;
+    font-weight: bold;
+    text-align: center;
+}
+
+#info-container {
+    display: none;
+    background-color: rgb(17, 24, 39);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 25px;
+}
+
+#client-commands {
+    background-color: black;
+    color: lightgray;
+    font-family: Consolas,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New, monospace;
+    padding: 10px;
+    border: 1px solid #ccc;
 }

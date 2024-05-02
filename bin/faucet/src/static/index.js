@@ -5,6 +5,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const publicButton = document.getElementById('button-public');
     const accountIdInput = document.getElementById('account-id');
     const errorMessage = document.getElementById('error-message');
+    const infoContainer = document.getElementById('info-container');
+    const importCommand = document.getElementById('import-command');
+    const noteIdElem = document.getElementById('note-id');
+    const accountIdElem = document.getElementById('command-account-id');
     let isPrivateNote = true;
 
     fetchMetadata();
@@ -41,6 +45,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         button.textContent = 'Loading...';
+        infoContainer.style.display = 'none';
+        importCommand.style.display = 'none';
+
         try {
             const response = await fetch('http://localhost:8080/get_tokens', {
                 method: 'POST',
@@ -53,7 +60,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const blob = await response.blob();
-            downloadBlob(blob, 'note.mno');
+            if(isPrivateNote) {
+                importCommand.style.display = 'block';
+                downloadBlob(blob, 'note.mno');
+            }
+
+            const noteId = response.headers.get('Content-Disposition').split('filename=')[1].replace(/"/g, '');
+            noteIdElem.textContent = noteId;
+            accountIdElem.textContent = accountId;
+            infoContainer.style.display = 'block';
         } catch (error) {
             console.error('Error:', error);
             errorMessage.textContent = 'Failed to receive tokens. Please try again.';

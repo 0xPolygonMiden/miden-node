@@ -23,6 +23,14 @@
             <button id="button-public" class="inactive"></button>
         </div>
     </div>
+    <div id="info-container">
+        <p id="info-message">You can consume the note by running the following commands in your shell</p>
+        <p id="client-commands">
+            <span id="import-command" style="display: none;">miden-client input-notes import ./path/to/downloaded/note<br></span>
+            miden-client sync <br>
+            miden-client tx new consume-notes <span id="command-account-id"></span> <span id="note-id"></span>
+        </p>
+    </div>
     <script src="./index.js"></script>
 </body>
 
