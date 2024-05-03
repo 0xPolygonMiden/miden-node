@@ -1,19 +1,26 @@
-use std::path::PathBuf;
+use std::{io::ErrorKind, path::PathBuf};
 
 #[derive(Debug)]
 pub struct BlockStore {
-    blockstore_dir: PathBuf,
+    store_dir: PathBuf,
 }
 
 impl BlockStore {
-    pub async fn new(blockstore_dir: PathBuf) -> Result<Self, std::io::Error> {
-        tokio::fs::create_dir_all(&blockstore_dir).await?;
+    pub async fn new(store_dir: PathBuf) -> Result<Self, std::io::Error> {
+        tokio::fs::create_dir_all(&store_dir).await?;
 
-        Ok(Self { blockstore_dir })
+        Ok(Self { store_dir })
     }
 
     pub fn save_block(&self, block_num: u32, data: &[u8]) -> Result<(), std::io::Error> {
-        std::fs::write(self.block_path(block_num), data)
+        let block_path = self.block_path(block_num);
+        let epoch_path = block_path.parent().ok_or(std::io::Error::from(ErrorKind::NotFound))?;
+
+        if !epoch_path.exists() {
+            std::fs::create_dir_all(epoch_path)?;
+        }
+
+        std::fs::write(block_path, data)
     }
 
     pub async fn load_block(&self, block_num: u32) -> Result<Option<Vec<u8>>, std::io::Error> {
@@ -28,6 +35,8 @@ impl BlockStore {
     // --------------------------------------------------------------------------------------------
 
     fn block_path(&self, block_num: u32) -> PathBuf {
-        self.blockstore_dir.join(format!("block_{block_num:08x}.dat"))
+        let epoch = block_num >> 16;
+        let epoch_dir = self.store_dir.join(format!("{epoch:04x}"));
+        epoch_dir.join(format!("block_{block_num:08x}.dat"))
     }
 }
