@@ -24,6 +24,7 @@ use tokio::{
 use tracing::{error, info, info_span, instrument};
 
 use crate::{
+    blocks::BlockStore,
     db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockInputsError, StateInitializationError,
@@ -54,6 +55,8 @@ struct InnerState {
 pub struct State {
     db: Arc<Db>,
 
+    block_store: Arc<BlockStore>,
+
     /// Read-write lock used to prevent writing to a structure while it is being used.
     ///
     /// The lock is writer-preferring, meaning the writer won't be starved.
@@ -67,7 +70,10 @@ pub struct State {
 impl State {
     /// Loads the state from the `db`.
     #[instrument(target = "miden-store", skip_all)]
-    pub async fn load(mut db: Db) -> Result<Self, StateInitializationError> {
+    pub async fn load(
+        mut db: Db,
+        block_store: BlockStore,
+    ) -> Result<Self, StateInitializationError> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
         let account_tree = load_accounts(&mut db).await?;
@@ -76,12 +82,8 @@ impl State {
 
         let writer = Mutex::new(());
         let db = Arc::new(db);
-        Ok(Self { db, inner, writer })
-    }
-
-    /// Returns a reference to the database.
-    pub fn db(&self) -> Arc<Db> {
-        self.db.clone()
+        let block_store = Arc::new(block_store);
+        Ok(Self { db, block_store, inner, writer })
     }
 
     /// Apply changes of a new block to the DB and in-memory data structures.
@@ -241,10 +243,10 @@ impl State {
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
         let db = self.db.clone();
-        let handle =
-            tokio::spawn(
-                async move { db.apply_block(allow_acquire, acquire_done, block, notes).await },
-            );
+        let block_store = self.block_store.clone();
+        let handle = tokio::spawn(async move {
+            db.apply_block(allow_acquire, acquire_done, block_store, block, notes).await
+        });
 
         acquired_allowed
             .await
@@ -473,6 +475,11 @@ impl State {
     /// Returns details for public (on-chain) account.
     pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await
+    }
+
+    /// Loads a block from the block store. Return `Ok(None)` if the block is not found.
+    pub async fn load_block(&self, block_num: u32) -> Result<Option<Vec<u8>>, DatabaseError> {
+        self.block_store.load_block(block_num).await.map_err(Into::into)
     }
 }
 

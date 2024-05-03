@@ -352,13 +352,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let block = self
-            .state
-            .db()
-            .block_store()
-            .load_block(request.block_num)
-            .await
-            .map_err(internal_error)?;
+        let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
     }
