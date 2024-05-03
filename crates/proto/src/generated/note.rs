@@ -4,8 +4,8 @@
 pub struct NoteMetadata {
     #[prost(message, optional, tag = "1")]
     pub sender: ::core::option::Option<super::account::AccountId>,
-    #[prost(fixed32, tag = "2")]
-    pub note_type: u32,
+    #[prost(int32, tag = "2")]
+    pub note_type: i32,
     #[prost(fixed32, tag = "3")]
     pub tag: u32,
     #[prost(fixed64, tag = "4")]

@@ -7,7 +7,7 @@ import "account.proto";
 
 message NoteMetadata {
     account.AccountId sender = 1;
-    fixed32 note_type = 2;
+    uint32 note_type = 2;
     fixed32 tag = 3;
     fixed64 aux = 4;
 }
