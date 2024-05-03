@@ -351,6 +351,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
         let sender = column_value_as_u64(row, 5)?;
         let tag: u32 = row.get(6)?;
 
+        // TODO: Properly handle note metadata
         let metadata =
             NoteMetadata::new(sender.try_into()?, note_type, tag.into(), Default::default())?;
 
@@ -487,6 +488,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
+        // TODO: Properly retrieve aux
         let metadata = NoteMetadata::new(
             sender.try_into()?,
             NoteType::try_from(note_type)?,
@@ -551,6 +553,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let sender = column_value_as_u64(row, 5)?;
         let tag: u32 = row.get(6)?;
 
+        // TODO: Properly handle note metadata's aux field
         let metadata =
             NoteMetadata::new(sender.try_into()?, note_type, tag.into(), Default::default())?;
 

@@ -5,10 +5,14 @@ import "digest.proto";
 import "merkle.proto";
 import "account.proto";
 
+// These values should always match the values in
+// https://github.com/0xPolygonMiden/miden-base/blob/next/objects/src/notes/note_type.rs#L10-L12
 enum NoteType {
-  PUBLIC = 0;
-  OFF_CHAIN = 1;
-  ENCRYPTED = 2;
+    // PHANTOM variant exists so that the number representations map correctly 
+    PHANTOM = 0;
+    PUBLIC = 1;
+    OFF_CHAIN = 2;
+    ENCRYPTED = 3;
 }
 
 message NoteMetadata {

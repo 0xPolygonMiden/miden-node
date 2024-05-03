@@ -7,9 +7,11 @@ fn main() -> miette::Result<()> {
     // Compute the directory of the `proto` definitions
     let cwd: PathBuf = env::current_dir().into_diagnostic()?;
     let proto_dir: PathBuf = cwd.join("proto");
+
     // Compute the compiler's target file path.
     let out = env::var("OUT_DIR").into_diagnostic()?;
     let file_descriptor_path = PathBuf::from(out).join("file_descriptor_set.bin");
+
     // Compile the proto file for all servers APIs
     let protos = &[
         proto_dir.join("block_producer.proto"),
@@ -19,6 +21,7 @@ fn main() -> miette::Result<()> {
     let includes = &[proto_dir];
     let file_descriptors = protox::compile(protos, includes)?;
     fs::write(&file_descriptor_path, file_descriptors.encode_to_vec()).into_diagnostic()?;
+
     let mut prost_config = prost_build::Config::new();
     prost_config.skip_debug(["AccountId", "Digest"]);
 
