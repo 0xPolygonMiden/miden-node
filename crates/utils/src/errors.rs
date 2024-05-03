@@ -7,7 +7,7 @@ pub enum ApiError {
     IoError(#[from] std::io::Error),
 
     #[error("initialisation of the Api has failed: {0}")]
-    ApiInitialisationFailed(TransportError),
+    ApiInitialisationFailed(String),
 
     #[error("Serving the Api server has failed.")]
     ApiServeFailed(TransportError),

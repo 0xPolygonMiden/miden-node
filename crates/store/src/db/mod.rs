@@ -9,8 +9,7 @@ use miden_node_proto::{
     generated::note::Note as NotePb,
 };
 use miden_objects::{
-    accounts::delta::AccountUpdateDetails,
-    block::{Block, BlockAccountUpdate, BlockNoteIndex},
+    block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteType, Nullifier},
     utils::Serializable,
@@ -90,7 +89,10 @@ impl Db {
     /// is as expected and present in the database.
     // TODO: This span is logged in a root span, we should connect it to the parent one.
     #[instrument(target = "miden-store", skip_all)]
-    pub async fn setup(config: StoreConfig) -> Result<Self, DatabaseSetupError> {
+    pub async fn setup(
+        config: StoreConfig,
+        block_store: Arc<BlockStore>,
+    ) -> Result<Self, DatabaseSetupError> {
         info!(target: COMPONENT, %config, "Connecting to the database");
 
         if let Some(p) = config.database_filepath.parent() {
@@ -141,7 +143,7 @@ impl Db {
         })??;
 
         let db = Db { pool };
-        db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy())
+        db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy(), block_store)
             .await?;
 
         Ok(db)
@@ -329,8 +331,12 @@ impl Db {
     /// genesis block in the database is consistent with the genesis block data in the genesis JSON
     /// file.
     #[instrument(target = "miden-store", skip_all, err)]
-    async fn ensure_genesis_block(&self, genesis_filepath: &str) -> Result<(), GenesisError> {
-        let (expected_genesis_header, account_smt) = {
+    async fn ensure_genesis_block(
+        &self,
+        genesis_filepath: &str,
+        block_store: Arc<BlockStore>,
+    ) -> Result<(), GenesisError> {
+        let genesis_block = {
             let file_contents = fs::read(genesis_filepath).map_err(|error| {
                 GenesisError::FailedToReadGenesisFile {
                     genesis_filepath: genesis_filepath.to_string(),
@@ -341,13 +347,15 @@ impl Db {
             let genesis_state = GenesisState::read_from_bytes(&file_contents)
                 .map_err(GenesisError::GenesisFileDeserializationError)?;
 
-            genesis_state.into_block_parts().map_err(GenesisError::MalformedGenesisState)?
+            genesis_state.into_block()?
         };
 
         let maybe_block_header_in_store = self
             .select_block_header_by_block_num(Some(GENESIS_BLOCK))
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
+
+        let expected_genesis_header = genesis_block.header();
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {
@@ -371,23 +379,15 @@ impl Db {
                         let guard = span.enter();
 
                         let transaction = conn.transaction()?;
-                        let accounts: Vec<_> = account_smt
-                            .leaves()
-                            .map(|(account_id, state_hash)| {
-                                Ok(BlockAccountUpdate::new(
-                                    account_id.try_into()?,
-                                    state_hash.into(),
-                                    AccountUpdateDetails::Private,
-                                ))
-                            })
-                            .collect::<Result<_, DatabaseError>>()?;
                         sql::apply_block(
                             &transaction,
                             &expected_genesis_header,
                             &[],
                             &[],
-                            &accounts,
+                            genesis_block.updated_accounts(),
                         )?;
+
+                        block_store.save_block(0, &genesis_block.to_bytes())?;
 
                         transaction.commit()?;
 

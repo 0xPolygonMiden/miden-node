@@ -12,10 +12,14 @@ mod api;
 // STORE INITIALIZER
 // ================================================================================================
 
-pub async fn serve(config: StoreConfig, db: Db) -> Result<(), ApiError> {
+pub async fn serve(config: StoreConfig) -> Result<(), ApiError> {
     info!(target: COMPONENT, %config, "Initializing server");
 
-    let block_store = BlockStore::new(config.blockstore_dir).await?;
+    let block_store = Arc::new(BlockStore::new(config.blockstore_dir.clone()).await?);
+
+    let db = Db::setup(config.clone(), Arc::clone(&block_store))
+        .await
+        .map_err(|err| ApiError::ApiInitialisationFailed(err.to_string()))?;
 
     let state = Arc::new(
         State::load(db, block_store)

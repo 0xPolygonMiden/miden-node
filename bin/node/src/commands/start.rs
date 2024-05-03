@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context, Result};
 use miden_node_block_producer::{config::BlockProducerConfig, server as block_producer_server};
 use miden_node_rpc::{config::RpcConfig, server as rpc_server};
-use miden_node_store::{config::StoreConfig, db::Db, server as store_server};
+use miden_node_store::{config::StoreConfig, server as store_server};
 use tokio::task::JoinSet;
 
 use crate::config::NodeConfig;
@@ -53,11 +53,7 @@ pub async fn start_rpc(config: RpcConfig) -> Result<()> {
 }
 
 pub async fn start_store(config: StoreConfig) -> Result<()> {
-    let db = Db::setup(config.clone())
-        .await
-        .map_err(|err| anyhow!("Failed to setup database: {}", err))?;
-
-    store_server::serve(config, db)
+    store_server::serve(config)
         .await
         .map_err(|err| anyhow!("Failed to serve store: {}", err))?;
 

@@ -8,7 +8,7 @@ use miden_objects::{
         utils::DeserializationError,
     },
     notes::Nullifier,
-    AccountError, BlockHeader, NoteError,
+    AccountError, BlockError, BlockHeader, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -111,6 +111,10 @@ pub enum DatabaseSetupError {
 pub enum GenesisError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
+    #[error("Block error: {0}")]
+    BlockError(#[from] BlockError),
+    #[error("Merkle error: {0}")]
+    MerkleError(#[from] MerkleError),
     #[error("Apply block failed: {0}")]
     ApplyBlockFailed(String),
     #[error("Failed to read genesis file \"{genesis_filepath}\": {error}")]
@@ -125,8 +129,6 @@ pub enum GenesisError {
         expected_genesis_header: Box<BlockHeader>,
         block_header_in_store: Box<BlockHeader>,
     },
-    #[error("Malformed genesis state: {0}")]
-    MalformedGenesisState(MerkleError),
     #[error("Retrieving genesis block header failed: {0}")]
     SelectBlockHeaderByBlockNumError(Box<DatabaseError>),
 }

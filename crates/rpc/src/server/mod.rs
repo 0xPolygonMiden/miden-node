@@ -17,7 +17,7 @@ pub async fn serve(config: RpcConfig) -> Result<(), ApiError> {
 
     let api = api::RpcApi::from_config(&config)
         .await
-        .map_err(ApiError::ApiInitialisationFailed)?;
+        .map_err(|err| ApiError::ApiInitialisationFailed(err.to_string()))?;
     let rpc = api_server::ApiServer::new(api);
 
     info!(target: COMPONENT, "Server initialized");

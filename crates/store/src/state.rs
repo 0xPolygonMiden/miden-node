@@ -72,7 +72,7 @@ impl State {
     #[instrument(target = "miden-store", skip_all)]
     pub async fn load(
         mut db: Db,
-        block_store: BlockStore,
+        block_store: Arc<BlockStore>,
     ) -> Result<Self, StateInitializationError> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
@@ -82,7 +82,6 @@ impl State {
 
         let writer = Mutex::new(());
         let db = Arc::new(db);
-        let block_store = Arc::new(block_store);
         Ok(Self { db, block_store, inner, writer })
     }
 
