@@ -24,24 +24,10 @@ impl TryFrom<crate::generated::note::NoteMetadata> for NoteMetadata {
 impl From<NoteMetadata> for crate::generated::note::NoteMetadata {
     fn from(val: NoteMetadata) -> Self {
         let sender = Some(val.sender().into());
-        let note_type = val.note_type() as i32;
+        let note_type = val.note_type() as u32;
         let tag = val.tag().into();
         let aux = val.aux().into();
 
         crate::generated::note::NoteMetadata { sender, note_type, tag, aux }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use miden_objects::notes::NoteType as BaseNoteType;
-
-    use crate::generated::note::NoteType;
-
-    #[test]
-    fn ensure_note_type_correct_mapping() {
-        assert_eq!(NoteType::Encrypted as u8, BaseNoteType::Encrypted as u8);
-        assert_eq!(NoteType::OffChain as u8, BaseNoteType::OffChain as u8);
-        assert_eq!(NoteType::Public as u8, BaseNoteType::Public as u8);
     }
 }
