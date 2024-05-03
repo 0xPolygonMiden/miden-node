@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 downloadBlob(blob, 'note.mno');
             }
 
-            const noteId = response.headers.get('Content-Disposition').slice(22,-5); // Remove the 'attachment; filename="' and the '.mno"'
+            const noteId = response.headers.get('Note-Id');
             noteIdElem.textContent = noteId;
             accountIdElem.textContent = accountId;
             infoContainer.style.display = 'block';
