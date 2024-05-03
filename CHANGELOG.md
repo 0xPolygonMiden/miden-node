@@ -2,6 +2,7 @@
 
 ## 0.2.1 (2024-04-27)
 
+* Added option to mint pulic notes in the faucet (#339).
 * Combined node components into a single binary (#323).
 
 ## 0.2.0 (2024-04-11)
