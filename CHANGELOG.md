@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (TBD)
+
+* Renamed `note_hash` into `note_id` in the database (#336)
+* Changed `version` and `timestamp` fields in `Block` message to `u32` (#337).
+* [BREAKING] Implemented `NoteMetadata` protobuf message (#338).
+
 ## 0.2.1 (2024-04-27)
 
 * Combined node components into a single binary (#323).
