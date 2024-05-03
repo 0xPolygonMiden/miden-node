@@ -53,8 +53,10 @@ struct InnerState {
 
 /// The rollup state
 pub struct State {
+    /// The underlying database.
     db: Arc<Db>,
 
+    /// The underlying block store.
     block_store: Arc<BlockStore>,
 
     /// Read-write lock used to prevent writing to a structure while it is being used.
@@ -231,6 +233,7 @@ impl State {
 
         let block_num = block.header().block_num();
         let block_hash = block.hash();
+        let block_data = block.to_bytes();
 
         // signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
@@ -242,10 +245,10 @@ impl State {
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
         let db = self.db.clone();
-        let block_store = self.block_store.clone();
-        let handle = tokio::spawn(async move {
-            db.apply_block(allow_acquire, acquire_done, block_store, block, notes).await
-        });
+        let handle =
+            tokio::spawn(
+                async move { db.apply_block(allow_acquire, acquire_done, block, notes).await },
+            );
 
         acquired_allowed
             .await
@@ -254,6 +257,10 @@ impl State {
         // scope to update the in-memory data
         {
             let mut inner = self.inner.write().await;
+
+            // Save the block before transaction is committed:
+            self.block_store.save_block(block_num, &block_data)?;
+
             let _ = inform_acquire_done.send(());
 
             let _ = mem::replace(&mut inner.chain_mmr, chain_mmr);

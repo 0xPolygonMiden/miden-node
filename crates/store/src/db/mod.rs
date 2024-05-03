@@ -284,7 +284,6 @@ impl Db {
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
-        block_store: Arc<BlockStore>,
         block: Block,
         notes: Vec<NoteRecord>,
     ) -> Result<()> {
@@ -303,9 +302,6 @@ impl Db {
                     block.created_nullifiers(),
                     block.updated_accounts(),
                 )?;
-
-                let block_num = block.header().block_num();
-                block_store.save_block(block_num, &block.to_bytes())?;
 
                 let _ = allow_acquire.send(());
                 acquire_done
