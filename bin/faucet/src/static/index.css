@@ -17,6 +17,8 @@ body {
     -webkit-font-smoothing: antialiased;
     height: 100vh;
     display: flex;
+    flex-direction: column;
+    padding-top: 100px;
     justify-content: center;
     align-items: center;
     background-image: url(./background.png);
@@ -67,12 +69,29 @@ body {
     margin-bottom: 20px;
 }
 
+#form-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
 #account-id {
     padding: 10px;
     border-radius: 10px;
     border: 1px solid #ccc;
-    margin-bottom: 30px;
-    width: 300px;
+    margin-bottom: 10px;
+    width: 200px;
+}
+
+#asset-amount {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+    width: 95px;
+    background-color: white;
+    margin-left: 5px;
+    text-align: center;
 }
 
 #faucetId {
@@ -80,11 +99,34 @@ body {
   margin-top: 4px;
 }
 
-#button {
+#visibility-buttons button{
     color: white;
     border-radius: 10px;
     font-weight: bold;
-    padding: 10px 20px;
+    padding: 10px;
     background-color: rgb(124, 58, 237);
     width: 300px;
+    margin-top: 10px;
+}
+
+#info-message {
+    color: white;
+    font-weight: bold;
+    text-align: center;
+}
+
+#info-container {
+    display: none;
+    background-color: rgb(17, 24, 39);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 25px;
+}
+
+#client-commands {
+    background-color: black;
+    color: lightgray;
+    font-family: Consolas,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New, monospace;
+    padding: 10px;
+    border: 1px solid #ccc;
 }

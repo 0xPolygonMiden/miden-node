@@ -17,8 +17,8 @@ pub struct FaucetConfig {
     pub node_url: String,
     /// Location to store database files
     pub database_filepath: PathBuf,
-    /// Amount of asset that should be dispered on each faucet request
-    pub asset_amount: u64,
+    /// Possible options on the amount of asset that should be dispered on each faucet request
+    pub asset_amount_options: Vec<u64>,
     /// Token symbol of the generated fungible asset
     pub token_symbol: String,
     /// Number of decimals of the generated fungible asset
@@ -36,8 +36,8 @@ impl FaucetConfig {
 impl Display for FaucetConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{{ endpoint: \"{}\",  database_filepath: {:?}, asset_amount: {}, token_symbol: {}, decimals: {}, max_supply: {} }}",
-            self.endpoint, self.database_filepath, self.asset_amount, self.token_symbol, self.decimals, self.max_supply
+            "{{ endpoint: \"{}\",  database_filepath: {:?}, asset_amount_options: {:?}, token_symbol: {}, decimals: {}, max_supply: {} }}",
+            self.endpoint, self.database_filepath, self.asset_amount_options, self.token_symbol, self.decimals, self.max_supply
         ))
     }
 }
