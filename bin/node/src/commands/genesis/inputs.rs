@@ -8,8 +8,8 @@ use serde::Deserialize;
 /// placeholder types (like `GenesisInput`) to internal types (like `GenesisState`).
 #[derive(Debug, Clone, Deserialize)]
 pub struct GenesisInput {
-    pub version: u64,
-    pub timestamp: u64,
+    pub version: u32,
+    pub timestamp: u32,
     pub accounts: Vec<AccountInput>,
 }
 

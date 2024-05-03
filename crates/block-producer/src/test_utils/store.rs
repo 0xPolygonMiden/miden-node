@@ -6,7 +6,7 @@ use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::Nullifier,
     transaction::OutputNote,
-    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ONE, ZERO,
+    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 
 use super::*;
@@ -114,6 +114,7 @@ impl MockStoreSuccessBuilder {
             .unwrap_or_default();
 
         let initial_block_header = BlockHeader::new(
+            0,
             Digest::default(),
             block_num,
             chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
@@ -122,8 +123,7 @@ impl MockStoreSuccessBuilder {
             notes_smt.root(),
             Digest::default(),
             Digest::default(),
-            ZERO,
-            ONE,
+            1,
         );
 
         MockStoreSuccess {

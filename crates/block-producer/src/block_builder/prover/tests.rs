@@ -15,7 +15,7 @@ use miden_objects::{
     },
     notes::{NoteEnvelope, NoteMetadata, NoteType},
     transaction::OutputNote,
-    BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
+    Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
 use super::*;
