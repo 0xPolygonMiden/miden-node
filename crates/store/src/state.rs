@@ -53,10 +53,10 @@ struct InnerState {
 
 /// The rollup state
 pub struct State {
-    /// The underlying database.
+    /// The database which stores block headers, nullifiers, notes, and the latest states of accounts.
     db: Arc<Db>,
 
-    /// The underlying block store.
+    /// The block store which stores full block contents for all blocks.
     block_store: Arc<BlockStore>,
 
     /// Read-write lock used to prevent writing to a structure while it is being used.
