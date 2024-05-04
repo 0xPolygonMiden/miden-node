@@ -24,6 +24,7 @@ use tokio::{
 use tracing::{error, info, info_span, instrument};
 
 use crate::{
+    blocks::BlockStore,
     db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockInputsError, StateInitializationError,
@@ -52,7 +53,11 @@ struct InnerState {
 
 /// The rollup state
 pub struct State {
+    /// The database which stores block headers, nullifiers, notes, and the latest states of accounts.
     db: Arc<Db>,
+
+    /// The block store which stores full block contents for all blocks.
+    block_store: Arc<BlockStore>,
 
     /// Read-write lock used to prevent writing to a structure while it is being used.
     ///
@@ -67,7 +72,10 @@ pub struct State {
 impl State {
     /// Loads the state from the `db`.
     #[instrument(target = "miden-store", skip_all)]
-    pub async fn load(mut db: Db) -> Result<Self, StateInitializationError> {
+    pub async fn load(
+        mut db: Db,
+        block_store: Arc<BlockStore>,
+    ) -> Result<Self, StateInitializationError> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
         let account_tree = load_accounts(&mut db).await?;
@@ -76,7 +84,7 @@ impl State {
 
         let writer = Mutex::new(());
         let db = Arc::new(db);
-        Ok(Self { db, inner, writer })
+        Ok(Self { db, block_store, inner, writer })
     }
 
     /// Apply changes of a new block to the DB and in-memory data structures.
@@ -223,6 +231,7 @@ impl State {
 
         let block_num = block.header().block_num();
         let block_hash = block.hash();
+        let block_data = block.to_bytes();
 
         // signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
@@ -234,17 +243,10 @@ impl State {
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
         let db = self.db.clone();
-        let handle = tokio::spawn(async move {
-            db.apply_block(
-                allow_acquire,
-                acquire_done,
-                block.header(),
-                notes,
-                block.created_nullifiers().to_vec(),
-                block.updated_accounts().to_vec(),
-            )
-            .await
-        });
+        let handle =
+            tokio::spawn(
+                async move { db.apply_block(allow_acquire, acquire_done, block, notes).await },
+            );
 
         acquired_allowed
             .await
@@ -253,6 +255,10 @@ impl State {
         // scope to update the in-memory data
         {
             let mut inner = self.inner.write().await;
+
+            // Save the block before transaction is committed:
+            self.block_store.save_block(block_num, &block_data)?;
+
             let _ = inform_acquire_done.send(());
 
             let _ = mem::replace(&mut inner.chain_mmr, chain_mmr);
@@ -473,6 +479,11 @@ impl State {
     /// Returns details for public (on-chain) account.
     pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await
+    }
+
+    /// Loads a block from the block store. Return `Ok(None)` if the block is not found.
+    pub async fn load_block(&self, block_num: u32) -> Result<Option<Vec<u8>>, DatabaseError> {
+        self.block_store.load_block(block_num).await.map_err(Into::into)
     }
 }
 

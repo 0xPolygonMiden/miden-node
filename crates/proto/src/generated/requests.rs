@@ -103,3 +103,10 @@ pub struct GetAccountDetailsRequest {
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBlockByNumberRequest {
+    /// The block number of the target block.
+    #[prost(fixed32, tag = "1")]
+    pub block_num: u32,
+}

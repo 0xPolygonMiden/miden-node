@@ -86,3 +86,8 @@ message GetAccountDetailsRequest {
     // Account ID to get details.
     account.AccountId account_id = 1;
 }
+
+message GetBlockByNumberRequest {
+    // The block number of the target block.
+    fixed32 block_num = 1;
+}

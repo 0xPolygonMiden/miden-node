@@ -1,10 +1,13 @@
 use miden_objects::{
-    accounts::Account,
-    crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, Smt},
+    accounts::{delta::AccountUpdateDetails, Account},
+    block::{Block, BlockAccountUpdate},
+    crypto::merkle::{EmptySubtreeRoots, MmrPeaks, SimpleSmt, Smt},
     notes::NOTE_LEAF_DEPTH,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     BlockHeader, Digest, ACCOUNT_TREE_DEPTH, GENESIS_BLOCK,
 };
+
+use crate::errors::GenesisError;
 
 // GENESIS STATE
 // ================================================================================================
@@ -23,16 +26,22 @@ impl GenesisState {
     }
 
     /// Returns the block header and the account SMT
-    pub fn into_block_parts(
-        self,
-    ) -> Result<(BlockHeader, SimpleSmt<ACCOUNT_TREE_DEPTH>), MerkleError> {
+    pub fn into_block(self) -> Result<Block, GenesisError> {
+        let accounts: Vec<BlockAccountUpdate> = self
+            .accounts
+            .iter()
+            .map(|account| {
+                BlockAccountUpdate::new(account.id(), account.hash(), AccountUpdateDetails::Private)
+            })
+            .collect();
+
         let account_smt: SimpleSmt<ACCOUNT_TREE_DEPTH> = SimpleSmt::with_leaves(
-            self.accounts
-                .into_iter()
-                .map(|account| (account.id().into(), account.hash().into())),
+            accounts
+                .iter()
+                .map(|update| (update.account_id().into(), update.new_state_hash().into())),
         )?;
 
-        let block_header = BlockHeader::new(
+        let header = BlockHeader::new(
             self.version,
             Digest::default(),
             GENESIS_BLOCK,
@@ -45,7 +54,7 @@ impl GenesisState {
             self.timestamp,
         );
 
-        Ok((block_header, account_smt))
+        Block::new(header, accounts, vec![], vec![]).map_err(Into::into)
     }
 }
 

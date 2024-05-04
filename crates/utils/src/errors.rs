@@ -3,8 +3,11 @@ use tonic::transport::Error as TransportError;
 
 #[derive(Debug, Error)]
 pub enum ApiError {
+    #[error("An I/O error has occurred: {0}")]
+    IoError(#[from] std::io::Error),
+
     #[error("initialisation of the Api has failed: {0}")]
-    ApiInitialisationFailed(TransportError),
+    ApiInitialisationFailed(String),
 
     #[error("Serving the Api server has failed.")]
     ApiServeFailed(TransportError),

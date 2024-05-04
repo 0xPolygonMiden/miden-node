@@ -9,16 +9,16 @@ use miden_node_proto::{
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
-            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
-            ListNullifiersRequest, SyncStateRequest,
+            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
-            GetAccountDetailsResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
-            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
-            NullifierUpdate, SyncStateResponse,
+            GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -251,9 +251,11 @@ impl api_server::Api for StoreApi {
             Status::invalid_argument(format!("Block deserialization error: {err}"))
         })?;
 
+        let block_num = block.header().block_num();
+
         info!(
             target: COMPONENT,
-            block_num = block.header().block_num(),
+            block_num,
             block_hash = %block.hash(),
             account_count = block.updated_accounts().len(),
             note_count = block.created_notes().len(),
@@ -331,6 +333,26 @@ impl api_server::Api for StoreApi {
                 })
                 .collect(),
         }))
+    }
+
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_block_by_number",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_block_by_number(
+        &self,
+        request: tonic::Request<GetBlockByNumberRequest>,
+    ) -> Result<Response<GetBlockByNumberResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
+
+        Ok(Response::new(GetBlockByNumberResponse { block }))
     }
 
     // TESTING ENDPOINTS

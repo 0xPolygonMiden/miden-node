@@ -19,3 +19,4 @@ store_url = "http://localhost:28943"
 endpoint = { host = "localhost", port = 28943 }
 database_filepath = "miden-store.sqlite3"
 genesis_filepath = "genesis.dat"
+blockstore_dir = "blocks"

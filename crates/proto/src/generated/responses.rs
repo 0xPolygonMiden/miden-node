@@ -147,3 +147,10 @@ pub struct GetAccountDetailsResponse {
     #[prost(message, optional, tag = "1")]
     pub account: ::core::option::Option<super::account::AccountInfo>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBlockByNumberResponse {
+    /// The requested `Block` data encoded using miden native format
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub block: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+}

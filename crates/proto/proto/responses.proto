@@ -117,3 +117,8 @@ message GetAccountDetailsResponse {
     // Account info (with details for on-chain accounts)
     account.AccountInfo account = 1;
 }
+
+message GetBlockByNumberResponse {
+    // The requested `Block` data encoded using miden native format
+    optional bytes block = 1;
+}
