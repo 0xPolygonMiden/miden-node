@@ -23,7 +23,7 @@ pub type FaucetClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 #[derive(Clone)]
 pub struct FaucetState {
     pub id: AccountId,
-    pub asset_amount: u64,
+    pub asset_amount_options: Vec<u64>,
     pub client: Arc<Mutex<FaucetClient>>,
 }
 
@@ -45,7 +45,7 @@ pub async fn build_faucet_state(config: FaucetConfig) -> Result<FaucetState, Fau
 
     Ok(FaucetState {
         id: faucet_account.id(),
-        asset_amount: config.asset_amount,
+        asset_amount_options: config.asset_amount_options,
         client: Arc::new(Mutex::new(client)),
     })
 }

@@ -21,6 +21,7 @@ authors = ["Miden contributors"]
 homepage = "https://polygon.technology/polygon-miden"
 repository = "https://github.com/0xPolygonMiden/miden-node"
 exclude = [".github/"]
+readme = "README.md"
 
 [workspace.dependencies]
 miden-air = { version = "0.9", default-features = false }

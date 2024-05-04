@@ -1,6 +1,12 @@
 # Changelog
 
+## 0.3.0 (TBD)
+
+* Added option to mint pulic notes in the faucet (#339).
+* Renamed `note_hash` into `note_id` in the database (#336)
+* Changed `version` and `timestamp` fields in `Block` message to `u32` (#337).
 * Added `GetBlockByNumber` endpoint (#340).
+* [BREAKING] Implemented `NoteMetadata` protobuf message (#338).
 
 ## 0.2.1 (2024-04-27)
 

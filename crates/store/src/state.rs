@@ -219,9 +219,7 @@ impl State {
                         block_num: block.header().block_num(),
                         note_index,
                         note_id: note.id().into(),
-                        note_type: note.metadata().note_type(),
-                        sender: note.metadata().sender().into(),
-                        tag: note.metadata().tag().into(),
+                        metadata: *note.metadata(),
                         details,
                         merkle_path,
                     })

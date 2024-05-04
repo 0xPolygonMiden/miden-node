@@ -11,7 +11,7 @@ use miden_node_proto::{
 use miden_objects::{
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::{NoteId, NoteType, Nullifier},
+    notes::{NoteId, NoteMetadata, Nullifier},
     utils::Serializable,
     BlockHeader, GENESIS_BLOCK,
 };
@@ -53,9 +53,7 @@ pub struct NoteRecord {
     pub block_num: BlockNumber,
     pub note_index: BlockNoteIndex,
     pub note_id: RpoDigest,
-    pub note_type: NoteType,
-    pub sender: AccountId,
-    pub tag: u32,
+    pub metadata: NoteMetadata,
     pub details: Option<Vec<u8>>,
     pub merkle_path: MerklePath,
 }
@@ -66,9 +64,7 @@ impl From<NoteRecord> for NotePb {
             block_num: note.block_num,
             note_index: note.note_index.to_absolute_index() as u32,
             note_id: Some(note.note_id.into()),
-            sender: Some(note.sender.into()),
-            tag: note.tag,
-            note_type: note.note_type as u32,
+            metadata: Some(note.metadata.into()),
             merkle_path: Some(note.merkle_path.into()),
             details: note.details,
         }
