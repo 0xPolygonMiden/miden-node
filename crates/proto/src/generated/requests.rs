@@ -11,6 +11,8 @@ pub struct CheckNullifiersRequest {
     #[prost(message, repeated, tag = "1")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
+/// Returns the block header corresponding to the requested block number, as well as the merkle
+/// path that validates the block's inclusion in the chain.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockHeaderByNumberRequest {

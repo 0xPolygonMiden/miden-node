@@ -18,6 +18,7 @@ message CheckNullifiersResponse {
 
 message GetBlockHeaderByNumberResponse {
     block_header.BlockHeader block_header = 1;
+    merkle.MerklePath proof = 2;
 }
 
 message NullifierUpdate {

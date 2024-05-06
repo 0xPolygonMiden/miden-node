@@ -173,6 +173,14 @@ pub enum ApplyBlockError {
 }
 
 #[derive(Error, Debug)]
+pub enum GetBlockHeaderError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
+    #[error("Error retrieving the merkle proof for the block: {0}")]
+    MmrError(#[from] MmrError),
+}
+
+#[derive(Error, Debug)]
 pub enum GetBlockInputsError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),

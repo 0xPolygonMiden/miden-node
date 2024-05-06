@@ -69,14 +69,13 @@ impl api_server::Api for StoreApi {
         info!(target: COMPONENT, ?request);
 
         let block_num = request.into_inner().block_num;
-        let block_header = self
-            .state
-            .get_block_header(block_num)
-            .await
-            .map_err(internal_error)?
-            .map(Into::into);
+        let (block_header, merkle_proof) =
+            self.state.get_block_header(block_num).await.map_err(internal_error)?;
 
-        Ok(Response::new(GetBlockHeaderByNumberResponse { block_header }))
+        Ok(Response::new(GetBlockHeaderByNumberResponse {
+            block_header: block_header.map(Into::into),
+            proof: merkle_proof.map(Into::into),
+        }))
     }
 
     /// Returns info on whether the specified nullifiers have been consumed.

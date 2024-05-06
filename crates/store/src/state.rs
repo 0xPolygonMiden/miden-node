@@ -10,7 +10,7 @@ use miden_objects::{
     block::{Block, BlockNoteIndex, BlockNoteTree},
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
+        merkle::{LeafIndex, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteId, Nullifier},
     transaction::OutputNote,
@@ -27,8 +27,8 @@ use crate::{
     blocks::BlockStore,
     db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
     errors::{
-        ApplyBlockError, DatabaseError, GetBlockInputsError, StateInitializationError,
-        StateSyncError,
+        ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
+        StateInitializationError, StateSyncError,
     },
     nullifier_tree::NullifierTree,
     types::{AccountId, BlockNumber},
@@ -291,15 +291,25 @@ impl State {
         Ok(())
     }
 
-    /// Queries a [BlockHeader] from the database.
+    /// Queries a [BlockHeader] from the database, and returns it alongside its inclusion proof.
     ///
-    /// If [None] is given as the value of `block_num`, the latest [BlockHeader] is returned.
+    /// If [None] is given as the value of `block_num`, the data for the latest [BlockHeader] is
+    /// returned.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
-    ) -> Result<Option<BlockHeader>, DatabaseError> {
-        self.db.select_block_header_by_block_num(block_num).await
+    ) -> Result<(Option<BlockHeader>, Option<MerklePath>), GetBlockHeaderError> {
+        let block_header = self.db.select_block_header_by_block_num(block_num).await?;
+        if let Some(header) = block_header {
+            let inner = self.inner.read().await;
+            let merkle_proof =
+                inner.chain_mmr.open(header.block_num() as usize, inner.chain_mmr.forest())?;
+
+            Ok((Some(header), Some(merkle_proof.merkle_path)))
+        } else {
+            Ok((None, None))
+        }
     }
 
     /// Generates membership proofs for each one of the `nullifiers` against the latest nullifier

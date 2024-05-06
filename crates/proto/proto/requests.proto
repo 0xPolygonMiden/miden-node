@@ -14,6 +14,8 @@ message CheckNullifiersRequest {
     repeated digest.Digest nullifiers = 1;
 }
 
+// Returns the block header corresponding to the requested block number, as well as the merkle
+// path that validates the block's inclusion in the chain.
 message GetBlockHeaderByNumberRequest {
     // The block number of the target block.
     //

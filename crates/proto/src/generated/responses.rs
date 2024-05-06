@@ -14,6 +14,8 @@ pub struct CheckNullifiersResponse {
 pub struct GetBlockHeaderByNumberResponse {
     #[prost(message, optional, tag = "1")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
+    #[prost(message, optional, tag = "2")]
+    pub proof: ::core::option::Option<super::merkle::MerklePath>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
