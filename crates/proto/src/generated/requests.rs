@@ -24,8 +24,8 @@ pub struct GetBlockHeaderByNumberRequest {
     #[prost(uint32, optional, tag = "1")]
     pub block_num: ::core::option::Option<u32>,
     /// Whether or not to return authentication data for the block header.
-    #[prost(bool, tag = "2")]
-    pub include_authentication: bool,
+    #[prost(bool, optional, tag = "2")]
+    pub include_mmr_proof: ::core::option::Option<bool>,
 }
 /// State synchronization request.
 ///

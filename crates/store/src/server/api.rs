@@ -72,7 +72,7 @@ impl api_server::Api for StoreApi {
         let block_num = request.block_num;
         let (block_header, merkle_proof) = self
             .state
-            .get_block_header(block_num, request.include_authentication)
+            .get_block_header(block_num, request.include_mmr_proof.unwrap_or(false))
             .await
             .map_err(internal_error)?;
 

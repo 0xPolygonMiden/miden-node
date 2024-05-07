@@ -21,10 +21,10 @@ message GetBlockHeaderByNumberResponse {
     block_header.BlockHeader block_header = 1;
 
     // Merkle path to verify the block's inclusion in the MMR at the returned `forest`
-    optional merkle.MerklePath proof = 2;
+    optional merkle.MerklePath mmr_path = 2;
 
     // Current value of the MMR forest
-    optional fixed32 forest = 3;
+    optional fixed32 chain_length = 3;
 }
 
 message NullifierUpdate {
