@@ -70,7 +70,7 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         let block_num = request.block_num;
-        let (block_header, merkle_proof) = self
+        let (block_header, mmr_proof) = self
             .state
             .get_block_header(block_num, request.include_mmr_proof.unwrap_or(false))
             .await
@@ -78,8 +78,8 @@ impl api_server::Api for StoreApi {
 
         Ok(Response::new(GetBlockHeaderByNumberResponse {
             block_header: block_header.map(Into::into),
-            forest: merkle_proof.as_ref().map(|p| p.forest as u32),
-            proof: merkle_proof.map(|p| Into::into(p.merkle_path)),
+            chain_length: mmr_proof.as_ref().map(|p| p.forest as u32),
+            mmr_path: mmr_proof.map(|p| Into::into(p.merkle_path)),
         }))
     }
 

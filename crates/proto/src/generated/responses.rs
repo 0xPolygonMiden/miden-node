@@ -17,10 +17,10 @@ pub struct GetBlockHeaderByNumberResponse {
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
     /// Merkle path to verify the block's inclusion in the MMR at the returned `forest`
     #[prost(message, optional, tag = "2")]
-    pub proof: ::core::option::Option<super::merkle::MerklePath>,
+    pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
     /// Current value of the MMR forest
     #[prost(fixed32, optional, tag = "3")]
-    pub forest: ::core::option::Option<u32>,
+    pub chain_length: ::core::option::Option<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
