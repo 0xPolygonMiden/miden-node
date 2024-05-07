@@ -10,7 +10,7 @@ use miden_objects::{
     block::{Block, BlockNoteIndex, BlockNoteTree},
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{LeafIndex, MerklePath, Mmr, MmrDelta, MmrPeaks, SimpleSmt, SmtProof, ValuePath},
+        merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath},
     },
     notes::{NoteId, Nullifier},
     transaction::OutputNote,
@@ -299,14 +299,19 @@ impl State {
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
-    ) -> Result<(Option<BlockHeader>, Option<MerklePath>), GetBlockHeaderError> {
+        include_authentication: bool,
+    ) -> Result<(Option<BlockHeader>, Option<MmrProof>), GetBlockHeaderError> {
         let block_header = self.db.select_block_header_by_block_num(block_num).await?;
         if let Some(header) = block_header {
-            let inner = self.inner.read().await;
-            let merkle_proof =
-                inner.chain_mmr.open(header.block_num() as usize, inner.chain_mmr.forest())?;
-
-            Ok((Some(header), Some(merkle_proof.merkle_path)))
+            let mmr_proof = if include_authentication {
+                let inner = self.inner.read().await;
+                let mmr_proof =
+                    inner.chain_mmr.open(header.block_num() as usize, inner.chain_mmr.forest())?;
+                Some(mmr_proof)
+            } else {
+                None
+            };
+            Ok((Some(header), mmr_proof))
         } else {
             Ok((None, None))
         }

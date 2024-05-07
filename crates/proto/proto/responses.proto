@@ -17,8 +17,14 @@ message CheckNullifiersResponse {
 }
 
 message GetBlockHeaderByNumberResponse {
+    // The requested block header
     block_header.BlockHeader block_header = 1;
-    merkle.MerklePath proof = 2;
+
+    // Merkle path to verify the block's inclusion in the MMR at the returned `forest`
+    optional merkle.MerklePath proof = 2;
+
+    // Current value of the MMR forest
+    optional fixed32 forest = 3;
 }
 
 message NullifierUpdate {
@@ -27,22 +33,22 @@ message NullifierUpdate {
 }
 
 message SyncStateResponse {
-    // number of the latest block in the chain
+    // Number of the latest block in the chain
     fixed32 chain_tip = 1;
 
-    // block header of the block with the first note matching the specified criteria
+    // Block header of the block with the first note matching the specified criteria
     block_header.BlockHeader block_header = 2;
 
-    // data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`
+    // Data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`
     mmr.MmrDelta mmr_delta = 3;
 
-    // a list of account hashes updated after `block_num + 1` but not after `block_header.block_num`
+    // List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
     repeated account.AccountSummary accounts = 5;
 
-    // a list of all notes together with the Merkle paths from `block_header.note_root`
+    // List of all notes together with the Merkle paths from `block_header.note_root`
     repeated note.NoteSyncRecord notes = 6;
 
-    // a list of nullifiers created between `block_num + 1` and `block_header.block_num`
+    // List of nullifiers created between `block_num + 1` and `block_header.block_num`
     repeated NullifierUpdate nullifiers = 7;
 }
 

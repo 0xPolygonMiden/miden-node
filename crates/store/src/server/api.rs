@@ -67,14 +67,19 @@ impl api_server::Api for StoreApi {
         request: tonic::Request<GetBlockHeaderByNumberRequest>,
     ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
         info!(target: COMPONENT, ?request);
+        let request = request.into_inner();
 
-        let block_num = request.into_inner().block_num;
-        let (block_header, merkle_proof) =
-            self.state.get_block_header(block_num).await.map_err(internal_error)?;
+        let block_num = request.block_num;
+        let (block_header, merkle_proof) = self
+            .state
+            .get_block_header(block_num, request.include_authentication)
+            .await
+            .map_err(internal_error)?;
 
         Ok(Response::new(GetBlockHeaderByNumberResponse {
             block_header: block_header.map(Into::into),
-            proof: merkle_proof.map(Into::into),
+            forest: merkle_proof.as_ref().map(|p| p.forest as u32),
+            proof: merkle_proof.map(|p| Into::into(p.merkle_path)),
         }))
     }
 

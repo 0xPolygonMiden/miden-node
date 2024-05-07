@@ -34,7 +34,7 @@ Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle 
 
 ### GetBlockHeaderByNumber
 
-Retrieves block header by given block number.
+Retrieves block header, alongside a Merkle path and the current MMR forest by given block number.
 
 **Parameters**
 
