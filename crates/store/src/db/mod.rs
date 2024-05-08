@@ -379,7 +379,7 @@ impl Db {
                             genesis_block.updated_accounts(),
                         )?;
 
-                        block_store.save_block(0, &genesis_block.to_bytes())?;
+                        block_store.save_block_blocking(0, &genesis_block.to_bytes())?;
 
                         transaction.commit()?;
 
