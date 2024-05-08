@@ -146,15 +146,12 @@ impl api_server::Api for RpcApi {
         let request = request.into_inner();
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
-            .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid transaction: {err}")))?;
 
         let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
 
-        tx_verifier.verify(tx.clone()).map_err(|_| {
-            Status::invalid_argument(format!(
-                "Invalid transaction proof for transaction: {}",
-                tx.id()
-            ))
+        tx_verifier.verify(tx.clone()).map_err(|err| {
+            Status::invalid_argument(format!("Invalid proof for transaction {}: {err}", tx.id()))
         })?;
 
         self.block_producer.clone().submit_proven_transaction(request).await

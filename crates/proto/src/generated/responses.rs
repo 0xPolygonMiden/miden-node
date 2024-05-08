@@ -15,10 +15,10 @@ pub struct GetBlockHeaderByNumberResponse {
     /// The requested block header
     #[prost(message, optional, tag = "1")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
-    /// Merkle path to verify the block's inclusion in the MMR at the returned `forest`
+    /// Merkle path to verify the block's inclusion in the MMR at the returned `chain_length`
     #[prost(message, optional, tag = "2")]
     pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
-    /// Current value of the MMR forest
+    /// Current chain length
     #[prost(fixed32, optional, tag = "3")]
     pub chain_length: ::core::option::Option<u32>,
 }
