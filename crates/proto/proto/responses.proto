@@ -20,10 +20,10 @@ message GetBlockHeaderByNumberResponse {
     // The requested block header
     block_header.BlockHeader block_header = 1;
 
-    // Merkle path to verify the block's inclusion in the MMR at the returned `forest`
+    // Merkle path to verify the block's inclusion in the MMR at the returned `chain_length`
     optional merkle.MerklePath mmr_path = 2;
 
-    // Current value of the MMR forest
+    // Current chain length
     optional fixed32 chain_length = 3;
 }
 
