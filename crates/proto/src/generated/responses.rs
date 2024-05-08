@@ -12,8 +12,15 @@ pub struct CheckNullifiersResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockHeaderByNumberResponse {
+    /// The requested block header
     #[prost(message, optional, tag = "1")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
+    /// Merkle path to verify the block's inclusion in the MMR at the returned `forest`
+    #[prost(message, optional, tag = "2")]
+    pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
+    /// Current value of the MMR forest
+    #[prost(fixed32, optional, tag = "3")]
+    pub chain_length: ::core::option::Option<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -26,22 +33,22 @@ pub struct NullifierUpdate {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateResponse {
-    /// number of the latest block in the chain
+    /// Number of the latest block in the chain
     #[prost(fixed32, tag = "1")]
     pub chain_tip: u32,
-    /// block header of the block with the first note matching the specified criteria
+    /// Block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
-    /// data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`
+    /// Data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`
     #[prost(message, optional, tag = "3")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
-    /// a list of account hashes updated after `block_num + 1` but not after `block_header.block_num`
+    /// List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
     #[prost(message, repeated, tag = "5")]
     pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
-    /// a list of all notes together with the Merkle paths from `block_header.note_root`
+    /// List of all notes together with the Merkle paths from `block_header.note_root`
     #[prost(message, repeated, tag = "6")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
-    /// a list of nullifiers created between `block_num + 1` and `block_header.block_num`
+    /// List of nullifiers created between `block_num + 1` and `block_header.block_num`
     #[prost(message, repeated, tag = "7")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }

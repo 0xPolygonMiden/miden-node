@@ -11,6 +11,10 @@ pub struct CheckNullifiersRequest {
     #[prost(message, repeated, tag = "1")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
+/// Returns the block header corresponding to the requested block number, as well as the merkle
+/// path and current forest which validate the block's inclusion in the chain.
+///
+/// The merkle path is an MMR proof for the block's leaf, based on the current forest.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockHeaderByNumberRequest {
@@ -19,6 +23,9 @@ pub struct GetBlockHeaderByNumberRequest {
     /// If not provided, means latest know block.
     #[prost(uint32, optional, tag = "1")]
     pub block_num: ::core::option::Option<u32>,
+    /// Whether or not to return authentication data for the block header.
+    #[prost(bool, optional, tag = "2")]
+    pub include_mmr_proof: ::core::option::Option<bool>,
 }
 /// State synchronization request.
 ///

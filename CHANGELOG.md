@@ -2,6 +2,7 @@
 
 ## 0.3.0 (TBD)
 
+* Added block authentication data to the `GetBlockHeaderByNumber` RPC (#345).
 * Added option to mint pulic notes in the faucet (#339).
 * Renamed `note_hash` into `note_id` in the database (#336)
 * Changed `version` and `timestamp` fields in `Block` message to `u32` (#337).

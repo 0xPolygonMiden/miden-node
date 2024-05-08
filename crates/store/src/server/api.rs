@@ -67,16 +67,20 @@ impl api_server::Api for StoreApi {
         request: tonic::Request<GetBlockHeaderByNumberRequest>,
     ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
         info!(target: COMPONENT, ?request);
+        let request = request.into_inner();
 
-        let block_num = request.into_inner().block_num;
-        let block_header = self
+        let block_num = request.block_num;
+        let (block_header, mmr_proof) = self
             .state
-            .get_block_header(block_num)
+            .get_block_header(block_num, request.include_mmr_proof.unwrap_or(false))
             .await
-            .map_err(internal_error)?
-            .map(Into::into);
+            .map_err(internal_error)?;
 
-        Ok(Response::new(GetBlockHeaderByNumberResponse { block_header }))
+        Ok(Response::new(GetBlockHeaderByNumberResponse {
+            block_header: block_header.map(Into::into),
+            chain_length: mmr_proof.as_ref().map(|p| p.forest as u32),
+            mmr_path: mmr_proof.map(|p| Into::into(p.merkle_path)),
+        }))
     }
 
     /// Returns info on whether the specified nullifiers have been consumed.
