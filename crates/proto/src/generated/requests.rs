@@ -14,7 +14,7 @@ pub struct CheckNullifiersRequest {
 /// Returns the block header corresponding to the requested block number, as well as the merkle
 /// path and current forest which validate the block's inclusion in the chain.
 ///
-/// The merkle path is an MMR proof for the block's leaf, based on the current forest.
+/// The Merkle path is an MMR proof for the block's leaf, based on the current chain length.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockHeaderByNumberRequest {
