@@ -13,7 +13,7 @@ use miden_objects::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
         SMT_DEPTH,
     },
-    notes::{NoteEnvelope, NoteMetadata, NoteType},
+    notes::{NoteHeader, NoteMetadata, NoteType},
     transaction::OutputNote,
     Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
@@ -390,7 +390,7 @@ async fn test_compute_note_root_success() {
         AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2)),
     ];
 
-    let notes_created: Vec<NoteEnvelope> = [
+    let notes_created: Vec<NoteHeader> = [
         Digest::from([Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)]),
         Digest::from([Felt::new(2u64), Felt::new(2u64), Felt::new(2u64), Felt::new(2u64)]),
         Digest::from([Felt::new(3u64), Felt::new(3u64), Felt::new(3u64), Felt::new(3u64)]),
@@ -398,11 +398,10 @@ async fn test_compute_note_root_success() {
     .into_iter()
     .zip(account_ids.iter())
     .map(|(note_digest, &account_id)| {
-        NoteEnvelope::new(
+        NoteHeader::new(
             note_digest.into(),
             NoteMetadata::new(account_id, NoteType::OffChain, 0.into(), ONE).unwrap(),
         )
-        .expect("Hardcoded values should not fail")
     })
     .collect();
 
@@ -425,7 +424,7 @@ async fn test_compute_note_root_success() {
             .iter()
             .zip(account_ids.iter())
             .map(|(note, &account_id)| {
-                let note = OutputNote::Private(*note);
+                let note = OutputNote::Header(*note);
                 MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
                     .notes_created(vec![note])
                     .build()
