@@ -207,8 +207,8 @@ impl State {
                 .notes()
                 .map(|(note_index, note)| {
                     let details = match note {
-                        OutputNote::Public(note) => Some(note.to_bytes()),
-                        OutputNote::Private(_) => None,
+                        OutputNote::Full(note) => Some(note.to_bytes()),
+                        OutputNote::Header(_) => None,
                     };
 
                     let merkle_path = note_tree
