@@ -400,7 +400,13 @@ async fn test_compute_note_root_success() {
     .map(|(note_digest, &account_id)| {
         NoteHeader::new(
             note_digest.into(),
-            NoteMetadata::new(account_id, NoteType::OffChain, NoteTag::for_local_use_case(0u16, 0u16).unwrap(), ONE).unwrap(),
+            NoteMetadata::new(
+                account_id,
+                NoteType::OffChain,
+                NoteTag::for_local_use_case(0u16, 0u16).unwrap(),
+                ONE,
+            )
+            .unwrap(),
         )
     })
     .collect();
