@@ -26,7 +26,7 @@ jobs:
         run: echo "GIT_TAG=`echo $(git describe --tags --abbrev=0)`" >> $GITHUB_ENV
       - name: adding version
         run: |
-          NUMERIC_VERSION=$( echo ${{ env.GIT_TAG }} | sed 's/[^0-9.]//g' ) 
+          NUMERIC_VERSION=$( echo ${{ env.GIT_TAG }} | sed 's/[^0-9.]//g' )
           echo "VERSION=$NUMERIC_VERSION" >> $GITHUB_ENV
 
       - name: cleaning repo
@@ -35,32 +35,21 @@ jobs:
       - name: Building for amd64
         run: cargo build --release
 
-      - name: create packaging subdir
-        run: mkdir -p packaging/deb/miden-node/DEBIAN
+      - name: create package directories
+        run: |
+          mkdir -p packaging/deb/miden-node/DEBIAN
+          mkdir -p packaging/deb/miden-node/usr/bin
+          mkdir -p packaging/deb/miden-node/lib/systemd/system
+          mkdir -p packaging/deb/miden-node/etc/miden
 
-      - name: making directory for binary
-        run: mkdir -p packaging/deb/miden-node/usr/bin
-
-      - name: create systemd location
-        run: mkdir -p packaging/deb/miden-node/lib/systemd/system
-
-      - name: copy the miden-node service file
-        run: cp packaging/miden-node.service packaging/deb/miden-node/lib/systemd/system/
-
-      - name: make directory for example configs
-        run: mkdir -p packaging/deb/miden-node/etc/miden
-
-      - name: copy the miden-node.toml file
-        run: cp bin/node/miden-node.toml packaging/deb/miden-node/etc/miden/
-
-      - name: copy over the postinst
-        run: cp packaging/postinst packaging/deb/miden-node/DEBIAN/postinst
-
-      - name: copy over the postrm
-        run: cp packaging/postrm packaging/deb/miden-node/DEBIAN/postrm
-
-      - name: copying over the build
-        run: cp -rp target/release/miden-node packaging/deb/miden-node/usr/bin/
+      - name: copy package files
+        run: |
+          cp -p target/release/miden-node packaging/deb/miden-node/usr/bin/
+          cp config/miden-node.toml packaging/deb/miden-node/etc/miden/
+          cp config/genesis.toml packaging/deb/miden-node/etc/miden/
+          cp packaging/miden-node.service packaging/deb/miden-node/lib/systemd/system/
+          cp packaging/postinst packaging/deb/miden-node/DEBIAN/postinst
+          cp packaging/postrm packaging/deb/miden-node/DEBIAN/postrm
 
       ########### Control file creation for amd64 ##########
       - name: create control file

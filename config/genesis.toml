@@ -6,13 +6,13 @@ timestamp = 1672531200
 type = "BasicWallet"
 init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 auth_scheme = "RpoFalcon512"
-auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 [[accounts]]
 type = "BasicFungibleFaucet"
 init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 auth_scheme = "RpoFalcon512"
-auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 token_symbol = "POL"
 decimals = 12
 max_supply = 1000000
