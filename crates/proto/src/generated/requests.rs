@@ -72,7 +72,7 @@ pub struct SyncStateRequest {
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
     /// Determines the nullifiers the client is interested in.
     ///
-    /// Similarly to the note_tags, this determins only the 16high bits of the target nullifier.
+    /// Similarly to the note_tags, this determines only the 16high bits of the target nullifier.
     #[prost(uint32, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
 }

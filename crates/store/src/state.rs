@@ -270,7 +270,7 @@ impl State {
                     block_hash = block_header.hash().to_hex(),
                     block_num = block_header.block_num(),
                     COMPONENT,
-                    "apply_block sucessfull"
+                    "apply_block successful"
                 );
             },
         }
