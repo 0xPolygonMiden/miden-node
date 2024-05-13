@@ -12,15 +12,10 @@ use miden_lib::{
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::config::load_config;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountStorageType, AccountType, AuthData},
-    assets::TokenSymbol,
-    crypto::{
-        dsa::rpo_falcon512::SecretKey,
-        utils::{hex_to_bytes, Serializable},
-    },
-    Felt, ONE,
+    accounts::{Account, AccountData, AccountStorageType, AccountType, AuthData}, assets::TokenSymbol, crypto::{
+        dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin, utils::{hex_to_bytes, Serializable}
+    }, Digest, Felt, ONE
 };
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
 mod inputs;
 
@@ -182,12 +177,14 @@ fn parse_auth_inputs(
 ) -> Result<(AuthScheme, AuthData)> {
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
-            let auth_seed: [u8; 32] = hex_to_bytes(auth_seed)?;
-            let mut rng = ChaCha20Rng::from_seed(auth_seed);
+            let seed_bytes = hex_to_bytes(auth_seed)?;
+            let auth_seed = Digest::try_from(&seed_bytes)?.into();
+
+            let mut rng = RpoRandomCoin::new(auth_seed);
             let secret = SecretKey::with_rng(&mut rng);
 
             let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
-            let auth_info = AuthData::RpoFalcon512Seed(auth_seed);
+            let auth_info = AuthData::RpoFalcon512Seed(seed_bytes);
 
             Ok((auth_scheme, auth_info))
         },
