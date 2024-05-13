@@ -60,7 +60,7 @@ message SyncStateRequest {
 
     // Determines the nullifiers the client is interested in.
     //
-    // Similarly to the note_tags, this determins only the 16high bits of the target nullifier.
+    // Similarly to the note_tags, this determines only the 16high bits of the target nullifier.
     repeated uint32 nullifiers = 4;
 }
 
