@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-utils"
-version = "0.2.1"
+version = "0.3.0"
 description = "Miden node's shared utilities"
 readme = "README.md"
 keywords = ["miden", "node", "utils"]

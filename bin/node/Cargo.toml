@@ -1,6 +1,6 @@
 [package]
 name = "miden-node"
-version = "0.2.1"
+version = "0.3.0"
 description = "Miden node binary"
 readme.workspace = true
 keywords = ["miden", "node"]
@@ -21,7 +21,7 @@ tracing-forest = ["miden-node-block-producer/tracing-forest"]
 anyhow = { version = "1.0" }
 clap = { version = "4.3", features = ["derive"] }
 miden-lib = { workspace = true, features = ["concurrent"] }
-miden-node-block-producer = { path = "../../crates/block-producer", version = "0.2" }
+miden-node-block-producer = { workspace = true }
 miden-node-rpc = { workspace = true }
 miden-node-store = { workspace = true }
 miden-node-utils = { workspace = true }
