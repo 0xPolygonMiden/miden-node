@@ -72,16 +72,11 @@ By default this will generate 1 file and 1 folder in the current directory:
 
 ### Running the node
 
-To run the node you will need to provide a configuration file. We have an example config file in [node/miden-node.toml](bin/node/miden-node.toml). Then, to run the node, run:
+Create a configuration file based on [node/miden-node.toml](bin/node/miden-node.toml), then create the necessary directories and start the node:
 
 ```sh
+mkdir -p /opt/miden
 miden-node start --config <path-to-config-file> <component-to-be-started>
-```
-
-Or, if your config file is named `miden-node.toml` and is in the current directory, you can simply run:
-
-```sh
-miden-node start <component-to-be-started>
 ```
 
 Note that the `store.genesis_filepath` field in the config file must point to the `genesis.dat` file that you generated in the previous step.
