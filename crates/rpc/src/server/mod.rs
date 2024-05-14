@@ -30,7 +30,9 @@ pub async fn serve(config: RpcConfig) -> Result<(), ApiError> {
         .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))?;
 
     Server::builder()
-        .add_service(rpc)
+        .accept_http1(true)
+        .add_service(rpc.clone())
+        .add_service(tonic_web::enable(rpc))
         .serve(addr)
         .await
         .map_err(ApiError::ApiServeFailed)?;
