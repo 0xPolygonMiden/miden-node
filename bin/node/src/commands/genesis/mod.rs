@@ -123,7 +123,7 @@ fn create_accounts(
                 print!("Creating basic wallet account...");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
 
-                let (auth_scheme, auth_info) =
+                let (auth_scheme, auth_secret_key) =
                     parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
                 let (account, account_seed) = create_basic_wallet(
@@ -133,13 +133,13 @@ fn create_accounts(
                     AccountStorageType::OffChain,
                 )?;
 
-                AccountData::new(account, Some(account_seed), auth_info)
+                AccountData::new(account, Some(account_seed), auth_secret_key)
             },
             AccountInput::BasicFungibleFaucet(inputs) => {
                 println!("Creating fungible faucet account...");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
 
-                let (auth_scheme, auth_info) =
+                let (auth_scheme, auth_secret_key) =
                     parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
                 let (account, account_seed) = create_basic_fungible_faucet(
@@ -152,7 +152,7 @@ fn create_accounts(
                     auth_scheme,
                 )?;
 
-                AccountData::new(account, Some(account_seed), auth_info)
+                AccountData::new(account, Some(account_seed), auth_secret_key)
             },
         };
 
