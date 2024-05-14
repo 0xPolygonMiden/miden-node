@@ -31,7 +31,6 @@ pub async fn serve(config: RpcConfig) -> Result<(), ApiError> {
 
     Server::builder()
         .accept_http1(true)
-        .add_service(rpc.clone())
         .add_service(tonic_web::enable(rpc))
         .serve(addr)
         .await
