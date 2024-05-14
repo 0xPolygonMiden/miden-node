@@ -57,7 +57,7 @@ Currently, the only difference between the two is how long the `make-genesis` co
 
 ### Generating the genesis file
 
-Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](bin/node/genesis.toml)
+Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](./config/genesis.toml)
 
 To generate the genesis file, run:
 
@@ -72,7 +72,7 @@ By default this will generate 1 file and 1 folder in the current directory:
 
 ### Running the node
 
-Create a configuration file based on [node/miden-node.toml](bin/node/miden-node.toml), then create the necessary directories and start the node:
+Create a configuration file based on [node/miden-node.toml](./config/miden-node.toml), then create the necessary directories and start the node:
 
 ```sh
 mkdir -p /opt/miden
@@ -138,7 +138,7 @@ sudo dpkg -i $package_name.deb
 Note, when using the debian package to run the `make-genesis` function, you should define the location of your output:
 
 ```sh
-miden-node make-genesis -i $input_location_for_gensis.toml -o $output_for_gensis.dat_and_accounts
+miden-node make-genesis -i $input_location_for_genesis.toml -o $output_for_genesis.dat_and_accounts
 ```
 
 The debian package has a checksum, you can verify this checksum by downloading the debian package and checksum file to the same directory and running the following command:
