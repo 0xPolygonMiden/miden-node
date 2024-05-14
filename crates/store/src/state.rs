@@ -257,7 +257,7 @@ impl State {
             let mut inner = self.inner.write().await;
 
             // Save the block before transaction is committed:
-            self.block_store.save_block(block_num, &block_data)?;
+            self.block_store.save_block(block_num, &block_data).await?;
 
             let _ = inform_acquire_done.send(());
 
