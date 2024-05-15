@@ -3,7 +3,7 @@ use std::ops::Range;
 use miden_air::HashFunction;
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteEnvelope, NoteMetadata, NoteType, Nullifier},
+    notes::{NoteHeader, NoteMetadata, NoteType, Nullifier},
     transaction::{OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
@@ -68,11 +68,11 @@ impl MockProvenTxBuilder {
     pub fn private_notes_created_range(self, range: Range<u64>) -> Self {
         let notes = range
             .map(|note_index| {
-                let note_hash = Hasher::hash(&note_index.to_be_bytes());
+                let note_id = Hasher::hash(&note_index.to_be_bytes());
                 let note_metadata =
                     NoteMetadata::new(self.account_id, NoteType::OffChain, 0.into(), ONE).unwrap();
 
-                OutputNote::Private(NoteEnvelope::new(note_hash.into(), note_metadata).unwrap())
+                OutputNote::Header(NoteHeader::new(note_id.into(), note_metadata))
             })
             .collect();
 

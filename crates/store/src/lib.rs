@@ -1,3 +1,4 @@
+mod blocks;
 pub mod config;
 pub mod db;
 pub mod errors;

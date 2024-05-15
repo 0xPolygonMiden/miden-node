@@ -8,7 +8,7 @@ use miden_objects::{
         utils::DeserializationError,
     },
     notes::Nullifier,
-    AccountError, BlockHeader, NoteError,
+    AccountError, BlockError, BlockHeader, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -41,12 +41,16 @@ pub enum DatabaseError {
     SqliteError(#[from] rusqlite::Error),
     #[error("SQLite error: {0}")]
     FromSqlError(#[from] FromSqlError),
+    #[error("Hex parsing error: {0}")]
+    FromHexError(#[from] hex::FromHexError),
     #[error("I/O error: {0}")]
     IoError(#[from] io::Error),
     #[error("Account error: {0}")]
     AccountError(#[from] AccountError),
     #[error("Note error: {0}")]
     NoteError(#[from] NoteError),
+    #[error("Migration error: {0}")]
+    MigrationError(#[from] rusqlite_migration::Error),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
     #[error("Deserialization of BLOB data from database failed: {0}")]
@@ -65,6 +69,9 @@ pub enum DatabaseError {
         expected: RpoDigest,
         calculated: RpoDigest,
     },
+    #[error("Unsupported database version. There is no migration chain from/to this version. Remove database files \
+        and try again.")]
+    UnsupportedDatabaseVersion,
 }
 
 impl From<DeserializationError> for DatabaseError {
@@ -88,6 +95,8 @@ pub enum StateInitializationError {
 
 #[derive(Debug, Error)]
 pub enum DatabaseSetupError {
+    #[error("I/O error: {0}")]
+    IoError(#[from] io::Error),
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
     #[error("Genesis block error: {0}")]
@@ -102,6 +111,10 @@ pub enum DatabaseSetupError {
 pub enum GenesisError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
+    #[error("Block error: {0}")]
+    BlockError(#[from] BlockError),
+    #[error("Merkle error: {0}")]
+    MerkleError(#[from] MerkleError),
     #[error("Apply block failed: {0}")]
     ApplyBlockFailed(String),
     #[error("Failed to read genesis file \"{genesis_filepath}\": {error}")]
@@ -116,8 +129,6 @@ pub enum GenesisError {
         expected_genesis_header: Box<BlockHeader>,
         block_header_in_store: Box<BlockHeader>,
     },
-    #[error("Malformed genesis state: {0}")]
-    MalformedGenesisState(MerkleError),
     #[error("Retrieving genesis block header failed: {0}")]
     SelectBlockHeaderByBlockNumError(Box<DatabaseError>),
 }
@@ -129,10 +140,8 @@ pub enum GenesisError {
 pub enum ApplyBlockError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
-    #[error("Account error: {0}")]
-    AccountError(#[from] AccountError),
-    #[error("Note error: {0}")]
-    NoteError(#[from] NoteError),
+    #[error("I/O error: {0}")]
+    IoError(#[from] io::Error),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
     #[error("New block number must be 1 greater than the current block number")]
@@ -161,6 +170,14 @@ pub enum ApplyBlockError {
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
     #[error("Failed to update nullifier tree: {0}")]
     FailedToUpdateNullifierTree(NullifierTreeError),
+}
+
+#[derive(Error, Debug)]
+pub enum GetBlockHeaderError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
+    #[error("Error retrieving the merkle proof for the block: {0}")]
+    MmrError(#[from] MmrError),
 }
 
 #[derive(Error, Debug)]

@@ -1,10 +1,13 @@
 use miden_objects::{
-    accounts::Account,
-    crypto::merkle::{EmptySubtreeRoots, MerkleError, MmrPeaks, SimpleSmt, Smt},
+    accounts::{delta::AccountUpdateDetails, Account},
+    block::{Block, BlockAccountUpdate},
+    crypto::merkle::{EmptySubtreeRoots, MmrPeaks, SimpleSmt, Smt},
     notes::NOTE_LEAF_DEPTH,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     BlockHeader, Digest, ACCOUNT_TREE_DEPTH, GENESIS_BLOCK,
 };
+
+use crate::errors::GenesisError;
 
 // GENESIS STATE
 // ================================================================================================
@@ -13,26 +16,33 @@ use miden_objects::{
 #[derive(Debug, PartialEq, Eq)]
 pub struct GenesisState {
     pub accounts: Vec<Account>,
-    pub version: u64,
-    pub timestamp: u64,
+    pub version: u32,
+    pub timestamp: u32,
 }
 
 impl GenesisState {
-    pub fn new(accounts: Vec<Account>, version: u64, timestamp: u64) -> Self {
+    pub fn new(accounts: Vec<Account>, version: u32, timestamp: u32) -> Self {
         Self { accounts, version, timestamp }
     }
 
     /// Returns the block header and the account SMT
-    pub fn into_block_parts(
-        self,
-    ) -> Result<(BlockHeader, SimpleSmt<ACCOUNT_TREE_DEPTH>), MerkleError> {
+    pub fn into_block(self) -> Result<Block, GenesisError> {
+        let accounts: Vec<BlockAccountUpdate> = self
+            .accounts
+            .iter()
+            .map(|account| {
+                BlockAccountUpdate::new(account.id(), account.hash(), AccountUpdateDetails::Private)
+            })
+            .collect();
+
         let account_smt: SimpleSmt<ACCOUNT_TREE_DEPTH> = SimpleSmt::with_leaves(
-            self.accounts
-                .into_iter()
-                .map(|account| (account.id().into(), account.hash().into())),
+            accounts
+                .iter()
+                .map(|update| (update.account_id().into(), update.new_state_hash().into())),
         )?;
 
-        let block_header = BlockHeader::new(
+        let header = BlockHeader::new(
+            self.version,
             Digest::default(),
             GENESIS_BLOCK,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
@@ -41,15 +51,10 @@ impl GenesisState {
             *EmptySubtreeRoots::entry(NOTE_LEAF_DEPTH, 0),
             Digest::default(),
             Digest::default(),
-            self.version
-                .try_into()
-                .expect("version value is greater than or equal to the field modulus"),
-            self.timestamp
-                .try_into()
-                .expect("timestamp value is greater than or equal to the field modulus"),
+            self.timestamp,
         );
 
-        Ok((block_header, account_smt))
+        Block::new(header, accounts, vec![], vec![]).map_err(Into::into)
     }
 }
 
@@ -62,8 +67,8 @@ impl Serializable for GenesisState {
         target.write_usize(self.accounts.len());
         target.write_many(&self.accounts);
 
-        target.write_u64(self.version);
-        target.write_u64(self.timestamp);
+        target.write_u32(self.version);
+        target.write_u32(self.timestamp);
     }
 }
 
@@ -72,8 +77,8 @@ impl Deserializable for GenesisState {
         let num_accounts = source.read_usize()?;
         let accounts = source.read_many::<Account>(num_accounts)?;
 
-        let version = source.read_u64()?;
-        let timestamp = source.read_u64()?;
+        let version = source.read_u32()?;
+        let timestamp = source.read_u32()?;
 
         Ok(Self::new(accounts, version, timestamp))
     }

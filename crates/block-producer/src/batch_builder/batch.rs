@@ -1,12 +1,10 @@
-use std::collections::BTreeMap;
-
-use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::AccountId,
     batches::BatchNoteTree,
+    block::BlockAccountUpdate,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::Nullifier,
-    transaction::{AccountDetails, OutputNote},
+    transaction::{OutputNote, TxAccountUpdate},
     Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
@@ -25,7 +23,7 @@ pub type BatchId = Blake3Digest<32>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransactionBatch {
     id: BatchId,
-    updated_accounts: BTreeMap<AccountId, AccountStates>,
+    updated_accounts: Vec<TxAccountUpdate>,
     produced_nullifiers: Vec<Nullifier>,
     created_notes_smt: BatchNoteTree,
     created_notes: Vec<OutputNote>,
@@ -46,19 +44,11 @@ impl TransactionBatch {
     pub fn new(txs: Vec<ProvenTransaction>) -> Result<Self, BuildBatchError> {
         let id = Self::compute_id(&txs);
 
-        let updated_accounts = txs
-            .iter()
-            .map(|tx| {
-                (
-                    tx.account_id(),
-                    AccountStates {
-                        initial_state: tx.initial_account_hash(),
-                        final_state: tx.final_account_hash(),
-                        details: tx.account_details().cloned(),
-                    },
-                )
-            })
-            .collect();
+        // TODO: we need to handle a possibility that a batch contains multiple transactions against
+        //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
+        //       transaction `y` takes account from state `B` to `C`). These will need to be merged
+        //       into a single "update" `A` to `C`.
+        let updated_accounts = txs.iter().map(ProvenTransaction::account_update).cloned().collect();
 
         let produced_nullifiers =
             txs.iter().flat_map(|tx| tx.input_notes().iter()).copied().collect();
@@ -98,19 +88,19 @@ impl TransactionBatch {
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
         self.updated_accounts
             .iter()
-            .map(|(account_id, account_states)| (*account_id, account_states.initial_state))
+            .map(|update| (update.account_id(), update.init_state_hash()))
     }
 
     /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
-    pub fn updated_accounts(&self) -> impl Iterator<Item = AccountUpdateDetails> + '_ {
-        self.updated_accounts
-            .iter()
-            .map(|(&account_id, account_states)| AccountUpdateDetails {
-                account_id,
-                final_state_hash: account_states.final_state,
-                details: account_states.details.clone(),
-            })
+    pub fn updated_accounts(&self) -> impl Iterator<Item = BlockAccountUpdate> + '_ {
+        self.updated_accounts.iter().map(|update| {
+            BlockAccountUpdate::new(
+                update.account_id(),
+                update.final_state_hash(),
+                update.details().clone(),
+            )
+        })
     }
 
     /// Returns an iterator over produced nullifiers for all consumed notes.
@@ -138,15 +128,4 @@ impl TransactionBatch {
         }
         Blake3_256::hash(&buf)
     }
-}
-
-/// Stores the initial state (before the transaction) and final state (after the transaction) of an
-/// account.
-///
-/// TODO: should this be moved into domain objects?
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct AccountStates {
-    initial_state: Digest,
-    final_state: Digest,
-    details: Option<AccountDetails>,
 }

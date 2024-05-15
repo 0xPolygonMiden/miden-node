@@ -2,12 +2,14 @@ use miden_node_proto::{
     generated::{
         block_producer::api_client as block_producer_client,
         requests::{
-            CheckNullifiersRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
-            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+            CheckNullifiersRequest, GetAccountDetailsRequest, GetBlockByNumberRequest,
+            GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
+            SyncStateRequest,
         },
         responses::{
-            CheckNullifiersResponse, GetAccountDetailsResponse, GetBlockHeaderByNumberResponse,
-            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncStateResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetBlockByNumberResponse,
+            GetBlockHeaderByNumberResponse, GetNotesByIdResponse, SubmitProvenTransactionResponse,
+            SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -144,15 +146,12 @@ impl api_server::Api for RpcApi {
         let request = request.into_inner();
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
-            .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid transaction: {err}")))?;
 
         let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
 
-        tx_verifier.verify(tx.clone()).map_err(|_| {
-            Status::invalid_argument(format!(
-                "Invalid transaction proof for transaction: {}",
-                tx.id()
-            ))
+        tx_verifier.verify(tx.clone()).map_err(|err| {
+            Status::invalid_argument(format!("Invalid proof for transaction {}: {err}", tx.id()))
         })?;
 
         self.block_producer.clone().submit_proven_transaction(request).await
@@ -182,5 +181,23 @@ impl api_server::Api for RpcApi {
             .map_err(|err| Status::invalid_argument(format!("Invalid account id: {err}")))?;
 
         self.store.clone().get_account_details(request).await
+    }
+
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_block_by_number",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_block_by_number(
+        &self,
+        request: tonic::Request<GetBlockByNumberRequest>,
+    ) -> Result<Response<GetBlockByNumberResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        self.store.clone().get_block_by_number(request).await
     }
 }

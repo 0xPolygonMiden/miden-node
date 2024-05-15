@@ -13,22 +13,6 @@ The **Block producer** receives transactions from the RPC component, processes t
 ### Installing the Block Producer
 
 The Block Producer can be installed and run as part of [Miden node](../README.md#installing-the-node). 
-But if you intend on running the Block Producer as a separate process, you will need to install and run it as follows:
-
-```sh
-# Installs `miden-node-block-producer` executable
-cargo install --path block-producer
-```
-
-### Running the Block Producer
-
-To run the Block Producer you will need to provide a configuration file. We have an example config file in [block-producer-example.toml](block-producer-example.toml).
-
-Then, to run the Block Producer:
-
-```sh
-miden-node-block-producer serve --config <path-to-block-producer-config-file>
-```
 
 ## API
 

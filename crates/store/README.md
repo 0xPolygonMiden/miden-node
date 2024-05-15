@@ -13,24 +13,6 @@ the store, the node does not consider it to be part of the chain.
 ### Installing the Store
 
 The Store can be installed and run as part of [Miden node](../README.md#installing-the-node).
-But if you intend on running the Store as a separate process, you will need to install and run it as follows:
-
-```sh
-# Installs `miden-node-store` executable
-cargo install --path store
-```
-
-### Running the Store
-
-In order to run Store, you must provide a genesis file. To generate a genesis file you will need to use [Miden node](../README.md#generating-the-genesis-file)'s `make-genesis` command.
-
-You will also need to provide a configuration file. We have an example config file in [store-example.toml](store-example.toml).
-
-Then, to run the Store:
-
-```sh
-miden-node-store serve --config <path-to-store-config-file>
-```
 
 ## API
 
@@ -66,7 +48,7 @@ Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle T
 
 ### GetBlockHeaderByNumber
 
-Retrieves block header by given block number.
+Retrieves block header by given block number. Optionally, it also returns the MMR path and current chain length to authenticate the block's inclusion.
 
 **Parameters**
 
@@ -75,6 +57,18 @@ Retrieves block header by given block number.
 **Returns:**
 
 - `block_header`: `BlockHeader` – block header.
+
+### GetBlockByNumber
+
+Retrieves block data by given block number.
+
+**Parameters**
+
+- `block_num`: `uint32` – the block number of the target block.
+
+**Returns:**
+
+- `block`: `Block` – block data encoded in Miden native format.
 
 ### GetBlockInputs
 

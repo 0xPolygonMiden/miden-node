@@ -2,7 +2,7 @@
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE)
 [![test](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml)
-[![RUST_VERSION](https://img.shields.io/badge/rustc-1.77+-lightgray.svg)]()
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.78+-lightgray.svg)](https://www.rust-lang.org/tools/install)
 [![crates.io](https://img.shields.io/crates/v/miden-node)](https://crates.io/crates/miden-node)
 
 This repository holds the Miden node; that is, the software which processes transactions and creates blocks for the Miden rollup.
@@ -29,7 +29,7 @@ The diagram below illustrates high-level design of each component as well as bas
 
 ## Usage
 
-Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.2 requires Rust version **1.77** or later.
+Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.2 requires Rust version **1.78** or later.
 
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 
@@ -57,7 +57,7 @@ Currently, the only difference between the two is how long the `make-genesis` co
 
 ### Generating the genesis file
 
-Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](node/genesis.toml)
+Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](./config/genesis.toml)
 
 To generate the genesis file, run:
 
@@ -72,16 +72,11 @@ By default this will generate 1 file and 1 folder in the current directory:
 
 ### Running the node
 
-To run the node you will need to provide a configuration file. We have an example config file in [node/miden-node.toml](/node/miden-node.toml). Then, to run the node, run:
+Create a configuration file based on [node/miden-node.toml](./config/miden-node.toml), then create the necessary directories and start the node:
 
 ```sh
+mkdir -p /opt/miden
 miden-node start --config <path-to-config-file> <component-to-be-started>
-```
-
-Or, if your config file is named `miden-node.toml` and is in the current directory, you can simply run:
-
-```sh
-miden-node start <component-to-be-started>
 ```
 
 Note that the `store.genesis_filepath` field in the config file must point to the `genesis.dat` file that you generated in the previous step.
@@ -143,7 +138,7 @@ sudo dpkg -i $package_name.deb
 Note, when using the debian package to run the `make-genesis` function, you should define the location of your output:
 
 ```sh
-miden-node make-genesis -i $input_location_for_gensis.toml -o $output_for_gensis.dat_and_accounts
+miden-node make-genesis -i $input_location_for_genesis.toml -o $output_for_genesis.dat_and_accounts
 ```
 
 The debian package has a checksum, you can verify this checksum by downloading the debian package and checksum file to the same directory and running the following command:

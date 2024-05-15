@@ -16,8 +16,23 @@
     <div id="center-container">
         <h2 id="subtitle">Request test tokens</h2>
         <span id="error-message"></span>
-        <input type="text" id="account-id" placeholder="Hex encoded Account id" required>
-        <button id="button"></button>
+        <div id="form-container">
+            <input type="text" id="account-id" placeholder="Hex encoded Account id" required>
+            <select id="asset-amount"></select>
+        </div>
+        <div id="visibility-buttons">
+            <button id="button-private">Send Private Note</button>
+            <br>
+            <button id="button-public">Send Public Note</button>
+        </div>
+    </div>
+    <div id="info-container">
+        <p id="info-message">You can consume the note by running the following commands in your shell</p>
+        <p id="client-commands">
+            <span id="import-command" style="display: none;">miden input-notes import ./path/to/downloaded/note<br></span>
+            miden sync <br>
+            miden tx new consume-notes --account <span id="command-account-id"></span> <span id="note-id"></span>
+        </p>
     </div>
     <script src="./index.js"></script>
 </body>

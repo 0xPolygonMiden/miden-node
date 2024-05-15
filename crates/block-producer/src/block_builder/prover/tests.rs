@@ -1,17 +1,21 @@
 use std::{collections::BTreeMap, iter};
 
-use miden_node_proto::domain::accounts::AccountUpdateDetails;
 use miden_objects::{
     accounts::{
-        AccountId, ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        account_id::testing::{
+            ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        },
+        delta::AccountUpdateDetails,
+        AccountId,
     },
+    block::BlockAccountUpdate,
     crypto::merkle::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
         SMT_DEPTH,
     },
-    notes::{NoteEnvelope, NoteMetadata, NoteType},
+    notes::{NoteHeader, NoteMetadata, NoteTag, NoteType},
     transaction::OutputNote,
-    BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
+    Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
 use super::*;
@@ -204,8 +208,10 @@ async fn test_compute_account_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches: Vec<TransactionBatch> = {
         let txs: Vec<_> = account_ids
@@ -240,10 +246,12 @@ async fn test_compute_account_root_success() {
             account_ids
                 .iter()
                 .zip(account_final_states.iter())
-                .map(|(&account_id, &account_hash)| AccountUpdateDetails {
-                    account_id,
-                    final_state_hash: account_hash.into(),
-                    details: None,
+                .map(|(&account_id, &account_hash)| {
+                    BlockAccountUpdate::new(
+                        account_id,
+                        account_hash.into(),
+                        AccountUpdateDetails::Private,
+                    )
                 })
                 .collect(),
         )
@@ -251,7 +259,7 @@ async fn test_compute_account_root_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    assert_eq!(block_header.account_root(), block.header.account_root());
+    assert_eq!(block_header.account_root(), block.header().account_root());
 }
 
 /// Test that the current account root is returned if the batches are empty
@@ -382,7 +390,7 @@ async fn test_compute_note_root_success() {
         AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2)),
     ];
 
-    let notes_created: Vec<NoteEnvelope> = [
+    let notes_created: Vec<NoteHeader> = [
         Digest::from([Felt::new(1u64), Felt::new(1u64), Felt::new(1u64), Felt::new(1u64)]),
         Digest::from([Felt::new(2u64), Felt::new(2u64), Felt::new(2u64), Felt::new(2u64)]),
         Digest::from([Felt::new(3u64), Felt::new(3u64), Felt::new(3u64), Felt::new(3u64)]),
@@ -390,11 +398,16 @@ async fn test_compute_note_root_success() {
     .into_iter()
     .zip(account_ids.iter())
     .map(|(note_digest, &account_id)| {
-        NoteEnvelope::new(
+        NoteHeader::new(
             note_digest.into(),
-            NoteMetadata::new(account_id, NoteType::OffChain, 0.into(), ONE).unwrap(),
+            NoteMetadata::new(
+                account_id,
+                NoteType::OffChain,
+                NoteTag::for_local_use_case(0u16, 0u16).unwrap(),
+                ONE,
+            )
+            .unwrap(),
         )
-        .expect("Hardcoded values should not fail")
     })
     .collect();
 
@@ -407,15 +420,17 @@ async fn test_compute_note_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches: Vec<TransactionBatch> = {
         let txs: Vec<_> = notes_created
             .iter()
             .zip(account_ids.iter())
             .map(|(note, &account_id)| {
-                let note = OutputNote::Private(*note);
+                let note = OutputNote::Header(*note);
                 MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
                     .notes_created(vec![note])
                     .build()
@@ -573,8 +588,10 @@ async fn test_compute_nullifier_root_empty_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(account_ids.iter(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .await
+        .unwrap();
 
     let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
@@ -632,8 +649,10 @@ async fn test_compute_nullifier_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(account_ids.iter(), nullifiers.iter()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(account_ids.into_iter(), nullifiers.iter())
+        .await
+        .unwrap();
 
     let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 

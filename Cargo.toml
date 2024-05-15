@@ -15,27 +15,28 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.78"
 license = "MIT"
 authors = ["Miden contributors"]
 homepage = "https://polygon.technology/polygon-miden"
 repository = "https://github.com/0xPolygonMiden/miden-node"
 exclude = [".github/"]
+readme = "README.md"
 
 [workspace.dependencies]
 miden-air = { version = "0.9", default-features = false }
-miden-lib = { version = "0.2"}
-miden-node-block-producer = { path = "crates/block-producer", version = "0.2" }
-miden-node-faucet = { path = "bin/faucet", version = "0.2" }
-miden-node-proto = { path = "crates/proto", version = "0.2" }
-miden-node-rpc = { path = "crates/rpc", version = "0.2" }
-miden-node-store = { path = "crates/store", version = "0.2" }
+miden-lib = { version = "0.3" }
+miden-node-block-producer = { path = "crates/block-producer", version = "0.3" }
+miden-node-faucet = { path = "bin/faucet", version = "0.3" }
+miden-node-proto = { path = "crates/proto", version = "0.3" }
+miden-node-rpc = { path = "crates/rpc", version = "0.3" }
+miden-node-store = { path = "crates/store", version = "0.3" }
 miden-node-test-macro = { path = "crates/test-macro" }
-miden-node-utils = { path = "crates/utils", version = "0.2" }
-miden-objects = { version = "0.2" }
+miden-node-utils = { path = "crates/utils", version = "0.3" }
+miden-objects = { version = "0.3" }
 miden-processor = { version = "0.9" }
 miden-stdlib = { version = "0.9", default-features = false }
-miden-tx = { version = "0.2" }
+miden-tx = { version = "0.3" }
 thiserror = { version = "1.0" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["fmt",  "json",  "env-filter"] }

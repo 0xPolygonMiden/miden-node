@@ -1,11 +1,18 @@
-use std::fs::{self, create_dir_all};
+use std::{
+    fs::{self, create_dir_all},
+    sync::Arc,
+};
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
+use miden_node_proto::{
+    domain::accounts::{AccountInfo, AccountSummary},
+    generated::note::Note as NotePb,
+};
 use miden_objects::{
-    block::BlockNoteTree,
+    block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::{NoteId, NoteType, Nullifier},
+    notes::{NoteId, NoteMetadata, Nullifier},
+    utils::Serializable,
     BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
@@ -13,7 +20,9 @@ use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
 use crate::{
+    blocks::BlockStore,
     config::StoreConfig,
+    db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
     genesis::GenesisState,
     types::{AccountId, BlockNumber},
@@ -23,6 +32,7 @@ use crate::{
 mod migrations;
 mod sql;
 
+mod settings;
 #[cfg(test)]
 mod tests;
 
@@ -39,34 +49,31 @@ pub struct NullifierInfo {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct NoteCreated {
-    pub batch_index: u32,
-    pub note_index: u32,
-    pub note_id: RpoDigest,
-    pub note_type: NoteType,
-    pub sender: AccountId,
-    pub tag: u32,
-    pub details: Option<Vec<u8>>,
-}
-
-impl NoteCreated {
-    /// Returns the absolute position on the note tree based on the batch index
-    /// and local-to-the-subtree index.
-    pub fn absolute_note_index(&self) -> u32 {
-        BlockNoteTree::note_index(self.batch_index as usize, self.note_index as usize) as u32
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Note {
+pub struct NoteRecord {
     pub block_num: BlockNumber,
-    pub note_created: NoteCreated,
+    pub note_index: BlockNoteIndex,
+    pub note_id: RpoDigest,
+    pub metadata: NoteMetadata,
+    pub details: Option<Vec<u8>>,
     pub merkle_path: MerklePath,
+}
+
+impl From<NoteRecord> for NotePb {
+    fn from(note: NoteRecord) -> Self {
+        Self {
+            block_num: note.block_num,
+            note_index: note.note_index.to_absolute_index() as u32,
+            note_id: Some(note.note_id.into()),
+            metadata: Some(note.metadata.into()),
+            merkle_path: Some(note.merkle_path.into()),
+            details: note.details,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct StateSyncUpdate {
-    pub notes: Vec<Note>,
+    pub notes: Vec<NoteRecord>,
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
@@ -78,7 +85,10 @@ impl Db {
     /// is as expected and present in the database.
     // TODO: This span is logged in a root span, we should connect it to the parent one.
     #[instrument(target = "miden-store", skip_all)]
-    pub async fn setup(config: StoreConfig) -> Result<Self, DatabaseSetupError> {
+    pub async fn setup(
+        config: StoreConfig,
+        block_store: Arc<BlockStore>,
+    ) -> Result<Self, DatabaseSetupError> {
         info!(target: COMPONENT, %config, "Connecting to the database");
 
         if let Some(p) = config.database_filepath.parent() {
@@ -124,14 +134,12 @@ impl Db {
 
         let conn = pool.get().await.map_err(DatabaseError::MissingDbConnection)?;
 
-        conn.interact(|conn| migrations::MIGRATIONS.to_latest(conn))
-            .await
-            .map_err(|err| {
-                DatabaseError::InteractError(format!("Migration task failed: {err}"))
-            })??;
+        conn.interact(apply_migrations).await.map_err(|err| {
+            DatabaseError::InteractError(format!("Migration task failed: {err}"))
+        })??;
 
         let db = Db { pool };
-        db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy())
+        db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy(), block_store)
             .await?;
 
         Ok(db)
@@ -147,7 +155,7 @@ impl Db {
 
     /// Loads all the notes from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes(&self) -> Result<Vec<Note>> {
+    pub async fn select_notes(&self) -> Result<Vec<NoteRecord>> {
         self.pool.get().await?.interact(sql::select_notes).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select notes task failed: {err}"))
         })?
@@ -251,7 +259,7 @@ impl Db {
 
     /// Loads all the Note's matching a certain NoteId from the database.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<Note>> {
+    pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<NoteRecord>> {
         self.pool
             .get()
             .await?
@@ -272,10 +280,8 @@ impl Db {
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
-        block_header: BlockHeader,
-        notes: Vec<Note>,
-        nullifiers: Vec<Nullifier>,
-        accounts: Vec<AccountUpdateDetails>,
+        block: Block,
+        notes: Vec<NoteRecord>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -285,7 +291,13 @@ impl Db {
                 let _span = info_span!(target: COMPONENT, "write_block_to_db").entered();
 
                 let transaction = conn.transaction()?;
-                sql::apply_block(&transaction, &block_header, &notes, &nullifiers, &accounts)?;
+                sql::apply_block(
+                    &transaction,
+                    &block.header(),
+                    &notes,
+                    block.created_nullifiers(),
+                    block.updated_accounts(),
+                )?;
 
                 let _ = allow_acquire.send(());
                 acquire_done
@@ -311,8 +323,12 @@ impl Db {
     /// genesis block in the database is consistent with the genesis block data in the genesis JSON
     /// file.
     #[instrument(target = "miden-store", skip_all, err)]
-    async fn ensure_genesis_block(&self, genesis_filepath: &str) -> Result<(), GenesisError> {
-        let (expected_genesis_header, account_smt) = {
+    async fn ensure_genesis_block(
+        &self,
+        genesis_filepath: &str,
+        block_store: Arc<BlockStore>,
+    ) -> Result<(), GenesisError> {
+        let genesis_block = {
             let file_contents = fs::read(genesis_filepath).map_err(|error| {
                 GenesisError::FailedToReadGenesisFile {
                     genesis_filepath: genesis_filepath.to_string(),
@@ -323,13 +339,15 @@ impl Db {
             let genesis_state = GenesisState::read_from_bytes(&file_contents)
                 .map_err(GenesisError::GenesisFileDeserializationError)?;
 
-            genesis_state.into_block_parts().map_err(GenesisError::MalformedGenesisState)?
+            genesis_state.into_block()?
         };
 
         let maybe_block_header_in_store = self
             .select_block_header_by_block_num(Some(GENESIS_BLOCK))
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
+
+        let expected_genesis_header = genesis_block.header();
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {
@@ -353,23 +371,15 @@ impl Db {
                         let guard = span.enter();
 
                         let transaction = conn.transaction()?;
-                        let accounts: Vec<_> = account_smt
-                            .leaves()
-                            .map(|(account_id, state_hash)| {
-                                Ok(AccountUpdateDetails {
-                                    account_id: account_id.try_into()?,
-                                    final_state_hash: state_hash.into(),
-                                    details: None,
-                                })
-                            })
-                            .collect::<Result<_, DatabaseError>>()?;
                         sql::apply_block(
                             &transaction,
                             &expected_genesis_header,
                             &[],
                             &[],
-                            &accounts,
+                            genesis_block.updated_accounts(),
                         )?;
+
+                        block_store.save_block_blocking(0, &genesis_block.to_bytes())?;
 
                         transaction.commit()?;
 

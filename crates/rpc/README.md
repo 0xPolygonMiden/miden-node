@@ -14,22 +14,6 @@ and forwards the requests to the appropriate components.
 ### Installing the RPC
 
 The RPC can be installed and run as part of [Miden node](../README.md#installing-the-node).
-But if you intend on running the RPC as a separate process, you will need to install and run it as follows:
-
-```sh
-# Installs `miden-node-rpc` executable
-cargo install --path rpc
-```
-
-### Running the RPC
-
-To run the RPC you will need to provide a configuration file. We have an example config file in [rpc-example.toml](rpc-example.toml).
-
-Then, to run an RPC:
-
-```sh
-miden-node-rpc serve --config <path-to-rpc-config-file>
-```
 
 ## API
 
@@ -50,7 +34,7 @@ Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle 
 
 ### GetBlockHeaderByNumber
 
-Retrieves block header by given block number.
+Retrieves block header by given block number, optionally alongside a Merkle path and the current chain length to validate its inclusion.
 
 **Parameters**
 
@@ -59,6 +43,18 @@ Retrieves block header by given block number.
 **Returns:**
 
 - `block_header`: `BlockHeader` – block header.
+
+### GetBlockByNumber
+
+Retrieves block data by given block number.
+
+**Parameters**
+
+- `block_num`: `uint32` – the block number of the target block.
+
+**Returns:**
+
+- `block`: `Block` – block data encoded in Miden native format.
 
 ### GetNotesById
 

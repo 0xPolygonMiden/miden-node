@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use miden_node_proto::{
     convert,
-    domain::accounts::AccountUpdateDetails,
     errors::ConversionError,
     generated::{
         self,
@@ -10,33 +9,33 @@ use miden_node_proto::{
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
-            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
-            ListNullifiersRequest, SyncStateRequest,
+            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
-            GetAccountDetailsResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
-            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
-            NullifierUpdate, SyncStateResponse,
+            GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
     },
-    try_convert, AccountState,
+    try_convert,
 };
 use miden_objects::{
+    block::Block,
     crypto::hash::rpo::RpoDigest,
-    notes::{NoteId, NoteType, Nullifier},
-    transaction::AccountDetails,
+    notes::{NoteId, Nullifier},
     utils::Deserializable,
-    BlockHeader, Felt, NoteError, ZERO,
+    Felt, ZERO,
 };
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{db::NoteCreated, state::State, types::AccountId, COMPONENT};
+use crate::{state::State, types::AccountId, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -68,16 +67,20 @@ impl api_server::Api for StoreApi {
         request: tonic::Request<GetBlockHeaderByNumberRequest>,
     ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
         info!(target: COMPONENT, ?request);
+        let request = request.into_inner();
 
-        let block_num = request.into_inner().block_num;
-        let block_header = self
+        let block_num = request.block_num;
+        let (block_header, mmr_proof) = self
             .state
-            .get_block_header(block_num)
+            .get_block_header(block_num, request.include_mmr_proof.unwrap_or(false))
             .await
-            .map_err(internal_error)?
-            .map(Into::into);
+            .map_err(internal_error)?;
 
-        Ok(Response::new(GetBlockHeaderByNumberResponse { block_header }))
+        Ok(Response::new(GetBlockHeaderByNumberResponse {
+            block_header: block_header.map(Into::into),
+            chain_length: mmr_proof.as_ref().map(|p| p.forest as u32),
+            mmr_path: mmr_proof.map(|p| Into::into(p.merkle_path)),
+        }))
     }
 
     /// Returns info on whether the specified nullifiers have been consumed.
@@ -142,11 +145,9 @@ impl api_server::Api for StoreApi {
             .notes
             .into_iter()
             .map(|note| NoteSyncRecord {
-                note_index: note.note_created.absolute_note_index(),
-                note_type: note.note_created.note_type as u32,
-                note_id: Some(note.note_created.note_id.into()),
-                sender: Some(note.note_created.sender.into()),
-                tag: note.note_created.tag,
+                note_index: note.note_index.to_absolute_index() as u32,
+                note_id: Some(note.note_id.into()),
+                metadata: Some(note.metadata.into()),
                 merkle_path: Some(note.merkle_path.into()),
             })
             .collect();
@@ -199,16 +200,7 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?
             .into_iter()
-            .map(|note| generated::note::Note {
-                block_num: note.block_num,
-                note_index: note.note_created.absolute_note_index(),
-                note_id: Some(note.note_created.note_id.into()),
-                sender: Some(note.note_created.sender.into()),
-                tag: note.note_created.tag,
-                note_type: note.note_created.note_type as u32,
-                merkle_path: Some(note.merkle_path.into()),
-                details: note.note_created.details,
-            })
+            .map(Into::into)
             .collect();
 
         Ok(Response::new(GetNotesByIdResponse { notes }))
@@ -258,76 +250,24 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
-        let block_header: BlockHeader = request
-            .block
-            .ok_or(invalid_argument("Apply block missing block header"))?
-            .try_into()
-            .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
 
-        info!(target: COMPONENT, block_num = block_header.block_num(), block_hash = %block_header.hash());
+        let block = Block::read_from_bytes(&request.block).map_err(|err| {
+            Status::invalid_argument(format!("Block deserialization error: {err}"))
+        })?;
 
-        let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let accounts = request
-            .accounts
-            .iter()
-            .map(|account_update| {
-                let account_state: AccountState = account_update
-                    .try_into()
-                    .map_err(|err: ConversionError| Status::invalid_argument(err.to_string()))?;
+        let block_num = block.header().block_num();
 
-                match (account_state.account_id.is_on_chain(), account_update.details.is_some()) {
-                    (true, false) => {
-                        return Err(Status::invalid_argument("On-chain account must have details"));
-                    },
-                    (false, true) => {
-                        return Err(Status::invalid_argument(
-                            "Off-chain account must not have details",
-                        ));
-                    },
-                    _ => (),
-                }
+        info!(
+            target: COMPONENT,
+            block_num,
+            block_hash = %block.hash(),
+            account_count = block.updated_accounts().len(),
+            note_count = block.created_notes().len(),
+            nullifier_count = block.created_nullifiers().len(),
+        );
 
-                let details = account_update
-                    .details
-                    .as_ref()
-                    .map(|data| AccountDetails::read_from_bytes(data))
-                    .transpose()
-                    .map_err(|err| Status::invalid_argument(err.to_string()))?;
-
-                Ok(AccountUpdateDetails {
-                    account_id: account_state.account_id,
-                    details,
-                    final_state_hash: account_state
-                        .account_hash
-                        .ok_or(invalid_argument("Account update missing account hash"))?,
-                })
-            })
-            .collect::<Result<Vec<_>, Status>>()?;
-
-        let notes = request
-            .notes
-            .into_iter()
-            .map(|note| {
-                Ok(NoteCreated {
-                    batch_index: note.batch_index,
-                    note_index: note.note_index,
-                    note_id: note
-                        .note_id
-                        .ok_or(invalid_argument("Note missing id"))?
-                        .try_into()
-                        .map_err(|err: ConversionError| {
-                            Status::invalid_argument(err.to_string())
-                        })?,
-                    note_type: NoteType::try_from(note.note_type as u64)
-                        .map_err(|err: NoteError| Status::invalid_argument(err.to_string()))?,
-                    sender: note.sender.ok_or(invalid_argument("Note missing sender"))?.into(),
-                    tag: note.tag,
-                    details: note.details,
-                })
-            })
-            .collect::<Result<Vec<_>, Status>>()?;
-
-        let _ = self.state.apply_block(block_header, nullifiers, accounts, notes).await;
+        // TODO: Why the error is swallowed here? Fix or add a comment with explanation.
+        let _ = self.state.apply_block(block).await;
 
         Ok(Response::new(ApplyBlockResponse {}))
     }
@@ -399,6 +339,26 @@ impl api_server::Api for StoreApi {
         }))
     }
 
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_block_by_number",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_block_by_number(
+        &self,
+        request: tonic::Request<GetBlockByNumberRequest>,
+    ) -> Result<Response<GetBlockByNumberResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
+
+        Ok(Response::new(GetBlockByNumberResponse { block }))
+    }
+
     // TESTING ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
@@ -443,16 +403,7 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?
             .into_iter()
-            .map(|note| generated::note::Note {
-                block_num: note.block_num,
-                note_index: note.note_created.absolute_note_index(),
-                note_id: Some(note.note_created.note_id.into()),
-                sender: Some(note.note_created.sender.into()),
-                tag: note.note_created.tag,
-                note_type: note.note_created.note_type as u32,
-                merkle_path: Some(note.merkle_path.into()),
-                details: note.note_created.details,
-            })
+            .map(Into::into)
             .collect();
         Ok(Response::new(ListNotesResponse { notes }))
     }

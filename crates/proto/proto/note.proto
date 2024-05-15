@@ -5,36 +5,27 @@ import "digest.proto";
 import "merkle.proto";
 import "account.proto";
 
+message NoteMetadata {
+    account.AccountId sender = 1;
+    uint32 note_type = 2;
+    fixed32 tag = 3;
+    fixed64 aux = 4;
+}
+
 message Note {
     fixed32 block_num = 1;
     uint32 note_index = 2;
     digest.Digest note_id = 3;
-    account.AccountId sender  = 4;
-    fixed32 tag = 5;
-    uint32 note_type = 6;
-    merkle.MerklePath merkle_path = 7;
+    NoteMetadata metadata = 4;
+    merkle.MerklePath merkle_path = 5;
     // This field will be present when the note is on-chain.
     // details contain the `Note` in a serialized format.
-    optional bytes details = 8;
+    optional bytes details = 6;
 }
 
 message NoteSyncRecord {
     uint32 note_index = 1;
     digest.Digest note_id = 2;
-    account.AccountId sender  = 3;
-    fixed32 tag = 4;
-    uint32 note_type = 5;
-    merkle.MerklePath merkle_path = 6;
-}
-
-message NoteCreated {
-    uint32 batch_index = 1;
-    uint32 note_index = 2;
-    digest.Digest note_id = 3;
-    uint32 note_type = 4;
-    account.AccountId sender  = 5;
-    fixed32 tag = 6;
-    // This field will be present when the note is on-chain.
-    // details contain the `Note` in a serialized format.
-    optional bytes details = 7;
+    NoteMetadata metadata = 3;
+    merkle.MerklePath merkle_path = 4;
 }

@@ -2,22 +2,22 @@
 
 use std::{borrow::Cow, rc::Rc};
 
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary, AccountUpdateDetails};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
-    accounts::{Account, AccountDelta},
+    accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
+    block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteId, Nullifier},
-    transaction::AccountDetails,
+    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
 use rusqlite::{
     params,
     types::{Value, ValueRef},
-    Connection, Transaction,
+    Connection, OptionalExtension, Transaction,
 };
 
-use super::{Note, NoteCreated, NullifierInfo, Result, StateSyncUpdate};
+use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -155,7 +155,7 @@ pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<Ac
 /// transaction.
 pub fn upsert_accounts(
     transaction: &Transaction,
-    accounts: &[AccountUpdateDetails],
+    accounts: &[BlockAccountUpdate],
     block_num: BlockNumber,
 ) -> Result<usize> {
     let mut upsert_stmt = transaction.prepare(
@@ -166,29 +166,29 @@ pub fn upsert_accounts(
 
     let mut count = 0;
     for update in accounts.iter() {
-        let account_id = update.account_id.into();
-        let full_account = match &update.details {
-            None => None,
-            Some(AccountDetails::Full(account)) => {
+        let account_id = update.account_id().into();
+        let full_account = match update.details() {
+            AccountUpdateDetails::Private => None,
+            AccountUpdateDetails::New(account) => {
                 debug_assert_eq!(account_id, u64::from(account.id()));
 
-                if account.hash() != update.final_state_hash {
+                if account.hash() != update.new_state_hash() {
                     return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
                         calculated: account.hash(),
-                        expected: update.final_state_hash,
+                        expected: update.new_state_hash(),
                     });
                 }
 
                 Some(Cow::Borrowed(account))
             },
-            Some(AccountDetails::Delta(delta)) => {
+            AccountUpdateDetails::Delta(delta) => {
                 let mut rows = select_details_stmt.query(params![u64_to_value(account_id)])?;
                 let Some(row) = rows.next()? else {
                     return Err(DatabaseError::AccountNotFoundInDb(account_id));
                 };
 
                 let account =
-                    apply_delta(account_id, &row.get_ref(0)?, delta, &update.final_state_hash)?;
+                    apply_delta(account_id, &row.get_ref(0)?, delta, &update.new_state_hash())?;
 
                 Some(Cow::Owned(account))
             },
@@ -196,7 +196,7 @@ pub fn upsert_accounts(
 
         let inserted = upsert_stmt.execute(params![
             u64_to_value(account_id),
-            update.final_state_hash.to_bytes(),
+            update.new_state_hash().to_bytes(),
             block_num,
             full_account.as_ref().map(|account| account.to_bytes()),
         ])?;
@@ -315,14 +315,14 @@ pub fn select_nullifiers_by_block_range(
 /// # Returns
 ///
 /// A vector with notes, or an error.
-pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
+pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
     let mut stmt = conn.prepare(
         "
         SELECT
             block_num,
             batch_index,
             note_index,
-            note_hash,
+            note_id,
             note_type,
             sender,
             tag,
@@ -347,17 +347,20 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
-        notes.push(Note {
+        let note_type = row.get::<_, u8>(4)?.try_into()?;
+        let sender = column_value_as_u64(row, 5)?;
+        let tag: u32 = row.get(6)?;
+
+        // TODO: Properly handle note metadata's aux field
+        let metadata =
+            NoteMetadata::new(sender.try_into()?, note_type, tag.into(), Default::default())?;
+
+        notes.push(NoteRecord {
             block_num: row.get(0)?,
-            note_created: NoteCreated {
-                batch_index: row.get(1)?,
-                note_index: row.get(2)?,
-                note_id,
-                note_type: row.get::<_, u8>(4)?.try_into()?,
-                sender: column_value_as_u64(row, 5)?,
-                tag: row.get(6)?,
-                details,
-            },
+            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
+            note_id,
+            metadata,
+            details,
             merkle_path,
         })
     }
@@ -374,7 +377,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<Note>> {
 ///
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
-pub fn insert_notes(transaction: &Transaction, notes: &[Note]) -> Result<usize> {
+pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<usize> {
     let mut stmt = transaction.prepare(
         "
         INSERT INTO
@@ -383,7 +386,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[Note]) -> Result<usize> 
             block_num,
             batch_index,
             note_index,
-            note_hash,
+            note_id,
             note_type,
             sender,
             tag,
@@ -398,16 +401,15 @@ pub fn insert_notes(transaction: &Transaction, notes: &[Note]) -> Result<usize> 
 
     let mut count = 0;
     for note in notes.iter() {
-        let details = note.note_created.details.as_ref().map(|details| details.to_bytes());
-
+        let details = note.details.as_ref().map(|details| details.to_bytes());
         count += stmt.execute(params![
             note.block_num,
-            note.note_created.batch_index,
-            note.note_created.note_index,
-            note.note_created.note_id.to_bytes(),
-            note.note_created.note_type as u8,
-            u64_to_value(note.note_created.sender),
-            note.note_created.tag,
+            note.note_index.batch_idx(),
+            note.note_index.note_idx_in_batch(),
+            note.note_id.to_bytes(),
+            note.metadata.note_type() as u8,
+            u64_to_value(note.metadata.sender().into()),
+            note.metadata.tag().inner(),
             note.merkle_path.to_bytes(),
             details
         ])?;
@@ -433,7 +435,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     tags: &[u32],
     account_ids: &[AccountId],
     block_num: BlockNumber,
-) -> Result<Vec<Note>> {
+) -> Result<Vec<NoteRecord>> {
     let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
@@ -443,7 +445,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
             block_num,
             batch_index,
             note_index,
-            note_hash,
+            note_id,
             note_type,
             sender,
             tag,
@@ -475,29 +477,31 @@ pub fn select_notes_since_block_by_tag_and_sender(
     let mut res = Vec::new();
     while let Some(row) = rows.next()? {
         let block_num = row.get(0)?;
-        let batch_index = row.get(1)?;
-        let note_index = row.get(2)?;
+        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?);
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
-        let note_type = row.get::<_, u8>(4)?.try_into()?;
+        let note_type = row.get::<_, u8>(4)?;
         let sender = column_value_as_u64(row, 5)?;
-        let tag = row.get(6)?;
+        let tag: u32 = row.get(6)?;
         let merkle_path_data = row.get_ref(7)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
-        let note = Note {
+        // TODO: Properly retrieve aux
+        let metadata = NoteMetadata::new(
+            sender.try_into()?,
+            NoteType::try_from(note_type)?,
+            tag.into(),
+            Default::default(),
+        )?;
+
+        let note = NoteRecord {
             block_num,
-            note_created: NoteCreated {
-                batch_index,
-                note_index,
-                note_id,
-                note_type,
-                sender,
-                tag,
-                details,
-            },
+            note_index,
+            note_id,
+            details,
+            metadata,
             merkle_path,
         };
         res.push(note);
@@ -510,8 +514,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
 /// # Returns
 ///
 /// - Empty vector if no matching `note`.
-/// - Otherwise, notes which `note_hash` matches the `NoteId` as bytes.
-pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<Note>> {
+/// - Otherwise, notes which `note_id` matches the `NoteId` as bytes.
+pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<NoteRecord>> {
     let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
     let mut stmt = conn.prepare(
@@ -520,7 +524,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
             block_num,
             batch_index,
             note_index,
-            note_hash,
+            note_id,
             note_type,
             sender,
             tag,
@@ -529,7 +533,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         FROM
             notes
         WHERE
-            note_hash IN rarray(?1)
+            note_id IN rarray(?1)
         ",
     )?;
     let mut rows = stmt.query(params![Rc::new(note_ids)])?;
@@ -545,17 +549,20 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let details_data = row.get_ref(8)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
-        notes.push(Note {
+        let note_type = row.get::<_, u8>(4)?.try_into()?;
+        let sender = column_value_as_u64(row, 5)?;
+        let tag: u32 = row.get(6)?;
+
+        // TODO: Properly handle note metadata's aux field
+        let metadata =
+            NoteMetadata::new(sender.try_into()?, note_type, tag.into(), Default::default())?;
+
+        notes.push(NoteRecord {
             block_num: row.get(0)?,
-            note_created: NoteCreated {
-                batch_index: row.get(1)?,
-                note_index: row.get(2)?,
-                details,
-                note_id: note_id.into(),
-                note_type: row.get::<_, u8>(4)?.try_into()?,
-                sender: column_value_as_u64(row, 5)?,
-                tag: row.get(6)?,
-            },
+            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
+            details,
+            note_id: note_id.into(),
+            metadata,
             merkle_path,
         })
     }
@@ -696,9 +703,9 @@ pub fn get_state_sync(
 pub fn apply_block(
     transaction: &Transaction,
     block_header: &BlockHeader,
-    notes: &[Note],
+    notes: &[NoteRecord],
     nullifiers: &[Nullifier],
-    accounts: &[AccountUpdateDetails],
+    accounts: &[BlockAccountUpdate],
 ) -> Result<usize> {
     let mut count = 0;
     count += insert_block_header(transaction, block_header)?;
@@ -714,6 +721,23 @@ pub fn apply_block(
 /// Returns the high 16 bits of the provided nullifier.
 pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
     (nullifier.most_significant_felt().as_int() >> 48) as u32
+}
+
+/// Checks if a table exists in the database.
+pub(crate) fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<bool> {
+    Ok(conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $1",
+            params![table_name],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some())
+}
+
+/// Returns the schema version of the database.
+pub(crate) fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
+    conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
 }
 
 /// Converts a `u64` into a [Value].

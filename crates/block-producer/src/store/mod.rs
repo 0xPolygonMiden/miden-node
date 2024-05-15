@@ -5,11 +5,9 @@ use std::{
 
 use async_trait::async_trait;
 use miden_node_proto::{
-    convert,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
-        account, digest,
-        note::NoteCreated,
+        digest,
         requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
@@ -18,16 +16,13 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::{format_map, format_opt};
 use miden_objects::{
-    accounts::AccountId, notes::Nullifier, transaction::OutputNote, utils::Serializable, Digest,
+    accounts::AccountId, block::Block, notes::Nullifier, utils::Serializable, Digest,
 };
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{
-    block::{Block, BlockInputs},
-    ProvenTransaction, COMPONENT,
-};
+use crate::{block::BlockInputs, ProvenTransaction, COMPONENT};
 
 // STORE TRAIT
 // ================================================================================================
@@ -43,7 +38,7 @@ pub trait Store: ApplyBlock {
     /// TODO: add comments
     async fn get_block_inputs(
         &self,
-        updated_accounts: impl Iterator<Item = &AccountId> + Send,
+        updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
 }
@@ -123,39 +118,7 @@ impl DefaultStore {
 impl ApplyBlock for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
-        let notes = block
-            .created_notes
-            .iter()
-            .enumerate()
-            .flat_map(|(batch_idx, batch)| {
-                batch
-                    .iter()
-                    .enumerate()
-                    .map(|(note_idx_in_batch, note)| {
-                        let details = match note {
-                            OutputNote::Public(note) => Some(note.to_bytes()),
-                            OutputNote::Private(_) => None,
-                        };
-                        NoteCreated {
-                            batch_index: batch_idx as u32,
-                            note_index: note_idx_in_batch as u32,
-                            note_id: Some(note.id().into()),
-                            note_type: note.metadata().note_type() as u32,
-                            sender: Some(note.metadata().sender().into()),
-                            tag: note.metadata().tag().into(),
-                            details,
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-
-        let request = tonic::Request::new(ApplyBlockRequest {
-            block: Some((&block.header).into()),
-            accounts: convert(&block.updated_accounts),
-            nullifiers: convert(&block.produced_nullifiers),
-            notes,
-        });
+        let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 
         let _ = self
             .store
@@ -214,13 +177,11 @@ impl Store for DefaultStore {
 
     async fn get_block_inputs(
         &self,
-        updated_accounts: impl Iterator<Item = &AccountId> + Send,
+        updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let request = tonic::Request::new(GetBlockInputsRequest {
-            account_ids: updated_accounts
-                .map(|&account_id| account::AccountId::from(account_id))
-                .collect(),
+            account_ids: updated_accounts.map(Into::into).collect(),
             nullifiers: produced_nullifiers.map(digest::Digest::from).collect(),
         });
 
