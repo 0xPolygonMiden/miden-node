@@ -1,14 +1,15 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, rc::Rc};
 
-use async_mutex::Mutex;
 use miden_client::{
-    client::{get_random_coin, rpc::TonicRpcClient, Client},
-    config::StoreConfig,
-    store::{sqlite_store::SqliteStore, AuthInfo},
+    client::{
+        get_random_coin, rpc::TonicRpcClient, store_authenticator::StoreAuthenticator, Client,
+    },
+    config::{Endpoint, RpcConfig, StoreConfig},
+    store::sqlite_store::SqliteStore,
 };
 use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStorageType},
+    accounts::{Account, AccountId, AccountStorageType, AuthSecretKey},
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
     Felt,
@@ -18,18 +19,22 @@ use tracing::info;
 
 use crate::{config::FaucetConfig, errors::FaucetError};
 
-pub type FaucetClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
+pub type FaucetClient = Client<
+    TonicRpcClient,
+    RpoRandomCoin,
+    SqliteStore,
+    StoreAuthenticator<RpoRandomCoin, SqliteStore>,
+>;
 
 #[derive(Clone)]
 pub struct FaucetState {
     pub id: AccountId,
-    pub asset_amount_options: Vec<u64>,
-    pub client: Arc<Mutex<FaucetClient>>,
+    pub faucet_config: FaucetConfig,
 }
 
 /// Instatiantes the Miden faucet
 pub async fn build_faucet_state(config: FaucetConfig) -> Result<FaucetState, FaucetError> {
-    let mut client = build_client(config.database_filepath.clone(), config.node_url.clone())?;
+    let mut client = build_client(config.database_filepath.clone(), &config.node_url)?;
 
     let faucet_account = create_fungible_faucet(
         &config.token_symbol,
@@ -45,15 +50,14 @@ pub async fn build_faucet_state(config: FaucetConfig) -> Result<FaucetState, Fau
 
     Ok(FaucetState {
         id: faucet_account.id(),
-        asset_amount_options: config.asset_amount_options,
-        client: Arc::new(Mutex::new(client)),
+        faucet_config: config,
     })
 }
 
 /// Instantiates the Miden client
 pub fn build_client(
     database_filepath: PathBuf,
-    node_url: String,
+    node_url: &str,
 ) -> Result<FaucetClient, FaucetError> {
     let database_filepath_os_string = database_filepath.into_os_string();
     let database_filepath = match database_filepath_os_string.into_string() {
@@ -73,23 +77,23 @@ pub fn build_client(
     let store = SqliteStore::new(store_config)
         .map_err(|err| FaucetError::DatabaseError(err.to_string()))?;
 
-    // Setup the executor store
-    let executor_store_config = StoreConfig {
-        database_filepath: database_filepath.clone(),
-    };
-    let executor_store = SqliteStore::new(executor_store_config)
-        .map_err(|err| FaucetError::DatabaseError(err.to_string()))?;
+    let store = Rc::new(store);
 
     // Setup the tonic rpc client
-    let api = TonicRpcClient::new(&node_url);
+    let endpoint = Endpoint::try_from(node_url).map_err(|err| {
+        FaucetError::ConfigurationError(format!("Error parsing RPC endpoint: {}", err))
+    })?;
+    let rpc_config = RpcConfig { endpoint, ..Default::default() };
+    let api = TonicRpcClient::new(&rpc_config);
 
     // Setup the rng
     let rng = get_random_coin();
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
     info!("Successfully built client");
 
     // Setup the client
-    Ok(Client::new(api, rng, store, executor_store, false))
+    Ok(Client::new(api, rng, store, authenticator, false))
 }
 
 /// Creates a Miden fungible faucet from arguments
@@ -122,7 +126,7 @@ pub fn create_fungible_faucet(
     .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
 
     client
-        .insert_account(&account, Some(account_seed), &AuthInfo::RpoFalcon512(secret))
+        .insert_account(&account, Some(account_seed), &AuthSecretKey::RpoFalcon512(secret))
         .map_err(|err| FaucetError::DatabaseError(err.to_string()))?;
 
     Ok(account)
