@@ -17,8 +17,6 @@ use crate::{
     utils::{build_client, FaucetState},
 };
 
-const TOKEN_AMOUNT_OPTIONS: [u64; 3] = [100, 500, 1000];
-
 #[derive(Deserialize)]
 struct FaucetRequest {
     account_id: String,
@@ -29,14 +27,14 @@ struct FaucetRequest {
 #[derive(Serialize)]
 struct FaucetMetadataReponse {
     id: String,
-    asset_amount_options: [u64; 3],
+    asset_amount_options: Vec<u64>,
 }
 
 #[get("/get_metadata")]
 pub async fn get_metadata(state: web::Data<FaucetState>) -> HttpResponse {
     let response = FaucetMetadataReponse {
         id: state.id.to_string(),
-        asset_amount_options: TOKEN_AMOUNT_OPTIONS,
+        asset_amount_options: state.faucet_config.asset_amount_options.clone(),
     };
 
     HttpResponse::Ok().json(response)
@@ -53,7 +51,7 @@ pub async fn get_tokens(
     );
 
     // Check that the amount is in the asset amount options
-    if !TOKEN_AMOUNT_OPTIONS.contains(&req.asset_amount) {
+    if !state.faucet_config.asset_amount_options.contains(&req.asset_amount) {
         return Err(FaucetError::BadRequest("Invalid asset amount.".to_string()).into());
     }
 
