@@ -4,11 +4,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const publicButton = document.getElementById('button-public');
     const accountIdInput = document.getElementById('account-id');
     const errorMessage = document.getElementById('error-message');
-    const infoContainer = document.getElementById('info-container');
+    const info = document.getElementById('info');
     const importCommand = document.getElementById('import-command');
     const noteIdElem = document.getElementById('note-id');
     const accountIdElem = document.getElementById('command-account-id');
     const assetSelect = document.getElementById('asset-amount');
+    const loading = document.getElementById('loading');
 
     fetchMetadata();
 
@@ -45,9 +46,10 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        infoContainer.style.display = 'none';
+        info.style.display = 'none';
         importCommand.style.display = 'none';
 
+        loading.style.display = 'block';
         try {
             const response = await fetch('http://localhost:8080/get_tokens', {
                 method: 'POST',
@@ -68,7 +70,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const noteId = response.headers.get('Note-Id');
             noteIdElem.textContent = noteId;
             accountIdElem.textContent = accountId;
-            infoContainer.style.display = 'block';
+            info.style.display = 'block';
+            loading.style.display = 'none';
         } catch (error) {
             console.error('Error:', error);
             errorMessage.textContent = 'Failed to receive tokens. Please try again.';
