@@ -17,4 +17,4 @@ cargo make docker-run-node
 cargo run --bin miden-faucet  --features testing --release
 ```
 
-After a few secons you may go to `http://localhost:8080` and see the faucet UI.
+After a few seconds you may go to `http://localhost:8080` and see the faucet UI.
