@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        privateButton.disabled = true;
+        publicButton.disabled = true;
+
         info.style.display = 'none';
         importCommand.style.display = 'none';
 
@@ -77,6 +80,9 @@ document.addEventListener('DOMContentLoaded', function () {
             errorMessage.textContent = 'Failed to receive tokens. Please try again.';
             errorMessage.style.display = 'block';
         }
+
+        privateButton.disabled = false;
+        publicButton.disabled = false;
     }
 
     function downloadBlob(blob, filename) {

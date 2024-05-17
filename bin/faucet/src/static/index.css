@@ -111,6 +111,10 @@ body {
     margin-top: 10px;
 }
 
+#visibility-buttons button:disabled {
+    background-color: rgb(124, 58, 237, 0.5);
+}
+
 .info-message {
     color: white;
     font-weight: bold;
