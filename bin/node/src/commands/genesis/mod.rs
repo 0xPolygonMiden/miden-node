@@ -126,11 +126,17 @@ fn create_accounts(
                 let (auth_scheme, auth_secret_key) =
                     parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
+                let storage_type = if inputs.on_chain {
+                    AccountStorageType::OnChain
+                } else {
+                    AccountStorageType::OffChain
+                };
+
                 let (account, account_seed) = create_basic_wallet(
                     init_seed,
                     auth_scheme,
                     AccountType::RegularAccountImmutableCode,
-                    AccountStorageType::OffChain,
+                    storage_type,
                 )?;
 
                 AccountData::new(account, Some(account_seed), auth_secret_key)
@@ -142,13 +148,19 @@ fn create_accounts(
                 let (auth_scheme, auth_secret_key) =
                     parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
+                let storage_type = if inputs.on_chain {
+                    AccountStorageType::OnChain
+                } else {
+                    AccountStorageType::OffChain
+                };
+
                 let (account, account_seed) = create_basic_fungible_faucet(
                     init_seed,
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
                     Felt::try_from(inputs.max_supply)
                         .expect("max supply value is greater than or equal to the field modulus"),
-                    AccountStorageType::OffChain,
+                    storage_type,
                     auth_scheme,
                 )?;
 
