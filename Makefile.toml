@@ -89,7 +89,7 @@ workspace = false
 script = '''
 docker volume create miden-db
 
-ABSOLUTE_PATH="$(pwd)/bin/node/miden-node.toml"
+ABSOLUTE_PATH="$(pwd)/config/miden-node.toml"
 
 docker run --name miden-node \
            -p 57291:57291 \

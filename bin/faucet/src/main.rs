@@ -26,7 +26,7 @@ use crate::{
 
 const COMPONENT: &str = "miden-faucet";
 
-const FAUCET_CONFIG_FILE_PATH: &str = "miden-faucet.toml";
+const FAUCET_CONFIG_FILE_PATH: &str = "config/miden-faucet.toml";
 
 // MAIN
 // =================================================================================================

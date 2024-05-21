@@ -1,4 +1,4 @@
-FROM rust:1.76-slim-bookworm AS builder
+FROM rust:1.78-slim-bookworm AS builder
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -21,7 +21,7 @@ RUN apt-get update && \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/genesis.dat genesis.dat
+COPY --from=builder /app/genesis.dat /opt/miden/genesis.dat
 COPY --from=builder /app/accounts accounts
 COPY --from=builder /usr/local/cargo/bin/miden-node /usr/local/bin/miden-node
 

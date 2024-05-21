@@ -6,12 +6,16 @@ use miden_objects::{
     accounts::AccountId,
     assets::FungibleAsset,
     notes::{NoteId, NoteType},
+    transaction::OutputNote,
     utils::serde::Serializable,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::{errors::FaucetError, utils::FaucetState};
+use crate::{
+    errors::FaucetError,
+    utils::{build_client, FaucetState},
+};
 
 #[derive(Deserialize)]
 struct FaucetRequest {
@@ -30,7 +34,7 @@ struct FaucetMetadataReponse {
 pub async fn get_metadata(state: web::Data<FaucetState>) -> HttpResponse {
     let response = FaucetMetadataReponse {
         id: state.id.to_string(),
-        asset_amount_options: state.asset_amount_options.clone(),
+        asset_amount_options: state.faucet_config.asset_amount_options.clone(),
     };
 
     HttpResponse::Ok().json(response)
@@ -47,11 +51,12 @@ pub async fn get_tokens(
     );
 
     // Check that the amount is in the asset amount options
-    if !state.asset_amount_options.contains(&req.asset_amount) {
+    if !state.faucet_config.asset_amount_options.contains(&req.asset_amount) {
         return Err(FaucetError::BadRequest("Invalid asset amount.".to_string()).into());
     }
 
-    let client = state.client.clone();
+    let client_config = state.faucet_config.clone();
+    let mut client = build_client(client_config.database_filepath, &client_config.node_url)?;
 
     // Receive and hex user account id
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
@@ -73,15 +78,11 @@ pub async fn get_tokens(
 
     // Instantiate transaction request
     let tx_request = client
-        .lock()
-        .await
         .build_transaction_request(tx_template)
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
     // Run transaction executor & execute transaction
     let tx_result = client
-        .lock()
-        .await
         .new_transaction(tx_request)
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
@@ -90,8 +91,6 @@ pub async fn get_tokens(
 
     // Run transaction prover & send transaction to node
     client
-        .lock()
-        .await
         .submit_transaction(tx_result)
         .await
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
@@ -99,12 +98,12 @@ pub async fn get_tokens(
     let note_id: NoteId;
 
     // Serialize note into bytes
-    let bytes = match created_notes.first() {
-        Some(note) => {
+    let bytes = match created_notes.get_note(0) {
+        OutputNote::Full(note) => {
             note_id = note.id();
             InputNoteRecord::from(note.clone()).to_bytes()
         },
-        None => {
+        OutputNote::Header(_) => {
             return Err(
                 FaucetError::InternalServerError("Failed to generate note.".to_string()).into()
             )
