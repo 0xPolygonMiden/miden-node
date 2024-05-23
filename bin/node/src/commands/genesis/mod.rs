@@ -126,17 +126,13 @@ fn create_accounts(
                 let (auth_scheme, auth_secret_key) =
                     parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
-                let storage_type = if inputs.on_chain {
-                    AccountStorageType::OnChain
-                } else {
-                    AccountStorageType::OffChain
-                };
+                let storage_mode = parse_storage_mode(&inputs.storage_mode)?;
 
                 let (account, account_seed) = create_basic_wallet(
                     init_seed,
                     auth_scheme,
                     AccountType::RegularAccountImmutableCode,
-                    storage_type,
+                    storage_mode,
                 )?;
 
                 AccountData::new(account, Some(account_seed), auth_secret_key)
@@ -148,11 +144,7 @@ fn create_accounts(
                 let (auth_scheme, auth_secret_key) =
                     parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
-                let storage_type = if inputs.on_chain {
-                    AccountStorageType::OnChain
-                } else {
-                    AccountStorageType::OffChain
-                };
+                let storage_mode = parse_storage_mode(&inputs.storage_mode)?;
 
                 let (account, account_seed) = create_basic_fungible_faucet(
                     init_seed,
@@ -160,7 +152,7 @@ fn create_accounts(
                     inputs.decimals,
                     Felt::try_from(inputs.max_supply)
                         .expect("max supply value is greater than or equal to the field modulus"),
-                    storage_type,
+                    storage_mode,
                     auth_scheme,
                 )?;
 
@@ -207,6 +199,14 @@ fn parse_auth_inputs(
     }
 }
 
+fn parse_storage_mode(storage_type: &str) -> Result<AccountStorageType> {
+    match storage_type.to_lowercase().as_str() {
+        "on-chain" => Ok(AccountStorageType::OnChain),
+        "off-chain" => Ok(AccountStorageType::OffChain),
+        lowercase_type => Err(anyhow!("The provided value for storage_type ({}) does not match the expected values (on-chain, off-chain)", lowercase_type))
+    }
+}
+
 // TESTS
 // ================================================================================================
 
@@ -238,6 +238,7 @@ mod tests {
                 init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
                 auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                storage_mode = "off-chain"
 
                 [[accounts]]
                 type = "BasicFungibleFaucet"
@@ -247,6 +248,7 @@ mod tests {
                 token_symbol = "POL"
                 decimals = 12
                 max_supply = 1000000
+                storage_mode = "on-chain"
             "#,
             )?;
 
@@ -266,6 +268,10 @@ mod tests {
             // deserialize accounts and genesis_state
             let a0 = AccountData::read(a0_file_path).unwrap();
             let a1 = AccountData::read(a1_file_path).unwrap();
+
+            // assert that the accounts have the corresponding storage mode
+            assert!(!a0.account.is_on_chain());
+            assert!(a1.account.is_on_chain());
 
             let genesis_file_contents = fs::read(genesis_dat_file_path).unwrap();
             let genesis_state = GenesisState::read_from_bytes(&genesis_file_contents).unwrap();

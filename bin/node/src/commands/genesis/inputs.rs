@@ -25,8 +25,7 @@ pub struct BasicWalletInputs {
     pub init_seed: String,
     pub auth_scheme: AuthSchemeInput,
     pub auth_seed: String,
-    #[serde(default = "_default_true")]
-    pub on_chain: bool,
+    pub storage_mode: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -37,15 +36,10 @@ pub struct BasicFungibleFaucetInputs {
     pub token_symbol: String,
     pub decimals: u8,
     pub max_supply: u64,
-    #[serde(default = "_default_true")]
-    pub on_chain: bool,
+    pub storage_mode: String,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 pub enum AuthSchemeInput {
     RpoFalcon512,
-}
-
-const fn _default_true() -> bool {
-    true
 }
