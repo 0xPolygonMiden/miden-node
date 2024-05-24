@@ -1650,9 +1650,11 @@ dependencies = [
  "miden-node-proto 0.3.0",
  "miden-node-utils 0.3.0",
  "miden-objects 0.3.0",
+ "miden-tx 0.3.0",
  "rand_chacha",
  "serde",
  "thiserror",
+ "tonic",
  "tracing",
 ]
 
