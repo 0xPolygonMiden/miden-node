@@ -199,11 +199,11 @@ fn parse_auth_inputs(
     }
 }
 
-fn parse_storage_mode(storage_type: &str) -> Result<AccountStorageType> {
-    match storage_type.to_lowercase().as_str() {
+fn parse_storage_mode(storage_mode: &str) -> Result<AccountStorageType> {
+    match storage_mode.to_lowercase().as_str() {
         "on-chain" => Ok(AccountStorageType::OnChain),
         "off-chain" => Ok(AccountStorageType::OffChain),
-        lowercase_type => Err(anyhow!("The provided value for storage_type ({}) does not match the expected values (on-chain, off-chain)", lowercase_type))
+        mode => Err(anyhow!("The provided value for storage_type ({mode}) does not match the expected values (on-chain, off-chain)"))
     }
 }
 
