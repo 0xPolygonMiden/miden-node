@@ -25,6 +25,7 @@ pub struct BasicWalletInputs {
     pub init_seed: String,
     pub auth_scheme: AuthSchemeInput,
     pub auth_seed: String,
+    pub storage_mode: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -35,6 +36,7 @@ pub struct BasicFungibleFaucetInputs {
     pub token_symbol: String,
     pub decimals: u8,
     pub max_supply: u64,
+    pub storage_mode: String,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
