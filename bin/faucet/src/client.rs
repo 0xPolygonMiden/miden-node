@@ -103,11 +103,14 @@ impl FaucetClient {
 
         let (_, account_seed, secret) = Self::build_account(faucet_config.clone())?;
 
-        let account_id = { faucet_account.lock().unwrap().id() };
+        let (account_id, first_run) = {
+            let account = faucet_account.lock().unwrap();
+            (account.id(), account.is_new())
+        };
 
         let data_store = FaucetDataStore::new(
             faucet_account,
-            Some(account_seed),
+            first_run.then_some(account_seed),
             root_block_header,
             root_chain_mmr,
         );
