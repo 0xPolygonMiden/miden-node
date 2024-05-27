@@ -13,9 +13,8 @@ jobs:
     name: doc stable on ubuntu-latest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      - uses: davidB/rust-cargo-make@v1
-      - name: cargo make - doc
-        run: cargo make doc
+      - uses: actions/checkout@main
+      - name: Build docs
+        run: |
+          rustup update --no-self-update stable
+          make doc
