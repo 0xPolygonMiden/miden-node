@@ -1,37 +1,45 @@
-use std::{cell::RefCell, time::Duration};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
-use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
+use miden_lib::{
+    accounts::faucets::create_basic_fungible_faucet, notes::create_p2id_note, AuthScheme,
+};
 use miden_node_proto::generated::{
     requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest},
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
     accounts::{Account, AccountDelta, AccountId, AccountStorageType, AuthSecretKey},
-    assembly::ModuleAst,
-    assets::TokenSymbol,
+    assembly::{ModuleAst, ProgramAst},
+    assets::{FungibleAsset, TokenSymbol},
     crypto::{
         dsa::rpo_falcon512::{self, Polynomial, SecretKey},
         merkle::{MmrPeaks, PartialMmr},
+        rand::RpoRandomCoin,
     },
-    notes::NoteId,
-    transaction::{ChainMmr, ExecutedTransaction, InputNotes},
+    notes::{NoteId, NoteType},
+    transaction::{ChainMmr, ExecutedTransaction, InputNotes, TransactionArgs},
+    vm::AdviceMap,
     BlockHeader, Felt, Word,
 };
 use miden_tx::{
     utils::Serializable, AuthenticationError, DataStore, DataStoreError, ProvingOptions,
-    TransactionAuthenticator, TransactionInputs, TransactionProver,
+    TransactionAuthenticator, TransactionExecutor, TransactionInputs, TransactionProver,
 };
+use rand::{thread_rng, Rng};
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use tonic::transport::Channel;
 
 use crate::{config::FaucetConfig, errors::FaucetError};
 
 pub struct FaucetClient {
-    data_store: FaucetDataStore,
-    authenticator: FaucetAuthenticator,
     rpc_api: ApiClient<Channel>,
+    executor: TransactionExecutor<FaucetDataStore, FaucetAuthenticator>,
     config: FaucetConfig,
+    id: AccountId,
+    rng: RpoRandomCoin,
 }
+pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
+    include_str!("transaction_scripts/distribute_fungible_asset.masm");
 
 impl FaucetClient {
     pub async fn new(faucet_config: FaucetConfig) -> Result<Self, FaucetError> {
@@ -79,6 +87,8 @@ impl FaucetClient {
         )
         .unwrap();
 
+        let account_id = faucet_account.id();
+
         let data_store = FaucetDataStore::new(
             faucet_account,
             Some(account_seed),
@@ -88,12 +98,67 @@ impl FaucetClient {
 
         let authenticator = FaucetAuthenticator::new(secret);
 
+        let executor = TransactionExecutor::new(data_store, Some(Rc::new(authenticator)));
+
+        let mut rng = thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
         Ok(Self {
-            data_store,
             rpc_api,
             config: faucet_config,
-            authenticator,
+            executor,
+            id: account_id,
+            rng: RpoRandomCoin::new(coin_seed.map(Felt::new)),
         })
+    }
+
+    pub fn execute_mint_transaction(
+        &mut self,
+        target_account_id: AccountId,
+        is_private_note: bool,
+        asset_amount: u64,
+    ) -> Result<ExecutedTransaction, FaucetError> {
+        let asset = FungibleAsset::new(self.id, asset_amount)
+            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+
+        let note_type = if is_private_note {
+            NoteType::OffChain
+        } else {
+            NoteType::Public
+        };
+
+        let output_note =
+            create_p2id_note(self.id, target_account_id, vec![asset.into()], note_type, self.rng)
+                .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+
+        let recipient = output_note
+            .recipient()
+            .digest()
+            .iter()
+            .map(|x| x.as_int().to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+
+        let tag = output_note.metadata().tag().inner();
+
+        let script = ProgramAst::parse(
+            &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{tag}", &Felt::new(tag.into()).to_string())
+                .replace("{amount}", &Felt::new(asset.amount()).to_string()),
+        )
+        .expect("shipped MASM is well-formed");
+
+        let script = self.executor.compile_tx_script(script, vec![], vec![]).map_err(|err| {
+            FaucetError::InternalServerError(format!("Failed to compile script: {}", err))
+        })?;
+
+        let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());
+        transaction_args.extend_expected_output_notes(vec![output_note]);
+
+        self.executor
+            .execute_transaction(self.id, 0, &[], transaction_args)
+            .map_err(|err| FaucetError::InternalServerError(err.to_string()))
     }
 
     pub async fn prove_and_submit_transaction(

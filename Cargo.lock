@@ -1651,6 +1651,7 @@ dependencies = [
  "miden-node-utils 0.3.0",
  "miden-objects 0.3.0",
  "miden-tx 0.3.0",
+ "rand",
  "rand_chacha",
  "serde",
  "thiserror",
