@@ -1,4 +1,9 @@
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use miden_lib::{
     accounts::faucets::create_basic_fungible_faucet, notes::create_p2id_note, AuthScheme,
@@ -69,7 +74,10 @@ impl FaucetClient {
         Ok((faucet_account, account_seed, secret))
     }
 
-    pub async fn new(faucet_config: FaucetConfig) -> Result<Self, FaucetError> {
+    pub async fn new(
+        faucet_config: FaucetConfig,
+        faucet_account: Arc<Mutex<Account>>,
+    ) -> Result<Self, FaucetError> {
         let endpoint = tonic::transport::Endpoint::try_from(faucet_config.node_url.clone())
             .map_err(|_| {
                 FaucetError::InternalServerError("Failed to connect to node.".to_string())
@@ -93,9 +101,9 @@ impl FaucetClient {
         )
         .unwrap();
 
-        let (faucet_account, account_seed, secret) = Self::build_account(faucet_config.clone())?;
+        let (_, account_seed, secret) = Self::build_account(faucet_config.clone())?;
 
-        let account_id = faucet_account.id();
+        let account_id = { faucet_account.lock().unwrap().id() };
 
         let data_store = FaucetDataStore::new(
             faucet_account,
@@ -204,7 +212,7 @@ impl FaucetClient {
 
 #[derive(Clone)]
 pub struct FaucetDataStore {
-    faucet_account: RefCell<Account>,
+    faucet_account: Arc<Mutex<Account>>,
     seed: Option<Word>,
     block_header: BlockHeader,
     chain_mmr: ChainMmr,
@@ -212,13 +220,13 @@ pub struct FaucetDataStore {
 
 impl FaucetDataStore {
     pub fn new(
-        faucet_account: Account,
+        faucet_account: Arc<Mutex<Account>>,
         seed: Option<Word>,
         root_block_header: BlockHeader,
         root_chain_mmr: ChainMmr,
     ) -> Self {
         Self {
-            faucet_account: RefCell::new(faucet_account),
+            faucet_account,
             seed,
             block_header: root_block_header,
             chain_mmr: root_chain_mmr,
@@ -227,7 +235,8 @@ impl FaucetDataStore {
 
     fn update_faucet_account(&mut self, delta: &AccountDelta) -> Result<(), DataStoreError> {
         self.faucet_account
-            .borrow_mut()
+            .lock()
+            .unwrap()
             .apply_delta(delta)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))
     }
@@ -240,7 +249,8 @@ impl DataStore for FaucetDataStore {
         _block_ref: u32,
         _notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
-        if account_id != self.faucet_account.borrow().id() {
+        let account = self.faucet_account.lock().unwrap();
+        if account_id != account.id() {
             return Err(DataStoreError::AccountNotFound(account_id));
         }
 
@@ -248,7 +258,7 @@ impl DataStore for FaucetDataStore {
             InputNotes::new(Vec::new()).map_err(DataStoreError::InvalidTransactionInput)?;
 
         TransactionInputs::new(
-            self.faucet_account.borrow().clone(),
+            account.clone(),
             self.seed,
             self.block_header,
             self.chain_mmr.clone(),
@@ -258,11 +268,12 @@ impl DataStore for FaucetDataStore {
     }
 
     fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        if account_id != self.faucet_account.borrow().id() {
+        let account = self.faucet_account.lock().unwrap();
+        if account_id != account.id() {
             return Err(DataStoreError::AccountNotFound(account_id));
         }
 
-        let module_ast = self.faucet_account.borrow().code().module().clone();
+        let module_ast = account.code().module().clone();
         Ok(module_ast)
     }
 }

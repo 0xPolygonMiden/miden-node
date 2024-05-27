@@ -44,7 +44,7 @@ pub async fn get_tokens(
     }
 
     let client_config = state.faucet_config.clone();
-    let mut client = FaucetClient::new(client_config).await?;
+    let mut client = FaucetClient::new(client_config, state.faucet_account.clone()).await?;
 
     // Receive and hex user account id
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
