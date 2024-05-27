@@ -34,6 +34,7 @@ use crate::{config::FaucetConfig, errors::FaucetError};
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
     executor: TransactionExecutor<FaucetDataStore, FaucetAuthenticator>,
+    data_store: FaucetDataStore,
     id: AccountId,
     rng: RpoRandomCoin,
 }
@@ -67,6 +68,7 @@ impl FaucetClient {
 
         Ok((faucet_account, account_seed, secret))
     }
+
     pub async fn new(faucet_config: FaucetConfig) -> Result<Self, FaucetError> {
         let endpoint = tonic::transport::Endpoint::try_from(faucet_config.node_url.clone())
             .map_err(|_| {
@@ -104,11 +106,12 @@ impl FaucetClient {
 
         let authenticator = FaucetAuthenticator::new(secret);
 
-        let executor = TransactionExecutor::new(data_store, Some(Rc::new(authenticator)));
+        let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
 
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
         Ok(Self {
+            data_store,
             rpc_api,
             executor,
             id: account_id,
@@ -161,10 +164,12 @@ impl FaucetClient {
         let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());
         transaction_args.extend_expected_output_notes(vec![output_note.clone()]);
 
-        let executed_tx = self
-            .executor
-            .execute_transaction(self.id, 0, &[], transaction_args)
+        self.executor
+            .load_account(self.id)
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+
+        let executed_tx =
+            self.executor.execute_transaction(self.id, 0, &[], transaction_args).unwrap();
 
         Ok((executed_tx, output_note))
     }
@@ -174,6 +179,8 @@ impl FaucetClient {
         executed_tx: ExecutedTransaction,
     ) -> Result<(), FaucetError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
+
+        let delta = executed_tx.account_delta().clone();
 
         let proven_transaction =
             transaction_prover.prove_transaction(executed_tx).map_err(|err| {
@@ -189,12 +196,15 @@ impl FaucetClient {
             .await
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
+        self.data_store.update_faucet_account(&delta).unwrap();
+
         Ok(())
     }
 }
 
+#[derive(Clone)]
 pub struct FaucetDataStore {
-    faucet_account: Account,
+    faucet_account: RefCell<Account>,
     seed: Option<Word>,
     block_header: BlockHeader,
     chain_mmr: ChainMmr,
@@ -208,11 +218,18 @@ impl FaucetDataStore {
         root_chain_mmr: ChainMmr,
     ) -> Self {
         Self {
-            faucet_account,
+            faucet_account: RefCell::new(faucet_account),
             seed,
             block_header: root_block_header,
             chain_mmr: root_chain_mmr,
         }
+    }
+
+    fn update_faucet_account(&mut self, delta: &AccountDelta) -> Result<(), DataStoreError> {
+        self.faucet_account
+            .borrow_mut()
+            .apply_delta(delta)
+            .map_err(|err| DataStoreError::InternalError(err.to_string()))
     }
 }
 
@@ -223,7 +240,7 @@ impl DataStore for FaucetDataStore {
         _block_ref: u32,
         _notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
-        if account_id != self.faucet_account.id() {
+        if account_id != self.faucet_account.borrow().id() {
             return Err(DataStoreError::AccountNotFound(account_id));
         }
 
@@ -231,7 +248,7 @@ impl DataStore for FaucetDataStore {
             InputNotes::new(Vec::new()).map_err(DataStoreError::InvalidTransactionInput)?;
 
         TransactionInputs::new(
-            self.faucet_account.clone(),
+            self.faucet_account.borrow().clone(),
             self.seed,
             self.block_header,
             self.chain_mmr.clone(),
@@ -241,11 +258,11 @@ impl DataStore for FaucetDataStore {
     }
 
     fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        if account_id != self.faucet_account.id() {
+        if account_id != self.faucet_account.borrow().id() {
             return Err(DataStoreError::AccountNotFound(account_id));
         }
 
-        let module_ast = self.faucet_account.code().module().clone();
+        let module_ast = self.faucet_account.borrow().code().module().clone();
         Ok(module_ast)
     }
 }
