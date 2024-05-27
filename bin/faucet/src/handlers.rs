@@ -1,21 +1,9 @@
 use actix_web::{get, http::header, post, web, HttpResponse, Result};
-use miden_client::{
-    client::transactions::transaction_request::TransactionTemplate, store::InputNoteRecord,
-};
-use miden_objects::{
-    accounts::AccountId,
-    assets::FungibleAsset,
-    notes::{NoteId, NoteType},
-    transaction::OutputNote,
-    utils::serde::Serializable,
-};
+use miden_objects::{accounts::AccountId, notes::NoteId, utils::serde::Serializable};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::{
-    errors::FaucetError,
-    utils::{build_client, FaucetState},
-};
+use crate::{client::FaucetClient, errors::FaucetError, utils::FaucetState};
 
 #[derive(Deserialize)]
 struct FaucetRequest {
@@ -56,59 +44,26 @@ pub async fn get_tokens(
     }
 
     let client_config = state.faucet_config.clone();
-    let mut client = build_client(client_config.database_filepath, &client_config.node_url)?;
+    let mut client = FaucetClient::new(client_config).await?;
 
     // Receive and hex user account id
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
         .map_err(|err| FaucetError::BadRequest(err.to_string()))?;
 
-    // Instantiate asset
-    let asset = FungibleAsset::new(state.id, req.asset_amount)
-        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
-
-    // Instantiate note type
-    let note_type = if req.is_private_note {
-        NoteType::OffChain
-    } else {
-        NoteType::Public
-    };
-
-    // Instantiate transaction template
-    let tx_template = TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type);
-
-    // Instantiate transaction request
-    let tx_request = client
-        .build_transaction_request(tx_template)
-        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
-
-    // Run transaction executor & execute transaction
-    let tx_result = client
-        .new_transaction(tx_request)
-        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
-
-    // Get created notes from transaction result
-    let created_notes = tx_result.created_notes().clone();
+    // Execute transaction
+    let (executed_tx, created_note) = client.execute_mint_transaction(
+        target_account_id,
+        req.is_private_note,
+        req.asset_amount,
+    )?;
 
     // Run transaction prover & send transaction to node
-    client
-        .submit_transaction(tx_result)
-        .await
-        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+    client.prove_and_submit_transaction(executed_tx).await?;
 
-    let note_id: NoteId;
+    let note_id: NoteId = created_note.id();
 
     // Serialize note into bytes
-    let bytes = match created_notes.get_note(0) {
-        OutputNote::Full(note) => {
-            note_id = note.id();
-            InputNoteRecord::from(note.clone()).to_bytes()
-        },
-        OutputNote::Header(_) => {
-            return Err(
-                FaucetError::InternalServerError("Failed to generate note.".to_string()).into()
-            )
-        },
-    };
+    let bytes = created_note.to_bytes();
 
     info!("A new note has been created: {}", note_id);
 

@@ -16,7 +16,7 @@ use miden_objects::{
         merkle::{MmrPeaks, PartialMmr},
         rand::RpoRandomCoin,
     },
-    notes::{NoteId, NoteType},
+    notes::{Note, NoteId, NoteType},
     transaction::{ChainMmr, ExecutedTransaction, InputNotes, TransactionArgs},
     vm::AdviceMap,
     BlockHeader, Felt, Word,
@@ -34,7 +34,6 @@ use crate::{config::FaucetConfig, errors::FaucetError};
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
     executor: TransactionExecutor<FaucetDataStore, FaucetAuthenticator>,
-    config: FaucetConfig,
     id: AccountId,
     rng: RpoRandomCoin,
 }
@@ -42,6 +41,32 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");
 
 impl FaucetClient {
+    pub fn build_account(
+        faucet_config: FaucetConfig,
+    ) -> Result<(Account, Word, SecretKey), FaucetError> {
+        let token_symbol = TokenSymbol::new(faucet_config.token_symbol.as_str())
+            .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
+
+        let seed: [u8; 32] = [0; 32];
+
+        // Instantiate keypair and authscheme
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let secret = SecretKey::with_rng(&mut rng);
+        let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
+
+        let (faucet_account, account_seed) = create_basic_fungible_faucet(
+            seed,
+            token_symbol,
+            faucet_config.decimals,
+            Felt::try_from(faucet_config.max_supply)
+                .map_err(|err| FaucetError::InternalServerError(err.to_string()))?,
+            AccountStorageType::OffChain,
+            auth_scheme,
+        )
+        .unwrap();
+
+        Ok((faucet_account, account_seed, secret))
+    }
     pub async fn new(faucet_config: FaucetConfig) -> Result<Self, FaucetError> {
         let endpoint = tonic::transport::Endpoint::try_from(faucet_config.node_url.clone())
             .map_err(|_| {
@@ -66,26 +91,7 @@ impl FaucetClient {
         )
         .unwrap();
 
-        let token_symbol = TokenSymbol::new(faucet_config.token_symbol.as_str())
-            .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
-
-        let seed: [u8; 32] = [0; 32];
-
-        // Instantiate keypair and authscheme
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        let secret = SecretKey::with_rng(&mut rng);
-        let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
-
-        let (faucet_account, account_seed) = create_basic_fungible_faucet(
-            seed,
-            token_symbol,
-            faucet_config.decimals,
-            Felt::try_from(faucet_config.max_supply)
-                .map_err(|err| FaucetError::InternalServerError(err.to_string()))?,
-            AccountStorageType::OffChain,
-            auth_scheme,
-        )
-        .unwrap();
+        let (faucet_account, account_seed, secret) = Self::build_account(faucet_config.clone())?;
 
         let account_id = faucet_account.id();
 
@@ -104,7 +110,6 @@ impl FaucetClient {
         let coin_seed: [u64; 4] = rng.gen();
         Ok(Self {
             rpc_api,
-            config: faucet_config,
             executor,
             id: account_id,
             rng: RpoRandomCoin::new(coin_seed.map(Felt::new)),
@@ -116,7 +121,7 @@ impl FaucetClient {
         target_account_id: AccountId,
         is_private_note: bool,
         asset_amount: u64,
-    ) -> Result<ExecutedTransaction, FaucetError> {
+    ) -> Result<(ExecutedTransaction, Note), FaucetError> {
         let asset = FungibleAsset::new(self.id, asset_amount)
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
@@ -154,11 +159,14 @@ impl FaucetClient {
         })?;
 
         let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());
-        transaction_args.extend_expected_output_notes(vec![output_note]);
+        transaction_args.extend_expected_output_notes(vec![output_note.clone()]);
 
-        self.executor
+        let executed_tx = self
+            .executor
             .execute_transaction(self.id, 0, &[], transaction_args)
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))
+            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+
+        Ok((executed_tx, output_note))
     }
 
     pub async fn prove_and_submit_transaction(

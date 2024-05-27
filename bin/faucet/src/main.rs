@@ -15,11 +15,11 @@ use actix_web::{
 use errors::FaucetError;
 use miden_node_utils::config::load_config;
 use tracing::info;
+use utils::build_faucet_state;
 
 use crate::{
     config::FaucetConfig,
     handlers::{get_metadata, get_tokens},
-    utils::build_faucet_state,
 };
 
 // CONSTANTS
