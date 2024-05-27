@@ -1,6 +1,7 @@
 # Changelog
 
 * Standardised CI and Makefile across Miden repositories (#367)
+* Remove client dependency from faucet (#368).
 
 ## 0.3.0 (2024-05-15)
 
