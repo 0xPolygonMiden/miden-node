@@ -118,8 +118,12 @@ impl FaucetClient {
             .load_account(self.id)
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
-        let executed_tx =
-            self.executor.execute_transaction(self.id, 0, &[], transaction_args).unwrap();
+        let executed_tx = self
+            .executor
+            .execute_transaction(self.id, 0, &[], transaction_args)
+            .map_err(|err| {
+                FaucetError::InternalServerError(format!("Failed to execute transaction: {}", err))
+            })?;
 
         Ok((executed_tx, output_note))
     }
@@ -146,7 +150,9 @@ impl FaucetClient {
             .await
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
-        self.data_store.update_faucet_account(&delta).unwrap();
+        self.data_store.update_faucet_account(&delta).map_err(|err| {
+            FaucetError::InternalServerError(format!("Failed to update account: {}", err))
+        })?;
 
         Ok(())
     }
@@ -273,7 +279,7 @@ fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), Fau
         AccountStorageType::OffChain,
         auth_scheme,
     )
-    .unwrap();
+    .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
 
     Ok((faucet_account, account_seed, secret))
 }
@@ -293,12 +299,21 @@ pub async fn initial_connection(
         block_num: Some(0),
         include_mmr_proof: Some(true),
     };
-    let response = rpc_api.get_block_header_by_number(request).await.unwrap();
+    let response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
+        FaucetError::InternalServerError(format!("Failed to get block header: {}", err))
+    })?;
     let root_block_header: BlockHeader =
-        response.into_inner().block_header.unwrap().try_into().unwrap();
-    let root_chain_mmr =
-        ChainMmr::new(PartialMmr::from_peaks(MmrPeaks::new(0, Vec::new()).unwrap()), Vec::new())
-            .unwrap();
+        response.into_inner().block_header.unwrap().try_into().map_err(|err| {
+            FaucetError::InternalServerError(format!("Failed to convert block header: {}", err))
+        })?;
+
+    let root_chain_mmr = ChainMmr::new(
+        PartialMmr::from_peaks(
+            MmrPeaks::new(0, Vec::new()).expect("Empty MmrPeak should be valid"),
+        ),
+        Vec::new(),
+    )
+    .expect("Empty ChainMmr should be valid");
 
     Ok((rpc_api, root_block_header, root_chain_mmr))
 }
