@@ -4,7 +4,7 @@ use miden_objects::{accounts::AccountId, notes::NoteId, utils::serde::Serializab
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::{client::FaucetClient, errors::FaucetError, state::FaucetState};
+use crate::{errors::FaucetError, state::FaucetState};
 
 #[derive(Deserialize)]
 struct FaucetRequest {
@@ -44,8 +44,7 @@ pub async fn get_tokens(
         return Err(FaucetError::BadRequest("Invalid asset amount.".to_string()).into());
     }
 
-    let client_config = state.faucet_config.clone();
-    let mut client = FaucetClient::new(client_config, state.faucet_account.clone()).await?;
+    let mut client = state.client.lock().await;
 
     // Receive and hex user account id
     let target_account_id = AccountId::from_hex(req.account_id.as_str())

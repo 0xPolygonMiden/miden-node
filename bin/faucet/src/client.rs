@@ -1,9 +1,4 @@
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use miden_lib::{
     accounts::faucets::create_basic_fungible_faucet, notes::create_p2id_note, AuthScheme,
@@ -36,47 +31,46 @@ use tonic::transport::Channel;
 
 use crate::{config::FaucetConfig, errors::FaucetError};
 
-pub struct FaucetClient {
-    rpc_api: ApiClient<Channel>,
-    executor: TransactionExecutor<FaucetDataStore, FaucetAuthenticator>,
-    data_store: FaucetDataStore,
-    id: AccountId,
-    rng: RpoRandomCoin,
-}
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");
 
+pub struct FaucetClient {
+    rpc_api: ApiClient<Channel>,
+    executor: TransactionExecutor<FaucetDataStore, FaucetAuthenticator>,
+    faucet_account: Rc<RefCell<Account>>,
+    id: AccountId,
+    rng: RpoRandomCoin,
+}
+
+unsafe impl Send for FaucetClient {}
+unsafe impl Sync for FaucetClient {}
+
 impl FaucetClient {
-    pub async fn new(
-        faucet_config: FaucetConfig,
-        faucet_account: Arc<Mutex<Account>>,
-    ) -> Result<Self, FaucetError> {
+    pub async fn new(faucet_config: FaucetConfig) -> Result<Self, FaucetError> {
         let (rpc_api, root_block_header, root_chain_mmr) =
             initial_connection(faucet_config.clone()).await?;
 
-        let (_, account_seed, secret) = build_account(faucet_config.clone())?;
-        let (account_id, first_run) = {
-            let account = faucet_account.lock().unwrap();
-            (account.id(), account.is_new())
-        };
+        let (faucet_account, account_seed, secret) = build_account(faucet_config.clone())?;
+        let faucet_account = Rc::new(RefCell::new(faucet_account));
+        let id = faucet_account.borrow().id();
 
         let data_store = FaucetDataStore::new(
-            faucet_account,
-            first_run.then_some(account_seed),
+            faucet_account.clone(),
+            account_seed,
             root_block_header,
             root_chain_mmr,
         );
         let authenticator = FaucetAuthenticator::new(secret);
-        let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
+        let executor = TransactionExecutor::new(data_store, Some(Rc::new(authenticator)));
 
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         Ok(Self {
-            data_store,
+            faucet_account,
             rpc_api,
             executor,
-            id: account_id,
+            id,
             rng,
         })
     }
@@ -158,24 +152,34 @@ impl FaucetClient {
             .await
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
-        self.data_store.update_faucet_account(&delta).unwrap();
+        self.update_faucet_account(&delta).unwrap();
 
         Ok(())
     }
+
+    fn update_faucet_account(&self, delta: &AccountDelta) -> Result<(), FaucetError> {
+        self.faucet_account
+            .borrow_mut()
+            .apply_delta(delta)
+            .map_err(|err| FaucetError::InternalServerError(err.to_string()))
+    }
+
+    pub fn get_faucet_id(&self) -> AccountId {
+        self.id
+    }
 }
 
-#[derive(Clone)]
 pub struct FaucetDataStore {
-    faucet_account: Arc<Mutex<Account>>,
-    seed: Option<Word>,
+    faucet_account: Rc<RefCell<Account>>,
+    seed: Word,
     block_header: BlockHeader,
     chain_mmr: ChainMmr,
 }
 
 impl FaucetDataStore {
     pub fn new(
-        faucet_account: Arc<Mutex<Account>>,
-        seed: Option<Word>,
+        faucet_account: Rc<RefCell<Account>>,
+        seed: Word,
         root_block_header: BlockHeader,
         root_chain_mmr: ChainMmr,
     ) -> Self {
@@ -186,14 +190,6 @@ impl FaucetDataStore {
             chain_mmr: root_chain_mmr,
         }
     }
-
-    fn update_faucet_account(&mut self, delta: &AccountDelta) -> Result<(), DataStoreError> {
-        self.faucet_account
-            .lock()
-            .unwrap()
-            .apply_delta(delta)
-            .map_err(|err| DataStoreError::InternalError(err.to_string()))
-    }
 }
 
 impl DataStore for FaucetDataStore {
@@ -203,7 +199,7 @@ impl DataStore for FaucetDataStore {
         _block_ref: u32,
         _notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
-        let account = self.faucet_account.lock().unwrap();
+        let account = self.faucet_account.borrow();
         if account_id != account.id() {
             return Err(DataStoreError::AccountNotFound(account_id));
         }
@@ -213,7 +209,7 @@ impl DataStore for FaucetDataStore {
 
         TransactionInputs::new(
             account.clone(),
-            self.seed,
+            account.is_new().then_some(self.seed),
             self.block_header,
             self.chain_mmr.clone(),
             empty_input_notes,
@@ -222,7 +218,7 @@ impl DataStore for FaucetDataStore {
     }
 
     fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        let account = self.faucet_account.lock().unwrap();
+        let account = self.faucet_account.borrow();
         if account_id != account.id() {
             return Err(DataStoreError::AccountNotFound(account_id));
         }
@@ -262,9 +258,7 @@ impl TransactionAuthenticator for FaucetAuthenticator {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-pub fn build_account(
-    faucet_config: FaucetConfig,
-) -> Result<(Account, Word, SecretKey), FaucetError> {
+fn build_account(faucet_config: FaucetConfig) -> Result<(Account, Word, SecretKey), FaucetError> {
     let token_symbol = TokenSymbol::new(faucet_config.token_symbol.as_str())
         .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
 
