@@ -20,6 +20,6 @@ impl FaucetState {
         let client = Arc::new(Mutex::new(client));
         info!("Faucet initialization successful, account id: {}", id);
 
-        Ok(FaucetState { client, id, config: config })
+        Ok(FaucetState { client, id, config })
     }
 }

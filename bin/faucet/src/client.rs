@@ -37,7 +37,7 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
     executor: TransactionExecutor<FaucetDataStore, FaucetAuthenticator>,
-    faucet_account: Rc<RefCell<Account>>,
+    data_store: FaucetDataStore,
     id: AccountId,
     rng: RpoRandomCoin,
 }
@@ -61,18 +61,12 @@ impl FaucetClient {
             root_chain_mmr,
         );
         let authenticator = FaucetAuthenticator::new(secret);
-        let executor = TransactionExecutor::new(data_store, Some(Rc::new(authenticator)));
+        let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
 
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        Ok(Self {
-            faucet_account,
-            rpc_api,
-            executor,
-            id,
-            rng,
-        })
+        Ok(Self { data_store, rpc_api, executor, id, rng })
     }
 
     pub fn execute_mint_transaction(
@@ -152,16 +146,9 @@ impl FaucetClient {
             .await
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
-        self.update_faucet_account(&delta).unwrap();
+        self.data_store.update_faucet_account(&delta).unwrap();
 
         Ok(())
-    }
-
-    fn update_faucet_account(&self, delta: &AccountDelta) -> Result<(), FaucetError> {
-        self.faucet_account
-            .borrow_mut()
-            .apply_delta(delta)
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))
     }
 
     pub fn get_faucet_id(&self) -> AccountId {
@@ -169,6 +156,7 @@ impl FaucetClient {
     }
 }
 
+#[derive(Clone)]
 pub struct FaucetDataStore {
     faucet_account: Rc<RefCell<Account>>,
     seed: Word,
@@ -189,6 +177,13 @@ impl FaucetDataStore {
             block_header: root_block_header,
             chain_mmr: root_chain_mmr,
         }
+    }
+
+    fn update_faucet_account(&mut self, delta: &AccountDelta) -> Result<(), FaucetError> {
+        self.faucet_account
+            .borrow_mut()
+            .apply_delta(delta)
+            .map_err(|err| FaucetError::InternalServerError(err.to_string()))
     }
 }
 
