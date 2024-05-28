@@ -702,7 +702,7 @@ version = "4.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "528131438037fd55894f62d6e9f068b8f45ac57ffa77517819645d10aed04f64"
 dependencies = [
- "heck",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.66",
@@ -719,6 +719,18 @@ name = "colorchoice"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
+
+[[package]]
+name = "comfy-table"
+version = "7.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b34115915337defe99b2aff5c2ce6771e5fbc4079f4b506301f5cf394c8452f7"
+dependencies = [
+ "crossterm",
+ "strum",
+ "strum_macros",
+ "unicode-width",
+]
 
 [[package]]
 name = "constant_time_eq"
@@ -765,6 +777,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a97769d94ddab943e4510d138150169a2758b5ef3eb191a9ee688de3e23ef7b3"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "crossterm"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f476fe445d41c9e991fd07515a6f463074b782242ccf4a5b7b1d1012e70824df"
+dependencies = [
+ "bitflags 2.5.0",
+ "crossterm_winapi",
+ "libc",
+ "parking_lot",
+ "winapi",
+]
+
+[[package]]
+name = "crossterm_winapi"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acdd7c62a3665c7f6830a51635d9ac9b23ed385797f70a83bb8bafe9c572ab2b"
+dependencies = [
+ "winapi",
 ]
 
 [[package]]
@@ -1089,6 +1123,12 @@ checksum = "e8094feaf31ff591f651a2664fb9cfd92bba7a60ce3197265e9482ebe753c8f7"
 dependencies = [
  "hashbrown 0.14.5",
 ]
+
+[[package]]
+name = "heck"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "heck"
@@ -1513,6 +1553,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "miden-client"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "105df69459e5d5a164ed2bb7794a561bafee5eac3462ec2281bf829181f9307c"
+dependencies = [
+ "async-trait",
+ "clap",
+ "comfy-table",
+ "figment",
+ "lazy_static",
+ "miden-lib 0.3.0",
+ "miden-node-proto 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miden-objects 0.3.0",
+ "miden-tx 0.3.0",
+ "rand",
+ "rusqlite",
+ "rusqlite_migration",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml",
+ "tonic",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "miden-core"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1536,6 +1603,7 @@ dependencies = [
  "num-complex",
  "rand",
  "rand_core",
+ "serde",
  "sha3",
  "winter-crypto",
  "winter-math",
@@ -1552,9 +1620,10 @@ dependencies = [
  "async-mutex",
  "derive_more",
  "figment",
+ "miden-client",
  "miden-lib 0.3.0",
- "miden-node-proto",
- "miden-node-utils",
+ "miden-node-proto 0.3.0",
+ "miden-node-utils 0.3.0",
  "miden-objects 0.3.0",
  "miden-tx 0.3.0",
  "rand",
@@ -1597,7 +1666,7 @@ dependencies = [
  "miden-node-block-producer",
  "miden-node-rpc",
  "miden-node-store",
- "miden-node-utils",
+ "miden-node-utils 0.3.0",
  "miden-objects 0.4.0",
  "rand_chacha",
  "serde",
@@ -1614,10 +1683,10 @@ dependencies = [
  "figment",
  "itertools",
  "miden-air",
- "miden-node-proto",
+ "miden-node-proto 0.3.0",
  "miden-node-store",
  "miden-node-test-macro",
- "miden-node-utils",
+ "miden-node-utils 0.3.0",
  "miden-objects 0.4.0",
  "miden-processor",
  "miden-stdlib",
@@ -1638,10 +1707,28 @@ name = "miden-node-proto"
 version = "0.3.0"
 dependencies = [
  "hex",
- "miden-node-utils",
+ "miden-node-utils 0.3.0",
  "miden-objects 0.4.0",
  "miette",
  "proptest",
+ "prost",
+ "prost-build",
+ "protox",
+ "thiserror",
+ "tonic",
+ "tonic-build",
+]
+
+[[package]]
+name = "miden-node-proto"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cad7cb698a5e3cd387eca9380c0c6da1eea262b9527967b6eb755da3699b5b0"
+dependencies = [
+ "hex",
+ "miden-node-utils 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miden-objects 0.3.0",
+ "miette",
  "prost",
  "prost-build",
  "protox",
@@ -1658,9 +1745,9 @@ dependencies = [
  "figment",
  "hex",
  "miden-node-block-producer",
- "miden-node-proto",
+ "miden-node-proto 0.3.0",
  "miden-node-store",
- "miden-node-utils",
+ "miden-node-utils 0.3.0",
  "miden-objects 0.4.0",
  "miden-tx 0.4.0",
  "prost",
@@ -1682,8 +1769,8 @@ dependencies = [
  "figment",
  "hex",
  "miden-lib 0.4.0",
- "miden-node-proto",
- "miden-node-utils",
+ "miden-node-proto 0.3.0",
+ "miden-node-utils 0.3.0",
  "miden-objects 0.4.0",
  "once_cell",
  "prost",
@@ -1723,6 +1810,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "miden-node-utils"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72178203f905caebaa6d33e44a8f45b9b8c2a3d98f7b40fffb83b7fd47cb2869"
+dependencies = [
+ "anyhow",
+ "figment",
+ "itertools",
+ "miden-objects 0.3.0",
+ "serde",
+ "thiserror",
+ "tonic",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "miden-objects"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1733,6 +1837,7 @@ dependencies = [
  "miden-crypto",
  "miden-processor",
  "miden-verifier",
+ "serde",
 ]
 
 [[package]]
@@ -2260,7 +2365,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22505a5c94da8e3b7c2996394d1c933236c4d743e81a410bcca4e6989fc066a4"
 dependencies = [
  "bytes",
- "heck",
+ "heck 0.5.0",
  "itertools",
  "log",
  "multimap",
@@ -2687,6 +2792,25 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "strum"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
+
+[[package]]
+name = "strum_macros"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6cf59daf282c0a494ba14fd21610a0325f9f90ec9d1231dea26bcb1d696c946"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.66",
+]
 
 [[package]]
 name = "supports-color"
@@ -3571,6 +3695,7 @@ version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c36d2a04b4f79f2c8c6945aab6545b7310a0cd6ae47b9210750400df6775a04"
 dependencies = [
+ "serde",
  "winter-utils",
 ]
 

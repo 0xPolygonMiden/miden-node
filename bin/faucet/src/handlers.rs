@@ -1,4 +1,5 @@
 use actix_web::{get, http::header, post, web, HttpResponse, Result};
+use miden_client::store::InputNoteRecord;
 use miden_objects::{accounts::AccountId, notes::NoteId, utils::serde::Serializable};
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -63,7 +64,7 @@ pub async fn get_tokens(
     let note_id: NoteId = created_note.id();
 
     // Serialize note into bytes
-    let bytes = created_note.to_bytes();
+    let bytes = InputNoteRecord::from(created_note).to_bytes();
 
     info!("A new note has been created: {}", note_id);
 
