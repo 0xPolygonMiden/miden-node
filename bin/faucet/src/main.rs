@@ -2,7 +2,7 @@ mod client;
 mod config;
 mod errors;
 mod handlers;
-mod utils;
+mod state;
 
 use std::path::PathBuf;
 
@@ -14,8 +14,8 @@ use actix_web::{
 };
 use errors::FaucetError;
 use miden_node_utils::config::load_config;
+use state::FaucetState;
 use tracing::info;
-use utils::build_faucet_state;
 
 use crate::{
     config::FaucetConfig,
@@ -41,7 +41,7 @@ async fn main() -> Result<(), FaucetError> {
         .extract()
         .map_err(|err| FaucetError::ConfigurationError(err.to_string()))?;
 
-    let faucet_state = build_faucet_state(config.clone()).await?;
+    let faucet_state = FaucetState::new(config.clone()).await?;
 
     info!(target: COMPONENT, %config, "Initializing server");
 

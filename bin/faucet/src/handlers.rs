@@ -3,7 +3,7 @@ use miden_objects::{accounts::AccountId, notes::NoteId, utils::serde::Serializab
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::{client::FaucetClient, errors::FaucetError, utils::FaucetState};
+use crate::{client::FaucetClient, errors::FaucetError, state::FaucetState};
 
 #[derive(Deserialize)]
 struct FaucetRequest {

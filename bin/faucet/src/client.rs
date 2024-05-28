@@ -47,62 +47,14 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");
 
 impl FaucetClient {
-    pub fn build_account(
-        faucet_config: FaucetConfig,
-    ) -> Result<(Account, Word, SecretKey), FaucetError> {
-        let token_symbol = TokenSymbol::new(faucet_config.token_symbol.as_str())
-            .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
-
-        let seed: [u8; 32] = [0; 32];
-
-        // Instantiate keypair and authscheme
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        let secret = SecretKey::with_rng(&mut rng);
-        let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
-
-        let (faucet_account, account_seed) = create_basic_fungible_faucet(
-            seed,
-            token_symbol,
-            faucet_config.decimals,
-            Felt::try_from(faucet_config.max_supply)
-                .map_err(|err| FaucetError::InternalServerError(err.to_string()))?,
-            AccountStorageType::OffChain,
-            auth_scheme,
-        )
-        .unwrap();
-
-        Ok((faucet_account, account_seed, secret))
-    }
-
     pub async fn new(
         faucet_config: FaucetConfig,
         faucet_account: Arc<Mutex<Account>>,
     ) -> Result<Self, FaucetError> {
-        let endpoint = tonic::transport::Endpoint::try_from(faucet_config.node_url.clone())
-            .map_err(|_| {
-                FaucetError::InternalServerError("Failed to connect to node.".to_string())
-            })?
-            .timeout(Duration::from_millis(faucet_config.timeout_ms));
+        let (rpc_api, root_block_header, root_chain_mmr) =
+            initial_connection(faucet_config.clone()).await?;
 
-        let mut rpc_api = ApiClient::connect(endpoint)
-            .await
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
-
-        let request = GetBlockHeaderByNumberRequest {
-            block_num: Some(0),
-            include_mmr_proof: Some(true),
-        };
-        let response = rpc_api.get_block_header_by_number(request).await.unwrap();
-        let root_block_header: BlockHeader =
-            response.into_inner().block_header.unwrap().try_into().unwrap();
-        let root_chain_mmr = ChainMmr::new(
-            PartialMmr::from_peaks(MmrPeaks::new(0, Vec::new()).unwrap()),
-            Vec::new(),
-        )
-        .unwrap();
-
-        let (_, account_seed, secret) = Self::build_account(faucet_config.clone())?;
-
+        let (_, account_seed, secret) = build_account(faucet_config.clone())?;
         let (account_id, first_run) = {
             let account = faucet_account.lock().unwrap();
             (account.id(), account.is_new())
@@ -114,19 +66,18 @@ impl FaucetClient {
             root_block_header,
             root_chain_mmr,
         );
-
         let authenticator = FaucetAuthenticator::new(secret);
-
         let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
 
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
+        let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         Ok(Self {
             data_store,
             rpc_api,
             executor,
             id: account_id,
-            rng: RpoRandomCoin::new(coin_seed.map(Felt::new)),
+            rng,
         })
     }
 
@@ -311,6 +262,57 @@ impl TransactionAuthenticator for FaucetAuthenticator {
 // HELPER FUNCTIONS
 // ================================================================================================
 
+pub fn build_account(
+    faucet_config: FaucetConfig,
+) -> Result<(Account, Word, SecretKey), FaucetError> {
+    let token_symbol = TokenSymbol::new(faucet_config.token_symbol.as_str())
+        .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
+
+    let seed: [u8; 32] = [0; 32];
+
+    // Instantiate keypair and authscheme
+    let mut rng = ChaCha20Rng::from_seed(seed);
+    let secret = SecretKey::with_rng(&mut rng);
+    let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
+
+    let (faucet_account, account_seed) = create_basic_fungible_faucet(
+        seed,
+        token_symbol,
+        faucet_config.decimals,
+        Felt::try_from(faucet_config.max_supply)
+            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?,
+        AccountStorageType::OffChain,
+        auth_scheme,
+    )
+    .unwrap();
+
+    Ok((faucet_account, account_seed, secret))
+}
+
+pub async fn initial_connection(
+    faucet_config: FaucetConfig,
+) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), FaucetError> {
+    let endpoint = tonic::transport::Endpoint::try_from(faucet_config.node_url.clone())
+        .map_err(|_| FaucetError::InternalServerError("Failed to connect to node.".to_string()))?
+        .timeout(Duration::from_millis(faucet_config.timeout_ms));
+
+    let mut rpc_api = ApiClient::connect(endpoint)
+        .await
+        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+
+    let request = GetBlockHeaderByNumberRequest {
+        block_num: Some(0),
+        include_mmr_proof: Some(true),
+    };
+    let response = rpc_api.get_block_header_by_number(request).await.unwrap();
+    let root_block_header: BlockHeader =
+        response.into_inner().block_header.unwrap().try_into().unwrap();
+    let root_chain_mmr =
+        ChainMmr::new(PartialMmr::from_peaks(MmrPeaks::new(0, Vec::new()).unwrap()), Vec::new())
+            .unwrap();
+
+    Ok((rpc_api, root_block_header, root_chain_mmr))
+}
 // TODO: Remove the falcon signature function once it's available on base and made public
 
 /// Retrieves a falcon signature over a message.
