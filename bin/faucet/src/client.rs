@@ -46,11 +46,11 @@ unsafe impl Send for FaucetClient {}
 unsafe impl Sync for FaucetClient {}
 
 impl FaucetClient {
-    pub async fn new(faucet_config: FaucetConfig) -> Result<Self, FaucetError> {
+    pub async fn new(config: FaucetConfig) -> Result<Self, FaucetError> {
         let (rpc_api, root_block_header, root_chain_mmr) =
-            initial_connection(faucet_config.clone()).await?;
+            initial_connection(config.clone()).await?;
 
-        let (faucet_account, account_seed, secret) = build_account(faucet_config.clone())?;
+        let (faucet_account, account_seed, secret) = build_account(config.clone())?;
         let faucet_account = Rc::new(RefCell::new(faucet_account));
         let id = faucet_account.borrow().id();
 
@@ -229,14 +229,14 @@ impl DataStore for FaucetDataStore {
 }
 
 struct FaucetAuthenticator {
-    faucet_secret_key: AuthSecretKey,
+    secret_key: AuthSecretKey,
     rng: RefCell<ChaCha20Rng>,
 }
 
 impl FaucetAuthenticator {
-    pub fn new(faucet_secret_key: SecretKey) -> Self {
+    pub fn new(secret_key: SecretKey) -> Self {
         Self {
-            faucet_secret_key: AuthSecretKey::RpoFalcon512(faucet_secret_key),
+            secret_key: AuthSecretKey::RpoFalcon512(secret_key),
             rng: RefCell::new(ChaCha20Rng::from_entropy()),
         }
     }
@@ -250,7 +250,7 @@ impl TransactionAuthenticator for FaucetAuthenticator {
         _account_delta: &AccountDelta,
     ) -> Result<Vec<Felt>, AuthenticationError> {
         let mut rng = self.rng.borrow_mut();
-        let AuthSecretKey::RpoFalcon512(k) = &self.faucet_secret_key;
+        let AuthSecretKey::RpoFalcon512(k) = &self.secret_key;
         get_falcon_signature(k, message, &mut rng)
     }
 }
@@ -258,8 +258,8 @@ impl TransactionAuthenticator for FaucetAuthenticator {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-fn build_account(faucet_config: FaucetConfig) -> Result<(Account, Word, SecretKey), FaucetError> {
-    let token_symbol = TokenSymbol::new(faucet_config.token_symbol.as_str())
+fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), FaucetError> {
+    let token_symbol = TokenSymbol::new(config.token_symbol.as_str())
         .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
 
     let seed: [u8; 32] = [0; 32];
@@ -272,8 +272,8 @@ fn build_account(faucet_config: FaucetConfig) -> Result<(Account, Word, SecretKe
     let (faucet_account, account_seed) = create_basic_fungible_faucet(
         seed,
         token_symbol,
-        faucet_config.decimals,
-        Felt::try_from(faucet_config.max_supply)
+        config.decimals,
+        Felt::try_from(config.max_supply)
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?,
         AccountStorageType::OffChain,
         auth_scheme,
@@ -284,11 +284,11 @@ fn build_account(faucet_config: FaucetConfig) -> Result<(Account, Word, SecretKe
 }
 
 pub async fn initial_connection(
-    faucet_config: FaucetConfig,
+    config: FaucetConfig,
 ) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), FaucetError> {
-    let endpoint = tonic::transport::Endpoint::try_from(faucet_config.node_url.clone())
+    let endpoint = tonic::transport::Endpoint::try_from(config.node_url.clone())
         .map_err(|_| FaucetError::InternalServerError("Failed to connect to node.".to_string()))?
-        .timeout(Duration::from_millis(faucet_config.timeout_ms));
+        .timeout(Duration::from_millis(config.timeout_ms));
 
     let mut rpc_api = ApiClient::connect(endpoint)
         .await

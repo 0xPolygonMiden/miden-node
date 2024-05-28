@@ -23,7 +23,7 @@ struct FaucetMetadataReponse {
 pub async fn get_metadata(state: web::Data<FaucetState>) -> HttpResponse {
     let response = FaucetMetadataReponse {
         id: state.id.to_string(),
-        asset_amount_options: state.faucet_config.asset_amount_options.clone(),
+        asset_amount_options: state.config.asset_amount_options.clone(),
     };
 
     HttpResponse::Ok().json(response)
@@ -40,7 +40,7 @@ pub async fn get_tokens(
     );
 
     // Check that the amount is in the asset amount options
-    if !state.faucet_config.asset_amount_options.contains(&req.asset_amount) {
+    if !state.config.asset_amount_options.contains(&req.asset_amount) {
         return Err(FaucetError::BadRequest("Invalid asset amount.".to_string()).into());
     }
 

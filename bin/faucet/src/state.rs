@@ -10,7 +10,7 @@ use crate::{client::FaucetClient, config::FaucetConfig, errors::FaucetError};
 pub struct FaucetState {
     pub id: AccountId,
     pub client: Arc<Mutex<FaucetClient>>,
-    pub faucet_config: FaucetConfig,
+    pub config: FaucetConfig,
 }
 
 impl FaucetState {
@@ -20,6 +20,6 @@ impl FaucetState {
         let client = Arc::new(Mutex::new(client));
         info!("Faucet initialization successful, account id: {}", id);
 
-        Ok(FaucetState { client, id, faucet_config: config })
+        Ok(FaucetState { client, id, config: config })
     }
 }
