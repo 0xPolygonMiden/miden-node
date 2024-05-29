@@ -93,31 +93,8 @@ impl FaucetClient {
             create_p2id_note(self.id, target_account_id, vec![asset.into()], note_type, self.rng)
                 .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
-        let recipient = output_note
-            .recipient()
-            .digest()
-            .iter()
-            .map(|x| x.as_int().to_string())
-            .collect::<Vec<_>>()
-            .join(".");
-
-        let tag = output_note.metadata().tag().inner();
-
-        let script = ProgramAst::parse(
-            &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
-                .replace("{recipient}", &recipient)
-                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
-                .replace("{tag}", &Felt::new(tag.into()).to_string())
-                .replace("{amount}", &Felt::new(asset.amount()).to_string()),
-        )
-        .expect("shipped MASM is well-formed");
-
-        let script = self.executor.compile_tx_script(script, vec![], vec![]).map_err(|err| {
-            FaucetError::InternalServerError(format!("Failed to compile script: {}", err))
-        })?;
-
-        let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());
-        transaction_args.extend_expected_output_notes(vec![output_note.clone()]);
+        let transaction_args =
+            build_transaction_arguments(&output_note, &self.executor, note_type, asset)?;
 
         let executed_tx = self
             .executor
@@ -318,6 +295,42 @@ pub async fn initialize_faucet_client(
 
     Ok((rpc_api, root_block_header, root_chain_mmr))
 }
+
+fn build_transaction_arguments(
+    output_note: &Note,
+    executor: &TransactionExecutor<FaucetDataStore, FaucetAuthenticator>,
+    note_type: NoteType,
+    asset: FungibleAsset,
+) -> Result<TransactionArgs, FaucetError> {
+    let recipient = output_note
+        .recipient()
+        .digest()
+        .iter()
+        .map(|x| x.as_int().to_string())
+        .collect::<Vec<_>>()
+        .join(".");
+
+    let tag = output_note.metadata().tag().inner();
+
+    let script = ProgramAst::parse(
+        &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
+            .replace("{recipient}", &recipient)
+            .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+            .replace("{tag}", &Felt::new(tag.into()).to_string())
+            .replace("{amount}", &Felt::new(asset.amount()).to_string()),
+    )
+    .expect("shipped MASM is well-formed");
+
+    let script = executor.compile_tx_script(script, vec![], vec![]).map_err(|err| {
+        FaucetError::InternalServerError(format!("Failed to compile script: {}", err))
+    })?;
+
+    let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());
+    transaction_args.extend_expected_output_notes(vec![output_note.clone()]);
+
+    Ok(transaction_args)
+}
+
 // TODO: Remove the falcon signature function once it's available on base and made public
 
 /// Retrieves a falcon signature over a message.
