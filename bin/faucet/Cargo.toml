@@ -14,6 +14,7 @@ repository.workspace = true
 [features]
 # Makes `make-genesis` subcommand run faster. Is only suitable for testing.
 # INFO: Make sure that all your components have matching features for them to function.
+testing = ["miden-objects/testing", "miden-lib/testing"]
 
 [dependencies]
 actix-cors = "0.7.0"
@@ -27,7 +28,7 @@ miden-lib = { version = "0.3" }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
 miden-objects = { version = "0.3" }
-miden-tx = { version = "0.3" }
+miden-tx = { version = "0.3", features = ["concurrent"] }
 tonic = { version = "0.11" }
 rand_chacha = "0.3"
 rand = { version = "0.8.5" }
