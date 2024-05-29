@@ -48,7 +48,7 @@ unsafe impl Sync for FaucetClient {}
 impl FaucetClient {
     pub async fn new(config: FaucetConfig) -> Result<Self, FaucetError> {
         let (rpc_api, root_block_header, root_chain_mmr) =
-            initial_connection(config.clone()).await?;
+            initialize_faucet_client(config.clone()).await?;
 
         let (faucet_account, account_seed, secret) = build_account(config.clone())?;
         let faucet_account = Rc::new(RefCell::new(faucet_account));
@@ -61,7 +61,12 @@ impl FaucetClient {
             root_chain_mmr,
         );
         let authenticator = FaucetAuthenticator::new(secret);
-        let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
+        let mut executor =
+            TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
+
+        executor
+            .load_account(id)
+            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
@@ -113,10 +118,6 @@ impl FaucetClient {
 
         let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());
         transaction_args.extend_expected_output_notes(vec![output_note.clone()]);
-
-        self.executor
-            .load_account(self.id)
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
         let executed_tx = self
             .executor
@@ -284,7 +285,7 @@ fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), Fau
     Ok((faucet_account, account_seed, secret))
 }
 
-pub async fn initial_connection(
+pub async fn initialize_faucet_client(
     config: FaucetConfig,
 ) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), FaucetError> {
     let endpoint = tonic::transport::Endpoint::try_from(config.node_url.clone())
