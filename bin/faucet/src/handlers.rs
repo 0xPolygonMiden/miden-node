@@ -51,6 +51,7 @@ pub async fn get_tokens(
         .map_err(|err| FaucetError::BadRequest(err.to_string()))?;
 
     // Execute transaction
+    info!("Executing mint transaction for account.");
     let (executed_tx, created_note) = client.execute_mint_transaction(
         target_account_id,
         req.is_private_note,
@@ -58,6 +59,7 @@ pub async fn get_tokens(
     )?;
 
     // Run transaction prover & send transaction to node
+    info!("Proving and submitting transaction.");
     client.prove_and_submit_transaction(executed_tx).await?;
 
     let note_id: NoteId = created_note.id();
