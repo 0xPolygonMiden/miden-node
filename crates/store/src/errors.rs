@@ -142,6 +142,8 @@ pub enum ApplyBlockError {
     DatabaseError(#[from] DatabaseError),
     #[error("I/O error: {0}")]
     IoError(#[from] io::Error),
+    #[error("Task join error: {0}")]
+    TokioJoinError(#[from] tokio::task::JoinError),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
     #[error("New block number must be 1 greater than the current block number")]

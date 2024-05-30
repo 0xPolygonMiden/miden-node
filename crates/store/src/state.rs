@@ -2,7 +2,7 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{mem, sync::Arc};
+use std::sync::Arc;
 
 use miden_node_proto::{domain::accounts::AccountInfo, AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
@@ -21,7 +21,7 @@ use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tracing::{error, info, info_span, instrument};
+use tracing::{info, info_span, instrument};
 
 use crate::{
     blocks::BlockStore,
@@ -49,6 +49,7 @@ struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
+    latest_block_num: BlockNumber,
 }
 
 /// The rollup state
@@ -79,8 +80,14 @@ impl State {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
         let account_tree = load_accounts(&mut db).await?;
+        let latest_block_num = load_latest_block_num(&mut db).await?;
 
-        let inner = RwLock::new(InnerState { nullifier_tree, chain_mmr, account_tree });
+        let inner = RwLock::new(InnerState {
+            nullifier_tree,
+            chain_mmr,
+            account_tree,
+            latest_block_num,
+        });
 
         let writer = Mutex::new(());
         let db = Arc::new(db);
@@ -111,6 +118,9 @@ impl State {
     pub async fn apply_block(&self, block: Block) -> Result<(), ApplyBlockError> {
         let _lock = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
 
+        let header = block.header();
+        let block_num = header.block_num();
+
         // ensures the right block header is being processed
         let prev_block = self
             .db
@@ -118,12 +128,22 @@ impl State {
             .await?
             .ok_or(ApplyBlockError::DbBlockHeaderEmpty)?;
 
-        if block.header().block_num() != prev_block.block_num() + 1 {
+        if block_num != prev_block.block_num() + 1 {
             return Err(ApplyBlockError::NewBlockInvalidBlockNum);
         }
-        if block.header().prev_hash() != prev_block.hash() {
+        if header.prev_hash() != prev_block.hash() {
             return Err(ApplyBlockError::NewBlockInvalidPrevHash);
         }
+
+        let block_data = block.to_bytes();
+
+        // Save the block to the block store. In a case of a rolled-back DB transaction, the in-memory
+        // state will be unchanged, but the block might still be written into the block store.
+        // Thus, such block should be considered as block candidates, but not finalized blocks.
+        // So we should check for the latest block when getting block from the store.
+        let store = self.block_store.clone();
+        let block_save_task =
+            tokio::spawn(async move { store.save_block(block_num, &block_data).await });
 
         // scope to read in-memory data, validate the request, and compute intermediary values
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
@@ -229,10 +249,6 @@ impl State {
             (account_tree, chain_mmr, nullifier_tree, notes)
         };
 
-        let block_num = block.header().block_num();
-        let block_hash = block.hash();
-        let block_data = block.to_bytes();
-
         // signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
         // signals the write lock has been acquired, and the transaction can be committed
@@ -243,7 +259,7 @@ impl State {
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
         let db = self.db.clone();
-        let handle =
+        let db_update_task =
             tokio::spawn(
                 async move { db.apply_block(allow_acquire, acquire_done, block, notes).await },
             );
@@ -252,40 +268,25 @@ impl State {
             .await
             .map_err(ApplyBlockError::BlockApplyingBrokenBecauseOfClosedChannel)?;
 
+        // Awaiting the block saving task to complete without errors
+        block_save_task.await??;
+
         // scope to update the in-memory data
         {
             let mut inner = self.inner.write().await;
 
-            // Save the block before transaction is committed:
-            self.block_store.save_block(block_num, &block_data).await?;
-
             let _ = inform_acquire_done.send(());
 
-            let _ = mem::replace(&mut inner.chain_mmr, chain_mmr);
-            let _ = mem::replace(&mut inner.nullifier_tree, nullifier_tree);
-            let _ = mem::replace(&mut inner.account_tree, account_tree);
-        }
-
-        match handle.await {
-            // These errors should never happen. It is unclear if the state of the node would be
-            // valid because the apply_block task may have failed when committing the transaction, so
-            // the in-memory and the DB state would be out-of-sync.
-            //
             // TODO: shutdown #91
-            Err(err) => {
-                error!(
-                    is_cancelled = err.is_cancelled(),
-                    is_panic = err.is_panic(),
-                    COMPONENT,
-                    "apply_block task joined with an error"
-                );
-            },
-            Ok(Err(err)) => {
-                error!(err = err.to_string(), COMPONENT, "apply_block failed with a DB error");
-            },
-            Ok(Ok(())) => {
-                info!(%block_hash, block_num, COMPONENT, "apply_block successful");
-            },
+            // Await for successful commit of the DB transaction. If the commit fails, we mustn't
+            // change in-memory state, so we return a block applying error and don't proceed with
+            // in-memory updates.
+            db_update_task.await??;
+
+            inner.chain_mmr = chain_mmr;
+            inner.nullifier_tree = nullifier_tree;
+            inner.account_tree = account_tree;
+            inner.latest_block_num = block_num;
         }
 
         Ok(())
@@ -498,6 +499,9 @@ impl State {
 
     /// Loads a block from the block store. Return `Ok(None)` if the block is not found.
     pub async fn load_block(&self, block_num: u32) -> Result<Option<Vec<u8>>, DatabaseError> {
+        if block_num > self.inner.read().await.latest_block_num {
+            return Ok(None);
+        }
         self.block_store.load_block(block_num).await.map_err(Into::into)
     }
 }
@@ -555,4 +559,9 @@ async fn load_accounts(
 
     SimpleSmt::with_leaves(account_data)
         .map_err(StateInitializationError::FailedToCreateAccountsTree)
+}
+
+#[instrument(target = "miden-store", skip_all)]
+async fn load_latest_block_num(db: &mut Db) -> Result<BlockNumber, StateInitializationError> {
+    db.select_latest_block_num().await.map_err(Into::into)
 }
