@@ -242,9 +242,9 @@ impl State {
             (account_tree, chain_mmr, nullifier_tree, notes)
         };
 
-        // signals the transaction is ready to be committed, and the write lock can be acquired
+        // Signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
-        // signals the write lock has been acquired, and the transaction can be committed
+        // Signals the write lock has been acquired, and the transaction can be committed
         let (inform_acquire_done, acquire_done) = oneshot::channel::<()>();
 
         // The DB and in-memory state updates need to be synchronized and are partially
@@ -257,6 +257,7 @@ impl State {
                 async move { db.apply_block(allow_acquire, acquire_done, block, notes).await },
             );
 
+        // Wait for the message from the DB update task, that we ready to commit the DB transaction
         acquired_allowed
             .await
             .map_err(ApplyBlockError::BlockApplyingBrokenBecauseOfClosedChannel)?;
@@ -264,10 +265,13 @@ impl State {
         // Awaiting the block saving task to complete without errors
         block_save_task.await??;
 
-        // scope to update the in-memory data
+        // Scope to update the in-memory data
         {
+            // We need to hold the write lock here, so that the in-memory state is not changed
             let mut inner = self.inner.write().await;
 
+            // Notify the DB update task that the write lock has been acquired, so it can commit
+            // the DB transaction
             let _ = inform_acquire_done.send(());
 
             // TODO: shutdown #91
@@ -276,6 +280,7 @@ impl State {
             // in-memory updates.
             db_update_task.await??;
 
+            // Update the in-memory data structures after successful commit of the DB transaction
             inner.chain_mmr = chain_mmr;
             inner.nullifier_tree = nullifier_tree;
             inner.account_tree = account_tree;
