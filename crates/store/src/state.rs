@@ -97,6 +97,9 @@ impl State {
     /// following steps are used:
     ///
     /// - the request data is validated, prior to starting any modifications.
+    /// - block is being saved into the store in parallel with updating the DB, but before committing.
+    ///   This block is considered as candidate and not yet available for reading because the latest
+    ///   block pointer is not updated yet.
     /// - a transaction is open in the DB and the writes are started.
     /// - while the transaction is not committed, concurrent reads are allowed, both the DB and
     ///   the in-memory representations, which are consistent at this stage.
@@ -105,7 +108,8 @@ impl State {
     ///   out-of-sync w.r.t. the DB.
     /// - the DB transaction is committed, and requests that read only from the DB can proceed to
     ///   use the fresh data.
-    /// - the in-memory structures are updated, and the lock is released.
+    /// - the in-memory structures are updated, including the latest block pointer and the lock is
+    ///   released.
     // TODO: This span is logged in a root span, we should connect it to the parent span.
     #[instrument(target = "miden-store", skip_all, err)]
     pub async fn apply_block(&self, block: Block) -> Result<(), ApplyBlockError> {
