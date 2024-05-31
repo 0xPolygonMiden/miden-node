@@ -36,7 +36,7 @@ lint: format fix clippy ## Runs all linting tasks at once (Clippy, fixing, forma
 # --- docs ----------------------------------------------------------------------------------------
 
 .PHONY: doc
-doc: ## Generates & checks documentation 
+doc: ## Generates & checks documentation
 	$(WARNINGS) cargo doc --all-features --keep-going --release
 
 
@@ -53,11 +53,19 @@ test:  ## Runs all tests
 # --- installing --------------------------------------------------------------------------------
 
 .PHONY: install-node
-install-node: ## Installs node with testing feature enabled
-	cargo install --features testing --path bin/node
+install-node: ## Installs node
+	cargo install --path bin/node
 
 .PHONY: install-faucet
-install-faucet: ## Installs faucet with testing feature enabled
+install-faucet: ## Installs faucet
+	cargo install --path bin/faucet
+
+.PHONY: install-node-testing
+install-node-testing: ## Installs node with testing feature enabled
+	cargo install --features testing --path bin/node
+
+.PHONY: install-faucet-testing
+install-faucet-testing: ## Installs faucet with testing feature enabled
 	cargo install --features testing --path bin/faucet
 
 # --- docker --------------------------------------------------------------------------------
