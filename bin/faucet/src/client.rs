@@ -34,6 +34,8 @@ use crate::{config::FaucetConfig, errors::FaucetError};
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");
 
+// FAUCET CLIENT
+// ================================================================================================
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
     executor: TransactionExecutor<FaucetDataStore, BasicAuthenticator<StdRng>>,
@@ -150,6 +152,9 @@ pub struct FaucetDataStore {
     block_header: BlockHeader,
     chain_mmr: ChainMmr,
 }
+
+// FAUCET DATA STORE
+// ================================================================================================
 
 impl FaucetDataStore {
     pub fn new(
