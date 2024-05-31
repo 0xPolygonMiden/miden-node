@@ -36,6 +36,9 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
 
 // FAUCET CLIENT
 // ================================================================================================
+
+/// Basic client that handles execution, proving and submiting of mint transactions
+/// for the faucet.
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
     executor: TransactionExecutor<FaucetDataStore, BasicAuthenticator<StdRng>>,
@@ -79,6 +82,9 @@ impl FaucetClient {
         Ok(Self { data_store, rpc_api, executor, id, rng })
     }
 
+    /// Executes a mint transaction for the target account.
+    ///
+    /// Returns the executed transaction and the expected output note.
     pub fn execute_mint_transaction(
         &mut self,
         target_account_id: AccountId,
@@ -111,6 +117,7 @@ impl FaucetClient {
         Ok((executed_tx, output_note))
     }
 
+    /// Proves and submits the executed transaction to the node.
     pub async fn prove_and_submit_transaction(
         &mut self,
         executed_tx: ExecutedTransaction,
@@ -171,6 +178,7 @@ impl FaucetDataStore {
         }
     }
 
+    /// Updates the stored faucet account with the provided delta.
     fn update_faucet_account(&mut self, delta: &AccountDelta) -> Result<(), FaucetError> {
         self.faucet_account
             .borrow_mut()
@@ -218,6 +226,9 @@ impl DataStore for FaucetDataStore {
 // HELPER FUNCTIONS
 // ================================================================================================
 
+/// Builds a new faucet account with the provided configuration.
+///
+/// Returns the created account, its seed, and the secret key used to sign transactions.
 fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), FaucetError> {
     let token_symbol = TokenSymbol::new(config.token_symbol.as_str())
         .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
@@ -243,6 +254,7 @@ fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), Fau
     Ok((faucet_account, account_seed, secret))
 }
 
+/// Initializes the faucet client by connecting to the node and fetching the root block header.
 pub async fn initialize_faucet_client(
     config: FaucetConfig,
 ) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), FaucetError> {
@@ -277,6 +289,7 @@ pub async fn initialize_faucet_client(
     Ok((rpc_api, root_block_header, root_chain_mmr))
 }
 
+/// Builds transaction arguments for the mint transaction.
 fn build_transaction_arguments(
     output_note: &Note,
     executor: &TransactionExecutor<FaucetDataStore, BasicAuthenticator<StdRng>>,
