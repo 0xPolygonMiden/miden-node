@@ -588,21 +588,6 @@ pub fn insert_block_header(transaction: &Transaction, block_header: &BlockHeader
     Ok(stmt.execute(params![block_header.block_num(), block_header.to_bytes()])?)
 }
 
-/// Select the latest applied block number from the DB using the given [Connection].
-///
-/// # Returns
-///
-/// The latest block number. If no blocks have been applied yet, `0` is returned.
-pub fn select_latest_block_num(conn: &mut Connection) -> Result<BlockNumber> {
-    let mut stmt =
-        conn.prepare("SELECT block_num FROM block_headers ORDER BY block_num DESC LIMIT 1")?;
-    let mut rows = stmt.query([])?;
-    match rows.next()? {
-        Some(row) => Ok(row.get(0)?),
-        None => Ok(0),
-    }
-}
-
 /// Select a [BlockHeader] from the DB by its `block_num` using the given [Connection].
 ///
 /// # Returns

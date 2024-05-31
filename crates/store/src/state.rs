@@ -49,7 +49,6 @@ struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
-    latest_block_num: BlockNumber,
 }
 
 /// The rollup state
@@ -80,14 +79,8 @@ impl State {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
         let account_tree = load_accounts(&mut db).await?;
-        let latest_block_num = load_latest_block_num(&mut db).await?;
 
-        let inner = RwLock::new(InnerState {
-            nullifier_tree,
-            chain_mmr,
-            account_tree,
-            latest_block_num,
-        });
+        let inner = RwLock::new(InnerState { nullifier_tree, chain_mmr, account_tree });
 
         let writer = Mutex::new(());
         let db = Arc::new(db);
@@ -286,7 +279,6 @@ impl State {
             inner.chain_mmr = chain_mmr;
             inner.nullifier_tree = nullifier_tree;
             inner.account_tree = account_tree;
-            inner.latest_block_num = block_num;
         }
 
         Ok(())
@@ -498,11 +490,19 @@ impl State {
     }
 
     /// Loads a block from the block store. Return `Ok(None)` if the block is not found.
-    pub async fn load_block(&self, block_num: u32) -> Result<Option<Vec<u8>>, DatabaseError> {
-        if block_num > self.inner.read().await.latest_block_num {
+    pub async fn load_block(
+        &self,
+        block_num: BlockNumber,
+    ) -> Result<Option<Vec<u8>>, DatabaseError> {
+        if block_num > self.latest_block_num().await {
             return Ok(None);
         }
         self.block_store.load_block(block_num).await.map_err(Into::into)
+    }
+
+    /// Returns the latest block number.
+    pub async fn latest_block_num(&self) -> BlockNumber {
+        (self.inner.read().await.chain_mmr.forest() + 1) as BlockNumber
     }
 }
 
@@ -559,9 +559,4 @@ async fn load_accounts(
 
     SimpleSmt::with_leaves(account_data)
         .map_err(StateInitializationError::FailedToCreateAccountsTree)
-}
-
-#[instrument(target = "miden-store", skip_all)]
-async fn load_latest_block_num(db: &mut Db) -> Result<BlockNumber, StateInitializationError> {
-    db.select_latest_block_num().await.map_err(Into::into)
 }

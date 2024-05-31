@@ -169,21 +169,6 @@ impl Db {
         })?
     }
 
-    /// Returns the latest applied block number.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_latest_block_num(&self) -> Result<BlockNumber> {
-        self.pool
-            .get()
-            .await?
-            .interact(sql::select_latest_block_num)
-            .await
-            .map_err(|err| {
-                DatabaseError::InteractError(format!(
-                    "Select latest block number task failed: {err}"
-                ))
-            })?
-    }
-
     /// Search for a [BlockHeader] from the database by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
