@@ -1,5 +1,7 @@
 # Changelog
 
+* Standardised CI and Makefile across Miden repositories (#367)
+
 ## 0.3.0 (2024-05-15)
 
 * Added option to mint pulic notes in the faucet (#339).
