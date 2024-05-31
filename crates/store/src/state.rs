@@ -267,7 +267,9 @@ impl State {
 
         // Scope to update the in-memory data
         {
-            // We need to hold the write lock here, so that the in-memory state is not changed
+            // We need to hold the write lock here to prevent inconsistency between the in-memory
+            // state and the DB state. Thus, we need to wait for the DB update task to complete
+            // successfully.
             let mut inner = self.inner.write().await;
 
             // Notify the DB update task that the write lock has been acquired, so it can commit
