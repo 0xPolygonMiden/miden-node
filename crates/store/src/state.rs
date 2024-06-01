@@ -117,6 +117,7 @@ impl State {
 
         let header = block.header();
         let block_num = header.block_num();
+        let block_hash = block.hash();
 
         // ensures the right block header is being processed
         let prev_block = self
@@ -173,11 +174,11 @@ impl State {
                         error,
                     }
                 })?;
-                if peaks.hash_peaks() != block.header().chain_root() {
+                if peaks.hash_peaks() != header.chain_root() {
                     return Err(ApplyBlockError::NewBlockInvalidChainRoot);
                 }
 
-                chain_mmr.add(block.hash());
+                chain_mmr.add(block_hash);
                 chain_mmr
             };
 
@@ -186,11 +187,11 @@ impl State {
                 let mut nullifier_tree = inner.nullifier_tree.clone();
                 for nullifier in block.created_nullifiers() {
                     nullifier_tree
-                        .insert(nullifier, block.header().block_num())
+                        .insert(nullifier, block_num)
                         .map_err(ApplyBlockError::FailedToUpdateNullifierTree)?;
                 }
 
-                if nullifier_tree.root() != block.header().nullifier_root() {
+                if nullifier_tree.root() != header.nullifier_root() {
                     return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
                 }
                 nullifier_tree
@@ -205,7 +206,7 @@ impl State {
                 );
             }
 
-            if account_tree.root() != block.header().account_root() {
+            if account_tree.root() != header.account_root() {
                 return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
             }
 
@@ -214,7 +215,7 @@ impl State {
             //       substitute it with just:
             //      `let note_tree = block.build_note_tree().map_err(ApplyBlockError::FailedToCreateNoteTree)?;`
             let note_tree = build_note_tree(block.notes())?;
-            if note_tree.root() != block.header().note_root() {
+            if note_tree.root() != header.note_root() {
                 return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
             }
 
@@ -233,7 +234,7 @@ impl State {
                         .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
 
                     Ok(NoteRecord {
-                        block_num: block.header().block_num(),
+                        block_num,
                         note_index,
                         note_id: note.id().into(),
                         metadata: *note.metadata(),
@@ -291,6 +292,8 @@ impl State {
             inner.nullifier_tree = nullifier_tree;
             inner.account_tree = account_tree;
         }
+
+        info!(%block_hash, block_num, COMPONENT, "apply_block successful");
 
         Ok(())
     }
