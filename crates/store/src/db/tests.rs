@@ -227,7 +227,7 @@ fn test_sql_public_account_details() {
         .unwrap(),
     );
 
-    let mut account = Account::new(
+    let mut account = Account::from_parts(
         account_id,
         AssetVault::new(&[
             Asset::Fungible(FungibleAsset::new(fungible_faucet_id, 150).unwrap()),
