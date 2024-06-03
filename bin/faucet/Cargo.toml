@@ -24,11 +24,11 @@ async-mutex = "1.4.0"
 derive_more = "0.99.17"
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { version = "0.3" }
-miden-lib = { version = "0.3" }
+miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
-miden-objects = { version = "0.3" }
-miden-tx = { version = "0.3", features = ["concurrent"] }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
+miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next",  features = ["concurrent"] }
 tonic = { version = "0.11" }
 rand_chacha = "0.3"
 rand = { version = "0.8.5" }
