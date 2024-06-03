@@ -23,7 +23,6 @@ actix-web = "4"
 async-mutex = "1.4.0"
 derive_more = "0.99.17"
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-client = { version = "0.3" }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }

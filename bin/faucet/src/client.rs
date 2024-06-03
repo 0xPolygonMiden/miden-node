@@ -22,7 +22,7 @@ use miden_objects::{
     BlockHeader, Felt, Word,
 };
 use miden_tx::{
-    utils::Serializable, auth::BasicAuthenticator, DataStore, DataStoreError, ProvingOptions,
+    auth::BasicAuthenticator, utils::Serializable, DataStore, DataStoreError, ProvingOptions,
     TransactionExecutor, TransactionInputs, TransactionProver,
 };
 use rand::{rngs::StdRng, thread_rng, Rng};
@@ -273,8 +273,7 @@ pub async fn initialize_faucet_client(
     let response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
         FaucetError::InternalServerError(format!("Failed to get block header: {}", err))
     })?;
-    let root_block_header =
-        response.into_inner().block_header.unwrap();
+    let root_block_header = response.into_inner().block_header.unwrap();
 
     let root_block_header: BlockHeader = root_block_header.try_into().map_err(|err| {
         FaucetError::InternalServerError(format!("Failed to parse block header: {}", err))
