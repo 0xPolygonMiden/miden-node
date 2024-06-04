@@ -44,7 +44,6 @@ pub struct FaucetClient {
     executor: TransactionExecutor<FaucetDataStore, BasicAuthenticator<StdRng>>,
     data_store: FaucetDataStore,
     id: AccountId,
-    rng: RpoRandomCoin,
 }
 
 unsafe impl Send for FaucetClient {}
@@ -76,10 +75,15 @@ impl FaucetClient {
             .load_account(id)
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
+        Ok(Self { data_store, rpc_api, executor, id })
+    }
+
+    /// Gets [RpoRandomCoin] from the client
+    fn get_random_coin(&self) -> RpoRandomCoin {
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
-        let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        Ok(Self { data_store, rpc_api, executor, id, rng })
+
+        RpoRandomCoin::new(coin_seed.map(Felt::new))
     }
 
     /// Executes a mint transaction for the target account.
@@ -99,9 +103,9 @@ impl FaucetClient {
         } else {
             NoteType::Public
         };
-
+        let rng = self.get_random_coin();
         let output_note =
-            create_p2id_note(self.id, target_account_id, vec![asset.into()], note_type, self.rng)
+            create_p2id_note(self.id, target_account_id, vec![asset.into()], note_type, rng)
                 .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
         let transaction_args =
