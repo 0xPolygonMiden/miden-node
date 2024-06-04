@@ -78,7 +78,7 @@ impl FaucetClient {
         Ok(Self { data_store, rpc_api, executor, id })
     }
 
-    /// Gets [RpoRandomCoin] from the client
+    /// Creates a new [RpoRandomCoin] with a random seed.
     fn get_random_coin(&self) -> RpoRandomCoin {
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
