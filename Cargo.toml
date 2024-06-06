@@ -38,5 +38,6 @@ miden-processor = { version = "0.9" }
 miden-stdlib = { version = "0.9", default-features = false }
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 thiserror = { version = "1.0" }
+tonic = { version = "0.11" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["fmt",  "json",  "env-filter"] }
