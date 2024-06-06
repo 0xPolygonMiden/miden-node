@@ -1,10 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use miden_objects::transaction::TransactionId;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
     notes::Nullifier,
+    transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
     BlockHeader, Digest, Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
