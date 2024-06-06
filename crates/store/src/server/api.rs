@@ -141,6 +141,8 @@ impl api_server::Api for StoreApi {
             })
             .collect();
 
+        let transactions = state.transactions.into_iter().map(Into::into).collect();
+
         let notes = state
             .notes
             .into_iter()
@@ -166,6 +168,7 @@ impl api_server::Api for StoreApi {
             block_header: Some(state.block_header.into()),
             mmr_delta: Some(delta.into()),
             accounts,
+            transactions,
             notes,
             nullifiers,
         }))

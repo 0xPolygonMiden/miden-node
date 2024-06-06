@@ -1588,10 +1588,10 @@ dependencies = [
  "comfy-table",
  "figment",
  "lazy_static",
- "miden-lib",
+ "miden-lib 0.3.0",
  "miden-node-proto 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-objects",
- "miden-tx",
+ "miden-objects 0.3.0",
+ "miden-tx 0.3.0",
  "rand",
  "rusqlite",
  "rusqlite_migration",
@@ -1646,10 +1646,10 @@ dependencies = [
  "derive_more",
  "figment",
  "miden-client",
- "miden-lib",
+ "miden-lib 0.3.0",
  "miden-node-proto 0.3.0",
  "miden-node-utils 0.3.0",
- "miden-objects",
+ "miden-objects 0.3.0",
  "rand_chacha",
  "serde",
  "thiserror",
@@ -1663,7 +1663,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba8c32dda69e31d901eb7c8cefa4d2c45eac00710360206a5bf331a1ffb2fb42"
 dependencies = [
  "miden-assembly",
- "miden-objects",
+ "miden-objects 0.3.0",
+ "miden-stdlib",
+]
+
+[[package]]
+name = "miden-lib"
+version = "0.4.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-block-tx-ids#adc5e73c0bf1a67bc19c670a3d6fd0d7f3eedae6"
+dependencies = [
+ "miden-assembly",
+ "miden-objects 0.4.0",
  "miden-stdlib",
 ]
 
@@ -1674,12 +1684,12 @@ dependencies = [
  "anyhow",
  "clap",
  "figment",
- "miden-lib",
+ "miden-lib 0.4.0",
  "miden-node-block-producer",
  "miden-node-rpc",
  "miden-node-store",
  "miden-node-utils 0.3.0",
- "miden-objects",
+ "miden-objects 0.4.0",
  "rand_chacha",
  "serde",
  "tokio",
@@ -1699,10 +1709,10 @@ dependencies = [
  "miden-node-store",
  "miden-node-test-macro",
  "miden-node-utils 0.3.0",
- "miden-objects",
+ "miden-objects 0.4.0",
  "miden-processor",
  "miden-stdlib",
- "miden-tx",
+ "miden-tx 0.4.0",
  "once_cell",
  "serde",
  "thiserror",
@@ -1720,7 +1730,7 @@ version = "0.3.0"
 dependencies = [
  "hex",
  "miden-node-utils 0.3.0",
- "miden-objects",
+ "miden-objects 0.4.0",
  "miette",
  "proptest",
  "prost",
@@ -1739,7 +1749,7 @@ checksum = "4cad7cb698a5e3cd387eca9380c0c6da1eea262b9527967b6eb755da3699b5b0"
 dependencies = [
  "hex",
  "miden-node-utils 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "miden-objects",
+ "miden-objects 0.3.0",
  "miette",
  "prost",
  "prost-build",
@@ -1760,8 +1770,8 @@ dependencies = [
  "miden-node-proto 0.3.0",
  "miden-node-store",
  "miden-node-utils 0.3.0",
- "miden-objects",
- "miden-tx",
+ "miden-objects 0.4.0",
+ "miden-tx 0.4.0",
  "prost",
  "serde",
  "tokio",
@@ -1780,10 +1790,10 @@ dependencies = [
  "directories",
  "figment",
  "hex",
- "miden-lib",
+ "miden-lib 0.4.0",
  "miden-node-proto 0.3.0",
  "miden-node-utils 0.3.0",
- "miden-objects",
+ "miden-objects 0.4.0",
  "once_cell",
  "prost",
  "rusqlite",
@@ -1812,7 +1822,7 @@ dependencies = [
  "anyhow",
  "figment",
  "itertools",
- "miden-objects",
+ "miden-objects 0.4.0",
  "serde",
  "thiserror",
  "tonic",
@@ -1830,7 +1840,7 @@ dependencies = [
  "anyhow",
  "figment",
  "itertools",
- "miden-objects",
+ "miden-objects 0.3.0",
  "serde",
  "thiserror",
  "tonic",
@@ -1850,6 +1860,19 @@ dependencies = [
  "miden-processor",
  "miden-verifier",
  "serde",
+ "winter-rand-utils",
+]
+
+[[package]]
+name = "miden-objects"
+version = "0.4.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-block-tx-ids#adc5e73c0bf1a67bc19c670a3d6fd0d7f3eedae6"
+dependencies = [
+ "miden-assembly",
+ "miden-core",
+ "miden-crypto",
+ "miden-processor",
+ "miden-verifier",
  "winter-rand-utils",
 ]
 
@@ -1892,8 +1915,21 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67a927829fd121ed73695e2ec472d222db0884a12f46c8f8d97cf0a82c8d4e0a"
 dependencies = [
- "miden-lib",
- "miden-objects",
+ "miden-lib 0.3.0",
+ "miden-objects 0.3.0",
+ "miden-processor",
+ "miden-prover",
+ "miden-verifier",
+ "rand",
+]
+
+[[package]]
+name = "miden-tx"
+version = "0.4.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-block-tx-ids#adc5e73c0bf1a67bc19c670a3d6fd0d7f3eedae6"
+dependencies = [
+ "miden-lib 0.4.0",
+ "miden-objects 0.4.0",
  "miden-processor",
  "miden-prover",
  "miden-verifier",

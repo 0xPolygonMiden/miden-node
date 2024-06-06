@@ -37,7 +37,12 @@ impl GenesisState {
                     AccountUpdateDetails::Private
                 };
 
-                BlockAccountUpdate::new(account.id(), account.hash(), account_update_details)
+                BlockAccountUpdate::new(
+                    account.id(),
+                    account.hash(),
+                    account_update_details,
+                    vec![],
+                )
             })
             .collect();
 

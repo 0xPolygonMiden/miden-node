@@ -77,6 +77,7 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
+    pub transactions: Vec<RpoDigest>,
     pub nullifiers: Vec<NullifierInfo>,
 }
 

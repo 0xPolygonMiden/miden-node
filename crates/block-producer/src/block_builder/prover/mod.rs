@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use miden_objects::{assembly::Assembler, BlockHeader, Digest};
+use miden_objects::{assembly::Assembler, BlockHeader, Digest, Felt, FieldElement, Hasher};
 use miden_processor::{execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
 
@@ -212,9 +212,9 @@ impl BlockProver {
         let block_num = witness.prev_header.block_num() + 1;
         let version = witness.prev_header.version();
 
+        let tx_hash = self.compute_tx_hash(&witness);
         let (account_root, note_root, nullifier_root, chain_root) = self.compute_roots(witness)?;
 
-        let batch_root = Digest::default();
         let proof_hash = Digest::default();
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -231,7 +231,7 @@ impl BlockProver {
             account_root,
             nullifier_root,
             note_root,
-            batch_root,
+            tx_hash,
             proof_hash,
             timestamp,
         ))
@@ -278,5 +278,21 @@ impl BlockProver {
             new_nullifier_root.into(),
             new_chain_mmr_root.into(),
         ))
+    }
+
+    fn compute_tx_hash(&self, witness: &BlockWitness) -> Digest {
+        let elements: Vec<Felt> = witness
+            .updated_accounts
+            .iter()
+            .flat_map(|(&account_id, update)| {
+                update.transactions.iter().flat_map(move |&tx| {
+                    let mut result = vec![Felt::ZERO, Felt::ZERO, Felt::ZERO, account_id.into()];
+                    result.extend_from_slice(tx.as_elements());
+                    result
+                })
+            })
+            .collect();
+
+        Hasher::hash_elements(&elements)
     }
 }

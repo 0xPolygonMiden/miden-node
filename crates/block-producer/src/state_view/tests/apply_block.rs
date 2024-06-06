@@ -39,6 +39,7 @@ async fn test_apply_block_ab1() {
                         mock_account.id,
                         mock_account.states[1],
                         AccountUpdateDetails::Private,
+                        vec![tx.id()],
                     )
                 })
                 .collect(),
@@ -88,6 +89,7 @@ async fn test_apply_block_ab2() {
                         mock_account.id,
                         mock_account.states[1],
                         AccountUpdateDetails::Private,
+                        vec![],
                     )
                 })
                 .collect(),
@@ -139,6 +141,7 @@ async fn test_apply_block_ab3() {
                         mock_account.id,
                         mock_account.states[1],
                         AccountUpdateDetails::Private,
+                        vec![],
                     )
                 })
                 .collect(),

@@ -99,6 +99,8 @@ impl TransactionBatch {
                 update.account_id(),
                 update.final_state_hash(),
                 update.details().clone(),
+                // TODO: Handle multiple transactions against the same account
+                vec![update.transaction_id()],
             )
         })
     }

@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use miden_objects::transaction::TransactionId;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
@@ -62,6 +63,7 @@ impl BlockWitness {
                             initial_state_hash,
                             final_state_hash: update.new_state_hash(),
                             proof,
+                            transactions: update.transactions().to_vec(),
                         },
                     )
                 })
@@ -269,14 +271,9 @@ impl BlockWitness {
             // add accounts merkle paths
             merkle_store
                 .add_merkle_paths(self.updated_accounts.into_iter().map(
-                    |(
-                        account_id,
-                        AccountUpdateWitness {
-                            initial_state_hash,
-                            final_state_hash: _,
-                            proof,
-                        },
-                    )| { (u64::from(account_id), initial_state_hash, proof) },
+                    |(account_id, AccountUpdateWitness { initial_state_hash, proof, .. })| {
+                        (u64::from(account_id), initial_state_hash, proof)
+                    },
                 ))
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 
@@ -314,6 +311,7 @@ pub(super) struct AccountUpdateWitness {
     pub initial_state_hash: Digest,
     pub final_state_hash: Digest,
     pub proof: MerklePath,
+    pub transactions: Vec<TransactionId>,
 }
 
 // HELPERS

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use miden_node_proto::{domain::accounts::AccountInfo, AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
-    block::{Block, BlockNoteIndex, BlockNoteTree},
+    block::Block,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath},
@@ -211,10 +211,7 @@ impl State {
             }
 
             // build note tree
-            // TODO: Once https://github.com/0xPolygonMiden/miden-base/pull/630 is merged, we can
-            //       substitute it with just:
-            //      `let note_tree = block.build_note_tree().map_err(ApplyBlockError::FailedToCreateNoteTree)?;`
-            let note_tree = build_note_tree(block.notes())?;
+            let note_tree = block.build_note_tree();
             if note_tree.root() != header.note_root() {
                 return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
             }
@@ -226,7 +223,7 @@ impl State {
                 .map(|(note_index, note)| {
                     let details = match note {
                         OutputNote::Full(note) => Some(note.to_bytes()),
-                        OutputNote::Header(_) => None,
+                        OutputNote::Partial(_) | OutputNote::Header(_) => None,
                     };
 
                     let merkle_path = note_tree
@@ -522,16 +519,6 @@ impl State {
 
 // UTILITIES
 // ================================================================================================
-
-/// Creates a [BlockNoteTree] from the `notes`.
-#[instrument(target = "miden-store", skip_all)]
-pub fn build_note_tree<'a>(
-    notes: impl Iterator<Item = (BlockNoteIndex, &'a OutputNote)>,
-) -> Result<BlockNoteTree, ApplyBlockError> {
-    let entries = notes.map(|(note_index, note)| (note_index, note.id().into(), *note.metadata()));
-
-    BlockNoteTree::with_entries(entries).map_err(ApplyBlockError::FailedToCreateNoteTree)
-}
 
 #[instrument(target = "miden-store", skip_all)]
 async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitializationError> {

@@ -251,6 +251,7 @@ async fn test_compute_account_root_success() {
                         account_id,
                         account_hash.into(),
                         AccountUpdateDetails::Private,
+                        vec![],
                     )
                 })
                 .collect(),

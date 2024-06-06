@@ -96,6 +96,32 @@ fn test_sql_insert_nullifiers_for_block() {
 }
 
 #[test]
+fn test_sql_insert_transactions() {
+    let mut conn = create_db();
+
+    let count = insert_transactions(&mut conn);
+
+    assert_eq!(count, 2, "Two elements must have been inserted");
+}
+
+#[test]
+fn test_sql_select_transactions() {
+    fn query_transactions(conn: &mut Connection) -> Vec<RpoDigest> {
+        sql::select_transactions_by_accounts_and_block_range(conn, 1, 2, &[1]).unwrap()
+    }
+
+    let mut conn = create_db();
+
+    let transactions = query_transactions(&mut conn);
+
+    assert!(transactions.is_empty(), "No elements must be initially in the DB");
+
+    let count = insert_transactions(&mut conn);
+
+    assert_eq!(count, 2, "Two elements must have been inserted");
+}
+
+#[test]
 fn test_sql_select_nullifiers() {
     let mut conn = create_db();
 
@@ -192,6 +218,7 @@ fn test_sql_select_accounts() {
                 account_id.try_into().unwrap(),
                 account_hash,
                 AccountUpdateDetails::Private,
+                vec![],
             )],
             block_num,
         );
@@ -227,7 +254,7 @@ fn test_sql_public_account_details() {
         .unwrap(),
     );
 
-    let mut account = Account::new(
+    let mut account = Account::from_parts(
         account_id,
         AssetVault::new(&[
             Asset::Fungible(FungibleAsset::new(fungible_faucet_id, 150).unwrap()),
@@ -250,6 +277,7 @@ fn test_sql_public_account_details() {
             account_id,
             account.hash(),
             AccountUpdateDetails::New(account.clone()),
+            vec![],
         )],
         block_num,
     )
@@ -295,6 +323,7 @@ fn test_sql_public_account_details() {
             account_id,
             account.hash(),
             AccountUpdateDetails::Delta(delta.clone()),
+            vec![],
         )],
         block_num,
     )
@@ -544,6 +573,7 @@ fn test_db_account() {
             account_id.try_into().unwrap(),
             account_hash,
             AccountUpdateDetails::Private,
+            vec![],
         )],
         block_num,
     )
@@ -685,6 +715,31 @@ fn num_to_word(n: u64) -> Word {
 
 fn num_to_nullifier(n: u64) -> Nullifier {
     Nullifier::from(num_to_rpo_digest(n))
+}
+
+fn mock_block_account_update(account_id: AccountId, num: u64) -> BlockAccountUpdate {
+    BlockAccountUpdate::new(
+        account_id,
+        num_to_rpo_digest(num),
+        AccountUpdateDetails::Private,
+        vec![num_to_rpo_digest(num + 1000).into(), num_to_rpo_digest(num + 1001).into()],
+    )
+}
+
+fn insert_transactions(conn: &mut Connection) -> usize {
+    let block_num = 1;
+    create_block(conn, block_num);
+
+    let transaction = conn.transaction().unwrap();
+    let count = sql::insert_transactions(
+        &transaction,
+        block_num,
+        &[mock_block_account_update(AccountId::new_unchecked(Felt::ONE), 1)],
+    )
+    .unwrap();
+    transaction.commit().unwrap();
+
+    count
 }
 
 pub fn mock_account_code(assembler: &Assembler) -> AccountCode {

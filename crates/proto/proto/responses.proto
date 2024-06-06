@@ -45,11 +45,15 @@ message SyncStateResponse {
     // List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
     repeated account.AccountSummary accounts = 5;
 
+    // List of transaction IDs which changed the state of requested accounts
+    // between `block_num + 1` and `block_header.block_num`
+    repeated digest.Digest transactions = 6;
+
     // List of all notes together with the Merkle paths from `block_header.note_root`
-    repeated note.NoteSyncRecord notes = 6;
+    repeated note.NoteSyncRecord notes = 7;
 
     // List of nullifiers created between `block_num + 1` and `block_header.block_num`
-    repeated NullifierUpdate nullifiers = 7;
+    repeated NullifierUpdate nullifiers = 8;
 }
 
 // An account returned as a response to the GetBlockInputs
