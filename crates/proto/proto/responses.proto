@@ -45,8 +45,8 @@ message SyncStateResponse {
     // List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
     repeated account.AccountSummary accounts = 5;
 
-    // List of transaction IDs which changed the state of requested accounts
-    // between `block_num + 1` and `block_header.block_num`
+    // List of IDs for transactions executed against requested accounts between
+    // `block_num + 1` and `block_header.block_num`
     repeated digest.Digest transactions = 6;
 
     // List of all notes together with the Merkle paths from `block_header.note_root`

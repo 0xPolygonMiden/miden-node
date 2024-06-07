@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use miden_objects::{assembly::Assembler, BlockHeader, Digest, Felt, FieldElement, Hasher};
+use miden_objects::{assembly::Assembler, BlockHeader, Digest, Felt, FieldElement, Hasher, ZERO};
 use miden_processor::{execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
 
@@ -281,17 +281,13 @@ impl BlockProver {
     }
 
     fn compute_tx_hash(&self, witness: &BlockWitness) -> Digest {
-        let elements: Vec<Felt> = witness
-            .updated_accounts
-            .iter()
-            .flat_map(|(&account_id, update)| {
-                update.transactions.iter().flat_map(move |&tx| {
-                    let mut result = vec![Felt::ZERO, Felt::ZERO, Felt::ZERO, account_id.into()];
-                    result.extend_from_slice(tx.as_elements());
-                    result
-                })
-            })
-            .collect();
+        let mut elements = Vec::with_capacity(witness.updated_accounts.len() * 8);
+        for (&account_id, update) in witness.updated_accounts.iter() {
+            for tx in update.transactions.iter() {
+                elements.extend_from_slice(&[account_id.into(), ZERO, ZERO, ZERO]);
+                elements.extend_from_slice(tx.as_elements());
+            }
+        }
 
         Hasher::hash_elements(&elements)
     }
