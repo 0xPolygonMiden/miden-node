@@ -223,7 +223,7 @@ impl State {
                 .map(|(note_index, note)| {
                     let details = match note {
                         OutputNote::Full(note) => Some(note.to_bytes()),
-                        OutputNote::Header(_) | OutputNote::Partial(_) => None,
+                        OutputNote::Header(_) => None,
                         note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
                     };
 

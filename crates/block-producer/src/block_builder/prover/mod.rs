@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use miden_objects::{assembly::Assembler, BlockHeader, Digest, Felt, FieldElement, Hasher, ZERO};
+use miden_objects::{assembly::Assembler, BlockHeader, Digest, Hasher, ZERO};
 use miden_processor::{execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
 
