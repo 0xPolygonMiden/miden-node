@@ -74,13 +74,12 @@ document.addEventListener('DOMContentLoaded', function () {
             noteIdElem.textContent = noteId;
             accountIdElem.textContent = accountId;
             info.style.display = 'block';
-            loading.style.display = 'none';
         } catch (error) {
             console.error('Error:', error);
             errorMessage.textContent = 'Failed to receive tokens. Please try again.';
             errorMessage.style.display = 'block';
         }
-
+        loading.style.display = 'none';
         privateButton.disabled = false;
         publicButton.disabled = false;
     }
