@@ -25,7 +25,7 @@ readme = "README.md"
 
 [workspace.dependencies]
 miden-air = { version = "0.9", default-features = false }
-miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
+miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.3" }
 miden-node-faucet = { path = "bin/faucet", version = "0.3" }
 miden-node-proto = { path = "crates/proto", version = "0.3" }
@@ -33,10 +33,11 @@ miden-node-rpc = { path = "crates/rpc", version = "0.3" }
 miden-node-store = { path = "crates/store", version = "0.3" }
 miden-node-test-macro = { path = "crates/test-macro" }
 miden-node-utils = { path = "crates/utils", version = "0.3" }
-miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-processor = { version = "0.9" }
 miden-stdlib = { version = "0.9", default-features = false }
-miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
+miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 thiserror = { version = "1.0" }
+tonic = { version = "0.11" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["fmt",  "json",  "env-filter"] }

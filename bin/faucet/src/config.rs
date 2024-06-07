@@ -15,6 +15,8 @@ pub struct FaucetConfig {
     pub endpoint: Endpoint,
     /// Node RPC gRPC endpoint in the format `http://<host>[:<port>]`.
     pub node_url: String,
+    /// Timeout for RPC requests in milliseconds
+    pub timeout_ms: u64,
     /// Location to store database files
     pub database_filepath: PathBuf,
     /// Possible options on the amount of asset that should be dispered on each faucet request
