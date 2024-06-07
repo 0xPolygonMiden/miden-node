@@ -175,6 +175,8 @@ pub enum ApplyBlockError {
     FailedToUpdateNullifierTree(NullifierTreeError),
     #[error("Invalid output note type: {0:?}")]
     InvalidOutputNoteType(OutputNote),
+    #[error("Invalid tx hash: expected {expected}, but got {actual}")]
+    InvalidTxHash { expected: RpoDigest, actual: RpoDigest },
 }
 
 #[derive(Error, Debug)]

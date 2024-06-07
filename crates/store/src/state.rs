@@ -7,7 +7,7 @@ use std::sync::Arc;
 use miden_node_proto::{domain::accounts::AccountInfo, AccountInputRecord, NullifierWitness};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
-    block::Block,
+    block::{Block, BlockAccountUpdate},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath},
@@ -15,7 +15,7 @@ use miden_objects::{
     notes::{NoteId, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
-    AccountError, BlockHeader, ACCOUNT_TREE_DEPTH,
+    AccountError, BlockHeader, Digest, Hasher, ACCOUNT_TREE_DEPTH, ZERO,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -116,6 +116,15 @@ impl State {
         let _lock = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
 
         let header = block.header();
+
+        let tx_hash = compute_tx_hash(block.updated_accounts());
+        if header.tx_hash() != tx_hash {
+            return Err(ApplyBlockError::InvalidTxHash {
+                expected: tx_hash,
+                actual: header.tx_hash(),
+            });
+        }
+
         let block_num = header.block_num();
         let block_hash = block.hash();
 
@@ -561,4 +570,16 @@ async fn load_accounts(
 
     SimpleSmt::with_leaves(account_data)
         .map_err(StateInitializationError::FailedToCreateAccountsTree)
+}
+
+fn compute_tx_hash(updated_accounts: &[BlockAccountUpdate]) -> Digest {
+    let mut elements = Vec::with_capacity(updated_accounts.len() * 8);
+    for update in updated_accounts {
+        for tx in update.transactions() {
+            elements.extend_from_slice(&[update.account_id().into(), ZERO, ZERO, ZERO]);
+            elements.extend_from_slice(tx.as_elements());
+        }
+    }
+
+    Hasher::hash_elements(&elements)
 }

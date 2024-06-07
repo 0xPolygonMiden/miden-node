@@ -212,7 +212,7 @@ impl BlockProver {
         let block_num = witness.prev_header.block_num() + 1;
         let version = witness.prev_header.version();
 
-        let tx_hash = self.compute_tx_hash(&witness);
+        let tx_hash = Self::compute_tx_hash(&witness);
         let (account_root, note_root, nullifier_root, chain_root) = self.compute_roots(witness)?;
 
         let proof_hash = Digest::default();
@@ -280,7 +280,7 @@ impl BlockProver {
         ))
     }
 
-    fn compute_tx_hash(&self, witness: &BlockWitness) -> Digest {
+    fn compute_tx_hash(witness: &BlockWitness) -> Digest {
         let mut elements = Vec::with_capacity(witness.updated_accounts.len() * 8);
         for (&account_id, update) in witness.updated_accounts.iter() {
             for tx in update.transactions.iter() {
