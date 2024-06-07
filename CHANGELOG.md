@@ -1,5 +1,6 @@
 # Changelog
 
+* Fixed `apply_block` method in `State` (#379).
 * Standardised CI and Makefile across Miden repositories (#367)
 * Remove client dependency from faucet (#368).
 
