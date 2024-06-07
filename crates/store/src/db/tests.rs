@@ -107,7 +107,7 @@ fn test_sql_insert_transactions() {
 #[test]
 fn test_sql_select_transactions() {
     fn query_transactions(conn: &mut Connection) -> Vec<RpoDigest> {
-        sql::select_transactions_by_accounts_and_block_range(conn, 1, 2, &[1]).unwrap()
+        sql::select_transactions_by_accounts_and_block_range(conn, 0, 2, &[1]).unwrap()
     }
 
     let mut conn = create_db();
@@ -119,6 +119,10 @@ fn test_sql_select_transactions() {
     let count = insert_transactions(&mut conn);
 
     assert_eq!(count, 2, "Two elements must have been inserted");
+
+    let transactions = query_transactions(&mut conn);
+
+    assert_eq!(transactions.len(), 2, "Two elements must be in the DB");
 }
 
 #[test]
