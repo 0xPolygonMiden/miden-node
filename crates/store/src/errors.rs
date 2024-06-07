@@ -172,6 +172,8 @@ pub enum ApplyBlockError {
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
     #[error("Failed to update nullifier tree: {0}")]
     FailedToUpdateNullifierTree(NullifierTreeError),
+    #[error("Partial output note found in block")]
+    PartialNoteFound,
 }
 
 #[derive(Error, Debug)]
