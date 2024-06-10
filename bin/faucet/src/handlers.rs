@@ -19,7 +19,7 @@ struct FaucetRequest {
 #[derive(Serialize)]
 struct FaucetMetadataReponse {
     id: String,
-    asset_amount_options: [u64; 3],
+    asset_amount_options: Vec<u64>,
 }
 
 #[get("/get_metadata")]
