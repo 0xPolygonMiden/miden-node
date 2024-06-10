@@ -8,6 +8,7 @@ use miden_objects::{
         utils::DeserializationError,
     },
     notes::Nullifier,
+    transaction::OutputNote,
     AccountError, BlockError, BlockHeader, NoteError,
 };
 use rusqlite::types::FromSqlError;
@@ -172,6 +173,10 @@ pub enum ApplyBlockError {
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
     #[error("Failed to update nullifier tree: {0}")]
     FailedToUpdateNullifierTree(NullifierTreeError),
+    #[error("Invalid output note type: {0:?}")]
+    InvalidOutputNoteType(OutputNote),
+    #[error("Invalid tx hash: expected {expected}, but got {actual}")]
+    InvalidTxHash { expected: RpoDigest, actual: RpoDigest },
 }
 
 #[derive(Error, Debug)]

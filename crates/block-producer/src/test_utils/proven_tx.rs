@@ -3,8 +3,10 @@ use std::ops::Range;
 use miden_air::HashFunction;
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteHeader, NoteMetadata, NoteType, Nullifier},
-    transaction::{OutputNote, ProvenTransaction, ProvenTransactionBuilder},
+    notes::{NoteHeader, NoteId, NoteMetadata, NoteType, Nullifier},
+    transaction::{
+        OutputNote, ProvenTransaction, ProvenTransactionBuilder, ToInputNoteCommitments,
+    },
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
 };
@@ -87,9 +89,29 @@ impl MockProvenTxBuilder {
             Digest::default(),
             ExecutionProof::new(StarkProof::new_dummy(), HashFunction::Blake3_192),
         )
-        .add_input_notes(self.nullifiers.unwrap_or_default())
+        .add_input_notes(
+            self.nullifiers
+                .unwrap_or_default()
+                .iter()
+                .copied()
+                .map(NullifierToInputNoteCommitmentsWrapper),
+        )
         .add_output_notes(self.notes_created.unwrap_or_default())
         .build()
         .unwrap()
+    }
+}
+
+// TODO: This is a dirty workaround for the faster migration to the latest `miden-objects`.
+//       We need to find a better way to do this.
+struct NullifierToInputNoteCommitmentsWrapper(Nullifier);
+
+impl ToInputNoteCommitments for NullifierToInputNoteCommitmentsWrapper {
+    fn nullifier(&self) -> Nullifier {
+        self.0
+    }
+
+    fn note_id(&self) -> Option<NoteId> {
+        None
     }
 }

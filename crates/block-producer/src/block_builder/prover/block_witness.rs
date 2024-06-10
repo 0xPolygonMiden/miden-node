@@ -4,6 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
     notes::Nullifier,
+    transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
     BlockHeader, Digest, Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
@@ -62,6 +63,7 @@ impl BlockWitness {
                             initial_state_hash,
                             final_state_hash: update.new_state_hash(),
                             proof,
+                            transactions: update.transactions().to_vec(),
                         },
                     )
                 })
@@ -92,6 +94,13 @@ impl BlockWitness {
         let advice_inputs = self.build_advice_inputs()?;
 
         Ok((advice_inputs, stack_inputs))
+    }
+
+    /// Returns an iterator over all transactions which affected accounts in the block with corresponding account IDs.
+    pub(super) fn transactions(&self) -> impl Iterator<Item = (TransactionId, AccountId)> + '_ {
+        self.updated_accounts.iter().flat_map(|(&account_id, update)| {
+            update.transactions.iter().map(move |&tx_id| (tx_id, account_id))
+        })
     }
 
     // HELPERS
@@ -269,14 +278,9 @@ impl BlockWitness {
             // add accounts merkle paths
             merkle_store
                 .add_merkle_paths(self.updated_accounts.into_iter().map(
-                    |(
-                        account_id,
-                        AccountUpdateWitness {
-                            initial_state_hash,
-                            final_state_hash: _,
-                            proof,
-                        },
-                    )| { (u64::from(account_id), initial_state_hash, proof) },
+                    |(account_id, AccountUpdateWitness { initial_state_hash, proof, .. })| {
+                        (u64::from(account_id), initial_state_hash, proof)
+                    },
                 ))
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 
@@ -314,6 +318,7 @@ pub(super) struct AccountUpdateWitness {
     pub initial_state_hash: Digest,
     pub final_state_hash: Digest,
     pub proof: MerklePath,
+    pub transactions: Vec<TransactionId>,
 }
 
 // HELPERS

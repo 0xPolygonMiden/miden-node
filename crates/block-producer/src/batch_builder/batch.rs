@@ -4,7 +4,7 @@ use miden_objects::{
     block::BlockAccountUpdate,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::Nullifier,
-    transaction::{OutputNote, TxAccountUpdate},
+    transaction::{OutputNote, TransactionId, TxAccountUpdate},
     Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
@@ -23,7 +23,7 @@ pub type BatchId = Blake3Digest<32>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransactionBatch {
     id: BatchId,
-    updated_accounts: Vec<TxAccountUpdate>,
+    updated_accounts: Vec<(TransactionId, TxAccountUpdate)>,
     produced_nullifiers: Vec<Nullifier>,
     created_notes_smt: BatchNoteTree,
     created_notes: Vec<OutputNote>,
@@ -48,10 +48,14 @@ impl TransactionBatch {
         //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
         //       transaction `y` takes account from state `B` to `C`). These will need to be merged
         //       into a single "update" `A` to `C`.
-        let updated_accounts = txs.iter().map(ProvenTransaction::account_update).cloned().collect();
+        let updated_accounts =
+            txs.iter().map(|tx| (tx.id(), tx.account_update().clone())).collect();
 
-        let produced_nullifiers =
-            txs.iter().flat_map(|tx| tx.input_notes().iter()).copied().collect();
+        let produced_nullifiers = txs
+            .iter()
+            .flat_map(|tx| tx.input_notes().iter())
+            .map(|note| note.nullifier())
+            .collect();
 
         let created_notes: Vec<_> =
             txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
@@ -88,17 +92,18 @@ impl TransactionBatch {
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
         self.updated_accounts
             .iter()
-            .map(|update| (update.account_id(), update.init_state_hash()))
+            .map(|(_, update)| (update.account_id(), update.init_state_hash()))
     }
 
     /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
     pub fn updated_accounts(&self) -> impl Iterator<Item = BlockAccountUpdate> + '_ {
-        self.updated_accounts.iter().map(|update| {
+        self.updated_accounts.iter().map(|(transaction_id, update)| {
             BlockAccountUpdate::new(
                 update.account_id(),
                 update.final_state_hash(),
                 update.details().clone(),
+                vec![*transaction_id],
             )
         })
     }

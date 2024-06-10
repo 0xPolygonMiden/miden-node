@@ -18,8 +18,8 @@ message BlockHeader {
     digest.Digest nullifier_root = 6;
     // a commitment to all notes created in the current block.
     digest.Digest note_root = 7;
-    // a commitment to a set of transaction batches executed as a part of this block.
-    digest.Digest batch_root = 8;
+    // a commitment to a set of IDs of transactions which affected accounts in this block.
+    digest.Digest tx_hash = 8;
     // a hash of a STARK proof attesting to the correct state transition.
     digest.Digest proof_hash = 9;
     // the time when the block was created.

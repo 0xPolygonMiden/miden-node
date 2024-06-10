@@ -640,6 +640,83 @@ pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
     Ok(result)
 }
 
+// TRANSACTIONS QUERIES
+// ================================================================================================
+
+/// Insert transactions to the DB using the given [Transaction].
+///
+/// # Returns
+///
+/// The number of affected rows.
+///
+/// # Note
+///
+/// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
+/// transaction.
+pub fn insert_transactions(
+    transaction: &Transaction,
+    block_num: BlockNumber,
+    accounts: &[BlockAccountUpdate],
+) -> Result<usize> {
+    let mut stmt = transaction.prepare(
+        "INSERT INTO transactions(transaction_id, account_id, block_num) VALUES (?1, ?2, ?3);",
+    )?;
+    let mut count = 0;
+    for update in accounts {
+        let account_id = update.account_id().into();
+        for transaction_id in update.transactions() {
+            count += stmt.execute(params![
+                transaction_id.to_bytes(),
+                u64_to_value(account_id),
+                block_num
+            ])?
+        }
+    }
+    Ok(count)
+}
+
+/// Select transaction IDs from the DB using the given [Connection], filtered by account IDS,
+/// given that the account updates were done between `(block_start, block_end]`.
+///
+/// # Returns
+///
+/// The vector of [RpoDigest] with the transaction IDs.
+pub fn select_transactions_by_accounts_and_block_range(
+    conn: &mut Connection,
+    block_start: BlockNumber,
+    block_end: BlockNumber,
+    account_ids: &[AccountId],
+) -> Result<Vec<RpoDigest>> {
+    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
+
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            transaction_id
+        FROM
+            transactions
+        WHERE
+            block_num > ?1 AND
+            block_num <= ?2 AND
+            account_id IN rarray(?3)
+        ORDER BY
+            transaction_id ASC
+    ",
+    )?;
+
+    let mut rows = stmt.query(params![block_start, block_end, Rc::new(account_ids)])?;
+
+    let mut result = vec![];
+    while let Some(row) = rows.next()? {
+        let transaction_id_data = row.get_ref(0)?.as_blob()?;
+        let transaction_id = RpoDigest::read_from_bytes(transaction_id_data)?;
+
+        result.push(transaction_id);
+    }
+
+    Ok(result)
+}
+
 // STATE SYNC
 // ================================================================================================
 
@@ -676,6 +753,13 @@ pub fn get_state_sync(
     let account_updates =
         select_accounts_by_block_range(conn, block_num, block_header.block_num(), account_ids)?;
 
+    let transactions = select_transactions_by_accounts_and_block_range(
+        conn,
+        block_num,
+        block_header.block_num(),
+        account_ids,
+    )?;
+
     let nullifiers = select_nullifiers_by_block_range(
         conn,
         block_num,
@@ -688,6 +772,7 @@ pub fn get_state_sync(
         block_header,
         chain_tip,
         account_updates,
+        transactions,
         nullifiers,
     })
 }
@@ -711,6 +796,7 @@ pub fn apply_block(
     count += insert_block_header(transaction, block_header)?;
     count += insert_notes(transaction, notes)?;
     count += upsert_accounts(transaction, accounts, block_header.block_num())?;
+    count += insert_transactions(transaction, block_header.block_num(), accounts)?;
     count += insert_nullifiers_for_block(transaction, nullifiers, block_header.block_num())?;
     Ok(count)
 }

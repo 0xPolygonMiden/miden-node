@@ -219,10 +219,11 @@ impl Store for MockStoreSuccess {
         let nullifiers = proven_tx
             .input_notes()
             .iter()
-            .map(|nullifier| {
+            .map(|commitment| {
+                let nullifier = commitment.nullifier();
                 let nullifier_value = locked_produced_nullifiers.get_value(&nullifier.inner());
 
-                (*nullifier, nullifier_value[0].inner() as u32)
+                (nullifier, nullifier_value[0].inner() as u32)
             })
             .collect();
 

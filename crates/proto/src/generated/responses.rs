@@ -45,11 +45,15 @@ pub struct SyncStateResponse {
     /// List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
     #[prost(message, repeated, tag = "5")]
     pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
-    /// List of all notes together with the Merkle paths from `block_header.note_root`
+    /// List of IDs for transactions executed against requested accounts between
+    /// `block_num + 1` and `block_header.block_num`
     #[prost(message, repeated, tag = "6")]
+    pub transactions: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    /// List of all notes together with the Merkle paths from `block_header.note_root`
+    #[prost(message, repeated, tag = "7")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
     /// List of nullifiers created between `block_num + 1` and `block_header.block_num`
-    #[prost(message, repeated, tag = "7")]
+    #[prost(message, repeated, tag = "8")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
 /// An account returned as a response to the GetBlockInputs
