@@ -1593,7 +1593,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.4.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-compute-tx-hash#2f0f04f6fb3c1560d6a56041b8a8acce83c2ec84"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-compute-tx-hash#ff481b67d98cbb69cc786b16b6b3ac32cf158d27"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1739,7 +1739,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.4.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-compute-tx-hash#2f0f04f6fb3c1560d6a56041b8a8acce83c2ec84"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-compute-tx-hash#ff481b67d98cbb69cc786b16b6b3ac32cf158d27"
 dependencies = [
  "miden-assembly",
  "miden-core",
@@ -1786,7 +1786,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.4.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-compute-tx-hash#2f0f04f6fb3c1560d6a56041b8a8acce83c2ec84"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-compute-tx-hash#ff481b67d98cbb69cc786b16b6b3ac32cf158d27"
 dependencies = [
  "miden-lib",
  "miden-objects",
