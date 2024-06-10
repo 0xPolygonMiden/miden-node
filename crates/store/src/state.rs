@@ -117,7 +117,7 @@ impl State {
 
         let header = block.header();
 
-        let tx_hash = Block::compute_tx_hash(block.transactions());
+        let tx_hash = block.compute_tx_hash();
         if header.tx_hash() != tx_hash {
             return Err(ApplyBlockError::InvalidTxHash {
                 expected: tx_hash,
