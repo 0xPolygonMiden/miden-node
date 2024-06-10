@@ -6,7 +6,10 @@
 
 use std::iter;
 
-use miden_objects::{accounts::delta::AccountUpdateDetails, block::BlockAccountUpdate};
+use miden_objects::{
+    accounts::delta::AccountUpdateDetails, block::BlockAccountUpdate,
+    transaction::InputNoteCommitment,
+};
 
 use super::*;
 use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
@@ -158,12 +161,14 @@ async fn test_apply_block_ab3() {
         accounts[0].states[1],
         accounts[0].states[2],
     )
-    .nullifiers(txs[0].input_notes().iter().cloned().collect())
+    .nullifiers(txs[0].input_notes().iter().map(InputNoteCommitment::nullifier).collect())
     .build();
 
     let verify_tx_res = state_view.verify_tx(&tx_new).await;
     assert_eq!(
         verify_tx_res,
-        Err(VerifyTxError::InputNotesAlreadyConsumed(txs[0].input_notes().clone()))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(
+            txs[0].input_notes().iter().map(InputNoteCommitment::nullifier).collect()
+        ))
     );
 }

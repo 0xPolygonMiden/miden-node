@@ -4,7 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerkleError, MmrError},
     notes::Nullifier,
-    transaction::{InputNotes, ProvenTransaction, TransactionId},
+    transaction::{ProvenTransaction, TransactionId},
     Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH, MAX_NOTES_PER_BATCH,
 };
 use miden_processor::ExecutionError;
@@ -21,8 +21,8 @@ pub enum VerifyTxError {
     AccountAlreadyModifiedByOtherTx(AccountId),
 
     /// Another transaction already consumed the notes with given nullifiers
-    #[error("Input notes with given nullifier were already consumed by another transaction")]
-    InputNotesAlreadyConsumed(InputNotes<Nullifier>),
+    #[error("Input notes with given nullifiers were already consumed by another transaction")]
+    InputNotesAlreadyConsumed(Vec<Nullifier>),
 
     /// The account's initial hash did not match the current account's hash
     #[error("Incorrect account's initial hash ({tx_initial_account_hash}, stored: {})", format_opt(.store_account_hash.as_ref()))]

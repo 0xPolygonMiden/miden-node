@@ -3,8 +3,7 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::AccountId, block::Block, notes::Nullifier, transaction::InputNotes, Digest,
-    MIN_PROOF_SECURITY_LEVEL,
+    accounts::AccountId, block::Block, notes::Nullifier, Digest, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tokio::sync::RwLock;
@@ -99,7 +98,7 @@ where
             locked_accounts_in_flight.insert(candidate_tx.account_id());
 
             let mut nullifiers_in_tx: BTreeSet<_> =
-                candidate_tx.input_notes().iter().cloned().collect();
+                candidate_tx.input_notes().iter().map(|note| note.nullifier()).collect();
             locked_nullifiers_in_flight.append(&mut nullifiers_in_tx);
         }
 
@@ -164,15 +163,13 @@ fn ensure_in_flight_constraints(
         candidate_tx
             .input_notes()
             .iter()
-            .filter(|&nullifier_in_tx| already_consumed_nullifiers.contains(nullifier_in_tx))
-            .cloned()
+            .filter(|&commitment| already_consumed_nullifiers.contains(&commitment.nullifier()))
+            .map(|commitment| commitment.nullifier())
             .collect()
     };
 
     if !infracting_nullifiers.is_empty() {
-        return Err(VerifyTxError::InputNotesAlreadyConsumed(InputNotes::new(
-            infracting_nullifiers,
-        )?));
+        return Err(VerifyTxError::InputNotesAlreadyConsumed(infracting_nullifiers));
     }
 
     Ok(())
@@ -217,9 +214,7 @@ fn ensure_tx_inputs_constraints(
         .collect();
 
     if !infracting_nullifiers.is_empty() {
-        return Err(VerifyTxError::InputNotesAlreadyConsumed(InputNotes::new(
-            infracting_nullifiers,
-        )?));
+        return Err(VerifyTxError::InputNotesAlreadyConsumed(infracting_nullifiers));
     }
 
     Ok(())

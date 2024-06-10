@@ -51,8 +51,11 @@ impl TransactionBatch {
         let updated_accounts =
             txs.iter().map(|tx| (tx.id(), tx.account_update().clone())).collect();
 
-        let produced_nullifiers =
-            txs.iter().flat_map(|tx| tx.input_notes().iter()).copied().collect();
+        let produced_nullifiers = txs
+            .iter()
+            .flat_map(|tx| tx.input_notes().iter())
+            .map(|note| note.nullifier())
+            .collect();
 
         let created_notes: Vec<_> =
             txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
