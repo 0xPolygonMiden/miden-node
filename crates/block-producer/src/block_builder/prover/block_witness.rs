@@ -6,7 +6,7 @@ use miden_objects::{
     notes::Nullifier,
     transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
-    BlockHeader, Digest, Felt, Hasher, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
+    BlockHeader, Digest, Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
 use crate::{
@@ -96,17 +96,11 @@ impl BlockWitness {
         Ok((advice_inputs, stack_inputs))
     }
 
-    /// Computes the hash of the updated account IDs and transaction IDs executed against the accounts
-    pub(super) fn compute_tx_hash(&self) -> Digest {
-        let mut elements = Vec::with_capacity(self.updated_accounts.len() * 8);
-        for (&account_id, update) in self.updated_accounts.iter() {
-            for tx in update.transactions.iter() {
-                elements.extend_from_slice(&[account_id.into(), ZERO, ZERO, ZERO]);
-                elements.extend_from_slice(tx.as_elements());
-            }
-        }
-
-        Hasher::hash_elements(&elements)
+    /// Returns an iterator over all transactions which affected accounts in the block with corresponding account IDs.
+    pub(super) fn transactions(&self) -> impl Iterator<Item = (TransactionId, AccountId)> + '_ {
+        self.updated_accounts.iter().flat_map(|(&account_id, update)| {
+            update.transactions.iter().map(move |&tx_id| (tx_id, account_id))
+        })
     }
 
     // HELPERS

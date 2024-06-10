@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use miden_objects::{assembly::Assembler, BlockHeader, Digest};
+use miden_objects::{assembly::Assembler, block::Block, BlockHeader, Digest};
 use miden_processor::{execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
 
@@ -212,7 +212,7 @@ impl BlockProver {
         let block_num = witness.prev_header.block_num() + 1;
         let version = witness.prev_header.version();
 
-        let tx_hash = witness.compute_tx_hash();
+        let tx_hash = Block::compute_tx_hash(witness.transactions());
         let (account_root, note_root, nullifier_root, chain_root) = self.compute_roots(witness)?;
 
         let proof_hash = Digest::default();
