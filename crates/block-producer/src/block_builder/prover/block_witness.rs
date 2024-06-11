@@ -21,7 +21,7 @@ use crate::{
 /// Provides inputs to the `BlockKernel` so that it can generate the new header.
 #[derive(Debug, PartialEq)]
 pub struct BlockWitness {
-    pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdateWitness>,
+    pub(super) updated_accounts: Vec<(AccountId, AccountUpdateWitness)>,
     /// (batch_index, created_notes_root) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
     pub(super) produced_nullifiers: BTreeMap<Nullifier, SmtProof>,
@@ -98,8 +98,8 @@ impl BlockWitness {
 
     /// Returns an iterator over all transactions which affected accounts in the block with corresponding account IDs.
     pub(super) fn transactions(&self) -> impl Iterator<Item = (TransactionId, AccountId)> + '_ {
-        self.updated_accounts.iter().flat_map(|(&account_id, update)| {
-            update.transactions.iter().map(move |&tx_id| (tx_id, account_id))
+        self.updated_accounts.iter().flat_map(|(account_id, update)| {
+            update.transactions.iter().map(move |tx_id| (*tx_id, *account_id))
         })
     }
 
@@ -247,8 +247,8 @@ impl BlockWitness {
 
         // Account stack inputs
         let mut num_accounts_updated: u64 = 0;
-        for (idx, (&account_id, account_update)) in self.updated_accounts.iter().enumerate() {
-            stack_inputs.push(account_id.into());
+        for (idx, (account_id, account_update)) in self.updated_accounts.iter().enumerate() {
+            stack_inputs.push((*account_id).into());
             stack_inputs.extend(account_update.final_state_hash);
 
             let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
