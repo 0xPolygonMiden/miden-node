@@ -32,6 +32,14 @@ pub struct NullifierUpdate {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TransactionUpdate {
+    #[prost(message, optional, tag = "1")]
+    pub transaction_id: ::core::option::Option<super::digest::Digest>,
+    #[prost(fixed32, tag = "2")]
+    pub block_num: u32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateResponse {
     /// Number of the latest block in the chain
     #[prost(fixed32, tag = "1")]
@@ -48,7 +56,7 @@ pub struct SyncStateResponse {
     /// List of IDs for transactions executed against requested accounts between
     /// `block_num + 1` and `block_header.block_num`
     #[prost(message, repeated, tag = "6")]
-    pub transactions: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    pub transactions: ::prost::alloc::vec::Vec<TransactionUpdate>,
     /// List of all notes together with the Merkle paths from `block_header.note_root`
     #[prost(message, repeated, tag = "7")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,

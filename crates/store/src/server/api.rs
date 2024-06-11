@@ -18,7 +18,7 @@ use miden_node_proto::{
             GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
             GetBlockInputsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
             ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse, TransactionUpdate,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -141,7 +141,13 @@ impl api_server::Api for StoreApi {
             })
             .collect();
 
-        let transactions = state.transactions.into_iter().map(Into::into).collect();
+        let transactions = state
+            .transactions
+            .into_iter()
+            .map(|transaction_info| TransactionUpdate {
+                transaction_id: Some(transaction_info.transaction_id.into()),
+                block_num: transaction_info.block_num,
+            }).collect();
 
         let notes = state
             .notes

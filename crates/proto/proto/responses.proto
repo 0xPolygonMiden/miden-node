@@ -32,6 +32,11 @@ message NullifierUpdate {
     fixed32 block_num = 2;
 }
 
+message TransactionUpdate {
+    digest.Digest transaction_id = 1;
+    fixed32 block_num = 2;
+}
+
 message SyncStateResponse {
     // Number of the latest block in the chain
     fixed32 chain_tip = 1;
@@ -47,7 +52,7 @@ message SyncStateResponse {
 
     // List of IDs for transactions executed against requested accounts between
     // `block_num + 1` and `block_header.block_num`
-    repeated digest.Digest transactions = 6;
+    repeated TransactionUpdate transactions = 6;
 
     // List of all notes together with the Merkle paths from `block_header.note_root`
     repeated note.NoteSyncRecord notes = 7;

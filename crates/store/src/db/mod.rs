@@ -13,7 +13,7 @@ use miden_objects::{
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteMetadata, Nullifier},
     utils::Serializable,
-    BlockHeader, GENESIS_BLOCK,
+    BlockHeader, GENESIS_BLOCK, transaction::TransactionId,
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
@@ -48,6 +48,12 @@ pub struct NullifierInfo {
     pub block_num: BlockNumber,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct TransactionInfo {
+    pub transaction_id: TransactionId,
+    pub block_num: BlockNumber,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoteRecord {
     pub block_num: BlockNumber,
@@ -77,7 +83,7 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
-    pub transactions: Vec<RpoDigest>,
+    pub transactions: Vec<TransactionInfo>,
     pub nullifiers: Vec<NullifierInfo>,
 }
 
