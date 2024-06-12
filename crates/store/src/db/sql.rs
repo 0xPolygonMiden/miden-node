@@ -8,7 +8,7 @@ use miden_objects::{
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
-    utils::serde::{Deserializable, Serializable},
+    utils::{serde::{Deserializable, Serializable}, DeserializationError},
     BlockHeader,
 };
 use rusqlite::{
@@ -390,12 +390,13 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             note_type,
             sender,
             tag,
+            aux,
             merkle_path,
             details
         )
         VALUES
         (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10
         );",
     )?;
 
@@ -410,6 +411,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             note.metadata.note_type() as u8,
             u64_to_value(note.metadata.sender().into()),
             note.metadata.tag().inner(),
+            u64_to_value(note.metadata.aux().into()),
             note.merkle_path.to_bytes(),
             details
         ])?;
@@ -449,6 +451,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
             note_type,
             sender,
             tag,
+            aux,
             merkle_path,
             details
         FROM
@@ -483,9 +486,11 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note_type = row.get::<_, u8>(4)?;
         let sender = column_value_as_u64(row, 5)?;
         let tag: u32 = row.get(6)?;
-        let merkle_path_data = row.get_ref(7)?.as_blob()?;
+        let aux: u64 = row.get(7)?;
+        let aux = aux.try_into().map_err(|err| DatabaseError::DeserializationError(DeserializationError::InvalidValue(err)))?;
+        let merkle_path_data = row.get_ref(8)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(8)?.as_blob_or_null()?;
+        let details_data = row.get_ref(9)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         // TODO: Properly retrieve aux
@@ -493,7 +498,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
             sender.try_into()?,
             NoteType::try_from(note_type)?,
             tag.into(),
-            Default::default(),
+            aux,
         )?;
 
         let note = NoteRecord {

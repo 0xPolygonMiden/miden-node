@@ -30,6 +30,7 @@ CREATE TABLE
     note_type   INTEGER NOT NULL, -- 1-Public (0b01), 2-OffChain (0b10), 3-Encrypted (0b11)
     sender      INTEGER NOT NULL,
     tag         INTEGER NOT NULL,
+    aux         INTEGER NOT NULL,
     merkle_path BLOB    NOT NULL,
     details     BLOB,
 
