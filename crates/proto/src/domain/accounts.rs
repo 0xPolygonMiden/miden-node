@@ -19,6 +19,8 @@ use crate::{
     },
 };
 
+use super::transaction::TransactionInfo;
+
 // ACCOUNT ID
 // ================================================================================================
 
@@ -73,6 +75,17 @@ impl TryFrom<AccountIdPb> for AccountId {
 }
 
 // ACCOUNT UPDATE
+// ================================================================================================
+
+// An account update represents both the account hash change and the transactions executed by that
+// account
+#[derive(Debug, PartialEq)]
+pub struct AccountUpdate {
+    pub account_summary: AccountSummary,
+    pub transactions: Vec<TransactionInfo>,
+}
+
+// ACCOUNT SUMMARY
 // ================================================================================================
 
 #[derive(Debug, PartialEq)]

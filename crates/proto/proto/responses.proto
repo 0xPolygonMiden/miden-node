@@ -42,18 +42,14 @@ message SyncStateResponse {
     // Data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`
     mmr.MmrDelta mmr_delta = 3;
 
-    // List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
-    repeated account.AccountSummary accounts = 5;
-
-    // List of IDs for transactions executed against requested accounts between
-    // `block_num + 1` and `block_header.block_num`
-    repeated digest.Digest transactions = 6;
+    // List of account updates after `block_num + 1` but not after `block_header.block_num`
+    repeated account.AccountUpdate accounts = 5;
 
     // List of all notes together with the Merkle paths from `block_header.note_root`
-    repeated note.NoteSyncRecord notes = 7;
+    repeated note.NoteSyncRecord notes = 6;
 
     // List of nullifiers created between `block_num + 1` and `block_header.block_num`
-    repeated NullifierUpdate nullifiers = 8;
+    repeated NullifierUpdate nullifiers = 7;
 }
 
 // An account returned as a response to the GetBlockInputs

@@ -42,18 +42,14 @@ pub struct SyncStateResponse {
     /// Data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`
     #[prost(message, optional, tag = "3")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
-    /// List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
+    /// List of account updates after `block_num + 1` but not after `block_header.block_num`
     #[prost(message, repeated, tag = "5")]
-    pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
-    /// List of IDs for transactions executed against requested accounts between
-    /// `block_num + 1` and `block_header.block_num`
-    #[prost(message, repeated, tag = "6")]
-    pub transactions: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    pub accounts: ::prost::alloc::vec::Vec<super::account::AccountUpdate>,
     /// List of all notes together with the Merkle paths from `block_header.note_root`
-    #[prost(message, repeated, tag = "7")]
+    #[prost(message, repeated, tag = "6")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
     /// List of nullifiers created between `block_num + 1` and `block_header.block_num`
-    #[prost(message, repeated, tag = "8")]
+    #[prost(message, repeated, tag = "7")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
 /// An account returned as a response to the GetBlockInputs

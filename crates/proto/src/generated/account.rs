@@ -21,6 +21,14 @@ pub struct AccountSummary {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountUpdate {
+    #[prost(message, optional, tag = "1")]
+    pub summary: ::core::option::Option<AccountSummary>,
+    #[prost(message, repeated, tag = "2")]
+    pub transactions: ::prost::alloc::vec::Vec<super::transaction::TransactionInfo>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountInfo {
     #[prost(message, optional, tag = "1")]
     pub summary: ::core::option::Option<AccountSummary>,

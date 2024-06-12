@@ -2,6 +2,7 @@ syntax = "proto3";
 package account;
 
 import "digest.proto";
+import "transaction.proto";
 
 message AccountId {
     // A miden account is defined with a little bit of proof-of-work, the id itself is defined as
@@ -14,6 +15,11 @@ message AccountSummary {
     AccountId account_id = 1;
     digest.Digest account_hash = 2;
     uint32 block_num = 3;
+}
+
+message AccountUpdate {
+    AccountSummary summary = 1;
+    repeated transaction.TransactionInfo transactions = 2;
 }
 
 message AccountInfo {

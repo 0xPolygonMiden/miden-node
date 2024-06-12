@@ -14,8 +14,8 @@ fn main() -> miette::Result<()> {
 
     // Compile the proto file for all servers APIs
     let protos = &[
-        proto_dir.join("block_producer.proto"),
         proto_dir.join("store.proto"),
+        proto_dir.join("block_producer.proto"),
         proto_dir.join("rpc.proto"),
     ];
     let includes = &[proto_dir];

@@ -1,11 +1,11 @@
 use std::{
     fs::{self, create_dir_all},
-    sync::Arc,
+    sync::Arc, collections::BTreeMap,
 };
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
-    domain::accounts::{AccountInfo, AccountSummary},
+    domain::{accounts::{AccountInfo, AccountSummary}, transaction::TransactionInfo},
     generated::note::Note as NotePb,
 };
 use miden_objects::{
@@ -77,7 +77,7 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
-    pub transactions: Vec<RpoDigest>,
+    pub transactions: BTreeMap<AccountId, Vec<TransactionInfo>>,
     pub nullifiers: Vec<NullifierInfo>,
 }
 

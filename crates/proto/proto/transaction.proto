@@ -1,0 +1,9 @@
+syntax = "proto3";
+package transaction;
+
+import "digest.proto";
+
+message TransactionInfo {
+    digest.Digest transaction_id = 1;
+    uint32 block_num = 2;
+}

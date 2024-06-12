@@ -1,15 +1,15 @@
 //! Wrapper functions for SQL statements.
 
-use std::{borrow::Cow, rc::Rc};
+use std::{borrow::Cow, rc::Rc, collections::BTreeMap};
 
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
+use miden_node_proto::domain::{accounts::{AccountInfo, AccountSummary}, transaction::TransactionInfo};
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
     utils::serde::{Deserializable, Serializable},
-    BlockHeader,
+    BlockHeader, transaction::TransactionId,
 };
 use rusqlite::{
     params,
@@ -675,26 +675,32 @@ pub fn insert_transactions(
     Ok(count)
 }
 
-/// Select transaction IDs from the DB using the given [Connection], filtered by account IDS,
+/// Select transaction info from the DB using the given [Connection], filtered by account IDS,
 /// given that the account updates were done between `(block_start, block_end]`.
 ///
 /// # Returns
 ///
-/// The vector of [RpoDigest] with the transaction IDs.
+/// A mapping between account IDs into a vector of [TransactionInfo]. the account IDs are the ones
+/// that the transaction was executed against.
 pub fn select_transactions_by_accounts_and_block_range(
     conn: &mut Connection,
     block_start: BlockNumber,
     block_end: BlockNumber,
     account_ids: &[AccountId],
-) -> Result<Vec<RpoDigest>> {
+) -> Result<BTreeMap<AccountId, Vec<TransactionInfo>>> {
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
         "
         SELECT
-            transaction_id
+            tx.transaction_id
+            tx.block_num,
+            a.account_id
         FROM
-            transactions
+            transactions tx
+        JOIN
+            accounts a
+            ON a.account_id = tx.account_id
         WHERE
             block_num > ?1 AND
             block_num <= ?2 AND
@@ -706,12 +712,18 @@ pub fn select_transactions_by_accounts_and_block_range(
 
     let mut rows = stmt.query(params![block_start, block_end, Rc::new(account_ids)])?;
 
-    let mut result = vec![];
+    let mut result = BTreeMap::new();
     while let Some(row) = rows.next()? {
         let transaction_id_data = row.get_ref(0)?.as_blob()?;
-        let transaction_id = RpoDigest::read_from_bytes(transaction_id_data)?;
+        let transaction_id = TransactionId::read_from_bytes(transaction_id_data)?;
+        let block_num : u32 = row.get(1)?;
+        let account_id = column_value_as_u64(row, 2)?;
 
-        result.push(transaction_id);
+        let transactions : &mut Vec<TransactionInfo> = result.entry(account_id).or_default();
+        transactions.push(TransactionInfo {
+            transaction_id,
+            block_num,
+        })
     }
 
     Ok(result)

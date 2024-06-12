@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, collections::BTreeMap};
 
 use miden_node_proto::{
     convert,
     errors::ConversionError,
     generated::{
         self,
-        account::AccountSummary,
+        account::{AccountSummary, AccountUpdate},
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
@@ -131,17 +131,32 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
-        let accounts = state
-            .account_updates
-            .into_iter()
-            .map(|account_info| AccountSummary {
-                account_id: Some(account_info.account_id.into()),
-                account_hash: Some(account_info.account_hash.into()),
-                block_num: account_info.block_num,
-            })
-            .collect();
+        let accounts = {
+            let mut account_updates : BTreeMap<AccountId, AccountUpdate> = BTreeMap::new();
 
-        let transactions = state.transactions.into_iter().map(Into::into).collect();
+            for account_info in state.account_updates.into_iter() {
+                let account_summary = AccountSummary {
+                    account_id: Some(account_info.account_id.into()),
+                    account_hash: Some(account_info.account_hash.into()),
+                    block_num: account_info.block_num,
+                };
+
+                account_updates.insert(account_info.account_id.into(), AccountUpdate {
+                    summary: Some(account_summary.into()),
+                    transactions: vec![],
+                });
+            }
+
+            for (account_id, transaction_info) in state.transactions {
+                let account_update = account_updates.entry(account_id).or_insert(AccountUpdate{
+                    summary: None,
+                    transactions: vec![],
+                });
+                account_update.transactions.extend(convert(transaction_info));
+            }
+
+            account_updates.into_values().collect()
+        };
 
         let notes = state
             .notes
@@ -168,7 +183,6 @@ impl api_server::Api for StoreApi {
             block_header: Some(state.block_header.into()),
             mmr_delta: Some(delta.into()),
             accounts,
-            transactions,
             notes,
             nullifiers,
         }))
