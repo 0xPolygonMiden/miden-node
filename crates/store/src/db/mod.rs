@@ -50,8 +50,9 @@ pub struct NullifierInfo {
 
 #[derive(Debug, PartialEq)]
 pub struct TransactionInfo {
-    pub transaction_id: TransactionId,
+    pub account_id: AccountId,
     pub block_num: BlockNumber,
+    pub transaction_id: TransactionId,
 }
 
 #[derive(Debug, Clone, PartialEq)]

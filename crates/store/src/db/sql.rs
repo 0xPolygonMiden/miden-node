@@ -694,8 +694,9 @@ pub fn select_transactions_by_accounts_and_block_range(
     let mut stmt = conn.prepare(
         "
         SELECT
-            transaction_id,
-            block_num
+            account_id,
+            block_num,
+            transaction_id
         FROM
             transactions
         WHERE
@@ -711,11 +712,12 @@ pub fn select_transactions_by_accounts_and_block_range(
 
     let mut result = vec![];
     while let Some(row) = rows.next()? {
-        let transaction_id_data = row.get_ref(0)?.as_blob()?;
-        let transaction_id = TransactionId::read_from_bytes(transaction_id_data)?;
+        let account_id = column_value_as_u64(row, 0)?;
         let block_num = row.get(1)?;
+        let transaction_id_data = row.get_ref(2)?.as_blob()?;
+        let transaction_id = TransactionId::read_from_bytes(transaction_id_data)?;
 
-        result.push(TransactionInfo { transaction_id, block_num });
+        result.push(TransactionInfo { account_id, block_num, transaction_id });
     }
 
     Ok(result)

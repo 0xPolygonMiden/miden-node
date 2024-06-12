@@ -37,6 +37,8 @@ pub struct TransactionUpdate {
     pub transaction_id: ::core::option::Option<super::digest::Digest>,
     #[prost(fixed32, tag = "2")]
     pub block_num: u32,
+    #[prost(fixed64, tag = "3")]
+    pub account_id: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

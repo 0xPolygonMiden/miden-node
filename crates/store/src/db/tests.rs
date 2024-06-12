@@ -23,7 +23,7 @@ use miden_objects::{
 use rusqlite::{vtab::array, Connection};
 
 use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
-use crate::db::migrations::apply_migrations;
+use crate::db::{migrations::apply_migrations, TransactionInfo};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -108,7 +108,7 @@ fn test_sql_insert_transactions() {
 
 #[test]
 fn test_sql_select_transactions() {
-    fn query_transactions(conn: &mut Connection) -> Vec<RpoDigest> {
+    fn query_transactions(conn: &mut Connection) -> Vec<TransactionInfo> {
         sql::select_transactions_by_accounts_and_block_range(conn, 0, 2, &[1]).unwrap()
     }
 

@@ -145,8 +145,9 @@ impl api_server::Api for StoreApi {
             .transactions
             .into_iter()
             .map(|transaction_info| TransactionUpdate {
-                transaction_id: Some(transaction_info.transaction_id.into()),
+                account_id: transaction_info.account_id,
                 block_num: transaction_info.block_num,
+                transaction_id: Some(transaction_info.transaction_id.into()),
             }).collect();
 
         let notes = state

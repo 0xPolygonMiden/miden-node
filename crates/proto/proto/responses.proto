@@ -35,6 +35,7 @@ message NullifierUpdate {
 message TransactionUpdate {
     digest.Digest transaction_id = 1;
     fixed32 block_num = 2;
+    fixed64 account_id = 3;
 }
 
 message SyncStateResponse {
