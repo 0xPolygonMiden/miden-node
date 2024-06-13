@@ -8,8 +8,9 @@ use miden_objects::{
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
+    transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
-    BlockHeader, transaction::TransactionId,
+    BlockHeader,
 };
 use rusqlite::{
     params,

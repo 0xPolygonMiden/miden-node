@@ -12,8 +12,9 @@ use miden_objects::{
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteMetadata, Nullifier},
+    transaction::TransactionId,
     utils::Serializable,
-    BlockHeader, GENESIS_BLOCK, transaction::TransactionId,
+    BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;

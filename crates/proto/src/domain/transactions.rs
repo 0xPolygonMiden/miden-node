@@ -1,12 +1,6 @@
-use miden_objects::{
-    crypto::hash::rpo::RpoDigest,
-    transaction::TransactionId,
-};
+use miden_objects::{crypto::hash::rpo::RpoDigest, transaction::TransactionId};
 
-use crate::{
-    errors::ConversionError,
-    generated::digest::Digest,
-};
+use crate::{errors::ConversionError, generated::digest::Digest};
 
 // FROM TRANSACTION ID
 // ================================================================================================
