@@ -8,8 +8,8 @@ use miden_objects::{
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
-    utils::{serde::{Deserializable, Serializable}, DeserializationError},
-    BlockHeader, Word,
+    utils::serde::{Deserializable, Serializable},
+    BlockHeader,
 };
 use rusqlite::{
     params,
@@ -352,10 +352,9 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
         let sender = column_value_as_u64(row, 5)?;
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
-        let aux = aux.try_into().map_err(|err| DatabaseError::DeserializationError(DeserializationError::InvalidValue(err)))?;
+        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
 
-        let metadata =
-            NoteMetadata::new(sender.try_into()?, note_type, tag.into(), aux)?;
+        let metadata = NoteMetadata::new(sender.try_into()?, note_type, tag.into(), aux)?;
 
         notes.push(NoteRecord {
             block_num: row.get(0)?,
@@ -489,18 +488,14 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let sender = column_value_as_u64(row, 5)?;
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
-        let aux = aux.try_into().map_err(|err| DatabaseError::DeserializationError(DeserializationError::InvalidValue(err)))?;
+        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
         let merkle_path_data = row.get_ref(8)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
         let details_data = row.get_ref(9)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
-        let metadata = NoteMetadata::new(
-            sender.try_into()?,
-            NoteType::try_from(note_type)?,
-            tag.into(),
-            aux,
-        )?;
+        let metadata =
+            NoteMetadata::new(sender.try_into()?, NoteType::try_from(note_type)?, tag.into(), aux)?;
 
         let note = NoteRecord {
             block_num,
@@ -560,10 +555,9 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let sender = column_value_as_u64(row, 5)?;
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
-        let aux = aux.try_into().map_err(|err| DatabaseError::DeserializationError(DeserializationError::InvalidValue(err)))?;
+        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
 
-        let metadata =
-            NoteMetadata::new(sender.try_into()?, note_type, tag.into(), aux)?;
+        let metadata = NoteMetadata::new(sender.try_into()?, note_type, tag.into(), aux)?;
 
         notes.push(NoteRecord {
             block_num: row.get(0)?,
