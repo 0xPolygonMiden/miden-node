@@ -1,11 +1,15 @@
 use std::{
+    collections::BTreeMap,
     fs::{self, create_dir_all},
-    sync::Arc, collections::BTreeMap,
+    sync::Arc,
 };
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
-    domain::{accounts::{AccountInfo, AccountSummary}, transaction::TransactionInfo},
+    domain::{
+        accounts::{AccountInfo, AccountSummary},
+        transaction::TransactionInfo,
+    },
     generated::note::Note as NotePb,
 };
 use miden_objects::{

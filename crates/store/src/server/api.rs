@@ -1,4 +1,4 @@
-use std::{sync::Arc, collections::BTreeMap};
+use std::{collections::BTreeMap, sync::Arc};
 
 use miden_node_proto::{
     convert,
@@ -132,7 +132,7 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)?;
 
         let accounts = {
-            let mut account_updates : BTreeMap<AccountId, AccountUpdate> = BTreeMap::new();
+            let mut account_updates: BTreeMap<AccountId, AccountUpdate> = BTreeMap::new();
 
             for account_info in state.account_updates.into_iter() {
                 let account_summary = AccountSummary {
@@ -141,17 +141,19 @@ impl api_server::Api for StoreApi {
                     block_num: account_info.block_num,
                 };
 
-                account_updates.insert(account_info.account_id.into(), AccountUpdate {
-                    summary: Some(account_summary.into()),
-                    transactions: vec![],
-                });
+                account_updates.insert(
+                    account_info.account_id.into(),
+                    AccountUpdate {
+                        summary: Some(account_summary),
+                        transactions: vec![],
+                    },
+                );
             }
 
             for (account_id, transaction_info) in state.transactions {
-                let account_update = account_updates.entry(account_id).or_insert(AccountUpdate{
-                    summary: None,
-                    transactions: vec![],
-                });
+                let account_update = account_updates
+                    .entry(account_id)
+                    .or_insert(AccountUpdate { summary: None, transactions: vec![] });
                 account_update.transactions.extend(convert(transaction_info));
             }
 

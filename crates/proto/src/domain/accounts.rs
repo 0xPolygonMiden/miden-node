@@ -8,6 +8,7 @@ use miden_objects::{
     Digest,
 };
 
+use super::transaction::TransactionInfo;
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
@@ -18,8 +19,6 @@ use crate::{
         responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
 };
-
-use super::transaction::TransactionInfo;
 
 // ACCOUNT ID
 // ================================================================================================

@@ -1,5 +1,7 @@
+use std::collections::BTreeMap;
+
 use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::domain::accounts::AccountSummary;
+use miden_node_proto::domain::{accounts::AccountSummary, transaction::TransactionInfo};
 use miden_objects::{
     accounts::{
         account_id::testing::{
@@ -21,7 +23,7 @@ use miden_objects::{
 use rusqlite::{vtab::array, Connection};
 
 use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
-use crate::db::migrations::apply_migrations;
+use crate::{db::migrations::apply_migrations, types::AccountId as DbAccountId};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -106,8 +108,14 @@ fn test_sql_insert_transactions() {
 
 #[test]
 fn test_sql_select_transactions() {
-    fn query_transactions(conn: &mut Connection) -> Vec<RpoDigest> {
-        sql::select_transactions_by_accounts_and_block_range(conn, 0, 2, &[1]).unwrap()
+    fn query_transactions(conn: &mut Connection) -> BTreeMap<DbAccountId, Vec<TransactionInfo>> {
+        sql::select_transactions_by_accounts_and_block_range(
+            conn,
+            0,
+            2,
+            &[ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN],
+        )
+        .unwrap()
     }
 
     let mut conn = create_db();
@@ -122,7 +130,14 @@ fn test_sql_select_transactions() {
 
     let transactions = query_transactions(&mut conn);
 
-    assert_eq!(transactions.len(), 2, "Two elements must be in the DB");
+    assert_eq!(
+        transactions
+            .get(&ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN)
+            .unwrap()
+            .len(),
+        2,
+        "Two elements must be in the DB"
+    );
 }
 
 #[test]
@@ -730,17 +745,34 @@ fn mock_block_account_update(account_id: AccountId, num: u64) -> BlockAccountUpd
     )
 }
 
+/// Inserts a mock transaction into the database.
 fn insert_transactions(conn: &mut Connection) -> usize {
     let block_num = 1;
     create_block(conn, block_num);
 
+    // Insert an account for the transaction
+    let account_id = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
+    let account_hash = num_to_rpo_digest(0);
+
     let transaction = conn.transaction().unwrap();
-    let count = sql::insert_transactions(
+    let res = sql::upsert_accounts(
         &transaction,
+        &[BlockAccountUpdate::new(
+            account_id.try_into().unwrap(),
+            account_hash,
+            AccountUpdateDetails::Private,
+            vec![],
+        )],
         block_num,
-        &[mock_block_account_update(AccountId::new_unchecked(Felt::ONE), 1)],
-    )
-    .unwrap();
+    );
+    assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+    transaction.commit().unwrap();
+
+    // Insert the transaction belonging to that account
+    let account_update = mock_block_account_update(account_id.try_into().unwrap(), 1);
+
+    let transaction = conn.transaction().unwrap();
+    let count = sql::insert_transactions(&transaction, block_num, &[account_update]).unwrap();
     transaction.commit().unwrap();
 
     count

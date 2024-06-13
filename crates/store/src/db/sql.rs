@@ -1,15 +1,19 @@
 //! Wrapper functions for SQL statements.
 
-use std::{borrow::Cow, rc::Rc, collections::BTreeMap};
+use std::{borrow::Cow, collections::BTreeMap, rc::Rc};
 
-use miden_node_proto::domain::{accounts::{AccountInfo, AccountSummary}, transaction::TransactionInfo};
+use miden_node_proto::domain::{
+    accounts::{AccountInfo, AccountSummary},
+    transaction::TransactionInfo,
+};
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
+    transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
-    BlockHeader, transaction::TransactionId,
+    BlockHeader,
 };
 use rusqlite::{
     params,
@@ -693,7 +697,7 @@ pub fn select_transactions_by_accounts_and_block_range(
     let mut stmt = conn.prepare(
         "
         SELECT
-            tx.transaction_id
+            tx.transaction_id,
             tx.block_num,
             a.account_id
         FROM
@@ -702,11 +706,11 @@ pub fn select_transactions_by_accounts_and_block_range(
             accounts a
             ON a.account_id = tx.account_id
         WHERE
-            block_num > ?1 AND
-            block_num <= ?2 AND
-            account_id IN rarray(?3)
+            tx.block_num > ?1 AND
+            tx.block_num <= ?2 AND
+            tx.account_id IN rarray(?3)
         ORDER BY
-            transaction_id ASC
+            tx.transaction_id ASC
     ",
     )?;
 
@@ -716,14 +720,11 @@ pub fn select_transactions_by_accounts_and_block_range(
     while let Some(row) = rows.next()? {
         let transaction_id_data = row.get_ref(0)?.as_blob()?;
         let transaction_id = TransactionId::read_from_bytes(transaction_id_data)?;
-        let block_num : u32 = row.get(1)?;
+        let block_num: u32 = row.get(1)?;
         let account_id = column_value_as_u64(row, 2)?;
 
-        let transactions : &mut Vec<TransactionInfo> = result.entry(account_id).or_default();
-        transactions.push(TransactionInfo {
-            transaction_id,
-            block_num,
-        })
+        let transactions: &mut Vec<TransactionInfo> = result.entry(account_id).or_default();
+        transactions.push(TransactionInfo { transaction_id, block_num })
     }
 
     Ok(result)
