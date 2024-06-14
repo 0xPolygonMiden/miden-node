@@ -45,8 +45,8 @@ pub struct SyncStateResponse {
     /// List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
     #[prost(message, repeated, tag = "5")]
     pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
-    /// List of IDs for transactions executed against requested accounts between
-    /// `block_num + 1` and `block_header.block_num`
+    /// List of transactions executed against requested accounts between `request.block_num + 1` and
+    /// `self.block_header.block_num`
     #[prost(message, repeated, tag = "6")]
     pub transactions: ::prost::alloc::vec::Vec<super::transaction::TransactionSummary>,
     /// List of all notes together with the Merkle paths from `block_header.note_root`

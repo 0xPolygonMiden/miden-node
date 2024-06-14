@@ -40,20 +40,20 @@ message SyncStateResponse {
     // Block header of the block with the first note matching the specified criteria
     block_header.BlockHeader block_header = 2;
 
-    // Data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`
+    // Data needed to update the partial MMR from `request.block_num + 1` to `self.block_header.block_num`
     mmr.MmrDelta mmr_delta = 3;
 
-    // List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
+    // List of account hashes updated after `request.block_num + 1` but not after `self.block_header.block_num`
     repeated account.AccountSummary accounts = 5;
 
-    // List of IDs for transactions executed against requested accounts between
-    // `block_num + 1` and `block_header.block_num`
+    // List of transactions executed against requested accounts between `request.block_num + 1` and
+    // `self.block_header.block_num`
     repeated transaction.TransactionSummary transactions = 6;
 
-    // List of all notes together with the Merkle paths from `block_header.note_root`
+    // List of all notes together with the Merkle paths from `self.block_header.note_root`
     repeated note.NoteSyncRecord notes = 7;
 
-    // List of nullifiers created between `block_num + 1` and `block_header.block_num`
+    // List of nullifiers created between `request.block_num + 1` and `self.block_header.block_num`
     repeated NullifierUpdate nullifiers = 8;
 }
 
