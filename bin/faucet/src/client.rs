@@ -105,6 +105,7 @@ impl FaucetClient {
             target_account_id,
             vec![asset.into()],
             note_type,
+            Default::default(),
             &mut self.rng,
         )
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
@@ -316,6 +317,7 @@ fn build_transaction_arguments(
         &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
             .replace("{recipient}", &recipient)
             .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+            .replace("{aux}", &Felt::default().to_string())
             .replace("{tag}", &Felt::new(tag.into()).to_string())
             .replace("{amount}", &Felt::new(asset.amount()).to_string()),
     )

@@ -466,9 +466,9 @@ dependencies = [
 
 [[package]]
 name = "backtrace"
-version = "0.3.72"
+version = "0.3.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17c6a35df3749d2e8bb1b7b21a976d82b15548788d2735b9d82f329268f71a11"
+checksum = "5cc23269a4f8976d0a4d2e7109211a419fe30e8d88d677cd60b6bc79c5732e0a"
 dependencies = [
  "addr2line",
  "cc",
@@ -1180,9 +1180,9 @@ checksum = "add0ab9360ddbd88cfeb3bd9574a1d85cfdfa14db10b3e21d3700dbc4328758f"
 
 [[package]]
 name = "httparse"
-version = "1.9.2"
+version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f3935c160d00ac752e09787e6e6bfc26494c2183cc922f1bc678a60d4733bc2"
+checksum = "d0e7a4dd27b9476dc40cb050d3632d3bba3a70ddbff012285f7f8559a1e7e545"
 
 [[package]]
 name = "httpdate"
@@ -1568,34 +1568,11 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
 name = "logos"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c000ca4d908ff18ac99b93a062cb8958d331c3220719c52e77cb19cc6ac5d2c1"
-dependencies = [
- "logos-derive 0.13.0",
-]
-
-[[package]]
-name = "logos"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "161971eb88a0da7ae0c333e1063467c5b5727e7fb6b710b8db4814eade3a42e8"
 dependencies = [
- "logos-derive 0.14.0",
-]
-
-[[package]]
-name = "logos-codegen"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc487311295e0002e452025d6b580b77bb17286de87b57138f3b5db711cded68"
-dependencies = [
- "beef",
- "fnv",
- "proc-macro2",
- "quote",
- "regex-syntax 0.6.29",
- "syn 2.0.66",
+ "logos-derive",
 ]
 
 [[package]]
@@ -1615,20 +1592,11 @@ dependencies = [
 
 [[package]]
 name = "logos-derive"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbfc0d229f1f42d790440136d941afd806bc9e949e2bcb8faa813b0f00d1267e"
-dependencies = [
- "logos-codegen 0.13.0",
-]
-
-[[package]]
-name = "logos-derive"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c2a69b3eb68d5bd595107c9ee58d7e07fe2bb5e360cc85b0f084dedac80de0a"
 dependencies = [
- "logos-codegen 0.14.0",
+ "logos-codegen",
 ]
 
 [[package]]
@@ -1648,9 +1616,9 @@ checksum = "0e7465ac9959cc2b1404e8e2367b43684a6d13790fe23056cc8c6c5a6b7bcb94"
 
 [[package]]
 name = "memchr"
-version = "2.7.2"
+version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c8640c5d730cb13ebd907d8d04b52f55ac9a2eec55b440c8892f40d56c76c1d"
+checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "miden-air"
@@ -1730,7 +1698,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.4.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#2aee9ce1dfae1e7d9a91d792dcae5426df1fa3d2"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#be1cc6ef501313fb8a4f29fb755980b883a15cec"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1876,7 +1844,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.4.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#2aee9ce1dfae1e7d9a91d792dcae5426df1fa3d2"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#be1cc6ef501313fb8a4f29fb755980b883a15cec"
 dependencies = [
  "miden-assembly",
  "miden-core",
@@ -1923,7 +1891,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.4.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#2aee9ce1dfae1e7d9a91d792dcae5426df1fa3d2"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#be1cc6ef501313fb8a4f29fb755980b883a15cec"
 dependencies = [
  "miden-lib",
  "miden-objects",
@@ -1931,6 +1899,7 @@ dependencies = [
  "miden-prover",
  "miden-verifier",
  "rand",
+ "winter-maybe-async",
 ]
 
 [[package]]
@@ -2158,9 +2127,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.35.0"
+version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8ec7ab813848ba4522158d5517a6093db1ded27575b070f4177b8d12b41db5e"
+checksum = "576dfe1fc8f9df304abb159d767a29d0476f7750fbf8aa7ad07816004a207434"
 dependencies = [
  "memchr",
 ]
@@ -2418,7 +2387,7 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f5eec97d5d34bdd17ad2db2219aabf46b054c6c41bd5529767c9ce55be5898f"
 dependencies = [
- "logos 0.14.0",
+ "logos",
  "miette",
  "once_cell",
  "prost",
@@ -2436,9 +2405,9 @@ dependencies = [
 
 [[package]]
 name = "protox"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a29b3c5596eb23a849deba860b53ffd468199d9ad5fe4402a7d55379e16aa2d2"
+checksum = "ac532509cee918d40f38c3e12f8ef9230f215f017d54de7dd975015538a42ce7"
 dependencies = [
  "bytes",
  "miette",
@@ -2451,11 +2420,11 @@ dependencies = [
 
 [[package]]
 name = "protox-parse"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "033b939d76d358f7c32120c86c71f515bae45e64f2bde455200356557276276c"
+checksum = "7f6c33f43516fe397e2f930779d720ca12cd057f7da4cd6326a0ef78d69dee96"
 dependencies = [
- "logos 0.13.0",
+ "logos",
  "miette",
  "prost-types",
  "thiserror",
@@ -2537,9 +2506,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "469052894dcb553421e483e4209ee581a45100d31b4018de03e5a7ad86374a7e"
+checksum = "c82cf8cff14456045f55ec4241383baeff27af886adb72ffb2162f99911de0fd"
 dependencies = [
  "bitflags 2.5.0",
 ]
@@ -3726,6 +3695,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c36d2a04b4f79f2c8c6945aab6545b7310a0cd6ae47b9210750400df6775a04"
 dependencies = [
  "winter-utils",
+]
+
+[[package]]
+name = "winter-maybe-async"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77eafc7944188b941c90759b938b8377247ee6e440952a0a7c4dbde7edc4ecbb"
+dependencies = [
+ "quote",
+ "syn 2.0.66",
 ]
 
 [[package]]
