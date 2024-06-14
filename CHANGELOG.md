@@ -1,5 +1,6 @@
 # Changelog
 
+* Fix faucet note script so that it uses the `aux` input (#387).
 * Standardised CI and Makefile across Miden repositories (#367)
 * Remove client dependency from faucet (#368).
 * Return a list of committed transactions from the state sync endpoint (#377).
