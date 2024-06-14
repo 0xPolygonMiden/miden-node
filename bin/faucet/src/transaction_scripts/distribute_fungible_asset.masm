@@ -4,6 +4,7 @@ use.miden::contracts::auth::basic->auth_tx
 begin
     push.{recipient}
     push.{note_type}
+    push.{aux}
     push.{tag}
     push.{amount}
     call.faucet::distribute
