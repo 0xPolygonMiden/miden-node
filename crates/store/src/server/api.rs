@@ -18,10 +18,11 @@ use miden_node_proto::{
             GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
             GetBlockInputsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
             ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse, TransactionUpdate,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
+        transaction::TransactionSummary,
     },
     try_convert,
 };
@@ -144,8 +145,8 @@ impl api_server::Api for StoreApi {
         let transactions = state
             .transactions
             .into_iter()
-            .map(|transaction_info| TransactionUpdate {
-                account_id: transaction_info.account_id,
+            .map(|transaction_info| TransactionSummary {
+                account_id: Some(transaction_info.account_id.into()),
                 block_num: transaction_info.block_num,
                 transaction_id: Some(transaction_info.transaction_id.into()),
             })
