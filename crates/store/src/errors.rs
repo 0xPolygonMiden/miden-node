@@ -58,6 +58,8 @@ pub enum DatabaseError {
     DeserializationError(DeserializationError),
     #[error("Corrupted data: {0}")]
     CorruptedData(String),
+    #[error("Invalid Felt: {0}")]
+    InvalidFelt(String),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
     ApplyBlockFailedClosedChannel(RecvError),
     #[error("Account {0} not found in the database")]
