@@ -312,12 +312,13 @@ fn build_transaction_arguments(
         .join(".");
 
     let tag = output_note.metadata().tag().inner();
+    let aux = output_note.metadata().aux().inner();
 
     let script = ProgramAst::parse(
         &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
             .replace("{recipient}", &recipient)
             .replace("{note_type}", &Felt::new(note_type as u64).to_string())
-            .replace("{aux}", &Felt::default().to_string())
+            .replace("{aux}", &Felt::new(aux).to_string())
             .replace("{tag}", &Felt::new(tag.into()).to_string())
             .replace("{amount}", &Felt::new(asset.amount()).to_string()),
     )
