@@ -1,5 +1,6 @@
 # Changelog
 
+* Return a list of `TransactionSummary` objects instead of just transaction IDs in the state sync endpoint (#386).
 * Fix faucet note script so that it uses the `aux` input (#387).
 * Added `aux` column to notes table (#384).
 * Standardised CI and Makefile across Miden repositories (#367)

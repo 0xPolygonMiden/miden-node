@@ -22,6 +22,7 @@ use miden_node_proto::{
         },
         smt::SmtLeafEntry,
         store::api_server,
+        transaction::TransactionSummary,
     },
     try_convert,
 };
@@ -141,7 +142,15 @@ impl api_server::Api for StoreApi {
             })
             .collect();
 
-        let transactions = state.transactions.into_iter().map(Into::into).collect();
+        let transactions = state
+            .transactions
+            .into_iter()
+            .map(|transaction_summary| TransactionSummary {
+                account_id: Some(transaction_summary.account_id.into()),
+                block_num: transaction_summary.block_num,
+                transaction_id: Some(transaction_summary.transaction_id.into()),
+            })
+            .collect();
 
         let notes = state
             .notes

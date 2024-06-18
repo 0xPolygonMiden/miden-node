@@ -8,6 +8,7 @@ use miden_objects::{
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
+    transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
@@ -17,7 +18,7 @@ use rusqlite::{
     Connection, OptionalExtension, Transaction,
 };
 
-use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate};
+use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate, TransactionSummary};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -688,12 +689,14 @@ pub fn select_transactions_by_accounts_and_block_range(
     block_start: BlockNumber,
     block_end: BlockNumber,
     account_ids: &[AccountId],
-) -> Result<Vec<RpoDigest>> {
+) -> Result<Vec<TransactionSummary>> {
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
         "
         SELECT
+            account_id,
+            block_num,
             transaction_id
         FROM
             transactions
@@ -710,10 +713,12 @@ pub fn select_transactions_by_accounts_and_block_range(
 
     let mut result = vec![];
     while let Some(row) = rows.next()? {
-        let transaction_id_data = row.get_ref(0)?.as_blob()?;
-        let transaction_id = RpoDigest::read_from_bytes(transaction_id_data)?;
+        let account_id = column_value_as_u64(row, 0)?;
+        let block_num = row.get(1)?;
+        let transaction_id_data = row.get_ref(2)?.as_blob()?;
+        let transaction_id = TransactionId::read_from_bytes(transaction_id_data)?;
 
-        result.push(transaction_id);
+        result.push(TransactionSummary { account_id, block_num, transaction_id });
     }
 
     Ok(result)
