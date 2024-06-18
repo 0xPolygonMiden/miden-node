@@ -1,0 +1,114 @@
+name: CI Pipeline for miden-node
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * *' # Check daily for updates
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
+    - name: Update and upgrade apt packages
+      run: sudo apt update -y && sudo apt upgrade -y
+
+    - name: Install miden-node and miden-faucet
+      run: cargo install miden-node miden-faucet
+
+    - name: Clone miden-node repository
+      run: git clone https://github.com/0xPolygonMiden/miden-node
+
+    - name: Set up systemd services
+      run: |
+        echo "[Unit]
+        Description=miden-node service
+        After=network.target
+
+        [Service]
+        Type=simple
+        ExecStart=/usr/local/cargo/bin/miden-node
+        Restart=always
+
+        [Install]
+        WantedBy=multi-user.target" | sudo tee /etc/systemd/system/miden-node.service
+
+        echo "[Unit]
+        Description=miden-faucet service
+        After=network.target
+
+        [Service]
+        Type=simple
+        ExecStart=/usr/local/cargo/bin/miden-faucet
+        Restart=always
+
+        [Install]
+        WantedBy=multi-user.target" | sudo tee /etc/systemd/system/miden-faucet.service
+
+    - name: Create configuration directory
+      run: sudo mkdir -p /etc/miden/
+
+    - name: Copy configuration files
+      run: |
+        cd miden-node
+        sudo cp config/miden-node.toml /etc/miden/
+        sudo cp config/miden-faucet.toml /etc/miden/
+        sudo cp config/genesis.toml /etc/miden/
+
+    - name: Configure genesis file
+      run: |
+        mkdir -p $HOME/miden
+        cd $HOME/miden
+        miden-node make-genesis --inputs-path /etc/miden/genesis.toml
+
+    - name: Set up static files for miden-faucet
+      run: |
+        mkdir -p $HOME/miden/bin/faucet/src/
+        cp -r miden-node/bin/faucet/src/static $HOME/miden/bin/faucet/src/
+
+    - name: Reload systemd daemon
+      run: sudo systemctl daemon-reload
+
+    - name: Enable and start miden-node and miden-faucet services
+      run: |
+        sudo systemctl enable miden-node.service
+        sudo systemctl enable miden-faucet.service
+        sudo systemctl start miden-node.service
+        sudo systemctl start miden-faucet.service
+
+    - name: Install and configure nginx
+      run: |
+        sudo apt install -y nginx
+        echo "server {
+          listen 80;
+          server_name _;
+
+          location / {
+            proxy_pass http://127.0.0.1:8080;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+          }
+        }" | sudo tee /etc/nginx/sites-available/miden-faucet
+
+        sudo ln -s /etc/nginx/sites-available/miden-faucet /etc/nginx/sites-enabled/
+        sudo nginx -t
+        sudo systemctl restart nginx
