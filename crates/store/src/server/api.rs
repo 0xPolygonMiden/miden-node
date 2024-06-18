@@ -145,10 +145,10 @@ impl api_server::Api for StoreApi {
         let transactions = state
             .transactions
             .into_iter()
-            .map(|transaction_info| TransactionSummary {
-                account_id: Some(transaction_info.account_id.into()),
-                block_num: transaction_info.block_num,
-                transaction_id: Some(transaction_info.transaction_id.into()),
+            .map(|transaction_summary| TransactionSummary {
+                account_id: Some(transaction_summary.account_id.into()),
+                block_num: transaction_summary.block_num,
+                transaction_id: Some(transaction_summary.transaction_id.into()),
             })
             .collect();
 

@@ -18,7 +18,7 @@ use rusqlite::{
     Connection, OptionalExtension, Transaction,
 };
 
-use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate, TransactionInfo};
+use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate, TransactionSummary};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -689,7 +689,7 @@ pub fn select_transactions_by_accounts_and_block_range(
     block_start: BlockNumber,
     block_end: BlockNumber,
     account_ids: &[AccountId],
-) -> Result<Vec<TransactionInfo>> {
+) -> Result<Vec<TransactionSummary>> {
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
     let mut stmt = conn.prepare(
@@ -718,7 +718,7 @@ pub fn select_transactions_by_accounts_and_block_range(
         let transaction_id_data = row.get_ref(2)?.as_blob()?;
         let transaction_id = TransactionId::read_from_bytes(transaction_id_data)?;
 
-        result.push(TransactionInfo { account_id, block_num, transaction_id });
+        result.push(TransactionSummary { account_id, block_num, transaction_id });
     }
 
     Ok(result)

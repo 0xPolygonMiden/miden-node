@@ -152,8 +152,10 @@ contains excessive notes and nullifiers, client can make additional filtering of
 - `mmr_delta`: `MmrDelta` – data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`.
 - `accounts`: `[AccountSummary]` – account summaries for accounts updated after `request.block_num + 1` but not after `response.block_header.block_num`.
 - `transactions`: `[TransactionSummary]` – transaction summaries for transactions included after `request.block_num + 1` but not after `response.block_header.block_num`.
+    - Each `TransactionSummary` consists of the `transaction_id` the transaction identifier, `account_id` of the account that executed that transaction, `block_num` the block number in which the transaction was included.
 - `notes`: `[NoteSyncRecord]` – a list of all notes together with the Merkle paths from `response.block_header.note_root`.
 - `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
+    - Each `NullifierUpdate` consists of the `nullifier` and `block_num` the block number in which the note corresponding to that nullifier was consumed.
 
 ## Methods for testing purposes
 

@@ -50,7 +50,7 @@ pub struct NullifierInfo {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct TransactionInfo {
+pub struct TransactionSummary {
     pub account_id: AccountId,
     pub block_num: BlockNumber,
     pub transaction_id: TransactionId,
@@ -85,7 +85,7 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
-    pub transactions: Vec<TransactionInfo>,
+    pub transactions: Vec<TransactionSummary>,
     pub nullifiers: Vec<NullifierInfo>,
 }
 
