@@ -39,20 +39,20 @@ pub struct SyncStateResponse {
     /// Block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
-    /// Data needed to update the partial MMR from `block_num + 1` to `block_header.block_num`
+    /// Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
     #[prost(message, optional, tag = "3")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
-    /// List of account hashes updated after `block_num + 1` but not after `block_header.block_num`
+    /// List of account hashes updated after `request.block_num + 1` but not after `response.block_header.block_num`
     #[prost(message, repeated, tag = "5")]
     pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
     /// List of transactions executed against requested accounts between `request.block_num + 1` and
-    /// `self.block_header.block_num`
+    /// `response.block_header.block_num`
     #[prost(message, repeated, tag = "6")]
     pub transactions: ::prost::alloc::vec::Vec<super::transaction::TransactionSummary>,
-    /// List of all notes together with the Merkle paths from `block_header.note_root`
+    /// List of all notes together with the Merkle paths from `response.block_header.note_root`
     #[prost(message, repeated, tag = "7")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
-    /// List of nullifiers created between `block_num + 1` and `block_header.block_num`
+    /// List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`
     #[prost(message, repeated, tag = "8")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
