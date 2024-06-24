@@ -74,7 +74,7 @@ message GetBlockInputsResponse {
     // The latest block header
     block_header.BlockHeader block_header = 1;
 
-    // Peaks of the above block's mmr, The `forest` value is equal to the block number.
+    // Peaks of the above block's mmr, The `forest` value is equal to the block number
     repeated digest.Digest mmr_peaks = 2;
 
     // The hashes of the requested accounts and their authentication paths
@@ -82,6 +82,9 @@ message GetBlockInputsResponse {
 
     // The requested nullifiers and their authentication paths
     repeated NullifierBlockInputRecord nullifiers = 4;
+
+    // The list of requested notes which weren't not found in the database
+    repeated digest.Digest missed_notes = 5;
 }
 
 // An account returned as a response to the GetTransactionInputs
@@ -101,6 +104,11 @@ message NullifierTransactionInputRecord {
 message GetTransactionInputsResponse {
     AccountTransactionInputRecord account_state = 1;
     repeated NullifierTransactionInputRecord nullifiers = 2;
+    repeated digest.Digest missed_notes = 3;
+}
+
+message GetMissedNotesResponse {
+    repeated digest.Digest missed_notes = 1;
 }
 
 message SubmitProvenTransactionResponse {}

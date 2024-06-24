@@ -7,8 +7,11 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes::Nullifier,
+    crypto::{
+        hash::rpo::RpoDigest,
+        merkle::{MerklePath, MmrPeaks, SmtProof},
+    },
+    notes::{NoteId, Nullifier},
     BlockHeader, Digest,
 };
 
@@ -31,6 +34,9 @@ pub struct BlockInputs {
 
     /// The requested nullifiers and their authentication paths
     pub nullifiers: BTreeMap<Nullifier, SmtProof>,
+
+    /// List of notes that were not found in the store
+    pub missed_notes: Vec<NoteId>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -87,11 +93,18 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             })
             .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
+        let missed_notes = get_block_inputs
+            .missed_notes
+            .into_iter()
+            .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
+            .collect::<Result<Vec<_>, ConversionError>>()?;
+
         Ok(Self {
             block_header,
             chain_peaks,
             accounts,
             nullifiers,
+            missed_notes,
         })
     }
 }

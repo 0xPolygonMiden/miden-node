@@ -3,7 +3,7 @@ use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerkleError, MmrError},
-    notes::Nullifier,
+    notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
     Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH, MAX_NOTES_PER_BATCH,
 };
@@ -23,6 +23,10 @@ pub enum VerifyTxError {
     /// Another transaction already consumed the notes with given nullifiers
     #[error("Input notes with given nullifiers were already consumed by another transaction")]
     InputNotesAlreadyConsumed(Vec<Nullifier>),
+
+    /// Future notes were not found in the store or in outputs of in-flight transactions
+    #[error("Future notes were not found in the store or in outputs of in-flight transactions")]
+    FutureNotesNotFound(Vec<NoteId>),
 
     /// The account's initial hash did not match the current account's hash
     #[error("Incorrect account's initial hash ({tx_initial_account_hash}, stored: {})", format_opt(.store_account_hash.as_ref()))]
@@ -68,8 +72,14 @@ pub enum BuildBatchError {
     #[error("Too many notes in the batch. Got: {0}, max: {}", MAX_NOTES_PER_BATCH)]
     TooManyNotesCreated(usize, Vec<ProvenTransaction>),
 
-    #[error("failed to create notes SMT: {0}")]
+    #[error("Failed to create notes SMT: {0}")]
     NotesSmtError(MerkleError, Vec<ProvenTransaction>),
+
+    #[error("Failed to get missed notes: {0}")]
+    GetMissedNotesRequestError(GetMissedNotesError, Vec<ProvenTransaction>),
+
+    #[error("Future notes not found in the store: {0:?}")]
+    FutureNotesNotFound(Vec<NoteId>, Vec<ProvenTransaction>),
 }
 
 impl BuildBatchError {
@@ -77,6 +87,8 @@ impl BuildBatchError {
         match self {
             BuildBatchError::TooManyNotesCreated(_, txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
+            BuildBatchError::GetMissedNotesRequestError(_, txs) => txs,
+            BuildBatchError::FutureNotesNotFound(_, txs) => txs,
         }
     }
 }
@@ -134,6 +146,8 @@ pub enum BuildBlockError {
     InconsistentAccountStates(Vec<AccountId>),
     #[error("transaction batches and store don't produce the same nullifiers. Offending nullifiers: {0:?}")]
     InconsistentNullifiers(Vec<Nullifier>),
+    #[error("future notes not found in the store or in outputs of other transactions in the block: {0:?}")]
+    FutureNotesNotFound(Vec<NoteId>),
     #[error(
         "too many batches in block. Got: {0}, max: 2^{}",
         BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH
@@ -154,4 +168,15 @@ pub enum TxInputsError {
     ConversionError(#[from] ConversionError),
     #[error("dummy")]
     Dummy,
+}
+
+// Get missed notes request errors
+// =================================================================================================
+
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum GetMissedNotesError {
+    #[error("gRPC client failed with error: {0}")]
+    GrpcClientError(String),
+    #[error("failed to parse protobuf message: {0}")]
+    ConversionError(#[from] ConversionError),
 }

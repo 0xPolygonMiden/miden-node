@@ -1,3 +1,5 @@
+use std::iter;
+
 use miden_objects::{
     block::{Block, BlockAccountUpdate, BlockNoteIndex, BlockNoteTree, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt},
@@ -74,6 +76,7 @@ pub async fn build_actual_block_header(
         .get_block_inputs(
             updated_accounts.iter().map(|update| update.account_id()),
             produced_nullifiers.iter(),
+            iter::empty(),
         )
         .await
         .unwrap();

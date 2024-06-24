@@ -3,7 +3,11 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::AccountId, block::Block, notes::Nullifier, Digest, MIN_PROOF_SECURITY_LEVEL,
+    accounts::AccountId,
+    block::Block,
+    notes::{NoteId, Nullifier},
+    transaction::OutputNote,
+    Digest, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tokio::sync::RwLock;
@@ -31,6 +35,9 @@ pub struct DefaultStateView<S> {
 
     /// The nullifiers of notes consumed by transactions currently in the block production pipeline.
     nullifiers_in_flight: Arc<RwLock<BTreeSet<Nullifier>>>,
+
+    /// The output notes of transactions currently in the block production pipeline.
+    notes_in_flight: Arc<RwLock<BTreeSet<NoteId>>>,
 }
 
 impl<S> DefaultStateView<S>
@@ -41,8 +48,9 @@ where
         Self {
             store,
             verify_tx_proofs,
-            accounts_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
-            nullifiers_in_flight: Arc::new(RwLock::new(BTreeSet::new())),
+            accounts_in_flight: Default::default(),
+            nullifiers_in_flight: Default::default(),
+            notes_in_flight: Default::default(),
         }
     }
 }
@@ -69,15 +77,20 @@ where
         //
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
         // to quickly reject clearly infracting transactions before hitting the store (slow).
+        //
+        // On this stage we don't provide missed notes, they will be available on the second check
+        // after getting the transaction inputs.
         ensure_in_flight_constraints(
             candidate_tx,
             &*self.accounts_in_flight.read().await,
             &*self.nullifiers_in_flight.read().await,
+            &*self.notes_in_flight.read().await,
+            &[],
         )?;
 
         // Fetch the transaction inputs from the store, and check tx input constraints
         let tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
-        ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
+        let missed_notes = ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
 
         // Re-check in-flight transaction constraints, and if verification passes, register
         // transaction
@@ -87,11 +100,14 @@ where
         {
             let mut locked_accounts_in_flight = self.accounts_in_flight.write().await;
             let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
+            let mut locked_notes_in_flight = self.notes_in_flight.write().await;
 
             ensure_in_flight_constraints(
                 candidate_tx,
                 &locked_accounts_in_flight,
                 &locked_nullifiers_in_flight,
+                &locked_notes_in_flight,
+                &missed_notes,
             )?;
 
             // Success! Register transaction as successfully verified
@@ -100,6 +116,10 @@ where
             let mut nullifiers_in_tx: BTreeSet<_> =
                 candidate_tx.input_notes().iter().map(|note| note.nullifier()).collect();
             locked_nullifiers_in_flight.append(&mut nullifiers_in_tx);
+
+            let mut notes_in_tx: BTreeSet<_> =
+                candidate_tx.output_notes().iter().map(OutputNote::id).collect();
+            locked_notes_in_flight.append(&mut notes_in_tx);
         }
 
         Ok(())
@@ -120,6 +140,7 @@ where
 
         let mut locked_accounts_in_flight = self.accounts_in_flight.write().await;
         let mut locked_nullifiers_in_flight = self.nullifiers_in_flight.write().await;
+        let mut locked_notes_in_flight = self.notes_in_flight.write().await;
 
         // Remove account ids of transactions in block
         for update in block.updated_accounts() {
@@ -131,6 +152,14 @@ where
         for nullifier in block.created_nullifiers() {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
+        }
+
+        // Remove new notes of transactions in block
+        for batch in block.created_notes() {
+            for note in batch.iter() {
+                let was_in_flight = locked_notes_in_flight.remove(&note.id());
+                debug_assert!(was_in_flight);
+            }
         }
 
         Ok(())
@@ -150,6 +179,8 @@ fn ensure_in_flight_constraints(
     candidate_tx: &ProvenTransaction,
     accounts_in_flight: &BTreeSet<AccountId>,
     already_consumed_nullifiers: &BTreeSet<Nullifier>,
+    notes_in_flight: &BTreeSet<NoteId>,
+    missed_notes: &[NoteId],
 ) -> Result<(), VerifyTxError> {
     debug!(target: COMPONENT, accounts_in_flight = %format_array(accounts_in_flight), already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
 
@@ -163,13 +194,22 @@ fn ensure_in_flight_constraints(
         candidate_tx
             .input_notes()
             .iter()
-            .filter(|&commitment| already_consumed_nullifiers.contains(&commitment.nullifier()))
             .map(|commitment| commitment.nullifier())
+            .filter(|nullifier| already_consumed_nullifiers.contains(nullifier))
             .collect()
     };
 
     if !infracting_nullifiers.is_empty() {
         return Err(VerifyTxError::InputNotesAlreadyConsumed(infracting_nullifiers));
+    }
+
+    let infracting_notes: Vec<NoteId> = missed_notes
+        .iter()
+        .filter(|note_id| !notes_in_flight.contains(note_id))
+        .copied()
+        .collect();
+    if !infracting_notes.is_empty() {
+        return Err(VerifyTxError::FutureNotesNotFound(infracting_notes));
     }
 
     Ok(())
@@ -179,7 +219,7 @@ fn ensure_in_flight_constraints(
 fn ensure_tx_inputs_constraints(
     candidate_tx: &ProvenTransaction,
     tx_inputs: TransactionInputs,
-) -> Result<(), VerifyTxError> {
+) -> Result<Vec<NoteId>, VerifyTxError> {
     debug!(target: COMPONENT, %tx_inputs);
 
     match tx_inputs.account_hash {
@@ -209,13 +249,12 @@ fn ensure_tx_inputs_constraints(
     let infracting_nullifiers: Vec<Nullifier> = tx_inputs
         .nullifiers
         .into_iter()
-        .filter(|&(_, block_num)| block_num != 0)
-        .map(|(nullifier_in_tx, _)| nullifier_in_tx)
+        .filter_map(|(nullifier_in_tx, block_num)| (block_num != 0).then_some(nullifier_in_tx))
         .collect();
 
     if !infracting_nullifiers.is_empty() {
         return Err(VerifyTxError::InputNotesAlreadyConsumed(infracting_nullifiers));
     }
 
-    Ok(())
+    Ok(tx_inputs.missed_notes)
 }

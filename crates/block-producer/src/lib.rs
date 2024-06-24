@@ -21,7 +21,7 @@ pub mod server;
 // TYPE ALIASES
 // =================================================================================================
 
-/// A proven transaction that can be shared across threads
+/// A vector that can be shared across threads
 pub(crate) type SharedRwVec<T> = Arc<RwLock<Vec<T>>>;
 
 // CONSTANTS

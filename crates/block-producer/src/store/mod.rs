@@ -5,10 +5,14 @@ use std::{
 
 use async_trait::async_trait;
 use miden_node_proto::{
+    convert,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
-        requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
+        requests::{
+            ApplyBlockRequest, GetBlockInputsRequest, GetMissedNotesRequest,
+            GetTransactionInputsRequest,
+        },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
@@ -16,31 +20,39 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::{format_map, format_opt};
 use miden_objects::{
-    accounts::AccountId, block::Block, notes::Nullifier, utils::Serializable, Digest,
+    accounts::AccountId,
+    block::Block,
+    notes::{NoteId, Nullifier},
+    utils::Serializable,
+    Digest,
 };
+use miden_processor::crypto::RpoDigest;
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{block::BlockInputs, ProvenTransaction, COMPONENT};
+use crate::{block::BlockInputs, errors::GetMissedNotesError, ProvenTransaction, COMPONENT};
 
 // STORE TRAIT
 // ================================================================================================
 
 #[async_trait]
 pub trait Store: ApplyBlock {
-    /// TODO: add comments
+    /// Return information needed from the store to verify a given proven transaction.
     async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
     ) -> Result<TransactionInputs, TxInputsError>;
 
-    /// TODO: add comments
+    /// Return information needed from the store to build a block.
     async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
+
+    async fn get_missed_notes(&self, notes: &[NoteId]) -> Result<Vec<NoteId>, GetMissedNotesError>;
 }
 
 #[async_trait]
@@ -61,6 +73,8 @@ pub struct TransactionInputs {
     /// Maps each consumed notes' nullifier to block number, where the note is consumed
     /// (`zero` means, that note isn't consumed yet)
     pub nullifiers: BTreeMap<Nullifier, u32>,
+    /// List of notes that were not found in the store
+    pub missed_notes: Vec<NoteId>,
 }
 
 impl Display for TransactionInputs {
@@ -93,7 +107,18 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             nullifiers.insert(nullifier, nullifier_record.block_num);
         }
 
-        Ok(Self { account_id, account_hash, nullifiers })
+        let missed_notes = response
+            .missed_notes
+            .into_iter()
+            .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
+            .collect::<Result<Vec<_>, ConversionError>>()?;
+
+        Ok(Self {
+            account_id,
+            account_hash,
+            nullifiers,
+            missed_notes,
+        })
     }
 }
 
@@ -148,6 +173,11 @@ impl Store for DefaultStore {
                 .iter()
                 .map(|note| note.nullifier().into())
                 .collect(),
+            notes: proven_tx
+                .input_notes()
+                .iter()
+                .filter_map(|note| note.note_id().map(|id| id.into()))
+                .collect(),
         };
 
         info!(target: COMPONENT, tx_id = %proven_tx.id().to_hex());
@@ -183,10 +213,12 @@ impl Store for DefaultStore {
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let request = tonic::Request::new(GetBlockInputsRequest {
             account_ids: updated_accounts.map(Into::into).collect(),
             nullifiers: produced_nullifiers.map(digest::Digest::from).collect(),
+            notes: notes.map(digest::Digest::from).collect(),
         });
 
         let store_response = self
@@ -198,5 +230,31 @@ impl Store for DefaultStore {
             .into_inner();
 
         Ok(store_response.try_into()?)
+    }
+
+    #[instrument(target = "miden-block-producer", skip_all, err)]
+    async fn get_missed_notes(&self, notes: &[NoteId]) -> Result<Vec<NoteId>, GetMissedNotesError> {
+        let message = GetMissedNotesRequest { notes: convert(notes) };
+
+        debug!(target: COMPONENT, ?message);
+
+        let request = tonic::Request::new(message);
+        let response = self
+            .store
+            .clone()
+            .get_missed_notes(request)
+            .await
+            .map_err(|status| GetMissedNotesError::GrpcClientError(status.message().to_string()))?
+            .into_inner();
+
+        debug!(target: COMPONENT, ?response);
+
+        let missed_notes = response
+            .missed_notes
+            .into_iter()
+            .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
+            .collect::<Result<Vec<_>, ConversionError>>()?;
+
+        Ok(missed_notes)
     }
 }

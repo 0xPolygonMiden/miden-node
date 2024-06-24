@@ -1,9 +1,11 @@
+use std::collections::BTreeSet;
+
 use miden_objects::{
     accounts::AccountId,
     batches::BatchNoteTree,
     block::BlockAccountUpdate,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
-    notes::Nullifier,
+    notes::{NoteId, Nullifier},
     transaction::{OutputNote, TransactionId, TxAccountUpdate},
     Digest, MAX_NOTES_PER_BATCH,
 };
@@ -24,6 +26,7 @@ pub type BatchId = Blake3Digest<32>;
 pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: Vec<(TransactionId, TxAccountUpdate)>,
+    future_input_notes: BTreeSet<NoteId>,
     produced_nullifiers: Vec<Nullifier>,
     created_notes_smt: BatchNoteTree,
     created_notes: Vec<OutputNote>,
@@ -44,21 +47,32 @@ impl TransactionBatch {
     pub fn new(txs: Vec<ProvenTransaction>) -> Result<Self, BuildBatchError> {
         let id = Self::compute_id(&txs);
 
-        // TODO: we need to handle a possibility that a batch contains multiple transactions against
-        //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
-        //       transaction `y` takes account from state `B` to `C`). These will need to be merged
-        //       into a single "update" `A` to `C`.
-        let updated_accounts =
-            txs.iter().map(|tx| (tx.id(), tx.account_update().clone())).collect();
+        let mut updated_accounts = vec![];
+        let mut produced_nullifiers = vec![];
+        let mut future_input_notes = BTreeSet::new();
+        let mut created_notes = vec![];
+        for tx in &txs {
+            // TODO: we need to handle a possibility that a batch contains multiple transactions against
+            //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
+            //       transaction `y` takes account from state `B` to `C`). These will need to be merged
+            //       into a single "update" `A` to `C`.
+            updated_accounts.push((tx.id(), tx.account_update().clone()));
 
-        let produced_nullifiers = txs
-            .iter()
-            .flat_map(|tx| tx.input_notes().iter())
-            .map(|note| note.nullifier())
-            .collect();
+            for note in tx.input_notes() {
+                produced_nullifiers.push(note.nullifier());
+                if let Some(note_id) = note.note_id() {
+                    future_input_notes.insert(note_id);
+                }
+            }
 
-        let created_notes: Vec<_> =
-            txs.iter().flat_map(|tx| tx.output_notes().iter()).cloned().collect();
+            // Populate batch created notes, filtering out notes consumed in the same batch
+            created_notes.extend(
+                tx.output_notes()
+                    .iter()
+                    .filter(|&note| !future_input_notes.contains(&note.id()))
+                    .cloned(),
+            );
+        }
 
         if created_notes.len() > MAX_NOTES_PER_BATCH {
             return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
@@ -73,6 +87,7 @@ impl TransactionBatch {
         Ok(Self {
             id,
             updated_accounts,
+            future_input_notes,
             produced_nullifiers,
             created_notes_smt,
             created_notes,
@@ -106,6 +121,11 @@ impl TransactionBatch {
                 vec![*transaction_id],
             )
         })
+    }
+
+    /// Returns future input notes set consumed by the transactions in this batch.
+    pub fn future_input_notes(&self) -> &BTreeSet<NoteId> {
+        &self.future_input_notes
     }
 
     /// Returns an iterator over produced nullifiers for all consumed notes.

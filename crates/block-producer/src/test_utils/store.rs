@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use miden_objects::{
     block::{Block, BlockNoteTree},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    notes::Nullifier,
+    notes::{NoteId, Nullifier},
     transaction::OutputNote,
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
@@ -13,6 +13,7 @@ use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
+    errors::GetMissedNotesError,
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
@@ -231,6 +232,7 @@ impl Store for MockStoreSuccess {
             account_id: proven_tx.account_id(),
             account_hash,
             nullifiers,
+            missed_notes: Default::default(),
         })
     }
 
@@ -238,6 +240,7 @@ impl Store for MockStoreSuccess {
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        _notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
@@ -267,7 +270,15 @@ impl Store for MockStoreSuccess {
             chain_peaks,
             accounts,
             nullifiers,
+            missed_notes: Default::default(),
         })
+    }
+
+    async fn get_missed_notes(
+        &self,
+        _notes: &[NoteId],
+    ) -> Result<Vec<NoteId>, GetMissedNotesError> {
+        Ok(vec![])
     }
 }
 
@@ -294,7 +305,15 @@ impl Store for MockStoreFailure {
         &self,
         _updated_accounts: impl Iterator<Item = AccountId> + Send,
         _produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        _notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         Err(BlockInputsError::GrpcClientError(String::new()))
+    }
+
+    async fn get_missed_notes(
+        &self,
+        _notes: &[NoteId],
+    ) -> Result<Vec<NoteId>, GetMissedNotesError> {
+        Err(GetMissedNotesError::GrpcClientError(String::new()))
     }
 }

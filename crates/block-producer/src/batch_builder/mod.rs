@@ -1,7 +1,11 @@
-use std::{cmp::min, sync::Arc, time::Duration};
+use std::{cmp::min, collections::BTreeSet, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use tokio::{sync::RwLock, time};
+use miden_objects::{
+    notes::NoteId,
+    transaction::{InputNoteCommitment, OutputNote},
+};
+use tokio::time;
 use tracing::{debug, info, instrument, Span};
 
 use crate::{block_builder::BlockBuilder, ProvenTransaction, SharedRwVec, COMPONENT};
@@ -13,7 +17,7 @@ pub mod batch;
 pub use batch::TransactionBatch;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 
-use crate::errors::BuildBatchError;
+use crate::{errors::BuildBatchError, store::Store};
 
 // BATCH BUILDER
 // ================================================================================================
@@ -45,31 +49,35 @@ pub struct DefaultBatchBuilderOptions {
     pub max_batches_per_block: usize,
 }
 
-pub struct DefaultBatchBuilder<BB> {
-    /// Batches ready to be included in a block
-    ready_batches: SharedRwVec<TransactionBatch>,
+pub struct DefaultBatchBuilder<S, BB> {
+    store: Arc<S>,
 
     block_builder: Arc<BB>,
 
     options: DefaultBatchBuilderOptions,
+
+    /// Batches ready to be included in a block
+    ready_batches: SharedRwVec<TransactionBatch>,
 }
 
 // FIXME: remove the allow when the upstream clippy issue is fixed:
 // https://github.com/rust-lang/rust-clippy/issues/12281
 #[allow(clippy::blocks_in_conditions)]
-impl<BB> DefaultBatchBuilder<BB>
+impl<S, BB> DefaultBatchBuilder<S, BB>
 where
+    S: Store,
     BB: BlockBuilder,
 {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     /// Returns an new [BatchBuilder] instantiated with the provided [BlockBuilder] and the
     /// specified options.
-    pub fn new(block_builder: Arc<BB>, options: DefaultBatchBuilderOptions) -> Self {
+    pub fn new(store: Arc<S>, block_builder: Arc<BB>, options: DefaultBatchBuilderOptions) -> Self {
         Self {
-            ready_batches: Arc::new(RwLock::new(Vec::new())),
+            store,
             block_builder,
             options,
+            ready_batches: Default::default(),
         }
     }
 
@@ -112,14 +120,39 @@ where
             },
         }
     }
+
+    async fn find_dangling_notes(&self, txs: &[ProvenTransaction]) -> Vec<NoteId> {
+        // TODO: We can optimize this by looking at the notes created in the previous batches
+        let note_created: BTreeSet<NoteId> = txs
+            .iter()
+            .flat_map(|tx| tx.output_notes().iter().map(OutputNote::id))
+            .chain(
+                self.ready_batches
+                    .read()
+                    .await
+                    .iter()
+                    .flat_map(|batch| batch.created_notes().iter().map(OutputNote::id)),
+            )
+            .collect();
+
+        txs.iter()
+            .flat_map(|tx| {
+                tx.input_notes()
+                    .iter()
+                    .filter_map(InputNoteCommitment::note_id)
+                    .filter(|note_id| !note_created.contains(note_id))
+            })
+            .collect()
+    }
 }
 
 // FIXME: remove the allow when the upstream clippy issue is fixed:
 // https://github.com/rust-lang/rust-clippy/issues/12281
 #[allow(clippy::blocks_in_conditions)]
 #[async_trait]
-impl<BB> BatchBuilder for DefaultBatchBuilder<BB>
+impl<S, BB> BatchBuilder for DefaultBatchBuilder<S, BB>
 where
+    S: Store,
     BB: BlockBuilder,
 {
     #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
@@ -128,6 +161,18 @@ where
 
         info!(target: COMPONENT, num_txs, "Building a transaction batch");
         debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
+
+        let dangling_notes = self.find_dangling_notes(&txs).await;
+        if !dangling_notes.is_empty() {
+            let missed_notes = match self.store.get_missed_notes(&dangling_notes).await {
+                Ok(notes) => notes,
+                Err(err) => return Err(BuildBatchError::GetMissedNotesRequestError(err, txs)),
+            };
+
+            if !missed_notes.is_empty() {
+                return Err(BuildBatchError::FutureNotesNotFound(missed_notes, txs));
+            }
+        }
 
         let batch = TransactionBatch::new(txs)?;
 
