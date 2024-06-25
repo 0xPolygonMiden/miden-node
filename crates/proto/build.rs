@@ -6,6 +6,12 @@ use prost::Message;
 fn main() -> miette::Result<()> {
     // Compute the directory of the `proto` definitions
     let cwd: PathBuf = env::current_dir().into_diagnostic()?;
+
+    let cwd = cwd
+        .parent()
+        .and_then(|p| p.parent()) 
+        .ok_or_else(|| miette::miette!("Failed to navigate two directories up"))?;
+
     let proto_dir: PathBuf = cwd.join("proto");
 
     // Compute the compiler's target file path.

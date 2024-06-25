@@ -3,6 +3,7 @@ members = [
   "bin/node",
   "bin/faucet",
   "crates/block-producer",
+  "crates/miden-rpc-proto",
   "crates/proto",
   "crates/rpc",
   "crates/store",
