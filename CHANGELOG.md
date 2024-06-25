@@ -1,11 +1,12 @@
 # Changelog
 
-* Return a list of `TransactionSummary` objects instead of just transaction IDs in the state sync endpoint (#386).
-* Fix faucet note script so that it uses the `aux` input (#387).
+* Added crate to distribute node RPC protobuf files (#391).
+* Changed state sync endpoint to return a list of `TransactionSummary` objects instead of just transaction IDs (#386).
+* Fixed faucet note script so that it uses the `aux` input (#387).
 * Added `aux` column to notes table (#384).
 * Standardised CI and Makefile across Miden repositories (#367)
-* Remove client dependency from faucet (#368).
-* Return a list of committed transactions from the state sync endpoint (#377).
+* Removed client dependency from faucet (#368).
+* Changed sync endpoint to return a list of committed transactions (#377).
 
 ## 0.3.0 (2024-05-15)
 
