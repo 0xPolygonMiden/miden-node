@@ -1883,17 +1883,7 @@ dependencies = [
 name = "miden-rpc-proto"
 version = "0.3.0"
 dependencies = [
- "hex",
- "miden-node-utils",
- "miden-objects",
- "miette",
- "proptest",
  "prost",
- "prost-build",
- "protox",
- "thiserror",
- "tonic",
- "tonic-build",
 ]
 
 [[package]]

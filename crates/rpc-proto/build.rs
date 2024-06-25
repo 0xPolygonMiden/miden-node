@@ -11,7 +11,7 @@ const DOC_COMMENT: &str =
 fn main() -> io::Result<()> {
     let out_dir = env::current_dir().expect("Error getting cwd");
     let dest_path = Path::new(&out_dir).join("./src/proto_files.rs");
-    let mut file = File::create(&dest_path)?;
+    let mut file = File::create(dest_path)?;
 
     let proto_dir = Path::new("../../proto");
 
