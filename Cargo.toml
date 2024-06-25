@@ -4,6 +4,7 @@ members = [
   "bin/faucet",
   "crates/block-producer",
   "crates/proto",
+  "crates/rpc-proto",
   "crates/rpc",
   "crates/store",
   "crates/utils",
