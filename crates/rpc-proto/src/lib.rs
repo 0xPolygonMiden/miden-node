@@ -1,14 +1,19 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 mod proto_files;
 pub use proto_files::PROTO_FILES;
 
 /// Writes the RPC protobuf file into `target_dir`.
 #[cfg(feature = "std")]
-pub fn write_proto(target_dir: &std::path::Path) -> Result<(), String> {
+pub fn write_proto(target_dir: &std::path::Path) -> Result<(), std::string::String> {
     use std::{
+        format,
         fs::{self, File},
         io::Write,
+        string::ToString,
     };
 
     if !target_dir.exists() {
