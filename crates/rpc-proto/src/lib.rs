@@ -11,7 +11,7 @@ pub use proto_files::PROTO_FILES;
 pub fn write_proto(target_dir: &Path) -> Result<(), String> {
     if !target_dir.exists() {
         fs::create_dir_all(target_dir)
-            .map_err(|e| format!("Error creating directory: {}" e.to_string()))?;
+            .map_err(|e| format!("Error creating directory: {}", e.to_string()))?;
     } else if !target_dir.is_dir() {
         return Err("The target path exists but is not a directory".to_string());
     }
@@ -20,9 +20,9 @@ pub fn write_proto(target_dir: &Path) -> Result<(), String> {
         let mut file_path = target_dir.to_path_buf();
         file_path.push(file_name);
         let mut file = File::create(&file_path)
-            .map_err(|e| format!("Error creating file: {}" e.to_string()))?;
+            .map_err(|e| format!("Error creating {}: {}", file_name, e.to_string()))?;
         file.write_all(file_content.as_bytes())
-            .map_err(|e| format!("Error writing file: {}" e.to_string()))?;
+            .map_err(|e| format!("Error writing {}: {}", file_name, e.to_string()))?;
     }
 
     Ok(())
