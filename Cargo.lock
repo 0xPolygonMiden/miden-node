@@ -1721,6 +1721,7 @@ dependencies = [
  "rand_chacha",
  "serde",
  "tokio",
+ "toml",
  "tracing",
  "tracing-subscriber",
 ]
