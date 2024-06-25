@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 mod proto_files;
 pub use proto_files::PROTO_FILES;
 
