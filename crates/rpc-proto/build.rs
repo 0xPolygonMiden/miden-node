@@ -6,7 +6,7 @@ use std::{
 };
 
 const DOC_COMMENT: &'static str =
-    "A mapping of filenames to file contents of the node protobuf files.";
+    "A list of tuples containing the names and contents of various protobuf files.";
 
 fn main() -> io::Result<()> {
     let out_dir = env::current_dir().expect("Error getting cwd");
