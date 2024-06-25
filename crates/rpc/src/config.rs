@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use miden_node_utils::config::Endpoint;
+use miden_node_utils::config::{Endpoint, BLOCK_PRODUCER_PORT, MIDEN_NODE_PORT, STORE_PORT};
 use serde::{Deserialize, Serialize};
 
 // Main config
@@ -27,5 +27,18 @@ impl Display for RpcConfig {
             "{{ endpoint: \"{}\", store_url: \"{}\", block_producer_url: \"{}\" }}",
             self.endpoint, self.store_url, self.block_producer_url
         ))
+    }
+}
+
+impl Default for RpcConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: Endpoint {
+                host: "0.0.0.0".to_string(),
+                port: MIDEN_NODE_PORT,
+            },
+            store_url: Endpoint::localhost(STORE_PORT).to_string(),
+            block_producer_url: Endpoint::localhost(BLOCK_PRODUCER_PORT).to_string(),
+        }
     }
 }

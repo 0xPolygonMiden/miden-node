@@ -12,6 +12,10 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 
+pub const MIDEN_NODE_PORT: u16 = 57291;
+pub const BLOCK_PRODUCER_PORT: u16 = 48046;
+pub const STORE_PORT: u16 = 28943;
+
 /// The `(host, port)` pair for the server's listening socket.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct Endpoint {
@@ -19,6 +23,12 @@ pub struct Endpoint {
     pub host: String,
     /// Port number used by the store.
     pub port: u16,
+}
+
+impl Endpoint {
+    pub fn localhost(port: u16) -> Self {
+        Endpoint { host: "localhost".to_string(), port }
+    }
 }
 
 impl ToSocketAddrs for Endpoint {
