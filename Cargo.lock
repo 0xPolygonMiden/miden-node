@@ -1882,9 +1882,6 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.3.0"
-dependencies = [
- "prost",
-]
 
 [[package]]
 name = "miden-stdlib"
