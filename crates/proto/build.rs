@@ -9,7 +9,7 @@ fn main() -> miette::Result<()> {
 
     let cwd = cwd
         .parent()
-        .and_then(|p| p.parent()) 
+        .and_then(|p| p.parent())
         .ok_or_else(|| miette::miette!("Failed to navigate two directories up"))?;
 
     let proto_dir: PathBuf = cwd.join("proto");

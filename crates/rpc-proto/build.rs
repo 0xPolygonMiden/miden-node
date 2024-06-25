@@ -1,7 +1,9 @@
-use std::env;
-use std::fs::File;
-use std::io::{self, Read, Write};
-use std::path::Path;
+use std::{
+    env,
+    fs::File,
+    io::{self, Read, Write},
+    path::Path,
+};
 
 fn main() -> io::Result<()> {
     let out_dir = env::current_dir().expect("Error getting cwd");
@@ -17,7 +19,8 @@ fn main() -> io::Result<()> {
         let path = entry.path();
         if path.is_file() {
             let mut file_content = String::new();
-            let file_name = path.file_name().and_then(|f| f.to_str()).expect("Could not get file name");
+            let file_name =
+                path.file_name().and_then(|f| f.to_str()).expect("Could not get file name");
 
             File::open(&path)?.read_to_string(&mut file_content)?;
             writeln!(
