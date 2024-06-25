@@ -5,7 +5,7 @@ use std::{
     path::Path,
 };
 
-const DOC_COMMENT: &'static str =
+const DOC_COMMENT: &str =
     "A list of tuples containing the names and contents of various protobuf files.";
 
 fn main() -> io::Result<()> {
