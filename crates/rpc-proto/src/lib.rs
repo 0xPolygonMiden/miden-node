@@ -1,14 +1,14 @@
-use std::{
-    fs::{self, File},
-    io::Write,
-    path::Path,
-};
-
 mod proto_files;
 pub use proto_files::PROTO_FILES;
 
 /// Writes the RPC protobuf file into `target_dir`.
-pub fn write_proto(target_dir: &Path) -> Result<(), String> {
+#[cfg(feature = "std")]
+pub fn write_proto(target_dir: &std::path::Path) -> Result<(), String> {
+    use std::{
+        fs::{self, File},
+        io::Write,
+    };
+
     if !target_dir.exists() {
         fs::create_dir_all(target_dir)
             .map_err(|err| format!("Error creating directory: {}", err))?;

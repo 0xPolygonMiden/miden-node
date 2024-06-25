@@ -1,3 +1,4 @@
+/// A mapping of filenames to file contents of the node protobuf files.
 pub const PROTO_FILES: &[(&str, &str)] = &[
     ("note.proto", include_str!("../../../proto/note.proto")),
     ("smt.proto", include_str!("../../../proto/smt.proto")),

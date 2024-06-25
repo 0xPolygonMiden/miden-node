@@ -5,6 +5,9 @@ use std::{
     path::Path,
 };
 
+const DOC_COMMENT: &'static str =
+    "A mapping of filenames to file contents of the node protobuf files.";
+
 fn main() -> io::Result<()> {
     let out_dir = env::current_dir().expect("Error getting cwd");
     let dest_path = Path::new(&out_dir).join("./src/proto_files.rs");
@@ -12,6 +15,7 @@ fn main() -> io::Result<()> {
 
     let proto_dir = Path::new("../../proto");
 
+    writeln!(file, "/// {DOC_COMMENT}")?;
     writeln!(file, "pub const PROTO_FILES: &[(&str, &str)] = &[")?;
 
     for entry in std::fs::read_dir(proto_dir)? {
