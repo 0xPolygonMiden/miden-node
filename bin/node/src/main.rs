@@ -67,7 +67,7 @@ pub enum Command {
         #[arg(short, long, default_value = NODE_CONFIG_FILE_PATH)]
         config_path: String,
 
-        #[arg(short, long, default_value = DEFAULT_GENESIS_FILE_PATH)]
+        #[arg(short, long, default_value = DEFAULT_GENESIS_INPUTS_PATH)]
         genesis_path: String,
     },
 }
