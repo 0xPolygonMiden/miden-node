@@ -21,6 +21,7 @@ actix-cors = "0.7.0"
 actix-files = "0.6.5"
 actix-web = "4"
 async-mutex = "1.4.0"
+clap = { version = "4.3", features = ["derive"] }
 derive_more = "0.99.17"
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-lib = { workspace = true, features = ["concurrent"] }

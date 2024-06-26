@@ -1680,6 +1680,7 @@ dependencies = [
  "actix-files",
  "actix-web",
  "async-mutex",
+ "clap",
  "derive_more",
  "figment",
  "miden-lib",
