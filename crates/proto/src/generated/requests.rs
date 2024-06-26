@@ -86,7 +86,7 @@ pub struct GetTransactionInputsRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetMissedNotesRequest {
+pub struct GetMissingNotesRequest {
     #[prost(message, repeated, tag = "1")]
     pub notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }

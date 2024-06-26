@@ -74,7 +74,7 @@ message GetTransactionInputsRequest {
     repeated digest.Digest notes = 3;
 }
 
-message GetMissedNotesRequest {
+message GetMissingNotesRequest {
     repeated digest.Digest notes = 1;
 }
 

@@ -10,7 +10,7 @@ use miden_node_proto::{
     generated::{
         digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetMissedNotesRequest,
+            ApplyBlockRequest, GetBlockInputsRequest, GetMissingNotesRequest,
             GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
@@ -31,7 +31,7 @@ use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{block::BlockInputs, errors::GetMissedNotesError, ProvenTransaction, COMPONENT};
+use crate::{block::BlockInputs, errors::GetMissingNotesError, ProvenTransaction, COMPONENT};
 
 // STORE TRAIT
 // ================================================================================================
@@ -52,7 +52,10 @@ pub trait Store: ApplyBlock {
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
 
-    async fn get_missed_notes(&self, notes: &[NoteId]) -> Result<Vec<NoteId>, GetMissedNotesError>;
+    async fn get_missing_notes(
+        &self,
+        notes: &[NoteId],
+    ) -> Result<Vec<NoteId>, GetMissingNotesError>;
 }
 
 #[async_trait]
@@ -74,7 +77,7 @@ pub struct TransactionInputs {
     /// (`zero` means, that note isn't consumed yet)
     pub nullifiers: BTreeMap<Nullifier, u32>,
     /// List of notes that were not found in the store
-    pub missed_notes: Vec<NoteId>,
+    pub missing_notes: Vec<NoteId>,
 }
 
 impl Display for TransactionInputs {
@@ -107,8 +110,8 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             nullifiers.insert(nullifier, nullifier_record.block_num);
         }
 
-        let missed_notes = response
-            .missed_notes
+        let missing_notes = response
+            .missing_notes
             .into_iter()
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
             .collect::<Result<Vec<_>, ConversionError>>()?;
@@ -117,7 +120,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             account_id,
             account_hash,
             nullifiers,
-            missed_notes,
+            missing_notes,
         })
     }
 }
@@ -233,8 +236,11 @@ impl Store for DefaultStore {
     }
 
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn get_missed_notes(&self, notes: &[NoteId]) -> Result<Vec<NoteId>, GetMissedNotesError> {
-        let message = GetMissedNotesRequest { notes: convert(notes) };
+    async fn get_missing_notes(
+        &self,
+        notes: &[NoteId],
+    ) -> Result<Vec<NoteId>, GetMissingNotesError> {
+        let message = GetMissingNotesRequest { notes: convert(notes) };
 
         debug!(target: COMPONENT, ?message);
 
@@ -242,19 +248,19 @@ impl Store for DefaultStore {
         let response = self
             .store
             .clone()
-            .get_missed_notes(request)
+            .get_missing_notes(request)
             .await
-            .map_err(|status| GetMissedNotesError::GrpcClientError(status.message().to_string()))?
+            .map_err(|status| GetMissingNotesError::GrpcClientError(status.message().to_string()))?
             .into_inner();
 
         debug!(target: COMPONENT, ?response);
 
-        let missed_notes = response
-            .missed_notes
+        let missing_notes = response
+            .missing_notes
             .into_iter()
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
             .collect::<Result<Vec<_>, ConversionError>>()?;
 
-        Ok(missed_notes)
+        Ok(missing_notes)
     }
 }

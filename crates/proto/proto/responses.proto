@@ -84,7 +84,7 @@ message GetBlockInputsResponse {
     repeated NullifierBlockInputRecord nullifiers = 4;
 
     // The list of requested notes which weren't not found in the database
-    repeated digest.Digest missed_notes = 5;
+    repeated digest.Digest missing_notes = 5;
 }
 
 // An account returned as a response to the GetTransactionInputs
@@ -104,11 +104,11 @@ message NullifierTransactionInputRecord {
 message GetTransactionInputsResponse {
     AccountTransactionInputRecord account_state = 1;
     repeated NullifierTransactionInputRecord nullifiers = 2;
-    repeated digest.Digest missed_notes = 3;
+    repeated digest.Digest missing_notes = 3;
 }
 
-message GetMissedNotesResponse {
-    repeated digest.Digest missed_notes = 1;
+message GetMissingNotesResponse {
+    repeated digest.Digest missing_notes = 1;
 }
 
 message SubmitProvenTransactionResponse {}

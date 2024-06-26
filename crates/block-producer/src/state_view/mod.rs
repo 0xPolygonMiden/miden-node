@@ -78,7 +78,7 @@ where
         // This is a "soft" check, because we'll need to redo it at the end. We do this soft check
         // to quickly reject clearly infracting transactions before hitting the store (slow).
         //
-        // On this stage we don't provide missed notes, they will be available on the second check
+        // At this stage we don't provide missing notes, they will be available on the second check
         // after getting the transaction inputs.
         ensure_in_flight_constraints(
             candidate_tx,
@@ -90,7 +90,7 @@ where
 
         // Fetch the transaction inputs from the store, and check tx input constraints
         let tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
-        let missed_notes = ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
+        let missing_notes = ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
 
         // Re-check in-flight transaction constraints, and if verification passes, register
         // transaction
@@ -107,7 +107,7 @@ where
                 &locked_accounts_in_flight,
                 &locked_nullifiers_in_flight,
                 &locked_notes_in_flight,
-                &missed_notes,
+                &missing_notes,
             )?;
 
             // Success! Register transaction as successfully verified
@@ -180,7 +180,7 @@ fn ensure_in_flight_constraints(
     accounts_in_flight: &BTreeSet<AccountId>,
     already_consumed_nullifiers: &BTreeSet<Nullifier>,
     notes_in_flight: &BTreeSet<NoteId>,
-    missed_notes: &[NoteId],
+    missing_notes: &[NoteId],
 ) -> Result<(), VerifyTxError> {
     debug!(target: COMPONENT, accounts_in_flight = %format_array(accounts_in_flight), already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
 
@@ -203,7 +203,7 @@ fn ensure_in_flight_constraints(
         return Err(VerifyTxError::InputNotesAlreadyConsumed(infracting_nullifiers));
     }
 
-    let infracting_notes: Vec<NoteId> = missed_notes
+    let infracting_notes: Vec<NoteId> = missing_notes
         .iter()
         .filter(|note_id| !notes_in_flight.contains(note_id))
         .copied()
@@ -256,5 +256,5 @@ fn ensure_tx_inputs_constraints(
         return Err(VerifyTxError::InputNotesAlreadyConsumed(infracting_nullifiers));
     }
 
-    Ok(tx_inputs.missed_notes)
+    Ok(tx_inputs.missing_notes)
 }

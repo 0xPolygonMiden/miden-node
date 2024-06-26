@@ -93,7 +93,7 @@ pub struct GetBlockInputsResponse {
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
     /// The list of requested notes which weren't not found in the database
     #[prost(message, repeated, tag = "5")]
-    pub missed_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    pub missing_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 /// An account returned as a response to the GetTransactionInputs
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -123,13 +123,13 @@ pub struct GetTransactionInputsResponse {
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierTransactionInputRecord>,
     #[prost(message, repeated, tag = "3")]
-    pub missed_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    pub missing_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetMissedNotesResponse {
+pub struct GetMissingNotesResponse {
     #[prost(message, repeated, tag = "1")]
-    pub missed_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    pub missing_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

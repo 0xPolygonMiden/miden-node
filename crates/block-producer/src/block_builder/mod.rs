@@ -101,8 +101,8 @@ where
             )
             .await?;
 
-        if !block_inputs.missed_notes.is_empty() {
-            return Err(BuildBlockError::FutureNotesNotFound(block_inputs.missed_notes));
+        if !block_inputs.missing_notes.is_empty() {
+            return Err(BuildBlockError::FutureNotesNotFound(block_inputs.missing_notes));
         }
 
         let block_header_witness = BlockWitness::new(block_inputs, batches)?;

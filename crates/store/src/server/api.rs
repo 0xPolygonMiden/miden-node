@@ -10,13 +10,13 @@ use miden_node_proto::{
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
             GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
-            GetMissedNotesRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            GetMissingNotesRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
             ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
             GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetMissedNotesResponse, GetNotesByIdResponse,
+            GetBlockInputsResponse, GetMissingNotesResponse, GetNotesByIdResponse,
             GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
             ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
             SyncStateResponse,
@@ -312,7 +312,7 @@ impl api_server::Api for StoreApi {
             chain_peaks,
             account_states,
             nullifiers,
-            missed_notes,
+            missing_notes,
         } = self
             .state
             .get_block_inputs(&account_ids, &nullifiers, &notes)
@@ -324,7 +324,7 @@ impl api_server::Api for StoreApi {
             mmr_peaks: convert(chain_peaks.peaks()),
             account_states: convert(account_states),
             nullifiers: convert(nullifiers),
-            missed_notes: convert(missed_notes),
+            missing_notes: convert(missing_notes),
         }))
     }
 
@@ -362,27 +362,27 @@ impl api_server::Api for StoreApi {
                     block_num: nullifier.block_num,
                 })
                 .collect(),
-            missed_notes: tx_inputs.missed_notes.into_iter().map(Into::into).collect(),
+            missing_notes: tx_inputs.missing_notes.into_iter().map(Into::into).collect(),
         }))
     }
 
     #[instrument(
         target = "miden-store",
-        name = "store:get_missed_notes",
+        name = "store:get_missing_notes",
         skip_all,
         ret(level = "debug"),
         err
     )]
-    async fn get_missed_notes(
+    async fn get_missing_notes(
         &self,
-        request: tonic::Request<GetMissedNotesRequest>,
-    ) -> Result<Response<GetMissedNotesResponse>, Status> {
+        request: tonic::Request<GetMissingNotesRequest>,
+    ) -> Result<Response<GetMissingNotesResponse>, Status> {
         let request = request.into_inner();
         let notes = validate_notes(&request.notes)?;
-        let missed_notes = self.state.get_missed_notes(&notes).await;
+        let missing_notes = self.state.get_missing_notes(&notes).await;
 
-        Ok(Response::new(GetMissedNotesResponse {
-            missed_notes: missed_notes.into_iter().map(Into::into).collect(),
+        Ok(Response::new(GetMissingNotesResponse {
+            missing_notes: missing_notes.into_iter().map(Into::into).collect(),
         }))
     }
 

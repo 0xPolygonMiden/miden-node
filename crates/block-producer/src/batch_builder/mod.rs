@@ -164,13 +164,13 @@ where
 
         let dangling_notes = self.find_dangling_notes(&txs).await;
         if !dangling_notes.is_empty() {
-            let missed_notes = match self.store.get_missed_notes(&dangling_notes).await {
+            let missing_notes = match self.store.get_missing_notes(&dangling_notes).await {
                 Ok(notes) => notes,
-                Err(err) => return Err(BuildBatchError::GetMissedNotesRequestError(err, txs)),
+                Err(err) => return Err(BuildBatchError::GetMissingNotesRequestError(err, txs)),
             };
 
-            if !missed_notes.is_empty() {
-                return Err(BuildBatchError::FutureNotesNotFound(missed_notes, txs));
+            if !missing_notes.is_empty() {
+                return Err(BuildBatchError::FutureNotesNotFound(missing_notes, txs));
             }
         }
 

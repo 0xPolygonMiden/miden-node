@@ -16,7 +16,7 @@ service Api {
     rpc GetBlockInputs(requests.GetBlockInputsRequest) returns (responses.GetBlockInputsResponse) {}
     rpc GetNotesById(requests.GetNotesByIdRequest) returns (responses.GetNotesByIdResponse) {}
     rpc GetTransactionInputs(requests.GetTransactionInputsRequest) returns (responses.GetTransactionInputsResponse) {}
-    rpc GetMissedNotes(requests.GetMissedNotesRequest) returns (responses.GetMissedNotesResponse) {}
+    rpc GetMissingNotes(requests.GetMissingNotesRequest) returns (responses.GetMissingNotesResponse) {}
     rpc ListAccounts(requests.ListAccountsRequest) returns (responses.ListAccountsResponse) {}
     rpc ListNotes(requests.ListNotesRequest) returns (responses.ListNotesResponse) {}
     rpc ListNullifiers(requests.ListNullifiersRequest) returns (responses.ListNullifiersResponse) {}

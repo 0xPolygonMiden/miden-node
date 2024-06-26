@@ -13,7 +13,7 @@ use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
-    errors::GetMissedNotesError,
+    errors::GetMissingNotesError,
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
@@ -232,7 +232,7 @@ impl Store for MockStoreSuccess {
             account_id: proven_tx.account_id(),
             account_hash,
             nullifiers,
-            missed_notes: Default::default(),
+            missing_notes: Default::default(),
         })
     }
 
@@ -270,14 +270,14 @@ impl Store for MockStoreSuccess {
             chain_peaks,
             accounts,
             nullifiers,
-            missed_notes: Default::default(),
+            missing_notes: Default::default(),
         })
     }
 
-    async fn get_missed_notes(
+    async fn get_missing_notes(
         &self,
         _notes: &[NoteId],
-    ) -> Result<Vec<NoteId>, GetMissedNotesError> {
+    ) -> Result<Vec<NoteId>, GetMissingNotesError> {
         Ok(vec![])
     }
 }
@@ -310,10 +310,10 @@ impl Store for MockStoreFailure {
         Err(BlockInputsError::GrpcClientError(String::new()))
     }
 
-    async fn get_missed_notes(
+    async fn get_missing_notes(
         &self,
         _notes: &[NoteId],
-    ) -> Result<Vec<NoteId>, GetMissedNotesError> {
-        Err(GetMissedNotesError::GrpcClientError(String::new()))
+    ) -> Result<Vec<NoteId>, GetMissingNotesError> {
+        Err(GetMissingNotesError::GrpcClientError(String::new()))
     }
 }

@@ -286,13 +286,13 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetTransactionInputs"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn get_missed_notes(
+        pub async fn get_missing_notes(
             &mut self,
             request: impl tonic::IntoRequest<
-                super::super::requests::GetMissedNotesRequest,
+                super::super::requests::GetMissingNotesRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetMissedNotesResponse>,
+            tonic::Response<super::super::responses::GetMissingNotesResponse>,
             tonic::Status,
         > {
             self.inner
@@ -305,9 +305,11 @@ pub mod api_client {
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/store.Api/GetMissedNotes");
+            let path = http::uri::PathAndQuery::from_static(
+                "/store.Api/GetMissingNotes",
+            );
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("store.Api", "GetMissedNotes"));
+            req.extensions_mut().insert(GrpcMethod::new("store.Api", "GetMissingNotes"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn list_accounts(
@@ -467,11 +469,11 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetTransactionInputsResponse>,
             tonic::Status,
         >;
-        async fn get_missed_notes(
+        async fn get_missing_notes(
             &self,
-            request: tonic::Request<super::super::requests::GetMissedNotesRequest>,
+            request: tonic::Request<super::super::requests::GetMissingNotesRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetMissedNotesResponse>,
+            tonic::Response<super::super::responses::GetMissingNotesResponse>,
             tonic::Status,
         >;
         async fn list_accounts(
@@ -975,15 +977,15 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/store.Api/GetMissedNotes" => {
+                "/store.Api/GetMissingNotes" => {
                     #[allow(non_camel_case_types)]
-                    struct GetMissedNotesSvc<T: Api>(pub Arc<T>);
+                    struct GetMissingNotesSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::GetMissedNotesRequest,
-                    > for GetMissedNotesSvc<T> {
-                        type Response = super::super::responses::GetMissedNotesResponse;
+                        super::super::requests::GetMissingNotesRequest,
+                    > for GetMissingNotesSvc<T> {
+                        type Response = super::super::responses::GetMissingNotesResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -991,12 +993,12 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::GetMissedNotesRequest,
+                                super::super::requests::GetMissingNotesRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::get_missed_notes(&inner, request).await
+                                <T as Api>::get_missing_notes(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1008,7 +1010,7 @@ pub mod api_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = GetMissedNotesSvc(inner);
+                        let method = GetMissingNotesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

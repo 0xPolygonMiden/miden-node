@@ -56,7 +56,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
             chain_peaks,
             accounts,
             nullifiers: Default::default(),
-            missed_notes: Default::default(),
+            missing_notes: Default::default(),
         }
     };
 
@@ -129,7 +129,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
             chain_peaks,
             accounts,
             nullifiers: Default::default(),
-            missed_notes: Default::default(),
+            missing_notes: Default::default(),
         }
     };
 
@@ -552,7 +552,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
             chain_peaks,
             accounts,
             nullifiers,
-            missed_notes: Default::default(),
+            missing_notes: Default::default(),
         }
     };
 
