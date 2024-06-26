@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 pub const MIDEN_NODE_PORT: u16 = 57291;
 pub const BLOCK_PRODUCER_PORT: u16 = 48046;
 pub const STORE_PORT: u16 = 28943;
+pub const FAUCET_SERVER_PORT: u16 = 8080;
 
 /// The `(host, port)` pair for the server's listening socket.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
