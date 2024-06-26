@@ -4,7 +4,7 @@ mod errors;
 mod handlers;
 mod state;
 
-use std::path::PathBuf;
+use std::{fs::File, io::Write, path::PathBuf};
 
 use actix_cors::Cors;
 use actix_files::Files;
@@ -103,9 +103,26 @@ async fn main() -> Result<(), FaucetError> {
                 FaucetError::ConfigurationError(format!("failed to open current directory: {err}"))
             })?;
 
-            let mut config = current_dir.clone();
+            let mut config_file_path = current_dir.clone();
+            config_file_path.push(config_path);
 
-            config.push(config_path);
+            let config = FaucetConfig::default();
+            let config_as_toml_string = toml::to_string(&config).map_err(|err| {
+                FaucetError::ConfigurationError(format!(
+                    "Failed to serialize default config: {err}"
+                ))
+            })?;
+
+            let mut file_handle =
+                File::options().write(true).create_new(true).open(&config_file_path).map_err(
+                    |err| FaucetError::ConfigurationError(format!("Error opening the file: {err}")),
+                )?;
+
+            file_handle.write(config_as_toml_string.as_bytes()).map_err(|err| {
+                FaucetError::ConfigurationError(format!("Error writing to file: {err}"))
+            })?;
+
+            println!("Config file successfully created at: {:?}", config_file_path);
         },
     }
 

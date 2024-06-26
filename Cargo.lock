@@ -1692,6 +1692,7 @@ dependencies = [
  "rand_chacha",
  "serde",
  "thiserror",
+ "toml",
  "tonic",
  "tracing",
 ]

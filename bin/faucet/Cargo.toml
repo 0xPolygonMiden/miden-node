@@ -33,5 +33,6 @@ rand = { version = "0.8.5" }
 rand_chacha = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
+toml = { version = "0.8" }
 tonic = { workspace = true }
 tracing = { workspace = true }
