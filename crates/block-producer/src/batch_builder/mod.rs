@@ -123,7 +123,7 @@ where
 
     async fn find_dangling_notes(&self, txs: &[ProvenTransaction]) -> Vec<NoteId> {
         // TODO: We can optimize this by looking at the notes created in the previous batches
-        let note_created: BTreeSet<NoteId> = txs
+        let mut note_created: BTreeSet<NoteId> = txs
             .iter()
             .flat_map(|tx| tx.output_notes().iter().map(OutputNote::id))
             .chain(
@@ -136,12 +136,8 @@ where
             .collect();
 
         txs.iter()
-            .flat_map(|tx| {
-                tx.input_notes()
-                    .iter()
-                    .filter_map(InputNoteCommitment::note_id)
-                    .filter(|note_id| !note_created.contains(note_id))
-            })
+            .flat_map(|tx| tx.input_notes().iter().filter_map(InputNoteCommitment::note_id))
+            .filter(|note_id| !note_created.remove(note_id))
             .collect()
     }
 }

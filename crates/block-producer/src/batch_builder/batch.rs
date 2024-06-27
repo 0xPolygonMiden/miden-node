@@ -50,7 +50,6 @@ impl TransactionBatch {
         let mut updated_accounts = vec![];
         let mut produced_nullifiers = vec![];
         let mut unauthenticated_input_notes = BTreeSet::new();
-        let mut output_notes = vec![];
         for tx in &txs {
             // TODO: we need to handle a possibility that a batch contains multiple transactions against
             //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
@@ -64,15 +63,16 @@ impl TransactionBatch {
                     unauthenticated_input_notes.insert(note_id);
                 }
             }
-
-            // Populate batch created notes, filtering out notes consumed in the same batch
-            output_notes.extend(
-                tx.output_notes()
-                    .iter()
-                    .filter(|&note| !unauthenticated_input_notes.contains(&note.id()))
-                    .cloned(),
-            );
         }
+
+        // Populate batch created notes, filtering out notes consumed in the same batch.
+        // Consumed notes are also removed from the unauthenticated input note map.
+        let output_notes: Vec<_> = txs
+            .iter()
+            .flat_map(|tx| tx.output_notes().iter())
+            .filter(|&note| !unauthenticated_input_notes.remove(&note.id()))
+            .cloned()
+            .collect();
 
         if output_notes.len() > MAX_NOTES_PER_BATCH {
             return Err(BuildBatchError::TooManyNotesCreated(output_notes.len(), txs));
