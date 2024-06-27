@@ -24,9 +24,11 @@ pub enum VerifyTxError {
     #[error("Input notes with given nullifiers were already consumed by another transaction")]
     InputNotesAlreadyConsumed(Vec<Nullifier>),
 
-    /// Future notes were not found in the store or in outputs of in-flight transactions
-    #[error("Future notes were not found in the store or in outputs of in-flight transactions")]
-    FutureNotesNotFound(Vec<NoteId>),
+    /// Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions
+    #[error(
+        "Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions"
+    )]
+    UnauthenticatedNotesNotFound(Vec<NoteId>),
 
     /// The account's initial hash did not match the current account's hash
     #[error("Incorrect account's initial hash ({tx_initial_account_hash}, stored: {})", format_opt(.store_account_hash.as_ref()))]
@@ -78,8 +80,8 @@ pub enum BuildBatchError {
     #[error("Failed to get missing notes: {0}")]
     GetMissingNotesRequestError(GetMissingNotesError, Vec<ProvenTransaction>),
 
-    #[error("Future notes not found in the store: {0:?}")]
-    FutureNotesNotFound(Vec<NoteId>, Vec<ProvenTransaction>),
+    #[error("Unauthenticated transaction notes not found in the store: {0:?}")]
+    UnauthenticatedNotesNotFound(Vec<NoteId>, Vec<ProvenTransaction>),
 }
 
 impl BuildBatchError {
@@ -88,7 +90,7 @@ impl BuildBatchError {
             BuildBatchError::TooManyNotesCreated(_, txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
             BuildBatchError::GetMissingNotesRequestError(_, txs) => txs,
-            BuildBatchError::FutureNotesNotFound(_, txs) => txs,
+            BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
         }
     }
 }
@@ -146,8 +148,8 @@ pub enum BuildBlockError {
     InconsistentAccountStates(Vec<AccountId>),
     #[error("transaction batches and store don't produce the same nullifiers. Offending nullifiers: {0:?}")]
     InconsistentNullifiers(Vec<Nullifier>),
-    #[error("future notes not found in the store or in outputs of other transactions in the block: {0:?}")]
-    FutureNotesNotFound(Vec<NoteId>),
+    #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
+    UnauthenticatedNotesNotFound(Vec<NoteId>),
     #[error(
         "too many batches in block. Got: {0}, max: 2^{}",
         BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH

@@ -48,8 +48,8 @@ pub struct AccountWitness {
 impl TryFrom<GetBlockInputsResponse> for BlockInputs {
     type Error = BlockInputsError;
 
-    fn try_from(get_block_inputs: GetBlockInputsResponse) -> Result<Self, Self::Error> {
-        let block_header: BlockHeader = get_block_inputs
+    fn try_from(response: GetBlockInputsResponse) -> Result<Self, Self::Error> {
+        let block_header: BlockHeader = response
             .block_header
             .ok_or(GetBlockInputsResponse::missing_field(stringify!(block_header)))?
             .try_into()?;
@@ -63,7 +63,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
 
             MmrPeaks::new(
                 num_leaves,
-                get_block_inputs
+                response
                     .mmr_peaks
                     .into_iter()
                     .map(TryInto::try_into)
@@ -71,7 +71,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             )?
         };
 
-        let accounts = get_block_inputs
+        let accounts = response
             .account_states
             .into_iter()
             .map(|entry| {
@@ -84,7 +84,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             })
             .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
-        let nullifiers = get_block_inputs
+        let nullifiers = response
             .nullifiers
             .into_iter()
             .map(|entry| {
@@ -93,7 +93,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             })
             .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
-        let missing_notes = get_block_inputs
+        let missing_notes = response
             .missing_notes
             .into_iter()
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))

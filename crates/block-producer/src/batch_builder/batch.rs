@@ -26,10 +26,10 @@ pub type BatchId = Blake3Digest<32>;
 pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: Vec<(TransactionId, TxAccountUpdate)>,
-    future_input_notes: BTreeSet<NoteId>,
+    unauthenticated_input_notes: BTreeSet<NoteId>,
     produced_nullifiers: Vec<Nullifier>,
-    created_notes_smt: BatchNoteTree,
-    created_notes: Vec<OutputNote>,
+    output_notes_smt: BatchNoteTree,
+    output_notes: Vec<OutputNote>,
 }
 
 impl TransactionBatch {
@@ -49,8 +49,8 @@ impl TransactionBatch {
 
         let mut updated_accounts = vec![];
         let mut produced_nullifiers = vec![];
-        let mut future_input_notes = BTreeSet::new();
-        let mut created_notes = vec![];
+        let mut unauthenticated_input_notes = BTreeSet::new();
+        let mut output_notes = vec![];
         for tx in &txs {
             // TODO: we need to handle a possibility that a batch contains multiple transactions against
             //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
@@ -61,36 +61,36 @@ impl TransactionBatch {
             for note in tx.input_notes() {
                 produced_nullifiers.push(note.nullifier());
                 if let Some(note_id) = note.note_id() {
-                    future_input_notes.insert(note_id);
+                    unauthenticated_input_notes.insert(note_id);
                 }
             }
 
             // Populate batch created notes, filtering out notes consumed in the same batch
-            created_notes.extend(
+            output_notes.extend(
                 tx.output_notes()
                     .iter()
-                    .filter(|&note| !future_input_notes.contains(&note.id()))
+                    .filter(|&note| !unauthenticated_input_notes.contains(&note.id()))
                     .cloned(),
             );
         }
 
-        if created_notes.len() > MAX_NOTES_PER_BATCH {
-            return Err(BuildBatchError::TooManyNotesCreated(created_notes.len(), txs));
+        if output_notes.len() > MAX_NOTES_PER_BATCH {
+            return Err(BuildBatchError::TooManyNotesCreated(output_notes.len(), txs));
         }
 
         // TODO: document under what circumstances SMT creating can fail
-        let created_notes_smt = BatchNoteTree::with_contiguous_leaves(
-            created_notes.iter().map(|note| (note.id(), note.metadata())),
+        let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
+            output_notes.iter().map(|note| (note.id(), note.metadata())),
         )
         .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?;
 
         Ok(Self {
             id,
             updated_accounts,
-            future_input_notes,
+            unauthenticated_input_notes,
             produced_nullifiers,
-            created_notes_smt,
-            created_notes,
+            output_notes_smt,
+            output_notes,
         })
     }
 
@@ -123,9 +123,9 @@ impl TransactionBatch {
         })
     }
 
-    /// Returns future input notes set consumed by the transactions in this batch.
-    pub fn future_input_notes(&self) -> &BTreeSet<NoteId> {
-        &self.future_input_notes
+    /// Returns unauthenticated input notes set consumed by the transactions in this batch.
+    pub fn unauthenticated_input_notes(&self) -> &BTreeSet<NoteId> {
+        &self.unauthenticated_input_notes
     }
 
     /// Returns an iterator over produced nullifiers for all consumed notes.
@@ -133,14 +133,14 @@ impl TransactionBatch {
         self.produced_nullifiers.iter().cloned()
     }
 
-    /// Returns the root hash of the created notes SMT.
-    pub fn created_notes_root(&self) -> Digest {
-        self.created_notes_smt.root()
+    /// Returns the root hash of the output notes SMT.
+    pub fn output_notes_root(&self) -> Digest {
+        self.output_notes_smt.root()
     }
 
-    /// Returns created notes list.
-    pub fn created_notes(&self) -> &Vec<OutputNote> {
-        &self.created_notes
+    /// Returns output notes list.
+    pub fn output_notes(&self) -> &Vec<OutputNote> {
+        &self.output_notes
     }
 
     // HELPER FUNCTIONS

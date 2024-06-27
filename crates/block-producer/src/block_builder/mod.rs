@@ -77,7 +77,7 @@ where
             batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
 
         let created_notes: Vec<_> =
-            batches.iter().map(TransactionBatch::created_notes).cloned().collect();
+            batches.iter().map(TransactionBatch::output_notes).cloned().collect();
 
         let produced_nullifiers: Vec<Nullifier> =
             batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
@@ -89,7 +89,7 @@ where
 
         let dangling_notes = batches
             .iter()
-            .flat_map(TransactionBatch::future_input_notes)
+            .flat_map(TransactionBatch::unauthenticated_input_notes)
             .filter(|&note_id| !created_notes_set.contains(note_id));
 
         let block_inputs = self
@@ -102,7 +102,7 @@ where
             .await?;
 
         if !block_inputs.missing_notes.is_empty() {
-            return Err(BuildBlockError::FutureNotesNotFound(block_inputs.missing_notes));
+            return Err(BuildBlockError::UnauthenticatedNotesNotFound(block_inputs.missing_notes));
         }
 
         let block_header_witness = BlockWitness::new(block_inputs, batches)?;

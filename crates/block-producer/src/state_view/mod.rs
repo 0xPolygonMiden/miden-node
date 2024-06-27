@@ -174,13 +174,14 @@ where
 ///   transaction (issue: #186)
 /// - no consumed note's nullifier in candidate tx's consumed notes is already contained in
 ///   `already_consumed_nullifiers`
+/// - all notes which not found in Store are in in-flight notes
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
     candidate_tx: &ProvenTransaction,
     accounts_in_flight: &BTreeSet<AccountId>,
     already_consumed_nullifiers: &BTreeSet<Nullifier>,
     notes_in_flight: &BTreeSet<NoteId>,
-    missing_notes: &[NoteId],
+    tx_notes_not_in_store: &[NoteId],
 ) -> Result<(), VerifyTxError> {
     debug!(target: COMPONENT, accounts_in_flight = %format_array(accounts_in_flight), already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
 
@@ -203,18 +204,25 @@ fn ensure_in_flight_constraints(
         return Err(VerifyTxError::InputNotesAlreadyConsumed(infracting_nullifiers));
     }
 
-    let infracting_notes: Vec<NoteId> = missing_notes
+    // Check all notes not found in Store are in in-flight notes, return list of missing notes
+    let missing_notes: Vec<NoteId> = tx_notes_not_in_store
         .iter()
         .filter(|note_id| !notes_in_flight.contains(note_id))
         .copied()
         .collect();
-    if !infracting_notes.is_empty() {
-        return Err(VerifyTxError::FutureNotesNotFound(infracting_notes));
+    if !missing_notes.is_empty() {
+        return Err(VerifyTxError::UnauthenticatedNotesNotFound(missing_notes));
     }
 
     Ok(())
 }
 
+/// Ensures the constraints related to transaction inputs:
+/// - the candidate transaction's initial account state hash must be the same as the one
+///   in the Store or empty for new accounts
+/// - input notes must not be already consumed
+///
+/// Returns a list of input notes that were not found in the Store
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_tx_inputs_constraints(
     candidate_tx: &ProvenTransaction,

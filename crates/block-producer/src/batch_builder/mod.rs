@@ -131,7 +131,7 @@ where
                     .read()
                     .await
                     .iter()
-                    .flat_map(|batch| batch.created_notes().iter().map(OutputNote::id)),
+                    .flat_map(|batch| batch.output_notes().iter().map(OutputNote::id)),
             )
             .collect();
 
@@ -170,7 +170,7 @@ where
             };
 
             if !missing_notes.is_empty() {
-                return Err(BuildBatchError::FutureNotesNotFound(missing_notes, txs));
+                return Err(BuildBatchError::UnauthenticatedNotesNotFound(missing_notes, txs));
             }
         }
 

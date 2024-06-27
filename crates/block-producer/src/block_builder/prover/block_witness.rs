@@ -73,8 +73,8 @@ impl BlockWitness {
         let batch_created_notes_roots = batches
             .iter()
             .enumerate()
-            .filter(|(_, batch)| !batch.created_notes().is_empty())
-            .map(|(batch_index, batch)| (batch_index, batch.created_notes_root()))
+            .filter(|(_, batch)| !batch.output_notes().is_empty())
+            .map(|(batch_index, batch)| (batch_index, batch.output_notes_root()))
             .collect();
 
         Ok(Self {
