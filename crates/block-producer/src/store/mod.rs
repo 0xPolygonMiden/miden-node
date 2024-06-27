@@ -38,13 +38,13 @@ use crate::{block::BlockInputs, errors::GetMissingNotesError, ProvenTransaction,
 
 #[async_trait]
 pub trait Store: ApplyBlock {
-    /// Return information needed from the store to verify a given proven transaction.
+    /// Returns information needed from the store to verify a given proven transaction.
     async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
     ) -> Result<TransactionInputs, TxInputsError>;
 
-    /// Return information needed from the store to build a block.
+    /// Returns information needed from the store to build a block.
     async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
