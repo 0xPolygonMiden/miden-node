@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use miden_node_utils::config::{Endpoint, FAUCET_SERVER_PORT, MIDEN_NODE_PORT};
+use miden_node_utils::config::{Endpoint, DEFAULT_FAUCET_SERVER_PORT, DEFAULT_NODE_RPC_PORT};
 use serde::{Deserialize, Serialize};
 
 // Faucet config
@@ -47,8 +47,8 @@ impl Display for FaucetConfig {
 impl Default for FaucetConfig {
     fn default() -> Self {
         Self {
-            endpoint: Endpoint::localhost(FAUCET_SERVER_PORT),
-            node_url: Endpoint::localhost(MIDEN_NODE_PORT).to_string(),
+            endpoint: Endpoint::localhost(DEFAULT_FAUCET_SERVER_PORT),
+            node_url: Endpoint::localhost(DEFAULT_NODE_RPC_PORT).to_string(),
             timeout_ms: 10000,
             database_filepath: PathBuf::from("store.sqlite3"),
             asset_amount_options: vec![100, 500, 1000],

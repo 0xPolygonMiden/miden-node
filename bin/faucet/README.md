@@ -14,7 +14,7 @@ make docker-run-node
 make install-faucet-testing
 ```
 
-3. Create the faucet configuration file:
+3. Create the default faucet configuration file:
 ```bash
 miden-faucet init
 ```

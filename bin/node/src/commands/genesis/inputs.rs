@@ -48,7 +48,6 @@ pub enum AuthSchemeInput {
 
 impl Default for GenesisInput {
     fn default() -> Self {
-        const SEED_SUFFIX: &str = "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         Self {
             version: 1,
             timestamp: SystemTime::now()
@@ -57,15 +56,19 @@ impl Default for GenesisInput {
                 .as_secs() as u32,
             accounts: vec![
                 AccountInput::BasicWallet(BasicWalletInputs {
-                    init_seed: "0xa".to_string() + SEED_SUFFIX,
+                    init_seed: "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                        .to_string(),
                     auth_scheme: AuthSchemeInput::RpoFalcon512,
-                    auth_seed: "0xb".to_string() + SEED_SUFFIX,
+                    auth_seed: "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                        .to_string(),
                     storage_mode: "off-chain".to_string(),
                 }),
                 AccountInput::BasicFungibleFaucet(BasicFungibleFaucetInputs {
-                    init_seed: "0xc".to_string() + SEED_SUFFIX,
+                    init_seed: "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                        .to_string(),
                     auth_scheme: AuthSchemeInput::RpoFalcon512,
-                    auth_seed: "0xd".to_string() + SEED_SUFFIX,
+                    auth_seed: "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                        .to_string(),
                     token_symbol: "POL".to_string(),
                     decimals: 12,
                     max_supply: 1000000,

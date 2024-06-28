@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use miden_node_utils::config::{Endpoint, STORE_PORT};
+use miden_node_utils::config::{Endpoint, DEFAULT_STORE_PORT};
 use serde::{Deserialize, Serialize};
 
 // Main config
@@ -40,7 +40,7 @@ impl Default for StoreConfig {
     fn default() -> Self {
         const NODE_STORE_DIR: &str = "./";
         Self {
-            endpoint: Endpoint::localhost(STORE_PORT),
+            endpoint: Endpoint::localhost(DEFAULT_STORE_PORT),
             database_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "miden-store.sqlite3"),
             genesis_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "genesis.dat"),
             blockstore_dir: PathBuf::from(NODE_STORE_DIR.to_string() + "blocks"),
