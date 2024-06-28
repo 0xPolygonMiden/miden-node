@@ -344,9 +344,12 @@ impl api_server::Api for StoreApi {
 
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let notes = validate_notes(&request.unauthenticated_notes)?;
+        let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
-        let tx_inputs = self.state.get_transaction_inputs(account_id, &nullifiers, &notes).await;
+        let tx_inputs = self
+            .state
+            .get_transaction_inputs(account_id, &nullifiers, &unauthenticated_notes)
+            .await;
 
         Ok(Response::new(GetTransactionInputsResponse {
             account_state: Some(AccountTransactionInputRecord {

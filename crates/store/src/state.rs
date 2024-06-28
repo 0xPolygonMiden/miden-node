@@ -445,7 +445,7 @@ impl State {
         &self,
         account_ids: &[AccountId],
         nullifiers: &[Nullifier],
-        notes: &[NoteId],
+        unauthenticated_notes: &[NoteId],
     ) -> Result<BlockInputs, GetBlockInputsError> {
         let inner = self.inner.read().await;
 
@@ -494,7 +494,7 @@ impl State {
             })
             .collect();
 
-        let found_unauthenticated_notes = filter_found_notes(notes, &inner.notes);
+        let found_unauthenticated_notes = filter_found_notes(unauthenticated_notes, &inner.notes);
 
         Ok(BlockInputs {
             block_header: latest,
@@ -511,7 +511,7 @@ impl State {
         &self,
         account_id: AccountId,
         nullifiers: &[Nullifier],
-        notes: &[NoteId],
+        unauthenticated_notes: &[NoteId],
     ) -> TransactionInputs {
         info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
 
@@ -527,12 +527,12 @@ impl State {
             })
             .collect();
 
-        let missing_notes = filter_found_notes(notes, &inner.notes);
+        let missing_unauthenticated_notes = filter_found_notes(unauthenticated_notes, &inner.notes);
 
         TransactionInputs {
             account_hash,
             nullifiers,
-            missing_unauthenticated_notes: missing_notes,
+            missing_unauthenticated_notes,
         }
     }
 
