@@ -21,6 +21,7 @@ use miden_objects::{
     },
     Digest, Felt, ONE,
 };
+use tracing::info;
 
 mod inputs;
 
@@ -80,10 +81,10 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
     let genesis_input: GenesisInput = load_config(inputs_path).extract().map_err(|err| {
         anyhow!("Failed to load {} genesis input file: {err}", inputs_path.display())
     })?;
-    println!("Genesis input file: {} has successfully been loaded.", output_path.display());
+    info!("Genesis input file: {} has successfully been loaded.", output_path.display());
 
     let accounts = create_accounts(&genesis_input.accounts, parent_path, force)?;
-    println!(
+    info!(
         "Accounts have successfully been created at: {}/{}",
         parent_path.display(),
         DEFAULT_ACCOUNTS_DIR
@@ -93,7 +94,7 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
     fs::write(output_path, genesis_state.to_bytes()).unwrap_or_else(|_| {
         panic!("Failed to write genesis state to output file {}", output_path.display())
     });
-    println!("Miden node genesis successful: {} has been created", output_path.display());
+    info!("Miden node genesis successful: {} has been created", output_path.display());
 
     Ok(())
 }
@@ -120,7 +121,7 @@ fn create_accounts(
         // build offchain account data from account inputs
         let mut account_data = match account {
             AccountInput::BasicWallet(inputs) => {
-                print!("Creating basic wallet account...");
+                info!("Creating basic wallet account...");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
 
                 let (auth_scheme, auth_secret_key) =
@@ -136,7 +137,7 @@ fn create_accounts(
                 AccountData::new(account, Some(account_seed), auth_secret_key)
             },
             AccountInput::BasicFungibleFaucet(inputs) => {
-                println!("Creating fungible faucet account...");
+                info!("Creating fungible faucet account...");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
 
                 let (auth_scheme, auth_secret_key) =
