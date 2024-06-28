@@ -276,7 +276,7 @@ impl Store for MockStoreSuccess {
         })
     }
 
-    async fn get_note_paths(
+    async fn get_note_authentication_info(
         &self,
         _notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
@@ -312,7 +312,7 @@ impl Store for MockStoreFailure {
         Err(BlockInputsError::GrpcClientError(String::new()))
     }
 
-    async fn get_note_paths(
+    async fn get_note_authentication_info(
         &self,
         _notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {

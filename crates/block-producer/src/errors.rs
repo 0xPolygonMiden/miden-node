@@ -81,7 +81,7 @@ pub enum BuildBatchError {
     NotePathsError(NotePathsError, Vec<ProvenTransaction>),
 
     #[error("Duplicated note ID in the batch: {0}")]
-    DuplicatedNoteId(NoteId, Vec<ProvenTransaction>),
+    DuplicateUnauthenticatedNote(NoteId, Vec<ProvenTransaction>),
 
     #[error("Unauthenticated transaction notes not found in the store: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>, Vec<ProvenTransaction>),
@@ -93,7 +93,7 @@ impl BuildBatchError {
             BuildBatchError::TooManyNotesCreated(_, txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
             BuildBatchError::NotePathsError(_, txs) => txs,
-            BuildBatchError::DuplicatedNoteId(_, txs) => txs,
+            BuildBatchError::DuplicateUnauthenticatedNote(_, txs) => txs,
             BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
         }
     }

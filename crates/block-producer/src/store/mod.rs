@@ -52,7 +52,14 @@ pub trait Store: ApplyBlock {
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
 
-    async fn get_note_paths(
+    /// Returns note authentication information for the set of specified notes.
+    ///
+    /// If authentication info could for a note does not exist in the store, the note is omitted
+    /// from the returned set of notes.
+    ///
+    /// TODO: right now this return only Merkle paths per note, but this will need to be updated to
+    /// return full authentication info.
+    async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError>;
@@ -230,7 +237,7 @@ impl Store for DefaultStore {
         Ok(store_response.try_into()?)
     }
 
-    async fn get_note_paths(
+    async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
