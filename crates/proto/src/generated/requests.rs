@@ -86,12 +86,6 @@ pub struct GetTransactionInputsRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetMissingNotesRequest {
-    #[prost(message, repeated, tag = "1")]
-    pub notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubmitProvenTransactionRequest {
     /// Transaction encoded using miden's native format
     #[prost(bytes = "vec", tag = "1")]

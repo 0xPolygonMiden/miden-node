@@ -5,12 +5,11 @@ use std::{
 
 use async_trait::async_trait;
 use miden_node_proto::{
-    convert,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
-        digest,
+        digest, note,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetMissingNotesRequest,
+            ApplyBlockRequest, GetBlockInputsRequest, GetNotesByIdRequest,
             GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
@@ -22,6 +21,7 @@ use miden_node_utils::formatting::{format_map, format_opt};
 use miden_objects::{
     accounts::AccountId,
     block::Block,
+    crypto::merkle::MerklePath,
     notes::{NoteId, Nullifier},
     utils::Serializable,
     Digest,
@@ -31,7 +31,7 @@ use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{block::BlockInputs, errors::GetMissingNotesError, ProvenTransaction, COMPONENT};
+use crate::{block::BlockInputs, errors::NotePathsError, ProvenTransaction, COMPONENT};
 
 // STORE TRAIT
 // ================================================================================================
@@ -52,10 +52,10 @@ pub trait Store: ApplyBlock {
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
 
-    async fn get_missing_notes(
+    async fn get_note_paths(
         &self,
-        notes: &[NoteId],
-    ) -> Result<Vec<NoteId>, GetMissingNotesError>;
+        notes: impl Iterator<Item = &NoteId> + Send,
+    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError>;
 }
 
 #[async_trait]
@@ -235,32 +235,36 @@ impl Store for DefaultStore {
         Ok(store_response.try_into()?)
     }
 
-    #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn get_missing_notes(
+    async fn get_note_paths(
         &self,
-        notes: &[NoteId],
-    ) -> Result<Vec<NoteId>, GetMissingNotesError> {
-        let message = GetMissingNotesRequest { notes: convert(notes) };
+        notes: impl Iterator<Item = &NoteId> + Send,
+    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
+        let request = tonic::Request::new(GetNotesByIdRequest {
+            note_ids: notes.map(digest::Digest::from).collect(),
+        });
 
-        debug!(target: COMPONENT, ?message);
-
-        let request = tonic::Request::new(message);
-        let response = self
+        let store_response = self
             .store
             .clone()
-            .get_missing_notes(request)
+            .get_notes_by_id(request)
             .await
-            .map_err(|status| GetMissingNotesError::GrpcClientError(status.message().to_string()))?
+            .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
             .into_inner();
 
-        debug!(target: COMPONENT, ?response);
-
-        let missing_notes = response
-            .missing_notes
+        Ok(store_response
+            .notes
             .into_iter()
-            .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
-            .collect::<Result<Vec<_>, ConversionError>>()?;
-
-        Ok(missing_notes)
+            .map(|note| {
+                Ok((
+                    RpoDigest::try_from(
+                        note.note_id.ok_or(note::Note::missing_field(stringify!(note_id)))?,
+                    )?
+                    .into(),
+                    note.merkle_path
+                        .ok_or(note::Note::missing_field(stringify!(merkle_path)))?
+                        .try_into()?,
+                ))
+            })
+            .collect::<Result<BTreeMap<_, _>, ConversionError>>()?)
     }
 }

@@ -160,10 +160,14 @@ where
 
         let dangling_notes = self.find_dangling_notes(&txs).await;
         if !dangling_notes.is_empty() {
-            let missing_notes = match self.store.get_missing_notes(&dangling_notes).await {
-                Ok(notes) => notes,
-                Err(err) => return Err(BuildBatchError::GetMissingNotesRequestError(err, txs)),
+            let stored_notes = match self.store.get_note_paths(dangling_notes.iter()).await {
+                Ok(stored_notes) => stored_notes,
+                Err(err) => return Err(BuildBatchError::NotePathsError(err, txs)),
             };
+            let missing_notes: Vec<_> = dangling_notes
+                .into_iter()
+                .filter(|note_id| !stored_notes.contains_key(note_id))
+                .collect();
 
             if !missing_notes.is_empty() {
                 return Err(BuildBatchError::UnauthenticatedNotesNotFound(missing_notes, txs));

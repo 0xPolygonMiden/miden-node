@@ -74,10 +74,6 @@ message GetTransactionInputsRequest {
     repeated digest.Digest notes = 3;
 }
 
-message GetMissingNotesRequest {
-    repeated digest.Digest notes = 1;
-}
-
 message SubmitProvenTransactionRequest {
     // Transaction encoded using miden's native format
     bytes transaction = 1;

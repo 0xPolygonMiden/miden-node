@@ -10,16 +10,15 @@ use miden_node_proto::{
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
             GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
-            GetMissingNotesRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
-            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
             GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetMissingNotesResponse, GetNotesByIdResponse,
-            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
-            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
-            SyncStateResponse,
+            GetBlockInputsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -363,26 +362,6 @@ impl api_server::Api for StoreApi {
                 })
                 .collect(),
             missing_notes: tx_inputs.missing_notes.into_iter().map(Into::into).collect(),
-        }))
-    }
-
-    #[instrument(
-        target = "miden-store",
-        name = "store:get_missing_notes",
-        skip_all,
-        ret(level = "debug"),
-        err
-    )]
-    async fn get_missing_notes(
-        &self,
-        request: tonic::Request<GetMissingNotesRequest>,
-    ) -> Result<Response<GetMissingNotesResponse>, Status> {
-        let request = request.into_inner();
-        let notes = validate_notes(&request.notes)?;
-        let missing_notes = self.state.get_missing_notes(&notes).await;
-
-        Ok(Response::new(GetMissingNotesResponse {
-            missing_notes: missing_notes.into_iter().map(Into::into).collect(),
         }))
     }
 

@@ -107,10 +107,6 @@ message GetTransactionInputsResponse {
     repeated digest.Digest missing_notes = 3;
 }
 
-message GetMissingNotesResponse {
-    repeated digest.Digest missing_notes = 1;
-}
-
 message SubmitProvenTransactionResponse {}
 
 message GetNotesByIdResponse {

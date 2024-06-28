@@ -77,8 +77,8 @@ pub enum BuildBatchError {
     #[error("Failed to create notes SMT: {0}")]
     NotesSmtError(MerkleError, Vec<ProvenTransaction>),
 
-    #[error("Failed to get missing notes: {0}")]
-    GetMissingNotesRequestError(GetMissingNotesError, Vec<ProvenTransaction>),
+    #[error("Failed to get note paths: {0}")]
+    NotePathsError(NotePathsError, Vec<ProvenTransaction>),
 
     #[error("Unauthenticated transaction notes not found in the store: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>, Vec<ProvenTransaction>),
@@ -89,7 +89,7 @@ impl BuildBatchError {
         match self {
             BuildBatchError::TooManyNotesCreated(_, txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
-            BuildBatchError::GetMissingNotesRequestError(_, txs) => txs,
+            BuildBatchError::NotePathsError(_, txs) => txs,
             BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
         }
     }
@@ -118,6 +118,18 @@ pub enum BlockInputsError {
     ConversionError(#[from] ConversionError),
     #[error("MmrPeaks error: {0}")]
     MmrPeaksError(#[from] MmrError),
+    #[error("gRPC client failed with error: {0}")]
+    GrpcClientError(String),
+}
+
+// Note paths errors
+// =================================================================================================
+
+#[allow(clippy::enum_variant_names)]
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum NotePathsError {
+    #[error("failed to parse protobuf message: {0}")]
+    ConversionError(#[from] ConversionError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
 }
@@ -170,15 +182,4 @@ pub enum TxInputsError {
     ConversionError(#[from] ConversionError),
     #[error("dummy")]
     Dummy,
-}
-
-// Get missing notes request errors
-// =================================================================================================
-
-#[derive(Debug, PartialEq, Eq, Error)]
-pub enum GetMissingNotesError {
-    #[error("gRPC client failed with error: {0}")]
-    GrpcClientError(String),
-    #[error("failed to parse protobuf message: {0}")]
-    ConversionError(#[from] ConversionError),
 }

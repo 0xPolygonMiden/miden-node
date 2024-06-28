@@ -1,9 +1,9 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use async_trait::async_trait;
 use miden_objects::{
     block::{Block, BlockNoteTree},
-    crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
+    crypto::merkle::{MerklePath, Mmr, SimpleSmt, Smt, ValuePath},
     notes::{NoteId, Nullifier},
     transaction::OutputNote,
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
@@ -13,7 +13,7 @@ use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
-    errors::GetMissingNotesError,
+    errors::NotePathsError,
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
@@ -274,11 +274,11 @@ impl Store for MockStoreSuccess {
         })
     }
 
-    async fn get_missing_notes(
+    async fn get_note_paths(
         &self,
-        _notes: &[NoteId],
-    ) -> Result<Vec<NoteId>, GetMissingNotesError> {
-        Ok(vec![])
+        _notes: impl Iterator<Item = &NoteId> + Send,
+    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
+        todo!()
     }
 }
 
@@ -310,10 +310,10 @@ impl Store for MockStoreFailure {
         Err(BlockInputsError::GrpcClientError(String::new()))
     }
 
-    async fn get_missing_notes(
+    async fn get_note_paths(
         &self,
-        _notes: &[NoteId],
-    ) -> Result<Vec<NoteId>, GetMissingNotesError> {
-        Err(GetMissingNotesError::GrpcClientError(String::new()))
+        _notes: impl Iterator<Item = &NoteId> + Send,
+    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
+        Err(NotePathsError::GrpcClientError(String::new()))
     }
 }

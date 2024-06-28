@@ -127,12 +127,6 @@ pub struct GetTransactionInputsResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetMissingNotesResponse {
-    #[prost(message, repeated, tag = "1")]
-    pub missing_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubmitProvenTransactionResponse {}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
