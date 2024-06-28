@@ -1,5 +1,6 @@
 # Changelog
 
+* Add `init` command for node and faucet (#392).
 * Added crate to distribute node RPC protobuf files (#391).
 * Changed state sync endpoint to return a list of `TransactionSummary` objects instead of just transaction IDs (#386).
 * Fixed faucet note script so that it uses the `aux` input (#387).

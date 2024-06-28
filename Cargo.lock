@@ -1680,6 +1680,7 @@ dependencies = [
  "actix-files",
  "actix-web",
  "async-mutex",
+ "clap",
  "derive_more",
  "figment",
  "miden-lib",
@@ -1691,6 +1692,7 @@ dependencies = [
  "rand_chacha",
  "serde",
  "thiserror",
+ "toml",
  "tonic",
  "tracing",
 ]
@@ -1721,6 +1723,7 @@ dependencies = [
  "rand_chacha",
  "serde",
  "tokio",
+ "toml",
  "tracing",
  "tracing-subscriber",
 ]

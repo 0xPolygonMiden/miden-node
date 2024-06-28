@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
+pub use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
 use miden_lib::{
     accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
     AuthScheme,
