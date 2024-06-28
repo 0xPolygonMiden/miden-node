@@ -113,8 +113,7 @@ where
             // Success! Register transaction as successfully verified
             locked_accounts_in_flight.insert(candidate_tx.account_id());
 
-            let mut nullifiers_in_tx: BTreeSet<_> =
-                candidate_tx.input_notes().iter().map(|note| note.nullifier()).collect();
+            let mut nullifiers_in_tx: BTreeSet<_> = candidate_tx.get_nullifiers().collect();
             locked_nullifiers_in_flight.append(&mut nullifiers_in_tx);
 
             let mut notes_in_tx: BTreeSet<_> =
@@ -193,9 +192,7 @@ fn ensure_in_flight_constraints(
     // Check no consumed notes were already consumed
     let infracting_nullifiers: Vec<Nullifier> = {
         candidate_tx
-            .input_notes()
-            .iter()
-            .map(|commitment| commitment.nullifier())
+            .get_nullifiers()
             .filter(|nullifier| already_consumed_nullifiers.contains(nullifier))
             .collect()
     };
