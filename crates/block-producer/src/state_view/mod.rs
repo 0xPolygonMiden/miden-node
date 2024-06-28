@@ -88,7 +88,10 @@ where
             &[],
         )?;
 
-        // Fetch the transaction inputs from the store, and check tx input constraints
+        // Fetch the transaction inputs from the store, and check tx input constraints; this will
+        // identify a set of unauthenticated input notes which are not in the store yet; we'll use
+        // this set to verify that these notes are currently in flight (i.e., they are output notes
+        // of one of the inflight transactions)
         let tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
         let missing_notes = ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
 
@@ -112,13 +115,8 @@ where
 
             // Success! Register transaction as successfully verified
             locked_accounts_in_flight.insert(candidate_tx.account_id());
-
-            let mut nullifiers_in_tx: BTreeSet<_> = candidate_tx.get_nullifiers().collect();
-            locked_nullifiers_in_flight.append(&mut nullifiers_in_tx);
-
-            let mut notes_in_tx: BTreeSet<_> =
-                candidate_tx.output_notes().iter().map(OutputNote::id).collect();
-            locked_notes_in_flight.append(&mut notes_in_tx);
+            locked_nullifiers_in_flight.extend(&mut candidate_tx.get_nullifiers());
+            locked_notes_in_flight.extend(candidate_tx.output_notes().iter().map(OutputNote::id));
         }
 
         Ok(())
@@ -171,9 +169,9 @@ where
 /// Ensures the constraints related to in-flight transactions:
 /// - the candidate transaction doesn't modify the same account as an existing in-flight
 ///   transaction (issue: #186)
-/// - no consumed note's nullifier in candidate tx's consumed notes is already contained in
+/// - no note's nullifier in candidate tx's consumed notes is already contained in
 ///   `already_consumed_nullifiers`
-/// - all notes which not found in Store are in in-flight notes
+/// - all notes in `tx_notes_not_in_store` are currently in flight
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
     candidate_tx: &ProvenTransaction,
@@ -201,7 +199,7 @@ fn ensure_in_flight_constraints(
         return Err(VerifyTxError::InputNotesAlreadyConsumed(infracting_nullifiers));
     }
 
-    // Check all notes not found in Store are in in-flight notes, return list of missing notes
+    // Check all notes not found in store are in in-flight notes, return list of missing notes
     let missing_notes: Vec<NoteId> = tx_notes_not_in_store
         .iter()
         .filter(|note_id| !notes_in_flight.contains(note_id))
