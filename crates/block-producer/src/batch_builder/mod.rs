@@ -133,7 +133,7 @@ where
             .collect();
 
         txs.iter()
-            .flat_map(ProvenTransaction::get_unauthenticated_notes)
+            .flat_map(|tx| tx.get_unauthenticated_notes().map(|note| note.id()))
             .filter(|note_id| !note_created.remove(note_id))
             .collect()
     }
