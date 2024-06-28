@@ -18,8 +18,8 @@ pub fn format_opt<T: Display>(opt: Option<&T>) -> String {
 }
 
 pub fn format_input_notes(notes: &InputNotes<InputNoteCommitment>) -> String {
-    format_array(notes.iter().map(|c| match c.note_id() {
-        Some(note_id) => format!("({}, {})", c.nullifier().to_hex(), note_id.to_hex()),
+    format_array(notes.iter().map(|c| match c.header() {
+        Some(header) => format!("({}, {})", c.nullifier().to_hex(), header.id().to_hex()),
         None => format!("({})", c.nullifier().to_hex()),
     }))
 }

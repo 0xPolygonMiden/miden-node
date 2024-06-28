@@ -59,9 +59,9 @@ impl TransactionBatch {
 
             for note in tx.input_notes() {
                 produced_nullifiers.push(note.nullifier());
-                if let Some(note_id) = note.note_id() {
-                    if !unauthenticated_input_notes.insert(note_id) {
-                        return Err(BuildBatchError::DuplicatedNoteId(note_id, txs));
+                if let Some(header) = note.header() {
+                    if !unauthenticated_input_notes.insert(header.id()) {
+                        return Err(BuildBatchError::DuplicatedNoteId(header.id(), txs));
                     }
                 }
             }

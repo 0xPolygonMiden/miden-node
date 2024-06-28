@@ -1698,7 +1698,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.4.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#be1cc6ef501313fb8a4f29fb755980b883a15cec"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-commitment-from-nullifier#01000c69a419089a35a02d50ff9aa63de5f0ff75"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1844,7 +1844,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.4.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#be1cc6ef501313fb8a4f29fb755980b883a15cec"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-commitment-from-nullifier#01000c69a419089a35a02d50ff9aa63de5f0ff75"
 dependencies = [
  "miden-assembly",
  "miden-core",
@@ -1895,7 +1895,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.4.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#be1cc6ef501313fb8a4f29fb755980b883a15cec"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-commitment-from-nullifier#01000c69a419089a35a02d50ff9aa63de5f0ff75"
 dependencies = [
  "miden-lib",
  "miden-objects",

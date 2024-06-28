@@ -2,8 +2,8 @@ use std::{cmp::min, collections::BTreeSet, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::{
-    notes::NoteId,
-    transaction::{InputNoteCommitment, OutputNote},
+    notes::{NoteHeader, NoteId},
+    transaction::OutputNote,
 };
 use tokio::time;
 use tracing::{debug, info, instrument, Span};
@@ -136,7 +136,9 @@ where
             .collect();
 
         txs.iter()
-            .flat_map(|tx| tx.input_notes().iter().filter_map(InputNoteCommitment::note_id))
+            .flat_map(|tx| {
+                tx.input_notes().iter().filter_map(|note| note.header().map(NoteHeader::id))
+            })
             .filter(|note_id| !note_created.remove(note_id))
             .collect()
     }

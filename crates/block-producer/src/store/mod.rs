@@ -179,7 +179,7 @@ impl Store for DefaultStore {
             unauthenticated_notes: proven_tx
                 .input_notes()
                 .iter()
-                .filter_map(|note| note.note_id().map(Into::into))
+                .filter_map(|note| note.header().map(|header| header.id().into()))
                 .collect(),
         };
 
