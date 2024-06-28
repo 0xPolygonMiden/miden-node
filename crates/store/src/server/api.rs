@@ -304,7 +304,7 @@ impl api_server::Api for StoreApi {
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
-        let notes = validate_notes(&request.unauthenticated_notes)?;
+        let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
         let BlockInputs {
             block_header,
@@ -314,7 +314,7 @@ impl api_server::Api for StoreApi {
             found_unauthenticated_notes,
         } = self
             .state
-            .get_block_inputs(&account_ids, &nullifiers, &notes)
+            .get_block_inputs(&account_ids, &nullifiers, &unauthenticated_notes)
             .await
             .map_err(internal_error)?;
 
