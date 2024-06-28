@@ -232,7 +232,7 @@ impl Store for MockStoreSuccess {
             account_id: proven_tx.account_id(),
             account_hash,
             nullifiers,
-            missing_notes: Default::default(),
+            missing_unauthenticated_notes: Default::default(),
         })
     }
 
@@ -240,7 +240,7 @@ impl Store for MockStoreSuccess {
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        _notes: impl Iterator<Item = &NoteId> + Send,
+        notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
@@ -265,12 +265,14 @@ impl Store for MockStoreSuccess {
             .map(|nullifier| (*nullifier, locked_produced_nullifiers.open(&nullifier.inner())))
             .collect();
 
+        let found_unauthenticated_notes = notes.copied().collect();
+
         Ok(BlockInputs {
             block_header: *self.last_block_header.read().await,
             chain_peaks,
             accounts,
             nullifiers,
-            missing_notes: Default::default(),
+            found_unauthenticated_notes,
         })
     }
 

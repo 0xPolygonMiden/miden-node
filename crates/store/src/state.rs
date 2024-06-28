@@ -53,15 +53,15 @@ pub struct BlockInputs {
     /// The requested nullifiers and their authentication paths
     pub nullifiers: Vec<NullifierWitness>,
 
-    /// List of notes that were not found in the store
-    pub missing_notes: Vec<NoteId>,
+    /// List of notes found in the store
+    pub found_unauthenticated_notes: Vec<NoteId>,
 }
 
 #[derive(Debug)]
 pub struct TransactionInputs {
     pub account_hash: RpoDigest,
     pub nullifiers: Vec<NullifierInfo>,
-    pub missing_notes: Vec<NoteId>,
+    pub missing_unauthenticated_notes: Vec<NoteId>,
 }
 
 /// Container for state that needs to be updated atomically.
@@ -494,14 +494,14 @@ impl State {
             })
             .collect();
 
-        let missing_notes = filter_missing_notes(notes, &inner.notes);
+        let found_unauthenticated_notes = filter_found_notes(notes, &inner.notes);
 
         Ok(BlockInputs {
             block_header: latest,
             chain_peaks,
             account_states,
             nullifiers,
-            missing_notes,
+            found_unauthenticated_notes,
         })
     }
 
@@ -527,15 +527,13 @@ impl State {
             })
             .collect();
 
-        let missing_notes = filter_missing_notes(notes, &inner.notes);
+        let missing_notes = filter_found_notes(notes, &inner.notes);
 
-        TransactionInputs { account_hash, nullifiers, missing_notes }
-    }
-
-    /// Returns notes that were not found in the database.
-    #[instrument(target = "miden-store", skip_all, ret)]
-    pub async fn get_missing_notes(&self, notes: &[NoteId]) -> Vec<NoteId> {
-        filter_missing_notes(notes, &self.inner.read().await.notes)
+        TransactionInputs {
+            account_hash,
+            nullifiers,
+            missing_unauthenticated_notes: missing_notes,
+        }
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
@@ -627,6 +625,6 @@ async fn load_notes(db: &mut Db) -> Result<BTreeSet<NoteId>, StateInitialization
 }
 
 #[instrument(target = "miden-store", skip_all)]
-fn filter_missing_notes(notes: &[NoteId], in_memory: &BTreeSet<NoteId>) -> Vec<NoteId> {
-    notes.iter().filter(|&note_id| !in_memory.contains(note_id)).copied().collect()
+fn filter_found_notes(notes: &[NoteId], in_memory: &BTreeSet<NoteId>) -> Vec<NoteId> {
+    notes.iter().filter(|&note_id| in_memory.contains(note_id)).copied().collect()
 }

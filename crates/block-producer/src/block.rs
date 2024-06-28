@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
@@ -35,8 +35,8 @@ pub struct BlockInputs {
     /// The requested nullifiers and their authentication paths
     pub nullifiers: BTreeMap<Nullifier, SmtProof>,
 
-    /// List of notes that were not found in the store
-    pub missing_notes: Vec<NoteId>,
+    /// List of unauthenticated notes found in the store
+    pub found_unauthenticated_notes: BTreeSet<NoteId>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -93,18 +93,18 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             })
             .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
-        let missing_notes = response
-            .missing_notes
+        let found_unauthenticated_notes = response
+            .found_unauthenticated_notes
             .into_iter()
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
-            .collect::<Result<Vec<_>, ConversionError>>()?;
+            .collect::<Result<_, ConversionError>>()?;
 
         Ok(Self {
             block_header,
             chain_peaks,
             accounts,
             nullifiers,
-            missing_notes,
+            found_unauthenticated_notes,
         })
     }
 }

@@ -65,13 +65,13 @@ message GetBlockInputsRequest {
     // Array of nullifiers for all notes consumed by a transaction.
     repeated digest.Digest nullifiers = 2;
     // Array of note IDs to be checked for existence in the database.
-    repeated digest.Digest notes = 3;
+    repeated digest.Digest unauthenticated_notes = 3;
 }
 
 message GetTransactionInputsRequest {
     account.AccountId account_id = 1;
     repeated digest.Digest nullifiers = 2;
-    repeated digest.Digest notes = 3;
+    repeated digest.Digest unauthenticated_notes = 3;
 }
 
 message SubmitProvenTransactionRequest {

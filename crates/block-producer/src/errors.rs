@@ -26,7 +26,7 @@ pub enum VerifyTxError {
 
     /// Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions
     #[error(
-        "Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions"
+        "Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions: {0:?}"
     )]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
 
@@ -80,6 +80,9 @@ pub enum BuildBatchError {
     #[error("Failed to get note paths: {0}")]
     NotePathsError(NotePathsError, Vec<ProvenTransaction>),
 
+    #[error("Duplicated note ID in the batch: {0}")]
+    DuplicatedNoteId(NoteId, Vec<ProvenTransaction>),
+
     #[error("Unauthenticated transaction notes not found in the store: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>, Vec<ProvenTransaction>),
 }
@@ -90,6 +93,7 @@ impl BuildBatchError {
             BuildBatchError::TooManyNotesCreated(_, txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
             BuildBatchError::NotePathsError(_, txs) => txs,
+            BuildBatchError::DuplicatedNoteId(_, txs) => txs,
             BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
         }
     }

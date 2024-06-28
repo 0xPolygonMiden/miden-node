@@ -222,7 +222,7 @@ fn ensure_in_flight_constraints(
 ///   in the Store or empty for new accounts
 /// - input notes must not be already consumed
 ///
-/// Returns a list of input notes that were not found in the Store
+/// Returns a list of unauthenticated input notes that were not found in the store.
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_tx_inputs_constraints(
     candidate_tx: &ProvenTransaction,
@@ -264,5 +264,5 @@ fn ensure_tx_inputs_constraints(
         return Err(VerifyTxError::InputNotesAlreadyConsumed(infracting_nullifiers));
     }
 
-    Ok(tx_inputs.missing_notes)
+    Ok(tx_inputs.missing_unauthenticated_notes)
 }

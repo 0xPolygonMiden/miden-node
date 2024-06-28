@@ -60,13 +60,21 @@ impl TransactionBatch {
             for note in tx.input_notes() {
                 produced_nullifiers.push(note.nullifier());
                 if let Some(note_id) = note.note_id() {
-                    unauthenticated_input_notes.insert(note_id);
+                    if !unauthenticated_input_notes.insert(note_id) {
+                        return Err(BuildBatchError::DuplicatedNoteId(note_id, txs));
+                    }
                 }
             }
         }
 
-        // Populate batch created notes, filtering out notes consumed in the same batch.
-        // Consumed notes are also removed from the unauthenticated input note map.
+        // Populate batch output notes, filtering out unauthenticated notes consumed in the same batch.
+        // Consumed notes are also removed from the unauthenticated input notes set in order to avoid
+        // consumption of notes with the same ID by one single input.
+        //
+        // One thing to note:
+        // This still allows transaction `A` to consume an unauthenticated note `x` and output note `y`
+        // and for transaction `B` to consume an unauthenticated note `y` and output note `x`
+        // (i.e., have a circular dependency between transactions), but this is not a problem.
         let output_notes: Vec<_> = txs
             .iter()
             .flat_map(|tx| tx.output_notes().iter())

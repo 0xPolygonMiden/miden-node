@@ -304,14 +304,14 @@ impl api_server::Api for StoreApi {
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
-        let notes = validate_notes(&request.notes)?;
+        let notes = validate_notes(&request.unauthenticated_notes)?;
 
         let BlockInputs {
             block_header,
             chain_peaks,
             account_states,
             nullifiers,
-            missing_notes,
+            found_unauthenticated_notes,
         } = self
             .state
             .get_block_inputs(&account_ids, &nullifiers, &notes)
@@ -323,7 +323,7 @@ impl api_server::Api for StoreApi {
             mmr_peaks: convert(chain_peaks.peaks()),
             account_states: convert(account_states),
             nullifiers: convert(nullifiers),
-            missing_notes: convert(missing_notes),
+            found_unauthenticated_notes: convert(found_unauthenticated_notes),
         }))
     }
 
@@ -344,7 +344,7 @@ impl api_server::Api for StoreApi {
 
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let notes = validate_notes(&request.notes)?;
+        let notes = validate_notes(&request.unauthenticated_notes)?;
 
         let tx_inputs = self.state.get_transaction_inputs(account_id, &nullifiers, &notes).await;
 
@@ -361,7 +361,11 @@ impl api_server::Api for StoreApi {
                     block_num: nullifier.block_num,
                 })
                 .collect(),
-            missing_notes: tx_inputs.missing_notes.into_iter().map(Into::into).collect(),
+            missing_unauthenticated_notes: tx_inputs
+                .missing_unauthenticated_notes
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         }))
     }
 

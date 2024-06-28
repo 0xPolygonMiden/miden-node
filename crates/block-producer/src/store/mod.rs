@@ -76,8 +76,8 @@ pub struct TransactionInputs {
     /// Maps each consumed notes' nullifier to block number, where the note is consumed
     /// (`zero` means, that note isn't consumed yet)
     pub nullifiers: BTreeMap<Nullifier, u32>,
-    /// List of notes that were not found in the store
-    pub missing_notes: Vec<NoteId>,
+    /// List of unauthenticated notes that were not found in the store
+    pub missing_unauthenticated_notes: Vec<NoteId>,
 }
 
 impl Display for TransactionInputs {
@@ -110,8 +110,8 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             nullifiers.insert(nullifier, nullifier_record.block_num);
         }
 
-        let missing_notes = response
-            .missing_notes
+        let missing_unauthenticated_notes = response
+            .missing_unauthenticated_notes
             .into_iter()
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
             .collect::<Result<Vec<_>, ConversionError>>()?;
@@ -120,7 +120,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             account_id,
             account_hash,
             nullifiers,
-            missing_notes,
+            missing_unauthenticated_notes,
         })
     }
 }
@@ -176,10 +176,10 @@ impl Store for DefaultStore {
                 .iter()
                 .map(|note| note.nullifier().into())
                 .collect(),
-            notes: proven_tx
+            unauthenticated_notes: proven_tx
                 .input_notes()
                 .iter()
-                .filter_map(|note| note.note_id().map(|id| id.into()))
+                .filter_map(|note| note.note_id().map(Into::into))
                 .collect(),
         };
 
@@ -221,7 +221,7 @@ impl Store for DefaultStore {
         let request = tonic::Request::new(GetBlockInputsRequest {
             account_ids: updated_accounts.map(Into::into).collect(),
             nullifiers: produced_nullifiers.map(digest::Digest::from).collect(),
-            notes: notes.map(digest::Digest::from).collect(),
+            unauthenticated_notes: notes.map(digest::Digest::from).collect(),
         });
 
         let store_response = self
