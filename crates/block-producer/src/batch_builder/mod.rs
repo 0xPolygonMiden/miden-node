@@ -118,9 +118,13 @@ where
         }
     }
 
+    /// Returns a list of IDs for unauthenticated notes which are not output notes of any ready
+    /// transaction batch or the candidate batch itself.
     async fn find_dangling_notes(&self, txs: &[ProvenTransaction]) -> Vec<NoteId> {
         // TODO: We can optimize this by looking at the notes created in the previous batches
-        let mut note_created: BTreeSet<NoteId> = txs
+
+        // build a set of output notes from all ready batches and the candidate batch
+        let mut all_output_notes: BTreeSet<NoteId> = txs
             .iter()
             .flat_map(|tx| tx.output_notes().iter().map(OutputNote::id))
             .chain(
@@ -132,9 +136,12 @@ where
             )
             .collect();
 
+        // from the list of unauthenticated notes in the candidate batch, filter out any note
+        // which is also an output note either in any of the ready batches or in the candidate
+        // batch itself
         txs.iter()
             .flat_map(|tx| tx.get_unauthenticated_notes().map(|note| note.id()))
-            .filter(|note_id| !note_created.remove(note_id))
+            .filter(|note_id| !all_output_notes.remove(note_id))
             .collect()
     }
 }
@@ -155,6 +162,12 @@ where
         info!(target: COMPONENT, num_txs, "Building a transaction batch");
         debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
 
+        // make sure that all unauthenticated notes in the transactions of the proposed batch
+        // have been either created in any of the ready batches (or the batch itself) or are
+        // already in the store
+        //
+        // TODO: this can be optimized by first computing dangling notes of the batch itself,
+        //       and only then checking against the other ready batches
         let dangling_notes = self.find_dangling_notes(&txs).await;
         if !dangling_notes.is_empty() {
             let stored_notes =
