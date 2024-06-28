@@ -1,10 +1,7 @@
 use std::{cmp::min, collections::BTreeSet, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_objects::{
-    notes::{NoteHeader, NoteId},
-    transaction::OutputNote,
-};
+use miden_objects::{notes::NoteId, transaction::OutputNote};
 use tokio::time;
 use tracing::{debug, info, instrument, Span};
 
@@ -136,9 +133,7 @@ where
             .collect();
 
         txs.iter()
-            .flat_map(|tx| {
-                tx.input_notes().iter().filter_map(|note| note.header().map(NoteHeader::id))
-            })
+            .flat_map(ProvenTransaction::get_unauthenticated_notes)
             .filter(|note_id| !note_created.remove(note_id))
             .collect()
     }

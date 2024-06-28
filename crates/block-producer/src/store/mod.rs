@@ -176,11 +176,7 @@ impl Store for DefaultStore {
                 .iter()
                 .map(|note| note.nullifier().into())
                 .collect(),
-            unauthenticated_notes: proven_tx
-                .input_notes()
-                .iter()
-                .filter_map(|note| note.header().map(|header| header.id().into()))
-                .collect(),
+            unauthenticated_notes: proven_tx.get_unauthenticated_notes().map(Into::into).collect(),
         };
 
         info!(target: COMPONENT, tx_id = %proven_tx.id().to_hex());
