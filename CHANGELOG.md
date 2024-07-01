@@ -8,6 +8,7 @@
 * Standardised CI and Makefile across Miden repositories (#367)
 * Removed client dependency from faucet (#368).
 * Changed sync endpoint to return a list of committed transactions (#377).
+* Added support for unauthenticated transaction notes (#390).
 
 ## 0.3.0 (2024-05-15)
 

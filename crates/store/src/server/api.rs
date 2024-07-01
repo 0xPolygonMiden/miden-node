@@ -36,7 +36,11 @@ use miden_objects::{
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, types::AccountId, COMPONENT};
+use crate::{
+    state::{BlockInputs, State},
+    types::AccountId,
+    COMPONENT,
+};
 
 // STORE API
 // ================================================================================================
@@ -300,18 +304,26 @@ impl api_server::Api for StoreApi {
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
+        let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
-        let (latest, accumulator, account_states, nullifier_records) = self
+        let BlockInputs {
+            block_header,
+            chain_peaks,
+            account_states,
+            nullifiers,
+            found_unauthenticated_notes,
+        } = self
             .state
-            .get_block_inputs(&account_ids, &nullifiers)
+            .get_block_inputs(&account_ids, &nullifiers, &unauthenticated_notes)
             .await
             .map_err(internal_error)?;
 
         Ok(Response::new(GetBlockInputsResponse {
-            block_header: Some(latest.into()),
-            mmr_peaks: convert(accumulator.peaks()),
+            block_header: Some(block_header.into()),
+            mmr_peaks: convert(chain_peaks.peaks()),
             account_states: convert(account_states),
-            nullifiers: convert(nullifier_records),
+            nullifiers: convert(nullifiers),
+            found_unauthenticated_notes: convert(found_unauthenticated_notes),
         }))
     }
 
@@ -330,10 +342,14 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
+        let nullifiers = validate_nullifiers(&request.nullifiers)?;
+        let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
-        let tx_inputs = self.state.get_transaction_inputs(account_id, &nullifiers).await;
+        let tx_inputs = self
+            .state
+            .get_transaction_inputs(account_id, &nullifiers, &unauthenticated_notes)
+            .await;
 
         Ok(Response::new(GetTransactionInputsResponse {
             account_state: Some(AccountTransactionInputRecord {
@@ -347,6 +363,11 @@ impl api_server::Api for StoreApi {
                     nullifier: Some(nullifier.nullifier.into()),
                     block_num: nullifier.block_num,
                 })
+                .collect(),
+            missing_unauthenticated_notes: tx_inputs
+                .missing_unauthenticated_notes
+                .into_iter()
+                .map(Into::into)
                 .collect(),
         }))
     }
@@ -462,6 +483,15 @@ fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<N
         .iter()
         .cloned()
         .map(TryInto::try_into)
+        .collect::<Result<_, ConversionError>>()
+        .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
+}
+
+#[instrument(target = "miden-store", skip_all, err)]
+fn validate_notes(notes: &[generated::digest::Digest]) -> Result<Vec<NoteId>, Status> {
+    notes
+        .iter()
+        .map(|digest| Ok(RpoDigest::try_from(digest.clone())?.into()))
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }

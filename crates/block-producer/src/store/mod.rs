@@ -7,8 +7,11 @@ use async_trait::async_trait;
 use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
-        digest,
-        requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
+        digest, note,
+        requests::{
+            ApplyBlockRequest, GetBlockInputsRequest, GetNotesByIdRequest,
+            GetTransactionInputsRequest,
+        },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
@@ -16,31 +19,50 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::{format_map, format_opt};
 use miden_objects::{
-    accounts::AccountId, block::Block, notes::Nullifier, utils::Serializable, Digest,
+    accounts::AccountId,
+    block::Block,
+    crypto::merkle::MerklePath,
+    notes::{NoteId, Nullifier},
+    utils::Serializable,
+    Digest,
 };
+use miden_processor::crypto::RpoDigest;
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{block::BlockInputs, ProvenTransaction, COMPONENT};
+use crate::{block::BlockInputs, errors::NotePathsError, ProvenTransaction, COMPONENT};
 
 // STORE TRAIT
 // ================================================================================================
 
 #[async_trait]
 pub trait Store: ApplyBlock {
-    /// TODO: add comments
+    /// Returns information needed from the store to verify a given proven transaction.
     async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
     ) -> Result<TransactionInputs, TxInputsError>;
 
-    /// TODO: add comments
+    /// Returns information needed from the store to build a block.
     async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
+
+    /// Returns note authentication information for the set of specified notes.
+    ///
+    /// If authentication info could for a note does not exist in the store, the note is omitted
+    /// from the returned set of notes.
+    ///
+    /// TODO: right now this return only Merkle paths per note, but this will need to be updated to
+    /// return full authentication info.
+    async fn get_note_authentication_info(
+        &self,
+        notes: impl Iterator<Item = &NoteId> + Send,
+    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError>;
 }
 
 #[async_trait]
@@ -61,6 +83,8 @@ pub struct TransactionInputs {
     /// Maps each consumed notes' nullifier to block number, where the note is consumed
     /// (`zero` means, that note isn't consumed yet)
     pub nullifiers: BTreeMap<Nullifier, u32>,
+    /// List of unauthenticated notes that were not found in the store
+    pub missing_unauthenticated_notes: Vec<NoteId>,
 }
 
 impl Display for TransactionInputs {
@@ -93,7 +117,18 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             nullifiers.insert(nullifier, nullifier_record.block_num);
         }
 
-        Ok(Self { account_id, account_hash, nullifiers })
+        let missing_unauthenticated_notes = response
+            .missing_unauthenticated_notes
+            .into_iter()
+            .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
+            .collect::<Result<Vec<_>, ConversionError>>()?;
+
+        Ok(Self {
+            account_id,
+            account_hash,
+            nullifiers,
+            missing_unauthenticated_notes,
+        })
     }
 }
 
@@ -143,10 +178,10 @@ impl Store for DefaultStore {
     ) -> Result<TransactionInputs, TxInputsError> {
         let message = GetTransactionInputsRequest {
             account_id: Some(proven_tx.account_id().into()),
-            nullifiers: proven_tx
-                .input_notes()
-                .iter()
-                .map(|note| note.nullifier().into())
+            nullifiers: proven_tx.get_nullifiers().map(Into::into).collect(),
+            unauthenticated_notes: proven_tx
+                .get_unauthenticated_notes()
+                .map(|note| note.id().into())
                 .collect(),
         };
 
@@ -183,10 +218,12 @@ impl Store for DefaultStore {
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let request = tonic::Request::new(GetBlockInputsRequest {
             account_ids: updated_accounts.map(Into::into).collect(),
             nullifiers: produced_nullifiers.map(digest::Digest::from).collect(),
+            unauthenticated_notes: notes.map(digest::Digest::from).collect(),
         });
 
         let store_response = self
@@ -198,5 +235,38 @@ impl Store for DefaultStore {
             .into_inner();
 
         Ok(store_response.try_into()?)
+    }
+
+    async fn get_note_authentication_info(
+        &self,
+        notes: impl Iterator<Item = &NoteId> + Send,
+    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
+        let request = tonic::Request::new(GetNotesByIdRequest {
+            note_ids: notes.map(digest::Digest::from).collect(),
+        });
+
+        let store_response = self
+            .store
+            .clone()
+            .get_notes_by_id(request)
+            .await
+            .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
+            .into_inner();
+
+        Ok(store_response
+            .notes
+            .into_iter()
+            .map(|note| {
+                Ok((
+                    RpoDigest::try_from(
+                        note.note_id.ok_or(note::Note::missing_field(stringify!(note_id)))?,
+                    )?
+                    .into(),
+                    note.merkle_path
+                        .ok_or(note::Note::missing_field(stringify!(merkle_path)))?
+                        .try_into()?,
+                ))
+            })
+            .collect::<Result<BTreeMap<_, _>, ConversionError>>()?)
     }
 }

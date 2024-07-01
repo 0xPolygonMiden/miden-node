@@ -56,6 +56,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
             chain_peaks,
             accounts,
             nullifiers: Default::default(),
+            found_unauthenticated_notes: Default::default(),
         }
     };
 
@@ -128,6 +129,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
             chain_peaks,
             accounts,
             nullifiers: Default::default(),
+            found_unauthenticated_notes: Default::default(),
         }
     };
 
@@ -209,7 +211,7 @@ async fn test_compute_account_root_success() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs = store
-        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty(), std::iter::empty())
         .await
         .unwrap();
 
@@ -300,8 +302,10 @@ async fn test_compute_account_root_empty_batches() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(std::iter::empty(), std::iter::empty(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches = Vec::new();
     let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
@@ -331,8 +335,10 @@ async fn test_compute_note_root_empty_batches_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(std::iter::empty(), std::iter::empty(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches: Vec<TransactionBatch> = Vec::new();
 
@@ -361,8 +367,10 @@ async fn test_compute_note_root_empty_notes_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(std::iter::empty(), std::iter::empty(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches: Vec<TransactionBatch> = {
         let batch = TransactionBatch::new(Vec::new()).unwrap();
@@ -422,7 +430,7 @@ async fn test_compute_note_root_success() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs = store
-        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty(), std::iter::empty())
         .await
         .unwrap();
 
@@ -544,6 +552,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
             chain_peaks,
             accounts,
             nullifiers,
+            found_unauthenticated_notes: Default::default(),
         }
     };
 
@@ -590,7 +599,7 @@ async fn test_compute_nullifier_root_empty_success() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs = store
-        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty(), std::iter::empty())
         .await
         .unwrap();
 
@@ -651,7 +660,7 @@ async fn test_compute_nullifier_root_success() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs = store
-        .get_block_inputs(account_ids.into_iter(), nullifiers.iter())
+        .get_block_inputs(account_ids.into_iter(), nullifiers.iter(), std::iter::empty())
         .await
         .unwrap();
 

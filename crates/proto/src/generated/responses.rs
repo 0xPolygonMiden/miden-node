@@ -82,7 +82,7 @@ pub struct GetBlockInputsResponse {
     /// The latest block header
     #[prost(message, optional, tag = "1")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
-    /// Peaks of the above block's mmr, The `forest` value is equal to the block number.
+    /// Peaks of the above block's mmr, The `forest` value is equal to the block number
     #[prost(message, repeated, tag = "2")]
     pub mmr_peaks: ::prost::alloc::vec::Vec<super::digest::Digest>,
     /// The hashes of the requested accounts and their authentication paths
@@ -91,6 +91,9 @@ pub struct GetBlockInputsResponse {
     /// The requested nullifiers and their authentication paths
     #[prost(message, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
+    /// The list of requested notes which were found in the database
+    #[prost(message, repeated, tag = "5")]
+    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 /// An account returned as a response to the GetTransactionInputs
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -119,6 +122,8 @@ pub struct GetTransactionInputsResponse {
     pub account_state: ::core::option::Option<AccountTransactionInputRecord>,
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierTransactionInputRecord>,
+    #[prost(message, repeated, tag = "3")]
+    pub missing_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

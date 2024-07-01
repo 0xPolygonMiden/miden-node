@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     fs::{self, create_dir_all},
     sync::Arc,
 };
@@ -167,6 +168,14 @@ impl Db {
     pub async fn select_notes(&self) -> Result<Vec<NoteRecord>> {
         self.pool.get().await?.interact(sql::select_notes).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select notes task failed: {err}"))
+        })?
+    }
+
+    /// Loads all the note IDs from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_note_ids(&self) -> Result<BTreeSet<NoteId>> {
+        self.pool.get().await?.interact(sql::select_note_ids).await.map_err(|err| {
+            DatabaseError::InteractError(format!("Select note IDs task failed: {err}"))
         })?
     }
 
