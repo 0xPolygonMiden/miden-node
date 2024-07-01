@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
     accounts::AccountId,
@@ -50,6 +50,7 @@ impl TransactionBatch {
         let mut updated_accounts = vec![];
         let mut produced_nullifiers = vec![];
         let mut unauthenticated_input_notes = BTreeSet::new();
+        let mut candidate_nullifiers = BTreeMap::new();
         for tx in &txs {
             // TODO: we need to handle a possibility that a batch contains multiple transactions against
             //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
@@ -58,14 +59,17 @@ impl TransactionBatch {
             updated_accounts.push((tx.id(), tx.account_update().clone()));
 
             for note in tx.input_notes() {
-                produced_nullifiers.push(note.nullifier());
-                if let Some(header) = note.header() {
-                    if !unauthenticated_input_notes.insert(header.id()) {
-                        return Err(BuildBatchError::DuplicateUnauthenticatedNote(
-                            header.id(),
-                            txs,
-                        ));
-                    }
+                match note.header() {
+                    None => produced_nullifiers.push(note.nullifier()),
+                    Some(header) => {
+                        if !unauthenticated_input_notes.insert(header.id()) {
+                            return Err(BuildBatchError::DuplicateUnauthenticatedNote(
+                                header.id(),
+                                txs,
+                            ));
+                        }
+                        candidate_nullifiers.insert(header.id(), note.nullifier());
+                    },
                 }
             }
         }
@@ -74,6 +78,8 @@ impl TransactionBatch {
         // Consumed notes are also removed from the unauthenticated input notes set in order to avoid
         // consumption of notes with the same ID by one single input.
         //
+        // If a note isn't consumed in place, its nullifier is added to the produced nullifiers set.
+        //
         // One thing to note:
         // This still allows transaction `A` to consume an unauthenticated note `x` and output note `y`
         // and for transaction `B` to consume an unauthenticated note `y` and output note `x`
@@ -81,7 +87,15 @@ impl TransactionBatch {
         let output_notes: Vec<_> = txs
             .iter()
             .flat_map(|tx| tx.output_notes().iter())
-            .filter(|&note| !unauthenticated_input_notes.remove(&note.id()))
+            .filter(|&note| {
+                let consumed_in_place = unauthenticated_input_notes.remove(&note.id());
+                if !consumed_in_place {
+                    if let Some(nullifier) = candidate_nullifiers.remove(&note.id()) {
+                        produced_nullifiers.push(nullifier);
+                    }
+                }
+                !consumed_in_place
+            })
             .cloned()
             .collect();
 

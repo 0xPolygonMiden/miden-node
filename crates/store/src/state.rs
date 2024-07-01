@@ -2,9 +2,12 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::Arc;
 
-use miden_node_proto::{domain::accounts::AccountInfo, AccountInputRecord, NullifierWitness};
+use miden_node_proto::{
+    convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
+    AccountInputRecord, NullifierWitness,
+};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
     block::Block,
@@ -57,6 +60,18 @@ pub struct BlockInputs {
     pub found_unauthenticated_notes: Vec<NoteId>,
 }
 
+impl From<BlockInputs> for GetBlockInputsResponse {
+    fn from(value: BlockInputs) -> Self {
+        Self {
+            block_header: Some(value.block_header.into()),
+            mmr_peaks: convert(value.chain_peaks.peaks()),
+            account_states: convert(value.account_states),
+            nullifiers: convert(value.nullifiers),
+            found_unauthenticated_notes: convert(value.found_unauthenticated_notes),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct TransactionInputs {
     pub account_hash: RpoDigest,
@@ -69,7 +84,6 @@ struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
-    notes: BTreeSet<NoteId>,
 }
 
 /// The rollup state
@@ -100,14 +114,8 @@ impl State {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
         let account_tree = load_accounts(&mut db).await?;
-        let notes = load_notes(&mut db).await?;
 
-        let inner = RwLock::new(InnerState {
-            nullifier_tree,
-            chain_mmr,
-            account_tree,
-            notes,
-        });
+        let inner = RwLock::new(InnerState { nullifier_tree, chain_mmr, account_tree });
 
         let writer = Mutex::new(());
         let db = Arc::new(db);
@@ -181,7 +189,7 @@ impl State {
             tokio::spawn(async move { store.save_block(block_num, &block_data).await });
 
         // scope to read in-memory data, validate the request, and compute intermediary values
-        let (account_tree, chain_mmr, nullifier_tree, notes, note_set) = {
+        let (account_tree, chain_mmr, nullifier_tree, notes) = {
             let inner = self.inner.read().await;
 
             let span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
@@ -255,7 +263,7 @@ impl State {
 
             drop(span);
 
-            let (notes, note_set) = block
+            let notes = block
                 .notes()
                 .map(|(note_index, note)| {
                     let details = match note {
@@ -268,23 +276,18 @@ impl State {
                         .get_note_path(note_index)
                         .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
 
-                    Ok((
-                        NoteRecord {
-                            block_num,
-                            note_index,
-                            note_id: note.id().into(),
-                            metadata: *note.metadata(),
-                            details,
-                            merkle_path,
-                        },
-                        note.id(),
-                    ))
+                    Ok(NoteRecord {
+                        block_num,
+                        note_index,
+                        note_id: note.id().into(),
+                        metadata: *note.metadata(),
+                        details,
+                        merkle_path,
+                    })
                 })
-                .collect::<Result<Vec<(NoteRecord, NoteId)>, ApplyBlockError>>()?
-                .into_iter()
-                .unzip();
+                .collect::<Result<Vec<NoteRecord>, ApplyBlockError>>()?;
 
-            (account_tree, chain_mmr, nullifier_tree, notes, note_set)
+            (account_tree, chain_mmr, nullifier_tree, notes)
         };
 
         // Signals the transaction is ready to be committed, and the write lock can be acquired
@@ -331,7 +334,6 @@ impl State {
             inner.chain_mmr = chain_mmr;
             inner.nullifier_tree = nullifier_tree;
             inner.account_tree = account_tree;
-            inner.notes = note_set;
         }
 
         info!(%block_hash, block_num, COMPONENT, "apply_block successful");
@@ -445,7 +447,7 @@ impl State {
         &self,
         account_ids: &[AccountId],
         nullifiers: &[Nullifier],
-        unauthenticated_notes: &[NoteId],
+        unauthenticated_notes: Vec<NoteId>,
     ) -> Result<BlockInputs, GetBlockInputsError> {
         let inner = self.inner.read().await;
 
@@ -494,7 +496,7 @@ impl State {
             })
             .collect();
 
-        let found_unauthenticated_notes = filter_found_notes(unauthenticated_notes, &inner.notes);
+        let found_unauthenticated_notes = select_note_ids(&self.db, unauthenticated_notes).await?;
 
         Ok(BlockInputs {
             block_header: latest,
@@ -511,8 +513,8 @@ impl State {
         &self,
         account_id: AccountId,
         nullifiers: &[Nullifier],
-        unauthenticated_notes: &[NoteId],
-    ) -> TransactionInputs {
+        unauthenticated_notes: Vec<NoteId>,
+    ) -> Result<TransactionInputs, DatabaseError> {
         info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
@@ -527,13 +529,14 @@ impl State {
             })
             .collect();
 
-        let missing_unauthenticated_notes = filter_found_notes(unauthenticated_notes, &inner.notes);
+        let missing_unauthenticated_notes =
+            select_note_ids(&self.db, unauthenticated_notes).await?;
 
-        TransactionInputs {
+        Ok(TransactionInputs {
             account_hash,
             nullifiers,
             missing_unauthenticated_notes,
-        }
+        })
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
@@ -620,11 +623,11 @@ async fn load_accounts(
 }
 
 #[instrument(target = "miden-store", skip_all)]
-async fn load_notes(db: &mut Db) -> Result<BTreeSet<NoteId>, StateInitializationError> {
-    Ok(db.select_note_ids().await?)
-}
-
-#[instrument(target = "miden-store", skip_all)]
-fn filter_found_notes(notes: &[NoteId], in_memory: &BTreeSet<NoteId>) -> Vec<NoteId> {
-    notes.iter().filter(|&note_id| in_memory.contains(note_id)).copied().collect()
+async fn select_note_ids(db: &Db, note_ids: Vec<NoteId>) -> Result<Vec<NoteId>, DatabaseError> {
+    Ok(db
+        .select_notes_by_id(note_ids)
+        .await?
+        .into_iter()
+        .map(|note| note.note_id.into())
+        .collect())
 }
