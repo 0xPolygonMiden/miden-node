@@ -4,6 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
     notes::Nullifier,
+    transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
     BlockHeader, Digest, Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
@@ -20,7 +21,7 @@ use crate::{
 /// Provides inputs to the `BlockKernel` so that it can generate the new header.
 #[derive(Debug, PartialEq)]
 pub struct BlockWitness {
-    pub(super) updated_accounts: BTreeMap<AccountId, AccountUpdateWitness>,
+    pub(super) updated_accounts: Vec<(AccountId, AccountUpdateWitness)>,
     /// (batch_index, created_notes_root) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
     pub(super) produced_nullifiers: BTreeMap<Nullifier, SmtProof>,
@@ -62,6 +63,7 @@ impl BlockWitness {
                             initial_state_hash,
                             final_state_hash: update.new_state_hash(),
                             proof,
+                            transactions: update.transactions().to_vec(),
                         },
                     )
                 })
@@ -71,8 +73,8 @@ impl BlockWitness {
         let batch_created_notes_roots = batches
             .iter()
             .enumerate()
-            .filter(|(_, batch)| !batch.created_notes().is_empty())
-            .map(|(batch_index, batch)| (batch_index, batch.created_notes_root()))
+            .filter(|(_, batch)| !batch.output_notes().is_empty())
+            .map(|(batch_index, batch)| (batch_index, batch.output_notes_root()))
             .collect();
 
         Ok(Self {
@@ -92,6 +94,13 @@ impl BlockWitness {
         let advice_inputs = self.build_advice_inputs()?;
 
         Ok((advice_inputs, stack_inputs))
+    }
+
+    /// Returns an iterator over all transactions which affected accounts in the block with corresponding account IDs.
+    pub(super) fn transactions(&self) -> impl Iterator<Item = (TransactionId, AccountId)> + '_ {
+        self.updated_accounts.iter().flat_map(|(account_id, update)| {
+            update.transactions.iter().map(move |tx_id| (*tx_id, *account_id))
+        })
     }
 
     // HELPERS
@@ -238,8 +247,8 @@ impl BlockWitness {
 
         // Account stack inputs
         let mut num_accounts_updated: u64 = 0;
-        for (idx, (&account_id, account_update)) in self.updated_accounts.iter().enumerate() {
-            stack_inputs.push(account_id.into());
+        for (idx, (account_id, account_update)) in self.updated_accounts.iter().enumerate() {
+            stack_inputs.push((*account_id).into());
             stack_inputs.extend(account_update.final_state_hash);
 
             let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
@@ -269,14 +278,9 @@ impl BlockWitness {
             // add accounts merkle paths
             merkle_store
                 .add_merkle_paths(self.updated_accounts.into_iter().map(
-                    |(
-                        account_id,
-                        AccountUpdateWitness {
-                            initial_state_hash,
-                            final_state_hash: _,
-                            proof,
-                        },
-                    )| { (u64::from(account_id), initial_state_hash, proof) },
+                    |(account_id, AccountUpdateWitness { initial_state_hash, proof, .. })| {
+                        (u64::from(account_id), initial_state_hash, proof)
+                    },
                 ))
                 .map_err(BlockProverError::InvalidMerklePaths)?;
 
@@ -314,6 +318,7 @@ pub(super) struct AccountUpdateWitness {
     pub initial_state_hash: Digest,
     pub final_state_hash: Digest,
     pub proof: MerklePath,
+    pub transactions: Vec<TransactionId>,
 }
 
 // HELPERS

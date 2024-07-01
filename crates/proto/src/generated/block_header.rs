@@ -23,9 +23,9 @@ pub struct BlockHeader {
     /// a commitment to all notes created in the current block.
     #[prost(message, optional, tag = "7")]
     pub note_root: ::core::option::Option<super::digest::Digest>,
-    /// a commitment to a set of transaction batches executed as a part of this block.
+    /// a commitment to a set of IDs of transactions which affected accounts in this block.
     #[prost(message, optional, tag = "8")]
-    pub batch_root: ::core::option::Option<super::digest::Digest>,
+    pub tx_hash: ::core::option::Option<super::digest::Digest>,
     /// a hash of a STARK proof attesting to the correct state transition.
     #[prost(message, optional, tag = "9")]
     pub proof_hash: ::core::option::Option<super::digest::Digest>,

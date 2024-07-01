@@ -1,0 +1,16 @@
+syntax = "proto3";
+package transaction;
+
+import "account.proto";
+import "digest.proto";
+
+message TransactionId {
+    digest.Digest id = 1;
+}
+
+message TransactionSummary {
+    TransactionId transaction_id = 1;
+    fixed32 block_num = 2;
+    account.AccountId account_id = 3;
+}
+

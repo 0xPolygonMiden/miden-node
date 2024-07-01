@@ -70,6 +70,9 @@ pub struct GetBlockInputsRequest {
     /// Array of nullifiers for all notes consumed by a transaction.
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    /// Array of note IDs to be checked for existence in the database.
+    #[prost(message, repeated, tag = "3")]
+    pub unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -78,6 +81,8 @@ pub struct GetTransactionInputsRequest {
     pub account_id: ::core::option::Option<super::account::AccountId>,
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    #[prost(message, repeated, tag = "3")]
+    pub unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

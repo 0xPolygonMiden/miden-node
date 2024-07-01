@@ -4,6 +4,7 @@ pub mod digest;
 pub mod merkle;
 pub mod notes;
 pub mod nullifiers;
+pub mod transactions;
 
 // UTILITIES
 // ================================================================================================

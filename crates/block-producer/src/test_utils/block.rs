@@ -1,3 +1,5 @@
+use std::iter;
+
 use miden_objects::{
     block::{Block, BlockAccountUpdate, BlockNoteIndex, BlockNoteTree, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt},
@@ -74,6 +76,7 @@ pub async fn build_actual_block_header(
         .get_block_inputs(
             updated_accounts.iter().map(|update| update.account_id()),
             produced_nullifiers.iter(),
+            iter::empty(),
         )
         .await
         .unwrap();
@@ -167,5 +170,5 @@ pub(crate) fn note_created_smt_from_note_batches<'a>(
 }
 
 pub(crate) fn note_created_smt_from_batches(batches: &[TransactionBatch]) -> BlockNoteTree {
-    note_created_smt_from_note_batches(batches.iter().map(TransactionBatch::created_notes))
+    note_created_smt_from_note_batches(batches.iter().map(TransactionBatch::output_notes))
 }

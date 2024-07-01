@@ -153,9 +153,7 @@ async fn test_verify_tx_vt3() {
 
     assert_eq!(
         verify_tx_result,
-        Err(VerifyTxError::InputNotesAlreadyConsumed(
-            InputNotes::new(vec![nullifier_in_store]).unwrap()
-        ))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(vec![nullifier_in_store]))
     );
 }
 
@@ -227,8 +225,6 @@ async fn test_verify_tx_vt5() {
     let verify_tx2_result = state_view.verify_tx(&tx2).await;
     assert_eq!(
         verify_tx2_result,
-        Err(VerifyTxError::InputNotesAlreadyConsumed(
-            InputNotes::new(vec![nullifier_in_both_txs]).unwrap()
-        ))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(vec![nullifier_in_both_txs]))
     );
 }

@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use miden_node_utils::config::Endpoint;
+use miden_node_utils::config::{Endpoint, DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_STORE_PORT};
 use serde::{Deserialize, Serialize};
 
 // Main config
@@ -35,5 +35,15 @@ impl Display for BlockProducerConfig {
             "{{ endpoint: \"{}\", store_url: \"{}\" }}",
             self.endpoint, self.store_url
         ))
+    }
+}
+
+impl Default for BlockProducerConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: Endpoint::localhost(DEFAULT_BLOCK_PRODUCER_PORT),
+            store_url: Endpoint::localhost(DEFAULT_STORE_PORT).to_string(),
+            verify_tx_proofs: true,
+        }
     }
 }

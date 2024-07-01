@@ -29,15 +29,18 @@ pub async fn serve(config: BlockProducerConfig) -> Result<(), ApiError> {
             .await
             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
     ));
-    let state_view = Arc::new(DefaultStateView::new(store.clone(), config.verify_tx_proofs));
+    let state_view = Arc::new(DefaultStateView::new(Arc::clone(&store), config.verify_tx_proofs));
 
-    let block_builder = DefaultBlockBuilder::new(store.clone(), state_view.clone());
+    let block_builder = DefaultBlockBuilder::new(Arc::clone(&store), Arc::clone(&state_view));
     let batch_builder_options = DefaultBatchBuilderOptions {
         block_frequency: SERVER_BLOCK_FREQUENCY,
         max_batches_per_block: SERVER_MAX_BATCHES_PER_BLOCK,
     };
-    let batch_builder =
-        Arc::new(DefaultBatchBuilder::new(Arc::new(block_builder), batch_builder_options));
+    let batch_builder = Arc::new(DefaultBatchBuilder::new(
+        Arc::clone(&store),
+        Arc::new(block_builder),
+        batch_builder_options,
+    ));
 
     let transaction_queue_options = TransactionQueueOptions {
         build_batch_frequency: SERVER_BUILD_BATCH_FREQUENCY,
@@ -45,11 +48,11 @@ pub async fn serve(config: BlockProducerConfig) -> Result<(), ApiError> {
     };
     let queue = Arc::new(TransactionQueue::new(
         state_view,
-        batch_builder.clone(),
+        Arc::clone(&batch_builder),
         transaction_queue_options,
     ));
 
-    let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(queue.clone()));
+    let block_producer = api_server::ApiServer::new(api::BlockProducerApi::new(Arc::clone(&queue)));
 
     tokio::spawn(async move { queue.run().await });
     tokio::spawn(async move { batch_builder.run().await });

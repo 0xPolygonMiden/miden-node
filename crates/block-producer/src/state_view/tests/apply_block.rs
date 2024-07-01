@@ -39,6 +39,7 @@ async fn test_apply_block_ab1() {
                         mock_account.id,
                         mock_account.states[1],
                         AccountUpdateDetails::Private,
+                        vec![tx.id()],
                     )
                 })
                 .collect(),
@@ -88,6 +89,7 @@ async fn test_apply_block_ab2() {
                         mock_account.id,
                         mock_account.states[1],
                         AccountUpdateDetails::Private,
+                        vec![],
                     )
                 })
                 .collect(),
@@ -139,6 +141,7 @@ async fn test_apply_block_ab3() {
                         mock_account.id,
                         mock_account.states[1],
                         AccountUpdateDetails::Private,
+                        vec![],
                     )
                 })
                 .collect(),
@@ -155,12 +158,12 @@ async fn test_apply_block_ab3() {
         accounts[0].states[1],
         accounts[0].states[2],
     )
-    .nullifiers(txs[0].input_notes().iter().cloned().collect())
+    .nullifiers(txs[0].get_nullifiers().collect())
     .build();
 
     let verify_tx_res = state_view.verify_tx(&tx_new).await;
     assert_eq!(
         verify_tx_res,
-        Err(VerifyTxError::InputNotesAlreadyConsumed(txs[0].input_notes().clone()))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(txs[0].get_nullifiers().collect()))
     );
 }

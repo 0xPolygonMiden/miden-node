@@ -1,10 +1,10 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use async_trait::async_trait;
 use miden_objects::{
     block::{Block, BlockNoteTree},
-    crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    notes::Nullifier,
+    crypto::merkle::{MerklePath, Mmr, SimpleSmt, Smt, ValuePath},
+    notes::{NoteId, Nullifier},
     transaction::OutputNote,
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
@@ -13,6 +13,7 @@ use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
+    errors::NotePathsError,
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
@@ -219,10 +220,11 @@ impl Store for MockStoreSuccess {
         let nullifiers = proven_tx
             .input_notes()
             .iter()
-            .map(|nullifier| {
+            .map(|commitment| {
+                let nullifier = commitment.nullifier();
                 let nullifier_value = locked_produced_nullifiers.get_value(&nullifier.inner());
 
-                (*nullifier, nullifier_value[0].inner() as u32)
+                (nullifier, nullifier_value[0].inner() as u32)
             })
             .collect();
 
@@ -230,6 +232,7 @@ impl Store for MockStoreSuccess {
             account_id: proven_tx.account_id(),
             account_hash,
             nullifiers,
+            missing_unauthenticated_notes: Default::default(),
         })
     }
 
@@ -237,6 +240,7 @@ impl Store for MockStoreSuccess {
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
@@ -261,12 +265,22 @@ impl Store for MockStoreSuccess {
             .map(|nullifier| (*nullifier, locked_produced_nullifiers.open(&nullifier.inner())))
             .collect();
 
+        let found_unauthenticated_notes = notes.copied().collect();
+
         Ok(BlockInputs {
             block_header: *self.last_block_header.read().await,
             chain_peaks,
             accounts,
             nullifiers,
+            found_unauthenticated_notes,
         })
+    }
+
+    async fn get_note_authentication_info(
+        &self,
+        _notes: impl Iterator<Item = &NoteId> + Send,
+    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
+        todo!()
     }
 }
 
@@ -293,7 +307,15 @@ impl Store for MockStoreFailure {
         &self,
         _updated_accounts: impl Iterator<Item = AccountId> + Send,
         _produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+        _notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         Err(BlockInputsError::GrpcClientError(String::new()))
+    }
+
+    async fn get_note_authentication_info(
+        &self,
+        _notes: impl Iterator<Item = &NoteId> + Send,
+    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
+        Err(NotePathsError::GrpcClientError(String::new()))
     }
 }

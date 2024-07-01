@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
@@ -7,8 +7,11 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes::Nullifier,
+    crypto::{
+        hash::rpo::RpoDigest,
+        merkle::{MerklePath, MmrPeaks, SmtProof},
+    },
+    notes::{NoteId, Nullifier},
     BlockHeader, Digest,
 };
 
@@ -31,6 +34,9 @@ pub struct BlockInputs {
 
     /// The requested nullifiers and their authentication paths
     pub nullifiers: BTreeMap<Nullifier, SmtProof>,
+
+    /// List of unauthenticated notes found in the store
+    pub found_unauthenticated_notes: BTreeSet<NoteId>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -42,8 +48,8 @@ pub struct AccountWitness {
 impl TryFrom<GetBlockInputsResponse> for BlockInputs {
     type Error = BlockInputsError;
 
-    fn try_from(get_block_inputs: GetBlockInputsResponse) -> Result<Self, Self::Error> {
-        let block_header: BlockHeader = get_block_inputs
+    fn try_from(response: GetBlockInputsResponse) -> Result<Self, Self::Error> {
+        let block_header: BlockHeader = response
             .block_header
             .ok_or(GetBlockInputsResponse::missing_field(stringify!(block_header)))?
             .try_into()?;
@@ -57,7 +63,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
 
             MmrPeaks::new(
                 num_leaves,
-                get_block_inputs
+                response
                     .mmr_peaks
                     .into_iter()
                     .map(TryInto::try_into)
@@ -65,7 +71,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             )?
         };
 
-        let accounts = get_block_inputs
+        let accounts = response
             .account_states
             .into_iter()
             .map(|entry| {
@@ -78,7 +84,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             })
             .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
-        let nullifiers = get_block_inputs
+        let nullifiers = response
             .nullifiers
             .into_iter()
             .map(|entry| {
@@ -87,11 +93,18 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             })
             .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
+        let found_unauthenticated_notes = response
+            .found_unauthenticated_notes
+            .into_iter()
+            .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
+            .collect::<Result<_, ConversionError>>()?;
+
         Ok(Self {
             block_header,
             chain_peaks,
             accounts,
             nullifiers,
+            found_unauthenticated_notes,
         })
     }
 }

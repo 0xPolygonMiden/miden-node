@@ -3,7 +3,6 @@ use actix_web::{
     http::{header::ContentType, StatusCode},
     HttpResponse,
 };
-use miden_client::errors::ClientError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -20,12 +19,6 @@ pub enum FaucetError {
     #[error("Server has encountered an internal error: {0}")]
     InternalServerError(String),
 
-    #[error("Database has encountered an error: {0}")]
-    DatabaseError(String),
-
-    #[error("Failed to sync state: {0}")]
-    SyncError(ClientError),
-
     #[error("Failed to create Miden account: {0}")]
     AccountCreationError(String),
 }
@@ -37,9 +30,7 @@ impl error::ResponseError for FaucetError {
             FaucetError::BadRequest(msg) => msg.to_string(),
             FaucetError::ConfigurationError(msg) => msg.to_string(),
             FaucetError::InternalServerError(msg) => msg.to_string(),
-            FaucetError::SyncError(msg) => msg.to_string(),
             FaucetError::AccountCreationError(msg) => msg.to_string(),
-            FaucetError::DatabaseError(msg) => msg.to_string(),
         };
 
         HttpResponse::build(self.status_code())

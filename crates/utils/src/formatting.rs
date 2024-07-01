@@ -6,8 +6,7 @@ use miden_objects::{
         hash::{blake::Blake3Digest, Digest},
         utils::bytes_to_hex_string,
     },
-    notes::Nullifier,
-    transaction::{InputNotes, OutputNotes},
+    transaction::{InputNoteCommitment, InputNotes, OutputNotes},
 };
 
 pub fn format_account_id(id: u64) -> String {
@@ -18,8 +17,11 @@ pub fn format_opt<T: Display>(opt: Option<&T>) -> String {
     opt.map(ToString::to_string).unwrap_or("None".to_owned())
 }
 
-pub fn format_input_notes(notes: &InputNotes<Nullifier>) -> String {
-    format_array(notes.iter().map(Nullifier::to_hex))
+pub fn format_input_notes(notes: &InputNotes<InputNoteCommitment>) -> String {
+    format_array(notes.iter().map(|c| match c.header() {
+        Some(header) => format!("({}, {})", c.nullifier().to_hex(), header.id().to_hex()),
+        None => format!("({})", c.nullifier().to_hex()),
+    }))
 }
 
 pub fn format_output_notes(notes: &OutputNotes) -> String {

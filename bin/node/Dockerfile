@@ -1,4 +1,4 @@
-FROM rust:1.76-slim-bookworm AS builder
+FROM rust:1.78-slim-bookworm AS builder
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -14,14 +14,14 @@ RUN miden-node make-genesis --inputs-path config/genesis.toml
 FROM debian:bookworm-slim
 
 # Update machine & install required packages
-# The instalation of sqlite3 is needed for correct function of the SQLite database
+# The installation of sqlite3 is needed for correct function of the SQLite database
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get install -y --no-install-recommends \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/genesis.dat genesis.dat
+COPY --from=builder /app/genesis.dat /opt/miden/genesis.dat
 COPY --from=builder /app/accounts accounts
 COPY --from=builder /usr/local/cargo/bin/miden-node /usr/local/bin/miden-node
 

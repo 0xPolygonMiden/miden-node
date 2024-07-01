@@ -94,7 +94,7 @@ where
                 return;
             }
 
-            locked_ready_queue.drain(..).collect()
+            locked_ready_queue.drain(..).rev().collect()
         };
 
         while !txs.is_empty() {
@@ -114,10 +114,10 @@ where
                     // to the list of available transactions and forward the current batch.
                     txs.push(tx);
                     break;
-                } else {
-                    // The tx fits in the current batch
-                    batch.push(tx)
                 }
+
+                // The tx fits in the current batch
+                batch.push(tx)
             }
 
             let ready_queue = self.ready_queue.clone();
@@ -130,8 +130,12 @@ where
                             // batch was successfully built, do nothing
                         },
                         Err(e) => {
-                            // batch building failed, add txs back at the end of the queue
-                            ready_queue.write().await.append(&mut e.into_transactions());
+                            // batch building failed, add txs back to the beginning of the queue
+                            let mut locked_ready_queue = ready_queue.write().await;
+                            e.into_transactions()
+                                .into_iter()
+                                .enumerate()
+                                .for_each(|(i, tx)| locked_ready_queue.insert(i, tx));
                         },
                     }
                 }

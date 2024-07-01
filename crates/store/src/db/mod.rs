@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     fs::{self, create_dir_all},
     sync::Arc,
 };
@@ -12,6 +13,7 @@ use miden_objects::{
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteMetadata, Nullifier},
+    transaction::TransactionId,
     utils::Serializable,
     BlockHeader, GENESIS_BLOCK,
 };
@@ -48,6 +50,13 @@ pub struct NullifierInfo {
     pub block_num: BlockNumber,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct TransactionSummary {
+    pub account_id: AccountId,
+    pub block_num: BlockNumber,
+    pub transaction_id: TransactionId,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoteRecord {
     pub block_num: BlockNumber,
@@ -77,6 +86,7 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
+    pub transactions: Vec<TransactionSummary>,
     pub nullifiers: Vec<NullifierInfo>,
 }
 
@@ -158,6 +168,14 @@ impl Db {
     pub async fn select_notes(&self) -> Result<Vec<NoteRecord>> {
         self.pool.get().await?.interact(sql::select_notes).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select notes task failed: {err}"))
+        })?
+    }
+
+    /// Loads all the note IDs from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_note_ids(&self) -> Result<BTreeSet<NoteId>> {
+        self.pool.get().await?.interact(sql::select_note_ids).await.map_err(|err| {
+            DatabaseError::InteractError(format!("Select note IDs task failed: {err}"))
         })?
     }
 
