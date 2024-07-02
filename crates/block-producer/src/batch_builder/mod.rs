@@ -132,7 +132,7 @@ where
                     .read()
                     .await
                     .iter()
-                    .flat_map(|batch| batch.output_notes().iter().map(OutputNote::id)),
+                    .flat_map(|batch| batch.output_notes().keys().copied()),
             )
             .collect();
 

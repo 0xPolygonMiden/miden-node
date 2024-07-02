@@ -29,7 +29,7 @@ pub struct TransactionBatch {
     unauthenticated_input_notes: BTreeSet<NoteId>,
     produced_nullifiers: Vec<Nullifier>,
     output_notes_smt: BatchNoteTree,
-    output_notes: Vec<OutputNote>,
+    output_notes: BTreeMap<NoteId, OutputNote>,
 }
 
 impl TransactionBatch {
@@ -47,57 +47,40 @@ impl TransactionBatch {
     pub fn new(txs: Vec<ProvenTransaction>) -> Result<Self, BuildBatchError> {
         let id = Self::compute_id(&txs);
 
+        // Populate batch output notes and updated accounts.
         let mut updated_accounts = vec![];
-        let mut produced_nullifiers = vec![];
-        let mut unauthenticated_input_notes = BTreeSet::new();
-        let mut candidate_nullifiers = BTreeMap::new();
+        let mut output_notes = BTreeMap::new();
         for tx in &txs {
             // TODO: we need to handle a possibility that a batch contains multiple transactions against
             //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
             //       transaction `y` takes account from state `B` to `C`). These will need to be merged
             //       into a single "update" `A` to `C`.
             updated_accounts.push((tx.id(), tx.account_update().clone()));
-
-            for note in tx.input_notes() {
-                match note.header() {
-                    None => produced_nullifiers.push(note.nullifier()),
-                    Some(header) => {
-                        if !unauthenticated_input_notes.insert(header.id()) {
-                            return Err(BuildBatchError::DuplicateUnauthenticatedNote(
-                                header.id(),
-                                txs,
-                            ));
-                        }
-                        candidate_nullifiers.insert(header.id(), note.nullifier());
-                    },
-                }
-            }
+            output_notes.extend(tx.output_notes().iter().map(|note| (note.id(), note.clone())));
         }
 
-        // Populate batch output notes, filtering out unauthenticated notes consumed in the same batch.
-        // Consumed notes are also removed from the unauthenticated input notes set in order to avoid
-        // consumption of notes with the same ID by one single input.
-        //
-        // If a note isn't consumed in place, its nullifier is added to the produced nullifiers set.
+        // Populate batch unauthenticated input notes and produced nullifiers. Unauthenticated
+        // input notes set doesn't contain output notes consumed in the same batch.
+        // We also don't add nullifiers for such output notes to the produced nullifiers set.
         //
         // One thing to note:
         // This still allows transaction `A` to consume an unauthenticated note `x` and output note `y`
         // and for transaction `B` to consume an unauthenticated note `y` and output note `x`
         // (i.e., have a circular dependency between transactions), but this is not a problem.
-        let output_notes: Vec<_> = txs
-            .iter()
-            .flat_map(|tx| tx.output_notes().iter())
-            .filter(|&note| {
-                let consumed_in_place = unauthenticated_input_notes.remove(&note.id());
-                if !consumed_in_place {
-                    if let Some(nullifier) = candidate_nullifiers.remove(&note.id()) {
-                        produced_nullifiers.push(nullifier);
-                    }
+        let mut unauthenticated_input_notes = BTreeSet::new();
+        let mut produced_nullifiers = vec![];
+        for input_note in txs.iter().flat_map(|tx| tx.input_notes().iter()) {
+            if let Some(header) = input_note.header() {
+                let note_id = header.id();
+                if output_notes.remove(&note_id).is_some() {
+                    // Don't produce nullifiers for output notes consumed in the same batch.
+                    continue;
+                } else {
+                    unauthenticated_input_notes.insert(note_id);
                 }
-                !consumed_in_place
-            })
-            .cloned()
-            .collect();
+            }
+            produced_nullifiers.push(input_note.nullifier());
+        }
 
         if output_notes.len() > MAX_NOTES_PER_BATCH {
             return Err(BuildBatchError::TooManyNotesCreated(output_notes.len(), txs));
@@ -105,7 +88,7 @@ impl TransactionBatch {
 
         // Build the output notes SMT. Will fail if the output note list contains duplicates.
         let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
-            output_notes.iter().map(|note| (note.id(), note.metadata())),
+            output_notes.iter().map(|(&id, note)| (id, note.metadata())),
         )
         .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?;
 
@@ -164,7 +147,7 @@ impl TransactionBatch {
     }
 
     /// Returns output notes list.
-    pub fn output_notes(&self) -> &Vec<OutputNote> {
+    pub fn output_notes(&self) -> &BTreeMap<NoteId, OutputNote> {
         &self.output_notes
     }
 
