@@ -63,13 +63,10 @@ impl TransactionBatch {
                 }
             }
             // Check unauthenticated input notes for duplicates:
-            for note in tx.input_notes().iter() {
-                // Header is presented only for unauthenticated notes.
-                if let Some(header) = note.header() {
-                    let id = header.id();
-                    if !unauthenticated_input_notes.insert(id) {
-                        return Err(BuildBatchError::DuplicateUnauthenticatedNote(id, txs.clone()));
-                    }
+            for note in tx.get_unauthenticated_notes() {
+                let id = note.id();
+                if !unauthenticated_input_notes.insert(id) {
+                    return Err(BuildBatchError::DuplicateUnauthenticatedNote(id, txs.clone()));
                 }
             }
         }
@@ -90,14 +87,7 @@ impl TransactionBatch {
                 let id = input_note_header.id();
                 if let Some(output_note) = output_notes.remove(&id) {
                     let input_hash = input_note_header.hash();
-
-                    // TODO: substitute with just next line once [OutputNote::hash] is implemented
-                    // let output_hash = output_note.hash();
-                    let OutputNote::Header(output_header) = output_note.shrink() else {
-                        unreachable!()
-                    };
-                    let output_hash = output_header.hash();
-
+                    let output_hash = output_note.hash();
                     if output_hash != input_hash {
                         return Err(BuildBatchError::NoteHashesMismatch {
                             id,
