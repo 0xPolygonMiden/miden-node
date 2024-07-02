@@ -171,14 +171,6 @@ impl Db {
         })?
     }
 
-    /// Loads all the note IDs from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_note_ids(&self) -> Result<BTreeSet<NoteId>> {
-        self.pool.get().await?.interact(sql::select_note_ids).await.map_err(|err| {
-            DatabaseError::InteractError(format!("Select note IDs task failed: {err}"))
-        })?
-    }
-
     /// Loads all the accounts from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>> {
@@ -286,6 +278,14 @@ impl Db {
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
             })?
+    }
+
+    /// Loads all note IDs matching a certain NoteId from the database.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_note_ids(&self, note_ids: Vec<NoteId>) -> Result<BTreeSet<NoteId>> {
+        self.select_notes_by_id(note_ids)
+            .await
+            .map(|notes| notes.into_iter().map(|note| note.note_id.into()).collect())
     }
 
     /// Inserts the data of a new block into the DB.

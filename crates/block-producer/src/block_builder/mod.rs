@@ -3,8 +3,9 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{
-    block::{Block, BlockAccountUpdate},
-    notes::Nullifier,
+    block::{Block, BlockAccountUpdate, NoteBatch},
+    notes::{NoteHeader, Nullifier},
+    transaction::InputNoteCommitment,
 };
 use tracing::{debug, info, instrument};
 
@@ -76,8 +77,10 @@ where
         let updated_accounts: Vec<_> =
             batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
 
-        let created_notes: Vec<_> =
-            batches.iter().map(TransactionBatch::output_notes).cloned().collect();
+        let created_notes: Vec<NoteBatch> = batches
+            .iter()
+            .map(|batch| batch.output_notes().values().cloned().collect())
+            .collect();
 
         let produced_nullifiers: Vec<Nullifier> =
             batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
@@ -89,9 +92,10 @@ where
 
         let dangling_notes: BTreeSet<_> = batches
             .iter()
-            .flat_map(TransactionBatch::unauthenticated_input_notes)
-            .filter(|&note_id| !created_notes_set.contains(note_id))
-            .copied()
+            .flat_map(TransactionBatch::input_notes)
+            .filter_map(InputNoteCommitment::header)
+            .map(NoteHeader::id)
+            .filter(|note_id| !created_notes_set.contains(note_id))
             .collect();
 
         let block_inputs = self

@@ -36,11 +36,7 @@ use miden_objects::{
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{
-    state::{BlockInputs, State},
-    types::AccountId,
-    COMPONENT,
-};
+use crate::{state::State, types::AccountId, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -306,25 +302,12 @@ impl api_server::Api for StoreApi {
         let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
-        let BlockInputs {
-            block_header,
-            chain_peaks,
-            account_states,
-            nullifiers,
-            found_unauthenticated_notes,
-        } = self
-            .state
-            .get_block_inputs(&account_ids, &nullifiers, &unauthenticated_notes)
+        self.state
+            .get_block_inputs(&account_ids, &nullifiers, unauthenticated_notes)
             .await
-            .map_err(internal_error)?;
-
-        Ok(Response::new(GetBlockInputsResponse {
-            block_header: Some(block_header.into()),
-            mmr_peaks: convert(chain_peaks.peaks()),
-            account_states: convert(account_states),
-            nullifiers: convert(nullifiers),
-            found_unauthenticated_notes: convert(found_unauthenticated_notes),
-        }))
+            .map(Into::into)
+            .map(Response::new)
+            .map_err(internal_error)
     }
 
     #[instrument(
@@ -348,8 +331,9 @@ impl api_server::Api for StoreApi {
 
         let tx_inputs = self
             .state
-            .get_transaction_inputs(account_id, &nullifiers, &unauthenticated_notes)
-            .await;
+            .get_transaction_inputs(account_id, &nullifiers, unauthenticated_notes)
+            .await
+            .map_err(internal_error)?;
 
         Ok(Response::new(GetTransactionInputsResponse {
             account_state: Some(AccountTransactionInputRecord {
