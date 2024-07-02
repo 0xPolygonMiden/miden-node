@@ -50,26 +50,42 @@ impl TransactionBatch {
         // Populate batch output notes and updated accounts.
         let mut updated_accounts = vec![];
         let mut output_notes = BTreeMap::new();
+        let mut unauthenticated_input_notes = BTreeSet::new();
         for tx in &txs {
             // TODO: we need to handle a possibility that a batch contains multiple transactions against
             //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
             //       transaction `y` takes account from state `B` to `C`). These will need to be merged
             //       into a single "update" `A` to `C`.
             updated_accounts.push((tx.id(), tx.account_update().clone()));
-            output_notes.extend(tx.output_notes().iter().map(|note| (note.id(), note.clone())));
+            for note in tx.output_notes().iter() {
+                if output_notes.insert(note.id(), note.clone()).is_some() {
+                    return Err(BuildBatchError::DuplicateOutputNote(note.id(), txs.clone()));
+                }
+            }
+            // Check unauthenticated input notes for duplicates:
+            for note in tx.input_notes().iter() {
+                // Header is presented only for unauthenticated notes.
+                if let Some(header) = note.header() {
+                    let id = header.id();
+                    if !unauthenticated_input_notes.insert(id) {
+                        return Err(BuildBatchError::DuplicateUnauthenticatedNote(id, txs.clone()));
+                    }
+                }
+            }
         }
 
-        // Populate batch unauthenticated input notes and produced nullifiers. Unauthenticated
-        // input notes set doesn't contain output notes consumed in the same batch.
-        // We also don't add nullifiers for such output notes to the produced nullifiers set.
+        // Populate batch produced nullifiers and match output notes with corresponding
+        // unauthenticated input notes in the same batch, which are removed from the unauthenticated
+        // input notes set. We also don't add nullifiers for such output notes to the produced
+        // nullifiers set.
         //
         // One thing to note:
         // This still allows transaction `A` to consume an unauthenticated note `x` and output note `y`
         // and for transaction `B` to consume an unauthenticated note `y` and output note `x`
         // (i.e., have a circular dependency between transactions), but this is not a problem.
-        let mut unauthenticated_input_notes = BTreeSet::new();
         let mut produced_nullifiers = vec![];
         for input_note in txs.iter().flat_map(|tx| tx.input_notes().iter()) {
+            // Header is presented only for unauthenticated notes.
             if let Some(input_note_header) = input_note.header() {
                 let id = input_note_header.id();
                 if let Some(output_note) = output_notes.remove(&id) {
@@ -91,10 +107,10 @@ impl TransactionBatch {
                         });
                     }
 
+                    unauthenticated_input_notes.remove(&id);
+
                     // Don't produce nullifiers for output notes consumed in the same batch.
                     continue;
-                } else if !unauthenticated_input_notes.insert(id) {
-                    return Err(BuildBatchError::DuplicateUnauthenticatedNote(id, txs.clone()));
                 }
             }
             produced_nullifiers.push(input_note.nullifier());
