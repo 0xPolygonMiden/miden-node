@@ -2,7 +2,7 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use miden_node_proto::{
     convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
@@ -57,7 +57,7 @@ pub struct BlockInputs {
     pub nullifiers: Vec<NullifierWitness>,
 
     /// List of notes found in the store
-    pub found_unauthenticated_notes: Vec<NoteId>,
+    pub found_unauthenticated_notes: BTreeSet<NoteId>,
 }
 
 impl From<BlockInputs> for GetBlockInputsResponse {
@@ -496,7 +496,7 @@ impl State {
             })
             .collect();
 
-        let found_unauthenticated_notes = select_note_ids(&self.db, unauthenticated_notes).await?;
+        let found_unauthenticated_notes = self.db.select_note_ids(unauthenticated_notes).await?;
 
         Ok(BlockInputs {
             block_header: latest,
@@ -529,8 +529,14 @@ impl State {
             })
             .collect();
 
-        let missing_unauthenticated_notes =
-            select_note_ids(&self.db, unauthenticated_notes).await?;
+        let found_unauthenticated_notes =
+            self.db.select_note_ids(unauthenticated_notes.clone()).await?;
+
+        let missing_unauthenticated_notes = unauthenticated_notes
+            .iter()
+            .filter(|note_id| !found_unauthenticated_notes.contains(note_id))
+            .copied()
+            .collect();
 
         Ok(TransactionInputs {
             account_hash,
@@ -620,14 +626,4 @@ async fn load_accounts(
 
     SimpleSmt::with_leaves(account_data)
         .map_err(StateInitializationError::FailedToCreateAccountsTree)
-}
-
-#[instrument(target = "miden-store", skip_all)]
-async fn select_note_ids(db: &Db, note_ids: Vec<NoteId>) -> Result<Vec<NoteId>, DatabaseError> {
-    Ok(db
-        .select_notes_by_id(note_ids)
-        .await?
-        .into_iter()
-        .map(|note| note.note_id.into())
-        .collect())
 }
