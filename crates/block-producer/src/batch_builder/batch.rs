@@ -6,7 +6,7 @@ use miden_objects::{
     block::BlockAccountUpdate,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteId, Nullifier},
-    transaction::{OutputNote, TransactionId, TxAccountUpdate},
+    transaction::{InputNoteCommitment, OutputNote, TransactionId, TxAccountUpdate},
     Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
@@ -26,8 +26,7 @@ pub type BatchId = Blake3Digest<32>;
 pub struct TransactionBatch {
     id: BatchId,
     updated_accounts: Vec<(TransactionId, TxAccountUpdate)>,
-    unauthenticated_input_notes: BTreeSet<NoteId>,
-    produced_nullifiers: Vec<Nullifier>,
+    input_notes: Vec<InputNoteCommitment>,
     output_notes_smt: BatchNoteTree,
     output_notes: BTreeMap<NoteId, OutputNote>,
 }
@@ -80,7 +79,7 @@ impl TransactionBatch {
         // This still allows transaction `A` to consume an unauthenticated note `x` and output note `y`
         // and for transaction `B` to consume an unauthenticated note `y` and output note `x`
         // (i.e., have a circular dependency between transactions), but this is not a problem.
-        let mut produced_nullifiers = vec![];
+        let mut input_notes = vec![];
         for input_note in txs.iter().flat_map(|tx| tx.input_notes().iter()) {
             // Header is presented only for unauthenticated notes.
             if let Some(input_note_header) = input_note.header() {
@@ -97,30 +96,28 @@ impl TransactionBatch {
                         });
                     }
 
-                    unauthenticated_input_notes.remove(&id);
-
-                    // Don't produce nullifiers for output notes consumed in the same batch.
+                    // Don't add input notes if corresponding output notes consumed in the same batch.
                     continue;
                 }
             }
-            produced_nullifiers.push(input_note.nullifier());
+
+            input_notes.push(input_note.clone());
         }
 
         if output_notes.len() > MAX_NOTES_PER_BATCH {
             return Err(BuildBatchError::TooManyNotesCreated(output_notes.len(), txs));
         }
 
-        // Build the output notes SMT. Will fail if the output note list contains duplicates.
+        // Build the output notes SMT.
         let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
             output_notes.iter().map(|(&id, note)| (id, note.metadata())),
         )
-        .map_err(|e| BuildBatchError::NotesSmtError(e, txs))?;
+        .expect("Unreachable: fails only if the output note list contains duplicates");
 
         Ok(Self {
             id,
             updated_accounts,
-            unauthenticated_input_notes,
-            produced_nullifiers,
+            input_notes,
             output_notes_smt,
             output_notes,
         })
@@ -155,14 +152,14 @@ impl TransactionBatch {
         })
     }
 
-    /// Returns unauthenticated input notes set consumed by the transactions in this batch.
-    pub fn unauthenticated_input_notes(&self) -> &BTreeSet<NoteId> {
-        &self.unauthenticated_input_notes
+    /// Returns input notes list consumed by the transactions in this batch.
+    pub fn input_notes(&self) -> &[InputNoteCommitment] {
+        &self.input_notes
     }
 
     /// Returns an iterator over produced nullifiers for all consumed notes.
     pub fn produced_nullifiers(&self) -> impl Iterator<Item = Nullifier> + '_ {
-        self.produced_nullifiers.iter().cloned()
+        self.input_notes.iter().map(InputNoteCommitment::nullifier)
     }
 
     /// Returns the root hash of the output notes SMT.

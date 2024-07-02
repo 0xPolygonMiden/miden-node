@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{
     block::{Block, BlockAccountUpdate, NoteBatch},
-    notes::Nullifier,
+    notes::{NoteHeader, Nullifier},
+    transaction::InputNoteCommitment,
 };
 use tracing::{debug, info, instrument};
 
@@ -91,9 +92,10 @@ where
 
         let dangling_notes: BTreeSet<_> = batches
             .iter()
-            .flat_map(TransactionBatch::unauthenticated_input_notes)
-            .filter(|&note_id| !created_notes_set.contains(note_id))
-            .copied()
+            .flat_map(TransactionBatch::input_notes)
+            .filter_map(InputNoteCommitment::header)
+            .map(NoteHeader::id)
+            .filter(|note_id| !created_notes_set.contains(note_id))
             .collect();
 
         let block_inputs = self
