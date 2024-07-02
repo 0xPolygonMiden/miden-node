@@ -103,7 +103,7 @@ impl TransactionBatch {
             return Err(BuildBatchError::TooManyNotesCreated(output_notes.len(), txs));
         }
 
-        // TODO: document under what circumstances SMT creating can fail
+        // Build the output notes SMT. Will fail if the output note list contains duplicates.
         let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
             output_notes.iter().map(|note| (note.id(), note.metadata())),
         )
