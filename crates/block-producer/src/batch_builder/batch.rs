@@ -70,13 +70,31 @@ impl TransactionBatch {
         let mut unauthenticated_input_notes = BTreeSet::new();
         let mut produced_nullifiers = vec![];
         for input_note in txs.iter().flat_map(|tx| tx.input_notes().iter()) {
-            if let Some(header) = input_note.header() {
-                let note_id = header.id();
-                if output_notes.remove(&note_id).is_some() {
+            if let Some(input_note_header) = input_note.header() {
+                let id = input_note_header.id();
+                if let Some(output_note) = output_notes.remove(&id) {
+                    let input_hash = input_note_header.hash();
+
+                    // TODO: substitute with just next line once [OutputNote::hash] is implemented
+                    // let output_hash = output_note.hash();
+                    let OutputNote::Header(output_header) = output_note.shrink() else {
+                        unreachable!()
+                    };
+                    let output_hash = output_header.hash();
+
+                    if output_hash != input_hash {
+                        return Err(BuildBatchError::NoteHashesMismatch {
+                            id,
+                            input_hash,
+                            output_hash,
+                            txs: txs.clone(),
+                        });
+                    }
+
                     // Don't produce nullifiers for output notes consumed in the same batch.
                     continue;
-                } else {
-                    unauthenticated_input_notes.insert(note_id);
+                } else if !unauthenticated_input_notes.insert(id) {
+                    return Err(BuildBatchError::DuplicateUnauthenticatedNote(id, txs.clone()));
                 }
             }
             produced_nullifiers.push(input_note.nullifier());

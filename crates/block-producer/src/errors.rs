@@ -85,6 +85,14 @@ pub enum BuildBatchError {
 
     #[error("Unauthenticated transaction notes not found in the store: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>, Vec<ProvenTransaction>),
+
+    #[error("Note hashes mismatch for note {id}: (input: {input_hash}, output: {output_hash})")]
+    NoteHashesMismatch {
+        id: NoteId,
+        input_hash: Digest,
+        output_hash: Digest,
+        txs: Vec<ProvenTransaction>,
+    },
 }
 
 impl BuildBatchError {
@@ -95,6 +103,7 @@ impl BuildBatchError {
             BuildBatchError::NotePathsError(_, txs) => txs,
             BuildBatchError::DuplicateUnauthenticatedNote(_, txs) => txs,
             BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
+            BuildBatchError::NoteHashesMismatch { txs, .. } => txs,
         }
     }
 }
