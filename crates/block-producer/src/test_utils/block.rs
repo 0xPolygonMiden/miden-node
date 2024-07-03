@@ -171,10 +171,5 @@ pub(crate) fn note_created_smt_from_note_batches<'a>(
 
 #[cfg(test)]
 pub(crate) fn note_created_smt_from_batches(batches: &[TransactionBatch]) -> BlockNoteTree {
-    let batches: Vec<Vec<OutputNote>> = batches
-        .iter()
-        .map(|batch| batch.output_notes().values().cloned().collect())
-        .collect();
-
-    note_created_smt_from_note_batches(batches.iter())
+    note_created_smt_from_note_batches(batches.iter().map(TransactionBatch::output_notes))
 }

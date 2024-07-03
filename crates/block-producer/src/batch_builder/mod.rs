@@ -132,7 +132,7 @@ where
                     .read()
                     .await
                     .iter()
-                    .flat_map(|batch| batch.output_notes().keys().copied()),
+                    .flat_map(|batch| batch.output_notes().iter().map(OutputNote::id)),
             )
             .collect();
 
@@ -169,23 +169,28 @@ where
         // TODO: this can be optimized by first computing dangling notes of the batch itself,
         //       and only then checking against the other ready batches
         let dangling_notes = self.find_dangling_notes(&txs).await;
-        if !dangling_notes.is_empty() {
-            let stored_notes =
-                match self.store.get_note_authentication_info(dangling_notes.iter()).await {
-                    Ok(stored_notes) => stored_notes,
-                    Err(err) => return Err(BuildBatchError::NotePathsError(err, txs)),
-                };
-            let missing_notes: Vec<_> = dangling_notes
-                .into_iter()
-                .filter(|note_id| !stored_notes.contains_key(note_id))
-                .collect();
+        let found_unauthenticated_notes = match dangling_notes.is_empty() {
+            true => None,
+            false => {
+                let stored_notes =
+                    match self.store.get_note_authentication_info(dangling_notes.iter()).await {
+                        Ok(stored_notes) => stored_notes,
+                        Err(err) => return Err(BuildBatchError::NotePathsError(err, txs)),
+                    };
+                let missing_notes: Vec<_> = dangling_notes
+                    .into_iter()
+                    .filter(|note_id| !stored_notes.contains_key(note_id))
+                    .collect();
 
-            if !missing_notes.is_empty() {
-                return Err(BuildBatchError::UnauthenticatedNotesNotFound(missing_notes, txs));
-            }
-        }
+                if !missing_notes.is_empty() {
+                    return Err(BuildBatchError::UnauthenticatedNotesNotFound(missing_notes, txs));
+                }
 
-        let batch = TransactionBatch::new(txs)?;
+                Some(stored_notes)
+            },
+        };
+
+        let batch = TransactionBatch::new(txs, found_unauthenticated_notes)?;
 
         info!(target: COMPONENT, "Transaction batch built");
         Span::current().record("batch_id", format_blake3_digest(batch.id()));

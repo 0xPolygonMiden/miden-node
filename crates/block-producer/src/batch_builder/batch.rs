@@ -1,10 +1,16 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    mem,
+};
 
 use miden_objects::{
     accounts::AccountId,
     batches::BatchNoteTree,
     block::BlockAccountUpdate,
-    crypto::hash::blake::{Blake3Digest, Blake3_256},
+    crypto::{
+        hash::blake::{Blake3Digest, Blake3_256},
+        merkle::MerklePath,
+    },
     notes::{NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote, TransactionId, TxAccountUpdate},
     Digest, MAX_NOTES_PER_BATCH,
@@ -28,27 +34,36 @@ pub struct TransactionBatch {
     updated_accounts: Vec<(TransactionId, TxAccountUpdate)>,
     input_notes: Vec<InputNoteCommitment>,
     output_notes_smt: BatchNoteTree,
-    output_notes: BTreeMap<NoteId, OutputNote>,
+    output_notes: Vec<OutputNote>,
 }
 
 impl TransactionBatch {
-    // CONSTRUCTOR
+    // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
+
     /// Returns a new [TransactionBatch] instantiated from the provided vector of proven
-    /// transactions.
+    /// transactions. If a map of unauthenticated notes found in the store is provided, it is used
+    /// for transforming unauthenticated notes into authenticated notes.
     ///
     /// # Errors
     /// Returns an error if:
-    /// - The number of created notes across all transactions exceeds 4096.
+    /// - The number of output notes across all transactions exceeds 4096.
+    /// - There are duplicated output notes or unauthenticated notes found across all transactions
+    ///   in the batch.
+    /// - Hashes for corresponding input notes and output notes don't match.
     ///
     /// TODO: enforce limit on the number of created nullifiers.
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
-    pub fn new(txs: Vec<ProvenTransaction>) -> Result<Self, BuildBatchError> {
+    pub fn new(
+        txs: Vec<ProvenTransaction>,
+        found_unauthenticated_notes: Option<BTreeMap<NoteId, MerklePath>>,
+    ) -> Result<Self, BuildBatchError> {
         let id = Self::compute_id(&txs);
 
         // Populate batch output notes and updated accounts.
         let mut updated_accounts = vec![];
-        let mut output_notes = BTreeMap::new();
+        let mut output_notes = vec![];
+        let mut output_note_index = BTreeMap::new();
         let mut unauthenticated_input_notes = BTreeSet::new();
         for tx in &txs {
             // TODO: we need to handle a possibility that a batch contains multiple transactions against
@@ -57,9 +72,10 @@ impl TransactionBatch {
             //       into a single "update" `A` to `C`.
             updated_accounts.push((tx.id(), tx.account_update().clone()));
             for note in tx.output_notes().iter() {
-                if output_notes.insert(note.id(), note.clone()).is_some() {
+                if output_note_index.insert(note.id(), output_notes.len()).is_some() {
                     return Err(BuildBatchError::DuplicateOutputNote(note.id(), txs.clone()));
                 }
+                output_notes.push(Some(note.clone()));
             }
             // Check unauthenticated input notes for duplicates:
             for note in tx.get_unauthenticated_notes() {
@@ -82,27 +98,41 @@ impl TransactionBatch {
         let mut input_notes = vec![];
         for input_note in txs.iter().flat_map(|tx| tx.input_notes().iter()) {
             // Header is presented only for unauthenticated notes.
-            if let Some(input_note_header) = input_note.header() {
-                let id = input_note_header.id();
-                if let Some(output_note) = output_notes.remove(&id) {
-                    let input_hash = input_note_header.hash();
-                    let output_hash = output_note.hash();
-                    if output_hash != input_hash {
-                        return Err(BuildBatchError::NoteHashesMismatch {
-                            id,
-                            input_hash,
-                            output_hash,
-                            txs: txs.clone(),
-                        });
+            let input_note = match input_note.header() {
+                Some(input_note_header) => {
+                    let id = input_note_header.id();
+                    if let Some(note_index) = output_note_index.remove(&id) {
+                        if let Some(output_note) = mem::take(&mut output_notes[note_index]) {
+                            let input_hash = input_note_header.hash();
+                            let output_hash = output_note.hash();
+                            if output_hash != input_hash {
+                                return Err(BuildBatchError::NoteHashesMismatch {
+                                    id,
+                                    input_hash,
+                                    output_hash,
+                                    txs: txs.clone(),
+                                });
+                            }
+
+                            // Don't add input notes if corresponding output notes consumed in the same batch.
+                            continue;
+                        }
                     }
 
-                    // Don't add input notes if corresponding output notes consumed in the same batch.
-                    continue;
-                }
-            }
-
-            input_notes.push(input_note.clone());
+                    match found_unauthenticated_notes {
+                        Some(ref found_notes) => match found_notes.get(&input_note_header.id()) {
+                            Some(_path) => input_note.nullifier().into(),
+                            None => input_note.clone(),
+                        },
+                        None => input_note.clone(),
+                    }
+                },
+                None => input_note.clone(),
+            };
+            input_notes.push(input_note)
         }
+
+        let output_notes: Vec<_> = output_notes.into_iter().flatten().collect();
 
         if output_notes.len() > MAX_NOTES_PER_BATCH {
             return Err(BuildBatchError::TooManyNotesCreated(output_notes.len(), txs));
@@ -110,7 +140,7 @@ impl TransactionBatch {
 
         // Build the output notes SMT.
         let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
-            output_notes.iter().map(|(&id, note)| (id, note.metadata())),
+            output_notes.iter().map(|note| (note.id(), note.metadata())),
         )
         .expect("Unreachable: fails only if the output note list contains duplicates");
 
@@ -168,7 +198,7 @@ impl TransactionBatch {
     }
 
     /// Returns output notes list.
-    pub fn output_notes(&self) -> &BTreeMap<NoteId, OutputNote> {
+    pub fn output_notes(&self) -> &Vec<OutputNote> {
         &self.output_notes
     }
 

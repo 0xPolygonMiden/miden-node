@@ -155,5 +155,5 @@ fn dummy_tx_batch(starting_account_index: u32, num_txs_in_batch: usize) -> Trans
             MockProvenTxBuilder::with_account_index(starting_account_index + index as u32).build()
         })
         .collect();
-    TransactionBatch::new(txs).unwrap()
+    TransactionBatch::new(txs, None).unwrap()
 }
