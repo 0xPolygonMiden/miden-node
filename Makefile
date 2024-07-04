@@ -50,6 +50,12 @@ doc-serve: ## Serves documentation site
 test:  ## Runs all tests
 	cargo nextest run --all-features --workspace --no-capture
 
+# --- checking ------------------------------------------------------------------------------------
+
+.PHONY: check
+check: ## Check all targets and features for errors without code generation
+	cargo check --all-features --all-targets
+
 # --- installing --------------------------------------------------------------------------------
 
 .PHONY: install-node
