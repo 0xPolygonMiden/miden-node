@@ -1,6 +1,6 @@
 //! Wrapper functions for SQL statements.
 
-use std::{borrow::Cow, collections::BTreeSet, rc::Rc};
+use std::{borrow::Cow, rc::Rc};
 
 use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
@@ -365,25 +365,6 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             details,
             merkle_path,
         })
-    }
-    Ok(notes)
-}
-
-/// Select all note IDs from the DB using the given [Connection].
-///
-/// # Returns
-///
-/// A set with note IDs, or an error.
-pub fn select_note_ids(conn: &mut Connection) -> Result<BTreeSet<NoteId>> {
-    let mut stmt = conn.prepare("SELECT note_id FROM notes ORDER BY note_id")?;
-    let mut rows = stmt.query([])?;
-
-    let mut notes = BTreeSet::new();
-    while let Some(row) = rows.next()? {
-        let note_id_data = row.get_ref(0)?.as_blob()?;
-        let note_id = RpoDigest::read_from_bytes(note_id_data)?.into();
-
-        notes.insert(note_id);
     }
     Ok(notes)
 }
