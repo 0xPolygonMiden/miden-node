@@ -1,0 +1,102 @@
+syntax = "proto3";
+package requests;
+
+import "account.proto";
+import "block_header.proto";
+import "digest.proto";
+import "note.proto";
+
+message ApplyBlockRequest {
+    bytes block = 1;
+}
+
+message CheckNullifiersRequest {
+    repeated digest.Digest nullifiers = 1;
+}
+
+// Returns the block header corresponding to the requested block number, as well as the merkle
+// path and current forest which validate the block's inclusion in the chain.
+//
+// The Merkle path is an MMR proof for the block's leaf, based on the current chain length.
+message GetBlockHeaderByNumberRequest {
+    // The block number of the target block.
+    //
+    // If not provided, means latest know block.
+    optional uint32 block_num = 1;
+    // Whether or not to return authentication data for the block header.
+    optional bool include_mmr_proof = 2;
+}
+
+// State synchronization request.
+//
+// Specifies state updates the client is intersted in. The server will return the first block which
+// contains a note matching `note_tags` or the chain tip. And the corresponding updates to
+// `nullifiers` and `account_ids` for that block range.
+message SyncStateRequest {
+    // Last block known by the client. The response will contain data starting from the next block,
+    // until the first block which contains a note of matching the requested tag, or the chain tip
+    // if there are no notes.
+    fixed32 block_num = 1;
+
+    // Accounts' hash to include in the response.
+    //
+    // An account hash will be included if-and-only-if it is the latest update. Meaning it is
+    // possible there was an update to the account for the given range, but if it is not the latest,
+    // it won't be included in the response.
+    repeated account.AccountId account_ids = 2;
+
+    // Determines the tags which the client is interested in. These are only the 16high bits of the
+    // note's complete tag.
+    //
+    // The above means it is not possible to request an specific note, but only a "note family",
+    // this is done to increase the privacy of the client, by hiding the note's the client is
+    // intereted on.
+    repeated uint32 note_tags = 3;
+
+    // Determines the nullifiers the client is interested in.
+    //
+    // Similarly to the note_tags, this determins only the 16high bits of the target nullifier.
+    repeated uint32 nullifiers = 4;
+}
+
+message GetBlockInputsRequest {
+    // ID of the account against which a transaction is executed.
+    repeated account.AccountId account_ids = 1;
+    // Array of nullifiers for all notes consumed by a transaction.
+    repeated digest.Digest nullifiers = 2;
+    // Array of note IDs to be checked for existence in the database.
+    repeated digest.Digest unauthenticated_notes = 3;
+}
+
+message GetTransactionInputsRequest {
+    account.AccountId account_id = 1;
+    repeated digest.Digest nullifiers = 2;
+    repeated digest.Digest unauthenticated_notes = 3;
+}
+
+message SubmitProvenTransactionRequest {
+    // Transaction encoded using miden's native format
+    bytes transaction = 1;
+}
+
+message GetNotesByIdRequest {
+    // List of NoteId's to be queried from the database
+    repeated digest.Digest note_ids = 1;
+}
+
+message ListNullifiersRequest {}
+
+message ListAccountsRequest {}
+
+message ListNotesRequest {}
+
+// Returns the latest state of an account with the specified ID.
+message GetAccountDetailsRequest {
+    // Account ID to get details.
+    account.AccountId account_id = 1;
+}
+
+message GetBlockByNumberRequest {
+    // The block number of the target block.
+    fixed32 block_num = 1;
+}

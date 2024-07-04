@@ -1,0 +1,140 @@
+syntax = "proto3";
+package responses;
+
+import "account.proto";
+import "block_header.proto";
+import "digest.proto";
+import "merkle.proto";
+import "mmr.proto";
+import "note.proto";
+import "smt.proto";
+import "transaction.proto";
+
+message ApplyBlockResponse {}
+
+message CheckNullifiersResponse {
+    // Each requested nullifier has its corresponding nullifier proof at the same position.
+    repeated smt.SmtOpening proofs = 1;
+}
+
+message GetBlockHeaderByNumberResponse {
+    // The requested block header
+    block_header.BlockHeader block_header = 1;
+
+    // Merkle path to verify the block's inclusion in the MMR at the returned `chain_length`
+    optional merkle.MerklePath mmr_path = 2;
+
+    // Current chain length
+    optional fixed32 chain_length = 3;
+}
+
+message NullifierUpdate {
+    digest.Digest nullifier = 1;
+    fixed32 block_num = 2;
+}
+
+message SyncStateResponse {
+    // Number of the latest block in the chain
+    fixed32 chain_tip = 1;
+
+    // Block header of the block with the first note matching the specified criteria
+    block_header.BlockHeader block_header = 2;
+
+    // Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
+    mmr.MmrDelta mmr_delta = 3;
+
+    // List of account hashes updated after `request.block_num + 1` but not after `response.block_header.block_num`
+    repeated account.AccountSummary accounts = 5;
+
+    // List of transactions executed against requested accounts between `request.block_num + 1` and
+    // `response.block_header.block_num`
+    repeated transaction.TransactionSummary transactions = 6;
+
+    // List of all notes together with the Merkle paths from `response.block_header.note_root`
+    repeated note.NoteSyncRecord notes = 7;
+
+    // List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`
+    repeated NullifierUpdate nullifiers = 8;
+}
+
+// An account returned as a response to the GetBlockInputs
+message AccountBlockInputRecord {
+    account.AccountId account_id = 1;
+    digest.Digest account_hash = 2;
+    merkle.MerklePath proof = 3;
+}
+
+// A nullifier returned as a response to the GetBlockInputs
+message NullifierBlockInputRecord {
+    digest.Digest nullifier = 1;
+    smt.SmtOpening opening = 2;
+}
+
+message GetBlockInputsResponse {
+    // The latest block header
+    block_header.BlockHeader block_header = 1;
+
+    // Peaks of the above block's mmr, The `forest` value is equal to the block number
+    repeated digest.Digest mmr_peaks = 2;
+
+    // The hashes of the requested accounts and their authentication paths
+    repeated AccountBlockInputRecord account_states = 3;
+
+    // The requested nullifiers and their authentication paths
+    repeated NullifierBlockInputRecord nullifiers = 4;
+
+    // The list of requested notes which were found in the database
+    repeated digest.Digest found_unauthenticated_notes = 5;
+}
+
+// An account returned as a response to the GetTransactionInputs
+message AccountTransactionInputRecord {
+    account.AccountId account_id = 1;
+    // The latest account hash, zero hash if the account doesn't exist.
+    digest.Digest account_hash = 2;
+}
+
+// A nullifier returned as a response to the GetTransactionInputs
+message NullifierTransactionInputRecord {
+    digest.Digest nullifier = 1;
+    // The block at which the nullifier has been consumed, zero if not consumed.
+    fixed32 block_num = 2;
+}
+
+message GetTransactionInputsResponse {
+    AccountTransactionInputRecord account_state = 1;
+    repeated NullifierTransactionInputRecord nullifiers = 2;
+    repeated digest.Digest missing_unauthenticated_notes = 3;
+}
+
+message SubmitProvenTransactionResponse {}
+
+message GetNotesByIdResponse {
+    // Lists Note's returned by the database
+    repeated note.Note notes = 1;
+}
+
+message ListNullifiersResponse {
+    // Lists all nullifiers of the current chain
+    repeated smt.SmtLeafEntry nullifiers = 1;
+}
+
+message ListAccountsResponse {
+    // Lists all accounts of the current chain
+    repeated account.AccountInfo accounts = 1;
+}
+
+message ListNotesResponse {
+    // Lists all notes of the current chain
+    repeated note.Note notes = 1;
+}
+
+message GetAccountDetailsResponse {
+    // Account info (with details for on-chain accounts)
+    account.AccountInfo account = 1;
+}
+
+message GetBlockByNumberResponse {
+    // The requested `Block` data encoded using miden native format
+    optional bytes block = 1;
+}

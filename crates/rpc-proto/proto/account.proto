@@ -1,0 +1,22 @@
+syntax = "proto3";
+package account;
+
+import "digest.proto";
+
+message AccountId {
+    // A miden account is defined with a little bit of proof-of-work, the id itself is defined as
+    // the first word of a hash digest. For this reason account ids can be considered as random
+    // values, because of that the encoding bellow uses fixed 64 bits, instead of zig-zag encoding.
+    fixed64 id = 1;
+}
+
+message AccountSummary {
+    AccountId account_id = 1;
+    digest.Digest account_hash = 2;
+    uint32 block_num = 3;
+}
+
+message AccountInfo {
+    AccountSummary summary = 1;
+    optional bytes details = 2;
+}

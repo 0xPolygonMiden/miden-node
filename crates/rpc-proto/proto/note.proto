@@ -1,0 +1,31 @@
+syntax = "proto3";
+package note;
+
+import "digest.proto";
+import "merkle.proto";
+import "account.proto";
+
+message NoteMetadata {
+    account.AccountId sender = 1;
+    uint32 note_type = 2;
+    fixed32 tag = 3;
+    fixed64 aux = 4;
+}
+
+message Note {
+    fixed32 block_num = 1;
+    uint32 note_index = 2;
+    digest.Digest note_id = 3;
+    NoteMetadata metadata = 4;
+    merkle.MerklePath merkle_path = 5;
+    // This field will be present when the note is on-chain.
+    // details contain the `Note` in a serialized format.
+    optional bytes details = 6;
+}
+
+message NoteSyncRecord {
+    uint32 note_index = 1;
+    digest.Digest note_id = 2;
+    NoteMetadata metadata = 3;
+    merkle.MerklePath merkle_path = 4;
+}

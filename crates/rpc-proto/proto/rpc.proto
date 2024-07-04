@@ -1,0 +1,16 @@
+// Specification of the user facing gRPC API.
+syntax = "proto3";
+package rpc;
+
+import "requests.proto";
+import "responses.proto";
+
+service Api {
+    rpc CheckNullifiers(requests.CheckNullifiersRequest) returns (responses.CheckNullifiersResponse) {}
+    rpc GetAccountDetails(requests.GetAccountDetailsRequest) returns (responses.GetAccountDetailsResponse) {}
+    rpc GetBlockByNumber(requests.GetBlockByNumberRequest) returns (responses.GetBlockByNumberResponse) {}
+    rpc GetBlockHeaderByNumber(requests.GetBlockHeaderByNumberRequest) returns (responses.GetBlockHeaderByNumberResponse) {}
+    rpc GetNotesById(requests.GetNotesByIdRequest) returns (responses.GetNotesByIdResponse) {}
+    rpc SubmitProvenTransaction(requests.SubmitProvenTransactionRequest) returns (responses.SubmitProvenTransactionResponse) {}
+    rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
+}

@@ -4,9 +4,10 @@
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-# -- variables --------------------------------------------------------------------------------------
+# -- variables ------------------------------------------------------------------------------------
 
 WARNINGS=RUSTDOCFLAGS="-D warnings"
+BUILD_PROTO=BUILD_PROTO=1
 
 # -- linting --------------------------------------------------------------------------------------
 
@@ -54,27 +55,33 @@ test:  ## Runs all tests
 
 .PHONY: check
 check: ## Check all targets and features for errors without code generation
-	cargo check --all-features --all-targets
+	${BUILD_PROTO} cargo check --all-features --all-targets
 
-# --- installing --------------------------------------------------------------------------------
+# --- building ------------------------------------------------------------------------------------
+
+.PHONY: build
+build: ## Builds all crates and re-builds ptotobuf bindings for proto crates
+	${BUILD_PROTO} cargo build
+
+# --- installing ----------------------------------------------------------------------------------
 
 .PHONY: install-node
 install-node: ## Installs node
-	cargo install --path bin/node
+	${BUILD_PROTO} cargo install --path bin/node
 
 .PHONY: install-faucet
 install-faucet: ## Installs faucet
-	cargo install --path bin/faucet
+	${BUILD_PROTO} cargo install --path bin/faucet
 
 .PHONY: install-node-testing
 install-node-testing: ## Installs node with testing feature enabled
-	cargo install --features testing --path bin/node
+	${BUILD_PROTO} cargo install --features testing --path bin/node
 
 .PHONY: install-faucet-testing
 install-faucet-testing: ## Installs faucet with testing feature enabled
-	cargo install --features testing --path bin/faucet
+	${BUILD_PROTO} cargo install --features testing --path bin/faucet
 
-# --- docker --------------------------------------------------------------------------------
+# --- docker --------------------------------------------------------------------------------------
 
 .PHONY: docker-build-node
 docker-build-node: ## Builds the Miden node using Docker
