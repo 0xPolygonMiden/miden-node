@@ -4,7 +4,7 @@ use miette::IntoDiagnostic;
 use prost::Message;
 
 /// Generates Rust protobuf bindings from .proto files in the root directory.
-/// 
+///
 /// This is done only if BUILD_PROTO environment variable is set to `1` to avoid running the script
 /// on crates.io where repo-level .proto files are not available.
 fn main() -> miette::Result<()> {
@@ -13,7 +13,7 @@ fn main() -> miette::Result<()> {
 
     // skip this build script in BUILD_PROTO environment variable is not set to `1`
     if env::var("BUILD_PROTO").unwrap_or("0".to_string()) == "0" {
-        return Ok(())
+        return Ok(());
     }
 
     // Compute the directory of the `proto` definitions

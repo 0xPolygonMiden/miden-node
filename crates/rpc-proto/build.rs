@@ -18,7 +18,7 @@ const DOC_COMMENT: &str =
 // ================================================================================================
 
 /// Copies .proto files to the local directory and re-builds src/proto_files.rs file.
-/// 
+///
 /// This is done only if BUILD_PROTO environment variable is set to `1` to avoid running the script
 /// on crates.io where repo-level .proto files are not available.
 fn main() -> io::Result<()> {
@@ -27,7 +27,7 @@ fn main() -> io::Result<()> {
 
     // skip this build script in BUILD_PROTO environment variable is not set to `1`
     if env::var("BUILD_PROTO").unwrap_or("0".to_string()) == "0" {
-        return Ok(())
+        return Ok(());
     }
 
     // copy all .proto files into this crate. all these files need to be local to the crate to
