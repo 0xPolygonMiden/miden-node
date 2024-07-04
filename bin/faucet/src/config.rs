@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use miden_node_utils::config::Endpoint;
+use miden_node_utils::config::{Endpoint, DEFAULT_FAUCET_SERVER_PORT, DEFAULT_NODE_RPC_PORT};
 use serde::{Deserialize, Serialize};
 
 // Faucet config
@@ -15,6 +15,8 @@ pub struct FaucetConfig {
     pub endpoint: Endpoint,
     /// Node RPC gRPC endpoint in the format `http://<host>[:<port>]`.
     pub node_url: String,
+    /// Timeout for RPC requests in milliseconds
+    pub timeout_ms: u64,
     /// Location to store database files
     pub database_filepath: PathBuf,
     /// Possible options on the amount of asset that should be dispered on each faucet request
@@ -39,5 +41,20 @@ impl Display for FaucetConfig {
             "{{ endpoint: \"{}\",  database_filepath: {:?}, asset_amount_options: {:?}, token_symbol: {}, decimals: {}, max_supply: {} }}",
             self.endpoint, self.database_filepath, self.asset_amount_options, self.token_symbol, self.decimals, self.max_supply
         ))
+    }
+}
+
+impl Default for FaucetConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: Endpoint::localhost(DEFAULT_FAUCET_SERVER_PORT),
+            node_url: Endpoint::localhost(DEFAULT_NODE_RPC_PORT).to_string(),
+            timeout_ms: 10000,
+            database_filepath: PathBuf::from("store.sqlite3"),
+            asset_amount_options: vec![100, 500, 1000],
+            token_symbol: "POL".to_string(),
+            decimals: 8,
+            max_supply: 1000000,
+        }
     }
 }

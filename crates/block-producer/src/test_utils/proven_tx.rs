@@ -87,7 +87,7 @@ impl MockProvenTxBuilder {
             Digest::default(),
             ExecutionProof::new(StarkProof::new_dummy(), HashFunction::Blake3_192),
         )
-        .add_input_notes(self.nullifiers.unwrap_or_default())
+        .add_input_notes(self.nullifiers.unwrap_or_default().iter().copied())
         .add_output_notes(self.notes_created.unwrap_or_default())
         .build()
         .unwrap()

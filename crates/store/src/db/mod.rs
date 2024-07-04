@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     fs::{self, create_dir_all},
     sync::Arc,
 };
@@ -12,6 +13,7 @@ use miden_objects::{
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteMetadata, Nullifier},
+    transaction::TransactionId,
     utils::Serializable,
     BlockHeader, GENESIS_BLOCK,
 };
@@ -48,6 +50,13 @@ pub struct NullifierInfo {
     pub block_num: BlockNumber,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct TransactionSummary {
+    pub account_id: AccountId,
+    pub block_num: BlockNumber,
+    pub transaction_id: TransactionId,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoteRecord {
     pub block_num: BlockNumber,
@@ -77,6 +86,7 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
+    pub transactions: Vec<TransactionSummary>,
     pub nullifiers: Vec<NullifierInfo>,
 }
 
@@ -268,6 +278,14 @@ impl Db {
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
             })?
+    }
+
+    /// Loads all note IDs matching a certain NoteId from the database.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_note_ids(&self, note_ids: Vec<NoteId>) -> Result<BTreeSet<NoteId>> {
+        self.select_notes_by_id(note_ids)
+            .await
+            .map(|notes| notes.into_iter().map(|note| note.note_id.into()).collect())
     }
 
     /// Inserts the data of a new block into the DB.

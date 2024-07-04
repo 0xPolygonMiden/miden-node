@@ -56,6 +56,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
             chain_peaks,
             accounts,
             nullifiers: Default::default(),
+            found_unauthenticated_notes: Default::default(),
         }
     };
 
@@ -68,7 +69,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
             )
             .build();
 
-            TransactionBatch::new(vec![tx]).unwrap()
+            TransactionBatch::new(vec![tx], None).unwrap()
         };
 
         let batch_2 = {
@@ -79,7 +80,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
             )
             .build();
 
-            TransactionBatch::new(vec![tx]).unwrap()
+            TransactionBatch::new(vec![tx], None).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -128,23 +129,30 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
             chain_peaks,
             accounts,
             nullifiers: Default::default(),
+            found_unauthenticated_notes: Default::default(),
         }
     };
 
     let batches = {
-        let batch_1 = TransactionBatch::new(vec![MockProvenTxBuilder::with_account(
-            account_id_1,
-            account_1_hash_batches,
-            Digest::default(),
+        let batch_1 = TransactionBatch::new(
+            vec![MockProvenTxBuilder::with_account(
+                account_id_1,
+                account_1_hash_batches,
+                Digest::default(),
+            )
+            .build()],
+            None,
         )
-        .build()])
         .unwrap();
-        let batch_2 = TransactionBatch::new(vec![MockProvenTxBuilder::with_account(
-            account_id_2,
-            Digest::default(),
-            Digest::default(),
+        let batch_2 = TransactionBatch::new(
+            vec![MockProvenTxBuilder::with_account(
+                account_id_2,
+                Digest::default(),
+                Digest::default(),
+            )
+            .build()],
+            None,
         )
-        .build()])
         .unwrap();
 
         vec![batch_1, batch_2]
@@ -209,7 +217,7 @@ async fn test_compute_account_root_success() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs = store
-        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty(), std::iter::empty())
         .await
         .unwrap();
 
@@ -227,8 +235,8 @@ async fn test_compute_account_root_success() {
             })
             .collect();
 
-        let batch_1 = TransactionBatch::new(txs[..2].to_vec()).unwrap();
-        let batch_2 = TransactionBatch::new(txs[2..].to_vec()).unwrap();
+        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), None).unwrap();
+        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), None).unwrap();
 
         vec![batch_1, batch_2]
     };
@@ -251,6 +259,7 @@ async fn test_compute_account_root_success() {
                         account_id,
                         account_hash.into(),
                         AccountUpdateDetails::Private,
+                        vec![],
                     )
                 })
                 .collect(),
@@ -299,8 +308,10 @@ async fn test_compute_account_root_empty_batches() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(std::iter::empty(), std::iter::empty(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches = Vec::new();
     let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
@@ -330,8 +341,10 @@ async fn test_compute_note_root_empty_batches_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(std::iter::empty(), std::iter::empty(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches: Vec<TransactionBatch> = Vec::new();
 
@@ -360,11 +373,13 @@ async fn test_compute_note_root_empty_notes_success() {
     // ---------------------------------------------------------------------------------------------
 
     // Block inputs is initialized with all the accounts and their initial state
-    let block_inputs_from_store: BlockInputs =
-        store.get_block_inputs(std::iter::empty(), std::iter::empty()).await.unwrap();
+    let block_inputs_from_store: BlockInputs = store
+        .get_block_inputs(std::iter::empty(), std::iter::empty(), std::iter::empty())
+        .await
+        .unwrap();
 
     let batches: Vec<TransactionBatch> = {
-        let batch = TransactionBatch::new(Vec::new()).unwrap();
+        let batch = TransactionBatch::new(vec![], None).unwrap();
         vec![batch]
     };
 
@@ -421,7 +436,7 @@ async fn test_compute_note_root_success() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs = store
-        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty(), std::iter::empty())
         .await
         .unwrap();
 
@@ -437,8 +452,8 @@ async fn test_compute_note_root_success() {
             })
             .collect();
 
-        let batch_1 = TransactionBatch::new(txs[..2].to_vec()).unwrap();
-        let batch_2 = TransactionBatch::new(txs[2..].to_vec()).unwrap();
+        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), None).unwrap();
+        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), None).unwrap();
 
         vec![batch_1, batch_2]
     };
@@ -486,13 +501,13 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
-            TransactionBatch::new(vec![tx]).unwrap()
+            TransactionBatch::new(vec![tx], None).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
-            TransactionBatch::new(vec![tx]).unwrap()
+            TransactionBatch::new(vec![tx], None).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -543,6 +558,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
             chain_peaks,
             accounts,
             nullifiers,
+            found_unauthenticated_notes: Default::default(),
         }
     };
 
@@ -561,13 +577,13 @@ async fn test_compute_nullifier_root_empty_success() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).build();
 
-            TransactionBatch::new(vec![tx]).unwrap()
+            TransactionBatch::new(vec![tx], None).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).build();
 
-            TransactionBatch::new(vec![tx]).unwrap()
+            TransactionBatch::new(vec![tx], None).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -589,7 +605,7 @@ async fn test_compute_nullifier_root_empty_success() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs = store
-        .get_block_inputs(account_ids.into_iter(), std::iter::empty())
+        .get_block_inputs(account_ids.into_iter(), std::iter::empty(), std::iter::empty())
         .await
         .unwrap();
 
@@ -614,13 +630,13 @@ async fn test_compute_nullifier_root_success() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
-            TransactionBatch::new(vec![tx]).unwrap()
+            TransactionBatch::new(vec![tx], None).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
-            TransactionBatch::new(vec![tx]).unwrap()
+            TransactionBatch::new(vec![tx], None).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -650,7 +666,7 @@ async fn test_compute_nullifier_root_success() {
 
     // Block inputs is initialized with all the accounts and their initial state
     let block_inputs_from_store: BlockInputs = store
-        .get_block_inputs(account_ids.into_iter(), nullifiers.iter())
+        .get_block_inputs(account_ids.into_iter(), nullifiers.iter(), std::iter::empty())
         .await
         .unwrap();
 

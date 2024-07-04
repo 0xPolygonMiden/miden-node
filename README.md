@@ -99,7 +99,7 @@ If you intend on running the node inside a Docker container, you will need to fo
 1. Build the docker image from source
 
    ```sh
-   cargo make docker-build-node
+   make docker-build-node
    ```
 
    This command will build the docker image for the Miden node and save it locally.
@@ -107,8 +107,8 @@ If you intend on running the node inside a Docker container, you will need to fo
 2. Run the Docker container
 
    ```sh
-   # Using cargo-make
-   cargo make docker-run-node
+   # Using make
+   make docker-run-node
 
    # Manually
    docker run --name miden-node -p 57291:57291 -d miden-node-image
@@ -158,7 +158,7 @@ brew install coreutils
 In order to test the node run the following command:
 
 ```sh
-cargo-make test-all
+make test-all
 ```
 
 ## License

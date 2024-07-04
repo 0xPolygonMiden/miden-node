@@ -8,6 +8,7 @@ use miden_objects::{
         utils::DeserializationError,
     },
     notes::Nullifier,
+    transaction::OutputNote,
     AccountError, BlockError, BlockHeader, NoteError,
 };
 use rusqlite::types::FromSqlError;
@@ -57,6 +58,8 @@ pub enum DatabaseError {
     DeserializationError(DeserializationError),
     #[error("Corrupted data: {0}")]
     CorruptedData(String),
+    #[error("Invalid Felt: {0}")]
+    InvalidFelt(String),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
     ApplyBlockFailedClosedChannel(RecvError),
     #[error("Account {0} not found in the database")]
@@ -142,6 +145,8 @@ pub enum ApplyBlockError {
     DatabaseError(#[from] DatabaseError),
     #[error("I/O error: {0}")]
     IoError(#[from] io::Error),
+    #[error("Task join error: {0}")]
+    TokioJoinError(#[from] tokio::task::JoinError),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
     #[error("New block number must be 1 greater than the current block number")]
@@ -170,6 +175,10 @@ pub enum ApplyBlockError {
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
     #[error("Failed to update nullifier tree: {0}")]
     FailedToUpdateNullifierTree(NullifierTreeError),
+    #[error("Invalid output note type: {0:?}")]
+    InvalidOutputNoteType(OutputNote),
+    #[error("Invalid tx hash: expected {expected}, but got {actual}")]
+    InvalidTxHash { expected: RpoDigest, actual: RpoDigest },
 }
 
 #[derive(Error, Debug)]

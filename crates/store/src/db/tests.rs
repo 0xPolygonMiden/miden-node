@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::accounts::AccountSummary;
 use miden_objects::{
@@ -21,7 +23,7 @@ use miden_objects::{
 use rusqlite::{vtab::array, Connection};
 
 use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
-use crate::db::migrations::apply_migrations;
+use crate::db::{migrations::apply_migrations, TransactionSummary};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -93,6 +95,36 @@ fn test_sql_insert_nullifiers_for_block() {
         transaction.commit().unwrap();
         assert_eq!(res.unwrap(), nullifiers.len(), "There should be 10 entries");
     }
+}
+
+#[test]
+fn test_sql_insert_transactions() {
+    let mut conn = create_db();
+
+    let count = insert_transactions(&mut conn);
+
+    assert_eq!(count, 2, "Two elements must have been inserted");
+}
+
+#[test]
+fn test_sql_select_transactions() {
+    fn query_transactions(conn: &mut Connection) -> Vec<TransactionSummary> {
+        sql::select_transactions_by_accounts_and_block_range(conn, 0, 2, &[1]).unwrap()
+    }
+
+    let mut conn = create_db();
+
+    let transactions = query_transactions(&mut conn);
+
+    assert!(transactions.is_empty(), "No elements must be initially in the DB");
+
+    let count = insert_transactions(&mut conn);
+
+    assert_eq!(count, 2, "Two elements must have been inserted");
+
+    let transactions = query_transactions(&mut conn);
+
+    assert_eq!(transactions.len(), 2, "Two elements must be in the DB");
 }
 
 #[test]
@@ -192,6 +224,7 @@ fn test_sql_select_accounts() {
                 account_id.try_into().unwrap(),
                 account_hash,
                 AccountUpdateDetails::Private,
+                vec![],
             )],
             block_num,
         );
@@ -215,7 +248,7 @@ fn test_sql_public_account_details() {
     let non_fungible_faucet_id =
         AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
 
-    let mut storage = AccountStorage::new(vec![], vec![]).unwrap();
+    let mut storage = AccountStorage::new(vec![], BTreeMap::new()).unwrap();
     storage.set_item(1, num_to_word(1)).unwrap();
     storage.set_item(3, num_to_word(3)).unwrap();
     storage.set_item(5, num_to_word(5)).unwrap();
@@ -227,7 +260,7 @@ fn test_sql_public_account_details() {
         .unwrap(),
     );
 
-    let mut account = Account::new(
+    let mut account = Account::from_parts(
         account_id,
         AssetVault::new(&[
             Asset::Fungible(FungibleAsset::new(fungible_faucet_id, 150).unwrap()),
@@ -250,6 +283,7 @@ fn test_sql_public_account_details() {
             account_id,
             account.hash(),
             AccountUpdateDetails::New(account.clone()),
+            vec![],
         )],
         block_num,
     )
@@ -295,6 +329,7 @@ fn test_sql_public_account_details() {
             account_id,
             account.hash(),
             AccountUpdateDetails::Delta(delta.clone()),
+            vec![],
         )],
         block_num,
     )
@@ -544,6 +579,7 @@ fn test_db_account() {
             account_id.try_into().unwrap(),
             account_hash,
             AccountUpdateDetails::Private,
+            vec![],
         )],
         block_num,
     )
@@ -685,6 +721,31 @@ fn num_to_word(n: u64) -> Word {
 
 fn num_to_nullifier(n: u64) -> Nullifier {
     Nullifier::from(num_to_rpo_digest(n))
+}
+
+fn mock_block_account_update(account_id: AccountId, num: u64) -> BlockAccountUpdate {
+    BlockAccountUpdate::new(
+        account_id,
+        num_to_rpo_digest(num),
+        AccountUpdateDetails::Private,
+        vec![num_to_rpo_digest(num + 1000).into(), num_to_rpo_digest(num + 1001).into()],
+    )
+}
+
+fn insert_transactions(conn: &mut Connection) -> usize {
+    let block_num = 1;
+    create_block(conn, block_num);
+
+    let transaction = conn.transaction().unwrap();
+    let count = sql::insert_transactions(
+        &transaction,
+        block_num,
+        &[mock_block_account_update(AccountId::new_unchecked(Felt::ONE), 1)],
+    )
+    .unwrap();
+    transaction.commit().unwrap();
+
+    count
 }
 
 pub fn mock_account_code(assembler: &Assembler) -> AccountCode {

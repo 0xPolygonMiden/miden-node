@@ -8,6 +8,7 @@ use miden_objects::{
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteMetadata, NoteType, Nullifier},
+    transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
 };
@@ -17,7 +18,7 @@ use rusqlite::{
     Connection, OptionalExtension, Transaction,
 };
 
-use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate};
+use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate, TransactionSummary};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -326,6 +327,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             note_type,
             sender,
             tag,
+            aux,
             merkle_path,
             details
         FROM
@@ -341,19 +343,19 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
 
-        let merkle_path_data = row.get_ref(7)?.as_blob()?;
+        let merkle_path_data = row.get_ref(8)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
-        let details_data = row.get_ref(8)?.as_blob_or_null()?;
+        let details_data = row.get_ref(9)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         let note_type = row.get::<_, u8>(4)?.try_into()?;
         let sender = column_value_as_u64(row, 5)?;
         let tag: u32 = row.get(6)?;
+        let aux: u64 = row.get(7)?;
+        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
 
-        // TODO: Properly handle note metadata's aux field
-        let metadata =
-            NoteMetadata::new(sender.try_into()?, note_type, tag.into(), Default::default())?;
+        let metadata = NoteMetadata::new(sender.try_into()?, note_type, tag.into(), aux)?;
 
         notes.push(NoteRecord {
             block_num: row.get(0)?,
@@ -390,12 +392,13 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             note_type,
             sender,
             tag,
+            aux,
             merkle_path,
             details
         )
         VALUES
         (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10
         );",
     )?;
 
@@ -410,6 +413,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             note.metadata.note_type() as u8,
             u64_to_value(note.metadata.sender().into()),
             note.metadata.tag().inner(),
+            u64_to_value(note.metadata.aux().into()),
             note.merkle_path.to_bytes(),
             details
         ])?;
@@ -449,6 +453,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
             note_type,
             sender,
             tag,
+            aux,
             merkle_path,
             details
         FROM
@@ -483,18 +488,15 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let note_type = row.get::<_, u8>(4)?;
         let sender = column_value_as_u64(row, 5)?;
         let tag: u32 = row.get(6)?;
-        let merkle_path_data = row.get_ref(7)?.as_blob()?;
+        let aux: u64 = row.get(7)?;
+        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
+        let merkle_path_data = row.get_ref(8)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(8)?.as_blob_or_null()?;
+        let details_data = row.get_ref(9)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
-        // TODO: Properly retrieve aux
-        let metadata = NoteMetadata::new(
-            sender.try_into()?,
-            NoteType::try_from(note_type)?,
-            tag.into(),
-            Default::default(),
-        )?;
+        let metadata =
+            NoteMetadata::new(sender.try_into()?, NoteType::try_from(note_type)?, tag.into(), aux)?;
 
         let note = NoteRecord {
             block_num,
@@ -528,6 +530,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
             note_type,
             sender,
             tag,
+            aux,
             merkle_path,
             details
         FROM
@@ -543,19 +546,19 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = NoteId::read_from_bytes(note_id_data)?;
 
-        let merkle_path_data = row.get_ref(7)?.as_blob()?;
+        let merkle_path_data = row.get_ref(8)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
-        let details_data = row.get_ref(8)?.as_blob_or_null()?;
+        let details_data = row.get_ref(9)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         let note_type = row.get::<_, u8>(4)?.try_into()?;
         let sender = column_value_as_u64(row, 5)?;
         let tag: u32 = row.get(6)?;
+        let aux: u64 = row.get(7)?;
+        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
 
-        // TODO: Properly handle note metadata's aux field
-        let metadata =
-            NoteMetadata::new(sender.try_into()?, note_type, tag.into(), Default::default())?;
+        let metadata = NoteMetadata::new(sender.try_into()?, note_type, tag.into(), aux)?;
 
         notes.push(NoteRecord {
             block_num: row.get(0)?,
@@ -640,6 +643,87 @@ pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
     Ok(result)
 }
 
+// TRANSACTIONS QUERIES
+// ================================================================================================
+
+/// Insert transactions to the DB using the given [Transaction].
+///
+/// # Returns
+///
+/// The number of affected rows.
+///
+/// # Note
+///
+/// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
+/// transaction.
+pub fn insert_transactions(
+    transaction: &Transaction,
+    block_num: BlockNumber,
+    accounts: &[BlockAccountUpdate],
+) -> Result<usize> {
+    let mut stmt = transaction.prepare(
+        "INSERT INTO transactions(transaction_id, account_id, block_num) VALUES (?1, ?2, ?3);",
+    )?;
+    let mut count = 0;
+    for update in accounts {
+        let account_id = update.account_id().into();
+        for transaction_id in update.transactions() {
+            count += stmt.execute(params![
+                transaction_id.to_bytes(),
+                u64_to_value(account_id),
+                block_num
+            ])?
+        }
+    }
+    Ok(count)
+}
+
+/// Select transaction IDs from the DB using the given [Connection], filtered by account IDS,
+/// given that the account updates were done between `(block_start, block_end]`.
+///
+/// # Returns
+///
+/// The vector of [RpoDigest] with the transaction IDs.
+pub fn select_transactions_by_accounts_and_block_range(
+    conn: &mut Connection,
+    block_start: BlockNumber,
+    block_end: BlockNumber,
+    account_ids: &[AccountId],
+) -> Result<Vec<TransactionSummary>> {
+    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
+
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            account_id,
+            block_num,
+            transaction_id
+        FROM
+            transactions
+        WHERE
+            block_num > ?1 AND
+            block_num <= ?2 AND
+            account_id IN rarray(?3)
+        ORDER BY
+            transaction_id ASC
+    ",
+    )?;
+
+    let mut rows = stmt.query(params![block_start, block_end, Rc::new(account_ids)])?;
+
+    let mut result = vec![];
+    while let Some(row) = rows.next()? {
+        let account_id = column_value_as_u64(row, 0)?;
+        let block_num = row.get(1)?;
+        let transaction_id_data = row.get_ref(2)?.as_blob()?;
+        let transaction_id = TransactionId::read_from_bytes(transaction_id_data)?;
+
+        result.push(TransactionSummary { account_id, block_num, transaction_id });
+    }
+
+    Ok(result)
+}
+
 // STATE SYNC
 // ================================================================================================
 
@@ -676,6 +760,13 @@ pub fn get_state_sync(
     let account_updates =
         select_accounts_by_block_range(conn, block_num, block_header.block_num(), account_ids)?;
 
+    let transactions = select_transactions_by_accounts_and_block_range(
+        conn,
+        block_num,
+        block_header.block_num(),
+        account_ids,
+    )?;
+
     let nullifiers = select_nullifiers_by_block_range(
         conn,
         block_num,
@@ -688,6 +779,7 @@ pub fn get_state_sync(
         block_header,
         chain_tip,
         account_updates,
+        transactions,
         nullifiers,
     })
 }
@@ -711,6 +803,7 @@ pub fn apply_block(
     count += insert_block_header(transaction, block_header)?;
     count += insert_notes(transaction, notes)?;
     count += upsert_accounts(transaction, accounts, block_header.block_num())?;
+    count += insert_transactions(transaction, block_header.block_num(), accounts)?;
     count += insert_nullifiers_for_block(transaction, nullifiers, block_header.block_num())?;
     Ok(count)
 }

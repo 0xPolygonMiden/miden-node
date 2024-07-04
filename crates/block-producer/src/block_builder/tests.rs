@@ -37,7 +37,7 @@ async fn test_apply_block_called_nonempty_batches() {
             )
             .build();
 
-            TransactionBatch::new(vec![tx]).unwrap()
+            TransactionBatch::new(vec![tx], None).unwrap()
         };
 
         vec![batch_1]

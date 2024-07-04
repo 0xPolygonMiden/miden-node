@@ -11,6 +11,16 @@ pub struct NodeConfig {
     pub store: Option<StoreConfig>,
 }
 
+impl Default for NodeConfig {
+    fn default() -> Self {
+        Self {
+            block_producer: Some(Default::default()),
+            rpc: Some(Default::default()),
+            store: Some(Default::default()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;

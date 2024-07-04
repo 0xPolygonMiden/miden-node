@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{
     block::{Block, BlockAccountUpdate},
-    notes::Nullifier,
+    notes::{NoteHeader, Nullifier},
+    transaction::InputNoteCommitment,
 };
 use tracing::{debug, info, instrument};
 
@@ -76,18 +77,46 @@ where
         let updated_accounts: Vec<_> =
             batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
 
-        let created_notes = batches.iter().map(TransactionBatch::created_notes).cloned().collect();
+        let output_notes: Vec<_> =
+            batches.iter().map(TransactionBatch::output_notes).cloned().collect();
 
         let produced_nullifiers: Vec<Nullifier> =
             batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
+        // Populate set of output notes from all batches
+        let output_notes_set: BTreeSet<_> = output_notes
+            .iter()
+            .flat_map(|batch| batch.iter().map(|note| note.id()))
+            .collect();
+
+        // Build a set of unauthenticated input notes for this block which do not have a matching
+        // output note produced in this block
+        let dangling_notes: BTreeSet<_> = batches
+            .iter()
+            .flat_map(TransactionBatch::input_notes)
+            .filter_map(InputNoteCommitment::header)
+            .map(NoteHeader::id)
+            .filter(|note_id| !output_notes_set.contains(note_id))
+            .collect();
+
+        // Request information needed for block building from the store
         let block_inputs = self
             .store
             .get_block_inputs(
                 updated_accounts.iter().map(BlockAccountUpdate::account_id),
                 produced_nullifiers.iter(),
+                dangling_notes.iter(),
             )
             .await?;
+
+        if block_inputs.found_unauthenticated_notes.len() < dangling_notes.len() {
+            return Err(BuildBlockError::UnauthenticatedNotesNotFound(
+                dangling_notes
+                    .difference(&block_inputs.found_unauthenticated_notes)
+                    .copied()
+                    .collect(),
+            ));
+        }
 
         let block_header_witness = BlockWitness::new(block_inputs, batches)?;
 
@@ -96,7 +125,7 @@ where
 
         // TODO: return an error?
         let block =
-            Block::new(new_block_header, updated_accounts, created_notes, produced_nullifiers)
+            Block::new(new_block_header, updated_accounts, output_notes, produced_nullifiers)
                 .expect("invalid block components");
 
         let block_hash = block.hash();

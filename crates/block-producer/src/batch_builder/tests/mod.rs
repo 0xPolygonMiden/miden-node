@@ -1,5 +1,12 @@
+use std::iter;
+
+use tokio::sync::RwLock;
+
 use super::*;
-use crate::{errors::BuildBlockError, test_utils::MockProvenTxBuilder};
+use crate::{
+    errors::BuildBlockError,
+    test_utils::{MockProvenTxBuilder, MockStoreSuccessBuilder},
+};
 
 // STRUCTS
 // ================================================================================================
@@ -43,9 +50,11 @@ async fn test_block_size_doesnt_exceed_limit() {
     let block_frequency = Duration::from_millis(20);
     let max_batches_per_block = 2;
 
+    let store = Arc::new(MockStoreSuccessBuilder::from_accounts(iter::empty()).build());
     let block_builder = Arc::new(BlockBuilderSuccess::default());
 
     let batch_builder = Arc::new(DefaultBatchBuilder::new(
+        store,
         block_builder.clone(),
         DefaultBatchBuilderOptions { block_frequency, max_batches_per_block },
     ));
@@ -81,9 +90,11 @@ async fn test_build_block_called_when_no_batches() {
     let block_frequency = Duration::from_millis(20);
     let max_batches_per_block = 2;
 
+    let store = Arc::new(MockStoreSuccessBuilder::from_accounts(iter::empty()).build());
     let block_builder = Arc::new(BlockBuilderSuccess::default());
 
     let batch_builder = Arc::new(DefaultBatchBuilder::new(
+        store,
         block_builder.clone(),
         DefaultBatchBuilderOptions { block_frequency, max_batches_per_block },
     ));
@@ -106,9 +117,11 @@ async fn test_batches_added_back_to_queue_on_block_build_failure() {
     let block_frequency = Duration::from_millis(20);
     let max_batches_per_block = 2;
 
+    let store = Arc::new(MockStoreSuccessBuilder::from_accounts(iter::empty()).build());
     let block_builder = Arc::new(BlockBuilderFailure);
 
     let batch_builder = Arc::new(DefaultBatchBuilder::new(
+        store,
         block_builder.clone(),
         DefaultBatchBuilderOptions { block_frequency, max_batches_per_block },
     ));
@@ -142,5 +155,5 @@ fn dummy_tx_batch(starting_account_index: u32, num_txs_in_batch: usize) -> Trans
             MockProvenTxBuilder::with_account_index(starting_account_index + index as u32).build()
         })
         .collect();
-    TransactionBatch::new(txs).unwrap()
+    TransactionBatch::new(txs, None).unwrap()
 }

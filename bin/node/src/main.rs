@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
-use commands::start::{start_block_producer, start_node, start_rpc, start_store};
+use commands::{
+    init::init_config_files,
+    start::{start_block_producer, start_node, start_rpc, start_store},
+};
 use config::NodeConfig;
 use miden_node_utils::config::load_config;
 
@@ -55,6 +58,18 @@ pub enum Command {
         #[arg(short, long)]
         force: bool,
     },
+
+    /// Generates default configuration files for the node
+    ///
+    /// This command creates two files (miden-node.toml and genesis.toml) that provide configuration
+    /// details to the node. These files may be modified to change the node behavior.
+    Init {
+        #[arg(short, long, default_value = NODE_CONFIG_FILE_PATH)]
+        config_path: String,
+
+        #[arg(short, long, default_value = DEFAULT_GENESIS_INPUTS_PATH)]
+        genesis_path: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -94,6 +109,18 @@ async fn main() -> anyhow::Result<()> {
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {
             commands::make_genesis(inputs_path, output_path, force)
+        },
+        Command::Init { config_path, genesis_path } => {
+            let current_dir = std::env::current_dir()
+                .map_err(|err| anyhow!("failed to open current directory: {err}"))?;
+
+            let mut config = current_dir.clone();
+            let mut genesis = current_dir.clone();
+
+            config.push(config_path);
+            genesis.push(genesis_path);
+
+            init_config_files(config, genesis)
         },
     }
 }

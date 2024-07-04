@@ -2,8 +2,7 @@ name: deb_packager
 
 on:
   push:
-    branches:
-      - 'main'
+    branches: [main, next]
     paths:
       - '**'
     tags:
@@ -18,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@main
         with:
           fetch-depth: 0
       ##### TAG Variable #####

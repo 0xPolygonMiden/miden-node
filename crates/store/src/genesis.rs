@@ -31,7 +31,18 @@ impl GenesisState {
             .accounts
             .iter()
             .map(|account| {
-                BlockAccountUpdate::new(account.id(), account.hash(), AccountUpdateDetails::Private)
+                let account_update_details = if account.id().is_on_chain() {
+                    AccountUpdateDetails::New(account.clone())
+                } else {
+                    AccountUpdateDetails::Private
+                };
+
+                BlockAccountUpdate::new(
+                    account.id(),
+                    account.hash(),
+                    account_update_details,
+                    vec![],
+                )
             })
             .collect();
 

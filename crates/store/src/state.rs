@@ -2,12 +2,15 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{mem, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc};
 
-use miden_node_proto::{domain::accounts::AccountInfo, AccountInputRecord, NullifierWitness};
+use miden_node_proto::{
+    convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
+    AccountInputRecord, NullifierWitness,
+};
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
-    block::{Block, BlockNoteIndex, BlockNoteTree},
+    block::Block,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath},
@@ -21,7 +24,7 @@ use tokio::{
     sync::{oneshot, Mutex, RwLock},
     time::Instant,
 };
-use tracing::{error, info, info_span, instrument};
+use tracing::{info, info_span, instrument};
 
 use crate::{
     blocks::BlockStore,
@@ -38,10 +41,42 @@ use crate::{
 // STRUCTURES
 // ================================================================================================
 
+/// Information needed from the store to validate and build a block
+#[derive(Debug)]
+pub struct BlockInputs {
+    /// Previous block header
+    pub block_header: BlockHeader,
+
+    /// MMR peaks for the current chain state
+    pub chain_peaks: MmrPeaks,
+
+    /// The hashes of the requested accounts and their authentication paths
+    pub account_states: Vec<AccountInputRecord>,
+
+    /// The requested nullifiers and their authentication paths
+    pub nullifiers: Vec<NullifierWitness>,
+
+    /// List of notes found in the store
+    pub found_unauthenticated_notes: BTreeSet<NoteId>,
+}
+
+impl From<BlockInputs> for GetBlockInputsResponse {
+    fn from(value: BlockInputs) -> Self {
+        Self {
+            block_header: Some(value.block_header.into()),
+            mmr_peaks: convert(value.chain_peaks.peaks()),
+            account_states: convert(value.account_states),
+            nullifiers: convert(value.nullifiers),
+            found_unauthenticated_notes: convert(value.found_unauthenticated_notes),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct TransactionInputs {
     pub account_hash: RpoDigest,
     pub nullifiers: Vec<NullifierInfo>,
+    pub missing_unauthenticated_notes: Vec<NoteId>,
 }
 
 /// Container for state that needs to be updated atomically.
@@ -84,6 +119,7 @@ impl State {
 
         let writer = Mutex::new(());
         let db = Arc::new(db);
+
         Ok(Self { db, block_store, inner, writer })
     }
 
@@ -97,6 +133,9 @@ impl State {
     /// following steps are used:
     ///
     /// - the request data is validated, prior to starting any modifications.
+    /// - block is being saved into the store in parallel with updating the DB, but before committing.
+    ///   This block is considered as candidate and not yet available for reading because the latest
+    ///   block pointer is not updated yet.
     /// - a transaction is open in the DB and the writes are started.
     /// - while the transaction is not committed, concurrent reads are allowed, both the DB and
     ///   the in-memory representations, which are consistent at this stage.
@@ -105,11 +144,25 @@ impl State {
     ///   out-of-sync w.r.t. the DB.
     /// - the DB transaction is committed, and requests that read only from the DB can proceed to
     ///   use the fresh data.
-    /// - the in-memory structures are updated, and the lock is released.
+    /// - the in-memory structures are updated, including the latest block pointer and the lock is
+    ///   released.
     // TODO: This span is logged in a root span, we should connect it to the parent span.
     #[instrument(target = "miden-store", skip_all, err)]
     pub async fn apply_block(&self, block: Block) -> Result<(), ApplyBlockError> {
         let _lock = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
+
+        let header = block.header();
+
+        let tx_hash = block.compute_tx_hash();
+        if header.tx_hash() != tx_hash {
+            return Err(ApplyBlockError::InvalidTxHash {
+                expected: tx_hash,
+                actual: header.tx_hash(),
+            });
+        }
+
+        let block_num = header.block_num();
+        let block_hash = block.hash();
 
         // ensures the right block header is being processed
         let prev_block = self
@@ -118,12 +171,22 @@ impl State {
             .await?
             .ok_or(ApplyBlockError::DbBlockHeaderEmpty)?;
 
-        if block.header().block_num() != prev_block.block_num() + 1 {
+        if block_num != prev_block.block_num() + 1 {
             return Err(ApplyBlockError::NewBlockInvalidBlockNum);
         }
-        if block.header().prev_hash() != prev_block.hash() {
+        if header.prev_hash() != prev_block.hash() {
             return Err(ApplyBlockError::NewBlockInvalidPrevHash);
         }
+
+        let block_data = block.to_bytes();
+
+        // Save the block to the block store. In a case of a rolled-back DB transaction, the in-memory
+        // state will be unchanged, but the block might still be written into the block store.
+        // Thus, such block should be considered as block candidates, but not finalized blocks.
+        // So we should check for the latest block when getting block from the store.
+        let store = self.block_store.clone();
+        let block_save_task =
+            tokio::spawn(async move { store.save_block(block_num, &block_data).await });
 
         // scope to read in-memory data, validate the request, and compute intermediary values
         let (account_tree, chain_mmr, nullifier_tree, notes) = {
@@ -156,11 +219,11 @@ impl State {
                         error,
                     }
                 })?;
-                if peaks.hash_peaks() != block.header().chain_root() {
+                if peaks.hash_peaks() != header.chain_root() {
                     return Err(ApplyBlockError::NewBlockInvalidChainRoot);
                 }
 
-                chain_mmr.add(block.hash());
+                chain_mmr.add(block_hash);
                 chain_mmr
             };
 
@@ -169,11 +232,11 @@ impl State {
                 let mut nullifier_tree = inner.nullifier_tree.clone();
                 for nullifier in block.created_nullifiers() {
                     nullifier_tree
-                        .insert(nullifier, block.header().block_num())
+                        .insert(nullifier, block_num)
                         .map_err(ApplyBlockError::FailedToUpdateNullifierTree)?;
                 }
 
-                if nullifier_tree.root() != block.header().nullifier_root() {
+                if nullifier_tree.root() != header.nullifier_root() {
                     return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
                 }
                 nullifier_tree
@@ -188,16 +251,13 @@ impl State {
                 );
             }
 
-            if account_tree.root() != block.header().account_root() {
+            if account_tree.root() != header.account_root() {
                 return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
             }
 
             // build note tree
-            // TODO: Once https://github.com/0xPolygonMiden/miden-base/pull/630 is merged, we can
-            //       substitute it with just:
-            //      `let note_tree = block.build_note_tree().map_err(ApplyBlockError::FailedToCreateNoteTree)?;`
-            let note_tree = build_note_tree(block.notes())?;
-            if note_tree.root() != block.header().note_root() {
+            let note_tree = block.build_note_tree();
+            if note_tree.root() != header.note_root() {
                 return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
             }
 
@@ -209,6 +269,7 @@ impl State {
                     let details = match note {
                         OutputNote::Full(note) => Some(note.to_bytes()),
                         OutputNote::Header(_) => None,
+                        note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
                     };
 
                     let merkle_path = note_tree
@@ -216,7 +277,7 @@ impl State {
                         .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
 
                     Ok(NoteRecord {
-                        block_num: block.header().block_num(),
+                        block_num,
                         note_index,
                         note_id: note.id().into(),
                         metadata: *note.metadata(),
@@ -224,18 +285,14 @@ impl State {
                         merkle_path,
                     })
                 })
-                .collect::<Result<Vec<_>, ApplyBlockError>>()?;
+                .collect::<Result<Vec<NoteRecord>, ApplyBlockError>>()?;
 
             (account_tree, chain_mmr, nullifier_tree, notes)
         };
 
-        let block_num = block.header().block_num();
-        let block_hash = block.hash();
-        let block_data = block.to_bytes();
-
-        // signals the transaction is ready to be committed, and the write lock can be acquired
+        // Signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
-        // signals the write lock has been acquired, and the transaction can be committed
+        // Signals the write lock has been acquired, and the transaction can be committed
         let (inform_acquire_done, acquire_done) = oneshot::channel::<()>();
 
         // The DB and in-memory state updates need to be synchronized and are partially
@@ -243,50 +300,43 @@ impl State {
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
         let db = self.db.clone();
-        let handle =
+        let db_update_task =
             tokio::spawn(
                 async move { db.apply_block(allow_acquire, acquire_done, block, notes).await },
             );
 
+        // Wait for the message from the DB update task, that we ready to commit the DB transaction
         acquired_allowed
             .await
             .map_err(ApplyBlockError::BlockApplyingBrokenBecauseOfClosedChannel)?;
 
-        // scope to update the in-memory data
+        // Awaiting the block saving task to complete without errors
+        block_save_task.await??;
+
+        // Scope to update the in-memory data
         {
+            // We need to hold the write lock here to prevent inconsistency between the in-memory
+            // state and the DB state. Thus, we need to wait for the DB update task to complete
+            // successfully.
             let mut inner = self.inner.write().await;
 
-            // Save the block before transaction is committed:
-            self.block_store.save_block(block_num, &block_data).await?;
-
+            // Notify the DB update task that the write lock has been acquired, so it can commit
+            // the DB transaction
             let _ = inform_acquire_done.send(());
 
-            let _ = mem::replace(&mut inner.chain_mmr, chain_mmr);
-            let _ = mem::replace(&mut inner.nullifier_tree, nullifier_tree);
-            let _ = mem::replace(&mut inner.account_tree, account_tree);
+            // TODO: shutdown #91
+            // Await for successful commit of the DB transaction. If the commit fails, we mustn't
+            // change in-memory state, so we return a block applying error and don't proceed with
+            // in-memory updates.
+            db_update_task.await??;
+
+            // Update the in-memory data structures after successful commit of the DB transaction
+            inner.chain_mmr = chain_mmr;
+            inner.nullifier_tree = nullifier_tree;
+            inner.account_tree = account_tree;
         }
 
-        match handle.await {
-            // These errors should never happen. It is unclear if the state of the node would be
-            // valid because the apply_block task may have failed when committing the transaction, so
-            // the in-memory and the DB state would be out-of-sync.
-            //
-            // TODO: shutdown #91
-            Err(err) => {
-                error!(
-                    is_cancelled = err.is_cancelled(),
-                    is_panic = err.is_panic(),
-                    COMPONENT,
-                    "apply_block task joined with an error"
-                );
-            },
-            Ok(Err(err)) => {
-                error!(err = err.to_string(), COMPONENT, "apply_block failed with a DB error");
-            },
-            Ok(Ok(())) => {
-                info!(%block_hash, block_num, COMPONENT, "apply_block successful");
-            },
-        }
+        info!(%block_hash, block_num, COMPONENT, "apply_block successful");
 
         Ok(())
     }
@@ -397,10 +447,8 @@ impl State {
         &self,
         account_ids: &[AccountId],
         nullifiers: &[Nullifier],
-    ) -> Result<
-        (BlockHeader, MmrPeaks, Vec<AccountInputRecord>, Vec<NullifierWitness>),
-        GetBlockInputsError,
-    > {
+        unauthenticated_notes: Vec<NoteId>,
+    ) -> Result<BlockInputs, GetBlockInputsError> {
         let inner = self.inner.read().await;
 
         let latest = self
@@ -419,7 +467,7 @@ impl State {
 
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
-        let peaks = inner.chain_mmr.peaks(latest.block_num() as usize).map_err(|error| {
+        let chain_peaks = inner.chain_mmr.peaks(latest.block_num() as usize).map_err(|error| {
             GetBlockInputsError::FailedToGetMmrPeaksForForest {
                 forest: latest.block_num() as usize,
                 error,
@@ -439,7 +487,7 @@ impl State {
             })
             .collect::<Result<_, AccountError>>()?;
 
-        let nullifier_input_records: Vec<NullifierWitness> = nullifiers
+        let nullifiers: Vec<NullifierWitness> = nullifiers
             .iter()
             .map(|nullifier| {
                 let proof = inner.nullifier_tree.open(nullifier);
@@ -448,7 +496,15 @@ impl State {
             })
             .collect();
 
-        Ok((latest, peaks, account_states, nullifier_input_records))
+        let found_unauthenticated_notes = self.db.select_note_ids(unauthenticated_notes).await?;
+
+        Ok(BlockInputs {
+            block_header: latest,
+            chain_peaks,
+            account_states,
+            nullifiers,
+            found_unauthenticated_notes,
+        })
     }
 
     /// Returns data needed by the block producer to verify transactions validity.
@@ -457,7 +513,8 @@ impl State {
         &self,
         account_id: AccountId,
         nullifiers: &[Nullifier],
-    ) -> TransactionInputs {
+        unauthenticated_notes: Vec<NoteId>,
+    ) -> Result<TransactionInputs, DatabaseError> {
         info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
@@ -472,7 +529,20 @@ impl State {
             })
             .collect();
 
-        TransactionInputs { account_hash, nullifiers }
+        let found_unauthenticated_notes =
+            self.db.select_note_ids(unauthenticated_notes.clone()).await?;
+
+        let missing_unauthenticated_notes = unauthenticated_notes
+            .iter()
+            .filter(|note_id| !found_unauthenticated_notes.contains(note_id))
+            .copied()
+            .collect();
+
+        Ok(TransactionInputs {
+            account_hash,
+            nullifiers,
+            missing_unauthenticated_notes,
+        })
     }
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
@@ -497,23 +567,24 @@ impl State {
     }
 
     /// Loads a block from the block store. Return `Ok(None)` if the block is not found.
-    pub async fn load_block(&self, block_num: u32) -> Result<Option<Vec<u8>>, DatabaseError> {
+    pub async fn load_block(
+        &self,
+        block_num: BlockNumber,
+    ) -> Result<Option<Vec<u8>>, DatabaseError> {
+        if block_num > self.latest_block_num().await {
+            return Ok(None);
+        }
         self.block_store.load_block(block_num).await.map_err(Into::into)
+    }
+
+    /// Returns the latest block number.
+    pub async fn latest_block_num(&self) -> BlockNumber {
+        (self.inner.read().await.chain_mmr.forest() + 1) as BlockNumber
     }
 }
 
 // UTILITIES
 // ================================================================================================
-
-/// Creates a [BlockNoteTree] from the `notes`.
-#[instrument(target = "miden-store", skip_all)]
-pub fn build_note_tree<'a>(
-    notes: impl Iterator<Item = (BlockNoteIndex, &'a OutputNote)>,
-) -> Result<BlockNoteTree, ApplyBlockError> {
-    let entries = notes.map(|(note_index, note)| (note_index, note.id().into(), *note.metadata()));
-
-    BlockNoteTree::with_entries(entries).map_err(ApplyBlockError::FailedToCreateNoteTree)
-}
 
 #[instrument(target = "miden-store", skip_all)]
 async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitializationError> {
