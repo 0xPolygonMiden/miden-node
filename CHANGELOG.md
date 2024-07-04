@@ -1,14 +1,22 @@
 # Changelog
 
-* Add `init` command for node and faucet (#392).
-* Added crate to distribute node RPC protobuf files (#391).
-* Changed state sync endpoint to return a list of `TransactionSummary` objects instead of just transaction IDs (#386).
-* Fixed faucet note script so that it uses the `aux` input (#387).
-* Added `aux` column to notes table (#384).
-* Standardised CI and Makefile across Miden repositories (#367)
-* Removed client dependency from faucet (#368).
+## 0.4.0 (TBD)
+
+### Features
+
 * Changed sync endpoint to return a list of committed transactions (#377).
+* Added `aux` column to notes table (#384).
+* Changed state sync endpoint to return a list of `TransactionSummary` objects instead of just transaction IDs (#386).
 * Added support for unauthenticated transaction notes (#390).
+
+### Enhancements
+
+* Standardized CI and Makefile across Miden repositories (#367)
+* Removed client dependency from faucet (#368).
+* Fixed faucet note script so that it uses the `aux` input (#387).
+* Added crate to distribute node RPC protobuf files (#391).
+* Add `init` command for node and faucet (#392).
+
 
 ## 0.3.0 (2024-05-15)
 
