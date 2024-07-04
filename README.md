@@ -158,7 +158,7 @@ brew install coreutils
 In order to test the node run the following command:
 
 ```sh
-make test-all
+make test
 ```
 
 ## License
