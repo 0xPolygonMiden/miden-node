@@ -12,7 +12,7 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-deadpool-sqlite = { version = "0.7", features = ["rt_tokio_1"] }
+deadpool-sqlite = { version = "0.8", features = ["rt_tokio_1"] }
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 hex = { version = "0.4" }
@@ -22,7 +22,7 @@ miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
 once_cell = { version = "1.18.0" }
 prost = { version = "0.12" }
-rusqlite = { version = "0.30", features = ["array", "buildtime_bindgen", "bundled"] }
+rusqlite = { version = "0.31", features = ["array", "buildtime_bindgen", "bundled"] }
 rusqlite_migration = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }

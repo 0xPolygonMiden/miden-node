@@ -128,7 +128,7 @@ impl Db {
                         })
                         .await
                         .map_err(|e| {
-                            HookError::Message(format!("Loading carray module failed: {e}"))
+                            HookError::Message(format!("Loading carray module failed: {e}").into())
                         })?;
 
                     Ok(())
