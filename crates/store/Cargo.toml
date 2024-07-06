@@ -20,13 +20,13 @@ miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
-once_cell = { version = "1.18.0" }
+once_cell = { version = "1.18" }
 prost = { version = "0.12" }
 rusqlite = { version = "0.31", features = ["array", "buildtime_bindgen", "bundled"] }
 rusqlite_migration = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
-tokio = { version = "1.29", features = ["fs", "net", "macros", "rt-multi-thread"] }
+tokio = { version = "1.38", features = ["fs", "net", "macros", "rt-multi-thread"] }
 toml = { version = "0.8" }
 tonic = { workspace = true }
 tracing = { workspace = true }

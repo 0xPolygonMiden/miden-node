@@ -27,7 +27,7 @@ miden-stdlib = { workspace = true }
 miden-tx = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
-tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
+tokio = { version = "1.38", features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
 toml = { version = "0.8" }
 tonic = { workspace = true }
 tracing = { workspace = true }
@@ -39,5 +39,5 @@ miden-air = { workspace = true }
 miden-node-test-macro = { path = "../test-macro" }
 miden-objects = { workspace = true, features = ["testing"] }
 once_cell = { version = "1.18" }
-tokio = { version = "1.29", features = ["test-util"] }
+tokio = { version = "1.38", features = ["test-util"] }
 winterfell = { version = "0.8" }
