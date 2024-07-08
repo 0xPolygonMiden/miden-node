@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-block-producer"
-version = "0.5.0"
+version.workspace = true
 description = "Miden node's block producer component"
 readme = "README.md"
 keywords = ["miden", "node", "block-producer"]
