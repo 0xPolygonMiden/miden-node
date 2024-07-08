@@ -1,6 +1,6 @@
 [package]
 name = "miden-node"
-version = "0.5.0"
+version.workspace = true
 description = "Miden node binary"
 readme.workspace = true
 keywords = ["miden", "node"]

@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-proto"
-version = "0.5.0"
+version.workspace = true
 description = "Miden node message definitions (Store, Block Producer and RPC)"
 readme = "README.md"
 keywords = ["miden", "node", "protobuf", "rpc"]
