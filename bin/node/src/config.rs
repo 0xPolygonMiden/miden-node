@@ -1,52 +1,95 @@
 use miden_node_block_producer::config::BlockProducerConfig;
 use miden_node_rpc::config::RpcConfig;
 use miden_node_store::config::StoreConfig;
+use miden_node_utils::config::Endpoint;
 use serde::{Deserialize, Serialize};
 
 /// Node top-level configuration.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct NodeConfig {
-    pub block_producer: Option<BlockProducerConfig>,
-    pub rpc: Option<RpcConfig>,
-    pub store: Option<StoreConfig>,
+    block_producer: NormalizedBlockProducerConfig,
+    rpc: NormalizedRpcConfig,
+    store: StoreConfig,
 }
 
-impl Default for NodeConfig {
+/// A specialized variant of [RpcConfig] with redundant fields within [NodeConfig] removed.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+struct NormalizedRpcConfig {
+    endpoint: Endpoint,
+}
+
+/// A specialized variant of [BlockProducerConfig] with redundant fields within [NodeConfig] removed.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+struct NormalizedBlockProducerConfig {
+    endpoint: Endpoint,
+    verify_tx_proofs: bool,
+}
+
+impl Default for NormalizedRpcConfig {
     fn default() -> Self {
-        Self {
-            block_producer: Some(Default::default()),
-            rpc: Some(Default::default()),
-            store: Some(Default::default()),
-        }
+        // Ensure we stay in sync with the original defaults.
+        let RpcConfig {
+            endpoint,
+            store_url: _,
+            block_producer_url: _,
+        } = RpcConfig::default();
+        Self { endpoint }
+    }
+}
+
+impl Default for NormalizedBlockProducerConfig {
+    fn default() -> Self {
+        // Ensure we stay in sync with the original defaults.
+        let BlockProducerConfig { endpoint, store_url: _, verify_tx_proofs } =
+            BlockProducerConfig::default();
+        Self { endpoint, verify_tx_proofs }
+    }
+}
+
+impl NodeConfig {
+    pub fn into_parts(self) -> (BlockProducerConfig, RpcConfig, StoreConfig) {
+        let Self { block_producer, rpc, store } = self;
+
+        let block_producer = BlockProducerConfig {
+            endpoint: block_producer.endpoint,
+            store_url: store.endpoint_url(),
+            verify_tx_proofs: block_producer.verify_tx_proofs,
+        };
+
+        let rpc = RpcConfig {
+            endpoint: rpc.endpoint,
+            store_url: store.endpoint_url(),
+            block_producer_url: block_producer.endpoint_url(),
+        };
+
+        (block_producer, rpc, store)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use figment::Jail;
-    use miden_node_block_producer::config::BlockProducerConfig;
-    use miden_node_rpc::config::RpcConfig;
     use miden_node_store::config::StoreConfig;
     use miden_node_utils::config::{load_config, Endpoint};
 
     use super::NodeConfig;
-    use crate::NODE_CONFIG_FILE_PATH;
+    use crate::{
+        config::{NormalizedBlockProducerConfig, NormalizedRpcConfig},
+        NODE_CONFIG_FILE_PATH,
+    };
 
     #[test]
-    fn test_node_config() {
+    fn node_config() {
         Jail::expect_with(|jail| {
             jail.create_file(
                 NODE_CONFIG_FILE_PATH,
                 r#"
                     [block_producer]
                     endpoint = { host = "127.0.0.1",  port = 8080 }
-                    store_url = "http://store:8000"
                     verify_tx_proofs = true
 
                     [rpc]
                     endpoint = { host = "127.0.0.1",  port = 8080 }
-                    store_url = "http://store:8000"
-                    block_producer_url = "http://block_producer:8001"
 
                     [store]
                     endpoint = { host = "127.0.0.1",  port = 8080 }
@@ -61,23 +104,20 @@ mod tests {
             assert_eq!(
                 config,
                 NodeConfig {
-                    block_producer: Some(BlockProducerConfig {
+                    block_producer: NormalizedBlockProducerConfig {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        store_url: "http://store:8000".to_string(),
                         verify_tx_proofs: true
-                    }),
-                    rpc: Some(RpcConfig {
+                    },
+                    rpc: NormalizedRpcConfig {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
                         },
-                        store_url: "http://store:8000".to_string(),
-                        block_producer_url: "http://block_producer:8001".to_string(),
-                    }),
-                    store: Some(StoreConfig {
+                    },
+                    store: StoreConfig {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
@@ -85,7 +125,7 @@ mod tests {
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into(),
                         blockstore_dir: "blocks".into()
-                    }),
+                    },
                 }
             );
 
