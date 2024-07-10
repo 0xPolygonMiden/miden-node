@@ -88,7 +88,7 @@ async fn main() -> anyhow::Result<()> {
 
     match &cli.command {
         Command::Start { command, config } => {
-            let config: NodeConfig = load_config(config).extract().map_err(|err| {
+            let config: NodeConfig = load_config(config).map_err(|err| {
                 anyhow!("failed to load config file `{}`: {err}", config.display())
             })?;
             match command {

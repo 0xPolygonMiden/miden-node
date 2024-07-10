@@ -23,8 +23,6 @@ impl Default for NodeConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use figment::Jail;
     use miden_node_block_producer::config::BlockProducerConfig;
     use miden_node_rpc::config::RpcConfig;
@@ -58,8 +56,7 @@ mod tests {
                 "#,
             )?;
 
-            let config: NodeConfig =
-                load_config(PathBuf::from(NODE_CONFIG_FILE_PATH).as_path()).extract()?;
+            let config: NodeConfig = load_config(NODE_CONFIG_FILE_PATH)?;
 
             assert_eq!(
                 config,
