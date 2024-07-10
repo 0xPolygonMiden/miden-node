@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Node top-level configuration.
 #[derive(Clone, Default, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NodeConfig {
     block_producer: NormalizedBlockProducerConfig,
     rpc: NormalizedRpcConfig,
@@ -14,12 +15,14 @@ pub struct NodeConfig {
 
 /// A specialized variant of [RpcConfig] with redundant fields within [NodeConfig] removed.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct NormalizedRpcConfig {
     endpoint: Endpoint,
 }
 
 /// A specialized variant of [BlockProducerConfig] with redundant fields within [NodeConfig] removed.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct NormalizedBlockProducerConfig {
     endpoint: Endpoint,
     verify_tx_proofs: bool,
