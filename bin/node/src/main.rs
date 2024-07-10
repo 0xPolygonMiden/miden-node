@@ -6,7 +6,6 @@ use commands::{
     init::init_config_files,
     start::{start_block_producer, start_node, start_rpc, start_store},
 };
-use config::NodeConfig;
 use miden_node_utils::config::load_config;
 
 mod commands;
@@ -87,25 +86,23 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::Start { command, config } => {
-            let config: NodeConfig = load_config(config).map_err(|err| {
-                anyhow!("failed to load config file `{}`: {err}", config.display())
-            })?;
-            match command {
-                StartCommand::Node => start_node(config).await,
-                StartCommand::BlockProducer => {
-                    start_block_producer(
-                        config.block_producer.context("Missing block-producer configuration.")?,
-                    )
-                    .await
-                },
-                StartCommand::Rpc => {
-                    start_rpc(config.rpc.context("Missing rpc configuration.")?).await
-                },
-                StartCommand::Store => {
-                    start_store(config.store.context("Missing store configuration.")?).await
-                },
-            }
+        Command::Start { command, config } => match command {
+            StartCommand::Node => {
+                let config = load_config(config).context("Loading configuration file")?;
+                start_node(config).await
+            },
+            StartCommand::BlockProducer => {
+                let config = load_config(config).context("Loading configuration file")?;
+                start_block_producer(config).await
+            },
+            StartCommand::Rpc => {
+                let config = load_config(config).context("Loading configuration file")?;
+                start_rpc(config).await
+            },
+            StartCommand::Store => {
+                let config = load_config(config).context("Loading configuration file")?;
+                start_store(config).await
+            },
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {
             commands::make_genesis(inputs_path, output_path, force)
