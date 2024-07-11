@@ -2,6 +2,11 @@
 
 ## 0.5.0 (TBD)
 
+### Enhancements
+
+* [BREAKING] Configuration files with unknown properties are now rejected (#401).
+* [BREAKING] Removed redundant node configuration properties (#401).
+
 ## 0.4.0 (2024-07-04)
 
 ### Features
