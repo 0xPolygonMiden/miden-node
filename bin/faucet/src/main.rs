@@ -66,8 +66,7 @@ async fn main() -> Result<(), FaucetError> {
 
     match &cli.command {
         Command::Start { config } => {
-            let config: FaucetConfig = load_config(config.as_path())
-                .extract()
+            let config: FaucetConfig = load_config(config)
                 .map_err(|err| FaucetError::ConfigurationError(err.to_string()))?;
 
             let faucet_state = FaucetState::new(config.clone()).await?;
