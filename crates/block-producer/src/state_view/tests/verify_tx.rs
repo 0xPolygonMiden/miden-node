@@ -99,7 +99,7 @@ async fn test_verify_tx_vt1() {
         verify_tx_result,
         Err(VerifyTxError::IncorrectAccountInitialHash {
             tx_initial_account_hash: account.states[1],
-            store_account_hash: Some(account.states[0]),
+            actual_account_hash: Some(account.states[0]),
         })
     );
 }
@@ -171,8 +171,8 @@ async fn test_verify_tx_vt4() {
     let tx1 =
         MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1]).build();
 
-    // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
-    // which is currently disallowed
+    // Notice: tx2 follows tx1, using the same account and with an initial state matching the final state of the first.
+    //         We expect both to pass.
     let tx2 =
         MockProvenTxBuilder::with_account(account.id, account.states[1], account.states[2]).build();
 
@@ -182,10 +182,7 @@ async fn test_verify_tx_vt4() {
     assert!(verify_tx1_result.is_ok());
 
     let verify_tx2_result = state_view.verify_tx(&tx2).await;
-    assert_eq!(
-        verify_tx2_result,
-        Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(account.id))
-    );
+    assert!(verify_tx2_result.is_ok());
 }
 
 /// Verifies requirement VT5
