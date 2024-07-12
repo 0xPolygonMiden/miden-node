@@ -255,8 +255,8 @@ async fn test_block_builder_no_missing_notes() {
 
 #[tokio::test]
 async fn test_block_builder_missing_notes() {
-    let accounts: Vec<_> = (0..4).map(|i| MockPrivateAccount::<3>::from(i)).collect();
-    let notes: Vec<_> = (0..6).map(|i| mock_note(i)).collect();
+    let accounts: Vec<_> = (0..4).map(MockPrivateAccount::<3>::from).collect();
+    let notes: Vec<_> = (0..6).map(mock_note).collect();
 
     let store = Arc::new(
         MockStoreSuccessBuilder::from_accounts(
