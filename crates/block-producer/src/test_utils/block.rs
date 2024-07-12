@@ -45,6 +45,8 @@ pub async fn build_expected_block_header(
         store_chain_mmr.peaks(store_chain_mmr.forest()).unwrap().hash_peaks()
     };
 
+    let note_created_smt = note_created_smt_from_note_batches(block_output_notes(batches.iter()));
+
     // Build header
     BlockHeader::new(
         0,
@@ -54,7 +56,7 @@ pub async fn build_expected_block_header(
         new_account_root,
         // FIXME: FILL IN CORRECT NULLIFIER ROOT
         Digest::default(),
-        note_created_smt_from_batches(batches).root(),
+        note_created_smt.root(),
         Digest::default(),
         Digest::default(),
         1,
@@ -93,7 +95,7 @@ pub struct MockBlockBuilder {
     last_block_header: BlockHeader,
 
     updated_accounts: Option<Vec<BlockAccountUpdate>>,
-    created_note: Option<Vec<NoteBatch>>,
+    created_notes: Option<Vec<NoteBatch>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
 
@@ -105,7 +107,7 @@ impl MockBlockBuilder {
             last_block_header: *store.last_block_header.read().await,
 
             updated_accounts: None,
-            created_note: None,
+            created_notes: None,
             produced_nullifiers: None,
         }
     }
@@ -128,7 +130,7 @@ impl MockBlockBuilder {
     }
 
     pub fn build(self) -> Block {
-        let created_notes = self.created_note.unwrap_or_default();
+        let created_notes = self.created_notes.unwrap_or_default();
 
         let header = BlockHeader::new(
             0,
@@ -153,22 +155,27 @@ impl MockBlockBuilder {
     }
 }
 
-pub(crate) fn note_created_smt_from_note_batches<'a>(
-    batches: impl Iterator<Item = &'a (impl IntoIterator<Item = OutputNote> + Clone + 'a)>,
-) -> BlockNoteTree {
-    let note_leaf_iterator = batches.enumerate().flat_map(|(batch_idx, batch)| {
-        batch.clone().into_iter().enumerate().map(move |(note_idx_in_batch, note)| {
-            (
-                BlockNoteIndex::new(batch_idx, note_idx_in_batch),
-                note.id().into(),
-                *note.metadata(),
-            )
+pub(crate) fn flatten_output_notes<'a>(
+    batches: impl Iterator<Item = &'a NoteBatch>,
+) -> impl Iterator<Item = (BlockNoteIndex, &'a OutputNote)> {
+    batches.enumerate().flat_map(|(batch_idx, batch)| {
+        batch.iter().enumerate().map(move |(note_idx_in_batch, note)| {
+            (BlockNoteIndex::new(batch_idx, note_idx_in_batch), note)
         })
-    });
+    })
+}
+
+pub(crate) fn note_created_smt_from_note_batches<'a>(
+    batches: impl Iterator<Item = &'a NoteBatch>,
+) -> BlockNoteTree {
+    let note_leaf_iterator = flatten_output_notes(batches)
+        .map(|(index, note)| (index, note.id().into(), *note.metadata()));
 
     BlockNoteTree::with_entries(note_leaf_iterator).unwrap()
 }
 
-pub(crate) fn note_created_smt_from_batches(batches: &[TransactionBatch]) -> BlockNoteTree {
-    note_created_smt_from_note_batches(batches.iter().map(TransactionBatch::output_notes))
+pub(crate) fn block_output_notes<'a>(
+    batches: impl Iterator<Item = &'a TransactionBatch> + Clone,
+) -> impl Iterator<Item = &'a NoteBatch> + Clone {
+    batches.map(TransactionBatch::output_notes)
 }

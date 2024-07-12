@@ -3,8 +3,8 @@ use std::ops::Range;
 use miden_air::HashFunction;
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteHeader, NoteMetadata, NoteType, Nullifier},
-    transaction::{OutputNote, ProvenTransaction, ProvenTransactionBuilder},
+    notes::{Note, NoteHeader, NoteMetadata, NoteType, Nullifier},
+    transaction::{InputNote, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
 };
@@ -16,7 +16,8 @@ pub struct MockProvenTxBuilder {
     account_id: AccountId,
     initial_account_hash: Digest,
     final_account_hash: Digest,
-    notes_created: Option<Vec<OutputNote>>,
+    output_notes: Option<Vec<OutputNote>>,
+    input_notes: Option<Vec<InputNote>>,
     nullifiers: Option<Vec<Nullifier>>,
 }
 
@@ -36,9 +37,16 @@ impl MockProvenTxBuilder {
             account_id,
             initial_account_hash,
             final_account_hash,
-            notes_created: None,
+            output_notes: None,
+            input_notes: None,
             nullifiers: None,
         }
+    }
+
+    pub fn unauthenticated_notes(mut self, notes: Vec<Note>) -> Self {
+        self.input_notes = Some(notes.into_iter().map(InputNote::unauthenticated).collect());
+
+        self
     }
 
     pub fn nullifiers(mut self, nullifiers: Vec<Nullifier>) -> Self {
@@ -47,8 +55,8 @@ impl MockProvenTxBuilder {
         self
     }
 
-    pub fn notes_created(mut self, notes: Vec<OutputNote>) -> Self {
-        self.notes_created = Some(notes);
+    pub fn output_notes(mut self, notes: Vec<OutputNote>) -> Self {
+        self.output_notes = Some(notes);
 
         self
     }
@@ -76,7 +84,7 @@ impl MockProvenTxBuilder {
             })
             .collect();
 
-        self.notes_created(notes)
+        self.output_notes(notes)
     }
 
     pub fn build(self) -> ProvenTransaction {
@@ -87,8 +95,9 @@ impl MockProvenTxBuilder {
             Digest::default(),
             ExecutionProof::new(StarkProof::new_dummy(), HashFunction::Blake3_192),
         )
-        .add_input_notes(self.nullifiers.unwrap_or_default().iter().copied())
-        .add_output_notes(self.notes_created.unwrap_or_default())
+        .add_input_notes(self.input_notes.unwrap_or_default())
+        .add_input_notes(self.nullifiers.unwrap_or_default())
+        .add_output_notes(self.output_notes.unwrap_or_default())
         .build()
         .unwrap()
     }

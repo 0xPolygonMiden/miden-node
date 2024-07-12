@@ -36,8 +36,11 @@ tracing-subscriber = { workspace = true }
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
 miden-air = { workspace = true }
+miden-lib = { workspace = true, features = ["testing"] }
 miden-node-test-macro = { path = "../test-macro" }
 miden-objects = { workspace = true, features = ["testing"] }
+miden-tx = { workspace = true, features = ["testing"] }
 once_cell = { version = "1.18" }
+rand_chacha = { version = "0.3", default-features = false }
 tokio = { version = "1.38", features = ["test-util"] }
 winterfell = { version = "0.8" }

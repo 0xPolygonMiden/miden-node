@@ -2,10 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use async_trait::async_trait;
 use miden_objects::{
-    block::{Block, BlockNoteTree},
+    block::{Block, BlockNoteTree, NoteBatch},
     crypto::merkle::{MerklePath, Mmr, SimpleSmt, Smt, ValuePath},
     notes::{NoteId, Nullifier},
-    transaction::OutputNote,
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 
@@ -17,7 +16,9 @@ use crate::{
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
-    test_utils::block::{note_created_smt_from_batches, note_created_smt_from_note_batches},
+    test_utils::block::{
+        block_output_notes, flatten_output_notes, note_created_smt_from_note_batches,
+    },
     ProvenTransaction,
 };
 
@@ -25,29 +26,31 @@ use crate::{
 #[derive(Debug)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    notes: Option<BlockNoteTree>,
+    notes: Option<BTreeMap<NoteId, MerklePath>>,
+    note_root: Option<Digest>,
     produced_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
     block_num: Option<u32>,
 }
 
 impl MockStoreSuccessBuilder {
-    pub fn from_batches<'a>(batches: impl Iterator<Item = &'a TransactionBatch>) -> Self {
-        let batches: Vec<_> = batches.cloned().collect();
-
+    pub fn from_batches<'a>(
+        batches_iter: impl Iterator<Item = &'a TransactionBatch> + Clone,
+    ) -> Self {
         let accounts_smt = {
-            let accounts = batches
-                .iter()
+            let accounts = batches_iter
+                .clone()
                 .flat_map(TransactionBatch::account_initial_states)
                 .map(|(account_id, hash)| (account_id.into(), hash.into()));
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
-        let created_notes = note_created_smt_from_batches(&batches);
+        let (note_tree, notes) = Self::populate_note_trees(block_output_notes(batches_iter));
 
         Self {
             accounts: Some(accounts_smt),
-            notes: Some(created_notes),
+            notes: Some(notes),
+            note_root: Some(note_tree.root()),
             produced_nullifiers: None,
             chain_mmr: None,
             block_num: None,
@@ -64,17 +67,18 @@ impl MockStoreSuccessBuilder {
         Self {
             accounts: Some(accounts_smt),
             notes: None,
+            note_root: None,
             produced_nullifiers: None,
             chain_mmr: None,
             block_num: None,
         }
     }
 
-    pub fn initial_notes<'a>(
-        mut self,
-        notes: impl Iterator<Item = &'a (impl Iterator<Item = OutputNote> + Clone + 'a)>,
-    ) -> Self {
-        self.notes = Some(note_created_smt_from_note_batches(notes));
+    pub fn initial_notes<'a>(mut self, notes: impl Iterator<Item = &'a NoteBatch> + Clone) -> Self {
+        let (note_tree, notes) = Self::populate_note_trees(notes);
+
+        self.notes = Some(notes);
+        self.note_root = Some(note_tree.root());
 
         self
     }
@@ -97,10 +101,22 @@ impl MockStoreSuccessBuilder {
         self
     }
 
+    fn populate_note_trees<'a>(
+        batches_iterator: impl Iterator<Item = &'a NoteBatch> + Clone,
+    ) -> (BlockNoteTree, BTreeMap<NoteId, MerklePath>) {
+        let block_note_tree = note_created_smt_from_note_batches(batches_iterator.clone());
+        let note_map = flatten_output_notes(batches_iterator)
+            .map(|(index, note)| (note.id(), block_note_tree.get_note_path(index).unwrap()))
+            .collect();
+
+        (block_note_tree, note_map)
+    }
+
     pub fn build(self) -> MockStoreSuccess {
         let block_num = self.block_num.unwrap_or(1);
         let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new().unwrap());
-        let notes_smt = self.notes.unwrap_or_default();
+        let notes = self.notes.unwrap_or_default();
+        let note_root = self.note_root.unwrap_or_default();
         let chain_mmr = self.chain_mmr.unwrap_or_default();
         let nullifiers_smt = self
             .produced_nullifiers
@@ -121,7 +137,7 @@ impl MockStoreSuccessBuilder {
             chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
             accounts_smt.root(),
             nullifiers_smt.root(),
-            notes_smt.root(),
+            note_root,
             Digest::default(),
             Digest::default(),
             1,
@@ -132,7 +148,8 @@ impl MockStoreSuccessBuilder {
             produced_nullifiers: Arc::new(RwLock::new(nullifiers_smt)),
             chain_mmr: Arc::new(RwLock::new(chain_mmr)),
             last_block_header: Arc::new(RwLock::new(initial_block_header)),
-            num_apply_block_called: Arc::new(RwLock::new(0)),
+            num_apply_block_called: Default::default(),
+            notes: Arc::new(RwLock::new(notes)),
         }
     }
 }
@@ -152,6 +169,9 @@ pub struct MockStoreSuccess {
 
     /// The number of times `apply_block()` was called
     pub num_apply_block_called: Arc<RwLock<u32>>,
+
+    /// Maps note id -> note inclusion proof for all created notes
+    pub notes: Arc<RwLock<BTreeMap<NoteId, MerklePath>>>,
 }
 
 impl MockStoreSuccess {
@@ -186,6 +206,15 @@ impl ApplyBlock for MockStoreSuccess {
             let mut chain_mmr = self.chain_mmr.write().await;
 
             chain_mmr.add(block.hash());
+        }
+
+        // build note tree
+        let note_tree = block.build_note_tree();
+
+        // update notes
+        let mut locked_notes = self.notes.write().await;
+        for (note_index, note) in block.notes() {
+            locked_notes.insert(note.id(), note_tree.get_note_path(note_index).unwrap_or_default());
         }
 
         // update last block header
@@ -278,9 +307,14 @@ impl Store for MockStoreSuccess {
 
     async fn get_note_authentication_info(
         &self,
-        _notes: impl Iterator<Item = &NoteId> + Send,
+        notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
-        todo!()
+        let locked_notes = self.notes.read().await;
+        let note_auth_info = notes
+            .map(|note_id| (*note_id, locked_notes.get(note_id).cloned().unwrap_or_default()))
+            .collect();
+
+        Ok(note_auth_info)
     }
 }
 

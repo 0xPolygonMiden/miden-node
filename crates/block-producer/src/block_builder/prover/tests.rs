@@ -447,7 +447,7 @@ async fn test_compute_note_root_success() {
             .map(|(note, &account_id)| {
                 let note = OutputNote::Header(*note);
                 MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
-                    .notes_created(vec![note])
+                    .output_notes(vec![note])
                     .build()
             })
             .collect();

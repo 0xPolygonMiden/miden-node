@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::accounts::AccountSummary;
+use miden_node_utils::testing::{num_to_nullifier, num_to_rpo_digest, num_to_word};
 use miden_objects::{
     accounts::{
         account_id::testing::{
@@ -17,8 +18,8 @@ use miden_objects::{
     assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
-    BlockHeader, Felt, FieldElement, Word, ONE, ZERO,
+    notes::{NoteId, NoteMetadata, NoteType},
+    BlockHeader, Felt, FieldElement, ONE, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 
@@ -711,17 +712,6 @@ fn test_notes() {
 
 // UTILITIES
 // -------------------------------------------------------------------------------------------
-fn num_to_rpo_digest(n: u64) -> RpoDigest {
-    RpoDigest::new(num_to_word(n))
-}
-
-fn num_to_word(n: u64) -> Word {
-    [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(n)]
-}
-
-fn num_to_nullifier(n: u64) -> Nullifier {
-    Nullifier::from(num_to_rpo_digest(n))
-}
 
 fn mock_block_account_update(account_id: AccountId, num: u64) -> BlockAccountUpdate {
     BlockAccountUpdate::new(

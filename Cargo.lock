@@ -1601,6 +1601,7 @@ dependencies = [
  "figment",
  "itertools 0.13.0",
  "miden-air",
+ "miden-lib",
  "miden-node-proto",
  "miden-node-store",
  "miden-node-test-macro",
@@ -1610,6 +1611,7 @@ dependencies = [
  "miden-stdlib",
  "miden-tx",
  "once_cell",
+ "rand_chacha",
  "serde",
  "thiserror",
  "tokio",
@@ -1773,6 +1775,7 @@ dependencies = [
  "miden-prover",
  "miden-verifier",
  "rand",
+ "rand_chacha",
  "winter-maybe-async",
 ]
 
