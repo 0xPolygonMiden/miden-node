@@ -123,6 +123,12 @@ impl MockBlockBuilder {
         self
     }
 
+    pub fn created_notes(mut self, created_notes: Vec<NoteBatch>) -> Self {
+        self.created_notes = Some(created_notes);
+
+        self
+    }
+
     pub fn produced_nullifiers(mut self, produced_nullifiers: Vec<Nullifier>) -> Self {
         self.produced_nullifiers = Some(produced_nullifiers);
 

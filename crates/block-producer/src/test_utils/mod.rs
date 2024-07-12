@@ -13,7 +13,7 @@ pub use store::{MockStoreFailure, MockStoreSuccess, MockStoreSuccessBuilder};
 
 mod account;
 
-pub use account::MockPrivateAccount;
+pub use account::{mock_account_id, MockPrivateAccount};
 
 pub mod block;
 

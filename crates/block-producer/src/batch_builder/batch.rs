@@ -6,7 +6,7 @@ use std::{
 use miden_objects::{
     accounts::AccountId,
     batches::BatchNoteTree,
-    block::{BlockAccountUpdate, NoteBatch},
+    block::BlockAccountUpdate,
     crypto::{
         hash::blake::{Blake3Digest, Blake3_256},
         merkle::MerklePath,
@@ -34,7 +34,7 @@ pub struct TransactionBatch {
     updated_accounts: Vec<(TransactionId, TxAccountUpdate)>,
     input_notes: Vec<InputNoteCommitment>,
     output_notes_smt: BatchNoteTree,
-    output_notes: NoteBatch,
+    output_notes: Vec<OutputNote>,
 }
 
 impl TransactionBatch {
@@ -176,7 +176,7 @@ impl TransactionBatch {
     }
 
     /// Returns output notes list.
-    pub fn output_notes(&self) -> &NoteBatch {
+    pub fn output_notes(&self) -> &Vec<OutputNote> {
         &self.output_notes
     }
 

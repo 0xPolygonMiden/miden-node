@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::Not,
+};
 
 use async_trait::async_trait;
 use miden_objects::{
@@ -257,11 +260,20 @@ impl Store for MockStoreSuccess {
             })
             .collect();
 
+        let locked_notes = self.notes.read().await;
+        let missing_unauthenticated_notes = proven_tx
+            .get_unauthenticated_notes()
+            .filter_map(|header| {
+                let id = header.id();
+                locked_notes.contains_key(&id).not().then_some(id)
+            })
+            .collect();
+
         Ok(TransactionInputs {
             account_id: proven_tx.account_id(),
             account_hash,
             nullifiers,
-            missing_unauthenticated_notes: Default::default(),
+            missing_unauthenticated_notes,
         })
     }
 
@@ -294,7 +306,9 @@ impl Store for MockStoreSuccess {
             .map(|nullifier| (*nullifier, locked_produced_nullifiers.open(&nullifier.inner())))
             .collect();
 
-        let found_unauthenticated_notes = notes.copied().collect();
+        let locked_notes = self.notes.read().await;
+        let found_unauthenticated_notes =
+            notes.filter(|&id| locked_notes.contains_key(id)).copied().collect();
 
         Ok(BlockInputs {
             block_header: *self.last_block_header.read().await,
