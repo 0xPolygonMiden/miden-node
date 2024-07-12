@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    num::NonZeroU32,
+};
 
 use async_trait::async_trait;
 use miden_objects::{
@@ -224,7 +227,7 @@ impl Store for MockStoreSuccess {
                 let nullifier = commitment.nullifier();
                 let nullifier_value = locked_produced_nullifiers.get_value(&nullifier.inner());
 
-                (nullifier, nullifier_value[0].inner() as u32)
+                (nullifier, NonZeroU32::new(nullifier_value[0].inner() as u32))
             })
             .collect();
 

@@ -1,9 +1,11 @@
 use std::{
     collections::BTreeMap,
     fmt::{Display, Formatter},
+    num::NonZeroU32,
 };
 
 use async_trait::async_trait;
+use itertools::Itertools;
 use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
@@ -17,7 +19,7 @@ use miden_node_proto::{
     },
     AccountState,
 };
-use miden_node_utils::formatting::{format_map, format_opt};
+use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
     block::Block,
@@ -80,20 +82,33 @@ pub struct TransactionInputs {
     pub account_id: AccountId,
     /// The account hash in the store corresponding to tx's account ID
     pub account_hash: Option<Digest>,
-    /// Maps each consumed notes' nullifier to block number, where the note is consumed
-    /// (`zero` means, that note isn't consumed yet)
-    pub nullifiers: BTreeMap<Nullifier, u32>,
+    /// Maps each consumed notes' nullifier to block number, where the note is consumed.
+    ///
+    /// We use NonZeroU32 as the wire format uses 0 to encode none.
+    pub nullifiers: BTreeMap<Nullifier, Option<NonZeroU32>>,
     /// List of unauthenticated notes that were not found in the store
     pub missing_unauthenticated_notes: Vec<NoteId>,
 }
 
 impl Display for TransactionInputs {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let nullifiers = self
+            .nullifiers
+            .iter()
+            .map(|(k, v)| format!("{k}: {}", format_opt(v.as_ref())))
+            .join(", ");
+
+        let nullifiers = if nullifiers.is_empty() {
+            "None".to_owned()
+        } else {
+            format!("{{ {} }}", nullifiers)
+        };
+
         f.write_fmt(format_args!(
             "{{ account_id: {}, account_hash: {}, nullifiers: {} }}",
             self.account_id,
             format_opt(self.account_hash.as_ref()),
-            format_map(&self.nullifiers)
+            nullifiers
         ))
     }
 }
@@ -114,7 +129,8 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
                 .ok_or(NullifierTransactionInputRecord::missing_field(stringify!(nullifier)))?
                 .try_into()?;
 
-            nullifiers.insert(nullifier, nullifier_record.block_num);
+            // Note that this intentionally maps 0 to None as this is the definition used in protobuf.
+            nullifiers.insert(nullifier, NonZeroU32::new(nullifier_record.block_num));
         }
 
         let missing_unauthenticated_notes = response
