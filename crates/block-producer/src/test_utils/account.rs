@@ -57,3 +57,7 @@ impl<const NUM_STATES: usize> From<u32> for MockPrivateAccount<NUM_STATES> {
         }
     }
 }
+
+pub fn mock_account_id(num: u8) -> AccountId {
+    AccountId::new_dummy([num; 32], AccountType::RegularAccountImmutableCode)
+}

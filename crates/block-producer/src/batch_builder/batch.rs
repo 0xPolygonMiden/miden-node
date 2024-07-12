@@ -247,14 +247,11 @@ impl OutputNoteTracker {
 
 #[cfg(test)]
 mod tests {
-    use miden_lib::transaction::TransactionKernel;
-    use miden_objects::{
-        accounts::AccountType, notes::Note, testing::notes::NoteBuilder, transaction::InputNote,
-    };
-    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
-
     use super::*;
-    use crate::test_utils::MockProvenTxBuilder;
+    use crate::test_utils::{
+        mock_proven_tx,
+        note::{mock_note, mock_output_note, mock_unauthenticated_note_commitment},
+    };
 
     #[test]
     fn test_output_note_tracker_duplicate_output_notes() {
@@ -320,7 +317,7 @@ mod tests {
         let note_to_consume = mock_note(2);
         txs.push(mock_proven_tx(
             3,
-            vec![mock_note(10), note_to_consume.clone(), mock_note(12)],
+            vec![mock_note(10), note_to_consume, mock_note(12)],
             vec![mock_output_note(8), mock_output_note(9)],
         ));
 
@@ -387,35 +384,5 @@ mod tests {
                 vec![mock_output_note(5), mock_output_note(6), mock_output_note(7)],
             ),
         ]
-    }
-
-    fn mock_proven_tx(
-        account_index: u8,
-        unauthenticated_notes: Vec<Note>,
-        output_notes: Vec<OutputNote>,
-    ) -> ProvenTransaction {
-        MockProvenTxBuilder::with_account_index(account_index.into())
-            .unauthenticated_notes(unauthenticated_notes)
-            .output_notes(output_notes)
-            .build()
-    }
-
-    fn mock_account_id(num: u8) -> AccountId {
-        AccountId::new_dummy([num; 32], AccountType::RegularAccountImmutableCode)
-    }
-
-    fn mock_note(num: u8) -> Note {
-        let sender = mock_account_id(num);
-        NoteBuilder::new(sender, ChaCha20Rng::from_seed([num; 32]))
-            .build(&TransactionKernel::assembler().with_debug_mode(true))
-            .unwrap()
-    }
-
-    fn mock_unauthenticated_note_commitment(num: u8) -> InputNoteCommitment {
-        InputNote::unauthenticated(mock_note(num)).into()
-    }
-
-    fn mock_output_note(num: u8) -> OutputNote {
-        OutputNote::Full(mock_note(num))
     }
 }
