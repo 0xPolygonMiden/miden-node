@@ -1,12 +1,8 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-};
+use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
-use miden_node_utils::formatting::{format_array, format_map};
+use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::AccountId,
     block::Block,
     notes::{NoteId, Nullifier},
     transaction::OutputNote,
@@ -16,6 +12,7 @@ use miden_tx::TransactionVerifier;
 use tokio::sync::RwLock;
 use tracing::{debug, instrument};
 
+use self::account_state::InflightAccountStates;
 use crate::{
     errors::VerifyTxError,
     store::{ApplyBlock, ApplyBlockError, Store, TransactionInputs},
@@ -23,6 +20,7 @@ use crate::{
     ProvenTransaction, COMPONENT,
 };
 
+mod account_state;
 #[cfg(test)]
 mod tests;
 
@@ -32,9 +30,8 @@ pub struct DefaultStateView<S> {
     /// Enables or disables the verification of transaction proofs in `verify_tx`
     verify_tx_proofs: bool,
 
-    /// The account ID of accounts being modified by transactions currently in the block production
-    /// pipeline. We currently ensure that only 1 tx/block modifies any given account (issue: #186).
-    accounts_in_flight: Arc<RwLock<BTreeMap<AccountId, Digest>>>,
+    /// The account states modified by transactions currently in the block production pipeline.
+    accounts_in_flight: Arc<RwLock<InflightAccountStates>>,
 
     /// The nullifiers of notes consumed by transactions currently in the block production pipeline.
     nullifiers_in_flight: Arc<RwLock<BTreeSet<Nullifier>>>,
@@ -85,7 +82,6 @@ where
         // after getting the transaction inputs.
         ensure_in_flight_constraints(
             candidate_tx,
-            &*self.accounts_in_flight.read().await,
             &*self.nullifiers_in_flight.read().await,
             &*self.notes_in_flight.read().await,
             &[],
@@ -115,17 +111,22 @@ where
 
             ensure_in_flight_constraints(
                 candidate_tx,
-                &locked_accounts_in_flight,
                 &locked_nullifiers_in_flight,
                 &locked_notes_in_flight,
                 &missing_notes,
             )?;
 
-            // Success! Register transaction as successfully verified
-            locked_accounts_in_flight.insert(
-                candidate_tx.account_id(),
-                candidate_tx.account_update().final_state_hash(),
-            );
+            // Update the state transition. This may still fail as the check is performed as part of  the update.
+            locked_accounts_in_flight
+                .add(
+                    candidate_tx.account_id(),
+                    candidate_tx.account_update().init_state_hash(),
+                    candidate_tx.account_update().final_state_hash(),
+                )
+                .map_err(|state| VerifyTxError::IncorrectAccountInitialHash {
+                    tx_initial_account_hash: candidate_tx.account_update().init_state_hash(),
+                    actual_account_hash: Some(state),
+                })?;
             locked_nullifiers_in_flight.extend(&mut candidate_tx.get_nullifiers());
             locked_notes_in_flight.extend(candidate_tx.output_notes().iter().map(OutputNote::id));
         }
@@ -152,8 +153,9 @@ where
 
         // Remove account ids of transactions in block
         for update in block.updated_accounts() {
-            let was_in_flight = locked_accounts_in_flight.remove(&update.account_id()).is_some();
-            debug_assert!(was_in_flight);
+            locked_accounts_in_flight
+                .remove(update.account_id(), update.new_state_hash())
+                .expect("Account update should be valid");
         }
 
         // Remove new nullifiers of transactions in block
@@ -180,26 +182,16 @@ where
 /// - no note's nullifier in candidate tx's consumed notes is already contained in
 ///   `already_consumed_nullifiers`
 /// - all notes in `tx_notes_not_in_store` are currently in flight
+///
+/// The account state is not verified as it is performed by [InflightAccountStates].
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
     candidate_tx: &ProvenTransaction,
-    accounts_in_flight: &BTreeMap<AccountId, Digest>,
     already_consumed_nullifiers: &BTreeSet<Nullifier>,
     notes_in_flight: &BTreeSet<NoteId>,
     tx_notes_not_in_store: &[NoteId],
 ) -> Result<(), VerifyTxError> {
-    debug!(target: COMPONENT, accounts_in_flight = %format_map(accounts_in_flight), already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
-
-    // Check that the inflight account state matches the transactions initial state.
-    if let Some(inflight_state) = accounts_in_flight.get(&candidate_tx.account_id()) {
-        let account_state_hash = candidate_tx.account_update().init_state_hash();
-        if &account_state_hash != inflight_state {
-            return Err(VerifyTxError::IncorrectAccountInitialHash {
-                tx_initial_account_hash: candidate_tx.account_update().init_state_hash(),
-                actual_account_hash: Some(account_state_hash),
-            });
-        }
-    }
+    debug!(target: COMPONENT, already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
 
     // Check no consumed notes were already consumed
     let infracting_nullifiers: Vec<Nullifier> = {
