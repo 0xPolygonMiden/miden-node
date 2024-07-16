@@ -4,7 +4,7 @@ use std::{
 };
 
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{delta::AccountUpdateDetails, AccountId},
     batches::BatchNoteTree,
     block::BlockAccountUpdate,
     crypto::{
@@ -12,7 +12,7 @@ use miden_objects::{
         merkle::MerklePath,
     },
     notes::{NoteHeader, NoteId, Nullifier},
-    transaction::{InputNoteCommitment, OutputNote, TransactionId, TxAccountUpdate},
+    transaction::{InputNoteCommitment, OutputNote, TransactionId},
     Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
@@ -31,10 +31,37 @@ pub type BatchId = Blake3Digest<32>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransactionBatch {
     id: BatchId,
-    updated_accounts: Vec<(TransactionId, TxAccountUpdate)>,
+    updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     input_notes: Vec<InputNoteCommitment>,
     output_notes_smt: BatchNoteTree,
     output_notes: Vec<OutputNote>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AccountUpdate {
+    init_state: Digest,
+    final_state: Digest,
+    transactions: Vec<TransactionId>,
+    details: AccountUpdateDetails,
+}
+
+impl AccountUpdate {
+    fn new(tx: &ProvenTransaction) -> Self {
+        Self {
+            init_state: tx.account_update().init_state_hash(),
+            final_state: tx.account_update().final_state_hash(),
+            transactions: vec![tx.id()],
+            details: tx.account_update().details().clone(),
+        }
+    }
+
+    /// Merges the transaction's update into this account update.
+    fn merge_tx(&mut self, tx: &ProvenTransaction) {
+        self.final_state = tx.account_update().final_state_hash();
+        self.transactions.push(tx.id());
+
+        // TODO: merge account update details. Waiting on implementation in.. miden-objects.
+    }
 }
 
 impl TransactionBatch {
@@ -62,14 +89,15 @@ impl TransactionBatch {
 
         // Populate batch output notes and updated accounts.
         let mut output_notes = OutputNoteTracker::new(&txs)?;
-        let mut updated_accounts = vec![];
+        let mut updated_accounts = BTreeMap::<AccountId, AccountUpdate>::new();
         let mut unauthenticated_input_notes = BTreeSet::new();
         for tx in &txs {
-            // TODO: we need to handle a possibility that a batch contains multiple transactions against
-            //       the same account (e.g., transaction `x` takes account from state `A` to `B` and
-            //       transaction `y` takes account from state `B` to `C`). These will need to be merged
-            //       into a single "update" `A` to `C`.
-            updated_accounts.push((tx.id(), tx.account_update().clone()));
+            // Merge account updates so that state transitions A->B->C become A->C.
+            updated_accounts
+                .entry(tx.account_id())
+                .and_modify(|x| x.merge_tx(tx))
+                .or_insert(AccountUpdate::new(tx));
+
             // Check unauthenticated input notes for duplicates:
             for note in tx.get_unauthenticated_notes() {
                 let id = note.id();
@@ -142,18 +170,18 @@ impl TransactionBatch {
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
         self.updated_accounts
             .iter()
-            .map(|(_, update)| (update.account_id(), update.init_state_hash()))
+            .map(|(&account, update)| (account, update.init_state))
     }
 
     /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
     pub fn updated_accounts(&self) -> impl Iterator<Item = BlockAccountUpdate> + '_ {
-        self.updated_accounts.iter().map(|(transaction_id, update)| {
+        self.updated_accounts.iter().map(|(&account, update)| {
             BlockAccountUpdate::new(
-                update.account_id(),
-                update.final_state_hash(),
-                update.details().clone(),
-                vec![*transaction_id],
+                account,
+                update.final_state,
+                update.details.clone(),
+                update.transactions.clone(),
             )
         })
     }
