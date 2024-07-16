@@ -22,7 +22,7 @@ struct TransactionValidatorFailure;
 #[async_trait]
 impl TransactionValidator for TransactionValidatorFailure {
     async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
-        Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(tx.account_id()))
+        Err(VerifyTxError::InvalidTransactionProof(tx.id()))
     }
 }
 

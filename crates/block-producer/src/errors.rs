@@ -15,11 +15,6 @@ use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum VerifyTxError {
-    /// The account that the transaction modifies has already been modified and isn't yet committed
-    /// to a block
-    #[error("Account {0} was already modified by other transaction")]
-    AccountAlreadyModifiedByOtherTx(AccountId),
-
     /// Another transaction already consumed the notes with given nullifiers
     #[error("Input notes with given nullifiers were already consumed by another transaction")]
     InputNotesAlreadyConsumed(Vec<Nullifier>),
