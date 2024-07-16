@@ -1,114 +1,129 @@
-name: CI Pipeline for miden-node
+name: EC2 Miden Node Setup
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  schedule:
-    - cron: '0 0 * * *' # Check daily for updates
-  workflow_dispatch:
   release:
     types: [published]
+  schedule:
+    - cron: '0 0 * * *' # Daily check for new versions on crates.io
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  build:
+  setup-ec2:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
+          aws-region: us-west-2
 
-    - name: Update and upgrade apt packages
-      run: sudo apt update -y && sudo apt upgrade -y
+      - name: Launch EC2 instance
+        id: launch_ec2
+        run: |
+          INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0c55b159cbfafe1f0 --count 1 --instance-type a1.xlarge --key-name miden-test --security-groups ssh-access --query 'Instances[0].InstanceId' --output text)
+          echo "::set-output name=instance_id::$INSTANCE_ID"
 
-    - name: Install miden-node and miden-faucet
-      run: cargo install miden-node miden-faucet
+      - name: Wait for EC2 to be running
+        run: |
+          INSTANCE_ID=${{ steps.launch_ec2.outputs.instance_id }}
+          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
 
-    - name: Clone miden-node repository
-      run: git clone https://github.com/0xPolygonMiden/miden-node
+      - name: Get EC2 Public DNS
+        id: ec2_dns
+        run: |
+          INSTANCE_ID=${{ steps.launch_ec2.outputs.instance_id }}
+          PUBLIC_DNS=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
+          echo "::set-output name=public_dns::$PUBLIC_DNS"
 
-    - name: Set up systemd services
-      run: |
-        echo "[Unit]
-        Description=miden-node service
-        After=network.target
+      - name: Install dependencies and miden-node
+        run: |
+          PUBLIC_DNS=${{ steps.ec2_dns.outputs.public_dns }}
+          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@$PUBLIC_DNS << 'EOF'
+            sudo yum update -y
+            sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make
+            sudo yum groupinstall -y "Development Tools"
 
-        [Service]
-        Type=simple
-        ExecStart=/usr/local/cargo/bin/miden-node
-        Restart=always
+            # Install Rust
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source $HOME/.cargo/env
+            rustup update
 
-        [Install]
-        WantedBy=multi-user.target" | sudo tee /etc/systemd/system/miden-node.service
+            # Install dependencies
+            sudo yum install -y clang cmake
 
-        echo "[Unit]
-        Description=miden-faucet service
-        After=network.target
+            # Clone the repository
+            git clone https://github.com/0xPolygonMiden/miden-node.git
+            cd miden-node
 
-        [Service]
-        Type=simple
-        ExecStart=/usr/local/cargo/bin/miden-faucet
-        Restart=always
+            # Build and install miden-node
+            cargo build --release
 
-        [Install]
-        WantedBy=multi-user.target" | sudo tee /etc/systemd/system/miden-faucet.service
+            # Configure systemd service
+            sudo tee /etc/systemd/system/miden-node.service > /dev/null <<EOT
+            [Unit]
+            Description=Miden Node
+            After=network.target
 
-    - name: Create configuration directory
-      run: sudo mkdir -p /etc/miden/
+            [Service]
+            ExecStart=/home/ec2-user/miden-node/target/release/miden-node
+            Restart=on-failure
+            User=ec2-user
+            WorkingDirectory=/home/ec2-user/miden-node
+            Environment="RUST_LOG=info"
+            LimitNOFILE=10000
 
-    - name: Copy configuration files
-      run: |
-        cd miden-node
-        sudo cp config/miden-node.toml /etc/miden/
-        sudo cp config/miden-faucet.toml /etc/miden/
-        sudo cp config/genesis.toml /etc/miden/
+            [Install]
+            WantedBy=multi-user.target
+            EOT
 
-    - name: Configure genesis file
-      run: |
-        mkdir -p $HOME/miden
-        cd $HOME/miden
-        miden-node make-genesis --inputs-path /etc/miden/genesis.toml
+            sudo systemctl daemon-reload
+            sudo systemctl enable miden-node
+            sudo systemctl start miden-node
+EOF
 
-    - name: Set up static files for miden-faucet
-      run: |
-        mkdir -p $HOME/miden/bin/faucet/src/
-        cp -r miden-node/bin/faucet/src/static $HOME/miden/bin/faucet/src/
+  check-crates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for updates on crates.io
+        run: |
+          NEW_VERSION=$(curl -s https://crates.io/api/v1/crates/miden-node | jq -r '.crate.max_version')
+          CURRENT_VERSION=$(ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@${{ steps.setup-ec2.outputs.ec2_dns.outputs.public_dns }} "miden-node --version | cut -d ' ' -f2")
+          if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "::set-output name=update_needed::true"
+          else
+            echo "::set-output name=update_needed::false"
+          fi
 
-    - name: Reload systemd daemon
-      run: sudo systemctl daemon-reload
+  rebuild-ec2:
+    needs: check-crates
+    if: needs.check-crates.outputs.update_needed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::{{ secrets.AWS_ACCOUNT_ID }}:role/Miden-GithubActionsRole
+          aws-region: us-west-2
 
-    - name: Enable and start miden-node and miden-faucet services
-      run: |
-        sudo systemctl enable miden-node.service
-        sudo systemctl enable miden-faucet.service
-        sudo systemctl start miden-node.service
-        sudo systemctl start miden-faucet.service
+      - name: Terminate old EC2 instance
+        run: |
+          INSTANCE_ID=${{ steps.setup-ec2.outputs.instance_id }}
+          aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+          aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID
 
-    - name: Install and configure nginx
-      run: |
-        sudo apt install -y nginx
-        echo "server {
-          listen 80;
-          server_name _;
-
-          location / {
-            proxy_pass http://127.0.0.1:8080;
-            proxy_set_header Host \$host;
-            proxy_set_header X-Real-IP \$remote_addr;
-            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto \$scheme;
-          }
-        }" | sudo tee /etc/nginx/sites-available/miden-faucet
-
-        sudo ln -s /etc/nginx/sites-available/miden-faucet /etc/nginx/sites-enabled/
-        sudo nginx -t
-        sudo systemctl restart nginx
+      - name: Re-run setup workflow
+        uses: actions/github-script@v4
+        with:
+          script: |
+            const result = await github.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'EC2 Miden Node Setup',
+              ref: context.ref,
+            });
