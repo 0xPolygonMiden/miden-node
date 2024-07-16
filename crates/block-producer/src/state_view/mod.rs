@@ -86,15 +86,19 @@ where
             &*self.notes_in_flight.read().await,
             &[],
         )?;
+        self.accounts_in_flight.read().await.verify_update(
+            candidate_tx.account_id(),
+            candidate_tx.account_update().init_state_hash(),
+        )?;
 
         // Fetch the transaction inputs from the store, and check tx input constraints; this will
         // identify a set of unauthenticated input notes which are not in the store yet; we'll use
         // this set to verify that these notes are currently in flight (i.e., they are output notes
         // of one of the inflight transactions)
         let mut tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
-        if let Some(inflight) = self.accounts_in_flight.read().await.get(&candidate_tx.account_id())
+        // The latest inflight account state takes precedence since this is the current block being constructed.
+        if let Some(inflight) = self.accounts_in_flight.read().await.get(candidate_tx.account_id())
         {
-            // Merge the inflight account state into the store state.
             tx_inputs.account_hash = Some(*inflight);
         }
         let missing_notes = ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
@@ -116,17 +120,11 @@ where
                 &missing_notes,
             )?;
 
-            // Update the state transition. This may still fail as the check is performed as part of  the update.
-            locked_accounts_in_flight
-                .add(
-                    candidate_tx.account_id(),
-                    candidate_tx.account_update().init_state_hash(),
-                    candidate_tx.account_update().final_state_hash(),
-                )
-                .map_err(|state| VerifyTxError::IncorrectAccountInitialHash {
-                    tx_initial_account_hash: candidate_tx.account_update().init_state_hash(),
-                    actual_account_hash: Some(state),
-                })?;
+            locked_accounts_in_flight.verify_and_add(
+                candidate_tx.account_id(),
+                candidate_tx.account_update().init_state_hash(),
+                candidate_tx.account_update().final_state_hash(),
+            )?;
             locked_nullifiers_in_flight.extend(&mut candidate_tx.get_nullifiers());
             locked_notes_in_flight.extend(candidate_tx.output_notes().iter().map(OutputNote::id));
         }

@@ -103,7 +103,7 @@ async fn test_apply_block_ab2() {
 
     // Only the first account should still be in flight
     assert_eq!(accounts_still_in_flight.len(), 1);
-    assert!(accounts_still_in_flight.get(&accounts[0].id).is_some());
+    assert!(accounts_still_in_flight.get(accounts[0].id).is_some());
 }
 
 /// Tests requirement AB3
