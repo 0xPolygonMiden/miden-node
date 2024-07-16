@@ -65,8 +65,8 @@ impl InflightAccountStates {
         self.0.get(id).and_then(|states| states.back())
     }
 
-    #[cfg(test)]
     /// Number of accounts with inflight transactions.
+    #[cfg(test)]
     pub fn len(&self) -> usize {
         self.0.len()
     }
