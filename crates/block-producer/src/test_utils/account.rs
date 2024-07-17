@@ -1,9 +1,15 @@
+use std::{collections::HashMap, ops::Not};
+
 use miden_objects::{
     accounts::{get_account_seed, AccountStorageType, AccountType},
     Hasher,
 };
+use once_cell::sync::Lazy;
 
 use super::*;
+
+pub static MOCK_ACCOUNTS: Lazy<std::sync::Mutex<HashMap<u32, (AccountId, Digest)>>> =
+    Lazy::new(|| Default::default());
 
 /// A mock representation fo private accounts. An account starts in state `states[0]`, is modified
 /// to state `states[1]`, and so on.
@@ -16,7 +22,19 @@ pub struct MockPrivateAccount<const NUM_STATES: usize = 3> {
 }
 
 impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
-    fn new(init_seed: [u8; 32], new_account: bool) -> Self {
+    fn new(id: AccountId, initial_state: Digest) -> Self {
+        let mut states = [Digest::default(); NUM_STATES];
+
+        states[0] = initial_state;
+
+        for idx in 1..NUM_STATES {
+            states[idx] = Hasher::hash(&states[idx - 1].as_bytes());
+        }
+
+        Self { id, states }
+    }
+
+    fn generate(init_seed: [u8; 32], new_account: bool) -> Self {
         let account_seed = get_account_seed(
             init_seed,
             AccountType::RegularAccountUpdatableCode,
@@ -26,20 +44,10 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
         )
         .unwrap();
 
-        let mut states = [Digest::default(); NUM_STATES];
-
-        if !new_account {
-            states[0] = Hasher::hash(&init_seed);
-        }
-
-        for idx in 1..NUM_STATES {
-            states[idx] = Hasher::hash(&states[idx - 1].as_bytes());
-        }
-
-        Self {
-            id: AccountId::new(account_seed, Digest::default(), Digest::default()).unwrap(),
-            states,
-        }
+        Self::new(
+            AccountId::new(account_seed, Digest::default(), Digest::default()).unwrap(),
+            new_account.not().then(|| Hasher::hash(&init_seed)).unwrap_or_default(),
+        )
     }
 }
 
@@ -47,17 +55,26 @@ impl<const NUM_STATES: usize> From<u32> for MockPrivateAccount<NUM_STATES> {
     /// Each index gives rise to a different account ID
     /// Passing index 0 signifies that it's a new account
     fn from(index: u32) -> Self {
+        let mut lock = MOCK_ACCOUNTS.lock().expect("Poisoned mutex");
+        if let Some(&(account_id, init_state)) = lock.get(&index) {
+            return Self::new(account_id, init_state);
+        }
+
         let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 28]).collect();
 
         // using index 0 signifies that it's a new account
-        if index == 0 {
-            Self::new(init_seed.try_into().unwrap(), true)
+        let account = if index == 0 {
+            Self::generate(init_seed.try_into().unwrap(), true)
         } else {
-            Self::new(init_seed.try_into().unwrap(), false)
-        }
+            Self::generate(init_seed.try_into().unwrap(), false)
+        };
+
+        lock.insert(index, (account.id, account.states[0]));
+
+        account
     }
 }
 
 pub fn mock_account_id(num: u8) -> AccountId {
-    AccountId::new_dummy([num; 32], AccountType::RegularAccountImmutableCode)
+    MockPrivateAccount::<3>::from(num as u32).id
 }
