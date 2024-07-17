@@ -280,7 +280,7 @@ mod tests {
         let txs = mock_proven_txs();
         let mut tracker = OutputNoteTracker::new(&txs).unwrap();
 
-        let note_to_remove = mock_note(3);
+        let note_to_remove = mock_note(4);
 
         assert!(tracker.remove_note(note_to_remove.header(), &txs).unwrap());
         assert!(!tracker.remove_note(note_to_remove.header(), &txs).unwrap());
@@ -289,11 +289,11 @@ mod tests {
         assert_eq!(
             tracker.into_notes(),
             vec![
-                mock_output_note(1),
                 mock_output_note(2),
-                mock_output_note(5),
+                mock_output_note(3),
                 mock_output_note(6),
                 mock_output_note(7),
+                mock_output_note(8),
             ]
         );
     }
@@ -301,8 +301,8 @@ mod tests {
     #[test]
     fn test_duplicate_unauthenticated_notes() {
         let mut txs = mock_proven_txs();
-        let duplicate_note = mock_note(4);
-        txs.push(mock_proven_tx(3, vec![duplicate_note.clone()], vec![mock_output_note(8)]));
+        let duplicate_note = mock_note(5);
+        txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
         match TransactionBatch::new(txs, None) {
             Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id, _)) => {
                 assert_eq!(note_id, duplicate_note.id())
@@ -314,11 +314,11 @@ mod tests {
     #[test]
     fn test_consume_notes_in_place() {
         let mut txs = mock_proven_txs();
-        let note_to_consume = mock_note(2);
+        let note_to_consume = mock_note(3);
         txs.push(mock_proven_tx(
             3,
-            vec![mock_note(10), note_to_consume, mock_note(12)],
-            vec![mock_output_note(8), mock_output_note(9)],
+            vec![mock_note(11), note_to_consume, mock_note(13)],
+            vec![mock_output_note(9), mock_output_note(10)],
         ));
 
         let batch = TransactionBatch::new(txs, None).unwrap();
@@ -326,10 +326,10 @@ mod tests {
         // One of the unauthenticated notes must be removed from the batch due to the consumption
         // of the corresponding output note
         let expected_input_notes = vec![
-            mock_unauthenticated_note_commitment(0),
-            mock_unauthenticated_note_commitment(4),
-            mock_unauthenticated_note_commitment(10),
-            mock_unauthenticated_note_commitment(12),
+            mock_unauthenticated_note_commitment(1),
+            mock_unauthenticated_note_commitment(5),
+            mock_unauthenticated_note_commitment(11),
+            mock_unauthenticated_note_commitment(13),
         ];
         assert_eq!(batch.input_notes.len(), expected_input_notes.len());
         assert_eq!(batch.input_notes, expected_input_notes);
@@ -337,13 +337,13 @@ mod tests {
         // One of the output notes must be removed from the batch due to the consumption
         // by the corresponding unauthenticated note
         let expected_output_notes = vec![
-            mock_output_note(1),
-            mock_output_note(3),
-            mock_output_note(5),
+            mock_output_note(2),
+            mock_output_note(4),
             mock_output_note(6),
             mock_output_note(7),
             mock_output_note(8),
             mock_output_note(9),
+            mock_output_note(10),
         ];
         assert_eq!(batch.output_notes.len(), expected_output_notes.len());
         assert_eq!(batch.output_notes, expected_output_notes);
@@ -359,11 +359,11 @@ mod tests {
     fn test_convert_unauthenticated_note_to_authenticated() {
         let txs = mock_proven_txs();
         let found_unauthenticated_notes =
-            BTreeMap::from_iter([(mock_note(4).id(), Default::default())]);
+            BTreeMap::from_iter([(mock_note(5).id(), Default::default())]);
         let batch = TransactionBatch::new(txs, Some(found_unauthenticated_notes)).unwrap();
 
         let expected_input_notes =
-            vec![mock_unauthenticated_note_commitment(0), mock_note(4).nullifier().into()];
+            vec![mock_unauthenticated_note_commitment(1), mock_note(5).nullifier().into()];
         assert_eq!(batch.input_notes.len(), expected_input_notes.len());
         assert_eq!(batch.input_notes, expected_input_notes);
     }
@@ -375,13 +375,13 @@ mod tests {
         vec![
             mock_proven_tx(
                 1,
-                vec![mock_note(0)],
-                vec![mock_output_note(1), mock_output_note(2), mock_output_note(3)],
+                vec![mock_note(1)],
+                vec![mock_output_note(2), mock_output_note(3), mock_output_note(4)],
             ),
             mock_proven_tx(
                 2,
-                vec![mock_note(4)],
-                vec![mock_output_note(5), mock_output_note(6), mock_output_note(7)],
+                vec![mock_note(5)],
+                vec![mock_output_note(6), mock_output_note(7), mock_output_note(8)],
             ),
         ]
     }
