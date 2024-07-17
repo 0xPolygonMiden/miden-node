@@ -290,12 +290,8 @@ async fn test_block_builder_missing_notes() {
 
     let txs = vec![tx1, tx2, tx3];
 
-    batch_builder.build_batch(txs).await.unwrap();
-
-    let build_block_result = batch_builder
-        .block_builder
-        .build_block(&batch_builder.ready_batches.read().await)
-        .await;
+    let batch = TransactionBatch::new(txs.clone(), None).unwrap();
+    let build_block_result = batch_builder.block_builder.build_block(&vec![batch]).await;
     assert_eq!(
         build_block_result,
         Err(BuildBlockError::UnauthenticatedNotesNotFound(vec![
