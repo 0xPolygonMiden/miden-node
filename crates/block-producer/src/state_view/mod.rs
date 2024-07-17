@@ -252,7 +252,7 @@ fn ensure_tx_inputs_constraints(
     let infracting_nullifiers: Vec<Nullifier> = tx_inputs
         .nullifiers
         .into_iter()
-        .filter_map(|(nullifier_in_tx, block_num)| (block_num != 0).then_some(nullifier_in_tx))
+        .filter_map(|(nullifier_in_tx, block_num)| block_num.is_some().then_some(nullifier_in_tx))
         .collect();
 
     if !infracting_nullifiers.is_empty() {

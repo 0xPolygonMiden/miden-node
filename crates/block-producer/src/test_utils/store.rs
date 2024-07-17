@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    ops::Not,
+    num::NonZeroU32,ops::Not,
 };
 
 use async_trait::async_trait;
@@ -256,7 +256,7 @@ impl Store for MockStoreSuccess {
                 let nullifier = commitment.nullifier();
                 let nullifier_value = locked_produced_nullifiers.get_value(&nullifier.inner());
 
-                (nullifier, nullifier_value[0].inner() as u32)
+                (nullifier, NonZeroU32::new(nullifier_value[0].inner() as u32))
             })
             .collect();
 
