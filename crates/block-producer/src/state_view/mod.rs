@@ -82,13 +82,10 @@ where
         // after getting the transaction inputs.
         ensure_in_flight_constraints(
             candidate_tx,
+            &*self.accounts_in_flight.read().await,
             &*self.nullifiers_in_flight.read().await,
             &*self.notes_in_flight.read().await,
             &[],
-        )?;
-        self.accounts_in_flight.read().await.verify_update(
-            candidate_tx.account_id(),
-            candidate_tx.account_update().init_state_hash(),
         )?;
 
         // Fetch the transaction inputs from the store, and check tx input constraints; this will
@@ -115,6 +112,7 @@ where
 
             ensure_in_flight_constraints(
                 candidate_tx,
+                &locked_accounts_in_flight,
                 &locked_nullifiers_in_flight,
                 &locked_notes_in_flight,
                 &missing_notes,
@@ -185,11 +183,17 @@ where
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
     candidate_tx: &ProvenTransaction,
+    accounts_in_flight: &InflightAccountStates,
     already_consumed_nullifiers: &BTreeSet<Nullifier>,
     notes_in_flight: &BTreeSet<NoteId>,
     tx_notes_not_in_store: &[NoteId],
 ) -> Result<(), VerifyTxError> {
     debug!(target: COMPONENT, already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
+
+    accounts_in_flight.verify_update(
+        candidate_tx.account_id(),
+        candidate_tx.account_update().init_state_hash(),
+    )?;
 
     // Check no consumed notes were already consumed
     let infracting_nullifiers: Vec<Nullifier> = {
@@ -236,7 +240,7 @@ fn ensure_tx_inputs_constraints(
             if candidate_tx.account_update().init_state_hash() != store_account_hash {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
                     tx_initial_account_hash: candidate_tx.account_update().init_state_hash(),
-                    actual_account_hash: Some(store_account_hash),
+                    current_account_hash: Some(store_account_hash),
                 });
             }
         },
@@ -247,7 +251,7 @@ fn ensure_tx_inputs_constraints(
             if candidate_tx.account_update().init_state_hash() != Digest::default() {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
                     tx_initial_account_hash: candidate_tx.account_update().init_state_hash(),
-                    actual_account_hash: None,
+                    current_account_hash: None,
                 });
             }
         },

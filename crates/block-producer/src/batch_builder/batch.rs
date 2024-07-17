@@ -57,6 +57,11 @@ impl AccountUpdate {
 
     /// Merges the transaction's update into this account update.
     fn merge_tx(&mut self, tx: &ProvenTransaction) {
+        assert!(
+            self.final_state == tx.account_update().init_state_hash(),
+            "Transacion's initial state does not match current account state"
+        );
+
         self.final_state = tx.account_update().final_state_hash();
         self.transactions.push(tx.id());
 
@@ -170,15 +175,15 @@ impl TransactionBatch {
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
         self.updated_accounts
             .iter()
-            .map(|(&account, update)| (account, update.init_state))
+            .map(|(&account_id, update)| (account_id, update.init_state))
     }
 
     /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
     pub fn updated_accounts(&self) -> impl Iterator<Item = BlockAccountUpdate> + '_ {
-        self.updated_accounts.iter().map(|(&account, update)| {
+        self.updated_accounts.iter().map(|(&account_id, update)| {
             BlockAccountUpdate::new(
-                account,
+                account_id,
                 update.final_state,
                 update.details.clone(),
                 update.transactions.clone(),

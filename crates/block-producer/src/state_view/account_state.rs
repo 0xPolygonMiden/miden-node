@@ -20,7 +20,7 @@ impl InflightAccountStates {
             if latest != &init_state {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
                     tx_initial_account_hash: init_state,
-                    actual_account_hash: Some(*latest),
+                    current_account_hash: Some(*latest),
                 });
             }
         }
@@ -43,7 +43,7 @@ impl InflightAccountStates {
             if latest != &init_state {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
                     tx_initial_account_hash: init_state,
-                    actual_account_hash: Some(*latest),
+                    current_account_hash: Some(*latest),
                 });
             }
         }
@@ -77,6 +77,12 @@ impl InflightAccountStates {
     /// The latest value of the given account.
     pub fn get(&self, id: AccountId) -> Option<&Digest> {
         self.0.get(&id).and_then(|states| states.back())
+    }
+
+    /// Number of accounts with inflight transactions.
+    #[cfg(test)]
+    pub fn contains(&self, id: AccountId) -> bool {
+        self.0.contains_key(&id)
     }
 
     /// Number of accounts with inflight transactions.

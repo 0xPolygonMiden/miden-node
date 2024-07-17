@@ -99,7 +99,7 @@ async fn test_verify_tx_vt1() {
         verify_tx_result,
         Err(VerifyTxError::IncorrectAccountInitialHash {
             tx_initial_account_hash: account.states[1],
-            actual_account_hash: Some(account.states[0]),
+            current_account_hash: Some(account.states[0]),
         })
     );
 }
