@@ -325,7 +325,7 @@ impl Store for MockStoreSuccess {
     ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
         let locked_notes = self.notes.read().await;
         let note_auth_info = notes
-            .map(|note_id| (*note_id, locked_notes.get(note_id).cloned().unwrap_or_default()))
+            .filter_map(|note_id| locked_notes.get(note_id).map(|path| (*note_id, path.clone())))
             .collect();
 
         Ok(note_auth_info)
