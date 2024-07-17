@@ -9,7 +9,7 @@ use once_cell::sync::Lazy;
 use super::*;
 
 pub static MOCK_ACCOUNTS: Lazy<std::sync::Mutex<HashMap<u32, (AccountId, Digest)>>> =
-    Lazy::new(|| Default::default());
+    Lazy::new(Default::default);
 
 /// A mock representation fo private accounts. An account starts in state `states[0]`, is modified
 /// to state `states[1]`, and so on.
