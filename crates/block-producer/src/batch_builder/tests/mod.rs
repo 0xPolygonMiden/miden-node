@@ -290,7 +290,7 @@ async fn test_block_builder_missing_notes() {
 
     let txs = vec![tx1, tx2, tx3];
 
-    let batch = TransactionBatch::new(txs.clone(), None).unwrap();
+    let batch = TransactionBatch::new(txs.clone(), Default::default()).unwrap();
     let build_block_result = batch_builder.block_builder.build_block(&[batch]).await;
     assert_eq!(
         build_block_result,
@@ -310,5 +310,5 @@ fn dummy_tx_batch(starting_account_index: u32, num_txs_in_batch: usize) -> Trans
             MockProvenTxBuilder::with_account_index(starting_account_index + index as u32).build()
         })
         .collect();
-    TransactionBatch::new(txs, None).unwrap()
+    TransactionBatch::new(txs, Default::default()).unwrap()
 }

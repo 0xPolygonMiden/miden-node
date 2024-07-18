@@ -56,7 +56,7 @@ impl TransactionBatch {
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
     pub fn new(
         txs: Vec<ProvenTransaction>,
-        found_unauthenticated_notes: Option<BTreeMap<NoteId, MerklePath>>,
+        found_unauthenticated_notes: BTreeMap<NoteId, MerklePath>,
     ) -> Result<Self, BuildBatchError> {
         let id = Self::compute_id(&txs);
 
@@ -99,8 +99,7 @@ impl TransactionBatch {
                     // If an unauthenticated note was found in the store, transform it to an authenticated one
                     // (i.e. erase additional note details except the nullifier)
                     found_unauthenticated_notes
-                        .as_ref()
-                        .and_then(|found_notes| found_notes.get(&input_note_header.id()))
+                        .get(&input_note_header.id())
                         .map(|_path| InputNoteCommitment::from(input_note.nullifier()))
                         .unwrap_or_else(|| input_note.clone())
                 },
@@ -257,7 +256,7 @@ mod tests {
     fn test_output_note_tracker_duplicate_output_notes() {
         let mut txs = mock_proven_txs();
 
-        OutputNoteTracker::new(&txs).expect("Something went wrong, no error expected");
+        OutputNoteTracker::new(&txs).unwrap();
 
         let duplicate_output_note = txs[1].output_notes().get_note(1).clone();
 
@@ -303,7 +302,7 @@ mod tests {
         let mut txs = mock_proven_txs();
         let duplicate_note = mock_note(5);
         txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
-        match TransactionBatch::new(txs, None) {
+        match TransactionBatch::new(txs, Default::default()) {
             Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id, _)) => {
                 assert_eq!(note_id, duplicate_note.id())
             },
@@ -321,7 +320,7 @@ mod tests {
             vec![mock_output_note(9), mock_output_note(10)],
         ));
 
-        let batch = TransactionBatch::new(txs, None).unwrap();
+        let batch = TransactionBatch::new(txs, Default::default()).unwrap();
 
         // One of the unauthenticated notes must be removed from the batch due to the consumption
         // of the corresponding output note
@@ -360,7 +359,7 @@ mod tests {
         let txs = mock_proven_txs();
         let found_unauthenticated_notes =
             BTreeMap::from_iter([(mock_note(5).id(), Default::default())]);
-        let batch = TransactionBatch::new(txs, Some(found_unauthenticated_notes)).unwrap();
+        let batch = TransactionBatch::new(txs, found_unauthenticated_notes).unwrap();
 
         let expected_input_notes =
             vec![mock_unauthenticated_note_commitment(1), mock_note(5).nullifier().into()];

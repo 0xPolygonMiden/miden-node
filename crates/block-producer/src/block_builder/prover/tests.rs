@@ -69,7 +69,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
             )
             .build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         let batch_2 = {
@@ -80,7 +80,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
             )
             .build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -141,7 +141,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 Digest::default(),
             )
             .build()],
-            None,
+            Default::default(),
         )
         .unwrap();
         let batch_2 = TransactionBatch::new(
@@ -151,7 +151,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 Digest::default(),
             )
             .build()],
-            None,
+            Default::default(),
         )
         .unwrap();
 
@@ -235,8 +235,8 @@ async fn test_compute_account_root_success() {
             })
             .collect();
 
-        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), None).unwrap();
-        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), None).unwrap();
+        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), Default::default()).unwrap();
+        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), Default::default()).unwrap();
 
         vec![batch_1, batch_2]
     };
@@ -379,7 +379,7 @@ async fn test_compute_note_root_empty_notes_success() {
         .unwrap();
 
     let batches: Vec<TransactionBatch> = {
-        let batch = TransactionBatch::new(vec![], None).unwrap();
+        let batch = TransactionBatch::new(vec![], Default::default()).unwrap();
         vec![batch]
     };
 
@@ -452,8 +452,8 @@ async fn test_compute_note_root_success() {
             })
             .collect();
 
-        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), None).unwrap();
-        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), None).unwrap();
+        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), Default::default()).unwrap();
+        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), Default::default()).unwrap();
 
         vec![batch_1, batch_2]
     };
@@ -501,13 +501,13 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -577,13 +577,13 @@ async fn test_compute_nullifier_root_empty_success() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -630,13 +630,13 @@ async fn test_compute_nullifier_root_success() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         vec![batch_1, batch_2]

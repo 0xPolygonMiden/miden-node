@@ -233,7 +233,7 @@ async fn test_verify_tx_vt5() {
 /// Tests that `verify_tx()` succeeds when the unauthenticated input note found in the in-flight notes
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_in_flight_notes() {
+async fn test_verify_tx_dangling_note_found_in_inflight_notes() {
     let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(1);
     let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(2);
     let store = Arc::new(
