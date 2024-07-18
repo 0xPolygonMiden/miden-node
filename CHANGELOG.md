@@ -4,11 +4,11 @@
 
 ### Enhancements
 
-- Added warning on CI for `CHANGELOG.md` (#413).
 - [BREAKING] Configuration files with unknown properties are now rejected (#401).
 - [BREAKING] Removed redundant node configuration properties (#401).
 - Improve type safety of the transaction inputs nullifier mapping (#406).
 - Embed the faucet's static website resources (#411).
+- Added warning on CI for `CHANGELOG.md` (#413).
 
 ## 0.4.0 (2024-07-04)
 
