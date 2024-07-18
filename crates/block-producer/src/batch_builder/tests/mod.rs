@@ -254,7 +254,7 @@ async fn test_block_builder_no_missing_notes() {
 }
 
 #[tokio::test]
-async fn test_block_builder_missing_notes() {
+async fn test_block_builder_fails_if_notes_are_missing() {
     let accounts: Vec<_> = (1..=4).map(MockPrivateAccount::<3>::from).collect();
     let notes: Vec<_> = (1..=6).map(mock_note).collect();
 
