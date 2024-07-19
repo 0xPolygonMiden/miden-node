@@ -244,6 +244,9 @@ impl OutputNoteTracker {
     }
 }
 
+// TESTS
+// ================================================================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,7 +259,11 @@ mod tests {
     fn test_output_note_tracker_duplicate_output_notes() {
         let mut txs = mock_proven_txs();
 
-        OutputNoteTracker::new(&txs).unwrap();
+        let result = OutputNoteTracker::new(&txs);
+        assert!(
+            result.is_ok(),
+            "Creation of output note tracker was not expected to fail: {result:?}"
+        );
 
         let duplicate_output_note = txs[1].output_notes().get_note(1).clone();
 
@@ -330,7 +337,6 @@ mod tests {
             mock_unauthenticated_note_commitment(11),
             mock_unauthenticated_note_commitment(13),
         ];
-        assert_eq!(batch.input_notes.len(), expected_input_notes.len());
         assert_eq!(batch.input_notes, expected_input_notes);
 
         // One of the output notes must be removed from the batch due to the consumption
@@ -363,7 +369,6 @@ mod tests {
 
         let expected_input_notes =
             vec![mock_unauthenticated_note_commitment(1), mock_note(5).nullifier().into()];
-        assert_eq!(batch.input_notes.len(), expected_input_notes.len());
         assert_eq!(batch.input_notes, expected_input_notes);
     }
 
