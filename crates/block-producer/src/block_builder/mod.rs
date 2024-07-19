@@ -109,13 +109,12 @@ where
             )
             .await?;
 
-        if block_inputs.found_unauthenticated_notes.len() < dangling_notes.len() {
-            return Err(BuildBlockError::UnauthenticatedNotesNotFound(
-                dangling_notes
-                    .difference(&block_inputs.found_unauthenticated_notes)
-                    .copied()
-                    .collect(),
-            ));
+        let missing_notes: Vec<_> = dangling_notes
+            .difference(&block_inputs.found_unauthenticated_notes)
+            .copied()
+            .collect();
+        if !missing_notes.is_empty() {
+            return Err(BuildBlockError::UnauthenticatedNotesNotFound(missing_notes));
         }
 
         let block_header_witness = BlockWitness::new(block_inputs, batches)?;
