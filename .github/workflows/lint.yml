@@ -41,3 +41,15 @@ jobs:
           rustup update --no-self-update nightly
           rustup +nightly component add clippy
           make clippy
+
+  proto:
+    name: proto check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update rust toolchain
+        uses: actions/checkout@main
+        run: rustup update --no-self-update
+      - name: Rebuild protos
+        run: BUILD_PROTO=1 cargo check -p miden-node-rpc -p miden-rpc-proto
+      - name: Diff check
+        run: git diff --quiet

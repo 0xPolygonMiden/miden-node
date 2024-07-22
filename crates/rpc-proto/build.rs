@@ -27,11 +27,12 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
-    println!("cargo:rerun-if-changed=proto");
     println!("cargo:rerun-if-changed=../../proto");
 
-    // copy all .proto files into this crate. all these files need to be local to the crate to
+    // Copy all .proto files into this crate. all these files need to be local to the crate to
     // publish the crate to crates.io
+    fs::remove_dir_all(CRATE_PROTO_DIR)?;
+    fs::create_dir(CRATE_PROTO_DIR)?;
     copy_proto_files()?;
 
     let out_dir = env::current_dir().expect("Error getting cwd");
@@ -73,7 +74,6 @@ fn copy_proto_files() -> io::Result<()> {
     fs::create_dir_all(dest_dir.clone())?;
     for entry in fs::read_dir(REPO_PROTO_DIR)? {
         let entry = entry?;
-        println!("{entry:?}");
         let ty = entry.file_type()?;
         if !ty.is_dir() {
             fs::copy(entry.path(), dest_dir.join(entry.file_name()))?;

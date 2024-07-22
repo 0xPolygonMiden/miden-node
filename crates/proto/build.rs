@@ -11,18 +11,16 @@ use prost::Message;
 /// This is done only if BUILD_PROTO environment variable is set to `1` to avoid running the script
 /// on crates.io where repo-level .proto files are not available.
 fn main() -> miette::Result<()> {
-    // skip this build script in BUILD_PROTO environment variable is not set to `1`
+    // Skip this build script in BUILD_PROTO environment variable is not set to `1`.
     if env::var("BUILD_PROTO").unwrap_or("0".to_string()) == "0" {
         return Ok(());
     }
 
+    println!("cargo:rerun-if-changed=../../proto");
+
     let crate_root: PathBuf =
         env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR should be set").into();
-
     let dst_dir = crate_root.join("src").join("generated");
-
-    println!("cargo:rerun-if-changed={}", dst_dir.to_str().unwrap());
-    println!("cargo:rerun-if-changed=../../proto");
 
     // Remove all existing files.
     fs::remove_dir_all(&dst_dir).into_diagnostic()?;
