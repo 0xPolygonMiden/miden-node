@@ -51,3 +51,15 @@ jobs:
           override: true
       - name: check rust versions
         run: ./scripts/check-rust-version.sh
+
+  proto:
+    name: proto check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Update rust toolchain
+        run: rustup update --no-self-update
+      - name: Rebuild protos
+        run: BUILD_PROTO=1 cargo check -p miden-node-rpc -p miden-rpc-proto
+      - name: Diff check
+        run: git diff --exit-code
