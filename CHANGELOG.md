@@ -8,6 +8,11 @@
 * [BREAKING] Removed redundant node configuration properties (#401).
 * Improve type safety of the transaction inputs nullifier mapping (#406).
 * Embed the faucet's static website resources (#411).
+* CI check for proto file consistency (#412).
+
+### Fixes
+
+* `miden-node-proto`'s build script always triggers (#412).
 
 ## 0.4.0 (2024-07-04)
 
