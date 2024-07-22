@@ -1,4 +1,4 @@
-///asd  A list of tuples containing the names and contents of various protobuf files.
+/// A list of tuples containing the names and contents of various protobuf files.
 pub const PROTO_FILES: &[(&str, &str)] = &[
     ("account.proto", include_str!("../proto/account.proto")),
     ("block_header.proto", include_str!("../proto/block_header.proto")),

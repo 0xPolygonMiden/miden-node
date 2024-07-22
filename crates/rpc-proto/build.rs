@@ -55,7 +55,7 @@ fn main() -> io::Result<()> {
     proto_filenames.sort();
 
     let content = std::iter::once(format!(
-        "///asd  {DOC_COMMENT}\npub const PROTO_FILES: &[(&str, &str)] = &[\n"
+        "/// {DOC_COMMENT}\npub const PROTO_FILES: &[(&str, &str)] = &[\n"
     ))
     .chain(proto_filenames)
     .chain(std::iter::once("];\n".to_string()))
