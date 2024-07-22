@@ -35,6 +35,7 @@ fn main() -> io::Result<()> {
 
     let out_dir = env::current_dir().expect("Error getting cwd");
     let dest_path = Path::new(&out_dir).join("./src/proto_files.rs");
+    fs::remove_file(&dest_path)?;
 
     let mut proto_filenames = Vec::new();
     for entry in fs::read_dir(CRATE_PROTO_DIR)? {
@@ -45,7 +46,7 @@ fn main() -> io::Result<()> {
                 path.file_name().and_then(|f| f.to_str()).expect("Could not get file name");
 
             proto_filenames.push(format!(
-                "\"{file_name}\" = include_str!(\"../{CRATE_PROTO_DIR}/file_name\"),\n"
+                "    (\"{file_name}\", include_str!(\"../{CRATE_PROTO_DIR}/{file_name}\")),\n"
             ));
         }
     }
@@ -53,11 +54,12 @@ fn main() -> io::Result<()> {
     // not guaranteed, otherwise there will be diffs from different runs.
     proto_filenames.sort();
 
-    let content =
-        std::iter::once(format!("/// {DOC_COMMENT}\npub const PROTO_FILES: &[(&str, &str)] = &["))
-            .chain(proto_filenames.into_iter())
-            .chain(std::iter::once("];\n".to_string()))
-            .collect::<String>();
+    let content = std::iter::once(format!(
+        "///asd  {DOC_COMMENT}\npub const PROTO_FILES: &[(&str, &str)] = &[\n"
+    ))
+    .chain(proto_filenames)
+    .chain(std::iter::once("];\n".to_string()))
+    .collect::<String>();
     fs::write(dest_path, content)?;
 
     Ok(())
