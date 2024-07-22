@@ -2,14 +2,14 @@ use miden_node_proto::{
     generated::{
         block_producer::api_client as block_producer_client,
         requests::{
-            CheckNullifiersRequest, GetAccountDetailsRequest, GetAccountStateDeltaRequest,
-            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
-            SubmitProvenTransactionRequest, SyncStateRequest,
+            CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
+            GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
+            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncStateRequest,
         },
         responses::{
-            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
-            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetNotesByIdResponse,
-            SubmitProvenTransactionResponse, SyncStateResponse,
+            CheckNullifiersByPrefixResponse, CheckNullifiersResponse, GetAccountDetailsResponse,
+            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -80,6 +80,22 @@ impl api_server::Api for RpcApi {
         }
 
         self.store.clone().check_nullifiers(request).await
+    }
+
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:check_nullifiers_by_prefix",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn check_nullifiers_by_prefix(
+        &self,
+        request: Request<CheckNullifiersByPrefixRequest>,
+    ) -> Result<Response<CheckNullifiersByPrefixResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
+        self.store.clone().check_nullifiers_by_prefix(request).await
     }
 
     #[instrument(

@@ -368,6 +368,13 @@ impl State {
         }
     }
 
+    pub async fn check_nullifiers_by_prefix(
+        &self,
+        prefixes: Vec<u32>,
+    ) -> Result<Vec<NullifierInfo>, DatabaseError> {
+        self.db.select_nullifiers_by_prefix(prefixes).await
+    }
+
     /// Generates membership proofs for each one of the `nullifiers` against the latest nullifier
     /// tree.
     ///
