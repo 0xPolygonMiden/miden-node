@@ -45,7 +45,7 @@ fn main() -> io::Result<()> {
                 path.file_name().and_then(|f| f.to_str()).expect("Could not get file name");
 
             proto_filenames.push(format!(
-                "\"{file_name}\" = include_str!(\"../{CRATE_PROTO_DIR}/file_name\",\n"
+                "\"{file_name}\" = include_str!(\"../{CRATE_PROTO_DIR}/file_name\"),\n"
             ));
         }
     }
