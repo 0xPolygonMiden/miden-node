@@ -10,6 +10,12 @@ message ApplyBlockRequest {
     bytes block = 1;
 }
 
+// Returns a list of nullifiers recorded in the node
+message CheckNullifiersByPrefixRequest {
+    // Nullifier prefixes the client is interested in.
+    repeated uint32 prefixes = 1;
+}
+
 message CheckNullifiersRequest {
     repeated digest.Digest nullifiers = 1;
 }
