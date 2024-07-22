@@ -52,4 +52,4 @@ jobs:
       - name: Rebuild protos
         run: BUILD_PROTO=1 cargo check -p miden-node-rpc -p miden-rpc-proto
       - name: Diff check
-        run: git diff --quiet
+        run: git diff --exit-code
