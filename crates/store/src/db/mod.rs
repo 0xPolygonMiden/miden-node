@@ -164,6 +164,22 @@ impl Db {
         })?
     }
 
+    pub async fn select_nullifiers_by_prefix(
+        &self,
+        prefixes: Vec<u32>,
+    ) -> Result<Vec<NullifierInfo>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_nullifiers_by_prefix(conn, &prefixes))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!(
+                    "Select nullifiers by prefix task failed: {err}"
+                ))
+            })?
+    }
+
     /// Loads all the notes from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_notes(&self) -> Result<Vec<NoteRecord>> {
