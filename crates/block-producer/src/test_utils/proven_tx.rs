@@ -78,7 +78,7 @@ impl MockProvenTxBuilder {
             .map(|note_index| {
                 let note_id = Hasher::hash(&note_index.to_be_bytes());
                 let note_metadata =
-                    NoteMetadata::new(self.account_id, NoteType::OffChain, 0.into(), ONE).unwrap();
+                    NoteMetadata::new(self.account_id, NoteType::Private, 0.into(), ONE).unwrap();
 
                 OutputNote::Header(NoteHeader::new(note_id.into(), note_metadata))
             })

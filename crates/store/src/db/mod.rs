@@ -313,7 +313,7 @@ impl Db {
                     &transaction,
                     &block.header(),
                     &notes,
-                    block.created_nullifiers(),
+                    block.nullifiers(),
                     block.updated_accounts(),
                 )?;
 

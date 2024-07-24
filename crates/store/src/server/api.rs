@@ -274,8 +274,8 @@ impl api_server::Api for StoreApi {
             block_num,
             block_hash = %block.hash(),
             account_count = block.updated_accounts().len(),
-            note_count = block.created_notes().len(),
-            nullifier_count = block.created_nullifiers().len(),
+            note_count = block.notes().count(),
+            nullifier_count = block.nullifiers().len(),
         );
 
         // TODO: Why the error is swallowed here? Fix or add a comment with explanation.

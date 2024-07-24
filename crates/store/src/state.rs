@@ -196,7 +196,7 @@ impl State {
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = block
-                .created_nullifiers()
+                .nullifiers()
                 .iter()
                 .filter(|&n| inner.nullifier_tree.get_block_num(n).is_some())
                 .cloned()
@@ -230,7 +230,7 @@ impl State {
             // update nullifier tree
             let nullifier_tree = {
                 let mut nullifier_tree = inner.nullifier_tree.clone();
-                for nullifier in block.created_nullifiers() {
+                for nullifier in block.nullifiers() {
                     nullifier_tree
                         .insert(nullifier, block_num)
                         .map_err(ApplyBlockError::FailedToUpdateNullifierTree)?;

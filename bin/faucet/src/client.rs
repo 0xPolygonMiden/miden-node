@@ -95,7 +95,7 @@ impl FaucetClient {
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
         let note_type = if is_private_note {
-            NoteType::OffChain
+            NoteType::Private
         } else {
             NoteType::Public
         };

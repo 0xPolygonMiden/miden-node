@@ -417,7 +417,7 @@ async fn test_compute_note_root_success() {
             note_digest.into(),
             NoteMetadata::new(
                 account_id,
-                NoteType::OffChain,
+                NoteType::Private,
                 NoteTag::for_local_use_case(0u16, 0u16).unwrap(),
                 ONE,
             )
