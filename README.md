@@ -55,11 +55,14 @@ cargo install --features testing --path bin/node
 
 Currently, the only difference between the two is how long the `make-genesis` command will take to run (see next subsection).
 
-### Generating the genesis file
+### Generating the node configuration and genesis files
 
-Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](./config/genesis.toml)
+Before running the node, you must first generate the node configuration and genesis files. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](./config/genesis.toml). To generate both files, run:
 
-To generate the genesis file, run:
+```sh
+miden-node init
+```
+To generate the genesis block, run:
 
 ```sh
 miden-node make-genesis
@@ -72,7 +75,7 @@ By default this will generate 1 file and 1 folder in the current directory:
 
 ### Running the node
 
-Create a configuration file based on [node/miden-node.toml](./config/miden-node.toml), then create the necessary directories and start the node:
+Using the node configuration file created in the previous step, start the node:
 
 ```sh
 mkdir -p /opt/miden
