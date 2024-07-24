@@ -27,7 +27,7 @@ readme = "README.md"
 
 [workspace.dependencies]
 miden-air = { version = "0.9", default-features = false }
-miden-lib = { version = "0.4" }
+miden-lib = { rev = "5cb5047", git = "https://github.com/0xPolygonMiden/miden-base" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.5" }
 miden-node-faucet = { path = "bin/faucet", version = "0.5" }
 miden-node-proto = { path = "crates/proto", version = "0.5" }
@@ -36,10 +36,10 @@ miden-node-rpc-proto = { path = "crates/rpc-proto", version = "0.5" }
 miden-node-store = { path = "crates/store", version = "0.5" }
 miden-node-test-macro = { path = "crates/test-macro" }
 miden-node-utils = { path = "crates/utils", version = "0.5" }
-miden-objects = { version = "0.4" }
+miden-objects = { rev = "5cb5047", git = "https://github.com/0xPolygonMiden/miden-base" }
 miden-processor = { version = "0.9" }
 miden-stdlib = { version = "0.9", default-features = false }
-miden-tx = { version = "0.4" }
+miden-tx = { rev = "5cb5047", git = "https://github.com/0xPolygonMiden/miden-base" }
 thiserror = { version = "1.0" }
 tonic = { version = "0.11" }
 tracing = { version = "0.1" }

@@ -200,7 +200,7 @@ impl ApplyBlock for MockStoreSuccess {
         debug_assert_eq!(locked_accounts.root(), block.header().account_root());
 
         // update nullifiers
-        for nullifier in block.created_nullifiers() {
+        for nullifier in block.nullifiers() {
             locked_produced_nullifiers
                 .insert(nullifier.inner(), [block.header().block_num().into(), ZERO, ZERO, ZERO]);
         }
