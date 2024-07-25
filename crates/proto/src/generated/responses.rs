@@ -12,6 +12,7 @@ pub struct CheckNullifiersResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersByPrefixResponse {
+    /// List of nullifiers matching the 16-bit prefixes specified in the request.
     #[prost(message, repeated, tag = "1")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }

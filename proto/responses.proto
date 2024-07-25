@@ -18,6 +18,7 @@ message CheckNullifiersResponse {
 }
 
 message CheckNullifiersByPrefixResponse {
+    // List of nullifiers matching the 16-bit prefixes specified in the request.
     repeated NullifierUpdate nullifiers = 1;
 }
 

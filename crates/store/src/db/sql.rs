@@ -355,6 +355,7 @@ pub fn select_nullifiers_by_block_range(
 
 pub fn select_nullifiers_by_prefix(
     conn: &mut Connection,
+    _prefix_len: u32,
     nullifier_prefixes: &[u32],
 ) -> Result<Vec<NullifierInfo>> {
     let nullifier_prefixes: Vec<Value> =

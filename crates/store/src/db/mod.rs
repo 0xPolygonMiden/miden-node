@@ -166,12 +166,13 @@ impl Db {
 
     pub async fn select_nullifiers_by_prefix(
         &self,
-        prefixes: Vec<u32>,
+        prefix_len: u32,
+        nullifier_prefixes: Vec<u32>,
     ) -> Result<Vec<NullifierInfo>> {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_nullifiers_by_prefix(conn, &prefixes))
+            .interact(move |conn| sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes))
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(

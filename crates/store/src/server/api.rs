@@ -123,11 +123,14 @@ impl api_server::Api for StoreApi {
         request: tonic::Request<CheckNullifiersByPrefixRequest>,
     ) -> Result<Response<CheckNullifiersByPrefixResponse>, Status> {
         let request = request.into_inner();
-        let prefixes = request.prefixes;
+
+        if request.prefix_len != 16 {
+            return Err(Status::invalid_argument("Only 16-bit prefixes are supported"));
+        }
 
         let nullifiers = self
             .state
-            .check_nullifiers_by_prefix(prefixes)
+            .check_nullifiers_by_prefix(request.prefix_len, request.nullifiers)
             .await
             .map_err(internal_error)?
             .into_iter()

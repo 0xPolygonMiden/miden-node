@@ -9,9 +9,13 @@ pub struct ApplyBlockRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersByPrefixRequest {
-    /// Nullifier prefixes the client is interested in.
-    #[prost(uint32, repeated, tag = "1")]
-    pub prefixes: ::prost::alloc::vec::Vec<u32>,
+    /// Number of bits used for nullifier prefix.
+    #[prost(uint32, tag = "1")]
+    pub prefix_len: u32,
+    /// List of nullifiers to check. Each nullifier is specified by its prefix with length equal
+    /// to prefix_len
+    #[prost(uint32, repeated, tag = "2")]
+    pub nullifiers: ::prost::alloc::vec::Vec<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
