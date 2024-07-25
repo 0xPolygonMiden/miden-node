@@ -111,6 +111,9 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(CheckNullifiersResponse { proofs: convert(proofs) }))
     }
 
+    /// Returns nullifiers that match the specified prefixes and have been consumed.
+    ///
+    /// Currently the only supported prefix length is 16 bits.
     #[instrument(
         target = "miden-store",
         name = "store:check_nullifiers_by_prefix",

@@ -10,9 +10,9 @@ message ApplyBlockRequest {
     bytes block = 1;
 }
 
-// Returns a list of nullifiers recorded in the node
+// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
 message CheckNullifiersByPrefixRequest {
-    // Number of bits used for nullifier prefix.
+    // Number of bits used for nullifier prefix. Currently the only supported value is 16.
     uint32 prefix_len = 1;
     // List of nullifiers to check. Each nullifier is specified by its prefix with length equal
     // to prefix_len

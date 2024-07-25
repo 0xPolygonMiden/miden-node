@@ -164,6 +164,7 @@ impl Db {
         })?
     }
 
+    /// Loads the nullifiers that match the prefixes from the DB.
     pub async fn select_nullifiers_by_prefix(
         &self,
         prefix_len: u32,
@@ -172,7 +173,9 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes))
+            .interact(move |conn| {
+                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(

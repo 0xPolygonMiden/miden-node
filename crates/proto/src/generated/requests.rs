@@ -5,11 +5,11 @@ pub struct ApplyBlockRequest {
     #[prost(bytes = "vec", tag = "1")]
     pub block: ::prost::alloc::vec::Vec<u8>,
 }
-/// Returns a list of nullifiers recorded in the node
+/// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersByPrefixRequest {
-    /// Number of bits used for nullifier prefix.
+    /// Number of bits used for nullifier prefix. Currently the only supported value is 16.
     #[prost(uint32, tag = "1")]
     pub prefix_len: u32,
     /// List of nullifiers to check. Each nullifier is specified by its prefix with length equal

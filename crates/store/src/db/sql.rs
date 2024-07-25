@@ -353,6 +353,17 @@ pub fn select_nullifiers_by_block_range(
     Ok(result)
 }
 
+/// Select nullifiers created that match the `nullifier_prefixes` filter using the given
+/// [Connection].
+///
+/// Each value of the `nullifier_prefixes` is only the `prefix_len` most significant bits
+/// of the nullifier of interest to the client. This hides the details of the specific
+/// nullifier being requested.
+///
+/// # Returns
+///
+/// A vector of [NullifierInfo] with the nullifiers and the block height at which they were
+/// created, or an error.
 pub fn select_nullifiers_by_prefix(
     conn: &mut Connection,
     _prefix_len: u32,
