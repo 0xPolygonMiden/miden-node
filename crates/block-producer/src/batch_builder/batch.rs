@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
     mem,
 };
 
@@ -13,7 +13,7 @@ use miden_objects::{
     },
     notes::{NoteHeader, NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote, TransactionId},
-    Digest, MAX_NOTES_PER_BATCH,
+    AccountDeltaError, Digest, MAX_NOTES_PER_BATCH,
 };
 use tracing::instrument;
 
@@ -56,7 +56,7 @@ impl AccountUpdate {
     }
 
     /// Merges the transaction's update into this account update.
-    fn merge_tx(&mut self, tx: &ProvenTransaction) {
+    fn merge_tx(&mut self, tx: &ProvenTransaction) -> Result<(), AccountDeltaError> {
         assert!(
             self.final_state == tx.account_update().init_state_hash(),
             "Transacion's initial state does not match current account state"
@@ -64,8 +64,9 @@ impl AccountUpdate {
 
         self.final_state = tx.account_update().final_state_hash();
         self.transactions.push(tx.id());
+        self.details = self.details.clone().merge(tx.account_update().details().clone())?;
 
-        // TODO: merge account update details. Waiting on implementation in.. miden-objects.
+        Ok(())
     }
 }
 
@@ -98,10 +99,18 @@ impl TransactionBatch {
         let mut unauthenticated_input_notes = BTreeSet::new();
         for tx in &txs {
             // Merge account updates so that state transitions A->B->C become A->C.
-            updated_accounts
-                .entry(tx.account_id())
-                .and_modify(|x| x.merge_tx(tx))
-                .or_insert(AccountUpdate::new(tx));
+            match updated_accounts.entry(tx.account_id()) {
+                Entry::Vacant(vacant) => {
+                    vacant.insert(AccountUpdate::new(tx));
+                },
+                Entry::Occupied(occupied) => occupied.into_mut().merge_tx(tx).map_err(|error| {
+                    BuildBatchError::AccountUpdateError {
+                        account_id: tx.account_id(),
+                        error,
+                        txs: txs.clone(),
+                    }
+                })?,
+            };
 
             // Check unauthenticated input notes for duplicates:
             for note in tx.get_unauthenticated_notes() {

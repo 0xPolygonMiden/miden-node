@@ -5,7 +5,8 @@ use miden_objects::{
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
-    Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH, MAX_NOTES_PER_BATCH,
+    AccountDeltaError, Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH,
+    MAX_NOTES_PER_BATCH,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -91,6 +92,13 @@ pub enum BuildBatchError {
         output_hash: Digest,
         txs: Vec<ProvenTransaction>,
     },
+
+    #[error("Failed to merge transaction delta into account {account_id}: {error}")]
+    AccountUpdateError {
+        account_id: AccountId,
+        error: AccountDeltaError,
+        txs: Vec<ProvenTransaction>,
+    },
 }
 
 impl BuildBatchError {
@@ -103,6 +111,7 @@ impl BuildBatchError {
             BuildBatchError::DuplicateOutputNote(_, txs) => txs,
             BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
             BuildBatchError::NoteHashesMismatch { txs, .. } => txs,
+            BuildBatchError::AccountUpdateError { txs, .. } => txs,
         }
     }
 }
