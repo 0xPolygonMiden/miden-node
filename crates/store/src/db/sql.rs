@@ -200,7 +200,7 @@ pub fn upsert_accounts(
         "INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num, details) VALUES (?1, ?2, ?3, ?4);",
     )?;
     let mut insert_delta_stmt = transaction.prepare(
-        "INSERT INTO account_deltas (account_id, block_num, nonce, delta) VALUES (?1, ?2, ?3, ?4);",
+        "INSERT INTO account_deltas (account_id, nonce, block_num, delta) VALUES (?1, ?2, ?3, ?4);",
     )?;
     let mut select_details_stmt =
         transaction.prepare("SELECT details FROM accounts WHERE account_id = ?1;")?;
@@ -232,8 +232,8 @@ pub fn upsert_accounts(
                 if let Some(nonce) = delta.nonce() {
                     insert_delta_stmt.execute(params![
                         u64_to_value(account_id),
-                        block_num,
                         u64_to_value(nonce.as_int()),
+                        block_num,
                         delta.to_bytes()
                     ])?;
                 }
