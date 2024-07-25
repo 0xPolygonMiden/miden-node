@@ -6,8 +6,8 @@ use crate::errors::VerifyTxError;
 
 /// Tracks the list of inflight account updates.
 ///
-/// New transactions can be registered with [Self::verify_and_add]. States that are no longer considered inflight
-/// (e.g. due to being applied) may be removed using [Self::remove].
+/// New transactions can be registered with [Self::verify_and_add]. States that are no longer
+/// considered inflight (e.g. due to being applied) may be removed using [Self::remove].
 ///
 /// Both functions perform safety checks to ensure the states match what we expect.
 #[derive(Debug, Default)]
