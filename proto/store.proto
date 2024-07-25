@@ -20,4 +20,5 @@ service Api {
     rpc ListNotes(requests.ListNotesRequest) returns (responses.ListNotesResponse) {}
     rpc ListNullifiers(requests.ListNullifiersRequest) returns (responses.ListNullifiersResponse) {}
     rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
+    rpc GetAccountStateDelta(requests.GetAccountStateDeltaRequest) returns (responses.GetAccountStateDeltaResponse) {}
 }

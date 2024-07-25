@@ -100,3 +100,9 @@ message GetBlockByNumberRequest {
     // The block number of the target block.
     fixed32 block_num = 1;
 }
+
+message GetAccountStateDeltaRequest {
+    account.AccountId account_id = 1;
+    fixed32 from_block_num = 2;
+    fixed32 to_block_num = 3;
+}

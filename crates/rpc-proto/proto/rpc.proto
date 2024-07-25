@@ -13,4 +13,5 @@ service Api {
     rpc GetNotesById(requests.GetNotesByIdRequest) returns (responses.GetNotesByIdResponse) {}
     rpc SubmitProvenTransaction(requests.SubmitProvenTransactionRequest) returns (responses.SubmitProvenTransactionResponse) {}
     rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
+    rpc GetAccountStateDelta(requests.GetAccountStateDeltaRequest) returns (responses.GetAccountStateDeltaResponse) {}
 }

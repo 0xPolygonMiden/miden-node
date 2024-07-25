@@ -9,7 +9,7 @@ use miden_objects::{
     },
     notes::Nullifier,
     transaction::OutputNote,
-    AccountError, BlockError, BlockHeader, NoteError,
+    AccountDeltaError, AccountError, BlockError, BlockHeader, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -52,6 +52,8 @@ pub enum DatabaseError {
     NoteError(#[from] NoteError),
     #[error("Migration error: {0}")]
     MigrationError(#[from] rusqlite_migration::Error),
+    #[error("Account delta error: {0}")]
+    AccountDeltaError(#[from] AccountDeltaError),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
     #[error("Deserialization of BLOB data from database failed: {0}")]

@@ -122,3 +122,13 @@ pub struct GetBlockByNumberRequest {
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAccountStateDeltaRequest {
+    #[prost(message, optional, tag = "1")]
+    pub account_id: ::core::option::Option<super::account::AccountId>,
+    #[prost(fixed32, tag = "2")]
+    pub from_block_num: u32,
+    #[prost(fixed32, tag = "3")]
+    pub to_block_num: u32,
+}

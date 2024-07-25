@@ -144,6 +144,43 @@ pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<Ac
     account_info_from_row(row)
 }
 
+/// Select account deltas by account id and block range from the DB using the given [Connection].
+///
+/// # Note:
+///
+/// Both `block_start` and `block_end` are included in the range.
+///
+/// # Returns
+///
+/// The account deltas, or an error.
+pub fn select_account_deltas(
+    conn: &mut Connection,
+    account_id: AccountId,
+    block_start: BlockNumber,
+    block_end: BlockNumber,
+) -> Result<Vec<AccountDelta>> {
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            delta
+        FROM
+            account_deltas
+        WHERE
+            account_id = ?1 AND block_num BETWEEN ?2 AND ?3
+        ORDER BY
+            nonce ASC
+    ",
+    )?;
+
+    let mut rows = stmt.query(params![u64_to_value(account_id), block_start, block_end])?;
+    let mut result = Vec::new();
+    while let Some(row) = rows.next()? {
+        let delta = AccountDelta::read_from_bytes(row.get_ref(0)?.as_blob()?)?;
+        result.push(delta);
+    }
+    Ok(result)
+}
+
 /// Inserts or updates accounts to the DB using the given [Transaction].
 ///
 /// # Returns
@@ -161,6 +198,9 @@ pub fn upsert_accounts(
 ) -> Result<usize> {
     let mut upsert_stmt = transaction.prepare(
         "INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num, details) VALUES (?1, ?2, ?3, ?4);",
+    )?;
+    let mut insert_delta_stmt = transaction.prepare(
+        "INSERT INTO account_deltas (account_id, block_num, nonce, delta) VALUES (?1, ?2, ?3, ?4);",
     )?;
     let mut select_details_stmt =
         transaction.prepare("SELECT details FROM accounts WHERE account_id = ?1;")?;
@@ -187,6 +227,16 @@ pub fn upsert_accounts(
                 let Some(row) = rows.next()? else {
                     return Err(DatabaseError::AccountNotFoundInDb(account_id));
                 };
+
+                // We skip no-op deltas (nonce for any useful delta is always set)
+                if let Some(nonce) = delta.nonce() {
+                    insert_delta_stmt.execute(params![
+                        u64_to_value(account_id),
+                        block_num,
+                        u64_to_value(nonce.as_int()),
+                        delta.to_bytes()
+                    ])?;
+                }
 
                 let account =
                     apply_delta(account_id, &row.get_ref(0)?, delta, &update.new_state_hash())?;
@@ -662,7 +712,7 @@ pub fn insert_transactions(
     accounts: &[BlockAccountUpdate],
 ) -> Result<usize> {
     let mut stmt = transaction.prepare(
-        "INSERT INTO transactions(transaction_id, account_id, block_num) VALUES (?1, ?2, ?3);",
+        "INSERT INTO transactions (transaction_id, account_id, block_num) VALUES (?1, ?2, ?3);",
     )?;
     let mut count = 0;
     for update in accounts {

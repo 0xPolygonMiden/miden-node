@@ -146,17 +146,15 @@ where
         }
 
         // Remove new nullifiers of transactions in block
-        for nullifier in block.created_nullifiers() {
+        for nullifier in block.nullifiers() {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
         }
 
         // Remove new notes of transactions in block
-        for batch in block.created_notes() {
-            for note in batch.iter() {
-                let was_in_flight = locked_notes_in_flight.remove(&note.id());
-                debug_assert!(was_in_flight);
-            }
+        for (_, note) in block.notes() {
+            let was_in_flight = locked_notes_in_flight.remove(&note.id());
+            debug_assert!(was_in_flight);
         }
 
         Ok(())

@@ -9,16 +9,17 @@ use miden_node_proto::{
         note::NoteSyncRecord,
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
-            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
-            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
+            GetBlockInputsRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
-            GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
-            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
+            GetAccountDetailsResponse, GetAccountStateDeltaResponse, GetBlockByNumberResponse,
+            GetBlockHeaderByNumberResponse, GetBlockInputsResponse, GetNotesByIdResponse,
+            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
+            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -30,7 +31,7 @@ use miden_objects::{
     block::Block,
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, Nullifier},
-    utils::Deserializable,
+    utils::{Deserializable, Serializable},
     Felt, ZERO,
 };
 use tonic::{Response, Status};
@@ -274,8 +275,8 @@ impl api_server::Api for StoreApi {
             block_num,
             block_hash = %block.hash(),
             account_count = block.updated_accounts().len(),
-            note_count = block.created_notes().len(),
-            nullifier_count = block.created_nullifiers().len(),
+            note_count = block.notes().count(),
+            nullifier_count = block.nullifiers().len(),
         );
 
         // TODO: Why the error is swallowed here? Fix or add a comment with explanation.
@@ -374,6 +375,34 @@ impl api_server::Api for StoreApi {
         let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
+    }
+
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_account_state_delta",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_state_delta(
+        &self,
+        request: tonic::Request<GetAccountStateDeltaRequest>,
+    ) -> Result<Response<GetAccountStateDeltaResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        let delta = self
+            .state
+            .get_account_state_delta(
+                request.account_id.ok_or(invalid_argument("account_id is missing"))?.id,
+                request.from_block_num,
+                request.to_block_num,
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Response::new(GetAccountStateDeltaResponse { delta: Some(delta.to_bytes()) }))
     }
 
     // TESTING ENDPOINTS

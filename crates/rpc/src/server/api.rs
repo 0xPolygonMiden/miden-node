@@ -2,14 +2,14 @@ use miden_node_proto::{
     generated::{
         block_producer::api_client as block_producer_client,
         requests::{
-            CheckNullifiersRequest, GetAccountDetailsRequest, GetBlockByNumberRequest,
-            GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
-            SyncStateRequest,
+            CheckNullifiersRequest, GetAccountDetailsRequest, GetAccountStateDeltaRequest,
+            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
+            SubmitProvenTransactionRequest, SyncStateRequest,
         },
         responses::{
-            CheckNullifiersResponse, GetAccountDetailsResponse, GetBlockByNumberResponse,
-            GetBlockHeaderByNumberResponse, GetNotesByIdResponse, SubmitProvenTransactionResponse,
-            SyncStateResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
+            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetNotesByIdResponse,
+            SubmitProvenTransactionResponse, SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -192,12 +192,30 @@ impl api_server::Api for RpcApi {
     )]
     async fn get_block_by_number(
         &self,
-        request: tonic::Request<GetBlockByNumberRequest>,
+        request: Request<GetBlockByNumberRequest>,
     ) -> Result<Response<GetBlockByNumberResponse>, Status> {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
 
         self.store.clone().get_block_by_number(request).await
+    }
+
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_account_state_delta",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_state_delta(
+        &self,
+        request: Request<GetAccountStateDeltaRequest>,
+    ) -> Result<Response<GetAccountStateDeltaResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        self.store.clone().get_account_state_delta(request).await
     }
 }
