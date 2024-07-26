@@ -28,7 +28,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     blocks::BlockStore,
-    db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
+    db::{Db, NoteInclusionProof, NoteRecord, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
         StateInitializationError, StateSyncError,
@@ -37,7 +37,6 @@ use crate::{
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
-
 // STRUCTURES
 // ================================================================================================
 
@@ -386,6 +385,14 @@ impl State {
         note_ids: Vec<NoteId>,
     ) -> Result<Vec<NoteRecord>, DatabaseError> {
         self.db.select_notes_by_id(note_ids).await
+    }
+
+    /// Queries all the note inclusion proofs matching a certain Note IDs from the database.
+    pub async fn get_note_inclusion_proofs(
+        &self,
+        note_ids: Vec<NoteId>,
+    ) -> Result<Vec<NoteInclusionProof>, DatabaseError> {
+        self.db.select_note_inclusion_proofs(note_ids).await
     }
 
     /// Loads data to synchronize a client.

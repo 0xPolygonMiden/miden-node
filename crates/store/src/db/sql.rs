@@ -18,7 +18,9 @@ use rusqlite::{
     Connection, OptionalExtension, Transaction,
 };
 
-use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate, TransactionSummary};
+use super::{
+    NoteInclusionProof, NoteRecord, NullifierInfo, Result, StateSyncUpdate, TransactionSummary,
+};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -570,6 +572,45 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         })
     }
     Ok(notes)
+}
+
+/// Select note inclusion proofs matching the NoteId using the given [Connection].
+///
+/// # Returns
+///
+/// - Empty vector if no matching `note`.
+/// - Otherwise, note inclusion proofs which `note_id` matches the `NoteId` as bytes.
+pub fn select_note_inclusion_proofs(
+    conn: &mut Connection,
+    note_ids: &[NoteId],
+) -> Result<Vec<NoteInclusionProof>> {
+    let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
+
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+            note_id,
+            merkle_path
+        FROM
+            notes
+        WHERE
+            note_id IN rarray(?1)
+        ",
+    )?;
+    let mut rows = stmt.query(params![Rc::new(note_ids)])?;
+
+    let mut result = Vec::new();
+    while let Some(row) = rows.next()? {
+        let note_id_data = row.get_ref(0)?.as_blob()?;
+        let note_id = NoteId::read_from_bytes(note_id_data)?;
+
+        let merkle_path_data = row.get_ref(1)?.as_blob()?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
+
+        result.push(NoteInclusionProof { note_id, merkle_path })
+    }
+
+    Ok(result)
 }
 
 // BLOCK CHAIN QUERIES

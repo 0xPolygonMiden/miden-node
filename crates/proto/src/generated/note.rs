@@ -31,6 +31,14 @@ pub struct Note {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NoteInclusionProof {
+    #[prost(message, optional, tag = "1")]
+    pub note_id: ::core::option::Option<super::digest::Digest>,
+    #[prost(message, optional, tag = "2")]
+    pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NoteSyncRecord {
     #[prost(uint32, tag = "1")]
     pub note_index: u32,

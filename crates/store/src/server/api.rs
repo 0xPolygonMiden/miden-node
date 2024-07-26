@@ -16,9 +16,10 @@ use miden_node_proto::{
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
             GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
-            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
+            GetBlockInputsResponse, GetNoteInclusionProofsResponse, GetNotesByIdResponse,
+            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
+            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -216,6 +217,39 @@ impl api_server::Api for StoreApi {
             .collect();
 
         Ok(Response::new(GetNotesByIdResponse { notes }))
+    }
+
+    /// Returns a list of Note inclusion proofs for the specified NoteId's.
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_note_inclusion_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_note_inclusion_proofs(
+        &self,
+        request: tonic::Request<GetNotesByIdRequest>,
+    ) -> Result<Response<GetNoteInclusionProofsResponse>, Status> {
+        info!(target: COMPONENT, ?request);
+
+        let note_ids = request.into_inner().note_ids;
+
+        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
+
+        let proofs = self
+            .state
+            .get_note_inclusion_proofs(note_ids)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+
+        Ok(Response::new(GetNoteInclusionProofsResponse { proofs }))
     }
 
     /// Returns details for public (on-chain) account by id.

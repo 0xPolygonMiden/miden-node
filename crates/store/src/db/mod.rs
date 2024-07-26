@@ -7,7 +7,7 @@ use std::{
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
     domain::accounts::{AccountInfo, AccountSummary},
-    generated::note::Note as NotePb,
+    generated::note::{Note as NotePb, NoteInclusionProof as NoteInclusionProofPb},
 };
 use miden_objects::{
     block::{Block, BlockNoteIndex},
@@ -76,6 +76,21 @@ impl From<NoteRecord> for NotePb {
             metadata: Some(note.metadata.into()),
             merkle_path: Some(note.merkle_path.into()),
             details: note.details,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteInclusionProof {
+    pub note_id: NoteId,
+    pub merkle_path: MerklePath,
+}
+
+impl From<NoteInclusionProof> for NoteInclusionProofPb {
+    fn from(value: NoteInclusionProof) -> Self {
+        Self {
+            note_id: Some(value.note_id.into()),
+            merkle_path: Some(value.merkle_path.into()),
         }
     }
 }
@@ -267,7 +282,7 @@ impl Db {
             })?
     }
 
-    /// Loads all the Note's matching a certain NoteId from the database.
+    /// Loads all the Note's matching a certain Note IDs from the database.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<NoteRecord>> {
         self.pool
@@ -277,6 +292,24 @@ impl Db {
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
+            })?
+    }
+
+    /// Loads all the note inclusion proofs matching a certain Note IDs from the database.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_note_inclusion_proofs(
+        &self,
+        note_ids: Vec<NoteId>,
+    ) -> Result<Vec<NoteInclusionProof>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_note_inclusion_proofs(conn, &note_ids))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!(
+                    "Select note inclusion proofs task failed: {err}"
+                ))
             })?
     }
 
