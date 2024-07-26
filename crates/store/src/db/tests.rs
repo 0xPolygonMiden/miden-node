@@ -384,6 +384,8 @@ fn test_sql_public_account_details() {
 
     account.apply_delta(&delta2).unwrap();
 
+    create_block(&mut conn, block_num + 1);
+
     let transaction = conn.transaction().unwrap();
     let inserted = sql::upsert_accounts(
         &transaction,
@@ -393,7 +395,7 @@ fn test_sql_public_account_details() {
             AccountUpdateDetails::Delta(delta2.clone()),
             vec![],
         )],
-        block_num,
+        block_num + 1,
     )
     .unwrap();
 
@@ -412,7 +414,7 @@ fn test_sql_public_account_details() {
     assert_eq!(account_read.nonce(), account.nonce());
 
     let read_deltas =
-        sql::select_account_deltas(&mut conn, account_id.into(), block_num, block_num).unwrap();
+        sql::select_account_deltas(&mut conn, account_id.into(), 0, block_num + 1).unwrap();
 
     assert_eq!(read_deltas, vec![delta, delta2]);
 }

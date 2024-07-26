@@ -11,6 +11,7 @@ service Api {
     rpc ApplyBlock(requests.ApplyBlockRequest) returns (responses.ApplyBlockResponse) {}
     rpc CheckNullifiers(requests.CheckNullifiersRequest) returns (responses.CheckNullifiersResponse) {}
     rpc GetAccountDetails(requests.GetAccountDetailsRequest) returns (responses.GetAccountDetailsResponse) {}
+    rpc GetAccountStateDelta(requests.GetAccountStateDeltaRequest) returns (responses.GetAccountStateDeltaResponse) {}
     rpc GetBlockByNumber(requests.GetBlockByNumberRequest) returns (responses.GetBlockByNumberResponse) {}
     rpc GetBlockHeaderByNumber(requests.GetBlockHeaderByNumberRequest) returns (responses.GetBlockHeaderByNumberResponse) {}
     rpc GetBlockInputs(requests.GetBlockInputsRequest) returns (responses.GetBlockInputsResponse) {}
@@ -20,5 +21,4 @@ service Api {
     rpc ListNotes(requests.ListNotesRequest) returns (responses.ListNotesResponse) {}
     rpc ListNullifiers(requests.ListNullifiersRequest) returns (responses.ListNullifiersResponse) {}
     rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
-    rpc GetAccountStateDelta(requests.GetAccountStateDeltaRequest) returns (responses.GetAccountStateDeltaResponse) {}
 }

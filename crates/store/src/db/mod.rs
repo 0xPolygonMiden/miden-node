@@ -336,6 +336,7 @@ impl Db {
     }
 
     /// Loads account deltas from the DB for given account ID and block range.
+    /// Note, that `from_block` is exclusive and `to_block` is inclusive.
     pub(crate) async fn select_account_state_deltas(
         &self,
         account_id: AccountId,

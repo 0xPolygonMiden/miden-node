@@ -59,14 +59,11 @@ CREATE TABLE
     account_deltas
 (
     account_id  INTEGER NOT NULL,
-    nonce       INTEGER NOT NULL,
     block_num   INTEGER NOT NULL,
     delta       BLOB    NOT NULL,
 
-    PRIMARY KEY (account_id, nonce),
-    CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
-    CONSTRAINT account_deltas_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
-    CONSTRAINT account_deltas_nonce_is_u32 CHECK (nonce BETWEEN 0 AND 0xFFFFFFFF)
+    PRIMARY KEY (account_id, block_num),
+    CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers(block_num)
 ) STRICT, WITHOUT ROWID;
 
 CREATE TABLE

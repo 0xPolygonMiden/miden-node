@@ -567,7 +567,7 @@ impl State {
         self.db.select_account(id).await
     }
 
-    /// Returns the state delta between `from_block` and `to_block` for the given account.
+    /// Returns the state delta between `from_block` (exclusive) and `to_block` (inclusive) for the given account.
     pub(crate) async fn get_account_state_delta(
         &self,
         account_id: AccountId,

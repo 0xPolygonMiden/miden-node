@@ -148,7 +148,7 @@ pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<Ac
 ///
 /// # Note:
 ///
-/// Both `block_start` and `block_end` are included in the range.
+/// `block_start` is exclusive and `block_end` is inclusive.
 ///
 /// # Returns
 ///
@@ -166,9 +166,9 @@ pub fn select_account_deltas(
         FROM
             account_deltas
         WHERE
-            account_id = ?1 AND block_num BETWEEN ?2 AND ?3
+            account_id = ?1 AND block_num > ?2 AND block_num <= ?3
         ORDER BY
-            nonce ASC
+            block_num ASC
     ",
     )?;
 
@@ -200,7 +200,7 @@ pub fn upsert_accounts(
         "INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num, details) VALUES (?1, ?2, ?3, ?4);",
     )?;
     let mut insert_delta_stmt = transaction.prepare(
-        "INSERT INTO account_deltas (account_id, nonce, block_num, delta) VALUES (?1, ?2, ?3, ?4);",
+        "INSERT INTO account_deltas (account_id, block_num, delta) VALUES (?1, ?2, ?3);",
     )?;
     let mut select_details_stmt =
         transaction.prepare("SELECT details FROM accounts WHERE account_id = ?1;")?;
@@ -228,15 +228,11 @@ pub fn upsert_accounts(
                     return Err(DatabaseError::AccountNotFoundInDb(account_id));
                 };
 
-                // We skip no-op deltas (nonce for any useful delta is always set)
-                if let Some(nonce) = delta.nonce() {
-                    insert_delta_stmt.execute(params![
-                        u64_to_value(account_id),
-                        u64_to_value(nonce.as_int()),
-                        block_num,
-                        delta.to_bytes()
-                    ])?;
-                }
+                insert_delta_stmt.execute(params![
+                    u64_to_value(account_id),
+                    block_num,
+                    delta.to_bytes()
+                ])?;
 
                 let account =
                     apply_delta(account_id, &row.get_ref(0)?, delta, &update.new_state_hash())?;
