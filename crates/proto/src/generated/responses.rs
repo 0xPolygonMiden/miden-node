@@ -93,7 +93,9 @@ pub struct GetBlockInputsResponse {
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
     /// The list of requested notes which were found in the database
     #[prost(message, repeated, tag = "5")]
-    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<
+        super::note::NoteInclusionProof,
+    >,
 }
 /// An account returned as a response to the GetTransactionInputs
 #[allow(clippy::derive_partial_eq_without_eq)]

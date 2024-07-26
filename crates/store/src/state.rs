@@ -2,7 +2,7 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::Arc;
 
 use miden_node_proto::{
     convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
@@ -56,7 +56,7 @@ pub struct BlockInputs {
     pub nullifiers: Vec<NullifierWitness>,
 
     /// List of notes found in the store
-    pub found_unauthenticated_notes: BTreeSet<NoteId>,
+    pub found_unauthenticated_notes: Vec<NoteInclusionProof>,
 }
 
 impl From<BlockInputs> for GetBlockInputsResponse {
@@ -503,7 +503,8 @@ impl State {
             })
             .collect();
 
-        let found_unauthenticated_notes = self.db.select_note_ids(unauthenticated_notes).await?;
+        let found_unauthenticated_notes =
+            self.db.select_note_inclusion_proofs(unauthenticated_notes).await?;
 
         Ok(BlockInputs {
             block_header: latest,

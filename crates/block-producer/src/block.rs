@@ -1,8 +1,8 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
-    generated::responses::GetBlockInputsResponse,
+    generated::{note::NoteInclusionProof, responses::GetBlockInputsResponse},
     AccountInputRecord, NullifierWitness,
 };
 use miden_objects::{
@@ -36,7 +36,7 @@ pub struct BlockInputs {
     pub nullifiers: BTreeMap<Nullifier, SmtProof>,
 
     /// List of unauthenticated notes found in the store
-    pub found_unauthenticated_notes: BTreeSet<NoteId>,
+    pub found_unauthenticated_notes: BTreeMap<NoteId, MerklePath>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -96,7 +96,20 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
         let found_unauthenticated_notes = response
             .found_unauthenticated_notes
             .into_iter()
-            .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
+            .map(|proof| {
+                Ok((
+                    RpoDigest::try_from(
+                        proof
+                            .note_id
+                            .ok_or(NoteInclusionProof::missing_field(stringify!(note_id)))?,
+                    )?
+                    .into(),
+                    proof
+                        .merkle_path
+                        .ok_or(NoteInclusionProof::missing_field(stringify!(merkle_path)))?
+                        .try_into()?,
+                ))
+            })
             .collect::<Result<_, ConversionError>>()?;
 
         Ok(Self {

@@ -308,8 +308,9 @@ impl Store for MockStoreSuccess {
             .collect();
 
         let locked_notes = self.notes.read().await;
-        let found_unauthenticated_notes =
-            notes.filter(|&id| locked_notes.contains_key(id)).copied().collect();
+        let found_unauthenticated_notes = notes
+            .filter_map(|id| locked_notes.get(id).map(|proof| (*id, proof.clone())))
+            .collect();
 
         Ok(BlockInputs {
             block_header: *self.last_block_header.read().await,
