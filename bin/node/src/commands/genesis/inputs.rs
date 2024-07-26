@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 pub struct GenesisInput {
     pub version: u32,
     pub timestamp: u32,
-    pub accounts: Vec<AccountInput>,
+    pub accounts: Option<Vec<AccountInput>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -54,7 +54,7 @@ impl Default for GenesisInput {
                 .duration_since(UNIX_EPOCH)
                 .expect("Current timestamp should be greater than unix epoch")
                 .as_secs() as u32,
-            accounts: vec![
+            accounts: Some(vec![
                 AccountInput::BasicWallet(BasicWalletInputs {
                     init_seed: "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                         .to_string(),
@@ -74,7 +74,7 @@ impl Default for GenesisInput {
                     max_supply: 1000000,
                     storage_mode: "on-chain".to_string(),
                 }),
-            ],
+            ]),
         }
     }
 }
