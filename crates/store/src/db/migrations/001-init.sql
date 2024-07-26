@@ -18,7 +18,7 @@ CREATE TABLE
 
     PRIMARY KEY (block_num),
     CONSTRAINT block_header_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
-) STRICT, WITHOUT ROWID;
+) STRICT;
 
 CREATE TABLE
     notes
@@ -35,12 +35,12 @@ CREATE TABLE
     details     BLOB,
 
     PRIMARY KEY (block_num, batch_index, note_index),
-    CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
+    FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
     CONSTRAINT notes_type_in_enum CHECK (note_type BETWEEN 1 AND 3),
     CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_batch_index_is_u32 CHECK (batch_index BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
-) STRICT, WITHOUT ROWID;
+) STRICT;
 
 CREATE TABLE
     accounts
@@ -51,9 +51,9 @@ CREATE TABLE
     details      BLOB,
 
     PRIMARY KEY (account_id),
-    CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
+    FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
     CONSTRAINT accounts_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
-) STRICT, WITHOUT ROWID;
+) STRICT;
 
 CREATE TABLE
     account_deltas
@@ -63,8 +63,8 @@ CREATE TABLE
     delta       BLOB    NOT NULL,
 
     PRIMARY KEY (account_id, block_num),
-    CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers(block_num)
-) STRICT, WITHOUT ROWID;
+    FOREIGN KEY (block_num) REFERENCES block_headers(block_num)
+) STRICT;
 
 CREATE TABLE
     nullifiers
@@ -74,7 +74,7 @@ CREATE TABLE
     block_num        INTEGER NOT NULL,
 
     PRIMARY KEY (nullifier),
-    CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
+    FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
     CONSTRAINT nullifiers_nullifier_is_digest CHECK (length(nullifier) = 32),
     CONSTRAINT nullifiers_nullifier_prefix_is_u16 CHECK (nullifier_prefix BETWEEN 0 AND 0xFFFF),
     CONSTRAINT nullifiers_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
@@ -88,7 +88,7 @@ CREATE TABLE
     block_num      INTEGER NOT NULL,
 
     PRIMARY KEY (transaction_id),
-    CONSTRAINT fk_block_num FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
+    FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
     CONSTRAINT transactions_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
 ) STRICT, WITHOUT ROWID;
 
