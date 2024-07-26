@@ -7,9 +7,10 @@ use std::{
 use async_trait::async_trait;
 use itertools::Itertools;
 use miden_node_proto::{
+    domain::notes::NoteInclusionProof,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
-        digest, note,
+        digest,
         requests::{
             ApplyBlockRequest, GetBlockInputsRequest, GetNotesByIdRequest,
             GetTransactionInputsRequest,
@@ -56,11 +57,11 @@ pub trait Store: ApplyBlock {
 
     /// Returns note authentication information for the set of specified notes.
     ///
-    /// If authentication info could for a note does not exist in the store, the note is omitted
+    /// If authentication info for a note does not exist in the store, the note is omitted
     /// from the returned set of notes.
     ///
-    /// TODO: right now this return only Merkle paths per note, but this will need to be updated to
-    /// return full authentication info.
+    /// TODO: right now this returns only Merkle paths per note, but this will need to be updated to
+    ///       return full authentication info.
     async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
@@ -264,25 +265,15 @@ impl Store for DefaultStore {
         let store_response = self
             .store
             .clone()
-            .get_notes_by_id(request)
+            .get_note_inclusion_proofs(request)
             .await
             .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
             .into_inner();
 
         Ok(store_response
-            .notes
+            .proofs
             .into_iter()
-            .map(|note| {
-                Ok((
-                    RpoDigest::try_from(
-                        note.note_id.ok_or(note::Note::missing_field(stringify!(note_id)))?,
-                    )?
-                    .into(),
-                    note.merkle_path
-                        .ok_or(note::Note::missing_field(stringify!(merkle_path)))?
-                        .try_into()?,
-                ))
-            })
+            .map(|proof| Ok(NoteInclusionProof::try_from(proof)?.into_parts()))
             .collect::<Result<BTreeMap<_, _>, ConversionError>>()?)
     }
 }

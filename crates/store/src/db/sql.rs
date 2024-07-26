@@ -2,7 +2,10 @@
 
 use std::{borrow::Cow, rc::Rc};
 
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
+use miden_node_proto::domain::{
+    accounts::{AccountInfo, AccountSummary},
+    notes::NoteInclusionProof,
+};
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
     block::{BlockAccountUpdate, BlockNoteIndex},
@@ -18,9 +21,7 @@ use rusqlite::{
     Connection, OptionalExtension, Transaction,
 };
 
-use super::{
-    NoteInclusionProof, NoteRecord, NullifierInfo, Result, StateSyncUpdate, TransactionSummary,
-};
+use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate, TransactionSummary};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},

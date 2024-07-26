@@ -5,7 +5,9 @@
 use std::sync::Arc;
 
 use miden_node_proto::{
-    convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
+    convert,
+    domain::{accounts::AccountInfo, notes::NoteInclusionProof},
+    generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
@@ -28,7 +30,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     blocks::BlockStore,
-    db::{Db, NoteInclusionProof, NoteRecord, NullifierInfo, StateSyncUpdate},
+    db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
         StateInitializationError, StateSyncError,

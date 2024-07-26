@@ -1,16 +1,14 @@
 use std::collections::BTreeMap;
 
 use miden_node_proto::{
+    domain::notes::NoteInclusionProof,
     errors::{ConversionError, MissingFieldHelper},
-    generated::{note::NoteInclusionProof, responses::GetBlockInputsResponse},
+    generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
 use miden_objects::{
     accounts::AccountId,
-    crypto::{
-        hash::rpo::RpoDigest,
-        merkle::{MerklePath, MmrPeaks, SmtProof},
-    },
+    crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
     notes::{NoteId, Nullifier},
     BlockHeader, Digest,
 };
@@ -96,20 +94,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
         let found_unauthenticated_notes = response
             .found_unauthenticated_notes
             .into_iter()
-            .map(|proof| {
-                Ok((
-                    RpoDigest::try_from(
-                        proof
-                            .note_id
-                            .ok_or(NoteInclusionProof::missing_field(stringify!(note_id)))?,
-                    )?
-                    .into(),
-                    proof
-                        .merkle_path
-                        .ok_or(NoteInclusionProof::missing_field(stringify!(merkle_path)))?
-                        .try_into()?,
-                ))
-            })
+            .map(|proof| Ok(NoteInclusionProof::try_from(proof)?.into_parts()))
             .collect::<Result<_, ConversionError>>()?;
 
         Ok(Self {

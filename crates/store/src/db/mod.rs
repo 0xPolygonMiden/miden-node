@@ -6,8 +6,11 @@ use std::{
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
-    domain::accounts::{AccountInfo, AccountSummary},
-    generated::note::{Note as NotePb, NoteInclusionProof as NoteInclusionProofPb},
+    domain::{
+        accounts::{AccountInfo, AccountSummary},
+        notes::NoteInclusionProof,
+    },
+    generated::note::Note as NotePb,
 };
 use miden_objects::{
     block::{Block, BlockNoteIndex},
@@ -76,21 +79,6 @@ impl From<NoteRecord> for NotePb {
             metadata: Some(note.metadata.into()),
             merkle_path: Some(note.merkle_path.into()),
             details: note.details,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct NoteInclusionProof {
-    pub note_id: NoteId,
-    pub merkle_path: MerklePath,
-}
-
-impl From<NoteInclusionProof> for NoteInclusionProofPb {
-    fn from(value: NoteInclusionProof) -> Self {
-        Self {
-            note_id: Some(value.note_id.into()),
-            merkle_path: Some(value.merkle_path.into()),
         }
     }
 }
