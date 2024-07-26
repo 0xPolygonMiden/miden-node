@@ -91,7 +91,7 @@ pub struct GetBlockInputsResponse {
     /// The requested nullifiers and their authentication paths
     #[prost(message, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
-    /// The list of requested notes which were found in the database
+    /// The list of requested unauthenticated notes with their inclusion proofs which were found in the database
     #[prost(message, repeated, tag = "5")]
     pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<
         super::note::NoteInclusionProof,

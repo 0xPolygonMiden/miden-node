@@ -83,7 +83,7 @@ message GetBlockInputsResponse {
     // The requested nullifiers and their authentication paths
     repeated NullifierBlockInputRecord nullifiers = 4;
 
-    // The list of requested notes which were found in the database
+    // The list of requested unauthenticated notes with their inclusion proofs which were found in the database
     repeated note.NoteInclusionProof found_unauthenticated_notes = 5;
 }
 
