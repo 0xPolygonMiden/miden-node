@@ -165,6 +165,7 @@ impl Db {
     }
 
     /// Loads the nullifiers that match the prefixes from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn select_nullifiers_by_prefix(
         &self,
         prefix_len: u32,

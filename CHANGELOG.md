@@ -4,7 +4,6 @@
 
 ### Enhancements
 
-- Added `CheckNullifiersByPrefix` endpoint (#419).
 - [BREAKING] Configuration files with unknown properties are now rejected (#401).
 - [BREAKING] Removed redundant node configuration properties (#401).
 - Improve type safety of the transaction inputs nullifier mapping (#406).
@@ -13,6 +12,7 @@
 - Added warning on CI for `CHANGELOG.md` (#413).
 - Now accounts for genesis are optional. Accounts directory will be overwritten, if `--force` flag is set (#420).
 - Added `GetAccountStateDelta` endpoint (#418).
+- Added `CheckNullifiersByPrefix` endpoint (#419).
 
 ### Fixes
 

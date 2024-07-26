@@ -6,8 +6,8 @@ import "requests.proto";
 import "responses.proto";
 
 service Api {
-    rpc CheckNullifiersByPrefix(requests.CheckNullifiersByPrefixRequest) returns (responses.CheckNullifiersByPrefixResponse) {}
     rpc CheckNullifiers(requests.CheckNullifiersRequest) returns (responses.CheckNullifiersResponse) {}
+    rpc CheckNullifiersByPrefix(requests.CheckNullifiersByPrefixRequest) returns (responses.CheckNullifiersByPrefixResponse) {}
     rpc GetAccountDetails(requests.GetAccountDetailsRequest) returns (responses.GetAccountDetailsResponse) {}
     rpc GetAccountStateDelta(requests.GetAccountStateDeltaRequest) returns (responses.GetAccountStateDeltaResponse) {}
     rpc GetBlockByNumber(requests.GetBlockByNumberRequest) returns (responses.GetBlockByNumberResponse) {}

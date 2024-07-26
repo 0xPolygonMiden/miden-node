@@ -358,7 +358,7 @@ pub fn select_nullifiers_by_block_range(
 ///
 /// Each value of the `nullifier_prefixes` is only the `prefix_len` most significant bits
 /// of the nullifier of interest to the client. This hides the details of the specific
-/// nullifier being requested.
+/// nullifier being requested. Currently the only supported prefix length is 16 bits.
 ///
 /// # Returns
 ///
@@ -366,9 +366,11 @@ pub fn select_nullifiers_by_block_range(
 /// created, or an error.
 pub fn select_nullifiers_by_prefix(
     conn: &mut Connection,
-    _prefix_len: u32,
+    prefix_len: u32,
     nullifier_prefixes: &[u32],
 ) -> Result<Vec<NullifierInfo>> {
+    assert_eq!(prefix_len, 16, "Only 16-bit prefixes are supported");
+
     let nullifier_prefixes: Vec<Value> =
         nullifier_prefixes.iter().copied().map(u32_to_value).collect();
 
