@@ -10,6 +10,7 @@
 - Embed the faucet's static website resources (#411).
 - CI check for proto file consistency (#412).
 - Added warning on CI for `CHANGELOG.md` (#413).
+- Implemented `GetNoteInclusionProofs` endpoint for both miden-store and miden-rpc (#421).
 
 ### Fixes
 
