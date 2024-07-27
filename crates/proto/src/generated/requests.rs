@@ -122,7 +122,8 @@ pub struct GetBlockByNumberRequest {
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
 }
-/// Returns delta of the account states in the range from `from_block_num` (exclusive) to `to_block_num` (inclusive).
+/// Returns delta of the account states in the range from `from_block_num` (exclusive) to
+/// `to_block_num` (inclusive).
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountStateDeltaRequest {

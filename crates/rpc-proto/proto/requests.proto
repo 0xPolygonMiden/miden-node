@@ -101,7 +101,8 @@ message GetBlockByNumberRequest {
     fixed32 block_num = 1;
 }
 
-// Returns delta of the account states in the range from `from_block_num` (exclusive) to `to_block_num` (inclusive).
+// Returns delta of the account states in the range from `from_block_num` (exclusive) to
+// `to_block_num` (inclusive).
 message GetAccountStateDeltaRequest {
     // ID of the account for which the delta is requested.
     account.AccountId account_id = 1;
