@@ -266,7 +266,9 @@ pub mod api_client {
         }
         pub async fn get_note_inclusion_proofs(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::GetNotesByIdRequest>,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetNoteInclusionProofsRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::GetNoteInclusionProofsResponse>,
             tonic::Status,
@@ -490,7 +492,9 @@ pub mod api_server {
         >;
         async fn get_note_inclusion_proofs(
             &self,
-            request: tonic::Request<super::super::requests::GetNotesByIdRequest>,
+            request: tonic::Request<
+                super::super::requests::GetNoteInclusionProofsRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::GetNoteInclusionProofsResponse>,
             tonic::Status,
@@ -967,7 +971,7 @@ pub mod api_server {
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::GetNotesByIdRequest,
+                        super::super::requests::GetNoteInclusionProofsRequest,
                     > for GetNoteInclusionProofsSvc<T> {
                         type Response = super::super::responses::GetNoteInclusionProofsResponse;
                         type Future = BoxFuture<
@@ -977,7 +981,7 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::GetNotesByIdRequest,
+                                super::super::requests::GetNoteInclusionProofsRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);

@@ -10,16 +10,17 @@ use miden_node_proto::{
         requests::{
             ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
             GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
-            GetBlockInputsRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
-            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            GetBlockInputsRequest, GetNoteInclusionProofsRequest, GetNotesByIdRequest,
+            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
+            ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
             GetAccountDetailsResponse, GetAccountStateDeltaResponse, GetBlockByNumberResponse,
-            GetBlockHeaderByNumberResponse, GetBlockInputsResponse, GetNoteInclusionProofsResponse, GetNotesByIdResponse,
-            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
-            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
-            SyncStateResponse,
+            GetBlockHeaderByNumberResponse, GetBlockInputsResponse, GetNoteInclusionProofsResponse,
+            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
+            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
+            NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -229,7 +230,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_note_inclusion_proofs(
         &self,
-        request: tonic::Request<GetNotesByIdRequest>,
+        request: tonic::Request<GetNoteInclusionProofsRequest>,
     ) -> Result<Response<GetNoteInclusionProofsResponse>, Status> {
         info!(target: COMPONENT, ?request);
 

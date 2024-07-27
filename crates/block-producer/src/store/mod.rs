@@ -12,7 +12,7 @@ use miden_node_proto::{
     generated::{
         digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNotesByIdRequest,
+            ApplyBlockRequest, GetBlockInputsRequest, GetNoteInclusionProofsRequest,
             GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
@@ -258,7 +258,7 @@ impl Store for DefaultStore {
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
-        let request = tonic::Request::new(GetNotesByIdRequest {
+        let request = tonic::Request::new(GetNoteInclusionProofsRequest {
             note_ids: notes.map(digest::Digest::from).collect(),
         });
 

@@ -3,13 +3,14 @@ use miden_node_proto::{
         block_producer::api_client as block_producer_client,
         requests::{
             CheckNullifiersRequest, GetAccountDetailsRequest, GetAccountStateDeltaRequest,
-            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
-            SubmitProvenTransactionRequest, SyncStateRequest,
+            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetNoteInclusionProofsRequest,
+            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncStateRequest,
         },
         responses::{
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
-            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetNoteInclusionProofsResponse, GetNotesByIdResponse,
-            SubmitProvenTransactionResponse, SyncStateResponse,
+            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            GetNoteInclusionProofsResponse, GetNotesByIdResponse, SubmitProvenTransactionResponse,
+            SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -145,7 +146,7 @@ impl api_server::Api for RpcApi {
     )]
     async fn get_note_inclusion_proofs(
         &self,
-        request: Request<GetNotesByIdRequest>,
+        request: Request<GetNoteInclusionProofsRequest>,
     ) -> Result<Response<GetNoteInclusionProofsResponse>, Status> {
         debug!(target: COMPONENT, request = ?request.get_ref());
 
