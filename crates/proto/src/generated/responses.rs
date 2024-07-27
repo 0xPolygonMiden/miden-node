@@ -170,3 +170,10 @@ pub struct GetBlockByNumberResponse {
     #[prost(bytes = "vec", optional, tag = "1")]
     pub block: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAccountStateDeltaResponse {
+    /// The calculated `AccountStateDelta` encoded using miden native format
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub delta: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+}

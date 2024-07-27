@@ -11,6 +11,7 @@
 - CI check for proto file consistency (#412).
 - Added warning on CI for `CHANGELOG.md` (#413).
 - Now accounts for genesis are optional. Accounts directory will be overwritten, if `--force` flag is set (#420).
+- Added `GetAccountStateDelta` endpoint (#418).
 
 ### Fixes
 

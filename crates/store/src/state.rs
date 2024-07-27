@@ -10,6 +10,7 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
+    accounts::AccountDelta,
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
@@ -564,6 +565,21 @@ impl State {
     /// Returns details for public (on-chain) account.
     pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await
+    }
+
+    /// Returns the state delta between `from_block` (exclusive) and `to_block` (inclusive) for the given account.
+    pub(crate) async fn get_account_state_delta(
+        &self,
+        account_id: AccountId,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+    ) -> Result<AccountDelta, DatabaseError> {
+        let deltas = self.db.select_account_state_deltas(account_id, from_block, to_block).await?;
+
+        deltas
+            .into_iter()
+            .try_fold(AccountDelta::default(), |accumulator, delta| accumulator.merge(delta))
+            .map_err(Into::into)
     }
 
     /// Loads a block from the block store. Return `Ok(None)` if the block is not found.

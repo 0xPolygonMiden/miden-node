@@ -138,3 +138,8 @@ message GetBlockByNumberResponse {
     // The requested `Block` data encoded using miden native format
     optional bytes block = 1;
 }
+
+message GetAccountStateDeltaResponse {
+    // The calculated `AccountStateDelta` encoded using miden native format
+    optional bytes delta = 1;
+}

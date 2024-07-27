@@ -10,6 +10,7 @@ use miden_node_proto::{
     generated::note::Note as NotePb,
 };
 use miden_objects::{
+    accounts::AccountDelta,
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteMetadata, Nullifier},
@@ -332,6 +333,25 @@ impl Db {
             })??;
 
         Ok(())
+    }
+
+    /// Loads account deltas from the DB for given account ID and block range.
+    /// Note, that `from_block` is exclusive and `to_block` is inclusive.
+    pub(crate) async fn select_account_state_deltas(
+        &self,
+        account_id: AccountId,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+    ) -> Result<Vec<AccountDelta>> {
+        self.pool
+            .get()
+            .await
+            .map_err(DatabaseError::MissingDbConnection)?
+            .interact(move |conn| -> Result<Vec<AccountDelta>> {
+                sql::select_account_deltas(conn, account_id, from_block, to_block)
+            })
+            .await
+            .map_err(|err| DatabaseError::InteractError(err.to_string()))?
     }
 
     // HELPERS
