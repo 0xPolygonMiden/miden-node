@@ -10,6 +10,8 @@
 - Embed the faucet's static website resources (#411).
 - CI check for proto file consistency (#412).
 - Added warning on CI for `CHANGELOG.md` (#413).
+- Now accounts for genesis are optional. Accounts directory will be overwritten, if `--force` flag is set (#420).
+- Added `GetAccountStateDelta` endpoint (#418).
 - Implemented `GetNoteInclusionProofs` endpoint for both miden-store and miden-rpc (#421).
 
 ### Fixes

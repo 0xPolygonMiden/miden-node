@@ -365,6 +365,58 @@ fn test_sql_public_account_details() {
         .unwrap();
 
     assert_eq!(account_read.storage(), account.storage());
+
+    let storage_delta2 = AccountStorageDelta {
+        cleared_items: vec![5],
+        updated_items: vec![],
+        updated_maps: vec![],
+    };
+
+    let delta2 = AccountDelta::new(
+        storage_delta2,
+        AccountVaultDelta {
+            added_assets: vec![nft1],
+            removed_assets: vec![],
+        },
+        Some(Felt::new(3)),
+    )
+    .unwrap();
+
+    account.apply_delta(&delta2).unwrap();
+
+    create_block(&mut conn, block_num + 1);
+
+    let transaction = conn.transaction().unwrap();
+    let inserted = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_id,
+            account.hash(),
+            AccountUpdateDetails::Delta(delta2.clone()),
+            vec![],
+        )],
+        block_num + 1,
+    )
+    .unwrap();
+
+    assert_eq!(inserted, 1, "One element must have been inserted");
+
+    transaction.commit().unwrap();
+
+    let mut accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+
+    assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
+
+    let account_read = accounts_in_db.pop().unwrap().details.unwrap();
+
+    assert_eq!(account_read.id(), account.id());
+    assert_eq!(account_read.vault(), account.vault());
+    assert_eq!(account_read.nonce(), account.nonce());
+
+    let read_deltas =
+        sql::select_account_deltas(&mut conn, account_id.into(), 0, block_num + 1).unwrap();
+
+    assert_eq!(read_deltas, vec![delta, delta2]);
 }
 
 #[test]
