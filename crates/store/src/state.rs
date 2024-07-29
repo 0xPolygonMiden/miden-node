@@ -5,9 +5,7 @@
 use std::sync::Arc;
 
 use miden_node_proto::{
-    convert,
-    domain::{accounts::AccountInfo, notes::NoteInclusionProof},
-    generated::responses::GetBlockInputsResponse,
+    convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
@@ -31,7 +29,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     blocks::BlockStore,
-    db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
+    db::{BlockNoteInclusionProofs, Db, NoteRecord, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
         StateInitializationError, StateSyncError,
@@ -59,7 +57,7 @@ pub struct BlockInputs {
     pub nullifiers: Vec<NullifierWitness>,
 
     /// List of notes found in the store
-    pub found_unauthenticated_notes: Vec<NoteInclusionProof>,
+    pub found_unauthenticated_notes: Vec<BlockNoteInclusionProofs>,
 }
 
 impl From<BlockInputs> for GetBlockInputsResponse {
@@ -69,7 +67,7 @@ impl From<BlockInputs> for GetBlockInputsResponse {
             mmr_peaks: convert(value.chain_peaks.peaks()),
             account_states: convert(value.account_states),
             nullifiers: convert(value.nullifiers),
-            found_unauthenticated_notes: convert(value.found_unauthenticated_notes),
+            found_unauthenticated_notes: convert(value.found_unauthenticated_notes.iter()),
         }
     }
 }
@@ -391,11 +389,11 @@ impl State {
     }
 
     /// Queries all the note inclusion proofs matching a certain Note IDs from the database.
-    pub async fn get_note_inclusion_proofs(
+    pub async fn get_block_note_inclusion_proofs(
         &self,
         note_ids: Vec<NoteId>,
-    ) -> Result<Vec<NoteInclusionProof>, DatabaseError> {
-        self.db.select_note_inclusion_proofs(note_ids).await
+    ) -> Result<Vec<BlockNoteInclusionProofs>, DatabaseError> {
+        self.db.select_block_note_inclusion_proofs(note_ids).await
     }
 
     /// Loads data to synchronize a client.
@@ -507,7 +505,7 @@ impl State {
             .collect();
 
         let found_unauthenticated_notes =
-            self.db.select_note_inclusion_proofs(unauthenticated_notes).await?;
+            self.db.select_block_note_inclusion_proofs(unauthenticated_notes).await?;
 
         Ok(BlockInputs {
             block_header: latest,

@@ -12,18 +12,18 @@ use crate::{
 // MERKLE PATH
 // ================================================================================================
 
-impl From<MerklePath> for generated::merkle::MerklePath {
-    fn from(value: MerklePath) -> Self {
+impl From<&MerklePath> for generated::merkle::MerklePath {
+    fn from(value: &MerklePath) -> Self {
         let siblings = value.nodes().iter().map(generated::digest::Digest::from).collect();
         generated::merkle::MerklePath { siblings }
     }
 }
 
-impl TryFrom<generated::merkle::MerklePath> for MerklePath {
+impl TryFrom<&generated::merkle::MerklePath> for MerklePath {
     type Error = ConversionError;
 
-    fn try_from(merkle_path: generated::merkle::MerklePath) -> Result<Self, Self::Error> {
-        merkle_path.siblings.into_iter().map(Digest::try_from).collect()
+    fn try_from(merkle_path: &generated::merkle::MerklePath) -> Result<Self, Self::Error> {
+        merkle_path.siblings.iter().map(Digest::try_from).collect()
     }
 }
 
@@ -135,6 +135,7 @@ impl TryFrom<generated::smt::SmtOpening> for SmtProof {
     fn try_from(opening: generated::smt::SmtOpening) -> Result<Self, Self::Error> {
         let path: MerklePath = opening
             .path
+            .as_ref()
             .ok_or(generated::smt::SmtOpening::missing_field(stringify!(path)))?
             .try_into()?;
         let leaf: SmtLeaf = opening
@@ -148,7 +149,7 @@ impl TryFrom<generated::smt::SmtOpening> for SmtProof {
 
 impl From<SmtProof> for generated::smt::SmtOpening {
     fn from(proof: SmtProof) -> Self {
-        let (path, leaf) = proof.into_parts();
+        let (ref path, leaf) = proof.into_parts();
         Self {
             path: Some(path.into()),
             leaf: Some(leaf.into()),

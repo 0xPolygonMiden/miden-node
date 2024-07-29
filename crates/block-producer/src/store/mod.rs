@@ -7,7 +7,7 @@ use std::{
 use async_trait::async_trait;
 use itertools::Itertools;
 use miden_node_proto::{
-    domain::notes::NoteInclusionProof,
+    domain::notes::try_note_inclusion_proofs_from_proto,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
@@ -24,8 +24,7 @@ use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
     block::Block,
-    crypto::merkle::MerklePath,
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteInclusionProof, Nullifier},
     utils::Serializable,
     Digest,
 };
@@ -65,7 +64,7 @@ pub trait Store: ApplyBlock {
     async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError>;
+    ) -> Result<BTreeMap<NoteId, NoteInclusionProof>, NotePathsError>;
 }
 
 #[async_trait]
@@ -257,7 +256,7 @@ impl Store for DefaultStore {
     async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
+    ) -> Result<BTreeMap<NoteId, NoteInclusionProof>, NotePathsError> {
         let request = tonic::Request::new(GetNoteInclusionProofsRequest {
             note_ids: notes.map(digest::Digest::from).collect(),
         });
@@ -270,10 +269,6 @@ impl Store for DefaultStore {
             .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
             .into_inner();
 
-        Ok(store_response
-            .proofs
-            .into_iter()
-            .map(|proof| Ok(NoteInclusionProof::try_from(proof)?.into_parts()))
-            .collect::<Result<BTreeMap<_, _>, ConversionError>>()?)
+        try_note_inclusion_proofs_from_proto(&store_response.proofs).map_err(Into::into)
     }
 }

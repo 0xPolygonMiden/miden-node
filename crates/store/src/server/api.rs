@@ -82,7 +82,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetBlockHeaderByNumberResponse {
             block_header: block_header.map(Into::into),
             chain_length: mmr_proof.as_ref().map(|p| p.forest as u32),
-            mmr_path: mmr_proof.map(|p| Into::into(p.merkle_path)),
+            mmr_path: mmr_proof.map(|p| Into::into(&p.merkle_path)),
         }))
     }
 
@@ -161,7 +161,7 @@ impl api_server::Api for StoreApi {
                 note_index: note.note_index.to_absolute_index() as u32,
                 note_id: Some(note.note_id.into()),
                 metadata: Some(note.metadata.into()),
-                merkle_path: Some(note.merkle_path.into()),
+                merkle_path: Some(Into::into(&note.merkle_path)),
             })
             .collect();
 
@@ -243,10 +243,10 @@ impl api_server::Api for StoreApi {
 
         let proofs = self
             .state
-            .get_note_inclusion_proofs(note_ids)
+            .get_block_note_inclusion_proofs(note_ids)
             .await
             .map_err(internal_error)?
-            .into_iter()
+            .iter()
             .map(Into::into)
             .collect();
 

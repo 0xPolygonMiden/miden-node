@@ -2,10 +2,7 @@
 
 use std::{borrow::Cow, rc::Rc};
 
-use miden_node_proto::domain::{
-    accounts::{AccountInfo, AccountSummary},
-    notes::NoteInclusionProof,
-};
+use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
     block::{BlockAccountUpdate, BlockNoteIndex},
@@ -21,7 +18,10 @@ use rusqlite::{
     Connection, OptionalExtension, Transaction,
 };
 
-use super::{NoteRecord, NullifierInfo, Result, StateSyncUpdate, TransactionSummary};
+use super::{
+    BlockNoteInclusionProofs, NoteInclusionProof, NoteRecord, NullifierInfo, Result,
+    StateSyncUpdate, TransactionSummary,
+};
 use crate::{
     errors::{DatabaseError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -621,40 +621,107 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
     Ok(notes)
 }
 
-/// Select note inclusion proofs matching the NoteId using the given [Connection].
+/// Select note inclusion proofs matching the NoteId, grouped by block, using the given [Connection].
 ///
 /// # Returns
 ///
 /// - Empty vector if no matching `note`.
-/// - Otherwise, note inclusion proofs which `note_id` matches the `NoteId` as bytes.
-pub fn select_note_inclusion_proofs(
+/// - Otherwise, note inclusion proofs grouped by blocks.
+pub fn select_block_note_inclusion_proofs(
     conn: &mut Connection,
     note_ids: &[NoteId],
-) -> Result<Vec<NoteInclusionProof>> {
+) -> Result<Vec<BlockNoteInclusionProofs>> {
     let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
-    let mut stmt = conn.prepare(
+    let mut select_notes_stmt = conn.prepare(
         "
         SELECT
+            block_num,
             note_id,
+            batch_index,
+            note_index,
             merkle_path
         FROM
             notes
         WHERE
             note_id IN rarray(?1)
+        ORDER BY
+            block_num ASC
         ",
     )?;
-    let mut rows = stmt.query(params![Rc::new(note_ids)])?;
 
-    let mut result = Vec::new();
+    let mut rows = select_notes_stmt.query(params![Rc::new(note_ids)])?;
+    let mut block_links: Vec<(u32, Vec<NoteInclusionProof>)> = vec![];
+    let mut last_index_opt: Option<usize> = None;
     while let Some(row) = rows.next()? {
-        let note_id_data = row.get_ref(0)?.as_blob()?;
+        let block_num = row.get(0)?;
+
+        let note_id_data = row.get_ref(1)?.as_blob()?;
         let note_id = NoteId::read_from_bytes(note_id_data)?;
 
-        let merkle_path_data = row.get_ref(1)?.as_blob()?;
+        let batch_index = row.get(2)?;
+        let note_index = row.get(3)?;
+        let note_index_in_block = BlockNoteIndex::new(batch_index, note_index)
+            .to_absolute_index()
+            .try_into()
+            .expect("Block note index must fit in `u32`");
+
+        let merkle_path_data = row.get_ref(4)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
-        result.push(NoteInclusionProof { note_id, merkle_path })
+        let proof = NoteInclusionProof {
+            note_id,
+            note_index_in_block,
+            merkle_path,
+        };
+
+        match last_index_opt {
+            Some(last_index) if block_links[last_index].0 == block_num => {
+                block_links[last_index].1.push(proof);
+            },
+            Some(_) | None => {
+                last_index_opt = Some(block_links.len());
+                block_links.push((block_num, vec![proof]));
+            },
+        };
+    }
+
+    let mut select_blocks_stmt = conn.prepare(
+        "
+        SELECT
+            block_header
+        FROM
+            block_headers
+        WHERE
+            block_num IN rarray(?1)
+        ORDER BY
+            block_num ASC
+        ",
+    )?;
+
+    let block_ids: Vec<Value> =
+        block_links.iter().map(|(block_num, _)| Into::into(*block_num)).collect();
+    let mut rows = select_blocks_stmt.query(params![Rc::new(block_ids)])?;
+
+    let mut headers = vec![];
+    while let Some(row) = rows.next()? {
+        let block_header_data = row.get_ref(0)?.as_blob()?;
+        let block_header = BlockHeader::read_from_bytes(block_header_data)?;
+        headers.push(block_header);
+    }
+
+    debug_assert_eq!(headers.len(), block_links.len());
+
+    let mut result = vec![];
+    for ((block_num, notes), header) in block_links.into_iter().zip(headers) {
+        debug_assert_eq!(block_num, header.block_num());
+
+        result.push(BlockNoteInclusionProofs {
+            block_num,
+            sub_hash: header.sub_hash(),
+            note_root: header.note_root(),
+            notes,
+        });
     }
 
     Ok(result)

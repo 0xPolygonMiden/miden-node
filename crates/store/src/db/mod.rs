@@ -6,11 +6,13 @@ use std::{
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
-    domain::{
-        accounts::{AccountInfo, AccountSummary},
-        notes::NoteInclusionProof,
+    convert,
+    domain::accounts::{AccountInfo, AccountSummary},
+    errors::{ConversionError, MissingFieldHelper},
+    generated::{
+        note::{Note as NotePb, NoteInclusionProof as NoteInclusionProofPb},
+        responses::BlockNoteInclusionProofs as BlockNoteInclusionProofsPb,
     },
-    generated::note::Note as NotePb,
 };
 use miden_objects::{
     accounts::AccountDelta,
@@ -78,8 +80,72 @@ impl From<NoteRecord> for NotePb {
             note_index: note.note_index.to_absolute_index() as u32,
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
-            merkle_path: Some(note.merkle_path.into()),
+            merkle_path: Some(Into::into(&note.merkle_path)),
             details: note.details,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteInclusionProof {
+    pub note_id: NoteId,
+    pub note_index_in_block: u32,
+    pub merkle_path: MerklePath,
+}
+
+impl NoteInclusionProof {
+    pub fn into_parts(self) -> (NoteId, MerklePath) {
+        (self.note_id, self.merkle_path)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlockNoteInclusionProofs {
+    pub block_num: u32,
+    pub sub_hash: RpoDigest,
+    pub note_root: RpoDigest,
+    pub notes: Vec<NoteInclusionProof>,
+}
+
+impl From<&NoteInclusionProof> for NoteInclusionProofPb {
+    fn from(value: &NoteInclusionProof) -> Self {
+        Self {
+            note_id: Some(value.note_id.into()),
+            note_index_in_block: value.note_index_in_block,
+            merkle_path: Some(Into::into(&value.merkle_path)),
+        }
+    }
+}
+
+impl TryFrom<&NoteInclusionProofPb> for NoteInclusionProof {
+    type Error = ConversionError;
+
+    fn try_from(proof: &NoteInclusionProofPb) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            note_id: RpoDigest::try_from(
+                proof
+                    .note_id
+                    .as_ref()
+                    .ok_or(NoteInclusionProofPb::missing_field(stringify!(note_id)))?,
+            )?
+            .into(),
+            note_index_in_block: proof.note_index_in_block,
+            merkle_path: proof
+                .merkle_path
+                .as_ref()
+                .ok_or(NoteInclusionProofPb::missing_field(stringify!(merkle_path)))?
+                .try_into()?,
+        })
+    }
+}
+
+impl From<&BlockNoteInclusionProofs> for BlockNoteInclusionProofsPb {
+    fn from(value: &BlockNoteInclusionProofs) -> Self {
+        Self {
+            block_num: value.block_num,
+            sub_hash: Some(value.sub_hash.into()),
+            note_root: Some(value.note_root.into()),
+            notes: convert(value.notes.iter()),
         }
     }
 }
@@ -284,20 +350,21 @@ impl Db {
             })?
     }
 
-    /// Loads all the note inclusion proofs matching a certain Note IDs from the database.
+    /// Loads all the note inclusion proofs matching a certain Note IDs from the database,
+    /// grouped by block.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_note_inclusion_proofs(
+    pub async fn select_block_note_inclusion_proofs(
         &self,
         note_ids: Vec<NoteId>,
-    ) -> Result<Vec<NoteInclusionProof>> {
+    ) -> Result<Vec<BlockNoteInclusionProofs>> {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_note_inclusion_proofs(conn, &note_ids))
+            .interact(move |conn| sql::select_block_note_inclusion_proofs(conn, &note_ids))
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(
-                    "Select note inclusion proofs task failed: {err}"
+                    "Select block note inclusion proofs task failed: {err}"
                 ))
             })?
     }

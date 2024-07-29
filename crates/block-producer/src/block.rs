@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use miden_node_proto::{
-    domain::notes::NoteInclusionProof,
+    domain::notes::try_note_inclusion_proofs_from_proto,
     errors::{ConversionError, MissingFieldHelper},
     generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
@@ -9,7 +9,7 @@ use miden_node_proto::{
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteInclusionProof, Nullifier},
     BlockHeader, Digest,
 };
 
@@ -34,7 +34,7 @@ pub struct BlockInputs {
     pub nullifiers: BTreeMap<Nullifier, SmtProof>,
 
     /// List of unauthenticated notes found in the store
-    pub found_unauthenticated_notes: BTreeMap<NoteId, MerklePath>,
+    pub found_unauthenticated_notes: BTreeMap<NoteId, NoteInclusionProof>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -91,11 +91,8 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             })
             .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
-        let found_unauthenticated_notes = response
-            .found_unauthenticated_notes
-            .into_iter()
-            .map(|proof| Ok(NoteInclusionProof::try_from(proof)?.into_parts()))
-            .collect::<Result<_, ConversionError>>()?;
+        let found_unauthenticated_notes =
+            try_note_inclusion_proofs_from_proto(&response.found_unauthenticated_notes)?;
 
         Ok(Self {
             block_header,
