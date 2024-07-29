@@ -8,18 +8,19 @@ use miden_node_proto::{
         account::AccountSummary,
         note::NoteSyncRecord,
         requests::{
-            ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
-            GetBlockInputsRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
-            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
+            GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
+            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
+            ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
-            AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
-            GetAccountDetailsResponse, GetAccountStateDeltaResponse, GetBlockByNumberResponse,
-            GetBlockHeaderByNumberResponse, GetBlockInputsResponse, GetNotesByIdResponse,
-            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
-            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
-            SyncStateResponse,
+            AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
+            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
+            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
+            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
+            NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -108,6 +109,41 @@ impl api_server::Api for StoreApi {
         let proofs = self.state.check_nullifiers(&nullifiers).await;
 
         Ok(Response::new(CheckNullifiersResponse { proofs: convert(proofs) }))
+    }
+
+    /// Returns nullifiers that match the specified prefixes and have been consumed.
+    ///
+    /// Currently the only supported prefix length is 16 bits.
+    #[instrument(
+        target = "miden-store",
+        name = "store:check_nullifiers_by_prefix",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn check_nullifiers_by_prefix(
+        &self,
+        request: tonic::Request<CheckNullifiersByPrefixRequest>,
+    ) -> Result<Response<CheckNullifiersByPrefixResponse>, Status> {
+        let request = request.into_inner();
+
+        if request.prefix_len != 16 {
+            return Err(Status::invalid_argument("Only 16-bit prefixes are supported"));
+        }
+
+        let nullifiers = self
+            .state
+            .check_nullifiers_by_prefix(request.prefix_len, request.nullifiers)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|nullifier_info| NullifierUpdate {
+                nullifier: Some(nullifier_info.nullifier.into()),
+                block_num: nullifier_info.block_num,
+            })
+            .collect();
+
+        Ok(Response::new(CheckNullifiersByPrefixResponse { nullifiers }))
     }
 
     /// Returns info which can be used by the client to sync up to the latest state of the chain

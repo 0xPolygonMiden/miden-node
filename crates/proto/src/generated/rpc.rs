@@ -108,6 +108,33 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "CheckNullifiers"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn check_nullifiers_by_prefix(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::CheckNullifiersByPrefixRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::CheckNullifiersByPrefixResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/rpc.Api/CheckNullifiersByPrefix",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("rpc.Api", "CheckNullifiersByPrefix"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn get_account_details(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -299,6 +326,15 @@ pub mod api_server {
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
             tonic::Status,
         >;
+        async fn check_nullifiers_by_prefix(
+            &self,
+            request: tonic::Request<
+                super::super::requests::CheckNullifiersByPrefixRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::CheckNullifiersByPrefixResponse>,
+            tonic::Status,
+        >;
         async fn get_account_details(
             &self,
             request: tonic::Request<super::super::requests::GetAccountDetailsRequest>,
@@ -466,6 +502,56 @@ pub mod api_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = CheckNullifiersSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/rpc.Api/CheckNullifiersByPrefix" => {
+                    #[allow(non_camel_case_types)]
+                    struct CheckNullifiersByPrefixSvc<T: Api>(pub Arc<T>);
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::CheckNullifiersByPrefixRequest,
+                    > for CheckNullifiersByPrefixSvc<T> {
+                        type Response = super::super::responses::CheckNullifiersByPrefixResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::requests::CheckNullifiersByPrefixRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Api>::check_nullifiers_by_prefix(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = CheckNullifiersByPrefixSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
