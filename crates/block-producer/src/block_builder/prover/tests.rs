@@ -231,7 +231,7 @@ fn test_block_witness_multiple_batches_per_account() {
         vec![batch_1, batch_2]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
     let account_witnesses = block_witness.updated_accounts.into_iter().collect::<BTreeMap<_, _>>();
 
     let x_expected = AccountUpdateWitness {
@@ -328,7 +328,7 @@ async fn test_compute_account_root_success() {
         vec![batch_1, batch_2]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -401,7 +401,7 @@ async fn test_compute_account_root_empty_batches() {
         .unwrap();
 
     let batches = Vec::new();
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -435,7 +435,7 @@ async fn test_compute_note_root_empty_batches_success() {
 
     let batches: Vec<TransactionBatch> = Vec::new();
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -470,7 +470,7 @@ async fn test_compute_note_root_empty_notes_success() {
         vec![batch]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -545,7 +545,7 @@ async fn test_compute_note_root_success() {
         vec![batch_1, batch_2]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -696,7 +696,7 @@ async fn test_compute_nullifier_root_empty_success() {
         .await
         .unwrap();
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -757,7 +757,7 @@ async fn test_compute_nullifier_root_success() {
         .await
         .unwrap();
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();

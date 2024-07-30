@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{delta::AccountUpdateDetails, AccountId},
+    block::BlockAccountUpdate,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
     notes::Nullifier,
     transaction::TransactionId,
@@ -34,7 +35,7 @@ impl BlockWitness {
     pub fn new(
         mut block_inputs: BlockInputs,
         batches: &[TransactionBatch],
-    ) -> Result<Self, BuildBlockError> {
+    ) -> Result<(Self, Vec<BlockAccountUpdate>), BuildBlockError> {
         if batches.len() > MAX_BATCHES_PER_BLOCK {
             return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
         }
@@ -59,38 +60,54 @@ impl BlockWitness {
         }
 
         // Build account witnesses.
-        let updated_accounts = updated_accounts
-            .into_iter()
-            .map(|(account_id, mut updates)| {
-                let (initial_state_hash, proof) = block_inputs
-                    .accounts
-                    .remove(&account_id)
-                    .map(|witness| (witness.hash, witness.proof))
-                    .ok_or(BuildBlockError::InconsistentAccountIds(vec![account_id]))?;
+        let mut account_witnesses = Vec::with_capacity(updated_accounts.len());
+        let mut block_updates = Vec::with_capacity(updated_accounts.len());
 
-                // Chronologically chain updates for this account together using the state hashes to link them.
-                let mut transactions = Vec::new();
-                let mut current_hash = initial_state_hash;
-                while !updates.is_empty() {
-                    let update = updates
-                        .remove(&current_hash)
-                        .ok_or(BuildBlockError::InconsistentAccountStates(vec![account_id]))?;
+        for (account_id, mut updates) in updated_accounts {
+            let (initial_state_hash, proof) = block_inputs
+                .accounts
+                .remove(&account_id)
+                .map(|witness| (witness.hash, witness.proof))
+                .ok_or(BuildBlockError::InconsistentAccountIds(vec![account_id]))?;
 
-                    transactions.extend(update.transactions);
-                    current_hash = update.final_state;
-                }
+            let mut details: Option<AccountUpdateDetails> = None;
 
-                Ok::<_, BuildBlockError>((
-                    account_id,
-                    AccountUpdateWitness {
-                        initial_state_hash,
-                        final_state_hash: current_hash,
-                        proof,
-                        transactions,
+            // Chronologically chain updates for this account together using the state hashes to link them.
+            let mut transactions = Vec::new();
+            let mut current_hash = initial_state_hash;
+            while !updates.is_empty() {
+                let update = updates
+                    .remove(&current_hash)
+                    .ok_or(BuildBlockError::InconsistentAccountStates(vec![account_id]))?;
+
+                transactions.extend(update.transactions);
+                current_hash = update.final_state;
+
+                details = Some(match details {
+                    None => update.details,
+                    Some(details) => {
+                        details.merge(update.details).expect("Should this be an error?")
                     },
-                ))
-            })
-            .collect::<Result<_, BuildBlockError>>()?;
+                });
+            }
+
+            account_witnesses.push((
+                account_id,
+                AccountUpdateWitness {
+                    initial_state_hash,
+                    final_state_hash: current_hash,
+                    proof,
+                    transactions: transactions.clone(),
+                },
+            ));
+
+            block_updates.push(BlockAccountUpdate::new(
+                account_id,
+                current_hash,
+                details.expect("Must be some by now"),
+                transactions,
+            ));
+        }
 
         if !block_inputs.accounts.is_empty() {
             return Err(BuildBlockError::InconsistentAccountIds(
@@ -98,13 +115,16 @@ impl BlockWitness {
             ));
         }
 
-        Ok(Self {
-            updated_accounts,
-            batch_created_notes_roots,
-            produced_nullifiers: block_inputs.nullifiers,
-            chain_peaks: block_inputs.chain_peaks,
-            prev_header: block_inputs.block_header,
-        })
+        Ok((
+            Self {
+                updated_accounts: account_witnesses,
+                batch_created_notes_roots,
+                produced_nullifiers: block_inputs.nullifiers,
+                chain_peaks: block_inputs.chain_peaks,
+                prev_header: block_inputs.block_header,
+            },
+            block_updates,
+        ))
     }
 
     /// Converts [`BlockWitness`] into inputs to the block kernel program

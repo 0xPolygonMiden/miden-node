@@ -83,7 +83,7 @@ pub async fn build_actual_block_header(
         .await
         .unwrap();
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     BlockProver::new().prove(block_witness).unwrap()
 }
