@@ -6,7 +6,6 @@ use std::{
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, AccountId},
     batches::BatchNoteTree,
-    block::BlockAccountUpdate,
     crypto::{
         hash::blake::{Blake3Digest, Blake3_256},
         merkle::MerklePath,
@@ -38,11 +37,11 @@ pub struct TransactionBatch {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct AccountUpdate {
-    init_state: Digest,
-    final_state: Digest,
-    transactions: Vec<TransactionId>,
-    details: AccountUpdateDetails,
+pub struct AccountUpdate {
+    pub init_state: Digest,
+    pub final_state: Digest,
+    pub transactions: Vec<TransactionId>,
+    pub details: AccountUpdateDetails,
 }
 
 impl AccountUpdate {
@@ -189,15 +188,8 @@ impl TransactionBatch {
 
     /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
-    pub fn updated_accounts(&self) -> impl Iterator<Item = BlockAccountUpdate> + '_ {
-        self.updated_accounts.iter().map(|(&account_id, update)| {
-            BlockAccountUpdate::new(
-                account_id,
-                update.final_state,
-                update.details.clone(),
-                update.transactions.clone(),
-            )
-        })
+    pub fn updated_accounts(&self) -> impl Iterator<Item = (&AccountId, &AccountUpdate)> + '_ {
+        self.updated_accounts.iter()
     }
 
     /// Returns input notes list consumed by the transactions in this batch. Any unauthenticated

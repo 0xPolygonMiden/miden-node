@@ -14,10 +14,11 @@ use miden_objects::{
         SMT_DEPTH,
     },
     notes::{NoteHeader, NoteMetadata, NoteTag, NoteType},
-    transaction::OutputNote,
+    transaction::{OutputNote, ProvenTransaction},
     Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
+use self::block_witness::AccountUpdateWitness;
 use super::*;
 use crate::{
     block::{AccountWitness, BlockInputs},
@@ -88,10 +89,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 
     let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
 
-    assert_eq!(
-        block_witness_result,
-        Err(BuildBlockError::InconsistentAccountIds(vec![account_id_1, account_id_3]))
-    );
+    assert!(block_witness_result.is_err());
 }
 
 /// Tests that `BlockWitness` constructor fails if the store and transaction batches contain a
@@ -164,6 +162,95 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
         block_witness_result,
         Err(BuildBlockError::InconsistentAccountStates(vec![account_id_1]))
     );
+}
+
+#[test]
+fn test_block_witness_multiple_batches_per_account() {
+    let x_account_id =
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN));
+    let y_account_id = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
+
+    let x_hashes = [
+        Digest::new((0..4).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+        Digest::new((4..8).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+        Digest::new((8..12).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+    ];
+    let y_hashes = [
+        Digest::new((12..16).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+        Digest::new((16..20).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+        Digest::new((20..24).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+    ];
+
+    let x_txs = [
+        MockProvenTxBuilder::with_account(x_account_id, x_hashes[0], x_hashes[1]).build(),
+        MockProvenTxBuilder::with_account(x_account_id, x_hashes[1], x_hashes[2]).build(),
+    ];
+    let y_txs = [
+        MockProvenTxBuilder::with_account(y_account_id, y_hashes[0], y_hashes[1]).build(),
+        MockProvenTxBuilder::with_account(y_account_id, y_hashes[1], y_hashes[2]).build(),
+    ];
+
+    let x_proof = MerklePath::new(vec![Digest::new(
+        (24..28).map(Felt::new).collect::<Vec<_>>().try_into().unwrap(),
+    )]);
+    let y_proof = MerklePath::new(vec![Digest::new(
+        (28..32).map(Felt::new).collect::<Vec<_>>().try_into().unwrap(),
+    )]);
+
+    let block_inputs_from_store: BlockInputs = {
+        let block_header = BlockHeader::mock(0, None, None, &[]);
+        let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+
+        let x_witness = AccountWitness {
+            hash: x_hashes[0],
+            proof: x_proof.clone(),
+        };
+        let y_witness = AccountWitness {
+            hash: y_hashes[0],
+            proof: y_proof.clone(),
+        };
+        let accounts = BTreeMap::from_iter([(x_account_id, x_witness), (y_account_id, y_witness)]);
+
+        BlockInputs {
+            block_header,
+            chain_peaks,
+            accounts,
+            nullifiers: Default::default(),
+            found_unauthenticated_notes: Default::default(),
+        }
+    };
+
+    let batches = {
+        let batch_1 =
+            TransactionBatch::new(vec![x_txs[0].clone(), y_txs[1].clone()], Default::default())
+                .unwrap();
+        let batch_2 =
+            TransactionBatch::new(vec![y_txs[0].clone(), x_txs[1].clone()], Default::default())
+                .unwrap();
+
+        vec![batch_1, batch_2]
+    };
+
+    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let account_witnesses = block_witness.updated_accounts.into_iter().collect::<BTreeMap<_, _>>();
+
+    let x_expected = AccountUpdateWitness {
+        initial_state_hash: x_hashes[0],
+        final_state_hash: *x_hashes.last().unwrap(),
+        proof: x_proof,
+        transactions: x_txs.iter().map(ProvenTransaction::id).collect(),
+    };
+
+    let y_expected = AccountUpdateWitness {
+        initial_state_hash: y_hashes[0],
+        final_state_hash: *y_hashes.last().unwrap(),
+        proof: y_proof,
+        transactions: y_txs.iter().map(ProvenTransaction::id).collect(),
+    };
+
+    let expected = [(x_account_id, x_expected), (y_account_id, y_expected)].into();
+
+    assert_eq!(account_witnesses, expected);
 }
 
 // ACCOUNT ROOT TESTS

@@ -74,8 +74,18 @@ where
             batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))),
         );
 
-        let updated_accounts: Vec<_> =
-            batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
+        let updated_accounts: Vec<_> = batches
+            .iter()
+            .flat_map(TransactionBatch::updated_accounts)
+            .map(|(account_id, update)| {
+                BlockAccountUpdate::new(
+                    *account_id,
+                    update.final_state,
+                    update.details.clone(),
+                    update.transactions.clone(),
+                )
+            })
+            .collect();
 
         let output_notes: Vec<_> =
             batches.iter().map(TransactionBatch::output_notes).cloned().collect();
