@@ -27,7 +27,7 @@ pub enum VerifyTxError {
     UnauthenticatedNotesNotFound(Vec<NoteId>),
 
     /// The account's initial hash did not match the current account's hash
-    #[error("Incorrect account's initial hash ({tx_initial_account_hash}, actual: {})", format_opt(.current_account_hash.as_ref()))]
+    #[error("Incorrect account's initial hash ({tx_initial_account_hash}, current: {})", format_opt(.current_account_hash.as_ref()))]
     IncorrectAccountInitialHash {
         tx_initial_account_hash: Digest,
         current_account_hash: Option<Digest>,
