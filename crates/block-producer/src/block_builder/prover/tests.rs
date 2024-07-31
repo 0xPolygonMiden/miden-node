@@ -160,10 +160,19 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 
     assert_eq!(
         block_witness_result,
-        Err(BuildBlockError::InconsistentAccountStates(vec![account_id_1]))
+        Err(BuildBlockError::InconsistentAccountStateTransition(
+            account_id_1,
+            account_1_hash_store,
+            vec![account_1_hash_batches]
+        ))
     );
 }
 
+/// Creates two batches which each update the same pair of accounts.
+///
+/// The transactions are ordered such that the batches cannot be chronologically ordered
+/// themselves: `[tx_x0, tx_y1], [tx_y0, tx_x1]`. This test ensures that the witness is
+/// produced correctly as if for a single batch: `[tx_x0, tx_x1, tx_y0, tx_y1]`.
 #[test]
 fn test_block_witness_multiple_batches_per_account() {
     let x_account_id =

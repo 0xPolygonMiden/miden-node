@@ -68,7 +68,7 @@ impl BlockWitness {
                 .accounts
                 .remove(&account_id)
                 .map(|witness| (witness.hash, witness.proof))
-                .ok_or(BuildBlockError::InconsistentAccountIds(vec![account_id]))?;
+                .ok_or(BuildBlockError::MissingAccountInput(account_id))?;
 
             let mut details: Option<AccountUpdateDetails> = None;
 
@@ -76,18 +76,22 @@ impl BlockWitness {
             let mut transactions = Vec::new();
             let mut current_hash = initial_state_hash;
             while !updates.is_empty() {
-                let update = updates
-                    .remove(&current_hash)
-                    .ok_or(BuildBlockError::InconsistentAccountStates(vec![account_id]))?;
+                let update = updates.remove(&current_hash).ok_or_else(|| {
+                    BuildBlockError::InconsistentAccountStateTransition(
+                        account_id,
+                        current_hash,
+                        updates.keys().copied().collect(),
+                    )
+                })?;
 
                 transactions.extend(update.transactions);
                 current_hash = update.final_state;
 
                 details = Some(match details {
                     None => update.details,
-                    Some(details) => {
-                        details.merge(update.details).expect("Should this be an error?")
-                    },
+                    Some(details) => details.merge(update.details).map_err(|err| {
+                        BuildBlockError::AccountUpdateError { account_id, error: err }
+                    })?,
                 });
             }
 
@@ -110,7 +114,7 @@ impl BlockWitness {
         }
 
         if !block_inputs.accounts.is_empty() {
-            return Err(BuildBlockError::InconsistentAccountIds(
+            return Err(BuildBlockError::ExtraStoreData(
                 block_inputs.accounts.keys().copied().collect(),
             ));
         }

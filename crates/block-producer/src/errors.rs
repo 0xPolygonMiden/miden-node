@@ -175,10 +175,12 @@ pub enum BuildBlockError {
     ApplyBlockFailed(#[from] ApplyBlockError),
     #[error("failed to get block inputs from store: {0}")]
     GetBlockInputsFailed(#[from] BlockInputsError),
-    #[error("transaction batches and store don't modify the same account IDs. Offending accounts: {0:?}")]
-    InconsistentAccountIds(Vec<AccountId>),
-    #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
-    InconsistentAccountStates(Vec<AccountId>),
+    #[error("store did not produce data for account: {0}")]
+    MissingAccountInput(AccountId),
+    #[error("store produced extra account data. Offending accounts: {0:?}")]
+    ExtraStoreData(Vec<AccountId>),
+    #[error("no matching state transition found for account {0}. Current account state is {1}, remaining updates: {2:?}")]
+    InconsistentAccountStateTransition(AccountId, Digest, Vec<Digest>),
     #[error("transaction batches and store don't produce the same nullifiers. Offending nullifiers: {0:?}")]
     InconsistentNullifiers(Vec<Nullifier>),
     #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
@@ -188,6 +190,11 @@ pub enum BuildBlockError {
         BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH
     )]
     TooManyBatchesInBlock(usize),
+    #[error("Failed to merge transaction delta into account {account_id}: {error}")]
+    AccountUpdateError {
+        account_id: AccountId,
+        error: AccountDeltaError,
+    },
 }
 
 // Transaction inputs errors
