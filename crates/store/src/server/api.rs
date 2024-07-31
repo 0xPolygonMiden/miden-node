@@ -12,7 +12,7 @@ use miden_node_proto::{
             GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
             GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
             GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
-            ListNullifiersRequest, SyncStateRequest,
+            ListNullifiersRequest, SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
@@ -20,7 +20,7 @@ use miden_node_proto::{
             GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
             GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
             ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
-            NullifierUpdate, SyncStateResponse,
+            NullifierUpdate, SyncNoteResponse, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -217,6 +217,45 @@ impl api_server::Api for StoreApi {
             transactions,
             notes,
             nullifiers,
+        }))
+    }
+
+    /// Returns info which can be used by the client to sync note state.
+    #[instrument(
+        target = "miden-store",
+        name = "store:sync_notes",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn sync_notes(
+        &self,
+        request: tonic::Request<SyncNoteRequest>,
+    ) -> Result<Response<SyncNoteResponse>, Status> {
+        let request = request.into_inner();
+
+        let (state, delta) = self
+            .state
+            .sync_state(request.block_num, &[], &request.note_tags, &[])
+            .await
+            .map_err(internal_error)?;
+
+        let notes = state
+            .notes
+            .into_iter()
+            .map(|note| NoteSyncRecord {
+                note_index: note.note_index.to_absolute_index() as u32,
+                note_id: Some(note.note_id.into()),
+                metadata: Some(note.metadata.into()),
+                merkle_path: Some(note.merkle_path.into()),
+            })
+            .collect();
+
+        Ok(Response::new(SyncNoteResponse {
+            chain_tip: state.chain_tip,
+            block_header: Some(state.block_header.into()),
+            mmr_delta: Some(delta.into()),
+            notes,
         }))
     }
 

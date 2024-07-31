@@ -63,6 +63,22 @@ pub struct SyncStateResponse {
     #[prost(message, repeated, tag = "8")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SyncNoteResponse {
+    /// Number of the latest block in the chain
+    #[prost(fixed32, tag = "1")]
+    pub chain_tip: u32,
+    /// Block header of the block with the first note matching the specified criteria
+    #[prost(message, optional, tag = "2")]
+    pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
+    /// Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
+    #[prost(message, optional, tag = "3")]
+    pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
+    /// List of all notes together with the Merkle paths from `response.block_header.note_root`
+    #[prost(message, repeated, tag = "4")]
+    pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
+}
 /// An account returned as a response to the GetBlockInputs
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
