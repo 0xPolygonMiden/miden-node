@@ -22,7 +22,7 @@ struct TransactionValidatorFailure;
 #[async_trait]
 impl TransactionValidator for TransactionValidatorFailure {
     async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
-        Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(tx.account_id()))
+        Err(VerifyTxError::InvalidTransactionProof(tx.id()))
     }
 }
 
@@ -111,12 +111,13 @@ async fn test_build_batch_success() {
 
     // a batch will include up to `batch_size` transactions
     let mut txs = Vec::new();
-    for _ in 0..batch_size {
+    for i in 0..batch_size {
+        let tx = MockProvenTxBuilder::with_account_index(i as u32).build();
         tx_queue
             .add_transaction(tx.clone())
             .await
             .expect("Transaction queue is running");
-        txs.push(tx.clone())
+        txs.push(tx);
     }
     tokio::time::advance(build_batch_frequency).await;
     let batch = receiver.try_recv().expect("Queue not empty");
@@ -130,7 +131,8 @@ async fn test_build_batch_success() {
 
     // the transaction queue eagerly produces batches
     let mut txs = Vec::new();
-    for _ in 0..(2 * batch_size + 1) {
+    for i in 0..(2 * batch_size + 1) {
+        let tx = MockProvenTxBuilder::with_account_index(i as u32).build();
         tx_queue
             .add_transaction(tx.clone())
             .await

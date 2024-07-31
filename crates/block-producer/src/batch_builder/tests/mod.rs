@@ -162,12 +162,15 @@ async fn test_batch_builder_find_dangling_notes() {
         },
     ));
 
+    // An account with 5 states so that we can simulate running 2 transactions against it.
+    let account = MockPrivateAccount::<3>::from(1);
+
     let note_1 = mock_note(1);
     let note_2 = mock_note(2);
-    let tx1 = MockProvenTxBuilder::with_account_index(1)
+    let tx1 = MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1])
         .output_notes(vec![OutputNote::Full(note_1.clone())])
         .build();
-    let tx2 = MockProvenTxBuilder::with_account_index(1)
+    let tx2 = MockProvenTxBuilder::with_account(account.id, account.states[1], account.states[2])
         .unauthenticated_notes(vec![note_1.clone()])
         .output_notes(vec![OutputNote::Full(note_2.clone())])
         .build();
@@ -184,10 +187,10 @@ async fn test_batch_builder_find_dangling_notes() {
 
     let note_3 = mock_note(3);
 
-    let tx1 = MockProvenTxBuilder::with_account_index(1)
+    let tx1 = MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1])
         .unauthenticated_notes(vec![note_2.clone()])
         .build();
-    let tx2 = MockProvenTxBuilder::with_account_index(1)
+    let tx2 = MockProvenTxBuilder::with_account(account.id, account.states[1], account.states[2])
         .unauthenticated_notes(vec![note_3.clone()])
         .build();
 

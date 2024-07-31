@@ -3,7 +3,8 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{
-    block::{Block, BlockAccountUpdate},
+    accounts::AccountId,
+    block::Block,
     notes::{NoteHeader, Nullifier},
     transaction::InputNoteCommitment,
 };
@@ -74,8 +75,11 @@ where
             batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))),
         );
 
-        let updated_accounts: Vec<_> =
-            batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
+        let updated_account_set: BTreeSet<AccountId> = batches
+            .iter()
+            .flat_map(TransactionBatch::updated_accounts)
+            .map(|(account_id, _)| *account_id)
+            .collect();
 
         let output_notes: Vec<_> =
             batches.iter().map(TransactionBatch::output_notes).cloned().collect();
@@ -103,7 +107,7 @@ where
         let block_inputs = self
             .store
             .get_block_inputs(
-                updated_accounts.iter().map(BlockAccountUpdate::account_id),
+                updated_account_set.into_iter(),
                 produced_nullifiers.iter(),
                 dangling_notes.iter(),
             )
@@ -117,7 +121,7 @@ where
             return Err(BuildBlockError::UnauthenticatedNotesNotFound(missing_notes));
         }
 
-        let block_header_witness = BlockWitness::new(block_inputs, batches)?;
+        let (block_header_witness, updated_accounts) = BlockWitness::new(block_inputs, batches)?;
 
         let new_block_header = self.block_kernel.prove(block_header_witness)?;
         let block_num = new_block_header.block_num();

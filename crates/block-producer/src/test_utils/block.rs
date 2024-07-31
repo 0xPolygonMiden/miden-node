@@ -29,8 +29,8 @@ pub async fn build_expected_block_header(
         batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
     let new_account_root = {
         let mut store_accounts = store.accounts.read().await.clone();
-        for update in updated_accounts {
-            store_accounts.insert(update.account_id().into(), update.new_state_hash().into());
+        for (&account_id, update) in updated_accounts {
+            store_accounts.insert(account_id.into(), update.final_state.into());
         }
 
         store_accounts.root()
@@ -76,14 +76,14 @@ pub async fn build_actual_block_header(
 
     let block_inputs_from_store: BlockInputs = store
         .get_block_inputs(
-            updated_accounts.iter().map(|update| update.account_id()),
+            updated_accounts.iter().map(|(&account_id, _)| account_id),
             produced_nullifiers.iter(),
             iter::empty(),
         )
         .await
         .unwrap();
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     BlockProver::new().prove(block_witness).unwrap()
 }
