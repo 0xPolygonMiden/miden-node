@@ -29,7 +29,7 @@ use crate::{
     errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
     genesis::GenesisState,
     types::{AccountId, BlockNumber},
-    COMPONENT,
+    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
 mod migrations;
@@ -117,6 +117,11 @@ impl Db {
                             // this module for every connection we create to the DB to support the
                             // queries we want to run
                             array::load_module(conn)?;
+
+                            // Increase the statement cache size.
+                            conn.set_prepared_statement_cache_capacity(
+                                SQL_STATEMENT_CACHE_CAPACITY,
+                            );
 
                             // Enable the WAL mode. This allows concurrent reads while the
                             // transaction is being written, this is required for proper
