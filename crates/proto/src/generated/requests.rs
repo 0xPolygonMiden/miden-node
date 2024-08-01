@@ -59,13 +59,8 @@ pub struct SyncStateRequest {
     /// it won't be included in the response.
     #[prost(message, repeated, tag = "2")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Determines the tags which the client is interested in. These are only the 16high bits of the
-    /// note's complete tag.
-    ///
-    /// The above means it is not possible to request an specific note, but only a "note family",
-    /// this is done to increase the privacy of the client, by hiding the note's the client is
-    /// intereted on.
-    #[prost(uint32, repeated, tag = "3")]
+    /// Determines the tags which the client is interested in.
+    #[prost(fixed32, repeated, tag = "3")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
     /// Determines the nullifiers the client is interested in.
     ///
@@ -84,13 +79,8 @@ pub struct SyncNoteRequest {
     /// until the first block which contains a note of matching the requested tag.
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
-    /// Determines the tags which the client is interested in. These are only the 16high bits of the
-    /// note's complete tag.
-    ///
-    /// The above means it is not possible to request an specific note, but only a "note family",
-    /// this is done to increase the privacy of the client, by hiding the note's the client is
-    /// intereted on.
-    #[prost(uint32, repeated, tag = "3")]
+    /// Determines the tags which the client is interested in.
+    #[prost(fixed32, repeated, tag = "2")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

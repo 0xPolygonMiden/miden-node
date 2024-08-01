@@ -54,13 +54,8 @@ message SyncStateRequest {
     // it won't be included in the response.
     repeated account.AccountId account_ids = 2;
 
-    // Determines the tags which the client is interested in. These are only the 16high bits of the
-    // note's complete tag.
-    //
-    // The above means it is not possible to request an specific note, but only a "note family",
-    // this is done to increase the privacy of the client, by hiding the note's the client is
-    // intereted on.
-    repeated uint32 note_tags = 3;
+    // Determines the tags which the client is interested in.
+    repeated fixed32 note_tags = 3;
 
     // Determines the nullifiers the client is interested in.
     //
@@ -77,13 +72,8 @@ message SyncNoteRequest {
     // until the first block which contains a note of matching the requested tag.
     fixed32 block_num = 1;
 
-    // Determines the tags which the client is interested in. These are only the 16high bits of the
-    // note's complete tag.
-    //
-    // The above means it is not possible to request an specific note, but only a "note family",
-    // this is done to increase the privacy of the client, by hiding the note's the client is
-    // intereted on.
-    repeated uint32 note_tags = 3;
+    // Determines the tags which the client is interested in.
+    repeated fixed32 note_tags = 2;
 }
 
 message GetBlockInputsRequest {
