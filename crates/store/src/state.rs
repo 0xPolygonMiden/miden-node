@@ -29,7 +29,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     blocks::BlockStore,
-    db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
+    db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
         StateInitializationError, StateSyncError,
@@ -449,6 +449,51 @@ impl State {
         };
 
         Ok((state_sync, delta))
+    }
+
+    /// Loads data to synchronize a client's notes.
+    ///
+    /// The client's request contains a list of tag prefixes, this method will return the first
+    /// block with a matching tag, or the chain tip. All the other values are filter based on this
+    /// block range.
+    ///
+    /// # Arguments
+    ///
+    /// - `block_num`: The last block *know* by the client, updates start from the next block.
+    /// - `note_tag_prefixes`: Only the 16 high bits of the tags the client is interested in, result
+    ///   will include notes with matching prefixes, the first block with a matching note determines
+    ///   the block range.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn sync_notes(
+        &self,
+        block_num: BlockNumber,
+        note_tag_prefixes: &[u32],
+    ) -> Result<(NoteSyncUpdate, MmrDelta), StateSyncError> {
+        let inner = self.inner.read().await;
+
+        let note_sync = self.db.get_note_sync(block_num, note_tag_prefixes).await?;
+
+        let delta = if block_num == note_sync.block_header.block_num() {
+            // The client is in sync with the chain tip.
+            MmrDelta { forest: block_num as usize, data: vec![] }
+        } else {
+            // Important notes about the boundary conditions:
+            //
+            // - The Mmr forest is 1-indexed whereas the block number is 0-indexed. The Mmr root
+            // contained in the block header always lag behind by one block, this is because the Mmr
+            // leaves are hashes of block headers, and we can't have self-referential hashes. These two
+            // points cancel out and don't require adjusting.
+            // - Mmr::get_delta is inclusive, whereas the sync_state request block_num is defined to be
+            // exclusive, so the from_forest has to be adjusted with a +1
+            let from_forest = (block_num + 1) as usize;
+            let to_forest = note_sync.block_header.block_num() as usize;
+            inner
+                .chain_mmr
+                .get_delta(from_forest, to_forest)
+                .map_err(StateSyncError::FailedToBuildMmrDelta)?
+        };
+
+        Ok((note_sync, delta))
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.

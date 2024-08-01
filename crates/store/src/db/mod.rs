@@ -91,6 +91,13 @@ pub struct StateSyncUpdate {
     pub nullifiers: Vec<NullifierInfo>,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct NoteSyncUpdate {
+    pub notes: Vec<NoteRecord>,
+    pub block_header: BlockHeader,
+    pub chain_tip: BlockNumber,
+}
+
 impl Db {
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
@@ -286,6 +293,25 @@ impl Db {
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get state sync task failed: {err}"))
+            })?
+    }
+
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn get_note_sync(
+        &self,
+        block_num: BlockNumber,
+        note_tag_prefixes: &[u32],
+    ) -> Result<NoteSyncUpdate, StateSyncError> {
+        let note_tag_prefixes = note_tag_prefixes.to_vec();
+
+        self.pool
+            .get()
+            .await
+            .map_err(DatabaseError::MissingDbConnection)?
+            .interact(move |conn| sql::get_note_sync(conn, block_num, &note_tag_prefixes))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Get notes sync task failed: {err}"))
             })?
     }
 

@@ -236,7 +236,7 @@ impl api_server::Api for StoreApi {
 
         let (state, delta) = self
             .state
-            .sync_state(request.block_num, &[], &request.note_tags, &[])
+            .sync_notes(request.block_num, &request.note_tags)
             .await
             .map_err(internal_error)?;
 
