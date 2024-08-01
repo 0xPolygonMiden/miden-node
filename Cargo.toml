@@ -10,7 +10,6 @@ members = [
   "crates/utils",
   "crates/test-macro",
 ]
-default-members = ["bin/faucet", "bin/node", "crates/proto", "crates/rpc-proto"]
 
 resolver = "2"
 
