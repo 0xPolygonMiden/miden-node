@@ -125,9 +125,10 @@ impl TransactionBatch {
         // input notes set.
         //
         // One thing to note:
-        // This still allows transaction `A` to consume an unauthenticated note `x` and output note `y`
-        // and for transaction `B` to consume an unauthenticated note `y` and output note `x`
-        // (i.e., have a circular dependency between transactions), but this is not a problem.
+        // This still allows transaction `A` to consume an unauthenticated note `x` and output note
+        // `y` and for transaction `B` to consume an unauthenticated note `y` and output
+        // note `x` (i.e., have a circular dependency between transactions), but this is not
+        // a problem.
         let mut input_notes = vec![];
         for input_note in txs.iter().flat_map(|tx| tx.input_notes().iter()) {
             // Header is presented only for unauthenticated input notes.
@@ -137,8 +138,9 @@ impl TransactionBatch {
                         continue;
                     }
 
-                    // If an unauthenticated note was found in the store, transform it to an authenticated one
-                    // (i.e. erase additional note details except the nullifier)
+                    // If an unauthenticated note was found in the store, transform it to an
+                    // authenticated one (i.e. erase additional note details
+                    // except the nullifier)
                     found_unauthenticated_notes
                         .get(&input_note_header.id())
                         .map(|_path| InputNoteCommitment::from(input_note.nullifier()))
@@ -194,7 +196,8 @@ impl TransactionBatch {
     }
 
     /// Returns input notes list consumed by the transactions in this batch. Any unauthenticated
-    /// input notes which have matching output notes within this batch are not included in this list.
+    /// input notes which have matching output notes within this batch are not included in this
+    /// list.
     pub fn input_notes(&self) -> &[InputNoteCommitment] {
         &self.input_notes
     }

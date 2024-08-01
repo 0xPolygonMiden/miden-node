@@ -189,7 +189,8 @@ impl MockStoreSuccess {
 #[async_trait]
 impl ApplyBlock for MockStoreSuccess {
     async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
-        // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from going through while we're updating the store's data structure
+        // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from
+        // going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
         let mut locked_produced_nullifiers = self.produced_nullifiers.write().await;
 

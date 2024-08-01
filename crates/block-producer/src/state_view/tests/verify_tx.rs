@@ -2,8 +2,8 @@
 //!
 //! Store-related requirements
 //! VT1: `tx.initial_account_hash` must match the account hash in store
-//! VT2: If store doesn't contain account, `verify_tx` should check that it is a new account ( TODO ) and succeed
-//! VT3: If `tx` consumes an already-consumed note in the store, `verify_tx` must fail
+//! VT2: If store doesn't contain account, `verify_tx` should check that it is a new account ( TODO
+//! ) and succeed VT3: If `tx` consumes an already-consumed note in the store, `verify_tx` must fail
 //!
 //! in-flight related requirements
 //! VT4: In each block, at most 1 transaction is allowed to modify any given account
@@ -171,8 +171,8 @@ async fn test_verify_tx_vt4() {
     let tx1 =
         MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1]).build();
 
-    // Notice: tx2 follows tx1, using the same account and with an initial state matching the final state of the first.
-    //         We expect both to pass.
+    // Notice: tx2 follows tx1, using the same account and with an initial state matching the final
+    // state of the first.         We expect both to pass.
     let tx2 =
         MockProvenTxBuilder::with_account(account.id, account.states[1], account.states[2]).build();
 
@@ -227,7 +227,8 @@ async fn test_verify_tx_vt5() {
     );
 }
 
-/// Tests that `verify_tx()` succeeds when the unauthenticated input note found in the in-flight notes
+/// Tests that `verify_tx()` succeeds when the unauthenticated input note found in the in-flight
+/// notes
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_dangling_note_found_in_inflight_notes() {
@@ -263,8 +264,8 @@ async fn test_verify_tx_dangling_note_found_in_inflight_notes() {
     );
 }
 
-/// Tests that `verify_tx()` fails when the unauthenticated input note not found not in the in-flight
-/// notes nor in the store
+/// Tests that `verify_tx()` fails when the unauthenticated input note not found not in the
+/// in-flight notes nor in the store
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
 async fn test_verify_tx_stored_unauthenticated_notes() {

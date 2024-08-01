@@ -563,8 +563,9 @@ async fn test_compute_note_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // The current logic is hardcoded to a depth of 21
-    // Specifically, we assume the block has up to 2^8 batches, and each batch up to 2^12 created notes,
-    // where each note is stored at depth 13 in the batch as 2 contiguous nodes: note hash, then metadata.
+    // Specifically, we assume the block has up to 2^8 batches, and each batch up to 2^12 created
+    // notes, where each note is stored at depth 13 in the batch as 2 contiguous nodes: note
+    // hash, then metadata.
     assert_eq!(BLOCK_NOTES_TREE_DEPTH, 21);
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
@@ -666,7 +667,8 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
     );
 }
 
-/// Tests that the block kernel returns the expected nullifier tree when no nullifiers are present in the transaction
+/// Tests that the block kernel returns the expected nullifier tree when no nullifiers are present
+/// in the transaction
 #[tokio::test]
 async fn test_compute_nullifier_root_empty_success() {
     let batches: Vec<TransactionBatch> = {
@@ -719,7 +721,8 @@ async fn test_compute_nullifier_root_empty_success() {
     assert_eq!(block_header.nullifier_root(), nullifier_smt.root());
 }
 
-/// Tests that the block kernel returns the expected nullifier tree when multiple nullifiers are present in the transaction
+/// Tests that the block kernel returns the expected nullifier tree when multiple nullifiers are
+/// present in the transaction
 #[tokio::test]
 async fn test_compute_nullifier_root_success() {
     let batches: Vec<TransactionBatch> = {
@@ -774,7 +777,8 @@ async fn test_compute_nullifier_root_success() {
     // Create SMT by hand to get new root
     // ---------------------------------------------------------------------------------------------
 
-    // Note that the block number in store is 42; the nullifiers get added to the next block (i.e. block number 43)
+    // Note that the block number in store is 42; the nullifiers get added to the next block (i.e.
+    // block number 43)
     let nullifier_smt =
         Smt::with_entries(nullifiers.into_iter().map(|nullifier| {
             (nullifier.inner(), [(initial_block_num + 1).into(), ZERO, ZERO, ZERO])
