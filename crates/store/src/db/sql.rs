@@ -640,14 +640,23 @@ pub fn select_notes_since_block_by_tag(
             details
         FROM
             notes
-        -- find the next block which contains at least one note with a matching tag
         WHERE
-            tag IN rarray(?1) AND
-            block_num > ?2
-        ORDER BY
-            block_num ASC
-        LIMIT
-            1;
+            -- find the next block which contains at least one note with a matching tag
+            block_num = (
+                SELECT
+                    block_num
+                FROM
+                    notes
+                WHERE
+                    tag IN rarray(?1) AND
+                    block_num > ?2
+                ORDER BY
+                    block_num ASC
+                LIMIT
+                    1
+            ) AND
+            -- filter the block's notes and return only the ones matching the requested tags
+            tag IN rarray(?1);
     ",
     )?;
     let mut rows = stmt.query(params![Rc::new(tags), block_num])?;
