@@ -122,7 +122,7 @@ impl From<AccountInputRecord> for AccountBlockInputRecord {
         Self {
             account_id: Some(from.account_id.into()),
             account_hash: Some(from.account_hash.into()),
-            proof: Some(from.proof.into()),
+            proof: Some(Into::into(&from.proof)),
         }
     }
 }
@@ -142,6 +142,7 @@ impl TryFrom<AccountBlockInputRecord> for AccountInputRecord {
                 .try_into()?,
             proof: account_input_record
                 .proof
+                .as_ref()
                 .ok_or(AccountBlockInputRecord::missing_field(stringify!(proof)))?
                 .try_into()?,
         })

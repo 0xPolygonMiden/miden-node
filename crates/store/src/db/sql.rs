@@ -1,13 +1,13 @@
 //! Wrapper functions for SQL statements.
 
-use std::{borrow::Cow, rc::Rc};
+use std::{borrow::Cow, collections::BTreeMap, rc::Rc};
 
 use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
+    notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
@@ -663,6 +663,58 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         })
     }
     Ok(notes)
+}
+
+/// Select note inclusion proofs matching the NoteId, using the given [Connection].
+///
+/// # Returns
+///
+/// - Empty map if no matching `note`.
+/// - Otherwise, note inclusion proofs, which `note_id` matches the `NoteId` as bytes.
+pub fn select_block_note_inclusion_proofs(
+    conn: &mut Connection,
+    note_ids: &[NoteId],
+) -> Result<BTreeMap<NoteId, NoteInclusionProof>> {
+    let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
+
+    let mut select_notes_stmt = conn.prepare(
+        "
+        SELECT
+            block_num,
+            note_id,
+            batch_index,
+            note_index,
+            merkle_path
+        FROM
+            notes
+        WHERE
+            note_id IN rarray(?1)
+        ORDER BY
+            block_num ASC
+        ",
+    )?;
+
+    let mut result = BTreeMap::new();
+    let mut rows = select_notes_stmt.query(params![Rc::new(note_ids)])?;
+    while let Some(row) = rows.next()? {
+        let block_num = row.get(0)?;
+
+        let note_id_data = row.get_ref(1)?.as_blob()?;
+        let note_id = NoteId::read_from_bytes(note_id_data)?;
+
+        let batch_index = row.get(2)?;
+        let note_index = row.get(3)?;
+        let node_index_in_block = BlockNoteIndex::new(batch_index, note_index).to_absolute_index();
+
+        let merkle_path_data = row.get_ref(4)?.as_blob()?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
+
+        let proof = NoteInclusionProof::new(block_num, node_index_in_block, merkle_path)?;
+
+        result.insert(note_id, proof);
+    }
+
+    Ok(result)
 }
 
 // BLOCK CHAIN QUERIES

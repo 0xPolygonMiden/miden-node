@@ -15,6 +15,7 @@
 - Added `CheckNullifiersByPrefix` endpoint (#419).
 - Support multiple inflight transactions on the same account (#407).
 - Cache sql statements (#427).
+- Implemented `GetNoteInclusionProofs` endpoint for both miden-store and miden-rpc (#421).
 
 ### Fixes
 

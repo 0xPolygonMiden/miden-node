@@ -98,9 +98,11 @@ pub struct GetBlockInputsResponse {
     /// The requested nullifiers and their authentication paths
     #[prost(message, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
-    /// The list of requested notes which were found in the database
+    /// The list of requested unauthenticated notes with their inclusion proofs which were found in the database
     #[prost(message, repeated, tag = "5")]
-    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<
+        super::note::NoteInclusionProof,
+    >,
 }
 /// An account returned as a response to the GetTransactionInputs
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -141,6 +143,13 @@ pub struct GetNotesByIdResponse {
     /// Lists Note's returned by the database
     #[prost(message, repeated, tag = "1")]
     pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetNoteInclusionProofsResponse {
+    /// Lists note inclusion proofs returned by the database
+    #[prost(message, repeated, tag = "1")]
+    pub proofs: ::prost::alloc::vec::Vec<super::note::NoteInclusionProof>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

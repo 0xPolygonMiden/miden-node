@@ -9,22 +9,21 @@ use itertools::Itertools;
 use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
-        digest, note,
+        digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNotesByIdRequest,
+            ApplyBlockRequest, GetBlockInputsRequest, GetNoteInclusionProofsRequest,
             GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
-    AccountState,
+    try_convert, AccountState,
 };
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
     block::Block,
-    crypto::merkle::MerklePath,
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteInclusionProof, Nullifier},
     utils::Serializable,
     Digest,
 };
@@ -56,15 +55,15 @@ pub trait Store: ApplyBlock {
 
     /// Returns note authentication information for the set of specified notes.
     ///
-    /// If authentication info could for a note does not exist in the store, the note is omitted
+    /// If authentication info for a note does not exist in the store, the note is omitted
     /// from the returned set of notes.
     ///
-    /// TODO: right now this return only Merkle paths per note, but this will need to be updated to
-    /// return full authentication info.
+    /// TODO: right now this returns only Merkle paths per note, but this will need to be updated to
+    ///       return full authentication info.
     async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError>;
+    ) -> Result<BTreeMap<NoteId, NoteInclusionProof>, NotePathsError>;
 }
 
 #[async_trait]
@@ -256,33 +255,19 @@ impl Store for DefaultStore {
     async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
-        let request = tonic::Request::new(GetNotesByIdRequest {
+    ) -> Result<BTreeMap<NoteId, NoteInclusionProof>, NotePathsError> {
+        let request = tonic::Request::new(GetNoteInclusionProofsRequest {
             note_ids: notes.map(digest::Digest::from).collect(),
         });
 
         let store_response = self
             .store
             .clone()
-            .get_notes_by_id(request)
+            .get_note_inclusion_proofs(request)
             .await
             .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
             .into_inner();
 
-        Ok(store_response
-            .notes
-            .into_iter()
-            .map(|note| {
-                Ok((
-                    RpoDigest::try_from(
-                        note.note_id.ok_or(note::Note::missing_field(stringify!(note_id)))?,
-                    )?
-                    .into(),
-                    note.merkle_path
-                        .ok_or(note::Note::missing_field(stringify!(merkle_path)))?
-                        .try_into()?,
-                ))
-            })
-            .collect::<Result<BTreeMap<_, _>, ConversionError>>()?)
+        try_convert(&store_response.proofs).map_err(Into::into)
     }
 }

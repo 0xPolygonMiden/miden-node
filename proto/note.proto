@@ -23,6 +23,13 @@ message Note {
     optional bytes details = 6;
 }
 
+message NoteInclusionProof {
+    digest.Digest note_id = 1;
+    fixed32 block_num = 2;
+    uint32 note_index_in_block = 3;
+    merkle.MerklePath merkle_path = 4;
+}
+
 message NoteSyncRecord {
     uint32 note_index = 1;
     digest.Digest note_id = 2;

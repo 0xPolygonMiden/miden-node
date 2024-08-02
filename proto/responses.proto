@@ -88,8 +88,8 @@ message GetBlockInputsResponse {
     // The requested nullifiers and their authentication paths
     repeated NullifierBlockInputRecord nullifiers = 4;
 
-    // The list of requested notes which were found in the database
-    repeated digest.Digest found_unauthenticated_notes = 5;
+    // The list of requested unauthenticated notes with their inclusion proofs which were found in the database
+    repeated note.NoteInclusionProof found_unauthenticated_notes = 5;
 }
 
 // An account returned as a response to the GetTransactionInputs
@@ -117,6 +117,11 @@ message SubmitProvenTransactionResponse {}
 message GetNotesByIdResponse {
     // Lists Note's returned by the database
     repeated note.Note notes = 1;
+}
+
+message GetNoteInclusionProofsResponse {
+    // Lists note inclusion proofs returned by the database
+    repeated note.NoteInclusionProof proofs = 1;
 }
 
 message ListNullifiersResponse {

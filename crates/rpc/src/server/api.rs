@@ -4,12 +4,14 @@ use miden_node_proto::{
         requests::{
             CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
             GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
-            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+            GetNoteInclusionProofsRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
+            SyncStateRequest,
         },
         responses::{
             CheckNullifiersByPrefixResponse, CheckNullifiersResponse, GetAccountDetailsResponse,
             GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncStateResponse,
+            GetNoteInclusionProofsResponse, GetNotesByIdResponse, SubmitProvenTransactionResponse,
+            SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -150,6 +152,28 @@ impl api_server::Api for RpcApi {
             .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
 
         self.store.clone().get_notes_by_id(request).await
+    }
+
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_note_inclusion_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_note_inclusion_proofs(
+        &self,
+        request: Request<GetNoteInclusionProofsRequest>,
+    ) -> Result<Response<GetNoteInclusionProofsResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
+        // Validation checking for correct NoteId's
+        let note_ids = request.get_ref().note_ids.clone();
+
+        let _: Vec<RpoDigest> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        self.store.clone().get_note_inclusion_proofs(request).await
     }
 
     #[instrument(target = "miden-rpc", name = "rpc:submit_proven_transaction", skip_all, err)]

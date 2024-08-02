@@ -6,11 +6,8 @@ use std::{
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, AccountId},
     batches::BatchNoteTree,
-    crypto::{
-        hash::blake::{Blake3Digest, Blake3_256},
-        merkle::MerklePath,
-    },
-    notes::{NoteHeader, NoteId, Nullifier},
+    crypto::hash::blake::{Blake3Digest, Blake3_256},
+    notes::{NoteHeader, NoteId, NoteInclusionProof, Nullifier},
     transaction::{InputNoteCommitment, OutputNote, TransactionId},
     AccountDeltaError, Digest, MAX_NOTES_PER_BATCH,
 };
@@ -88,7 +85,7 @@ impl TransactionBatch {
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
     pub fn new(
         txs: Vec<ProvenTransaction>,
-        found_unauthenticated_notes: BTreeMap<NoteId, MerklePath>,
+        found_unauthenticated_notes: BTreeMap<NoteId, NoteInclusionProof>,
     ) -> Result<Self, BuildBatchError> {
         let id = Self::compute_id(&txs);
 
@@ -283,6 +280,8 @@ impl OutputNoteTracker {
 
 #[cfg(test)]
 mod tests {
+    use miden_processor::crypto::MerklePath;
+
     use super::*;
     use crate::test_utils::{
         mock_proven_tx,
@@ -397,8 +396,10 @@ mod tests {
     #[test]
     fn test_convert_unauthenticated_note_to_authenticated() {
         let txs = mock_proven_txs();
-        let found_unauthenticated_notes =
-            BTreeMap::from_iter([(mock_note(5).id(), Default::default())]);
+        let found_unauthenticated_notes = BTreeMap::from_iter([(
+            mock_note(5).id(),
+            NoteInclusionProof::new(0, 0, MerklePath::default()).unwrap(),
+        )]);
         let batch = TransactionBatch::new(txs, found_unauthenticated_notes).unwrap();
 
         let expected_input_notes =

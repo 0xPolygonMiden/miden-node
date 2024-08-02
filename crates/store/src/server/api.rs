@@ -10,17 +10,17 @@ use miden_node_proto::{
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
-            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
-            ListNullifiersRequest, SyncStateRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteInclusionProofsRequest,
+            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
             GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
-            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
-            NullifierUpdate, SyncStateResponse,
+            GetNoteInclusionProofsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -82,7 +82,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetBlockHeaderByNumberResponse {
             block_header: block_header.map(Into::into),
             chain_length: mmr_proof.as_ref().map(|p| p.forest as u32),
-            mmr_path: mmr_proof.map(|p| Into::into(p.merkle_path)),
+            mmr_path: mmr_proof.map(|p| Into::into(&p.merkle_path)),
         }))
     }
 
@@ -196,7 +196,7 @@ impl api_server::Api for StoreApi {
                 note_index: note.note_index.to_absolute_index(),
                 note_id: Some(note.note_id.into()),
                 metadata: Some(note.metadata.into()),
-                merkle_path: Some(note.merkle_path.into()),
+                merkle_path: Some(Into::into(&note.merkle_path)),
             })
             .collect();
 
@@ -253,6 +253,39 @@ impl api_server::Api for StoreApi {
             .collect();
 
         Ok(Response::new(GetNotesByIdResponse { notes }))
+    }
+
+    /// Returns a list of Note inclusion proofs for the specified NoteId's.
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_note_inclusion_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_note_inclusion_proofs(
+        &self,
+        request: tonic::Request<GetNoteInclusionProofsRequest>,
+    ) -> Result<Response<GetNoteInclusionProofsResponse>, Status> {
+        info!(target: COMPONENT, ?request);
+
+        let note_ids = request.into_inner().note_ids;
+
+        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
+
+        let proofs = self
+            .state
+            .get_note_inclusion_proofs(note_ids)
+            .await
+            .map_err(internal_error)?
+            .iter()
+            .map(Into::into)
+            .collect();
+
+        Ok(Response::new(GetNoteInclusionProofsResponse { proofs }))
     }
 
     /// Returns details for public (on-chain) account by id.

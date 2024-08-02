@@ -2,7 +2,8 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{collections::BTreeSet, sync::Arc};
+
+use std::{collections::BTreeMap, sync::Arc};
 
 use miden_node_proto::{
     convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
@@ -16,7 +17,7 @@ use miden_objects::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteInclusionProof, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
     AccountError, BlockHeader, ACCOUNT_TREE_DEPTH,
@@ -38,7 +39,6 @@ use crate::{
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
-
 // STRUCTURES
 // ================================================================================================
 
@@ -58,7 +58,7 @@ pub struct BlockInputs {
     pub nullifiers: Vec<NullifierWitness>,
 
     /// List of notes found in the store
-    pub found_unauthenticated_notes: BTreeSet<NoteId>,
+    pub found_unauthenticated_notes: BTreeMap<NoteId, NoteInclusionProof>,
 }
 
 impl From<BlockInputs> for GetBlockInputsResponse {
@@ -68,7 +68,7 @@ impl From<BlockInputs> for GetBlockInputsResponse {
             mmr_peaks: convert(value.chain_peaks.peaks()),
             account_states: convert(value.account_states),
             nullifiers: convert(value.nullifiers),
-            found_unauthenticated_notes: convert(value.found_unauthenticated_notes),
+            found_unauthenticated_notes: convert(&value.found_unauthenticated_notes),
         }
     }
 }
@@ -397,6 +397,14 @@ impl State {
         self.db.select_notes_by_id(note_ids).await
     }
 
+    /// Queries all the note inclusion proofs matching a certain Note IDs from the database.
+    pub async fn get_note_inclusion_proofs(
+        &self,
+        note_ids: Vec<NoteId>,
+    ) -> Result<BTreeMap<NoteId, NoteInclusionProof>, DatabaseError> {
+        self.db.select_block_note_inclusion_proofs(note_ids).await
+    }
+
     /// Loads data to synchronize a client.
     ///
     /// The client's request contains a list of tag prefixes, this method will return the first
@@ -505,7 +513,8 @@ impl State {
             })
             .collect();
 
-        let found_unauthenticated_notes = self.db.select_note_ids(unauthenticated_notes).await?;
+        let found_unauthenticated_notes =
+            self.db.select_block_note_inclusion_proofs(unauthenticated_notes).await?;
 
         Ok(BlockInputs {
             block_header: latest,
