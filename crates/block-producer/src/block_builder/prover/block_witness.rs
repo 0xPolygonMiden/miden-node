@@ -7,7 +7,7 @@ use miden_objects::{
     notes::Nullifier,
     transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
-    BlockHeader, Digest, Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
+    BlockHeader, Digest, Felt, BLOCK_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
 use crate::{
@@ -218,7 +218,7 @@ impl BlockWitness {
                 stack_inputs.push(batch_index);
             }
 
-            let empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
+            let empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
             stack_inputs.extend(*empty_root);
             stack_inputs.push(
                 Felt::try_from(self.batch_created_notes_roots.len() as u64)

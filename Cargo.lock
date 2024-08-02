@@ -1558,7 +1558,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.5.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-node-index-u32#55b50871a28b9aa102a77ba6bf8544935b44d336"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#493e193f0e5cbb1ab3af8d5193cfa04e3be1681f"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1707,7 +1707,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.5.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-node-index-u32#55b50871a28b9aa102a77ba6bf8544935b44d336"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#493e193f0e5cbb1ab3af8d5193cfa04e3be1681f"
 dependencies = [
  "miden-assembly",
  "miden-core",
@@ -1758,7 +1758,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.5.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-node-index-u32#55b50871a28b9aa102a77ba6bf8544935b44d336"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#493e193f0e5cbb1ab3af8d5193cfa04e3be1681f"
 dependencies = [
  "miden-lib",
  "miden-objects",
