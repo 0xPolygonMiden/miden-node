@@ -69,8 +69,8 @@ message SyncNoteResponse {
     // Block header of the block with the first note matching the specified criteria
     block_header.BlockHeader block_header = 2;
 
-    // Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
-    mmr.MmrDelta mmr_delta = 3;
+    // Proof for block header's MMR with respect to the chain tip.
+    merkle.MerklePath mmr_path = 3;
 
     // List of all notes together with the Merkle paths from `response.block_header.note_root`
     repeated note.NoteSyncRecord notes = 4;

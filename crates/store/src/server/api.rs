@@ -234,7 +234,7 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<SyncNoteResponse>, Status> {
         let request = request.into_inner();
 
-        let (state, delta) = self
+        let (state, mmr_proof) = self
             .state
             .sync_notes(request.block_num, request.note_tags)
             .await
@@ -254,7 +254,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(SyncNoteResponse {
             chain_tip: state.chain_tip,
             block_header: Some(state.block_header.into()),
-            mmr_delta: Some(delta.into()),
+            mmr_path: Some(mmr_proof.merkle_path.into()),
             notes,
         }))
     }

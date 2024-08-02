@@ -26,7 +26,7 @@ use crate::{
     blocks::BlockStore,
     config::StoreConfig,
     db::migrations::apply_migrations,
-    errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
+    errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
     types::{AccountId, BlockNumber},
     COMPONENT,
@@ -291,7 +291,7 @@ impl Db {
         &self,
         block_num: BlockNumber,
         note_tags: Vec<u32>,
-    ) -> Result<NoteSyncUpdate, StateSyncError> {
+    ) -> Result<NoteSyncUpdate, NoteSyncError> {
         self.pool
             .get()
             .await

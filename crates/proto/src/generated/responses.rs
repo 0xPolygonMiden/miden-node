@@ -72,9 +72,9 @@ pub struct SyncNoteResponse {
     /// Block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
-    /// Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
+    /// Proof for block header's MMR with respect to the chain tip.
     #[prost(message, optional, tag = "3")]
-    pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
+    pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`
     #[prost(message, repeated, tag = "4")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,

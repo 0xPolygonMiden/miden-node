@@ -31,7 +31,7 @@ use crate::{
     blocks::BlockStore,
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
-        ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
+        ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError, NoteSyncError,
         StateInitializationError, StateSyncError,
     },
     nullifier_tree::NullifierTree,
@@ -466,32 +466,16 @@ impl State {
         &self,
         block_num: BlockNumber,
         note_tag_prefixes: Vec<u32>,
-    ) -> Result<(NoteSyncUpdate, MmrDelta), StateSyncError> {
+    ) -> Result<(NoteSyncUpdate, MmrProof), NoteSyncError> {
         let inner = self.inner.read().await;
 
         let note_sync = self.db.get_note_sync(block_num, note_tag_prefixes).await?;
 
-        let delta = if block_num == note_sync.block_header.block_num() {
-            // The client is in sync with the chain tip.
-            MmrDelta { forest: block_num as usize, data: vec![] }
-        } else {
-            // Important notes about the boundary conditions:
-            //
-            // - The Mmr forest is 1-indexed whereas the block number is 0-indexed. The Mmr root
-            // contained in the block header always lag behind by one block, this is because the Mmr
-            // leaves are hashes of block headers, and we can't have self-referential hashes. These two
-            // points cancel out and don't require adjusting.
-            // - Mmr::get_delta is inclusive, whereas the sync_state request block_num is defined to be
-            // exclusive, so the from_forest has to be adjusted with a +1
-            let from_forest = (block_num + 1) as usize;
-            let to_forest = note_sync.block_header.block_num() as usize;
-            inner
-                .chain_mmr
-                .get_delta(from_forest, to_forest)
-                .map_err(StateSyncError::FailedToBuildMmrDelta)?
-        };
+        let mmr_proof = inner
+            .chain_mmr
+            .open(note_sync.block_header.block_num() as usize, inner.chain_mmr.forest())?;
 
-        Ok((note_sync, delta))
+        Ok((note_sync, mmr_proof))
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.

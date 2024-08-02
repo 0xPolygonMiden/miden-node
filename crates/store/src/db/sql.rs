@@ -22,7 +22,7 @@ use super::{
     NoteRecord, NoteSyncUpdate, NullifierInfo, Result, StateSyncUpdate, TransactionSummary,
 };
 use crate::{
-    errors::{DatabaseError, StateSyncError},
+    errors::{DatabaseError, NoteSyncError, StateSyncError},
     types::{AccountId, BlockNumber},
 };
 
@@ -974,19 +974,19 @@ pub fn get_note_sync(
     conn: &mut Connection,
     block_num: BlockNumber,
     note_tags: &[u32],
-) -> Result<NoteSyncUpdate, StateSyncError> {
+) -> Result<NoteSyncUpdate, NoteSyncError> {
     let notes = select_notes_since_block_by_tag(conn, note_tags, block_num)?;
 
     let (block_header, chain_tip) = if !notes.is_empty() {
         let block_header = select_block_header_by_block_num(conn, Some(notes[0].block_num))?
-            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
+            .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
         let tip = select_block_header_by_block_num(conn, None)?
-            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
+            .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
 
         (block_header, tip.block_num())
     } else {
         let block_header = select_block_header_by_block_num(conn, None)?
-            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
+            .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
 
         let block_num = block_header.block_num();
         (block_header, block_num)
