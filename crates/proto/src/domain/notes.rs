@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use miden_objects::{
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
@@ -8,10 +6,7 @@ use miden_objects::{
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
-    generated::{
-        note::NoteMetadata as NoteMetadataPb,
-        responses::BlockNoteInclusionProofs as BlockNoteInclusionProofsPb,
-    },
+    generated::note::{NoteInclusionProof as NoteInclusionProofPb, NoteMetadata as NoteMetadataPb},
 };
 
 impl TryFrom<NoteMetadataPb> for NoteMetadata {
@@ -41,41 +36,38 @@ impl From<NoteMetadata> for NoteMetadataPb {
     }
 }
 
-pub fn try_note_inclusion_proofs_from_proto(
-    blocks: &[BlockNoteInclusionProofsPb],
-) -> Result<BTreeMap<NoteId, NoteInclusionProof>, ConversionError> {
-    blocks
-        .iter()
-        .flat_map(|block| block.notes.iter().map(move |proof| (block, proof)))
-        .map(|(block, proof)| {
-            Ok((
-                RpoDigest::try_from(
-                    proof
-                        .note_id
-                        .as_ref()
-                        .ok_or(BlockNoteInclusionProofsPb::missing_field(stringify!(note_id)))?,
-                )?
-                .into(),
-                miden_objects::notes::NoteInclusionProof::new(
-                    block.block_num,
-                    block
-                        .sub_hash
-                        .as_ref()
-                        .ok_or(BlockNoteInclusionProofsPb::missing_field(stringify!(sub_hash)))?
-                        .try_into()?,
-                    block
-                        .note_root
-                        .as_ref()
-                        .ok_or(BlockNoteInclusionProofsPb::missing_field(stringify!(note_root)))?
-                        .try_into()?,
-                    proof.note_index_in_block.into(),
-                    proof
-                        .merkle_path
-                        .as_ref()
-                        .ok_or(BlockNoteInclusionProofsPb::missing_field(stringify!(merkle_path)))?
-                        .try_into()?,
-                )?,
-            ))
-        })
-        .collect()
+impl From<(&NoteId, &NoteInclusionProof)> for NoteInclusionProofPb {
+    fn from((note_id, proof): (&NoteId, &NoteInclusionProof)) -> Self {
+        Self {
+            note_id: Some(note_id.into()),
+            block_num: proof.location().block_num(),
+            note_index_in_block: proof.location().node_index_in_block(),
+            merkle_path: Some(Into::into(proof.note_path())),
+        }
+    }
+}
+
+impl TryFrom<&NoteInclusionProofPb> for (NoteId, NoteInclusionProof) {
+    type Error = ConversionError;
+
+    fn try_from(proof: &NoteInclusionProofPb) -> Result<(NoteId, NoteInclusionProof), Self::Error> {
+        Ok((
+            RpoDigest::try_from(
+                proof
+                    .note_id
+                    .as_ref()
+                    .ok_or(NoteInclusionProofPb::missing_field(stringify!(note_id)))?,
+            )?
+            .into(),
+            NoteInclusionProof::new(
+                proof.block_num,
+                proof.note_index_in_block,
+                proof
+                    .merkle_path
+                    .as_ref()
+                    .ok_or(NoteInclusionProofPb::missing_field(stringify!(merkle_path)))?
+                    .try_into()?,
+            )?,
+        ))
+    }
 }

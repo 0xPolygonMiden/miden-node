@@ -100,7 +100,9 @@ pub struct GetBlockInputsResponse {
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
     /// The list of requested unauthenticated notes with their inclusion proofs which were found in the database
     #[prost(message, repeated, tag = "5")]
-    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<BlockNoteInclusionProofs>,
+    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<
+        super::note::NoteInclusionProof,
+    >,
 }
 /// An account returned as a response to the GetTransactionInputs
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -144,22 +146,10 @@ pub struct GetNotesByIdResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BlockNoteInclusionProofs {
-    #[prost(fixed32, tag = "1")]
-    pub block_num: u32,
-    #[prost(message, optional, tag = "2")]
-    pub sub_hash: ::core::option::Option<super::digest::Digest>,
-    #[prost(message, optional, tag = "3")]
-    pub note_root: ::core::option::Option<super::digest::Digest>,
-    #[prost(message, repeated, tag = "4")]
-    pub notes: ::prost::alloc::vec::Vec<super::note::NoteInclusionProof>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNoteInclusionProofsResponse {
-    /// Lists note inclusion proofs by blocks returned by the database
+    /// Lists note inclusion proofs returned by the database
     #[prost(message, repeated, tag = "1")]
-    pub proofs: ::prost::alloc::vec::Vec<BlockNoteInclusionProofs>,
+    pub proofs: ::prost::alloc::vec::Vec<super::note::NoteInclusionProof>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

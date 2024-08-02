@@ -25,8 +25,9 @@ message Note {
 
 message NoteInclusionProof {
     digest.Digest note_id = 1;
-    uint32 note_index_in_block = 2;
-    merkle.MerklePath merkle_path = 3;
+    fixed32 block_num = 2;
+    uint32 note_index_in_block = 3;
+    merkle.MerklePath merkle_path = 4;
 }
 
 message NoteSyncRecord {

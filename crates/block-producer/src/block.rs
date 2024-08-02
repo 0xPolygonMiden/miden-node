@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
 
 use miden_node_proto::{
-    domain::notes::try_note_inclusion_proofs_from_proto,
     errors::{ConversionError, MissingFieldHelper},
     generated::responses::GetBlockInputsResponse,
-    AccountInputRecord, NullifierWitness,
+    try_convert, AccountInputRecord, NullifierWitness,
 };
 use miden_objects::{
     accounts::AccountId,
@@ -91,8 +90,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             })
             .collect::<Result<BTreeMap<_, _>, ConversionError>>()?;
 
-        let found_unauthenticated_notes =
-            try_note_inclusion_proofs_from_proto(&response.found_unauthenticated_notes)?;
+        let found_unauthenticated_notes = try_convert(&response.found_unauthenticated_notes)?;
 
         Ok(Self {
             block_header,

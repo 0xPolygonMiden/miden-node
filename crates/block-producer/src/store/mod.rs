@@ -7,7 +7,6 @@ use std::{
 use async_trait::async_trait;
 use itertools::Itertools;
 use miden_node_proto::{
-    domain::notes::try_note_inclusion_proofs_from_proto,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
@@ -18,7 +17,7 @@ use miden_node_proto::{
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
-    AccountState,
+    try_convert, AccountState,
 };
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
@@ -269,6 +268,6 @@ impl Store for DefaultStore {
             .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
             .into_inner();
 
-        try_note_inclusion_proofs_from_proto(&store_response.proofs).map_err(Into::into)
+        try_convert(&store_response.proofs).map_err(Into::into)
     }
 }

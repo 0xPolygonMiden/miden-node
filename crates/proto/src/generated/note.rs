@@ -34,9 +34,11 @@ pub struct Note {
 pub struct NoteInclusionProof {
     #[prost(message, optional, tag = "1")]
     pub note_id: ::core::option::Option<super::digest::Digest>,
-    #[prost(uint32, tag = "2")]
+    #[prost(fixed32, tag = "2")]
+    pub block_num: u32,
+    #[prost(uint32, tag = "3")]
     pub note_index_in_block: u32,
-    #[prost(message, optional, tag = "3")]
+    #[prost(message, optional, tag = "4")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

@@ -1,24 +1,19 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, create_dir_all},
     sync::Arc,
 };
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
-    convert,
     domain::accounts::{AccountInfo, AccountSummary},
-    errors::{ConversionError, MissingFieldHelper},
-    generated::{
-        note::{Note as NotePb, NoteInclusionProof as NoteInclusionProofPb},
-        responses::BlockNoteInclusionProofs as BlockNoteInclusionProofsPb,
-    },
+    generated::note::Note as NotePb,
 };
 use miden_objects::{
     accounts::AccountDelta,
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::{NoteId, NoteMetadata, Nullifier},
+    notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
     utils::Serializable,
     BlockHeader, GENESIS_BLOCK,
@@ -82,70 +77,6 @@ impl From<NoteRecord> for NotePb {
             metadata: Some(note.metadata.into()),
             merkle_path: Some(Into::into(&note.merkle_path)),
             details: note.details,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct NoteInclusionProof {
-    pub note_id: NoteId,
-    pub note_index_in_block: u32,
-    pub merkle_path: MerklePath,
-}
-
-impl NoteInclusionProof {
-    pub fn into_parts(self) -> (NoteId, MerklePath) {
-        (self.note_id, self.merkle_path)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct BlockNoteInclusionProofs {
-    pub block_num: u32,
-    pub sub_hash: RpoDigest,
-    pub note_root: RpoDigest,
-    pub notes: Vec<NoteInclusionProof>,
-}
-
-impl From<&NoteInclusionProof> for NoteInclusionProofPb {
-    fn from(value: &NoteInclusionProof) -> Self {
-        Self {
-            note_id: Some(value.note_id.into()),
-            note_index_in_block: value.note_index_in_block,
-            merkle_path: Some(Into::into(&value.merkle_path)),
-        }
-    }
-}
-
-impl TryFrom<&NoteInclusionProofPb> for NoteInclusionProof {
-    type Error = ConversionError;
-
-    fn try_from(proof: &NoteInclusionProofPb) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            note_id: RpoDigest::try_from(
-                proof
-                    .note_id
-                    .as_ref()
-                    .ok_or(NoteInclusionProofPb::missing_field(stringify!(note_id)))?,
-            )?
-            .into(),
-            note_index_in_block: proof.note_index_in_block,
-            merkle_path: proof
-                .merkle_path
-                .as_ref()
-                .ok_or(NoteInclusionProofPb::missing_field(stringify!(merkle_path)))?
-                .try_into()?,
-        })
-    }
-}
-
-impl From<&BlockNoteInclusionProofs> for BlockNoteInclusionProofsPb {
-    fn from(value: &BlockNoteInclusionProofs) -> Self {
-        Self {
-            block_num: value.block_num,
-            sub_hash: Some(value.sub_hash.into()),
-            note_root: Some(value.note_root.into()),
-            notes: convert(value.notes.iter()),
         }
     }
 }
@@ -382,7 +313,7 @@ impl Db {
     pub async fn select_block_note_inclusion_proofs(
         &self,
         note_ids: Vec<NoteId>,
-    ) -> Result<Vec<BlockNoteInclusionProofs>> {
+    ) -> Result<BTreeMap<NoteId, NoteInclusionProof>> {
         self.pool
             .get()
             .await?

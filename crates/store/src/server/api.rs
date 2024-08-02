@@ -10,17 +10,17 @@ use miden_node_proto::{
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteInclusionProofsRequest, GetNotesByIdRequest,
-            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
-            ListNullifiersRequest, SyncStateRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteInclusionProofsRequest,
+            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
             GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
-            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
-            NullifierUpdate, SyncStateResponse,
+            GetNoteInclusionProofsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -278,7 +278,7 @@ impl api_server::Api for StoreApi {
 
         let proofs = self
             .state
-            .get_block_note_inclusion_proofs(note_ids)
+            .get_note_inclusion_proofs(note_ids)
             .await
             .map_err(internal_error)?
             .iter()

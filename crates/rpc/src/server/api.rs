@@ -4,12 +4,14 @@ use miden_node_proto::{
         requests::{
             CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
             GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
-            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+            GetNoteInclusionProofsRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
+            SyncStateRequest,
         },
         responses::{
             CheckNullifiersByPrefixResponse, CheckNullifiersResponse, GetAccountDetailsResponse,
             GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncStateResponse,
+            GetNoteInclusionProofsResponse, GetNotesByIdResponse, SubmitProvenTransactionResponse,
+            SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,

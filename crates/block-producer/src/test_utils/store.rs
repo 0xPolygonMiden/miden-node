@@ -135,8 +135,6 @@ impl MockStoreSuccessBuilder {
                     note.id(),
                     NoteInclusionProof::new(
                         block_num,
-                        initial_block_header.sub_hash(),
-                        note_root,
                         index.to_absolute_index(),
                         block_note_tree.get_note_path(index).unwrap(),
                     )
@@ -221,8 +219,6 @@ impl ApplyBlock for MockStoreSuccess {
                 note.id(),
                 NoteInclusionProof::new(
                     header.block_num(),
-                    header.sub_hash(),
-                    note_tree.root(),
                     note_index.to_absolute_index(),
                     note_tree.get_note_path(note_index).unwrap_or_default(),
                 )

@@ -2,7 +2,8 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::sync::Arc;
+
+use std::{collections::BTreeMap, sync::Arc};
 
 use miden_node_proto::{
     convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
@@ -16,7 +17,7 @@ use miden_objects::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath},
     },
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteInclusionProof, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
     AccountError, BlockHeader, ACCOUNT_TREE_DEPTH,
@@ -29,7 +30,7 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     blocks::BlockStore,
-    db::{BlockNoteInclusionProofs, Db, NoteRecord, NullifierInfo, StateSyncUpdate},
+    db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
         StateInitializationError, StateSyncError,
@@ -57,7 +58,7 @@ pub struct BlockInputs {
     pub nullifiers: Vec<NullifierWitness>,
 
     /// List of notes found in the store
-    pub found_unauthenticated_notes: Vec<BlockNoteInclusionProofs>,
+    pub found_unauthenticated_notes: BTreeMap<NoteId, NoteInclusionProof>,
 }
 
 impl From<BlockInputs> for GetBlockInputsResponse {
@@ -397,10 +398,10 @@ impl State {
     }
 
     /// Queries all the note inclusion proofs matching a certain Note IDs from the database.
-    pub async fn get_block_note_inclusion_proofs(
+    pub async fn get_note_inclusion_proofs(
         &self,
         note_ids: Vec<NoteId>,
-    ) -> Result<Vec<BlockNoteInclusionProofs>, DatabaseError> {
+    ) -> Result<BTreeMap<NoteId, NoteInclusionProof>, DatabaseError> {
         self.db.select_block_note_inclusion_proofs(note_ids).await
     }
 
