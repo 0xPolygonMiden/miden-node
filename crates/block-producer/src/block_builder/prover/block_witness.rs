@@ -7,8 +7,7 @@ use miden_objects::{
     notes::Nullifier,
     transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
-    BlockHeader, Digest, Felt, BLOCK_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK,
-    ZERO,
+    BlockHeader, Digest, Felt, BLOCK_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
 use crate::{
