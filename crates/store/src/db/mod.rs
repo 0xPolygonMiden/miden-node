@@ -269,26 +269,16 @@ impl Db {
     pub async fn get_state_sync(
         &self,
         block_num: BlockNumber,
-        account_ids: &[AccountId],
-        note_tag_prefixes: &[u32],
-        nullifier_prefixes: &[u32],
+        account_ids: Vec<AccountId>,
+        note_tags: Vec<u32>,
+        nullifier_prefixes: Vec<u32>,
     ) -> Result<StateSyncUpdate, StateSyncError> {
-        let account_ids = account_ids.to_vec();
-        let note_tag_prefixes = note_tag_prefixes.to_vec();
-        let nullifier_prefixes = nullifier_prefixes.to_vec();
-
         self.pool
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
             .interact(move |conn| {
-                sql::get_state_sync(
-                    conn,
-                    block_num,
-                    &account_ids,
-                    &note_tag_prefixes,
-                    &nullifier_prefixes,
-                )
+                sql::get_state_sync(conn, block_num, &account_ids, &note_tags, &nullifier_prefixes)
             })
             .await
             .map_err(|err| {
@@ -300,15 +290,13 @@ impl Db {
     pub async fn get_note_sync(
         &self,
         block_num: BlockNumber,
-        note_tag_prefixes: &[u32],
+        note_tags: Vec<u32>,
     ) -> Result<NoteSyncUpdate, StateSyncError> {
-        let note_tag_prefixes = note_tag_prefixes.to_vec();
-
         self.pool
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| sql::get_note_sync(conn, block_num, &note_tag_prefixes))
+            .interact(move |conn| sql::get_note_sync(conn, block_num, &note_tags))
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get notes sync task failed: {err}"))

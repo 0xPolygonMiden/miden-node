@@ -964,9 +964,9 @@ pub fn get_state_sync(
 pub fn get_note_sync(
     conn: &mut Connection,
     block_num: BlockNumber,
-    note_tag_prefixes: &[u32],
+    note_tags: &[u32],
 ) -> Result<NoteSyncUpdate, StateSyncError> {
-    let notes = select_notes_since_block_by_tag(conn, note_tag_prefixes, block_num)?;
+    let notes = select_notes_since_block_by_tag(conn, note_tags, block_num)?;
 
     let (block_header, chain_tip) = if !notes.is_empty() {
         let block_header = select_block_header_by_block_num(conn, Some(notes[0].block_num))?

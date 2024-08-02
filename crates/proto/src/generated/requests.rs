@@ -59,12 +59,11 @@ pub struct SyncStateRequest {
     /// it won't be included in the response.
     #[prost(message, repeated, tag = "2")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Determines the tags which the client is interested in.
+    /// Specifies the tags which the client is interested in.
     #[prost(fixed32, repeated, tag = "3")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
-    /// Determines the nullifiers the client is interested in.
-    ///
-    /// Similarly to the note_tags, this determins only the 16high bits of the target nullifier.
+    /// Determines the nullifiers the client is interested in by specifying the 16high bits of the
+    /// target nullifier.
     #[prost(uint32, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
 }
@@ -79,7 +78,7 @@ pub struct SyncNoteRequest {
     /// until the first block which contains a note of matching the requested tag.
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
-    /// Determines the tags which the client is interested in.
+    /// Specifies the tags which the client is interested in.
     #[prost(fixed32, repeated, tag = "2")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
 }

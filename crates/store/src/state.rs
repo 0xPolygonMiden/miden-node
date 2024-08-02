@@ -405,27 +405,26 @@ impl State {
     ///
     /// # Arguments
     ///
-    /// - `block_num`: The last block *know* by the client, updates start from the next block.
+    /// - `block_num`: The last block *known* by the client, updates start from the next block.
     /// - `account_ids`: Include the account's hash if their _last change_ was in the result's block
     ///   range.
-    /// - `note_tag_prefixes`: Only the 16 high bits of the tags the client is interested in, result
-    ///   will include notes with matching prefixes, the first block with a matching note determines
-    ///   the block range.
+    /// - `note_tags`: The tags the client is interested in, result is restricted to the first block
+    ///    with any matches tags.
     /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is interested in,
     ///   results will include nullifiers matching prefixes produced in the given block range.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
-        account_ids: &[AccountId],
-        note_tag_prefixes: &[u32],
-        nullifier_prefixes: &[u32],
+        account_ids: Vec<AccountId>,
+        note_tags: Vec<u32>,
+        nullifier_prefixes: Vec<u32>,
     ) -> Result<(StateSyncUpdate, MmrDelta), StateSyncError> {
         let inner = self.inner.read().await;
 
         let state_sync = self
             .db
-            .get_state_sync(block_num, account_ids, note_tag_prefixes, nullifier_prefixes)
+            .get_state_sync(block_num, account_ids, note_tags, nullifier_prefixes)
             .await?;
 
         let delta = if block_num == state_sync.block_header.block_num() {
@@ -459,15 +458,14 @@ impl State {
     ///
     /// # Arguments
     ///
-    /// - `block_num`: The last block *know* by the client, updates start from the next block.
-    /// - `note_tag_prefixes`: Only the 16 high bits of the tags the client is interested in, result
-    ///   will include notes with matching prefixes, the first block with a matching note determines
-    ///   the block range.
+    /// - `block_num`: The last block *known* by the client, updates start from the next block.
+    /// - `note_tags`: The tags the client is interested in, resulting notes are restricted to
+    ///    the first block containing a matching note.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn sync_notes(
         &self,
         block_num: BlockNumber,
-        note_tag_prefixes: &[u32],
+        note_tag_prefixes: Vec<u32>,
     ) -> Result<(NoteSyncUpdate, MmrDelta), StateSyncError> {
         let inner = self.inner.read().await;
 
