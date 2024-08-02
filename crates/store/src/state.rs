@@ -68,7 +68,7 @@ impl From<BlockInputs> for GetBlockInputsResponse {
             mmr_peaks: convert(value.chain_peaks.peaks()),
             account_states: convert(value.account_states),
             nullifiers: convert(value.nullifiers),
-            found_unauthenticated_notes: convert(value.found_unauthenticated_notes.iter()),
+            found_unauthenticated_notes: convert(&value.found_unauthenticated_notes),
         }
     }
 }
