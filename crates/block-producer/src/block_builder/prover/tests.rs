@@ -15,7 +15,7 @@ use miden_objects::{
     },
     notes::{NoteHeader, NoteMetadata, NoteTag, NoteType},
     transaction::{OutputNote, ProvenTransaction},
-    Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
+    Felt, BLOCK_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
 use self::block_witness::AccountUpdateWitness;
@@ -451,7 +451,7 @@ async fn test_compute_note_root_empty_batches_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -486,7 +486,7 @@ async fn test_compute_note_root_empty_notes_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -565,11 +565,11 @@ async fn test_compute_note_root_success() {
     // The current logic is hardcoded to a depth of 21
     // Specifically, we assume the block has up to 2^8 batches, and each batch up to 2^12 created notes,
     // where each note is stored at depth 13 in the batch as 2 contiguous nodes: note hash, then metadata.
-    assert_eq!(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 21);
+    assert_eq!(BLOCK_NOTES_TREE_DEPTH, 21);
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
     // the second subtree of depth 12
-    let notes_smt = SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(vec![
+    let notes_smt = SimpleSmt::<BLOCK_NOTES_TREE_DEPTH>::with_leaves(vec![
         (0u64, notes_created[0].id().into()),
         (1u64, notes_created[0].metadata().into()),
         (2u64, notes_created[1].id().into()),

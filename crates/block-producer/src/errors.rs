@@ -5,7 +5,7 @@ use miden_objects::{
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
-    AccountDeltaError, Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH,
+    AccountDeltaError, Digest, TransactionInputError, BLOCK_NOTES_BATCH_TREE_DEPTH,
     MAX_NOTES_PER_BATCH,
 };
 use miden_processor::ExecutionError;
@@ -185,10 +185,7 @@ pub enum BuildBlockError {
     InconsistentNullifiers(Vec<Nullifier>),
     #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
-    #[error(
-        "too many batches in block. Got: {0}, max: 2^{}",
-        BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH
-    )]
+    #[error("too many batches in block. Got: {0}, max: 2^{}", BLOCK_NOTES_BATCH_TREE_DEPTH)]
     TooManyBatchesInBlock(usize),
     #[error("Failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {
