@@ -33,7 +33,7 @@ use crate::{
 ///
 /// A vector with accounts, or an error.
 pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             account_id,
@@ -61,8 +61,8 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
 ///
 /// The vector with the account id and corresponding hash, or an error.
 pub fn select_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, RpoDigest)>> {
-    let mut stmt =
-        conn.prepare("SELECT account_id, account_hash FROM accounts ORDER BY block_num ASC;")?;
+    let mut stmt = conn
+        .prepare_cached("SELECT account_id, account_hash FROM accounts ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
 
     let mut result = Vec::new();
@@ -91,7 +91,7 @@ pub fn select_accounts_by_block_range(
 ) -> Result<Vec<AccountSummary>> {
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             account_id,
@@ -124,7 +124,7 @@ pub fn select_accounts_by_block_range(
 ///
 /// The latest account details, or an error.
 pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<AccountInfo> {
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             account_id,
@@ -159,7 +159,7 @@ pub fn select_account_deltas(
     block_start: BlockNumber,
     block_end: BlockNumber,
 ) -> Result<Vec<AccountDelta>> {
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             delta
@@ -196,14 +196,14 @@ pub fn upsert_accounts(
     accounts: &[BlockAccountUpdate],
     block_num: BlockNumber,
 ) -> Result<usize> {
-    let mut upsert_stmt = transaction.prepare(
+    let mut upsert_stmt = transaction.prepare_cached(
         "INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num, details) VALUES (?1, ?2, ?3, ?4);",
     )?;
-    let mut insert_delta_stmt = transaction.prepare(
+    let mut insert_delta_stmt = transaction.prepare_cached(
         "INSERT INTO account_deltas (account_id, block_num, delta) VALUES (?1, ?2, ?3);",
     )?;
     let mut select_details_stmt =
-        transaction.prepare("SELECT details FROM accounts WHERE account_id = ?1;")?;
+        transaction.prepare_cached("SELECT details FROM accounts WHERE account_id = ?1;")?;
 
     let mut count = 0;
     for update in accounts.iter() {
@@ -274,7 +274,7 @@ pub fn insert_nullifiers_for_block(
     nullifiers: &[Nullifier],
     block_num: BlockNumber,
 ) -> Result<usize> {
-    let mut stmt = transaction.prepare(
+    let mut stmt = transaction.prepare_cached(
         "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_num) VALUES (?1, ?2, ?3);",
     )?;
 
@@ -293,7 +293,7 @@ pub fn insert_nullifiers_for_block(
 /// A vector with nullifiers and the block height at which they were created, or an error.
 pub fn select_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, BlockNumber)>> {
     let mut stmt =
-        conn.prepare("SELECT nullifier, block_num FROM nullifiers ORDER BY block_num ASC;")?;
+        conn.prepare_cached("SELECT nullifier, block_num FROM nullifiers ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
 
     let mut result = vec![];
@@ -325,7 +325,7 @@ pub fn select_nullifiers_by_block_range(
     let nullifier_prefixes: Vec<Value> =
         nullifier_prefixes.iter().copied().map(u32_to_value).collect();
 
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             nullifier,
@@ -374,7 +374,7 @@ pub fn select_nullifiers_by_prefix(
     let nullifier_prefixes: Vec<Value> =
         nullifier_prefixes.iter().copied().map(u32_to_value).collect();
 
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             nullifier,
@@ -410,7 +410,7 @@ pub fn select_nullifiers_by_prefix(
 ///
 /// A vector with notes, or an error.
 pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             block_num,
@@ -473,7 +473,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
 pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<usize> {
-    let mut stmt = transaction.prepare(
+    let mut stmt = transaction.prepare_cached(
         "
         INSERT INTO
         notes
@@ -536,7 +536,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             block_num,
@@ -613,7 +613,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
 pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<NoteRecord>> {
     let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             block_num,
@@ -680,7 +680,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
 /// transaction.
 pub fn insert_block_header(transaction: &Transaction, block_header: &BlockHeader) -> Result<usize> {
     let mut stmt = transaction
-        .prepare("INSERT INTO block_headers (block_num, block_header) VALUES (?1, ?2);")?;
+        .prepare_cached("INSERT INTO block_headers (block_num, block_header) VALUES (?1, ?2);")?;
     Ok(stmt.execute(params![block_header.block_num(), block_header.to_bytes()])?)
 }
 
@@ -697,11 +697,12 @@ pub fn select_block_header_by_block_num(
     let mut stmt;
     let mut rows = match block_number {
         Some(block_number) => {
-            stmt = conn.prepare("SELECT block_header FROM block_headers WHERE block_num = ?1")?;
+            stmt =
+                conn.prepare_cached("SELECT block_header FROM block_headers WHERE block_num = ?1")?;
             stmt.query([block_number])?
         },
         None => {
-            stmt = conn.prepare(
+            stmt = conn.prepare_cached(
                 "SELECT block_header FROM block_headers ORDER BY block_num DESC LIMIT 1",
             )?;
             stmt.query([])?
@@ -724,7 +725,7 @@ pub fn select_block_header_by_block_num(
 /// A vector of [BlockHeader] or an error.
 pub fn select_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
     let mut stmt =
-        conn.prepare("SELECT block_header FROM block_headers ORDER BY block_num ASC;")?;
+        conn.prepare_cached("SELECT block_header FROM block_headers ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
     let mut result = vec![];
     while let Some(row) = rows.next()? {
@@ -754,7 +755,7 @@ pub fn insert_transactions(
     block_num: BlockNumber,
     accounts: &[BlockAccountUpdate],
 ) -> Result<usize> {
-    let mut stmt = transaction.prepare(
+    let mut stmt = transaction.prepare_cached(
         "INSERT INTO transactions (transaction_id, account_id, block_num) VALUES (?1, ?2, ?3);",
     )?;
     let mut count = 0;
@@ -785,7 +786,7 @@ pub fn select_transactions_by_accounts_and_block_range(
 ) -> Result<Vec<TransactionSummary>> {
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
 
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_cached(
         "
         SELECT
             account_id,
