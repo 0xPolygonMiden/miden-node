@@ -72,7 +72,7 @@ impl From<NoteRecord> for NotePb {
     fn from(note: NoteRecord) -> Self {
         Self {
             block_num: note.block_num,
-            note_index: note.note_index.to_absolute_index() as u32,
+            note_index: note.note_index.to_absolute_index(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
             merkle_path: Some(note.merkle_path.into()),
