@@ -34,7 +34,7 @@ use crate::{
     errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
     genesis::GenesisState,
     types::{AccountId, BlockNumber},
-    COMPONENT,
+    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
 mod migrations;
@@ -77,7 +77,7 @@ impl From<NoteRecord> for NotePb {
     fn from(note: NoteRecord) -> Self {
         Self {
             block_num: note.block_num,
-            note_index: note.note_index.to_absolute_index() as u32,
+            note_index: note.note_index.to_absolute_index(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
             merkle_path: Some(Into::into(&note.merkle_path)),
@@ -187,6 +187,11 @@ impl Db {
                             // queries we want to run
                             array::load_module(conn)?;
 
+                            // Increase the statement cache size.
+                            conn.set_prepared_statement_cache_capacity(
+                                SQL_STATEMENT_CACHE_CAPACITY,
+                            );
+
                             // Enable the WAL mode. This allows concurrent reads while the
                             // transaction is being written, this is required for proper
                             // synchronization of the servers in-memory and on-disk representations
@@ -231,6 +236,27 @@ impl Db {
         self.pool.get().await?.interact(sql::select_nullifiers).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
         })?
+    }
+
+    /// Loads the nullifiers that match the prefixes from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_nullifiers_by_prefix(
+        &self,
+        prefix_len: u32,
+        nullifier_prefixes: Vec<u32>,
+    ) -> Result<Vec<NullifierInfo>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| {
+                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes)
+            })
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!(
+                    "Select nullifiers by prefix task failed: {err}"
+                ))
+            })?
     }
 
     /// Loads all the notes from the DB.

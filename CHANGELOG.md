@@ -12,6 +12,9 @@
 - Added warning on CI for `CHANGELOG.md` (#413).
 - Now accounts for genesis are optional. Accounts directory will be overwritten, if `--force` flag is set (#420).
 - Added `GetAccountStateDelta` endpoint (#418).
+- Added `CheckNullifiersByPrefix` endpoint (#419).
+- Support multiple inflight transactions on the same account (#407).
+- Cache sql statements (#427).
 - Implemented `GetNoteInclusionProofs` endpoint for both miden-store and miden-rpc (#421).
 
 ### Fixes

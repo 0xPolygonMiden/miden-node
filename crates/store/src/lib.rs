@@ -11,3 +11,6 @@ pub mod types;
 // CONSTANTS
 // =================================================================================================
 pub const COMPONENT: &str = "miden-store";
+
+/// Number of sql statements that each connection will cache.
+const SQL_STATEMENT_CACHE_CAPACITY: usize = 32;

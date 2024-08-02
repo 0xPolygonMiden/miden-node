@@ -17,6 +17,11 @@ message CheckNullifiersResponse {
     repeated smt.SmtOpening proofs = 1;
 }
 
+message CheckNullifiersByPrefixResponse {
+    // List of nullifiers matching the prefixes specified in the request.
+    repeated NullifierUpdate nullifiers = 1;
+}
+
 message GetBlockHeaderByNumberResponse {
     // The requested block header
     block_header.BlockHeader block_header = 1;
