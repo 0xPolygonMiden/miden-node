@@ -521,9 +521,9 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
 ///
 /// # Returns
 ///
-/// - Empty vector if no tag created after `block_num` match `tags` or `account_ids`.
-/// - Otherwise, notes which the 16 high bits match `tags`, or the `sender` is one of the
-///   `account_ids`.
+/// All matching notes from the first block greater than `block_num` containing a matching note.
+/// A note is considered a match if it has any of the given tags, or if its sender is one of the
+/// given account IDs. If no matching notes are found at all, then an empty vector is returned.
 ///
 /// # Note
 ///
@@ -610,9 +610,9 @@ pub fn select_notes_since_block_by_tag_and_sender(
 ///
 /// # Returns
 ///
-/// - Empty vector if no tag created after `block_num` match `tags`.
-/// - Otherwise, notes which the 16 high bits match `tags`, or the `sender` is one of the
-///   `account_ids`.
+/// All matching notes from the first block greater than `block_num` containing a matching note.
+/// A note is considered a match if it has any of the given tags. If no matching notes are found
+/// at all, then an empty vector is returned.
 ///
 /// # Note
 ///

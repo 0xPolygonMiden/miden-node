@@ -452,7 +452,7 @@ impl State {
 
     /// Loads data to synchronize a client's notes.
     ///
-    /// The client's request contains a list of tag prefixes, this method will return the first
+    /// The client's request contains a list of tags, this method will return the first
     /// block with a matching tag, or the chain tip. All the other values are filter based on this
     /// block range.
     ///
@@ -465,11 +465,11 @@ impl State {
     pub async fn sync_notes(
         &self,
         block_num: BlockNumber,
-        note_tag_prefixes: Vec<u32>,
+        note_tags: Vec<u32>,
     ) -> Result<(NoteSyncUpdate, MmrProof), NoteSyncError> {
         let inner = self.inner.read().await;
 
-        let note_sync = self.db.get_note_sync(block_num, note_tag_prefixes).await?;
+        let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
 
         let mmr_proof = inner
             .chain_mmr
