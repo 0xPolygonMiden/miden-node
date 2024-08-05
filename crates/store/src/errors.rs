@@ -214,3 +214,13 @@ pub enum StateSyncError {
     #[error("Failed to build MMR delta: {0}")]
     FailedToBuildMmrDelta(MmrError),
 }
+
+#[derive(Error, Debug)]
+pub enum NoteSyncError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
+    #[error("Block headers table is empty")]
+    EmptyBlockHeadersTable,
+    #[error("Error retrieving the merkle proof for the block: {0}")]
+    MmrError(#[from] MmrError),
+}

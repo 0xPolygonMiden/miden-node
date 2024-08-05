@@ -59,19 +59,28 @@ pub struct SyncStateRequest {
     /// it won't be included in the response.
     #[prost(message, repeated, tag = "2")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Determines the tags which the client is interested in. These are only the 16high bits of the
-    /// note's complete tag.
-    ///
-    /// The above means it is not possible to request an specific note, but only a "note family",
-    /// this is done to increase the privacy of the client, by hiding the note's the client is
-    /// intereted on.
-    #[prost(uint32, repeated, tag = "3")]
+    /// Specifies the tags which the client is interested in.
+    #[prost(fixed32, repeated, tag = "3")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
-    /// Determines the nullifiers the client is interested in.
-    ///
-    /// Similarly to the note_tags, this determins only the 16high bits of the target nullifier.
+    /// Determines the nullifiers the client is interested in by specifying the 16high bits of the
+    /// target nullifier.
     #[prost(uint32, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
+}
+/// Note synchronization request.
+///
+/// Specifies note tags that client is intersted in. The server will return the first block which
+/// contains a note matching `note_tags` or the chain tip.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SyncNoteRequest {
+    /// Last block known by the client. The response will contain data starting from the next block,
+    /// until the first block which contains a note of matching the requested tag.
+    #[prost(fixed32, tag = "1")]
+    pub block_num: u32,
+    /// Specifies the tags which the client is interested in.
+    #[prost(fixed32, repeated, tag = "2")]
+    pub note_tags: ::prost::alloc::vec::Vec<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

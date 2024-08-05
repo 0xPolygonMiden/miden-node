@@ -26,7 +26,7 @@ use crate::{
     blocks::BlockStore,
     config::StoreConfig,
     db::migrations::apply_migrations,
-    errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
+    errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
     types::{AccountId, BlockNumber},
     COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
@@ -89,6 +89,13 @@ pub struct StateSyncUpdate {
     pub account_updates: Vec<AccountSummary>,
     pub transactions: Vec<TransactionSummary>,
     pub nullifiers: Vec<NullifierInfo>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct NoteSyncUpdate {
+    pub notes: Vec<NoteRecord>,
+    pub block_header: BlockHeader,
+    pub chain_tip: BlockNumber,
 }
 
 impl Db {
@@ -267,30 +274,37 @@ impl Db {
     pub async fn get_state_sync(
         &self,
         block_num: BlockNumber,
-        account_ids: &[AccountId],
-        note_tag_prefixes: &[u32],
-        nullifier_prefixes: &[u32],
+        account_ids: Vec<AccountId>,
+        note_tags: Vec<u32>,
+        nullifier_prefixes: Vec<u32>,
     ) -> Result<StateSyncUpdate, StateSyncError> {
-        let account_ids = account_ids.to_vec();
-        let note_tag_prefixes = note_tag_prefixes.to_vec();
-        let nullifier_prefixes = nullifier_prefixes.to_vec();
-
         self.pool
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
             .interact(move |conn| {
-                sql::get_state_sync(
-                    conn,
-                    block_num,
-                    &account_ids,
-                    &note_tag_prefixes,
-                    &nullifier_prefixes,
-                )
+                sql::get_state_sync(conn, block_num, &account_ids, &note_tags, &nullifier_prefixes)
             })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get state sync task failed: {err}"))
+            })?
+    }
+
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn get_note_sync(
+        &self,
+        block_num: BlockNumber,
+        note_tags: Vec<u32>,
+    ) -> Result<NoteSyncUpdate, NoteSyncError> {
+        self.pool
+            .get()
+            .await
+            .map_err(DatabaseError::MissingDbConnection)?
+            .interact(move |conn| sql::get_note_sync(conn, block_num, &note_tags))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Get notes sync task failed: {err}"))
             })?
     }
 

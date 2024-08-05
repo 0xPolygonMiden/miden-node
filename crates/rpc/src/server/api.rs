@@ -4,12 +4,13 @@ use miden_node_proto::{
         requests::{
             CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
             GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
-            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             CheckNullifiersByPrefixResponse, CheckNullifiersResponse, GetAccountDetailsResponse,
             GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncStateResponse,
+            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncNoteResponse,
+            SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -128,6 +129,22 @@ impl api_server::Api for RpcApi {
         debug!(target: COMPONENT, request = ?request.get_ref());
 
         self.store.clone().sync_state(request).await
+    }
+
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:sync_notes",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn sync_notes(
+        &self,
+        request: Request<SyncNoteRequest>,
+    ) -> Result<Response<SyncNoteResponse>, Status> {
+        debug!(target: COMPONENT, request = ?request.get_ref());
+
+        self.store.clone().sync_notes(request).await
     }
 
     #[instrument(

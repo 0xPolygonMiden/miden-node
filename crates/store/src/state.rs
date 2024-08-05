@@ -29,9 +29,9 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     blocks::BlockStore,
-    db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
+    db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
-        ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
+        ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError, NoteSyncError,
         StateInitializationError, StateSyncError,
     },
     nullifier_tree::NullifierTree,
@@ -405,27 +405,26 @@ impl State {
     ///
     /// # Arguments
     ///
-    /// - `block_num`: The last block *know* by the client, updates start from the next block.
+    /// - `block_num`: The last block *known* by the client, updates start from the next block.
     /// - `account_ids`: Include the account's hash if their _last change_ was in the result's block
     ///   range.
-    /// - `note_tag_prefixes`: Only the 16 high bits of the tags the client is interested in, result
-    ///   will include notes with matching prefixes, the first block with a matching note determines
-    ///   the block range.
+    /// - `note_tags`: The tags the client is interested in, result is restricted to the first block
+    ///    with any matches tags.
     /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is interested in,
     ///   results will include nullifiers matching prefixes produced in the given block range.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
-        account_ids: &[AccountId],
-        note_tag_prefixes: &[u32],
-        nullifier_prefixes: &[u32],
+        account_ids: Vec<AccountId>,
+        note_tags: Vec<u32>,
+        nullifier_prefixes: Vec<u32>,
     ) -> Result<(StateSyncUpdate, MmrDelta), StateSyncError> {
         let inner = self.inner.read().await;
 
         let state_sync = self
             .db
-            .get_state_sync(block_num, account_ids, note_tag_prefixes, nullifier_prefixes)
+            .get_state_sync(block_num, account_ids, note_tags, nullifier_prefixes)
             .await?;
 
         let delta = if block_num == state_sync.block_header.block_num() {
@@ -449,6 +448,34 @@ impl State {
         };
 
         Ok((state_sync, delta))
+    }
+
+    /// Loads data to synchronize a client's notes.
+    ///
+    /// The client's request contains a list of tags, this method will return the first
+    /// block with a matching tag, or the chain tip. All the other values are filter based on this
+    /// block range.
+    ///
+    /// # Arguments
+    ///
+    /// - `block_num`: The last block *known* by the client, updates start from the next block.
+    /// - `note_tags`: The tags the client is interested in, resulting notes are restricted to
+    ///    the first block containing a matching note.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn sync_notes(
+        &self,
+        block_num: BlockNumber,
+        note_tags: Vec<u32>,
+    ) -> Result<(NoteSyncUpdate, MmrProof), NoteSyncError> {
+        let inner = self.inner.read().await;
+
+        let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
+
+        let mmr_proof = inner
+            .chain_mmr
+            .open(note_sync.block_header.block_num() as usize, inner.chain_mmr.forest())?;
+
+        Ok((note_sync, mmr_proof))
     }
 
     /// Returns data needed by the block producer to construct and prove the next block.

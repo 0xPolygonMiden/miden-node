@@ -63,6 +63,27 @@ pub struct SyncStateResponse {
     #[prost(message, repeated, tag = "8")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SyncNoteResponse {
+    /// Number of the latest block in the chain
+    #[prost(fixed32, tag = "1")]
+    pub chain_tip: u32,
+    /// Block header of the block with the first note matching the specified criteria
+    #[prost(message, optional, tag = "2")]
+    pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
+    /// Proof for block header's MMR with respect to the chain tip.
+    ///
+    /// More specifically, the full proof consists of `forest`, `position` and `path` components. This
+    /// value constitutes the `path`. The other two components can be obtained as follows:
+    ///    - `position` is simply `resopnse.block_header.block_num`
+    ///    - `forest` is the same as `response.chain_tip + 1`
+    #[prost(message, optional, tag = "3")]
+    pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
+    /// List of all notes together with the Merkle paths from `response.block_header.note_root`
+    #[prost(message, repeated, tag = "4")]
+    pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
+}
 /// An account returned as a response to the GetBlockInputs
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
