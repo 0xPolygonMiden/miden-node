@@ -29,7 +29,7 @@ use crate::{
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
     types::{AccountId, BlockNumber},
-    COMPONENT,
+    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
 mod migrations;
@@ -72,7 +72,7 @@ impl From<NoteRecord> for NotePb {
     fn from(note: NoteRecord) -> Self {
         Self {
             block_num: note.block_num,
-            note_index: note.note_index.to_absolute_index() as u32,
+            note_index: note.note_index.to_absolute_index(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
             merkle_path: Some(note.merkle_path.into()),
@@ -124,6 +124,11 @@ impl Db {
                             // this module for every connection we create to the DB to support the
                             // queries we want to run
                             array::load_module(conn)?;
+
+                            // Increase the statement cache size.
+                            conn.set_prepared_statement_cache_capacity(
+                                SQL_STATEMENT_CACHE_CAPACITY,
+                            );
 
                             // Enable the WAL mode. This allows concurrent reads while the
                             // transaction is being written, this is required for proper
