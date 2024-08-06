@@ -1,10 +1,15 @@
-name: EC2 Miden Node Setup
+name: EC2 Miden Node Setup and Upgrade
 
 on:
-  release:
-    types: [published]
-  schedule:
-    - cron: '0 0 * * *' # Daily check for new versions on crates.io
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment Environment'
+        required: true
+        default: 'testnet'
+  push:
+    branches:
+      - next
 
 permissions:
   id-token: write
@@ -13,6 +18,7 @@ permissions:
 jobs:
   setup-ec2:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -23,28 +29,9 @@ jobs:
           role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
           aws-region: us-west-2
 
-      - name: Launch EC2 instance
-        id: launch_ec2
+      - name: SSH into EC2 and install dependencies
         run: |
-          INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0c55b159cbfafe1f0 --count 1 --instance-type a1.xlarge --key-name miden-test --security-groups ssh-access --query 'Instances[0].InstanceId' --output text)
-          echo "::set-output name=instance_id::$INSTANCE_ID"
-
-      - name: Wait for EC2 to be running
-        run: |
-          INSTANCE_ID=${{ steps.launch_ec2.outputs.instance_id }}
-          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-
-      - name: Get EC2 Public DNS
-        id: ec2_dns
-        run: |
-          INSTANCE_ID=${{ steps.launch_ec2.outputs.instance_id }}
-          PUBLIC_DNS=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
-          echo "::set-output name=public_dns::$PUBLIC_DNS"
-
-      - name: Install dependencies and miden-node
-        run: |
-          PUBLIC_DNS=${{ steps.ec2_dns.outputs.public_dns }}
-          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@$PUBLIC_DNS << 'EOF'
+          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 << 'EOF'
             sudo yum update -y
             sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make
             sudo yum groupinstall -y "Development Tools"
@@ -56,13 +43,49 @@ jobs:
 
             # Install dependencies
             sudo yum install -y clang cmake
+EOF
 
-            # Clone the repository
-            git clone https://github.com/0xPolygonMiden/miden-node.git
-            cd miden-node
+  check-crates:
+    runs-on: ubuntu-latest
+    needs: setup-ec2
+    steps:
+      - name: Check for updates on crates.io
+        run: |
+          NEW_VERSION=$(curl -s https://crates.io/api/v1/crates/miden-node | jq -r '.crate.max_version')
+          CURRENT_VERSION=$(ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 "miden-node --version | cut -d ' ' -f2")
+          if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "::set-output name=update_needed::true"
+          else
+            echo "::set-output name=update_needed::false"
+          fi
 
-            # Build and install miden-node
-            cargo build --release
+  update-ec2:
+    runs-on: ubuntu-latest
+    needs: check-crates
+    if: needs.check-crates.outputs.update_needed == 'true'
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
+          aws-region: us-west-2
+
+      - name: SSH into EC2 and upgrade miden-node
+        run: |
+          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 << 'EOF'
+            # Stop the miden-node service
+            sudo systemctl stop miden-node
+
+            # Remove previous data
+            rm -rf /home/ec2-user/miden-node
+            rm -rf /home/ec2-user/miden-faucet
+
+            # Install latest versions of miden-node and miden-faucet
+            cargo install miden-node miden-faucet
+
+            # Initialize the services again
+            miden-node init
+            miden-faucet init
 
             # Configure systemd service
             sudo tee /etc/systemd/system/miden-node.service > /dev/null <<EOT
@@ -71,10 +94,10 @@ jobs:
             After=network.target
 
             [Service]
-            ExecStart=/home/ec2-user/miden-node/target/release/miden-node
+            ExecStart=/home/ec2-user/.cargo/bin/miden-node
             Restart=on-failure
             User=ec2-user
-            WorkingDirectory=/home/ec2-user/miden-node
+            WorkingDirectory=/home/ec2-user
             Environment="RUST_LOG=info"
             LimitNOFILE=10000
 
@@ -86,44 +109,3 @@ jobs:
             sudo systemctl enable miden-node
             sudo systemctl start miden-node
 EOF
-
-  check-crates:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check for updates on crates.io
-        run: |
-          NEW_VERSION=$(curl -s https://crates.io/api/v1/crates/miden-node | jq -r '.crate.max_version')
-          CURRENT_VERSION=$(ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@${{ steps.setup-ec2.outputs.ec2_dns.outputs.public_dns }} "miden-node --version | cut -d ' ' -f2")
-          if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
-            echo "::set-output name=update_needed::true"
-          else
-            echo "::set-output name=update_needed::false"
-          fi
-
-  rebuild-ec2:
-    needs: check-crates
-    if: needs.check-crates.outputs.update_needed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          role-to-assume: arn:aws:iam::{{ secrets.AWS_ACCOUNT_ID }}:role/Miden-GithubActionsRole
-          aws-region: us-west-2
-
-      - name: Terminate old EC2 instance
-        run: |
-          INSTANCE_ID=${{ steps.setup-ec2.outputs.instance_id }}
-          aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-          aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID
-
-      - name: Re-run setup workflow
-        uses: actions/github-script@v4
-        with:
-          script: |
-            const result = await github.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'EC2 Miden Node Setup',
-              ref: context.ref,
-            });
