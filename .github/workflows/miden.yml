@@ -106,7 +106,9 @@ EOF
             ExecStart=/home/ec2-user/.cargo/bin/miden-faucet start -c miden-faucet.tomls
             Restart=on-failure
             User=ec2-user
-            WorkingDirectory=/home/ec2-user
+            WorkingDirectory=/home/ec2-user/miden-node
+            WorkingDirectory=/home/ec2-user/miden-faucet
+
             Environment="RUST_LOG=info"
             LimitNOFILE=10000
 
@@ -117,4 +119,6 @@ EOF
             sudo systemctl daemon-reload
             sudo systemctl enable miden-node
             sudo systemctl start miden-node
+            sudo systemctl enable miden-faucet
+            sudo systemctl start miden-faucet
 EOF
