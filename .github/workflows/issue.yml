@@ -1,0 +1,21 @@
+
+# Runs changelog related jobs.
+# CI job heavily inspired by: https://github.com/tarides/changelog-check-action
+
+name: changelog
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log stuff
+        run: |
+          echo Issue url: ${{ github.event.pull_request.issue_url }}
+          echo ID: ${{ github.event.pull_request.id }}
+          echo Node ID: ${{ github.event.pull_request.node_id }}
+          echo Number: ${{ github.event.pull_request.number }}
+          echo Links: ${{ github.event.pull_request._links.issue.href }}
