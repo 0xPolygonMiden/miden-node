@@ -13,8 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Log stuff
-        env:
-          PR_ID: ${{ github.event.pull_request.node_id }}
         run: |
           linked_issue_id="$( gh api graphql -f query='
           query($pr:ID!) {
@@ -33,8 +31,6 @@ jobs:
                 }
               }
             }
-          }' -f pr=$PR_ID --jq '.data.node.closingIssuesReferences.nodes[0].projectItems.nodes[0].id')"
+          }' -f pr=${{ github.event.pull_request.node_id }} --jq '.data.node.closingIssuesReferences.nodes[0].projectItems.nodes[0].id')"
           echo "ISSUE ID:"
           echo "$linked_issue_id"
-          echo "PR_ID:"
-          echo "${{env.PR_ID}}"
