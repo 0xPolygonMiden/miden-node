@@ -2,14 +2,14 @@
 # Runs changelog related jobs.
 # CI job heavily inspired by: https://github.com/tarides/changelog-check-action
 
-name: issue_closer
+name: changelog
 
 on:
   pull_request:
     types: [opened, reopened]
 
 jobs:
-  close_test:
+  changelog:
     runs-on: ubuntu-latest
     steps:
       - name: Log stuff
