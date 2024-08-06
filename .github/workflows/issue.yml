@@ -2,20 +2,39 @@
 # Runs changelog related jobs.
 # CI job heavily inspired by: https://github.com/tarides/changelog-check-action
 
-name: changelog
+name: issue closer
 
 on:
   pull_request:
     types: [opened, reopened]
 
 jobs:
-  changelog:
+  close:
     runs-on: ubuntu-latest
     steps:
       - name: Log stuff
+        env:
+          PR_ID: ${{ github.event.pull_request.node_id }}
         run: |
-          echo Issue url: ${{ github.event.pull_request.issue_url }}
-          echo ID: ${{ github.event.pull_request.id }}
-          echo Node ID: ${{ github.event.pull_request.node_id }}
-          echo Number: ${{ github.event.pull_request.number }}
-          echo Links: ${{ github.event.pull_request._links.issue.href }}
+          linked_issue_id="$( gh api graphql -f query='
+          query($pr:ID!) {
+            node(id: $pr) {
+              ... on PullRequest {
+                closingIssuesReferences(first:1, userLinkedOnly:false) {
+                  totalCount
+                  nodes { 
+                    id 
+                    projectItems(first: 5) {
+                      nodes {
+                        id
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }' -f pr=$PR_ID --jq '.data.node.closingIssuesReferences.nodes[0].projectItems.nodes[0].id')"
+          echo "ISSUE ID:"
+          echo "$linked_issue_id"
+          echo "PR_ID:"
+          echo "${{env.PR_ID}}"
