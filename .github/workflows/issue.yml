@@ -2,17 +2,19 @@
 # Runs changelog related jobs.
 # CI job heavily inspired by: https://github.com/tarides/changelog-check-action
 
-name: changelog
+name: auto-close
 
 on:
   pull_request:
     types: [opened, reopened, edited]
 
 jobs:
-  changelog:
+  auto-close:
     runs-on: ubuntu-latest
     steps:
       - name: Log stuff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           linked_issue_id="$( gh api graphql -f query='
           query($pr:ID!) {
