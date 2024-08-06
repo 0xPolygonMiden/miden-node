@@ -75,17 +75,25 @@ EOF
           ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 << 'EOF'
             # Stop the miden-node service
             sudo systemctl stop miden-node
+            sudo systemctl stop miden-faucet
 
             # Remove previous data
-            rm -rf /home/ec2-user/miden-node
-            rm -rf /home/ec2-user/miden-faucet
+            # rm -rf /home/ec2-user/miden-node
+            # rm -rf /home/ec2-user/miden-faucet
+
+            rm -rf ~/miden-node; mkdir ~/miden-node
+            rm -rf ~/miden-faucet; mkdir ~/miden-faucet
 
             # Install latest versions of miden-node and miden-faucet
-            cargo install miden-node miden-faucet
+            cargo install miden-node miden-faucet --locked --features testing
 
             # Initialize the services again
-            miden-node init
-            miden-faucet init
+            # miden-node init
+            # miden-faucet init
+
+            miden-node init -c ~/miden-node/miden-node.toml -g ~/miden-node/genesis.toml
+            miden-node make-genesis -i ~/miden-node/genesis.toml -o ~/miden-node/genesis.dat
+            miden-faucet init -c ~/miden-faucet/miden-faucet.toml
 
             # Configure systemd service
             sudo tee /etc/systemd/system/miden-node.service > /dev/null <<EOT
@@ -94,7 +102,8 @@ EOF
             After=network.target
 
             [Service]
-            ExecStart=/home/ec2-user/.cargo/bin/miden-node
+            ExecStart=/home/ec2-user/.cargo/bin/miden-node start -c miden-node.toml node
+            ExecStart=/home/ec2-user/.cargo/bin/miden-faucet start -c miden-faucet.tomls
             Restart=on-failure
             User=ec2-user
             WorkingDirectory=/home/ec2-user
