@@ -41,9 +41,9 @@ pub enum Command {
 
     /// Generates a genesis file and associated account files based on a specified genesis input
     ///
-    /// This command creates a new genesis file and associated account files at the specified output
-    /// paths. It checks for the existence of the output file, and if it already exists, an error is
-    /// thrown unless the `force` flag is set to overwrite it.
+    /// This command creates a new genesis file and associated account files at the specified
+    /// output paths. It checks for the existence of the output file, and if it already exists,
+    /// an error is thrown unless the `force` flag is set to overwrite it.
     MakeGenesis {
         /// Read genesis file inputs from this location
         #[arg(short, long, value_name = "FILE", default_value = DEFAULT_GENESIS_INPUTS_PATH)]
@@ -60,8 +60,9 @@ pub enum Command {
 
     /// Generates default configuration files for the node
     ///
-    /// This command creates two files (miden-node.toml and genesis.toml) that provide configuration
-    /// details to the node. These files may be modified to change the node behavior.
+    /// This command creates two files (miden-node.toml and genesis.toml) that provide
+    /// configuration details to the node. These files may be modified to change the node
+    /// behavior.
     Init {
         #[arg(short, long, default_value = NODE_CONFIG_FILE_PATH)]
         config_path: String,

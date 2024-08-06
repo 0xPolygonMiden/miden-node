@@ -2,7 +2,8 @@
 //!
 //! AB1: the internal store's `apply_block` is called once
 //! AB2: All accounts modified by transactions in the block are removed from the internal state
-//! AB3: All consumed notes by some transaction in the block are still not consumable after `apply_block`
+//! AB3: All consumed notes by some transaction in the block are still not consumable after
+//! `apply_block`
 
 use std::iter;
 

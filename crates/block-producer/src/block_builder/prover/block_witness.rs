@@ -72,7 +72,8 @@ impl BlockWitness {
 
             let mut details: Option<AccountUpdateDetails> = None;
 
-            // Chronologically chain updates for this account together using the state hashes to link them.
+            // Chronologically chain updates for this account together using the state hashes to
+            // link them.
             let mut transactions = Vec::new();
             let mut current_hash = initial_state_hash;
             while !updates.is_empty() {
@@ -141,7 +142,8 @@ impl BlockWitness {
         Ok((advice_inputs, stack_inputs))
     }
 
-    /// Returns an iterator over all transactions which affected accounts in the block with corresponding account IDs.
+    /// Returns an iterator over all transactions which affected accounts in the block with
+    /// corresponding account IDs.
     pub(super) fn transactions(&self) -> impl Iterator<Item = (TransactionId, AccountId)> + '_ {
         self.updated_accounts.iter().flat_map(|(account_id, update)| {
             update.transactions.iter().map(move |tx_id| (*tx_id, *account_id))
@@ -151,8 +153,9 @@ impl BlockWitness {
     // HELPERS
     // ---------------------------------------------------------------------------------------------
 
-    /// Validates that the nullifiers returned from the store are the same the produced nullifiers in the batches.
-    /// Note that validation that the value of the nullifiers is `0` will be done in MASM.
+    /// Validates that the nullifiers returned from the store are the same the produced nullifiers
+    /// in the batches. Note that validation that the value of the nullifiers is `0` will be
+    /// done in MASM.
     fn validate_nullifiers(
         block_inputs: &BlockInputs,
         batches: &[TransactionBatch],

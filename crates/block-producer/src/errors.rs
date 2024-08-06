@@ -20,7 +20,8 @@ pub enum VerifyTxError {
     #[error("Input notes with given nullifiers were already consumed by another transaction")]
     InputNotesAlreadyConsumed(Vec<Nullifier>),
 
-    /// Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions
+    /// Unauthenticated transaction notes were not found in the store or in outputs of in-flight
+    /// transactions
     #[error(
         "Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions: {0:?}"
     )]
@@ -35,8 +36,8 @@ pub enum VerifyTxError {
 
     /// Failed to retrieve transaction inputs from the store
     ///
-    /// TODO: Make this an "internal error". Q: Should we have a single `InternalError` enum for all
-    /// internal errors that can occur across the system?
+    /// TODO: Make this an "internal error". Q: Should we have a single `InternalError` enum for
+    /// all internal errors that can occur across the system?
     #[error("Failed to retrieve transaction inputs from the store: {0}")]
     StoreConnectionFailed(#[from] TxInputsError),
 

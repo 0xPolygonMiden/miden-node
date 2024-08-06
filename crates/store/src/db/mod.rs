@@ -397,9 +397,9 @@ impl Db {
     // HELPERS
     // ---------------------------------------------------------------------------------------------
 
-    /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that the
-    /// genesis block in the database is consistent with the genesis block data in the genesis JSON
-    /// file.
+    /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that
+    /// the genesis block in the database is consistent with the genesis block data in the
+    /// genesis JSON file.
     #[instrument(target = "miden-store", skip_all, err)]
     async fn ensure_genesis_block(
         &self,
@@ -444,7 +444,8 @@ impl Db {
                     .await
                     .map_err(DatabaseError::MissingDbConnection)?
                     .interact(move |conn| -> Result<()> {
-                        // TODO: This span is logged in a root span, we should connect it to the parent one.
+                        // TODO: This span is logged in a root span, we should connect it to the
+                        // parent one.
                         let span = info_span!(target: COMPONENT, "write_genesis_block_to_db");
                         let guard = span.enter();
 

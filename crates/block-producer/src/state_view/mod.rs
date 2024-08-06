@@ -33,7 +33,8 @@ pub struct DefaultStateView<S> {
     /// The account states modified by transactions currently in the block production pipeline.
     accounts_in_flight: Arc<RwLock<InflightAccountStates>>,
 
-    /// The nullifiers of notes consumed by transactions currently in the block production pipeline.
+    /// The nullifiers of notes consumed by transactions currently in the block production
+    /// pipeline.
     nullifiers_in_flight: Arc<RwLock<BTreeSet<Nullifier>>>,
 
     /// The output notes of transactions currently in the block production pipeline.
@@ -93,7 +94,8 @@ where
         // this set to verify that these notes are currently in flight (i.e., they are output notes
         // of one of the inflight transactions)
         let mut tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
-        // The latest inflight account state takes precedence since this is the current block being constructed.
+        // The latest inflight account state takes precedence since this is the current block being
+        // constructed.
         if let Some(inflight) = self.accounts_in_flight.read().await.get(candidate_tx.account_id())
         {
             tx_inputs.account_hash = Some(*inflight);
@@ -221,8 +223,8 @@ fn ensure_in_flight_constraints(
 }
 
 /// Ensures the constraints related to transaction inputs:
-/// - the candidate transaction's initial account state hash must be the same as the one
-///   in the Store or empty for new accounts
+/// - the candidate transaction's initial account state hash must be the same as the one in the
+///   Store or empty for new accounts
 /// - input notes must not be already consumed
 ///
 /// Returns a list of unauthenticated input notes that were not found in the store.

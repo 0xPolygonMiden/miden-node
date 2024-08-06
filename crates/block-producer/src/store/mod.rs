@@ -129,7 +129,8 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
                 .ok_or(NullifierTransactionInputRecord::missing_field(stringify!(nullifier)))?
                 .try_into()?;
 
-            // Note that this intentionally maps 0 to None as this is the definition used in protobuf.
+            // Note that this intentionally maps 0 to None as this is the definition used in
+            // protobuf.
             nullifiers.insert(nullifier, NonZeroU32::new(nullifier_record.block_num));
         }
 

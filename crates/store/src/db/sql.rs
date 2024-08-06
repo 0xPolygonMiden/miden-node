@@ -777,8 +777,8 @@ pub fn insert_block_header(transaction: &Transaction, block_header: &BlockHeader
 ///
 /// # Returns
 ///
-/// When `block_number` is [None], the latest block header is returned. Otherwise, the block with the
-/// given block height is returned.
+/// When `block_number` is [None], the latest block header is returned. Otherwise, the block with
+/// the given block height is returned.
 pub fn select_block_header_by_block_num(
     conn: &mut Connection,
     block_number: Option<BlockNumber>,

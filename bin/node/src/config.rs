@@ -20,7 +20,8 @@ struct NormalizedRpcConfig {
     endpoint: Endpoint,
 }
 
-/// A specialized variant of [BlockProducerConfig] with redundant fields within [NodeConfig] removed.
+/// A specialized variant of [BlockProducerConfig] with redundant fields within [NodeConfig]
+/// removed.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NormalizedBlockProducerConfig {
