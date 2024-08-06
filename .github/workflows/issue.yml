@@ -24,15 +24,10 @@ jobs:
                   totalCount
                   nodes { 
                     id 
-                    projectItems(first: 5) {
-                      nodes {
-                        id
-                      }
-                    }
                   }
                 }
               }
             }
-          }' -f pr=${{ github.event.pull_request.node_id }} --jq '.data.node.closingIssuesReferences.nodes[0].projectItems.nodes[0].id')"
+          }' -f pr=${{ github.event.pull_request.node_id }} --jq '.data.node.closingIssuesReferences.nodes[0].id')"
           echo "ISSUE ID:"
           echo "$linked_issue_id"
