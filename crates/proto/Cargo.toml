@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-proto"
-version = "0.4.0"
+version.workspace = true
 description = "Miden node message definitions (Store, Block Producer and RPC)"
 readme = "README.md"
 keywords = ["miden", "node", "protobuf", "rpc"]
@@ -20,10 +20,10 @@ thiserror = { workspace = true }
 tonic = { workspace = true }
 
 [dev-dependencies]
-proptest = { version = "1.2" }
+proptest = { version = "1.5" }
 
 [build-dependencies]
-miette = { version = "7.0", features = ["fancy"] }
+miette = { version = "7.2", features = ["fancy"] }
 prost = { version = "0.12" }
 prost-build = { version = "0.12" }
 protox = { version = "0.6" }

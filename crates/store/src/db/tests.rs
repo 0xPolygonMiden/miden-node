@@ -365,6 +365,58 @@ fn test_sql_public_account_details() {
         .unwrap();
 
     assert_eq!(account_read.storage(), account.storage());
+
+    let storage_delta2 = AccountStorageDelta {
+        cleared_items: vec![5],
+        updated_items: vec![],
+        updated_maps: vec![],
+    };
+
+    let delta2 = AccountDelta::new(
+        storage_delta2,
+        AccountVaultDelta {
+            added_assets: vec![nft1],
+            removed_assets: vec![],
+        },
+        Some(Felt::new(3)),
+    )
+    .unwrap();
+
+    account.apply_delta(&delta2).unwrap();
+
+    create_block(&mut conn, block_num + 1);
+
+    let transaction = conn.transaction().unwrap();
+    let inserted = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_id,
+            account.hash(),
+            AccountUpdateDetails::Delta(delta2.clone()),
+            vec![],
+        )],
+        block_num + 1,
+    )
+    .unwrap();
+
+    assert_eq!(inserted, 1, "One element must have been inserted");
+
+    transaction.commit().unwrap();
+
+    let mut accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+
+    assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
+
+    let account_read = accounts_in_db.pop().unwrap().details.unwrap();
+
+    assert_eq!(account_read.id(), account.id());
+    assert_eq!(account_read.vault(), account.vault());
+    assert_eq!(account_read.nonce(), account.nonce());
+
+    let read_deltas =
+        sql::select_account_deltas(&mut conn, account_id.into(), 0, block_num + 1).unwrap();
+
+    assert_eq!(read_deltas, vec![delta, delta2]);
 }
 
 #[test]
@@ -480,6 +532,108 @@ fn test_sql_select_nullifiers_by_block_range() {
         2,
         2,
         &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+    )
+    .unwrap();
+    assert!(nullifiers.is_empty());
+}
+
+#[test]
+fn test_select_nullifiers_by_prefix() {
+    let mut conn = create_db();
+    const PREFIX_LEN: u32 = 16;
+    // test empty table
+    let nullifiers = sql::select_nullifiers_by_prefix(&mut conn, PREFIX_LEN, &[]).unwrap();
+    assert!(nullifiers.is_empty());
+
+    // test single item
+    let nullifier1 = num_to_nullifier(1 << 48);
+    let block_number1 = 1;
+    create_block(&mut conn, block_number1);
+
+    let transaction = conn.transaction().unwrap();
+    sql::insert_nullifiers_for_block(&transaction, &[nullifier1], block_number1).unwrap();
+    transaction.commit().unwrap();
+
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&nullifier1)],
+    )
+    .unwrap();
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier1,
+            block_num: block_number1
+        }]
+    );
+
+    // test two elements
+    let nullifier2 = num_to_nullifier(2 << 48);
+    let block_number2 = 2;
+    create_block(&mut conn, block_number2);
+
+    let transaction = conn.transaction().unwrap();
+    sql::insert_nullifiers_for_block(&transaction, &[nullifier2], block_number2).unwrap();
+    transaction.commit().unwrap();
+
+    let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
+    assert_eq!(nullifiers, vec![(nullifier1, block_number1), (nullifier2, block_number2)]);
+
+    // only the nullifiers matching the prefix are included
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&nullifier1)],
+    )
+    .unwrap();
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier1,
+            block_num: block_number1
+        }]
+    );
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&nullifier2)],
+    )
+    .unwrap();
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier2,
+            block_num: block_number2
+        }]
+    );
+
+    // All matching nullifiers are included
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+    )
+    .unwrap();
+    assert_eq!(
+        nullifiers,
+        vec![
+            NullifierInfo {
+                nullifier: nullifier1,
+                block_num: block_number1
+            },
+            NullifierInfo {
+                nullifier: nullifier2,
+                block_num: block_number2
+            }
+        ]
+    );
+
+    // If a non-matching prefix is provided, no nullifiers are returned
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&num_to_nullifier(3 << 48))],
     )
     .unwrap();
     assert!(nullifiers.is_empty());

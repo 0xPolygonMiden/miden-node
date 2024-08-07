@@ -108,6 +108,33 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "CheckNullifiers"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn check_nullifiers_by_prefix(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::CheckNullifiersByPrefixRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::CheckNullifiersByPrefixResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/rpc.Api/CheckNullifiersByPrefix",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("rpc.Api", "CheckNullifiersByPrefix"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn get_account_details(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -132,6 +159,33 @@ pub mod api_client {
             );
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountDetails"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_account_state_delta(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetAccountStateDeltaRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetAccountStateDeltaResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/rpc.Api/GetAccountStateDelta",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("rpc.Api", "GetAccountStateDelta"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_block_by_number(
@@ -234,6 +288,28 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "SubmitProvenTransaction"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn sync_notes(
+            &mut self,
+            request: impl tonic::IntoRequest<super::super::requests::SyncNoteRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::SyncNoteResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/SyncNotes");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "SyncNotes"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn sync_state(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,
@@ -272,11 +348,27 @@ pub mod api_server {
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
             tonic::Status,
         >;
+        async fn check_nullifiers_by_prefix(
+            &self,
+            request: tonic::Request<
+                super::super::requests::CheckNullifiersByPrefixRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::CheckNullifiersByPrefixResponse>,
+            tonic::Status,
+        >;
         async fn get_account_details(
             &self,
             request: tonic::Request<super::super::requests::GetAccountDetailsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::GetAccountDetailsResponse>,
+            tonic::Status,
+        >;
+        async fn get_account_state_delta(
+            &self,
+            request: tonic::Request<super::super::requests::GetAccountStateDeltaRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetAccountStateDeltaResponse>,
             tonic::Status,
         >;
         async fn get_block_by_number(
@@ -309,6 +401,13 @@ pub mod api_server {
             >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
+            tonic::Status,
+        >;
+        async fn sync_notes(
+            &self,
+            request: tonic::Request<super::super::requests::SyncNoteRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::SyncNoteResponse>,
             tonic::Status,
         >;
         async fn sync_state(
@@ -447,6 +546,56 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
+                "/rpc.Api/CheckNullifiersByPrefix" => {
+                    #[allow(non_camel_case_types)]
+                    struct CheckNullifiersByPrefixSvc<T: Api>(pub Arc<T>);
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::CheckNullifiersByPrefixRequest,
+                    > for CheckNullifiersByPrefixSvc<T> {
+                        type Response = super::super::responses::CheckNullifiersByPrefixResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::requests::CheckNullifiersByPrefixRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Api>::check_nullifiers_by_prefix(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = CheckNullifiersByPrefixSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/rpc.Api/GetAccountDetails" => {
                     #[allow(non_camel_case_types)]
                     struct GetAccountDetailsSvc<T: Api>(pub Arc<T>);
@@ -481,6 +630,55 @@ pub mod api_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetAccountDetailsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/rpc.Api/GetAccountStateDelta" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetAccountStateDeltaSvc<T: Api>(pub Arc<T>);
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::GetAccountStateDeltaRequest,
+                    > for GetAccountStateDeltaSvc<T> {
+                        type Response = super::super::responses::GetAccountStateDeltaResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::requests::GetAccountStateDeltaRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Api>::get_account_state_delta(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetAccountStateDeltaSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -678,6 +876,55 @@ pub mod api_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = SubmitProvenTransactionSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/rpc.Api/SyncNotes" => {
+                    #[allow(non_camel_case_types)]
+                    struct SyncNotesSvc<T: Api>(pub Arc<T>);
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::SyncNoteRequest,
+                    > for SyncNotesSvc<T> {
+                        type Response = super::super::responses::SyncNoteResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::requests::SyncNoteRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Api>::sync_notes(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SyncNotesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

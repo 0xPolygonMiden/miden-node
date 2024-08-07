@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function () {
     publicButton.addEventListener('click', () => {handleButtonClick(false)});
 
     function fetchMetadata() {
-        fetch('http://localhost:8080/get_metadata')
+        fetch(window.location.href + 'get_metadata')
             .then(response => response.json())
             .then(data => {
                 faucetIdElem.textContent = data.id;
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         loading.style.display = 'block';
         try {
-            const response = await fetch('http://localhost:8080/get_tokens', {
+            const response = await fetch(window.location.href + 'get_tokens', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ account_id: accountId, is_private_note: isPrivateNote, asset_amount: parseInt(assetSelect.value)})

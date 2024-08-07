@@ -2,7 +2,8 @@
 //!
 //! AB1: the internal store's `apply_block` is called once
 //! AB2: All accounts modified by transactions in the block are removed from the internal state
-//! AB3: All consumed notes by some transaction in the block are still not consumable after `apply_block`
+//! AB3: All consumed notes by some transaction in the block are still not consumable after
+//! `apply_block`
 
 use std::iter;
 
@@ -103,7 +104,7 @@ async fn test_apply_block_ab2() {
 
     // Only the first account should still be in flight
     assert_eq!(accounts_still_in_flight.len(), 1);
-    assert!(accounts_still_in_flight.contains(&accounts[0].id));
+    assert!(accounts_still_in_flight.contains(accounts[0].id));
 }
 
 /// Tests requirement AB3

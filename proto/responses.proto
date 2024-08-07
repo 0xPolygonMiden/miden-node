@@ -17,6 +17,11 @@ message CheckNullifiersResponse {
     repeated smt.SmtOpening proofs = 1;
 }
 
+message CheckNullifiersByPrefixResponse {
+    // List of nullifiers matching the prefixes specified in the request.
+    repeated NullifierUpdate nullifiers = 1;
+}
+
 message GetBlockHeaderByNumberResponse {
     // The requested block header
     block_header.BlockHeader block_header = 1;
@@ -55,6 +60,25 @@ message SyncStateResponse {
 
     // List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`
     repeated NullifierUpdate nullifiers = 8;
+}
+
+message SyncNoteResponse {
+    // Number of the latest block in the chain
+    fixed32 chain_tip = 1;
+
+    // Block header of the block with the first note matching the specified criteria
+    block_header.BlockHeader block_header = 2;
+
+    // Proof for block header's MMR with respect to the chain tip.
+    //
+    // More specifically, the full proof consists of `forest`, `position` and `path` components. This
+    // value constitutes the `path`. The other two components can be obtained as follows: 
+    //   - `position` is simply `resopnse.block_header.block_num`
+    //   - `forest` is the same as `response.chain_tip + 1`
+    merkle.MerklePath mmr_path = 3;
+
+    // List of all notes together with the Merkle paths from `response.block_header.note_root`
+    repeated note.NoteSyncRecord notes = 4;
 }
 
 // An account returned as a response to the GetBlockInputs
@@ -137,4 +161,9 @@ message GetAccountDetailsResponse {
 message GetBlockByNumberResponse {
     // The requested `Block` data encoded using miden native format
     optional bytes block = 1;
+}
+
+message GetAccountStateDeltaResponse {
+    // The calculated `AccountStateDelta` encoded using miden native format
+    optional bytes delta = 1;
 }

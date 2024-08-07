@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use miden_node_block_producer::{config::BlockProducerConfig, server as block_producer_server};
 use miden_node_rpc::{config::RpcConfig, server as rpc_server};
 use miden_node_store::{config::StoreConfig, server as store_server};
@@ -12,20 +12,20 @@ use crate::config::NodeConfig;
 // ===================================================================================================
 
 pub async fn start_node(config: NodeConfig) -> Result<()> {
+    let (block_producer, rpc, store) = config.into_parts();
+
     let mut join_set = JoinSet::new();
 
     // Start store
-    join_set.spawn(start_store(config.store.context("Missing store configuration.")?));
+    join_set.spawn(start_store(store));
 
     // Wait for store to start & start block-producer
     tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(start_block_producer(
-        config.block_producer.context("Missing block-producer configuration.")?,
-    ));
+    join_set.spawn(start_block_producer(block_producer));
 
     // Wait for block-producer to start & start rpc
     tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(start_rpc(config.rpc.context("Missing rpc configuration.")?));
+    join_set.spawn(start_rpc(rpc));
 
     // block on all tasks
     while let Some(res) = join_set.join_next().await {

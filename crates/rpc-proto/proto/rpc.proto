@@ -7,10 +7,13 @@ import "responses.proto";
 
 service Api {
     rpc CheckNullifiers(requests.CheckNullifiersRequest) returns (responses.CheckNullifiersResponse) {}
+    rpc CheckNullifiersByPrefix(requests.CheckNullifiersByPrefixRequest) returns (responses.CheckNullifiersByPrefixResponse) {}
     rpc GetAccountDetails(requests.GetAccountDetailsRequest) returns (responses.GetAccountDetailsResponse) {}
+    rpc GetAccountStateDelta(requests.GetAccountStateDeltaRequest) returns (responses.GetAccountStateDeltaResponse) {}
     rpc GetBlockByNumber(requests.GetBlockByNumberRequest) returns (responses.GetBlockByNumberResponse) {}
     rpc GetBlockHeaderByNumber(requests.GetBlockHeaderByNumberRequest) returns (responses.GetBlockHeaderByNumberResponse) {}
     rpc GetNotesById(requests.GetNotesByIdRequest) returns (responses.GetNotesByIdResponse) {}
     rpc SubmitProvenTransaction(requests.SubmitProvenTransactionRequest) returns (responses.SubmitProvenTransactionResponse) {}
+    rpc SyncNotes(requests.SyncNoteRequest) returns (responses.SyncNoteResponse) {}
     rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
 }

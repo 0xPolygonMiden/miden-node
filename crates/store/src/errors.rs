@@ -9,7 +9,7 @@ use miden_objects::{
     },
     notes::Nullifier,
     transaction::OutputNote,
-    AccountError, BlockError, BlockHeader, NoteError,
+    AccountDeltaError, AccountError, BlockError, BlockHeader, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -52,6 +52,8 @@ pub enum DatabaseError {
     NoteError(#[from] NoteError),
     #[error("Migration error: {0}")]
     MigrationError(#[from] rusqlite_migration::Error),
+    #[error("Account delta error: {0}")]
+    AccountDeltaError(#[from] AccountDeltaError),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
     #[error("Deserialization of BLOB data from database failed: {0}")]
@@ -211,4 +213,14 @@ pub enum StateSyncError {
     EmptyBlockHeadersTable,
     #[error("Failed to build MMR delta: {0}")]
     FailedToBuildMmrDelta(MmrError),
+}
+
+#[derive(Error, Debug)]
+pub enum NoteSyncError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
+    #[error("Block headers table is empty")]
+    EmptyBlockHeadersTable,
+    #[error("Error retrieving the merkle proof for the block: {0}")]
+    MmrError(#[from] MmrError),
 }

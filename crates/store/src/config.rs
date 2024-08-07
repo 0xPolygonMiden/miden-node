@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 // ================================================================================================
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StoreConfig {
     /// Defines the listening socket.
     pub endpoint: Endpoint,

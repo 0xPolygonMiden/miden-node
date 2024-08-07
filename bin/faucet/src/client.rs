@@ -37,7 +37,7 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
 // FAUCET CLIENT
 // ================================================================================================
 
-/// Basic client that handles execution, proving and submiting of mint transactions
+/// Basic client that handles execution, proving and submitting of mint transactions
 /// for the faucet.
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
@@ -95,7 +95,7 @@ impl FaucetClient {
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
         let note_type = if is_private_note {
-            NoteType::OffChain
+            NoteType::Private
         } else {
             NoteType::Public
         };

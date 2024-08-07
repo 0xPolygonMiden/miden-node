@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 // ================================================================================================
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RpcConfig {
     pub endpoint: Endpoint,
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.

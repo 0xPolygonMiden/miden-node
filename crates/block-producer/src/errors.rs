@@ -5,7 +5,8 @@ use miden_objects::{
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
-    Digest, TransactionInputError, BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH, MAX_NOTES_PER_BATCH,
+    AccountDeltaError, Digest, TransactionInputError, BLOCK_NOTES_BATCH_TREE_DEPTH,
+    MAX_NOTES_PER_BATCH,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -15,32 +16,28 @@ use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum VerifyTxError {
-    /// The account that the transaction modifies has already been modified and isn't yet committed
-    /// to a block
-    #[error("Account {0} was already modified by other transaction")]
-    AccountAlreadyModifiedByOtherTx(AccountId),
-
     /// Another transaction already consumed the notes with given nullifiers
     #[error("Input notes with given nullifiers were already consumed by another transaction")]
     InputNotesAlreadyConsumed(Vec<Nullifier>),
 
-    /// Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions
+    /// Unauthenticated transaction notes were not found in the store or in outputs of in-flight
+    /// transactions
     #[error(
         "Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions: {0:?}"
     )]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
 
     /// The account's initial hash did not match the current account's hash
-    #[error("Incorrect account's initial hash ({tx_initial_account_hash}, stored: {})", format_opt(.store_account_hash.as_ref()))]
+    #[error("Incorrect account's initial hash ({tx_initial_account_hash}, current: {})", format_opt(.current_account_hash.as_ref()))]
     IncorrectAccountInitialHash {
         tx_initial_account_hash: Digest,
-        store_account_hash: Option<Digest>,
+        current_account_hash: Option<Digest>,
     },
 
     /// Failed to retrieve transaction inputs from the store
     ///
-    /// TODO: Make this an "internal error". Q: Should we have a single `InternalError` enum for all
-    /// internal errors that can occur across the system?
+    /// TODO: Make this an "internal error". Q: Should we have a single `InternalError` enum for
+    /// all internal errors that can occur across the system?
     #[error("Failed to retrieve transaction inputs from the store: {0}")]
     StoreConnectionFailed(#[from] TxInputsError),
 
@@ -96,6 +93,13 @@ pub enum BuildBatchError {
         output_hash: Digest,
         txs: Vec<ProvenTransaction>,
     },
+
+    #[error("Failed to merge transaction delta into account {account_id}: {error}")]
+    AccountUpdateError {
+        account_id: AccountId,
+        error: AccountDeltaError,
+        txs: Vec<ProvenTransaction>,
+    },
 }
 
 impl BuildBatchError {
@@ -108,6 +112,7 @@ impl BuildBatchError {
             BuildBatchError::DuplicateOutputNote(_, txs) => txs,
             BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
             BuildBatchError::NoteHashesMismatch { txs, .. } => txs,
+            BuildBatchError::AccountUpdateError { txs, .. } => txs,
         }
     }
 }
@@ -171,19 +176,23 @@ pub enum BuildBlockError {
     ApplyBlockFailed(#[from] ApplyBlockError),
     #[error("failed to get block inputs from store: {0}")]
     GetBlockInputsFailed(#[from] BlockInputsError),
-    #[error("transaction batches and store don't modify the same account IDs. Offending accounts: {0:?}")]
-    InconsistentAccountIds(Vec<AccountId>),
-    #[error("transaction batches and store contain different hashes for some accounts. Offending accounts: {0:?}")]
-    InconsistentAccountStates(Vec<AccountId>),
+    #[error("store did not produce data for account: {0}")]
+    MissingAccountInput(AccountId),
+    #[error("store produced extra account data. Offending accounts: {0:?}")]
+    ExtraStoreData(Vec<AccountId>),
+    #[error("no matching state transition found for account {0}. Current account state is {1}, remaining updates: {2:?}")]
+    InconsistentAccountStateTransition(AccountId, Digest, Vec<Digest>),
     #[error("transaction batches and store don't produce the same nullifiers. Offending nullifiers: {0:?}")]
     InconsistentNullifiers(Vec<Nullifier>),
     #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
-    #[error(
-        "too many batches in block. Got: {0}, max: 2^{}",
-        BLOCK_OUTPUT_NOTES_BATCH_TREE_DEPTH
-    )]
+    #[error("too many batches in block. Got: {0}, max: 2^{}", BLOCK_NOTES_BATCH_TREE_DEPTH)]
     TooManyBatchesInBlock(usize),
+    #[error("Failed to merge transaction delta into account {account_id}: {error}")]
+    AccountUpdateError {
+        account_id: AccountId,
+        error: AccountDeltaError,
+    },
 }
 
 // Transaction inputs errors

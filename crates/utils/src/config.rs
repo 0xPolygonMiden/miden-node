@@ -51,6 +51,8 @@ impl Display for Endpoint {
 /// relative, searches in parent directories all the way to the root as well.
 ///
 /// The above configuration options are indented to support easy of packaging and deployment.
-pub fn load_config(config_file: &Path) -> Figment {
-    Figment::from(Toml::file(config_file))
+pub fn load_config<T: for<'a> Deserialize<'a>>(
+    config_file: impl AsRef<Path>,
+) -> figment::Result<T> {
+    Figment::from(Toml::file(config_file.as_ref())).extract()
 }

@@ -100,8 +100,8 @@ fn compute_migration_hashes() -> Vec<Hash> {
 }
 
 fn preprocess_sql(sql: &str) -> String {
-    // TODO: We can also remove all comments here (need to analyze the SQL script in order to remain comments
-    //       in string literals).
+    // TODO: We can also remove all comments here (need to analyze the SQL script in order to remove
+    //       comments in string literals).
     remove_spaces(sql)
 }
 

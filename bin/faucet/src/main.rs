@@ -7,7 +7,6 @@ mod state;
 use std::{fs::File, io::Write, path::PathBuf};
 
 use actix_cors::Cors;
-use actix_files::Files;
 use actix_web::{
     middleware::{DefaultHeaders, Logger},
     web, App, HttpServer,
@@ -66,8 +65,7 @@ async fn main() -> Result<(), FaucetError> {
 
     match &cli.command {
         Command::Start { config } => {
-            let config: FaucetConfig = load_config(config.as_path())
-                .extract()
+            let config: FaucetConfig = load_config(config)
                 .map_err(|err| FaucetError::ConfigurationError(err.to_string()))?;
 
             let faucet_state = FaucetState::new(config.clone()).await?;
@@ -85,12 +83,10 @@ async fn main() -> Result<(), FaucetError> {
                     .wrap(DefaultHeaders::new().add(("Cache-Control", "no-cache")))
                     .service(get_metadata)
                     .service(get_tokens)
-                    .service(
-                        Files::new("/", "bin/faucet/src/static")
-                            .use_etag(false)
-                            .use_last_modified(false)
-                            .index_file("index.html"),
-                    )
+                    .service(actix_web_static_files::ResourceFiles::new(
+                        "/",
+                        static_resources::generate(),
+                    ))
             })
             .bind((config.endpoint.host, config.endpoint.port))
             .map_err(|err| FaucetError::StartError(err.to_string()))?
@@ -127,4 +123,9 @@ async fn main() -> Result<(), FaucetError> {
     }
 
     Ok(())
+}
+
+/// The static website files embedded by the build.rs script.
+mod static_resources {
+    include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 }

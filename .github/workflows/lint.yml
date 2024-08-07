@@ -8,23 +8,20 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
-jobs:
-  version:
-    name: check rust version consistency
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@main
-        with:
-          profile: minimal
-          override: true
-      - name: check rust versions
-        run: ./scripts/check-rust-version.sh
+# Limits workflow concurrency to only the latest commit in the PR.
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
+  cancel-in-progress: true
 
+jobs:
   rustfmt:
     name: rustfmt check nightly on ubuntu-latest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
       - name: Rustfmt
         run: |
           rustup update --no-self-update nightly
@@ -36,8 +33,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
       - name: Install minimal Rust with clippy
         run: |
           rustup update --no-self-update nightly
           rustup +nightly component add clippy
           make clippy
+
+  doc:
+    name: doc stable on ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
+      - name: Build docs
+        run: |
+          rustup update --no-self-update
+          make doc
+
+  version:
+    name: check rust version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+        with:
+          profile: minimal
+          override: true
+      - name: check rust versions
+        run: ./scripts/check-rust-version.sh
+
+  proto:
+    name: proto check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Update rust toolchain
+        run: rustup update --no-self-update
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
+      - name: Rebuild protos
+        run: BUILD_PROTO=1 cargo check -p miden-node-rpc -p miden-rpc-proto
+      - name: Diff check
+        run: git diff --exit-code
