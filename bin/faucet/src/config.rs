@@ -20,7 +20,7 @@ pub struct FaucetConfig {
     pub timeout_ms: u64,
     /// Location to store database files
     pub database_filepath: PathBuf,
-    /// Possible options on the amount of asset that should be dispered on each faucet request
+    /// Possible options on the amount of asset that should be dispersed on each faucet request
     pub asset_amount_options: Vec<u64>,
     /// Token symbol of the generated fungible asset
     pub token_symbol: String,
