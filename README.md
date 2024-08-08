@@ -90,7 +90,7 @@ miden-node make-genesis \
 which will create `genesis.dat` and an `accounts` directory containing account data based on the `genesis.toml` file.
 
 > [!NOTE]
-> `make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in (node installation section)[#installing-the-node].
+> `make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in the [installation](#installing-the-node) section.
 
 Modify the `miden-node.toml` configuration file such that the `[store]` paths point to our `<..>` folder:
 
