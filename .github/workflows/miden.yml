@@ -131,6 +131,8 @@ EOF
 
             # Configure systemd service
             sudo tee /etc/systemd/system/miden-node.service > /dev/null <<EOT
+            sudo tee /etc/systemd/system/miden-faucet.service > /dev/null <<EOT
+
             [Unit]
             Description=Miden Node
             After=network.target
@@ -179,6 +181,8 @@ EOF
 
             # Configure systemd service
             sudo tee /etc/systemd/system/miden-node.service > /dev/null <<EOT
+            sudo tee /etc/systemd/system/miden-faucet.service > /dev/null <<EOT
+
             [Unit]
             Description=Miden Node
             After=network.target
