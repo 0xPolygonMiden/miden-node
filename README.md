@@ -11,11 +11,11 @@ This repository holds the Miden node; that is, the software which processes tran
 
 The Miden node is still under heavy development and the project can be considered to be in an _alpha_ stage. Many features are yet to be implemented and there is a number of limitations which we will lift in the near future.
 
-At this point, we are developing the Miden node for a centralized operator. Thus, the work does not yet include such components as P2P networking and consensus. These will also be added in the future.
+At this point, we are developing the Miden node for a centralized operator. As such, the work does not yet include components such as P2P networking and consensus. These will be added in the future.
 
 ## Architecture
 
-The Miden node is made up of 3 main components, which communicate over gRPC:
+The Miden node consists of 3 main components, which communicate using gRPC:
 
 - **[RPC](crates/rpc):** an externally-facing component through which clients can interact with the node. It receives client requests (e.g., to synchronize with the latest state of the chain, or to submit transactions), performs basic validation, and forwards the requests to the appropriate internal components.
 - **[Store](crates/store):** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in the store, the node does not consider it to be part of the chain.
@@ -29,7 +29,7 @@ The diagram below illustrates high-level design of each component as well as bas
 
 ## Usage
 
-Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.2 requires Rust version **1.78** or later.
+Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node requires Rust version **1.78** or later.
 
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 
@@ -39,61 +39,83 @@ sudo apt install llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
 
 ### Installing the node
 
-To install for production use cases, run:
+[!NOTE]
+This guide describes running the node as a single process. To run components in separate processes, please refer to each component's documentation:
+- [RPC](crates/rpc/README.md#usage)
+- [Store](crates/store/README.md#usage)
+- [Block Producer](crates/block-producer/README.md#usage)
+
+Install the node binary for production using `cargo`:
+
 
 ```sh
-cargo install --path bin/node
+cargo install miden-node
 ```
 
-This will install the executable `miden-node` in your PATH, at `~/.cargo/bin/miden-node`.
+[!TIP]
+Miden account generation uses a proof-of-work puzzle to prevent DoS attacks. These puzzles can be quite expensive, especially for test purposes. You can lower the difficulty of the puzzle by installing with the `testing` feature enabled:
+```sh
+cargo install miden-node --features testing
+```
 
-Otherwise, if only to try the node out for testing, run:
+The resulting binary can be found in `~/.cargo/bin` and should already be available in your `PATH`. Confirm that installation succeeded by checking the node version:
 
 ```sh
-cargo install --features testing --path bin/node
+miden-node --version
 ```
+which should print `miden-node <version>`.
 
-Currently, the only difference between the two is how long the `make-genesis` command will take to run (see next subsection).
+### Configuration
 
-### Generating the node configuration and genesis files
+Select a folder to store all the node data and configuration files in. This guide will use the placeholder `<..>` to represent this folder.
 
-Before running the node, you must first generate the node configuration and genesis files. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](./config/genesis.toml). To generate both files, run:
+We need to configure the node as well as bootstrap the chain by creating the genesis block. Generate the default configurations for both:
 
 ```sh
-miden-node init
+miden-node init \
+  --config-path <..>/miden-node.toml \
+  --genesis-path <..>/genesis.toml  
 ```
-To generate the genesis block, run:
+
+which will generate `miden-node.toml` and `genesis.toml` files. The latter controls the accounts that the genesis block will be spawned with, and by default it contains a basic wallet account and a basic fungible faucet account. You can modify this file to add/remove accounts if so desired.
+
+Next, bootstrap the chain by generating the genesis data:
 
 ```sh
-miden-node make-genesis
+miden-node make-genesis \
+  --input-path <..>/genesis.toml \
+  --output-path <..>/genesis.dat
 ```
 
-By default this will generate 1 file and 1 folder in the current directory:
+which will create `genesis.dat` and an `accounts` directory containing the account data based on the `genesis.toml` file.
 
-- `genesis.dat`: the genesis file.
-- `accounts` directory containing `.mac` files (one per account) for the accounts defined in the genesis inputs file. Each `.mac` file contains full serialization of an account, including code, storage, and authentication info.
+#[!NOTE]
+`make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in [#Installing-the-node].
+
+Modify the `miden-node.toml` configuration file such that the `[store]` paths point to our `<..>` folder:
+
+```toml
+[store]
+database_filepath = "<..>/miden-store.sqlite3"
+genesis_filepath = "<..>/genesis.dat"
+blockstore_dir = "<..>/blocks"
+```
+
+Finally, configure the node's endpoints to your liking.
 
 ### Running the node
 
 Using the node configuration file created in the previous step, start the node:
 
 ```sh
-mkdir -p /opt/miden
-miden-node start --config <path-to-config-file> <component-to-be-started>
+miden-node start \
+  --config <..>/miden-node.toml \
+  node
 ```
 
-Note that the `store.genesis_filepath` field in the config file must point to the `genesis.dat` file that you generated in the previous step.
+### Updating the node
 
-### Running the node as separate components
-
-If you intend on running the node as different processes, you will need to install and run each component separately.
-Please, refer to each component's documentation:
-
-- [RPC](crates/rpc/README.md#usage)
-- [Store](crates/store/README.md#usage)
-- [Block Producer](crates/block-producer/README.md#usage)
-
-Each directory containing the executables also contains an example configuration file. Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are valid and point to the right endpoint.
+The node currently has no guarantees about backwards compatibility. Updating the node is therefore a simple matter of stopping the node, removing all data and re-installing it again.
 
 ### Running the node using Docker
 
