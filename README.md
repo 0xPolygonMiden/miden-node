@@ -39,11 +39,11 @@ sudo apt install llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
 
 ### Installing the node
 
-[!NOTE]
-This guide describes running the node as a single process. To run components in separate processes, please refer to each component's documentation:
-- [RPC](crates/rpc/README.md#usage)
-- [Store](crates/store/README.md#usage)
-- [Block Producer](crates/block-producer/README.md#usage)
+> [!NOTE]
+> This guide describes running the node as a single process. To run components in separate processes, please refer to each component's documentation:
+> - [RPC](crates/rpc/README.md#usage)
+> - [Store](crates/store/README.md#usage)
+> - [Block Producer](crates/block-producer/README.md#usage)
 
 Install the node binary for production using `cargo`:
 
@@ -52,11 +52,11 @@ Install the node binary for production using `cargo`:
 cargo install miden-node
 ```
 
-[!TIP]
-Miden account generation uses a proof-of-work puzzle to prevent DoS attacks. These puzzles can be quite expensive, especially for test purposes. You can lower the difficulty of the puzzle by installing with the `testing` feature enabled:
-```sh
-cargo install miden-node --features testing
-```
+> [!TIP]
+> Miden account generation uses a proof-of-work puzzle to prevent DoS attacks. These puzzles can be quite expensive, especially for test purposes. You can lower the difficulty of the puzzle by installing with the `testing` feature enabled:
+> ```sh
+> cargo install miden-node --features testing
+> ```
 
 The resulting binary can be found in `~/.cargo/bin` and should already be available in your `PATH`. Confirm that installation succeeded by checking the node version:
 
@@ -89,8 +89,8 @@ miden-node make-genesis \
 
 which will create `genesis.dat` and an `accounts` directory containing the account data based on the `genesis.toml` file.
 
-#[!NOTE]
-`make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in [#Installing-the-node].
+> #[!NOTE]
+> `make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in [#Installing-the-node].
 
 Modify the `miden-node.toml` configuration file such that the `[store]` paths point to our `<..>` folder:
 
