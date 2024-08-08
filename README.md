@@ -77,7 +77,7 @@ miden-node init \
   --genesis-path <..>/genesis.toml  
 ```
 
-which will generate `miden-node.toml` and `genesis.toml` files. The latter controls the accounts that the genesis block will be spawned with, and by default it contains a basic wallet account and a basic fungible faucet account. You can modify this file to add/remove accounts if so desired.
+which will generate `miden-node.toml` and `genesis.toml` files. The latter controls the accounts that the genesis block will be spawned with and by default contains a basic wallet account and a basic fungible faucet account. You can modify this file to add/remove accounts as desired.
 
 Next, bootstrap the chain by generating the genesis data:
 
@@ -87,10 +87,10 @@ miden-node make-genesis \
   --output-path <..>/genesis.dat
 ```
 
-which will create `genesis.dat` and an `accounts` directory containing the account data based on the `genesis.toml` file.
+which will create `genesis.dat` and an `accounts` directory containing account data based on the `genesis.toml` file.
 
-> #[!NOTE]
-> `make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in [#Installing-the-node].
+> [!NOTE]
+> `make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in (node installation section)[#installing-the-node].
 
 Modify the `miden-node.toml` configuration file such that the `[store]` paths point to our `<..>` folder:
 
