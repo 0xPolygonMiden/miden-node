@@ -7,6 +7,11 @@ on:
         description: 'Deployment Environment'
         required: true
         default: 'testnet'
+
+      additional_aws_role:
+        description: 'ARN of the role to assume in the additional AWS account'
+        required: true
+
   push:
     branches:
       - next
@@ -27,9 +32,15 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         with:
           role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
-          aws-region: us-west-2
+          aws-region: us-west-1
 
-      - name: SSH into EC2 and install dependencies
+    - name: Configure AWS credentials for additional account
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::657556092833:role/Miden-GithubActionsRole
+          aws-region: us-west-1
+
+      - name: SSH into EC2 testnet and install dependencies
         run: |
           ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 << 'EOF'
             sudo yum update -y
@@ -45,19 +56,42 @@ jobs:
             sudo yum install -y clang cmake
 EOF
 
-  check-crates:
-    runs-on: ubuntu-latest
-    needs: setup-ec2
-    steps:
-      - name: Check for updates on crates.io
+      - name: SSH into EC2 devnet and install dependencies
         run: |
-          NEW_VERSION=$(curl -s https://crates.io/api/v1/crates/miden-node | jq -r '.crate.max_version')
-          CURRENT_VERSION=$(ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 "miden-node --version | cut -d ' ' -f2")
-          if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
-            echo "::set-output name=update_needed::true"
-          else
-            echo "::set-output name=update_needed::false"
-          fi
+          ssh -i polygon-miden-ec2.pem -o "StrictHostKeyChecking no" ec2-user@3.255.177.27 << 'EOF'
+            sudo yum update -y
+            sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make
+            sudo yum groupinstall -y "Development Tools"
+
+            # Install Rust
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source $HOME/.cargo/env
+            rustup update
+
+            # Install dependencies
+            sudo yum install -y clang cmake
+EOF
+
+#  check-crates:
+#    runs-on: ubuntu-latest
+#    needs: setup-ec2
+#    steps:
+#      - name: Check for updates on crates.io
+#        run: |
+#          NEW_VERSION=$(curl -s https://crates.io/api/v1/crates/miden-node | jq -r '.crate.max_version')
+#          CURRENT_VERSION_testnet=$(ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 "miden-node --version | cut -d ' ' -f2")
+#          if [ "$NEW_VERSION" != "$CURRENT_VERSION_testnet" ]; then
+#            echo "::set-output name=update_needed_testnet::true"
+#          else
+#            echo "::set-output name=update_needed_testnet::false"
+#          fi
+
+#          CURRENT_VERSION_devnet=$(ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@3.255.177.27 "miden-node --version | cut -d ' ' -f2")
+#          if [ "$NEW_VERSION" != "$CURRENT_VERSION_devnet" ]; then
+#            echo "::set-output name=update_needed_devnet::true"
+#          else
+#            echo "::set-output name=update_needed_devnet::false"
+#          fi
 
   update-ec2:
     runs-on: ubuntu-latest
@@ -70,7 +104,7 @@ EOF
           role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
           aws-region: us-west-2
 
-      - name: SSH into EC2 and upgrade miden-node
+      - name: SSH into EC2 testnet and upgrade miden-node
         run: |
           ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 << 'EOF'
             # Stop the miden-node service
@@ -104,6 +138,54 @@ EOF
             [Service]
             ExecStart=/home/ec2-user/.cargo/bin/miden-node start -c miden-node.toml node
             ExecStart=/home/ec2-user/.cargo/bin/miden-faucet start -c miden-faucet.tomls
+            Restart=on-failure
+            User=ec2-user
+            WorkingDirectory=/home/ec2-user/miden-node
+            WorkingDirectory=/home/ec2-user/miden-faucet
+
+            Environment="RUST_LOG=info"
+            LimitNOFILE=10000
+
+            [Install]
+            WantedBy=multi-user.target
+            EOT
+
+            sudo systemctl daemon-reload
+            sudo systemctl enable miden-node
+            sudo systemctl start miden-node
+            sudo systemctl enable miden-faucet
+            sudo systemctl start miden-faucet
+EOF
+
+      - name: SSH into EC2 devnet and upgrade miden-node
+        if: needs.check-crates.outputs.update_needed_2 == 'true'
+        run: |
+          ssh -i polygon-miden-ec2.pem -o "StrictHostKeyChecking no" ec2-user@3.255.177.27 << 'EOF'
+            # Stop the miden-node service
+            sudo systemctl stop miden-node
+            sudo systemctl stop miden-faucet
+
+            # Remove previous data
+            rm -rf ~/miden-node; mkdir ~/miden-node
+            rm -rf ~/miden-faucet; mkdir ~/miden-faucet
+
+            # Install latest versions of miden-node and miden-faucet
+            cargo install miden-node miden-faucet --locked --features testing
+
+            # Initialize the services again
+            miden-node init -c ~/miden-node/miden-node.toml -g ~/miden-node/genesis.toml
+            miden-node make-genesis -i ~/miden-node/genesis.toml -o ~/miden-node/genesis.dat
+            miden-faucet init -c ~/miden-faucet/miden-faucet.toml
+
+            # Configure systemd service
+            sudo tee /etc/systemd/system/miden-node.service > /dev/null <<EOT
+            [Unit]
+            Description=Miden Node
+            After=network.target
+
+            [Service]
+            ExecStart=/home/ec2-user/.cargo/bin/miden-node start -c miden-node.toml node
+            ExecStart=/home/ec2-user/.cargo/bin/miden-faucet start -c miden-faucet.toml
             Restart=on-failure
             User=ec2-user
             WorkingDirectory=/home/ec2-user/miden-node
