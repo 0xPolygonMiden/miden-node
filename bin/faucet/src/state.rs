@@ -9,7 +9,7 @@ use crate::{client::FaucetClient, config::FaucetConfig, errors::FaucetError};
 // FAUCET STATE
 // ================================================================================================
 
-/// Stores the client and aditional information needed to handle requests.
+/// Stores the client and additional information needed to handle requests.
 ///
 /// The state is passed to every mint transaction request so the client is
 /// shared between handler threads.
