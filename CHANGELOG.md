@@ -16,6 +16,7 @@
 - Support multiple inflight transactions on the same account (#407).
 - Added `SyncNotes` endpoint (#424).
 - Cache sql statements (#427).
+- Added `execution_hint` field to `Notes` table.
 
 ### Fixes
 
