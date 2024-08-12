@@ -1,5 +1,5 @@
 use miden_objects::{
-    notes::{NoteMetadata, NoteTag, NoteType},
+    notes::{NoteExecutionHint, NoteMetadata, NoteTag, NoteType},
     Felt,
 };
 
@@ -17,7 +17,7 @@ impl TryFrom<crate::generated::note::NoteMetadata> for NoteMetadata {
         let tag = NoteTag::from(value.tag);
         let aux = Felt::try_from(value.aux).map_err(|_| ConversionError::NotAValidFelt)?;
 
-        Ok(NoteMetadata::new(sender, note_type, tag, aux)?)
+        Ok(NoteMetadata::new(sender, note_type, tag, NoteExecutionHint::none(),aux)?)
     }
 }
 
