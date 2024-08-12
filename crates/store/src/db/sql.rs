@@ -450,7 +450,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = row.get_ref(10)?.as_i64()? as u64;
+        let execution_hint = column_value_as_u64(row, 10)?;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
@@ -600,7 +600,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
         let details_data = row.get_ref(9)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-        let execution_hint = row.get_ref(10)?.as_i64()? as u64;
+        let execution_hint = column_value_as_u64(row, 10)?;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
@@ -694,7 +694,7 @@ pub fn select_notes_since_block_by_tag(
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
         let details_data = row.get_ref(9)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-        let execution_hint = row.get_ref(10)?.as_i64()? as u64;
+        let execution_hint = column_value_as_u64(row, 10)?;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
@@ -764,7 +764,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = row.get_ref(10)?.as_i64()? as u64;
+        let execution_hint = column_value_as_u64(row, 10)?;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
