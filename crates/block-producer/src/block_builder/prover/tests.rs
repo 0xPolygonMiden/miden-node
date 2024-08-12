@@ -13,7 +13,7 @@ use miden_objects::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
         SMT_DEPTH,
     },
-    notes::{NoteHeader, NoteMetadata, NoteTag, NoteType},
+    notes::{NoteExecutionHint, NoteHeader, NoteMetadata, NoteTag, NoteType},
     transaction::{OutputNote, ProvenTransaction},
     Felt, BLOCK_NOTES_TREE_DEPTH, ONE, ZERO,
 };
@@ -515,6 +515,7 @@ async fn test_compute_note_root_success() {
                 account_id,
                 NoteType::Private,
                 NoteTag::for_local_use_case(0u16, 0u16).unwrap(),
+                NoteExecutionHint::none(),
                 ONE,
             )
             .unwrap(),
