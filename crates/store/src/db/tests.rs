@@ -785,7 +785,9 @@ fn test_notes() {
     let note_id = num_to_rpo_digest(3);
     let tag = 5u32;
     let sender = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
-    let note_metadata = NoteMetadata::new(sender, NoteType::Public, tag.into(), NoteExecutionHint::none(), ZERO).unwrap();
+    let note_metadata =
+        NoteMetadata::new(sender, NoteType::Public, tag.into(), NoteExecutionHint::none(), ZERO)
+            .unwrap();
 
     let values = [(note_index, note_id, note_metadata)];
     let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
@@ -796,8 +798,14 @@ fn test_notes() {
         block_num: block_num_1,
         note_index,
         note_id,
-        metadata: NoteMetadata::new(sender, NoteType::Public, tag.into(), NoteExecutionHint::none(),Default::default())
-            .unwrap(),
+        metadata: NoteMetadata::new(
+            sender,
+            NoteType::Public,
+            tag.into(),
+            NoteExecutionHint::none(),
+            Default::default(),
+        )
+        .unwrap(),
         details,
         merkle_path: merkle_path.clone(),
     };
