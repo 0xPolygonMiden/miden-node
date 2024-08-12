@@ -7,7 +7,7 @@ use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
+    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
     BlockHeader,
@@ -424,7 +424,8 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             tag,
             aux,
             merkle_path,
-            details
+            details,
+            execution_hint
         FROM
             notes
         ORDER BY
@@ -449,12 +450,13 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
+        let execution_hint = row.get_ref(10)?.as_i64()? as u64;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
             note_type,
             tag.into(),
-            NoteExecutionHint::none(),
+            execution_hint.try_into()?,
             aux,
         )?;
 
@@ -495,11 +497,12 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             tag,
             aux,
             merkle_path,
-            details
+            details,
+            execution_hint
         )
         VALUES
         (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
         );",
     )?;
 
@@ -516,7 +519,8 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             note.metadata.tag().inner(),
             u64_to_value(note.metadata.aux().into()),
             note.merkle_path.to_bytes(),
-            details
+            details,
+            Into::<u64>::into(note.metadata.execution_hint()),
         ])?;
     }
 
@@ -556,7 +560,8 @@ pub fn select_notes_since_block_by_tag_and_sender(
             tag,
             aux,
             merkle_path,
-            details
+            details,
+            execution_hint
         FROM
             notes
         WHERE
@@ -595,12 +600,13 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
         let details_data = row.get_ref(9)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+        let execution_hint = row.get_ref(10)?.as_i64()? as u64;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
             NoteType::try_from(note_type)?,
             tag.into(),
-            NoteExecutionHint::none(),
+            execution_hint.try_into()?,
             aux,
         )?;
 
@@ -648,7 +654,8 @@ pub fn select_notes_since_block_by_tag(
             tag,
             aux,
             merkle_path,
-            details
+            details,
+            execution_hint
         FROM
             notes
         WHERE
@@ -687,12 +694,13 @@ pub fn select_notes_since_block_by_tag(
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
         let details_data = row.get_ref(9)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+        let execution_hint = row.get_ref(10)?.as_i64()? as u64;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
             NoteType::try_from(note_type)?,
             tag.into(),
-            NoteExecutionHint::None,
+            execution_hint.try_into()?,
             aux,
         )?;
 
@@ -730,7 +738,8 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
             tag,
             aux,
             merkle_path,
-            details
+            details,
+            execution_hint
         FROM
             notes
         WHERE
@@ -755,12 +764,13 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
+        let execution_hint = row.get_ref(10)?.as_i64()? as u64;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
             note_type,
             tag.into(),
-            NoteExecutionHint::none(),
+            execution_hint.try_into()?,
             aux,
         )?;
 
