@@ -26,8 +26,15 @@ impl From<NoteMetadata> for crate::generated::note::NoteMetadata {
         let sender = Some(val.sender().into());
         let note_type = val.note_type() as u32;
         let tag = val.tag().into();
+        let execution_hint: u64 = Felt::from(val.execution_hint()).into();
         let aux = val.aux().into();
 
-        crate::generated::note::NoteMetadata { sender, note_type, tag, aux }
+        crate::generated::note::NoteMetadata {
+            sender,
+            note_type,
+            tag,
+            execution_hint,
+            aux,
+        }
     }
 }

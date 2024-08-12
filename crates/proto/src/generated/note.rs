@@ -9,6 +9,8 @@ pub struct NoteMetadata {
     #[prost(fixed32, tag = "3")]
     pub tag: u32,
     #[prost(fixed64, tag = "4")]
+    pub execution_hint: u64,
+    #[prost(fixed64, tag = "5")]
     pub aux: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
