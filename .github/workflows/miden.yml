@@ -1,17 +1,14 @@
-name: EC2 Miden Node Setup and Upgrade
+# Deploy the miden node for testnet and devnet.
+#
+# testnet is deployed manually using `workflow_dispatch`, and devnet is deployed
+# on every push to the `next` branch.
+#
+# All previous node data is removed during deployment i.e. an update restarts the
+# node from genesis again.
+name: Node deployment
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Deployment Environment'
-        required: true
-        default: 'testnet'
-
-      additional_aws_role:
-        description: 'ARN of the role to assume in the additional AWS account'
-        required: true
-
   push:
     branches:
       - next
@@ -21,25 +18,13 @@ permissions:
   contents: read
 
 jobs:
-  setup-ec2:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-#      - name: Checkout code
-#        uses: actions/checkout@v2
-
-      # - name: Configure AWS credentials
-      #   uses: aws-actions/configure-aws-credentials@v1
-      #   with:
-      #     role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
-      #     aws-region: us-west-1
-
-      # - name: Configure AWS credentials for additional account
-      #   uses: aws-actions/configure-aws-credentials@v1
-      #   with:
-      #     role-to-assume: arn:aws:iam::657556092833:role/Miden-GithubActionsRole
-      #     aws-region: us-west-1
-
+      # Configure the `NETWORK` env variable based on the trigger type.
+      #
+      # This is then used by subsequent steps to switch on devnet | testnet,
+      # instead of switching on trigger type which is less readible.
       - name: Select testnet
         if: github.event_name == 'workflow_dispatch'
         run: echo "NETWORK=testnet" >> $GITHUB_ENV
@@ -48,6 +33,7 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         run: echo "NETWORK=devnet" >> $GITHUB_ENV
         
+      # Configure AWS credentials based on network.
       - name: Configure testnet AWS credentials
         if: env.NETWORK == 'testnet'
         uses: aws-actions/configure-aws-credentials@v1
@@ -62,6 +48,7 @@ jobs:
           role-to-assume: arn:aws:iam::657556092833:role/Miden-GithubActionsRole
           aws-region: us-west-1
 
+      # Configure instance IP based on network.
       - name: Configure testnet IP
         if: env.NETWORK == 'testnet'
         run: echo "AWS_IP=54.154.193.162" >> $GITHUB_ENV
@@ -70,39 +57,14 @@ jobs:
         if: env.NETWORK == 'devnet'
         run: echo "AWS_IP=3.255.177.27" >> $GITHUB_ENV
 
-#       - name: SSH into EC2 testnet and install dependencies
-#         run: |
-#           ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 << 'EOF'
-#             sudo yum update -y
-#             sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make
-#             sudo yum groupinstall -y "Development Tools"
+      - name: Stop services
+        run: |
+          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+            sudo systemctl stop miden-node
+            sudo systemctl stop miden-faucet
+          EOF
 
-#             # Install Rust
-#             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-#             source $HOME/.cargo/env
-#             rustup update
-
-#             # Install dependencies
-#             sudo yum install -y clang cmake
-# EOF
-
-#       - name: SSH into EC2 devnet and install dependencies
-#         run: |
-#           ssh -i polygon-miden-ec2.pem -o "StrictHostKeyChecking no" ec2-user@3.255.177.27 << 'EOF'
-#             sudo yum update -y
-#             sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make
-#             sudo yum groupinstall -y "Development Tools"
-
-#             # Install Rust
-#             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-#             source $HOME/.cargo/env
-#             rustup update
-
-#             # Install dependencies
-#             sudo yum install -y clang cmake
-# EOF
-
-      - name: Install prerequisites via SSH
+      - name: Install prerequisites
         run: |
           ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
             sudo yum update -y
@@ -116,226 +78,82 @@ jobs:
 
             # Install dependencies
             sudo yum install -y clang cmake
-EOF
+          EOF
 
-#  check-crates:
-#    runs-on: ubuntu-latest
-#    needs: setup-ec2
-#    steps:
-#      - name: Check for updates on crates.io
-#        run: |
-#          NEW_VERSION=$(curl -s https://crates.io/api/v1/crates/miden-node | jq -r '.crate.max_version')
-#          CURRENT_VERSION_testnet=$(ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 "miden-node --version | cut -d ' ' -f2")
-#          if [ "$NEW_VERSION" != "$CURRENT_VERSION_testnet" ]; then
-#            echo "::set-output name=update_needed_testnet::true"
-#          else
-#            echo "::set-output name=update_needed_testnet::false"
-#          fi
-
-#          CURRENT_VERSION_devnet=$(ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@3.255.177.27 "miden-node --version | cut -d ' ' -f2")
-#          if [ "$NEW_VERSION" != "$CURRENT_VERSION_devnet" ]; then
-#            echo "::set-output name=update_needed_devnet::true"
-#          else
-#            echo "::set-output name=update_needed_devnet::false"
-#          fi
-
-  update-ec2:
-    runs-on: ubuntu-latest
-    needs: check-crates
-    if: needs.check-crates.outputs.update_needed == 'true'
-    steps:
-      # - name: Configure AWS credentials
-      #   uses: aws-actions/configure-aws-credentials@v1
-      #   with:
-      #     role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
-      #     aws-region: us-west-2
-
-      - name: Select testnet
-        if: github.event_name == 'workflow_dispatch'
-        run: echo "NETWORK=testnet" >> $GITHUB_ENV
-      
-      - name: Select devnet
-        if: github.event_name != 'workflow_dispatch'
-        run: echo "NETWORK=devnet" >> $GITHUB_ENV
-        
-      - name: Configure testnet AWS credentials
+      - name: Install testnet 
         if: env.NETWORK == 'testnet'
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
-          aws-region: us-west-1
-
-      - name: Configure devnet AWS credentials
-        if: env.NETWORK == 'devnet'
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          role-to-assume: arn:aws:iam::657556092833:role/Miden-GithubActionsRole
-          aws-region: us-west-1
-
-      - name: Configure testnet IP
-        if: env.NETWORK == 'testnet'
-        run: echo "AWS_IP=54.154.193.162" >> $GITHUB_ENV
-
-      - name: Configure devnet IP
-        if: env.NETWORK == 'devnet'
-        run: echo "AWS_IP=3.255.177.27" >> $GITHUB_ENV
-
-#       - name: SSH into EC2 testnet and upgrade miden-node
-#         run: |
-#           ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@54.154.193.162 << 'EOF'
-#             # Stop the miden-node service
-#             sudo systemctl stop miden-node
-#             sudo systemctl stop miden-faucet
-
-#             # Remove previous data
-#             # rm -rf /home/ec2-user/miden-node
-#             # rm -rf /home/ec2-user/miden-faucet
-
-#             rm -rf ~/miden-node; mkdir ~/miden-node
-#             rm -rf ~/miden-faucet; mkdir ~/miden-faucet
-
-#             # Install latest versions of miden-node and miden-faucet
-#             cargo install miden-node miden-faucet --locked --features testing
-
-#             # Initialize the services again
-#             # miden-node init
-#             # miden-faucet init
-
-#             miden-node init -c ~/miden-node/miden-node.toml -g ~/miden-node/genesis.toml
-#             miden-node make-genesis -i ~/miden-node/genesis.toml -o ~/miden-node/genesis.dat
-#             miden-faucet init -c ~/miden-faucet/miden-faucet.toml
-
-#             # Configure systemd service
-#             sudo tee /etc/systemd/system/miden-node.service > /dev/null <<EOT
-#             sudo tee /etc/systemd/system/miden-faucet.service > /dev/null <<EOT
-
-#             [Unit]
-#             Description=Miden Node
-#             After=network.target
-
-#             [Service]
-#             ExecStart=/home/ec2-user/.cargo/bin/miden-node start -c miden-node.toml node
-#             ExecStart=/home/ec2-user/.cargo/bin/miden-faucet start -c miden-faucet.tomls
-#             Restart=on-failure
-#             User=ec2-user
-#             WorkingDirectory=/home/ec2-user/miden-node
-#             WorkingDirectory=/home/ec2-user/miden-faucet
-
-#             Environment="RUST_LOG=info"
-#             LimitNOFILE=10000
-
-#             [Install]
-#             WantedBy=multi-user.target
-#             EOT
-
-#             sudo systemctl daemon-reload
-#             sudo systemctl enable miden-node
-#             sudo systemctl start miden-node
-#             sudo systemctl enable miden-faucet
-#             sudo systemctl start miden-faucet
-# EOF
-
-#       - name: SSH into EC2 devnet and upgrade miden-node
-#         if: needs.check-crates.outputs.update_needed_2 == 'true'
-#         run: |
-#           ssh -i polygon-miden-ec2.pem -o "StrictHostKeyChecking no" ec2-user@3.255.177.27 << 'EOF'
-#             # Stop the miden-node service
-#             sudo systemctl stop miden-node
-#             sudo systemctl stop miden-faucet
-
-#             # Remove previous data
-#             rm -rf ~/miden-node; mkdir ~/miden-node
-#             rm -rf ~/miden-faucet; mkdir ~/miden-faucet
-
-#             # Install latest versions of miden-node and miden-faucet
-#             cargo install miden-node miden-faucet --locked --features testing
-
-#             # Initialize the services again
-#             miden-node init -c ~/miden-node/miden-node.toml -g ~/miden-node/genesis.toml
-#             miden-node make-genesis -i ~/miden-node/genesis.toml -o ~/miden-node/genesis.dat
-#             miden-faucet init -c ~/miden-faucet/miden-faucet.toml
-
-#             # Configure systemd service
-#             sudo tee /etc/systemd/system/miden-node.service > /dev/null <<EOT
-#             sudo tee /etc/systemd/system/miden-faucet.service > /dev/null <<EOT
-
-#             [Unit]
-#             Description=Miden Node
-#             After=network.target
-
-#             [Service]
-#             ExecStart=/home/ec2-user/.cargo/bin/miden-node start -c miden-node.toml node
-#             ExecStart=/home/ec2-user/.cargo/bin/miden-faucet start -c miden-faucet.toml
-#             Restart=on-failure
-#             User=ec2-user
-#             WorkingDirectory=/home/ec2-user/miden-node
-#             WorkingDirectory=/home/ec2-user/miden-faucet
-
-#             Environment="RUST_LOG=info"
-#             LimitNOFILE=10000
-
-#             [Install]
-#             WantedBy=multi-user.target
-#             EOT
-
-#             sudo systemctl daemon-reload
-#             sudo systemctl enable miden-node
-#             sudo systemctl start miden-node
-#             sudo systemctl enable miden-faucet
-#             sudo systemctl start miden-faucet
-# EOF
-
-      - name: SSH into EC2 and upgrade miden-node
         run: |
           ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
-            # Stop the miden-node service
-            sudo systemctl stop miden-node
-            sudo systemctl stop miden-faucet
+            cargo install miden-node miden-faucet --locked --features testing
+          EOF
 
-            # Remove previous data
-            # rm -rf /home/ec2-user/miden-node
-            # rm -rf /home/ec2-user/miden-faucet
+      - name: Install devnet
+        if: env.NETWORK == 'devnet'
+        run: |
+          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+            cargo install --git https://github.com/0xPolygonMiden/miden-node miden-node   --branch next --bin miden-node   --locked --features testing 
+            cargo install --git https://github.com/0xPolygonMiden/miden-node miden-faucet --branch next --bin miden-faucet --locked --features testing
+          EOF
 
-            rm -rf ~/miden-node; mkdir ~/miden-node
+      - name: Configure
+        run: |
+          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+            # Remove any existing data, folders must exist for following steps.
+            rm -rf ~/miden-node;   mkdir ~/miden-node
             rm -rf ~/miden-faucet; mkdir ~/miden-faucet
 
-            # Install latest versions of miden-node and miden-faucet
-            cargo install miden-node miden-faucet --locked --features testing
-
-            # Initialize the services again
-            # miden-node init
-            # miden-faucet init
-
+            # Create configuration files and generate genesis block information.
             miden-node init -c ~/miden-node/miden-node.toml -g ~/miden-node/genesis.toml
             miden-node make-genesis -i ~/miden-node/genesis.toml -o ~/miden-node/genesis.dat
             miden-faucet init -c ~/miden-faucet/miden-faucet.toml
 
-            # Configure systemd service
-            sudo tee /etc/systemd/system/miden-node.service > /dev/null <<EOT
-            sudo tee /etc/systemd/system/miden-faucet.service > /dev/null <<EOT
+            # Node systemd service file.
+            cat > /etc/systemd/system/miden-node.service << END_OF_CAT
+              [Unit]
+              Description=Miden node
+              After=network.target
 
-            [Unit]
-            Description=Miden Node
-            After=network.target
+              [Service]
+              ExecStart=miden-node start -c miden-node.toml node
+              Restart=on-failure
+              User=ec2-user
+              WorkingDirectory=~/miden-node
+              Environment="RUST_LOG=info"
+              LimitNOFILE=10000
 
-            [Service]
-            ExecStart=/home/ec2-user/.cargo/bin/miden-node start -c miden-node.toml node
-            ExecStart=/home/ec2-user/.cargo/bin/miden-faucet start -c miden-faucet.tomls
-            Restart=on-failure
-            User=ec2-user
-            WorkingDirectory=/home/ec2-user/miden-node
-            WorkingDirectory=/home/ec2-user/miden-faucet
+              [Install]
+              WantedBy=multi-user.target
+            END_OF_CAT
 
-            Environment="RUST_LOG=info"
-            LimitNOFILE=10000
+            # Faucet systemd service file.
+            cat > /etc/systemd/system/miden-facuet.service << END_OF_CAT
+              [Unit]
+              Description=Miden faucet
+              After=network.target
 
-            [Install]
-            WantedBy=multi-user.target
-            EOT
+              [Service]
+              ExecStart=miden-faucet start -c miden-faucet.toml
+              Restart=on-failure
+              User=ec2-user
+              WorkingDirectory=~/miden-faucet
+              Environment="RUST_LOG=info"
+              LimitNOFILE=10000
 
+              [Install]
+              WantedBy=multi-user.target
+            END_OF_CAT
+          EOF
+
+      - name: Start services
+        run: |
+          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
             sudo systemctl daemon-reload
             sudo systemctl enable miden-node
-            sudo systemctl start miden-node
             sudo systemctl enable miden-faucet
+
+            # The faucet must wait for the node to start. Sleeping is not an elegant way of achieving this,
+            # but it will suffice for now.
+            sudo systemctl start miden-node
+            sleep 5
             sudo systemctl start miden-faucet
-EOF
+          EOF
