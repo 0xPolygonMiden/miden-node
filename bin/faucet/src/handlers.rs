@@ -73,7 +73,14 @@ pub async fn get_tokens(
         .expect("failed to build note tag for local execution");
 
     // Serialize note into bytes
-    let bytes = NoteFile::NoteDetails(note_details, Some(note_tag)).to_bytes();
+    // NOTE: Because this client does not sync, it always effectively executes against block 0.
+    // Ideally, we should export these note details with a more sensible `after_block_num`
+    let bytes = NoteFile::NoteDetails {
+        details: note_details,
+        after_block_num: 0,
+        tag: Some(note_tag),
+    }
+    .to_bytes();
 
     info!("A new note has been created: {}", note_id);
 

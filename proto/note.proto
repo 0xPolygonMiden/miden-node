@@ -9,7 +9,8 @@ message NoteMetadata {
     account.AccountId sender = 1;
     uint32 note_type = 2;
     fixed32 tag = 3;
-    fixed64 aux = 4;
+    fixed64 execution_hint = 4;
+    fixed64 aux = 5;
 }
 
 message Note {

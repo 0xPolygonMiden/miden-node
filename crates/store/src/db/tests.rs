@@ -17,7 +17,7 @@ use miden_objects::{
     assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
+    notes::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
     BlockHeader, Felt, FieldElement, Word, ONE, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
@@ -175,6 +175,7 @@ fn test_sql_select_notes() {
                 ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
                 NoteType::Public,
                 i.into(),
+                NoteExecutionHint::none(),
                 Default::default(),
             )
             .unwrap(),
@@ -190,6 +191,93 @@ fn test_sql_select_notes() {
         let notes = sql::select_notes(&mut conn).unwrap();
         assert_eq!(notes, state);
     }
+}
+
+#[test]
+fn test_sql_select_notes_different_execution_hints() {
+    let mut conn = create_db();
+
+    let block_num = 1;
+    create_block(&mut conn, block_num);
+
+    // test querying empty table
+    let notes = sql::select_notes(&mut conn).unwrap();
+    assert!(notes.is_empty());
+
+    // test multiple entries
+    let mut state = vec![];
+
+    let note_none = NoteRecord {
+        block_num,
+        note_index: BlockNoteIndex::new(0, 0),
+        note_id: num_to_rpo_digest(0),
+        metadata: NoteMetadata::new(
+            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            NoteType::Public,
+            0.into(),
+            NoteExecutionHint::none(),
+            Default::default(),
+        )
+        .unwrap(),
+        details: Some(vec![1, 2, 3]),
+        merkle_path: MerklePath::new(vec![]),
+    };
+    state.push(note_none.clone());
+
+    let transaction = conn.transaction().unwrap();
+    let res = sql::insert_notes(&transaction, &[note_none]);
+    assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+    transaction.commit().unwrap();
+    let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(0).into()]).unwrap()[0];
+    assert_eq!(note.metadata.execution_hint(), NoteExecutionHint::none());
+
+    let note_always = NoteRecord {
+        block_num,
+        note_index: BlockNoteIndex::new(0, 1),
+        note_id: num_to_rpo_digest(1),
+        metadata: NoteMetadata::new(
+            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            NoteType::Public,
+            1.into(),
+            NoteExecutionHint::always(),
+            Default::default(),
+        )
+        .unwrap(),
+        details: Some(vec![1, 2, 3]),
+        merkle_path: MerklePath::new(vec![]),
+    };
+    state.push(note_always.clone());
+
+    let transaction = conn.transaction().unwrap();
+    let res = sql::insert_notes(&transaction, &[note_always]);
+    assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+    transaction.commit().unwrap();
+    let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(1).into()]).unwrap()[0];
+    assert_eq!(note.metadata.execution_hint(), NoteExecutionHint::always());
+
+    let note_after_block = NoteRecord {
+        block_num,
+        note_index: BlockNoteIndex::new(0, 2),
+        note_id: num_to_rpo_digest(2),
+        metadata: NoteMetadata::new(
+            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            NoteType::Public,
+            2.into(),
+            NoteExecutionHint::after_block(12),
+            Default::default(),
+        )
+        .unwrap(),
+        details: Some(vec![1, 2, 3]),
+        merkle_path: MerklePath::new(vec![]),
+    };
+    state.push(note_after_block.clone());
+
+    let transaction = conn.transaction().unwrap();
+    let res = sql::insert_notes(&transaction, &[note_after_block]);
+    assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+    transaction.commit().unwrap();
+    let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(2).into()]).unwrap()[0];
+    assert_eq!(note.metadata.execution_hint(), NoteExecutionHint::after_block(12));
 }
 
 #[test]
@@ -784,7 +872,9 @@ fn test_notes() {
     let note_id = num_to_rpo_digest(3);
     let tag = 5u32;
     let sender = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
-    let note_metadata = NoteMetadata::new(sender, NoteType::Public, tag.into(), ZERO).unwrap();
+    let note_metadata =
+        NoteMetadata::new(sender, NoteType::Public, tag.into(), NoteExecutionHint::none(), ZERO)
+            .unwrap();
 
     let values = [(note_index, note_id, note_metadata)];
     let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
@@ -795,8 +885,14 @@ fn test_notes() {
         block_num: block_num_1,
         note_index,
         note_id,
-        metadata: NoteMetadata::new(sender, NoteType::Public, tag.into(), Default::default())
-            .unwrap(),
+        metadata: NoteMetadata::new(
+            sender,
+            NoteType::Public,
+            tag.into(),
+            NoteExecutionHint::none(),
+            Default::default(),
+        )
+        .unwrap(),
         details,
         merkle_path: merkle_path.clone(),
     };
