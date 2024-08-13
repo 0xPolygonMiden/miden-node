@@ -31,9 +31,9 @@ CREATE TABLE
     sender         INTEGER NOT NULL,
     tag            INTEGER NOT NULL,
     aux            INTEGER NOT NULL,
+    execution_hint INTEGER NOT NULL,
     merkle_path    BLOB    NOT NULL,
     details        BLOB,
-    execution_hint INTEGER,
 
     PRIMARY KEY (block_num, batch_index, note_index),
     FOREIGN KEY (block_num) REFERENCES block_headers(block_num),

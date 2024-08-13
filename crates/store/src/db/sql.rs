@@ -423,9 +423,9 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             sender,
             tag,
             aux,
+            execution_hint,
             merkle_path,
-            details,
-            execution_hint
+            details
         FROM
             notes
         ORDER BY
@@ -439,10 +439,10 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
 
-        let merkle_path_data = row.get_ref(8)?.as_blob()?;
+        let merkle_path_data = row.get_ref(9)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
-        let details_data = row.get_ref(9)?.as_blob_or_null()?;
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         let note_type = row.get::<_, u8>(4)?.try_into()?;
@@ -450,7 +450,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = column_value_as_u64(row, 10)?;
+        let execution_hint = column_value_as_u64(row, 8)?;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
@@ -496,9 +496,9 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             sender,
             tag,
             aux,
+            execution_hint,
             merkle_path,
-            details,
-            execution_hint
+            details
         )
         VALUES
         (
@@ -518,9 +518,9 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             u64_to_value(note.metadata.sender().into()),
             note.metadata.tag().inner(),
             u64_to_value(note.metadata.aux().into()),
+            Into::<u64>::into(note.metadata.execution_hint()),
             note.merkle_path.to_bytes(),
             details,
-            Into::<u64>::into(note.metadata.execution_hint()),
         ])?;
     }
 
@@ -559,9 +559,9 @@ pub fn select_notes_since_block_by_tag_and_sender(
             sender,
             tag,
             aux,
+            execution_hint,
             merkle_path,
-            details,
-            execution_hint
+            details
         FROM
             notes
         WHERE
@@ -596,11 +596,11 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let merkle_path_data = row.get_ref(8)?.as_blob()?;
+        let execution_hint = column_value_as_u64(row, 8)?;
+        let merkle_path_data = row.get_ref(9)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(9)?.as_blob_or_null()?;
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-        let execution_hint = column_value_as_u64(row, 10)?;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
@@ -653,9 +653,9 @@ pub fn select_notes_since_block_by_tag(
             sender,
             tag,
             aux,
+            execution_hint,
             merkle_path,
-            details,
-            execution_hint
+            details
         FROM
             notes
         WHERE
@@ -690,11 +690,11 @@ pub fn select_notes_since_block_by_tag(
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let merkle_path_data = row.get_ref(8)?.as_blob()?;
+        let execution_hint = column_value_as_u64(row, 8)?;
+        let merkle_path_data = row.get_ref(9)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(9)?.as_blob_or_null()?;
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-        let execution_hint = column_value_as_u64(row, 10)?;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
@@ -737,9 +737,9 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
             sender,
             tag,
             aux,
+            execution_hint,
             merkle_path,
-            details,
-            execution_hint
+            details
         FROM
             notes
         WHERE
@@ -753,10 +753,10 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = NoteId::read_from_bytes(note_id_data)?;
 
-        let merkle_path_data = row.get_ref(8)?.as_blob()?;
+        let merkle_path_data = row.get_ref(9)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
-        let details_data = row.get_ref(9)?.as_blob_or_null()?;
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         let note_type = row.get::<_, u8>(4)?.try_into()?;
@@ -764,7 +764,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = column_value_as_u64(row, 10)?;
+        let execution_hint = column_value_as_u64(row, 8)?;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
