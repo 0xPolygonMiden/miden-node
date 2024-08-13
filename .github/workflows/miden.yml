@@ -27,11 +27,15 @@ jobs:
       # instead of switching on trigger type which is less readible.
       - name: Select testnet
         if: github.event_name == 'workflow_dispatch'
-        run: echo "NETWORK=testnet" >> $GITHUB_ENV
+        run: 
+          echo "NETWORK=testnet" >> $GITHUB_ENV
+          echo "SSH_KEY=miden-test.pem" >> $GITHUB_ENV
       
       - name: Select devnet
         if: github.event_name != 'workflow_dispatch'
-        run: echo "NETWORK=devnet" >> $GITHUB_ENV
+        run: 
+          echo "NETWORK=devnet" >> $GITHUB_ENV
+          echo "SSH_KEY=polygon-miden-ec2.pem" >> $GITHUB_ENV
         
       # Configure AWS credentials based on network.
       - name: Configure testnet AWS credentials
@@ -59,14 +63,14 @@ jobs:
 
       - name: Stop services
         run: |
-          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
             sudo systemctl stop miden-node
             sudo systemctl stop miden-faucet
           EOF
 
       - name: Install prerequisites
         run: |
-          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
             sudo yum update -y
             sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make
             sudo yum groupinstall -y "Development Tools"
@@ -83,21 +87,21 @@ jobs:
       - name: Install testnet 
         if: env.NETWORK == 'testnet'
         run: |
-          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
             cargo install miden-node miden-faucet --locked --features testing
           EOF
 
       - name: Install devnet
         if: env.NETWORK == 'devnet'
         run: |
-          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
             cargo install --git https://github.com/0xPolygonMiden/miden-node miden-node   --branch next --bin miden-node   --locked --features testing 
             cargo install --git https://github.com/0xPolygonMiden/miden-node miden-faucet --branch next --bin miden-faucet --locked --features testing
           EOF
 
       - name: Configure
         run: |
-          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
             # Remove any existing data, folders must exist for following steps.
             rm -rf ~/miden-node;   mkdir ~/miden-node
             rm -rf ~/miden-faucet; mkdir ~/miden-faucet
@@ -146,7 +150,7 @@ jobs:
 
       - name: Start services
         run: |
-          ssh -i miden-test.pem -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
             sudo systemctl daemon-reload
             sudo systemctl enable miden-node
             sudo systemctl enable miden-faucet
