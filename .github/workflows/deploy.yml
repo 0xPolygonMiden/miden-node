@@ -9,10 +9,16 @@ name: Node deployment
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - next
-
+    inputs:
+      network:
+        required: true
+        default: 'devnet'
+        type: choice
+        options:
+          - devnet
+          # temporarily disabled until we are happy this works on devnet
+          # - testnet
+        
 permissions:
   id-token: write
   contents: read
@@ -25,17 +31,25 @@ jobs:
       #
       # This is then used by subsequent steps to switch on devnet | testnet,
       # instead of switching on trigger type which is less readible.
-      - name: Select testnet
-        if: github.event_name == 'workflow_dispatch'
-        run: 
-          echo "NETWORK=testnet" >> $GITHUB_ENV
-          echo "SSH_KEY=miden-test.pem" >> $GITHUB_ENV
-      
-      - name: Select devnet
-        if: github.event_name != 'workflow_dispatch'
+      - name: Configure for testnet
+        if: ${{ inputs.network == 'testnet' }}
+        env:
+          IP:  ${{ secrets.TESTNET_IP }}
+          KEY: ${{ secrets.TESTNET_KEY }}
         run: 
           echo "NETWORK=devnet" >> $GITHUB_ENV
-          echo "SSH_KEY=polygon-miden-ec2.pem" >> $GITHUB_ENV
+          echo "SSH_KEY=$KEY"   >> $GITHUB_ENV
+          echo "SSH_IP=$IP"     >> $GITHUB_ENV
+      
+      - name: Configure for devnet
+        if: ${{ inputs.network == 'devnet' }}
+        env:
+          IP:  ${{ secrets.DEVNET_IP }}
+          KEY: ${{ secrets.DEVNET_KEY }}
+        run: 
+          echo "NETWORK=devnet" >> $GITHUB_ENV
+          echo "SSH_KEY=$KEY"   >> $GITHUB_ENV
+          echo "SSH_IP=$IP"     >> $GITHUB_ENV
         
       # Configure AWS credentials based on network.
       - name: Configure testnet AWS credentials
@@ -52,25 +66,16 @@ jobs:
           role-to-assume: arn:aws:iam::657556092833:role/Miden-GithubActionsRole
           aws-region: us-west-1
 
-      # Configure instance IP based on network.
-      - name: Configure testnet IP
-        if: env.NETWORK == 'testnet'
-        run: echo "AWS_IP=54.154.193.162" >> $GITHUB_ENV
-
-      - name: Configure devnet IP
-        if: env.NETWORK == 'devnet'
-        run: echo "AWS_IP=3.255.177.27" >> $GITHUB_ENV
-
       - name: Stop services
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
             sudo systemctl stop miden-node
             sudo systemctl stop miden-faucet
           EOF
 
       - name: Install prerequisites
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
             sudo yum update -y
             sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make
             sudo yum groupinstall -y "Development Tools"
@@ -87,21 +92,21 @@ jobs:
       - name: Install testnet 
         if: env.NETWORK == 'testnet'
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
             cargo install miden-node miden-faucet --locked --features testing
           EOF
 
       - name: Install devnet
         if: env.NETWORK == 'devnet'
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
             cargo install --git https://github.com/0xPolygonMiden/miden-node miden-node   --branch next --bin miden-node   --locked --features testing 
             cargo install --git https://github.com/0xPolygonMiden/miden-node miden-faucet --branch next --bin miden-faucet --locked --features testing
           EOF
 
       - name: Configure
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
             # Remove any existing data, folders must exist for following steps.
             rm -rf ~/miden-node;   mkdir ~/miden-node
             rm -rf ~/miden-faucet; mkdir ~/miden-faucet
@@ -150,7 +155,7 @@ jobs:
 
       - name: Start services
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.AWS_IP }} << 'EOF'
+          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
             sudo systemctl daemon-reload
             sudo systemctl enable miden-node
             sudo systemctl enable miden-faucet
