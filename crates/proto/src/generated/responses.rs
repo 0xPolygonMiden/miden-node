@@ -72,12 +72,7 @@ pub struct SyncNoteResponse {
     /// Block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
-    /// Proof for block header's MMR with respect to the chain tip.
-    ///
-    /// More specifically, the full proof consists of `forest`, `position` and `path` components. This
-    /// value constitutes the `path`. The other two components can be obtained as follows:
-    ///    - `position` is simply `resopnse.block_header.block_num`
-    ///    - `forest` is the same as `response.chain_tip + 1`
+    /// Merkle path to verify the block's inclusion in the MMR at the returned `chain_tip`
     #[prost(message, optional, tag = "3")]
     pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`
