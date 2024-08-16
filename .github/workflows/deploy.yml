@@ -35,13 +35,17 @@ jobs:
         if: ${{ inputs.network == 'testnet' }}
         env:
           INSTANCE_ID: ${{ secrets.TESTNET_INSTANCE_ID }}
-        run: echo "NETWORK=testnet" >> $GITHUB_ENV
+        run: |
+          echo "NETWORK=testnet" >> $GITHUB_ENV
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
       
       - name: Configure for devnet
         if: ${{ inputs.network == 'devnet' }}
         env:
           INSTANCE_ID: ${{ secrets.DEVNET_INSTANCE_ID }}
-        run: echo "NETWORK=devnet" >> $GITHUB_ENV
+        run: |
+          echo "NETWORK=devnet" >> $GITHUB_ENV
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
         
       # Configure AWS credentials based on network.
       - name: Configure testnet AWS credentials
