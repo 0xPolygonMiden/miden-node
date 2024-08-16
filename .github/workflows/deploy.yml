@@ -34,22 +34,14 @@ jobs:
       - name: Configure for testnet
         if: ${{ inputs.network == 'testnet' }}
         env:
-          IP:  ${{ secrets.TESTNET_IP }}
-          KEY: ${{ secrets.TESTNET_KEY }}
-        run: 
-          echo "NETWORK=devnet" >> $GITHUB_ENV
-          echo "SSH_KEY=$KEY"   >> $GITHUB_ENV
-          echo "SSH_IP=$IP"     >> $GITHUB_ENV
+          INSTANCE_ID: ${{ secrets.TESTNET_INSTANCE_ID }}
+        run: echo "NETWORK=testnet" >> $GITHUB_ENV
       
       - name: Configure for devnet
         if: ${{ inputs.network == 'devnet' }}
         env:
-          IP:  ${{ secrets.DEVNET_IP }}
-          KEY: ${{ secrets.DEVNET_KEY }}
-        run: 
-          echo "NETWORK=devnet" >> $GITHUB_ENV
-          echo "SSH_KEY=$KEY"   >> $GITHUB_ENV
-          echo "SSH_IP=$IP"     >> $GITHUB_ENV
+          INSTANCE_ID: ${{ secrets.DEVNET_INSTANCE_ID }}
+        run: echo "NETWORK=devnet" >> $GITHUB_ENV
         
       # Configure AWS credentials based on network.
       - name: Configure testnet AWS credentials
@@ -68,101 +60,87 @@ jobs:
 
       - name: Stop services
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
-            sudo systemctl stop miden-node
-            sudo systemctl stop miden-faucet
-          EOF
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Stop Miden services" \
+            --parameters commands='[
+              "sudo systemctl stop miden-node",
+              "sudo systemctl stop miden-faucet"
+            ]' \
+            --output text
 
       - name: Install prerequisites
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
-            sudo yum update -y
-            sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make
-            sudo yum groupinstall -y "Development Tools"
-
-            # Install Rust
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            source $HOME/.cargo/env
-            rustup update
-
-            # Install dependencies
-            sudo yum install -y clang cmake
-          EOF
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Install prerequisites" \
+            --parameters commands='[
+              "sudo yum update -y",
+              "sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make",
+              "sudo yum groupinstall -y \"Development Tools\"",
+              "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
+              "source $HOME/.cargo/env",
+              "rustup update",
+              "sudo yum install -y clang cmake"
+            ]' \
+            --output text
 
       - name: Install testnet 
         if: env.NETWORK == 'testnet'
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
-            cargo install miden-node miden-faucet --locked --features testing
-          EOF
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Install Miden on testnet" \
+            --parameters commands='[
+              "cargo install miden-node miden-faucet --locked --features testing"
+            ]' \
+            --output text
 
       - name: Install devnet
         if: env.NETWORK == 'devnet'
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
-            cargo install --git https://github.com/0xPolygonMiden/miden-node miden-node   --branch next --bin miden-node   --locked --features testing 
-            cargo install --git https://github.com/0xPolygonMiden/miden-node miden-faucet --branch next --bin miden-faucet --locked --features testing
-          EOF
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Install Miden on devnet" \
+            --parameters commands='[
+              "cargo install --git https://github.com/0xPolygonMiden/miden-node miden-node --branch next --bin miden-node --locked --features testing",
+              "cargo install --git https://github.com/0xPolygonMiden/miden-node miden-faucet --branch next --bin miden-faucet --locked --features testing"
+            ]' \
+            --output text
 
       - name: Configure
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
-            # Remove any existing data, folders must exist for following steps.
-            rm -rf ~/miden-node;   mkdir ~/miden-node
-            rm -rf ~/miden-faucet; mkdir ~/miden-faucet
-
-            # Create configuration files and generate genesis block information.
-            miden-node init -c ~/miden-node/miden-node.toml -g ~/miden-node/genesis.toml
-            miden-node make-genesis -i ~/miden-node/genesis.toml -o ~/miden-node/genesis.dat
-            miden-faucet init -c ~/miden-faucet/miden-faucet.toml
-
-            # Node systemd service file.
-            cat > /etc/systemd/system/miden-node.service << END_OF_CAT
-              [Unit]
-              Description=Miden node
-              After=network.target
-
-              [Service]
-              ExecStart=miden-node start -c miden-node.toml node
-              Restart=on-failure
-              User=ec2-user
-              WorkingDirectory=~/miden-node
-              Environment="RUST_LOG=info"
-              LimitNOFILE=10000
-
-              [Install]
-              WantedBy=multi-user.target
-            END_OF_CAT
-
-            # Faucet systemd service file.
-            cat > /etc/systemd/system/miden-facuet.service << END_OF_CAT
-              [Unit]
-              Description=Miden faucet
-              After=network.target
-
-              [Service]
-              ExecStart=miden-faucet start -c miden-faucet.toml
-              Restart=on-failure
-              User=ec2-user
-              WorkingDirectory=~/miden-faucet
-              Environment="RUST_LOG=info"
-              LimitNOFILE=10000
-
-              [Install]
-              WantedBy=multi-user.target
-            END_OF_CAT
-          EOF
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Configure Miden services" \
+            --parameters commands='[
+              "rm -rf ~/miden-node; mkdir ~/miden-node",
+              "rm -rf ~/miden-faucet; mkdir ~/miden-faucet",
+              "miden-node init -c ~/miden-node/miden-node.toml -g ~/miden-node/genesis.toml",
+              "miden-node make-genesis -i ~/miden-node/genesis.toml -o ~/miden-node/genesis.dat",
+              "miden-faucet init -c ~/miden-faucet/miden-faucet.toml",
+              "cat > /etc/systemd/system/miden-node.service << 'END_OF_CAT' ... END_OF_CAT",
+              "cat > /etc/systemd/system/miden-facuet.service << 'END_OF_CAT' ... END_OF_CAT"
+            ]' \
+            --output text
 
       - name: Start services
         run: |
-          ssh -i ${{ env.SSH_KEY }} -o "StrictHostKeyChecking no" ec2-user@{{ env.SSH_IP }} << 'EOF'
-            sudo systemctl daemon-reload
-            sudo systemctl enable miden-node
-            sudo systemctl enable miden-faucet
-
-            # The faucet must wait for the node to start. Sleeping is not an elegant way of achieving this,
-            # but it will suffice for now.
-            sudo systemctl start miden-node
-            sleep 5
-            sudo systemctl start miden-faucet
-          EOF
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Start Miden services" \
+            --parameters commands='[
+              "sudo systemctl daemon-reload",
+              "sudo systemctl enable miden-node",
+              "sudo systemctl enable miden-faucet",
+              "sudo systemctl start miden-node",
+              "sleep 5",
+              "sudo systemctl start miden-faucet"
+            ]' \
+            --output text
