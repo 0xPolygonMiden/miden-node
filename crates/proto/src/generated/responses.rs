@@ -72,7 +72,10 @@ pub struct SyncNoteResponse {
     /// Block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
     pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
-    /// Merkle path to verify the block's inclusion in the MMR at the returned `chain_tip`
+    /// Merkle path to verify the block's inclusion in the MMR at the returned `chain_tip`.
+    ///
+    /// An MMR proof can be constructed for the leaf of index `block_header.block_num` of
+    /// an MMR of forest `chain_tip` with this path.
     #[prost(message, optional, tag = "3")]
     pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`

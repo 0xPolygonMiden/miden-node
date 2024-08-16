@@ -69,7 +69,10 @@ message SyncNoteResponse {
     // Block header of the block with the first note matching the specified criteria
     block_header.BlockHeader block_header = 2;
 
-    // Merkle path to verify the block's inclusion in the MMR at the returned `chain_tip`
+    // Merkle path to verify the block's inclusion in the MMR at the returned `chain_tip`.
+    //
+    // An MMR proof can be constructed for the leaf of index `block_header.block_num` of
+    // an MMR of forest `chain_tip` with this path.
     merkle.MerklePath mmr_path = 3;
 
     // List of all notes together with the Merkle paths from `response.block_header.note_root`
