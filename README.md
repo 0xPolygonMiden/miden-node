@@ -27,9 +27,15 @@ The diagram below illustrates high-level design of each component as well as bas
 
 ![Architecture diagram](./assets/architecture.png)
 
-## Usage
+## Installation
 
-Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node requires Rust version **1.78** or later.
+Official releases are available as debian packages which can be found under our [releases](https://github.com/0xPolygonMiden/miden-node/releases) page.
+
+Alternatively, the Rust package manager `cargo` can be used to install on non-debian distributions or to compile from source.
+
+### Intall using `cargo`
+
+Install Rust version **1.78** or greater using the official Rust installation [instructions](https://www.rust-lang.org/tools/install).
 
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 
@@ -37,68 +43,81 @@ Depending on the platform, you may need to install additional libraries. For exa
 sudo apt install llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
 ```
 
-### Installing the node
-
-> [!NOTE]
-> This guide describes running the node as a single process. To run components in separate processes, please refer to each component's documentation:
-> - [RPC](crates/rpc/README.md#usage)
-> - [Store](crates/store/README.md#usage)
-> - [Block Producer](crates/block-producer/README.md#usage)
-
 Install the node binary for production using `cargo`:
 
-
 ```sh
-cargo install miden-node
+cargo install miden-node --locked
 ```
 
+This will install the latest official version of the node. You can install a specific version using `--version <x.y.z>`:
+
+```sh
+cargo install miden-node --locked --version x.y.z
+```
+
+You can also use `cargo` to compile the node from the source code if for some reason you need a specific git revision. Note that since these aren't official releases we cannot provide much support for any issues you run into, so consider this for advanced users only. The incantation is a little different as you'll be targetting this repo instead: 
+
+```sh
+# Install from a specific branch
+cargo install --locked --path bin/miden --git https://github.com/0xPolygonMiden/miden-node --branch <branch>
+
+# Install a specific tag
+cargo install --locked --path bin/miden --git https://github.com/0xPolygonMiden/miden-node --tag <tag>
+
+# Install a specific git revision
+cargo install --locked --path bin/miden --git https://github.com/0xPolygonMiden/miden-node --rev <git-sha>
+```
+
+More information on the various options can be found [here](https://doc.rust-lang.org/cargo/commands/cargo-install.html#install-options).
+
 > [!TIP]
-> Miden account generation uses a proof-of-work puzzle to prevent DoS attacks. These puzzles can be quite expensive, especially for test purposes. You can lower the difficulty of the puzzle by installing with the `testing` feature enabled:
+> Miden account generation uses a proof-of-work puzzle to prevent DoS attacks. These puzzles can be quite expensive, especially for test purposes. You can lower the difficulty of the puzzle by appending `--features testing` to the `cargo install ..` invocation. For example:
 > ```sh
-> cargo install miden-node --features testing
+> cargo install miden-node --locked --features testing
 > ```
 
-The resulting binary can be found in `~/.cargo/bin` and should already be available in your `PATH`. Confirm that installation succeeded by checking the node version:
+You can verify the installation by checking the node's version:
 
 ```sh
 miden-node --version
 ```
-which should print `miden-node <version>`.
 
-### Configuration
+## Usage
 
-Select a folder to store all the node data and configuration files in. This guide will use the placeholder `<..>` to represent this folder.
+### Setup
+
+Decide on a location to store all the node data and configuration files in. This guide will use the placeholder `<STORAGE>` to represent this directory.
 
 We need to configure the node as well as bootstrap the chain by creating the genesis block. Generate the default configurations for both:
 
 ```sh
 miden-node init \
-  --config-path <..>/miden-node.toml \
-  --genesis-path <..>/genesis.toml  
+  --config-path  <STORAGE>/miden-node.toml \
+  --genesis-path <STORAGE>/genesis.toml  
 ```
 
-which will generate `miden-node.toml` and `genesis.toml` files. The latter controls the accounts that the genesis block will be spawned with and by default contains a basic wallet account and a basic fungible faucet account. You can modify this file to add/remove accounts as desired.
+which will generate `miden-node.toml` and `genesis.toml` files. The latter controls the accounts that the genesis block will be spawned with and by default includes a basic wallet account and a basic fungible faucet account. You can modify this file to add/remove accounts as desired.
 
 Next, bootstrap the chain by generating the genesis data:
 
 ```sh
 miden-node make-genesis \
-  --input-path <..>/genesis.toml \
-  --output-path <..>/genesis.dat
+  --input-path  <STORAGE>/genesis.toml \
+  --output-path <STORAGE>/genesis.dat
 ```
 
 which will create `genesis.dat` and an `accounts` directory containing account data based on the `genesis.toml` file.
 
 > [!NOTE]
-> `make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in the [installation](#installing-the-node) section.
+> `make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in the [installation](#install-using-`cargo`) section.
 
-Modify the `miden-node.toml` configuration file such that the `[store]` paths point to our `<..>` folder:
+Modify the `miden-node.toml` configuration file such that the `[store]` paths point to our `<STORAGE>` folder:
 
 ```toml
 [store]
-database_filepath = "<..>/miden-store.sqlite3"
-genesis_filepath = "<..>/genesis.dat"
-blockstore_dir = "<..>/blocks"
+database_filepath = "<STORAGE>/miden-store.sqlite3"
+genesis_filepath  = "<STORAGE>/genesis.dat"
+blockstore_dir    = "<STORAGE>/blocks"
 ```
 
 Finally, configure the node's endpoints to your liking.
@@ -109,82 +128,22 @@ Using the node configuration file created in the previous step, start the node:
 
 ```sh
 miden-node start \
-  --config <..>/miden-node.toml \
+  --config <STORAGE>/miden-node.toml \
   node
 ```
 
-### Updating the node
+## Updating
 
-The node currently has no guarantees about backwards compatibility. Updating the node is therefore a simple matter of stopping the node, removing all data and re-installing it again.
+We currently make no guarantees about backwards compatibility. Updating the node software therefore consists of wiping all existing data and re-installing the node's software again. This includes regenerating the configuration files and genesis block as these formats may have changed. This effectively means every update is a complete reset of the blockchain.
 
-### Running the node using Docker
-
-If you intend on running the node inside a Docker container, you will need to follow these steps:
-
-1. Build the docker image from source
-
-   ```sh
-   make docker-build-node
-   ```
-
-   This command will build the docker image for the Miden node and save it locally.
-
-2. Run the Docker container
-
-   ```sh
-   # Using make
-   make docker-run-node
-
-   # Manually
-   docker run --name miden-node -p 57291:57291 -d miden-node-image
-   ```
-
-   This command will run the node as a container named `miden-node` using the `miden-node-image` and make port `57291` available (rpc endpoint).
-
-3. Monitor container
-
-   ```sh
-   docker ps
-   ```
-
-    After running this command you should see the name of the container `miden-node` being outputted and marked as `Up`.
-
-### Debian Packages
-
-The debian packages allow for easy install for miden on debian based systems. Note that there are checksums available for the package.
-Current support is for amd64, arm64 support coming soon.
-
-To install the debian package:
+If you followed the [Setup](#setup) section, then this can be achieved by deleting all information in `<STORAGE>`:
 
 ```sh
-sudo dpkg -i $package_name.deb
+rm -rf <STORAGE>
 ```
 
-Note, when using the debian package to run the `make-genesis` function, you should define the location of your output:
-
-```sh
-miden-node make-genesis -i $input_location_for_genesis.toml -o $output_for_genesis.dat_and_accounts
-```
-
-The debian package has a checksum, you can verify this checksum by downloading the debian package and checksum file to the same directory and running the following command:
-
-```sh
-sha256sum --check $checksumfile
-```
-
-Please make sure you have the sha256sum program installed, for most linux operating systems this is already installed. If you wish to install it on your macOS, you can use brew:
-
-```sh
-brew install coreutils
-```
-
-## Testing
-
-In order to test the node run the following command:
-
-```sh
-make test
-```
+> [!WARNING]
+> Failure to remove existing node data could result in strange behaviour.
 
 ## License
 
