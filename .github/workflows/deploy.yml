@@ -27,6 +27,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # Configure AWS credentials based on network.
+      - name: Checkout Code Repository
+        uses: actions/checkout@v3
+
       # Configure the `NETWORK` env variable based on the trigger type.
       #
       # This is then used by subsequent steps to switch on devnet | testnet,
@@ -42,10 +46,6 @@ jobs:
         env:
           INSTANCE_ID: ${{ secrets.DEVNET_INSTANCE_ID }}
         run: echo "NETWORK=devnet" >> $GITHUB_ENV
-        
-      # Configure AWS credentials based on network.
-      - name: Checkout Code Repository
-        uses: actions/checkout@v3
         
       # - name: Configure testnet AWS credentials
       #   if: env.NETWORK == 'testnet'
