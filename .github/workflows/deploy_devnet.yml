@@ -1,0 +1,246 @@
+# Deploy the miden node for devnet.
+name: Node deployment fix for devnet
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+        
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Configure AWS credentials based on network.
+      - name: Checkout Code Repository
+        uses: actions/checkout@v3
+
+      # Configure the `NETWORK` env variable based on the trigger type.
+      #
+      # This is then used by subsequent steps to switch on devnet | testnet,
+      # instead of switching on trigger type which is less readible.
+      - name: Configure for testnet
+        if: ${{ inputs.network == 'testnet' }}
+        env:
+          INSTANCE_ID: ${{ secrets.TESTNET_INSTANCE_ID }}
+        run: echo "NETWORK=testnet" >> $GITHUB_ENV
+      
+      - name: Configure for devnet
+        if: ${{ inputs.network == 'devnet' }}
+        env:
+          INSTANCE_ID: ${{ secrets.DEVNET_INSTANCE_ID }}
+        run: echo "NETWORK=devnet" >> $GITHUB_ENV
+
+      - name: Configure devnet AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: eu-west-1
+          role-to-assume: arn:aws:iam::657556092833:role/midendev-GithubActionsRole
+          role-session-name: GithubActionsSession
+
+      - name: Stop services
+        id: stop_services
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids i-0d50212756bccc552 \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":["sudo systemctl stop miden-node", "sudo systemctl stop miden-faucet"]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Check stop services command status and retrieve output
+        run: |
+          sleep 5
+          STATUS=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.stop_services.outputs.command_id }} \
+              --details \
+              --query "CommandInvocations[0].Status" \
+              --output text)
+          echo "Command Status: $STATUS"
+          OUTPUT=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.stop_services.outputs.command_id }} \
+              --details \
+              --query "CommandInvocations[0].CommandPlugins[0].Output" \
+              --output text)
+          echo "Command Output: $OUTPUT"
+          if [ "$STATUS" != "Success" ]; then
+              echo "Command failed with status: $STATUS"
+              exit 1
+          fi
+      
+      - name: Install prerequisites
+        id: install_prereq
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids i-0d50212756bccc552 \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":[
+                  "sudo apt-get update -y",
+                  "sudo apt-get install -y git gcc openssl libbz2-dev libffi7 make cargo",
+                  "sudo apt install -y build-essential",
+                  "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
+                  "source $HOME/.cargo/env",
+                  "rustup update",
+                  "sudo apt-get install -y clang cmake",
+                  "sudo rm -rf /opt/miden/miden-node/genesis.dat",
+                  "sudo rm -rf /opt/miden/miden-node/miden-store.sqlite3",
+                  "sudo rm -rf /opt/miden/miden-node/miden-store.sqlite3-*",
+                  "sudo rm -rf /opt/miden/miden-node/accounts",
+                  "sudo rm -rf /opt/miden/miden-node/blocks"
+                  ]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+  
+      - name: Poll command status and retrieve live logs from install prereqs
+        run: |
+          while true; do
+            STATUS=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.install_prereq.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].Status" \
+                --output text)
+            echo "Command Status: $STATUS"
+            
+            OUTPUT=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.install_prereq.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].CommandPlugins[0].Output" \
+                --output text)
+            echo "Command Output: $OUTPUT"
+            
+            if [ "$STATUS" == "Success" ]; then
+              echo "Command completed successfully."
+              break
+            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+              echo "Command failed with status: $STATUS"
+              exit 1
+            else
+              sleep 10  # Wait for 30 seconds before checking again
+            fi
+          done
+
+      - name: Install devnet
+        id: install_devnet
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids i-0d50212756bccc552 \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":[
+                "/home/ssm-user/.cargo/bin/cargo install --git https://github.com/0xPolygonMiden/miden-node miden-node --branch next --bin miden-node --locked --features testing",
+                "/home/ssm-user/.cargo/bin/cargo install --git https://github.com/0xPolygonMiden/miden-node miden-faucet --branch next --bin miden-faucet --locked --features testing"
+              ]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Poll command status and retrieve live logs
+        run: |
+          while true; do
+            STATUS=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.install_devnet.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].Status" \
+                --output text)
+            echo "Command Status: $STATUS"
+            
+            OUTPUT=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.install_devnet.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].CommandPlugins[0].Output" \
+                --output text)
+            echo "Command Output: $OUTPUT"
+            
+            if [ "$STATUS" == "Success" ]; then
+              echo "Command completed successfully."
+              break
+            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+              echo "Command failed with status: $STATUS"
+              exit 1
+            else
+              sleep 60  # Wait for 30 seconds before checking again
+            fi
+          done
+
+      - name: Configure devnet
+        id: configure_devnet
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids i-0d50212756bccc552 \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":[
+                "sudo cp -rp /root/.cargo/bin/miden-node /usr/bin/miden-node && sudo chmod a+x /usr/bin/miden-node",
+                "sudo cp -rp /root/.cargo/bin/miden-faucet /usr/bin/miden-faucet && sudo chmod a+x /usr/bin/miden-faucet",
+                "sudo /usr/bin/miden-node init -c /etc/miden/miden-node.toml -g /opt/miden/miden-node/genesis.toml",                
+                "sudo /usr/bin/miden-node make-genesis -i /opt/miden/miden-node/genesis.toml -o /opt/miden/miden-node/genesis.dat",
+                "sudo chown -R miden:miden /opt/miden/miden-node",
+                "sudo /usr/bin/miden-faucet init -c /opt/miden/miden-faucet/miden-faucet.toml",
+                "sudo chown -R miden:miden /opt/miden/miden-faucet"
+              ]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Check configure devnet command status and retrieve output
+        run: |
+          sleep 20
+          STATUS=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.configure_devnet.outputs.command_id }} \
+              --details \
+              --query "CommandInvocations[0].Status" \
+              --output text)
+          echo "Command Status: $STATUS"
+          OUTPUT=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.configure_devnet.outputs.command_id }} \
+              --details \
+              --query "CommandInvocations[0].CommandPlugins[0].Output" \
+              --output text)
+          echo "Command Output: $OUTPUT"
+          if [ "$STATUS" != "Success" ]; then
+              echo "Command failed with status: $STATUS"
+              exit 1
+          fi
+
+      - name: Start services
+        id: start_services
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids i-0d50212756bccc552 \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":[
+                "sudo systemctl daemon-reload",
+                "sudo systemctl enable miden-node",
+                "sudo systemctl enable miden-faucet",
+                "sudo systemctl start miden-node",
+                "sleep 5",
+                "sudo systemctl start miden-faucet"
+              ]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Check Start services command status and retrieve output
+        run: |
+          sleep 10
+          STATUS=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.start_services.outputs.command_id }} \
+              --details \
+              --query "CommandInvocations[0].Status" \
+              --output text)
+          echo "Command Status: $STATUS"
+          OUTPUT=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.start_services.outputs.command_id }} \
+              --details \
+              --query "CommandInvocations[0].CommandPlugins[0].Output" \
+              --output text)
+          echo "Command Output: $OUTPUT"
+      
+          if [ "$STATUS" != "Success" ]; then
+              echo "Command failed with status: $STATUS"
+              exit 1
+          fi
