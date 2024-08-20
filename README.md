@@ -37,7 +37,7 @@ Alternatively, the Rust package manager `cargo` can be used to install on non-de
 
 ### Debian package
 
-Debian packages are available and are the fastest way to install the node on Debian based system. Currently only `amd64` architectures are supported.
+Debian packages are available and are the fastest way to install the node on a Debian-based system. Currently only `amd64` architecture are supported.
 
 These packages can be found under our [releases](https://github.com/0xPolygonMiden/miden-node/releases) page along with a checksum.
 
