@@ -51,7 +51,7 @@ jobs:
         if: env.NETWORK == 'testnet'
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
+          role-to-assume: arn:aws:iam::211125515935:role/midentest-GithubActionsRole
           aws-region: us-west-1
           role-session-name: GithubActionsSession
 
@@ -59,7 +59,7 @@ jobs:
         if: env.NETWORK == 'devnet'
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: arn:aws:iam::657556092833:role/Miden-GithubActionsRole
+          role-to-assume: arn:aws:iam::657556092833:role/midendev-GithubActionsRole
           aws-region: us-west-1
           role-session-name: GithubActionsSession
 
