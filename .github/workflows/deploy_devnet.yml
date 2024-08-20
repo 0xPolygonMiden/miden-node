@@ -19,22 +19,6 @@ jobs:
       - name: Checkout Code Repository
         uses: actions/checkout@v3
 
-      # Configure the `NETWORK` env variable based on the trigger type.
-      #
-      # This is then used by subsequent steps to switch on devnet | testnet,
-      # instead of switching on trigger type which is less readible.
-      - name: Configure for testnet
-        if: ${{ inputs.network == 'testnet' }}
-        env:
-          INSTANCE_ID: ${{ secrets.TESTNET_INSTANCE_ID }}
-        run: echo "NETWORK=testnet" >> $GITHUB_ENV
-      
-      - name: Configure for devnet
-        if: ${{ inputs.network == 'devnet' }}
-        env:
-          INSTANCE_ID: ${{ secrets.DEVNET_INSTANCE_ID }}
-        run: echo "NETWORK=devnet" >> $GITHUB_ENV
-
       - name: Configure devnet AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -46,7 +30,7 @@ jobs:
         id: stop_services
         run: |
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids i-0d50212756bccc552 \
+            --instance-ids ${{ secrets.DEVNET_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":["sudo systemctl stop miden-node", "sudo systemctl stop miden-faucet"]}' \
             --output text \
@@ -77,7 +61,7 @@ jobs:
         id: install_prereq
         run: |
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids i-0d50212756bccc552 \
+            --instance-ids ${{ secrets.DEVNET_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
                   "sudo apt-get update -y",
@@ -129,7 +113,7 @@ jobs:
         id: install_devnet
         run: |
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids i-0d50212756bccc552 \
+            --instance-ids ${{ secrets.DEVNET_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
                 "/home/ssm-user/.cargo/bin/cargo install --git https://github.com/0xPolygonMiden/miden-node miden-node --branch next --bin miden-node --locked --features testing",
@@ -171,7 +155,7 @@ jobs:
         id: configure_devnet
         run: |
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids i-0d50212756bccc552 \
+            --instance-ids ${{ secrets.DEVNET_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
                 "sudo cp -rp /root/.cargo/bin/miden-node /usr/bin/miden-node && sudo chmod a+x /usr/bin/miden-node",
@@ -210,7 +194,7 @@ jobs:
         id: start_services
         run: |
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids i-0d50212756bccc552 \
+            --instance-ids ${{ secrets.DEVNET_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
                 "sudo systemctl daemon-reload",
