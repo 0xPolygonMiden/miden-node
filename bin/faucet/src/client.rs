@@ -323,13 +323,15 @@ fn build_transaction_arguments(
 
     let tag = output_note.metadata().tag().inner();
     let aux = output_note.metadata().aux().inner();
+    let execution_hint = output_note.metadata().execution_hint().into();
 
     let script = &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
         .replace("{recipient}", &recipient)
         .replace("{note_type}", &Felt::new(note_type as u64).to_string())
         .replace("{aux}", &Felt::new(aux).to_string())
         .replace("{tag}", &Felt::new(tag.into()).to_string())
-        .replace("{amount}", &Felt::new(asset.amount()).to_string());
+        .replace("{amount}", &Felt::new(asset.amount()).to_string())
+        .replace("{execution_hint}", &Felt::new(execution_hint).to_string());
 
     let script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
         .map_err(|err| {
