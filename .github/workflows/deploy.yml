@@ -17,7 +17,7 @@ on:
         options:
           - devnet
           # temporarily disabled until we are happy this works on devnet
-          # - testnet
+          - testnet
         
 permissions:
   id-token: write
