@@ -77,7 +77,7 @@ pub async fn get_tokens(
     // Ideally, we should export these note details with a more sensible `after_block_num`
     let bytes = NoteFile::NoteDetails {
         details: note_details,
-        after_block_num: 0,
+        after_block_num: client.get_chain_tip(),
         tag: Some(note_tag),
     }
     .to_bytes();

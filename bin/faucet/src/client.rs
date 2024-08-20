@@ -45,6 +45,7 @@ pub struct FaucetClient {
     data_store: FaucetDataStore,
     id: AccountId,
     rng: RpoRandomCoin,
+    current_block_number: u32,
 }
 
 unsafe impl Send for FaucetClient {}
@@ -74,7 +75,17 @@ impl FaucetClient {
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        Ok(Self { data_store, rpc_api, executor, id, rng })
+
+        let current_block_number = 0;
+
+        Ok(Self {
+            data_store,
+            rpc_api,
+            executor,
+            id,
+            rng,
+            current_block_number,
+        })
     }
 
     /// Executes a mint transaction for the target account.
@@ -149,6 +160,22 @@ impl FaucetClient {
 
     pub fn get_faucet_id(&self) -> AccountId {
         self.id
+    }
+
+    pub fn get_chain_tip(&self) -> u32 {
+        self.current_block_number
+    }
+
+    pub async fn update_current_block_number(&mut self) -> Result<(), FaucetError> {
+        let request = GetBlockHeaderByNumberRequest { block_num: None, include_mmr_proof: None };
+
+        let response = self.rpc_api.get_block_header_by_number(request).await.map_err(|err| {
+            FaucetError::InternalServerError(format!("Failed to get block header: {}", err))
+        })?;
+
+        self.current_block_number = response.into_inner().block_header.unwrap().block_num;
+
+        Ok(())
     }
 }
 
