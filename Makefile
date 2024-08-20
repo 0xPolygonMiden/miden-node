@@ -13,12 +13,12 @@ BUILD_PROTO=BUILD_PROTO=1
 
 .PHONY: clippy
 clippy: ## Runs Clippy with configs
-	cargo +nightly clippy --workspace --all-targets --all-features -- -D warnings
+	cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
 
 .PHONY: fix
 fix: ## Runs Fix with configs
-	cargo +nightly fix --allow-staged --allow-dirty --all-targets --all-features
+	cargo fix --allow-staged --allow-dirty --all-targets --all-features
 
 
 .PHONY: format
@@ -38,7 +38,7 @@ lint: format fix clippy ## Runs all linting tasks at once (Clippy, fixing, forma
 
 .PHONY: doc
 doc: ## Generates & checks documentation
-	$(WARNINGS) cargo doc --all-features --keep-going --release
+	$(WARNINGS) cargo doc --all-features --keep-going --release --locked
 
 
 .PHONY: doc-serve
@@ -55,31 +55,31 @@ test:  ## Runs all tests
 
 .PHONY: check
 check: ## Check all targets and features for errors without code generation
-	${BUILD_PROTO} cargo check --all-features --all-targets
+	${BUILD_PROTO} cargo check --all-features --all-targets --locked
 
 # --- building ------------------------------------------------------------------------------------
 
 .PHONY: build
 build: ## Builds all crates and re-builds ptotobuf bindings for proto crates
-	${BUILD_PROTO} cargo build
+	${BUILD_PROTO} cargo build --locked
 
 # --- installing ----------------------------------------------------------------------------------
 
 .PHONY: install-node
 install-node: ## Installs node
-	${BUILD_PROTO} cargo install --path bin/node
+	${BUILD_PROTO} cargo install --path bin/node --locked
 
 .PHONY: install-faucet
 install-faucet: ## Installs faucet
-	${BUILD_PROTO} cargo install --path bin/faucet
+	${BUILD_PROTO} cargo install --path bin/faucet --locked
 
 .PHONY: install-node-testing
 install-node-testing: ## Installs node with testing feature enabled
-	${BUILD_PROTO} cargo install --features testing --path bin/node
+	${BUILD_PROTO} cargo install --features testing --path bin/node --locked
 
 .PHONY: install-faucet-testing
 install-faucet-testing: ## Installs faucet with testing feature enabled
-	${BUILD_PROTO} cargo install --features testing --path bin/faucet
+	${BUILD_PROTO} cargo install --features testing --path bin/faucet --locked
 
 # --- docker --------------------------------------------------------------------------------------
 
