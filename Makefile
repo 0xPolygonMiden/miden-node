@@ -13,12 +13,12 @@ BUILD_PROTO=BUILD_PROTO=1
 
 .PHONY: clippy
 clippy: ## Runs Clippy with configs
-	cargo +nightly clippy --locked --workspace --all-targets --all-features -- -D warnings
+	cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
 
 .PHONY: fix
 fix: ## Runs Fix with configs
-	cargo +nightly fix --allow-staged --allow-dirty --all-targets --all-features
+	cargo fix --allow-staged --allow-dirty --all-targets --all-features
 
 
 .PHONY: format

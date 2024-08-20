@@ -15,21 +15,16 @@ concurrency:
 
 jobs:
   test:
-    name: test ${{matrix.toolchain}} on ${{matrix.os}}
-    runs-on: ${{matrix.os}}-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: [stable, nightly]
-        os: [ubuntu]
+    name: test
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@main
+      - name: Rustup
+        run: rustup update --no-self-update
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
       - uses: taiki-e/install-action@nextest 
-      - name: Perform tests
-        run: |
-          rustup update --no-self-update ${{matrix.toolchain}} 
-          make test
+      - name: Run tests
+        run: make test

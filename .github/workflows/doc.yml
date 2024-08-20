@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+      - name: Rustup
+        run: rustup update --no-self-update
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
       - name: Build docs
-        run: |
-          rustup update --no-self-update stable
-          make doc
+        run: make doc
