@@ -44,6 +44,9 @@ jobs:
         run: echo "NETWORK=devnet" >> $GITHUB_ENV
         
       # Configure AWS credentials based on network.
+      - name: Checkout Code Repository
+        uses: actions/checkout@v3
+        
       - name: Configure testnet AWS credentials
         if: env.NETWORK == 'testnet'
         uses: aws-actions/configure-aws-credentials@v1
