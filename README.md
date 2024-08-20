@@ -29,9 +29,32 @@ The diagram below illustrates high-level design of each component as well as bas
 
 ## Installation
 
+The node software can be installed as a Debian package or using Rust's package manager `cargo`.
+
 Official releases are available as debian packages which can be found under our [releases](https://github.com/0xPolygonMiden/miden-node/releases) page.
 
 Alternatively, the Rust package manager `cargo` can be used to install on non-debian distributions or to compile from source.
+
+### Debian package
+
+Debian packages are available and are the fastest way to install the node on Debian based system. Currently only `amd64` architectures are supported.
+
+These packages can be found under our [releases](https://github.com/0xPolygonMiden/miden-node/releases) page along with a checksum.
+
+Note that this includes a `systemd` service called `miden-node` (disabled by default).
+
+To install, download the desired releases `.deb` package and checksum files. Install using
+
+```sh
+sudo dpkg -i $package_name.deb
+```
+
+> [!TIP]
+> You should verify the checksum using a SHA256 utility. This differs from platform to platform, but on most linux distros:
+> ```sh
+> sha256sum --check $checksum_file.deb.checksum
+> ```
+> can be used so long as the checksum file and the package file are in the same folder.
 
 ### Intall using `cargo`
 
@@ -76,6 +99,8 @@ More information on the various options can be found [here](https://doc.rust-lan
 > cargo install miden-node --locked --features testing
 > ```
 
+### Verify installation
+
 You can verify the installation by checking the node's version:
 
 ```sh
@@ -86,14 +111,14 @@ miden-node --version
 
 ### Setup
 
-Decide on a location to store all the node data and configuration files in. This guide will use the placeholder `<STORAGE>` to represent this directory.
+Decide on a location to store all the node data and configuration files in. This guide will use the placeholder `<STORAGE>` and `<CONFIG>` to represent these directories. They are allowed to be the same, though most unix distributions have conventions for these being `/opt/miden` and `/etc/miden` respectively. Note that if you intend to use the `systemd` service then by default it expects these conventions to be upheld.
 
 We need to configure the node as well as bootstrap the chain by creating the genesis block. Generate the default configurations for both:
 
 ```sh
 miden-node init \
-  --config-path  <STORAGE>/miden-node.toml \
-  --genesis-path <STORAGE>/genesis.toml  
+  --config-path  <CONFIG>/miden-node.toml \
+  --genesis-path <CONFIG>/genesis.toml  
 ```
 
 which will generate `miden-node.toml` and `genesis.toml` files. The latter controls the accounts that the genesis block will be spawned with and by default includes a basic wallet account and a basic fungible faucet account. You can modify this file to add/remove accounts as desired.
@@ -102,7 +127,7 @@ Next, bootstrap the chain by generating the genesis data:
 
 ```sh
 miden-node make-genesis \
-  --input-path  <STORAGE>/genesis.toml \
+  --input-path  <CONFIG>/genesis.toml \
   --output-path <STORAGE>/genesis.dat
 ```
 
@@ -122,21 +147,31 @@ blockstore_dir    = "<STORAGE>/blocks"
 
 Finally, configure the node's endpoints to your liking.
 
+### Systemd
+
+An example service file is provided [here](packaging/miden-node.service). If you used the Debian package installer then this service was already installed alongside it.
+
 ### Running the node
 
 Using the node configuration file created in the previous step, start the node:
 
 ```sh
 miden-node start \
-  --config <STORAGE>/miden-node.toml \
+  --config <CONFIG>/miden-node.toml \
   node
+```
+
+or alternatively start the systemd service if that's how you wish to operate:
+
+```sh
+systemctl start miden-node.service
 ```
 
 ## Updating
 
 We currently make no guarantees about backwards compatibility. Updating the node software therefore consists of wiping all existing data and re-installing the node's software again. This includes regenerating the configuration files and genesis block as these formats may have changed. This effectively means every update is a complete reset of the blockchain.
 
-If you followed the [Setup](#setup) section, then this can be achieved by deleting all information in `<STORAGE>`:
+First stop the currently running node or systemd service then remove all existing data. If you followed the [Setup](#setup) section, then this can be achieved by deleting all information in `<STORAGE>`:
 
 ```sh
 rm -rf <STORAGE>

@@ -44,8 +44,6 @@ jobs:
       - name: copy package files
         run: |
           cp -p target/release/miden-node packaging/deb/miden-node/usr/bin/
-          cp config/miden-node.toml packaging/deb/miden-node/etc/miden/
-          cp config/genesis.toml packaging/deb/miden-node/etc/miden/
           cp packaging/miden-node.service packaging/deb/miden-node/lib/systemd/system/
           cp packaging/postinst packaging/deb/miden-node/DEBIAN/postinst
           cp packaging/postrm packaging/deb/miden-node/DEBIAN/postrm
