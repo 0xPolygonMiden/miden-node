@@ -53,6 +53,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
           aws-region: us-west-1
+          role-session-name: GithubActionsSession
 
       - name: Configure devnet AWS credentials
         if: env.NETWORK == 'devnet'
@@ -60,6 +61,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::657556092833:role/Miden-GithubActionsRole
           aws-region: us-west-1
+          role-session-name: GithubActionsSession
 
       - name: Stop services
         run: |
