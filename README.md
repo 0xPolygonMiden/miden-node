@@ -180,6 +180,14 @@ rm -rf <STORAGE>
 > [!WARNING]
 > Failure to remove existing node data could result in strange behaviour.
 
+## Development
+
+See our [contributing](CONTRIBUTING.md) guidelines and our [makefile](Makefile) for example workflows e.g. run the testsuite using
+
+```sh
+make test
+``` 
+
 ## License
 
 This project is [MIT licensed](./LICENSE).
