@@ -78,14 +78,18 @@ impl FaucetClient {
 
         let current_block_number = 0;
 
-        Ok(Self {
+        let mut faucet_client = Self {
             data_store,
             rpc_api,
             executor,
             id,
             rng,
             current_block_number,
-        })
+        };
+
+        faucet_client.update_current_block_number().await?;
+
+        Ok(faucet_client)
     }
 
     /// Executes a mint transaction for the target account.
