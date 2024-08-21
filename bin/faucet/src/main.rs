@@ -4,7 +4,7 @@ mod errors;
 mod handlers;
 mod state;
 
-use std::{fs::File, io::Write, path::PathBuf, sync::Arc, thread, time::Duration};
+use std::{fs::File, io::Write, path::PathBuf, sync::Arc, time::Duration};
 
 use actix_cors::Cors;
 use actix_web::{
@@ -76,21 +76,16 @@ async fn main() -> Result<(), FaucetError> {
             let client_state_clone = Arc::clone(&faucet_state.client);
 
             info!("Initializing chain tip updater");
-            thread::spawn(move || {
-                let sys = actix_web::rt::System::new();
-                sys.block_on(async move {
-                    loop {
-                        let state_clone_inner = Arc::clone(&client_state_clone);
-                        actix_web::rt::spawn(async move {
-                            let mut state = state_clone_inner.lock().await;
-                            state.update_current_block_number().await.unwrap();
-                        })
-                        .await
-                        .unwrap();
+            actix_web::rt::spawn(async move {
+                let mut interval =
+                    actix_web::rt::time::interval(Duration::from_secs(CHAIN_TIP_UPDATER_INTERVAL));
+                loop {
+                    let state_clone_inner = Arc::clone(&client_state_clone);
+                    let mut state = state_clone_inner.lock().await;
+                    state.update_current_block_number().await.unwrap();
 
-                        thread::sleep(Duration::from_secs(CHAIN_TIP_UPDATER_INTERVAL));
-                    }
-                });
+                    interval.tick().await;
+                }
             });
 
             info!("Server is now running on: {}", config.endpoint_url());
