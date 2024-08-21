@@ -1,13 +1,8 @@
 name: deb_packager
 
 on:
-  push:
-    branches: [main, next]
-    paths:
-      - '**'
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*-*'
+  release:
+    types: [released, prereleased]
 
 jobs:
   build:
@@ -22,26 +17,26 @@ jobs:
           fetch-depth: 0
       ##### TAG Variable #####
       - name: Adding TAG to ENV
-        run: echo "GIT_TAG=`echo $(git describe --tags --abbrev=0)`" >> $GITHUB_ENV
-      - name: adding version
+        run: echo "GIT_TAG=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+      - name: Parse tag
         run: |
           NUMERIC_VERSION=$( echo ${{ env.GIT_TAG }} | sed 's/[^0-9.]//g' )
           echo "VERSION=$NUMERIC_VERSION" >> $GITHUB_ENV
 
-      - name: cleaning repo
+      - name: Cleaning repo
         run: cargo clean
 
       - name: Building for amd64
-        run: cargo build --release --path bin/node --locked
+        run: cargo build --release --locked --bin miden-node
 
-      - name: create package directories
+      - name: Create package directories
         run: |
           mkdir -p packaging/deb/miden-node/DEBIAN
           mkdir -p packaging/deb/miden-node/usr/bin
           mkdir -p packaging/deb/miden-node/lib/systemd/system
           mkdir -p packaging/deb/miden-node/etc/miden
 
-      - name: copy package files
+      - name: Copy package files
         run: |
           cp -p target/release/miden-node packaging/deb/miden-node/usr/bin/
           cp packaging/miden-node.service packaging/deb/miden-node/lib/systemd/system/
@@ -49,7 +44,7 @@ jobs:
           cp packaging/postrm packaging/deb/miden-node/DEBIAN/postrm
 
       ########### Control file creation for amd64 ##########
-      - name: create control file
+      - name: Create control file
         run: |
           touch packaging/deb/miden-node/DEBIAN/control
           echo "Package: miden-node" >> packaging/deb/miden-node/DEBIAN/control
@@ -73,12 +68,12 @@ jobs:
         env:
           ARCH: amd64
 
-      - name: shasum the package
+      - name: Checksum the package
         run: cd packaging/deb/ && sha256sum miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb > miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb.checksum
         env:
           ARCH: amd64
 
-      - name: release miden-node Packages
+      - name: Release miden-node packages
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.GIT_TAG }}
