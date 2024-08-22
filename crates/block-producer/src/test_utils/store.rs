@@ -5,10 +5,11 @@ use std::{
 };
 
 use async_trait::async_trait;
+use miden_node_store::state::{BlockInclusionProof, NoteAuthenticationInfo};
 use miden_objects::{
-    block::{Block, BlockNoteTree, NoteBatch},
-    crypto::merkle::{MerklePath, Mmr, SimpleSmt, Smt, ValuePath},
-    notes::{NoteId, Nullifier},
+    block::{Block, NoteBatch},
+    crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
+    notes::{NoteId, NoteInclusionProof, Nullifier},
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 
@@ -30,8 +31,7 @@ use crate::{
 #[derive(Debug)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    notes: Option<BTreeMap<NoteId, MerklePath>>,
-    note_root: Option<Digest>,
+    notes: Option<Vec<NoteBatch>>,
     produced_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
     block_num: Option<u32>,
@@ -49,12 +49,9 @@ impl MockStoreSuccessBuilder {
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
-        let (note_tree, notes) = Self::populate_note_trees(block_output_notes(batches_iter));
-
         Self {
             accounts: Some(accounts_smt),
-            notes: Some(notes),
-            note_root: Some(note_tree.root()),
+            notes: Some(block_output_notes(batches_iter).cloned().collect()),
             produced_nullifiers: None,
             chain_mmr: None,
             block_num: None,
@@ -71,7 +68,6 @@ impl MockStoreSuccessBuilder {
         Self {
             accounts: Some(accounts_smt),
             notes: None,
-            note_root: None,
             produced_nullifiers: None,
             chain_mmr: None,
             block_num: None,
@@ -79,10 +75,7 @@ impl MockStoreSuccessBuilder {
     }
 
     pub fn initial_notes<'a>(mut self, notes: impl Iterator<Item = &'a NoteBatch> + Clone) -> Self {
-        let (note_tree, notes) = Self::populate_note_trees(notes);
-
-        self.notes = Some(notes);
-        self.note_root = Some(note_tree.root());
+        self.notes = Some(notes.cloned().collect());
 
         self
     }
@@ -105,22 +98,12 @@ impl MockStoreSuccessBuilder {
         self
     }
 
-    fn populate_note_trees<'a>(
-        batches_iterator: impl Iterator<Item = &'a NoteBatch> + Clone,
-    ) -> (BlockNoteTree, BTreeMap<NoteId, MerklePath>) {
-        let block_note_tree = note_created_smt_from_note_batches(batches_iterator.clone());
-        let note_map = flatten_output_notes(batches_iterator)
-            .map(|(index, note)| (note.id(), block_note_tree.get_note_path(index).unwrap()))
-            .collect();
-
-        (block_note_tree, note_map)
-    }
-
     pub fn build(self) -> MockStoreSuccess {
         let block_num = self.block_num.unwrap_or(1);
         let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new().unwrap());
         let notes = self.notes.unwrap_or_default();
-        let note_root = self.note_root.unwrap_or_default();
+        let block_note_tree = note_created_smt_from_note_batches(notes.iter());
+        let note_root = block_note_tree.root();
         let chain_mmr = self.chain_mmr.unwrap_or_default();
         let nullifiers_smt = self
             .produced_nullifiers
@@ -147,11 +130,28 @@ impl MockStoreSuccessBuilder {
             1,
         );
 
+        let notes = flatten_output_notes(notes.iter())
+            .map(|(index, note)| {
+                (
+                    note.id(),
+                    NoteInclusionProof::new(
+                        block_num,
+                        index.to_absolute_index(),
+                        block_note_tree.get_note_path(index).unwrap(),
+                    )
+                    .expect("Failed to create `NoteInclusionProof`"),
+                )
+            })
+            .collect();
+
         MockStoreSuccess {
             accounts: Arc::new(RwLock::new(accounts_smt)),
             produced_nullifiers: Arc::new(RwLock::new(nullifiers_smt)),
             chain_mmr: Arc::new(RwLock::new(chain_mmr)),
-            last_block_header: Arc::new(RwLock::new(initial_block_header)),
+            block_headers: Arc::new(RwLock::new(BTreeMap::from_iter([(
+                initial_block_header.block_num(),
+                initial_block_header,
+            )]))),
             num_apply_block_called: Default::default(),
             notes: Arc::new(RwLock::new(notes)),
         }
@@ -168,14 +168,14 @@ pub struct MockStoreSuccess {
     /// Stores the chain MMR
     pub chain_mmr: Arc<RwLock<Mmr>>,
 
-    /// Stores the header of the last applied block
-    pub last_block_header: Arc<RwLock<BlockHeader>>,
+    /// The chains block headers.
+    pub block_headers: Arc<RwLock<BTreeMap<u32, BlockHeader>>>,
 
     /// The number of times `apply_block()` was called
     pub num_apply_block_called: Arc<RwLock<u32>>,
 
     /// Maps note id -> note inclusion proof for all created notes
-    pub notes: Arc<RwLock<BTreeMap<NoteId, MerklePath>>>,
+    pub notes: Arc<RwLock<BTreeMap<NoteId, NoteInclusionProof>>>,
 }
 
 impl MockStoreSuccess {
@@ -198,12 +198,13 @@ impl ApplyBlock for MockStoreSuccess {
         for update in block.updated_accounts() {
             locked_accounts.insert(update.account_id().into(), update.new_state_hash().into());
         }
-        debug_assert_eq!(locked_accounts.root(), block.header().account_root());
+        let header = block.header();
+        debug_assert_eq!(locked_accounts.root(), header.account_root());
 
         // update nullifiers
         for nullifier in block.nullifiers() {
             locked_produced_nullifiers
-                .insert(nullifier.inner(), [block.header().block_num().into(), ZERO, ZERO, ZERO]);
+                .insert(nullifier.inner(), [header.block_num().into(), ZERO, ZERO, ZERO]);
         }
 
         // update chain mmr with new block header hash
@@ -219,11 +220,19 @@ impl ApplyBlock for MockStoreSuccess {
         // update notes
         let mut locked_notes = self.notes.write().await;
         for (note_index, note) in block.notes() {
-            locked_notes.insert(note.id(), note_tree.get_note_path(note_index).unwrap_or_default());
+            locked_notes.insert(
+                note.id(),
+                NoteInclusionProof::new(
+                    header.block_num(),
+                    note_index.to_absolute_index(),
+                    note_tree.get_note_path(note_index).unwrap_or_default(),
+                )
+                .expect("Failed to build `NoteInclusionProof`"),
+            );
         }
 
-        // update last block header
-        *self.last_block_header.write().await = block.header();
+        // append the block header
+        self.block_headers.write().await.insert(header.block_num(), header);
 
         // update num_apply_block_called
         *self.num_apply_block_called.write().await += 1;
@@ -309,11 +318,36 @@ impl Store for MockStoreSuccess {
             .collect();
 
         let locked_notes = self.notes.read().await;
-        let found_unauthenticated_notes =
-            notes.filter(|&id| locked_notes.contains_key(id)).copied().collect();
+        let note_proofs = notes
+            .filter_map(|id| locked_notes.get(id).map(|proof| (*id, proof.clone())))
+            .collect::<BTreeMap<_, _>>();
+
+        let locked_headers = self.block_headers.read().await;
+        let latest_header =
+            *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
+
+        let locked_chain_mmr = self.chain_mmr.read().await;
+        let mmr_forest = locked_chain_mmr.forest();
+        let block_proofs = note_proofs
+            .values()
+            .map(|note_proof| {
+                let block_num = note_proof.location().block_num();
+                let block_header = *locked_headers.get(&block_num).unwrap();
+                let mmr_path =
+                    locked_chain_mmr.open(block_num as usize, mmr_forest).unwrap().merkle_path;
+
+                BlockInclusionProof { block_header, mmr_path }
+            })
+            .collect();
+
+        let found_unauthenticated_notes = NoteAuthenticationInfo {
+            block_proofs,
+            note_proofs,
+            chain_length: latest_header.block_num(),
+        };
 
         Ok(BlockInputs {
-            block_header: *self.last_block_header.read().await,
+            block_header: latest_header,
             chain_peaks,
             accounts,
             nullifiers,
@@ -324,13 +358,37 @@ impl Store for MockStoreSuccess {
     async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
+    ) -> Result<NoteAuthenticationInfo, NotePathsError> {
         let locked_notes = self.notes.read().await;
-        let note_auth_info = notes
-            .filter_map(|note_id| locked_notes.get(note_id).map(|path| (*note_id, path.clone())))
+        let locked_headers = self.block_headers.read().await;
+        let locked_chain_mmr = self.chain_mmr.read().await;
+
+        let note_proofs = notes
+            .filter_map(|id| locked_notes.get(id).map(|proof| (*id, proof.clone())))
+            .collect::<BTreeMap<_, _>>();
+
+        let latest_header =
+            *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
+
+        let block_proofs = note_proofs
+            .values()
+            .map(|note_proof| {
+                let block_num = note_proof.location().block_num();
+                let block_header = *locked_headers.get(&block_num).unwrap();
+                let mmr_path = locked_chain_mmr
+                    .open(block_num as usize, latest_header.block_num() as usize)
+                    .unwrap()
+                    .merkle_path;
+
+                BlockInclusionProof { block_header, mmr_path }
+            })
             .collect();
 
-        Ok(note_auth_info)
+        Ok(NoteAuthenticationInfo {
+            block_proofs,
+            note_proofs,
+            chain_length: latest_header.block_num(),
+        })
     }
 }
 
@@ -365,7 +423,7 @@ impl Store for MockStoreFailure {
     async fn get_note_authentication_info(
         &self,
         _notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
+    ) -> Result<NoteAuthenticationInfo, NotePathsError> {
         Err(NotePathsError::GrpcClientError(String::new()))
     }
 }

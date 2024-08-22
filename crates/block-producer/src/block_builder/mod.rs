@@ -114,7 +114,9 @@ where
             .await?;
 
         let missing_notes: Vec<_> = dangling_notes
-            .difference(&block_inputs.found_unauthenticated_notes)
+            .difference(
+                &block_inputs.found_unauthenticated_notes.note_proofs.keys().copied().collect(),
+            )
             .copied()
             .collect();
         if !missing_notes.is_empty() {

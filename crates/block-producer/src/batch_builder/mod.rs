@@ -179,7 +179,7 @@ where
                     };
                 let missing_notes: Vec<_> = dangling_notes
                     .into_iter()
-                    .filter(|note_id| !stored_notes.contains_key(note_id))
+                    .filter(|note_id| !stored_notes.contains_note(note_id))
                     .collect();
 
                 if !missing_notes.is_empty() {

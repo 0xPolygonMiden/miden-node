@@ -2,7 +2,6 @@ syntax = "proto3";
 package requests;
 
 import "account.proto";
-import "block_header.proto";
 import "digest.proto";
 import "note.proto";
 
@@ -96,6 +95,11 @@ message SubmitProvenTransactionRequest {
 }
 
 message GetNotesByIdRequest {
+    // List of NoteId's to be queried from the database
+    repeated digest.Digest note_ids = 1;
+}
+
+message GetNoteInclusionProofsRequest {
     // List of NoteId's to be queried from the database
     repeated digest.Digest note_ids = 1;
 }

@@ -1,7 +1,7 @@
 /// A list of tuples containing the names and contents of various protobuf files.
 pub const PROTO_FILES: &[(&str, &str)] = &[
     ("account.proto", include_str!("../proto/account.proto")),
-    ("block_header.proto", include_str!("../proto/block_header.proto")),
+    ("block.proto", include_str!("../proto/block.proto")),
     ("block_producer.proto", include_str!("../proto/block_producer.proto")),
     ("digest.proto", include_str!("../proto/digest.proto")),
     ("merkle.proto", include_str!("../proto/merkle.proto")),

@@ -3,13 +3,11 @@ use std::{
     mem,
 };
 
+use miden_node_store::state::NoteAuthenticationInfo;
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, AccountId},
     batches::BatchNoteTree,
-    crypto::{
-        hash::blake::{Blake3Digest, Blake3_256},
-        merkle::MerklePath,
-    },
+    crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteHeader, NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote, TransactionId},
     AccountDeltaError, Digest, MAX_NOTES_PER_BATCH,
@@ -88,7 +86,7 @@ impl TransactionBatch {
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
     pub fn new(
         txs: Vec<ProvenTransaction>,
-        found_unauthenticated_notes: BTreeMap<NoteId, MerklePath>,
+        found_unauthenticated_notes: NoteAuthenticationInfo,
     ) -> Result<Self, BuildBatchError> {
         let id = Self::compute_id(&txs);
 
@@ -141,10 +139,11 @@ impl TransactionBatch {
                     // If an unauthenticated note was found in the store, transform it to an
                     // authenticated one (i.e. erase additional note details
                     // except the nullifier)
-                    found_unauthenticated_notes
-                        .get(&input_note_header.id())
-                        .map(|_path| InputNoteCommitment::from(input_note.nullifier()))
-                        .unwrap_or_else(|| input_note.clone())
+                    if found_unauthenticated_notes.contains_note(&input_note_header.id()) {
+                        InputNoteCommitment::from(input_note.nullifier())
+                    } else {
+                        input_note.clone()
+                    }
                 },
                 None => input_note.clone(),
             };
@@ -287,6 +286,9 @@ impl OutputNoteTracker {
 
 #[cfg(test)]
 mod tests {
+    use miden_objects::notes::NoteInclusionProof;
+    use miden_processor::crypto::MerklePath;
+
     use super::*;
     use crate::test_utils::{
         mock_proven_tx,
@@ -401,8 +403,15 @@ mod tests {
     #[test]
     fn test_convert_unauthenticated_note_to_authenticated() {
         let txs = mock_proven_txs();
-        let found_unauthenticated_notes =
-            BTreeMap::from_iter([(mock_note(5).id(), Default::default())]);
+        let found_unauthenticated_notes = BTreeMap::from_iter([(
+            mock_note(5).id(),
+            NoteInclusionProof::new(0, 0, MerklePath::default()).unwrap(),
+        )]);
+        let found_unauthenticated_notes = NoteAuthenticationInfo {
+            note_proofs: found_unauthenticated_notes,
+            block_proofs: Default::default(),
+            chain_length: Default::default(),
+        };
         let batch = TransactionBatch::new(txs, found_unauthenticated_notes).unwrap();
 
         let expected_input_notes =

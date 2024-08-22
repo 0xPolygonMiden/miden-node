@@ -1,5 +1,6 @@
 use std::iter;
 
+use miden_objects::{crypto::merkle::Mmr, Digest};
 use tokio::sync::RwLock;
 
 use super::*;
@@ -260,12 +261,19 @@ async fn test_block_builder_no_missing_notes() {
 async fn test_block_builder_fails_if_notes_are_missing() {
     let accounts: Vec<_> = (1..=4).map(MockPrivateAccount::<3>::from).collect();
     let notes: Vec<_> = (1..=6).map(mock_note).collect();
+    // We require mmr for the note authentication to succeed.
+    //
+    // We also need two blocks worth of mmr because the mock store skips genesis.
+    let mut mmr = Mmr::new();
+    mmr.add(Digest::new([1u32.into(), 2u32.into(), 3u32.into(), 4u32.into()]));
+    mmr.add(Digest::new([1u32.into(), 2u32.into(), 3u32.into(), 4u32.into()]));
 
     let store = Arc::new(
         MockStoreSuccessBuilder::from_accounts(
             accounts.iter().map(|account| (account.id, account.states[0])),
         )
         .initial_notes([vec![OutputNote::Full(notes[0].clone())]].iter())
+        .initial_chain_mmr(mmr)
         .build(),
     );
     let block_builder = Arc::new(DefaultBlockBuilder::new(Arc::clone(&store), Arc::clone(&store)));

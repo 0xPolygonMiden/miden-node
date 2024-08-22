@@ -739,7 +739,7 @@ fn test_db_block_header() {
     let res = sql::select_block_header_by_block_num(&mut conn, None).unwrap();
     assert!(res.is_none());
 
-    let res = sql::select_block_headers(&mut conn).unwrap();
+    let res = sql::select_all_block_headers(&mut conn).unwrap();
     assert!(res.is_empty());
 
     let block_header = BlockHeader::new(
@@ -794,7 +794,7 @@ fn test_db_block_header() {
     let res = sql::select_block_header_by_block_num(&mut conn, None).unwrap();
     assert_eq!(res.unwrap(), block_header2);
 
-    let res = sql::select_block_headers(&mut conn).unwrap();
+    let res = sql::select_all_block_headers(&mut conn).unwrap();
     assert_eq!(res, [block_header, block_header2]);
 }
 

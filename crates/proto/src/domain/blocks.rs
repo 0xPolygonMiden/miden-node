@@ -2,13 +2,13 @@ use miden_objects::BlockHeader;
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
-    generated::block_header,
+    generated::block,
 };
 
 // BLOCK HEADER
 // ================================================================================================
 
-impl From<&BlockHeader> for block_header::BlockHeader {
+impl From<&BlockHeader> for block::BlockHeader {
     fn from(header: &BlockHeader) -> Self {
         Self {
             version: header.version(),
@@ -25,54 +25,54 @@ impl From<&BlockHeader> for block_header::BlockHeader {
     }
 }
 
-impl From<BlockHeader> for block_header::BlockHeader {
+impl From<BlockHeader> for block::BlockHeader {
     fn from(header: BlockHeader) -> Self {
         (&header).into()
     }
 }
 
-impl TryFrom<&block_header::BlockHeader> for BlockHeader {
+impl TryFrom<&block::BlockHeader> for BlockHeader {
     type Error = ConversionError;
 
-    fn try_from(value: &block_header::BlockHeader) -> Result<Self, Self::Error> {
+    fn try_from(value: &block::BlockHeader) -> Result<Self, Self::Error> {
         value.clone().try_into()
     }
 }
 
-impl TryFrom<block_header::BlockHeader> for BlockHeader {
+impl TryFrom<block::BlockHeader> for BlockHeader {
     type Error = ConversionError;
 
-    fn try_from(value: block_header::BlockHeader) -> Result<Self, Self::Error> {
+    fn try_from(value: block::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(
             value.version,
             value
                 .prev_hash
-                .ok_or(block_header::BlockHeader::missing_field(stringify!(prev_hash)))?
+                .ok_or(block::BlockHeader::missing_field(stringify!(prev_hash)))?
                 .try_into()?,
             value.block_num,
             value
                 .chain_root
-                .ok_or(block_header::BlockHeader::missing_field(stringify!(chain_root)))?
+                .ok_or(block::BlockHeader::missing_field(stringify!(chain_root)))?
                 .try_into()?,
             value
                 .account_root
-                .ok_or(block_header::BlockHeader::missing_field(stringify!(account_root)))?
+                .ok_or(block::BlockHeader::missing_field(stringify!(account_root)))?
                 .try_into()?,
             value
                 .nullifier_root
-                .ok_or(block_header::BlockHeader::missing_field(stringify!(nullifier_root)))?
+                .ok_or(block::BlockHeader::missing_field(stringify!(nullifier_root)))?
                 .try_into()?,
             value
                 .note_root
-                .ok_or(block_header::BlockHeader::missing_field(stringify!(note_root)))?
+                .ok_or(block::BlockHeader::missing_field(stringify!(note_root)))?
                 .try_into()?,
             value
                 .tx_hash
-                .ok_or(block_header::BlockHeader::missing_field(stringify!(tx_hash)))?
+                .ok_or(block::BlockHeader::missing_field(stringify!(tx_hash)))?
                 .try_into()?,
             value
                 .proof_hash
-                .ok_or(block_header::BlockHeader::missing_field(stringify!(proof_hash)))?
+                .ok_or(block::BlockHeader::missing_field(stringify!(proof_hash)))?
                 .try_into()?,
             value.timestamp,
         ))
