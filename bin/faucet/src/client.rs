@@ -78,18 +78,14 @@ impl FaucetClient {
 
         let current_block_number = 0;
 
-        let mut faucet_client = Self {
+        Ok(Self {
             data_store,
             rpc_api,
             executor,
             id,
             rng,
             current_block_number,
-        };
-
-        faucet_client.update_current_block_number().await?;
-
-        Ok(faucet_client)
+        })
     }
 
     /// Executes a mint transaction for the target account.
@@ -136,7 +132,7 @@ impl FaucetClient {
     pub async fn prove_and_submit_transaction(
         &mut self,
         executed_tx: ExecutedTransaction,
-    ) -> Result<(), FaucetError> {
+    ) -> Result<u32, FaucetError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
 
         let delta = executed_tx.account_delta().clone();
@@ -150,7 +146,8 @@ impl FaucetClient {
             transaction: proven_transaction.to_bytes(),
         };
 
-        self.rpc_api
+        let response = self
+            .rpc_api
             .submit_proven_transaction(request)
             .await
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
@@ -159,25 +156,15 @@ impl FaucetClient {
             FaucetError::InternalServerError(format!("Failed to update account: {}", err))
         })?;
 
-        Ok(())
+        Ok(response.into_inner().block_height)
     }
 
     pub fn get_faucet_id(&self) -> AccountId {
         self.id
     }
 
-    pub fn get_chain_tip(&self) -> u32 {
-        self.current_block_number
-    }
-
-    pub async fn update_current_block_number(&mut self) -> Result<(), FaucetError> {
-        let request = GetBlockHeaderByNumberRequest { block_num: None, include_mmr_proof: None };
-
-        let response = self.rpc_api.get_block_header_by_number(request).await.map_err(|err| {
-            FaucetError::InternalServerError(format!("Failed to get block header: {}", err))
-        })?;
-
-        self.current_block_number = response.into_inner().block_header.unwrap().block_num;
+    pub fn set_current_block_number(&mut self, new_block_height: u32) -> Result<(), FaucetError> {
+        self.current_block_number = new_block_height;
 
         Ok(())
     }

@@ -71,6 +71,6 @@ where
             .await
             .map_err(|err| Status::invalid_argument(format!("{:?}", err)))?;
 
-        Ok(tonic::Response::new(SubmitProvenTransactionResponse {}))
+        Ok(tonic::Response::new(SubmitProvenTransactionResponse { block_height: 0 }))
     }
 }

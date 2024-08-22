@@ -155,7 +155,11 @@ pub struct GetTransactionInputsResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SubmitProvenTransactionResponse {}
+pub struct SubmitProvenTransactionResponse {
+    /// The node's current block height
+    #[prost(fixed32, tag = "1")]
+    pub block_height: u32,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNotesByIdResponse {

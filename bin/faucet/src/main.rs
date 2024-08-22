@@ -73,21 +73,6 @@ async fn main() -> Result<(), FaucetError> {
 
             info!(target: COMPONENT, %config, "Initializing server");
 
-            let client_state_clone = Arc::clone(&faucet_state.client);
-
-            info!("Initializing chain tip updater");
-            actix_web::rt::spawn(async move {
-                let mut interval =
-                    actix_web::rt::time::interval(Duration::from_secs(CHAIN_TIP_UPDATER_INTERVAL));
-                loop {
-                    let state_clone_inner = Arc::clone(&client_state_clone);
-                    let mut state = state_clone_inner.lock().await;
-                    state.update_current_block_number().await.unwrap();
-
-                    interval.tick().await;
-                }
-            });
-
             info!("Server is now running on: {}", config.endpoint_url());
 
             HttpServer::new(move || {

@@ -129,7 +129,10 @@ message GetTransactionInputsResponse {
     repeated digest.Digest missing_unauthenticated_notes = 3;
 }
 
-message SubmitProvenTransactionResponse {}
+message SubmitProvenTransactionResponse {
+    // The node's current block height
+    fixed32 block_height = 1;
+}
 
 message GetNotesByIdResponse {
     // Lists Note's returned by the database
