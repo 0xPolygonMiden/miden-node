@@ -1,4 +1,4 @@
-use miden_objects::BlockHeader;
+use miden_objects::{crypto::merkle::MerklePath, BlockHeader};
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
@@ -76,5 +76,40 @@ impl TryFrom<block::BlockHeader> for BlockHeader {
                 .try_into()?,
             value.timestamp,
         ))
+    }
+}
+
+/// Data required to verify a block's inclusion proof.
+#[derive(Clone, Debug)]
+pub struct BlockInclusionProof {
+    pub block_header: BlockHeader,
+    pub mmr_path: MerklePath,
+}
+
+impl From<BlockInclusionProof> for block::BlockInclusionProof {
+    fn from(value: BlockInclusionProof) -> Self {
+        Self {
+            block_header: Some(value.block_header.into()),
+            mmr_path: Some((&value.mmr_path).into()),
+        }
+    }
+}
+
+impl TryFrom<block::BlockInclusionProof> for BlockInclusionProof {
+    type Error = ConversionError;
+
+    fn try_from(value: block::BlockInclusionProof) -> Result<Self, ConversionError> {
+        let result = Self {
+            block_header: value
+                .block_header
+                .ok_or(block::BlockInclusionProof::missing_field("block_header"))?
+                .try_into()?,
+            mmr_path: (&value
+                .mmr_path
+                .ok_or(block::BlockInclusionProof::missing_field("mmr_path"))?)
+                .try_into()?,
+        };
+
+        Ok(result)
     }
 }

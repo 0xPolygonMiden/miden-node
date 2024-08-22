@@ -5,7 +5,8 @@ use std::{
 };
 
 use async_trait::async_trait;
-use miden_node_store::state::{BlockInclusionProof, NoteAuthenticationInfo};
+use miden_node_proto::domain::blocks::BlockInclusionProof;
+use miden_node_store::state::NoteAuthenticationInfo;
 use miden_objects::{
     block::{Block, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},

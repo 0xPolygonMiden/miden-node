@@ -10,12 +10,9 @@ use std::{
 
 use miden_node_proto::{
     convert,
-    domain::accounts::AccountInfo,
-    errors::{ConversionError, MissingFieldHelper},
-    generated::{
-        block::BlockInclusionProof as BlockInclusionProofProto, note::NoteInclusionProofs,
-        responses::GetBlockInputsResponse,
-    },
+    domain::{accounts::AccountInfo, blocks::BlockInclusionProof},
+    errors::ConversionError,
+    generated::{note::NoteInclusionProofs, responses::GetBlockInputsResponse},
     try_convert, AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
@@ -25,8 +22,7 @@ use miden_objects::{
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{
-            LeafIndex, MerklePath, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt,
-            SmtProof, ValuePath,
+            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
         },
     },
     notes::{NoteId, NoteInclusionProof, Nullifier},
@@ -98,41 +94,6 @@ struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
-}
-
-/// Data required to verify a block's inclusion proof.
-#[derive(Clone, Debug)]
-pub struct BlockInclusionProof {
-    pub block_header: BlockHeader,
-    pub mmr_path: MerklePath,
-}
-
-impl From<BlockInclusionProof> for BlockInclusionProofProto {
-    fn from(value: BlockInclusionProof) -> Self {
-        Self {
-            block_header: Some(value.block_header.into()),
-            mmr_path: Some((&value.mmr_path).into()),
-        }
-    }
-}
-
-impl TryFrom<BlockInclusionProofProto> for BlockInclusionProof {
-    type Error = ConversionError;
-
-    fn try_from(value: BlockInclusionProofProto) -> Result<Self, ConversionError> {
-        let result = Self {
-            block_header: value
-                .block_header
-                .ok_or(BlockInclusionProofProto::missing_field("block_header"))?
-                .try_into()?,
-            mmr_path: (&value
-                .mmr_path
-                .ok_or(BlockInclusionProofProto::missing_field("mmr_path"))?)
-                .try_into()?,
-        };
-
-        Ok(result)
-    }
 }
 
 #[derive(Clone, Default, Debug)]
