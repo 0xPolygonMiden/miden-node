@@ -897,6 +897,10 @@ pub fn select_block_header_by_block_num(
 
 /// Select all the given block headers from the DB using the given [Connection].
 ///
+/// # Note
+///
+/// Only returns the block headers that are actually present.
+///
 /// # Returns
 ///
 /// A vector of [BlockHeader] or an error.
@@ -904,20 +908,20 @@ pub fn select_block_headers(
     conn: &mut Connection,
     blocks: Vec<BlockNumber>,
 ) -> Result<Vec<BlockHeader>> {
-    let mut stmt =
-        conn.prepare_cached("SELECT block_header FROM block_headers WHERE block_num = ?1;")?;
-    let mut result = Vec::with_capacity(blocks.len());
+    let mut headers = Vec::with_capacity(blocks.len());
 
-    for block in blocks {
-        let header: Vec<u8> = stmt
-            .query_row([block], |row| row.get(0))
-            .optional()?
-            .ok_or(DatabaseError::BlockNotFoundInDb(block))?;
-        let header = BlockHeader::read_from_bytes(&header)?;
-        result.push(header);
+    let blocks: Vec<Value> = blocks.iter().copied().map(u32_to_value).collect();
+    let mut stmt = conn
+        .prepare_cached("SELECT block_header FROM block_headers WHERE block_num IN rarray(?1);")?;
+    let mut rows = stmt.query(params![Rc::new(blocks)])?;
+
+    while let Some(row) = rows.next()? {
+        let header = row.get_ref(0)?.as_blob()?;
+        let header = BlockHeader::read_from_bytes(header)?;
+        headers.push(header);
     }
 
-    Ok(result)
+    Ok(headers)
 }
 
 /// Select all block headers from the DB using the given [Connection].

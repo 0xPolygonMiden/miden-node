@@ -515,24 +515,28 @@ impl State {
             let paths = blocks
                 .iter()
                 .map(|&block_num| {
-                    let block_num = usize::try_from(block_num).expect("u32 should cast to usize");
-                    let proof = state.chain_mmr.open(block_num, chain_length)?.merkle_path;
+                    let proof = state.chain_mmr.open(block_num as usize, chain_length)?.merkle_path;
 
-                    Ok::<_, MmrError>(proof)
+                    Ok::<_, MmrError>((block_num, proof))
                 })
-                .collect::<Result<Vec<_>, MmrError>>()?;
+                .collect::<Result<BTreeMap<_, _>, MmrError>>()?;
 
             (chain_length, paths)
         };
 
-        let headers = self.db.select_block_headers(blocks).await.expect("map this error");
-        assert_eq!(headers.len(), merkle_paths.len());
-
-        let block_proofs = headers
+        let headers = self.db.select_block_headers(blocks).await?;
+        let headers = headers
             .into_iter()
-            .zip(merkle_paths.into_iter())
-            .map(|(block_header, mmr_path)| BlockInclusionProof { block_header, mmr_path })
-            .collect();
+            .map(|header| (header.block_num(), header))
+            .collect::<BTreeMap<BlockNumber, _>>();
+
+        let mut block_proofs = Vec::with_capacity(merkle_paths.len());
+        for (block_num, mmr_path) in merkle_paths {
+            let block_header =
+                *headers.get(&block_num).ok_or(DatabaseError::BlockNotFoundInDb(block_num))?;
+
+            block_proofs.push(BlockInclusionProof { block_header, mmr_path });
+        }
 
         let chain_length = BlockNumber::try_from(chain_length)
             .expect("Forest is a chain length so should fit into block number");
