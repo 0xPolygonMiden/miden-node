@@ -617,7 +617,9 @@ impl State {
 
         deltas
             .into_iter()
-            .try_fold(AccountDelta::default(), |accumulator, delta| accumulator.merge(delta))
+            .try_fold(AccountDelta::default(), |mut accumulator, delta| {
+                accumulator.merge(delta).map(|_| accumulator)
+            })
             .map_err(Into::into)
     }
 
