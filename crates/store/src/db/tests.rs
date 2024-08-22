@@ -388,11 +388,8 @@ fn test_sql_public_account_details() {
     let account_read = accounts_in_db.pop().unwrap().details.unwrap();
     assert_eq!(account_read, account);
 
-    let storage_delta = AccountStorageDelta {
-        cleared_items: vec![3],
-        updated_items: vec![(4, num_to_word(5)), (5, num_to_word(6))],
-        updated_maps: vec![],
-    };
+    let storage_delta =
+        AccountStorageDelta::from_iters([3], [(4, num_to_word(5)), (5, num_to_word(6))], []);
 
     let nft2 = Asset::NonFungible(
         NonFungibleAsset::new(
@@ -401,10 +398,7 @@ fn test_sql_public_account_details() {
         .unwrap(),
     );
 
-    let vault_delta = AccountVaultDelta {
-        added_assets: vec![nft2],
-        removed_assets: vec![nft1],
-    };
+    let vault_delta = AccountVaultDelta::from_iters([nft2], [nft1]);
 
     let delta = AccountDelta::new(storage_delta, vault_delta, Some(ONE)).unwrap();
 
@@ -440,11 +434,7 @@ fn test_sql_public_account_details() {
     // Cleared item was not serialized, check it and apply delta only with clear item second time:
     assert_eq!(account_read.storage().get_item(3), RpoDigest::default());
 
-    let storage_delta = AccountStorageDelta {
-        cleared_items: vec![3],
-        updated_items: vec![],
-        updated_maps: vec![],
-    };
+    let storage_delta = AccountStorageDelta::from_iters([3], [], []);
     account_read
         .apply_delta(
             &AccountDelta::new(storage_delta, AccountVaultDelta::default(), Some(Felt::new(2)))
@@ -454,18 +444,11 @@ fn test_sql_public_account_details() {
 
     assert_eq!(account_read.storage(), account.storage());
 
-    let storage_delta2 = AccountStorageDelta {
-        cleared_items: vec![5],
-        updated_items: vec![],
-        updated_maps: vec![],
-    };
+    let storage_delta2 = AccountStorageDelta::from_iters([5], [], []);
 
     let delta2 = AccountDelta::new(
         storage_delta2,
-        AccountVaultDelta {
-            added_assets: vec![nft1],
-            removed_assets: vec![],
-        },
+        AccountVaultDelta::from_iters([nft1], []),
         Some(Felt::new(3)),
     )
     .unwrap();
