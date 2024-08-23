@@ -1,9 +1,9 @@
-name: devnet deploy
+name: testnet deploy
 
 on:
   push:
     branches:
-      - Fix-deployment-workflow
+      - main
   workflow_dispatch:
         
 permissions:
@@ -15,8 +15,8 @@ jobs:
     name: Deploy to testnet
     uses: ./.github/workflows/deploy_workflow.yml
     with:
-      branch: next
+      branch: main
       features: testing
     secrets:
       account_id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
-      instance_id: "${{ secrets.DEVNET_INSTANCE_ID }}"
+      instance_id: "${{ secrets.TESTNET_INSTANCE_ID }}"
