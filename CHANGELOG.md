@@ -6,18 +6,23 @@
 
 - [BREAKING] Configuration files with unknown properties are now rejected (#401).
 - [BREAKING] Removed redundant node configuration properties (#401).
+- Support multiple inflight transactions on the same account (#407).
+- Now accounts for genesis are optional. Accounts directory will be overwritten, if `--force` flag is set (#420).
+- Added `GetAccountStateDelta` endpoint (#418).
+- Added `CheckNullifiersByPrefix` endpoint (#419).
+- Added `GetNoteAuthenticationInfo` endpoint (#421).
+- Added `SyncNotes` endpoint (#424).
+- Added `execution_hint` field to the `Notes` table (#441).
+
+### Changes
+
 - Improve type safety of the transaction inputs nullifier mapping (#406).
 - Embed the faucet's static website resources (#411).
 - CI check for proto file consistency (#412).
 - Added warning on CI for `CHANGELOG.md` (#413).
-- Now accounts for genesis are optional. Accounts directory will be overwritten, if `--force` flag is set (#420).
-- Added `GetAccountStateDelta` endpoint (#418).
-- Added `CheckNullifiersByPrefix` endpoint (#419).
-- Support multiple inflight transactions on the same account (#407).
-- Added `SyncNotes` endpoint (#424).
-- Cache sql statements (#427).
-- Added `execution_hint` field to `Notes` table (#441).
-- Implemented `GetNoteAuthenticationInfo` endpoint for both miden-store (#421).
+- Implemented caching of SQL statements (#427).
+- Updates to `miden-vm` dependency to v0.10 and `winterfell` dependency to v0.9 (#457).
+- [BREAKING] Updated minimum Rust version to 1.80 (#457).
 
 ### Fixes
 

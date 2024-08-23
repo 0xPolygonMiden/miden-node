@@ -245,7 +245,10 @@ impl BlockProver {
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
 
-            DefaultHost::new(advice_provider)
+            let mut host = DefaultHost::new(advice_provider);
+            host.load_mast_forest(StdLibrary::default().into());
+
+            host
         };
 
         let execution_output =
