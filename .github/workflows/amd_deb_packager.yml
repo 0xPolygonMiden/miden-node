@@ -1,13 +1,8 @@
 name: amd_deb_packager
 
 on:
-  push:
-    branches: [main, next]
-    paths:
-      - '**'
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*-*'
+  release:
+    types: [released, prereleased]
 
 jobs:
   build:
