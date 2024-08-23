@@ -39,11 +39,9 @@ message NoteSyncRecord {
     merkle.MerklePath merkle_path = 4;
 }
 
-message NoteInclusionProofs {
+message NoteAuthenticationInfo {
     // Proof of each note's inclusion in a block.
     repeated note.NoteInclusionInBlockProof note_proofs = 1;
     // Proof of each block's inclusion in the chain.
     repeated block.BlockInclusionProof block_proofs = 2;
-    // Current chain length used by the block proofs.
-    fixed32 chain_length = 3;
 }

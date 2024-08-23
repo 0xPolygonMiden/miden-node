@@ -120,7 +120,7 @@ pub struct GetBlockInputsResponse {
     /// The list of requested notes which were found in the database
     #[prost(message, optional, tag = "5")]
     pub found_unauthenticated_notes: ::core::option::Option<
-        super::note::NoteInclusionProofs,
+        super::note::NoteAuthenticationInfo,
     >,
 }
 /// An account returned as a response to the GetTransactionInputs
@@ -167,7 +167,7 @@ pub struct GetNotesByIdResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNoteInclusionProofsResponse {
     #[prost(message, optional, tag = "1")]
-    pub proofs: ::core::option::Option<super::note::NoteInclusionProofs>,
+    pub proofs: ::core::option::Option<super::note::NoteAuthenticationInfo>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

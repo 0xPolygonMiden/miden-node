@@ -6,7 +6,7 @@ use miden_node_proto::{
     generated::{
         self,
         account::AccountSummary,
-        note::{NoteInclusionProofs, NoteSyncRecord},
+        note::{NoteAuthenticationInfo as NoteAuthenticationInfoProto, NoteSyncRecord},
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
@@ -319,7 +319,7 @@ impl api_server::Api for StoreApi {
 
         let note_ids = note_ids.into_iter().map(From::from).collect();
 
-        let NoteAuthenticationInfo { block_proofs, note_proofs, chain_length } = self
+        let NoteAuthenticationInfo { block_proofs, note_proofs } = self
             .state
             .get_note_authentication_info(note_ids)
             .await
@@ -330,7 +330,7 @@ impl api_server::Api for StoreApi {
         let block_proofs = block_proofs.into_iter().map(Into::into).collect();
 
         Ok(Response::new(GetNoteInclusionProofsResponse {
-            proofs: Some(NoteInclusionProofs { note_proofs, block_proofs, chain_length }),
+            proofs: Some(NoteAuthenticationInfoProto { note_proofs, block_proofs }),
         }))
     }
 

@@ -329,6 +329,7 @@ impl Store for MockStoreSuccess {
 
         let locked_chain_mmr = self.chain_mmr.read().await;
         let mmr_forest = locked_chain_mmr.forest();
+        let chain_length = latest_header.block_num();
         let block_proofs = note_proofs
             .values()
             .map(|note_proof| {
@@ -337,15 +338,11 @@ impl Store for MockStoreSuccess {
                 let mmr_path =
                     locked_chain_mmr.open(block_num as usize, mmr_forest).unwrap().merkle_path;
 
-                BlockInclusionProof { block_header, mmr_path }
+                BlockInclusionProof { block_header, mmr_path, chain_length }
             })
             .collect();
 
-        let found_unauthenticated_notes = NoteAuthenticationInfo {
-            block_proofs,
-            note_proofs,
-            chain_length: latest_header.block_num(),
-        };
+        let found_unauthenticated_notes = NoteAuthenticationInfo { block_proofs, note_proofs };
 
         Ok(BlockInputs {
             block_header: latest_header,
@@ -370,6 +367,7 @@ impl Store for MockStoreSuccess {
 
         let latest_header =
             *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
+        let chain_length = latest_header.block_num();
 
         let block_proofs = note_proofs
             .values()
@@ -381,15 +379,11 @@ impl Store for MockStoreSuccess {
                     .unwrap()
                     .merkle_path;
 
-                BlockInclusionProof { block_header, mmr_path }
+                BlockInclusionProof { block_header, mmr_path, chain_length }
             })
             .collect();
 
-        Ok(NoteAuthenticationInfo {
-            block_proofs,
-            note_proofs,
-            chain_length: latest_header.block_num(),
-        })
+        Ok(NoteAuthenticationInfo { block_proofs, note_proofs })
     }
 }
 

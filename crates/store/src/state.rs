@@ -12,7 +12,10 @@ use miden_node_proto::{
     convert,
     domain::{accounts::AccountInfo, blocks::BlockInclusionProof},
     errors::ConversionError,
-    generated::{note::NoteInclusionProofs, responses::GetBlockInputsResponse},
+    generated::{
+        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
+        responses::GetBlockInputsResponse,
+    },
     try_convert, AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
@@ -100,33 +103,34 @@ struct InnerState {
 pub struct NoteAuthenticationInfo {
     pub block_proofs: Vec<BlockInclusionProof>,
     pub note_proofs: BTreeMap<NoteId, NoteInclusionProof>,
-    pub chain_length: BlockNumber,
 }
 
 impl NoteAuthenticationInfo {
     pub fn contains_note(&self, note: &NoteId) -> bool {
         self.note_proofs.contains_key(note)
     }
+
+    pub fn note_ids(&self) -> BTreeSet<NoteId> {
+        self.note_proofs.keys().copied().collect()
+    }
 }
 
-impl From<NoteAuthenticationInfo> for NoteInclusionProofs {
+impl From<NoteAuthenticationInfo> for NoteAuthenticationInfoProto {
     fn from(value: NoteAuthenticationInfo) -> Self {
         Self {
             note_proofs: convert(&value.note_proofs),
             block_proofs: convert(value.block_proofs),
-            chain_length: value.chain_length,
         }
     }
 }
 
-impl TryFrom<NoteInclusionProofs> for NoteAuthenticationInfo {
+impl TryFrom<NoteAuthenticationInfoProto> for NoteAuthenticationInfo {
     type Error = ConversionError;
 
-    fn try_from(value: NoteInclusionProofs) -> Result<Self, Self::Error> {
+    fn try_from(value: NoteAuthenticationInfoProto) -> Result<Self, Self::Error> {
         let result = Self {
             block_proofs: try_convert(value.block_proofs)?,
             note_proofs: try_convert(&value.note_proofs)?,
-            chain_length: value.chain_length,
         };
 
         Ok(result)
@@ -482,6 +486,9 @@ impl State {
                 })
                 .collect::<Result<BTreeMap<_, _>, MmrError>>()?;
 
+            let chain_length = BlockNumber::try_from(chain_length)
+                .expect("Forest is a chain length so should fit into block number");
+
             (chain_length, paths)
         };
 
@@ -496,13 +503,10 @@ impl State {
             let block_header =
                 *headers.get(&block_num).ok_or(DatabaseError::BlockNotFoundInDb(block_num))?;
 
-            block_proofs.push(BlockInclusionProof { block_header, mmr_path });
+            block_proofs.push(BlockInclusionProof { block_header, mmr_path, chain_length });
         }
 
-        let chain_length = BlockNumber::try_from(chain_length)
-            .expect("Forest is a chain length so should fit into block number");
-
-        Ok(NoteAuthenticationInfo { block_proofs, note_proofs, chain_length })
+        Ok(NoteAuthenticationInfo { block_proofs, note_proofs })
     }
 
     /// Loads data to synchronize a client.

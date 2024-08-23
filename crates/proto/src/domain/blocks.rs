@@ -84,6 +84,7 @@ impl TryFrom<block::BlockHeader> for BlockHeader {
 pub struct BlockInclusionProof {
     pub block_header: BlockHeader,
     pub mmr_path: MerklePath,
+    pub chain_length: u32,
 }
 
 impl From<BlockInclusionProof> for block::BlockInclusionProof {
@@ -91,6 +92,7 @@ impl From<BlockInclusionProof> for block::BlockInclusionProof {
         Self {
             block_header: Some(value.block_header.into()),
             mmr_path: Some((&value.mmr_path).into()),
+            chain_length: value.chain_length,
         }
     }
 }
@@ -108,6 +110,7 @@ impl TryFrom<block::BlockInclusionProof> for BlockInclusionProof {
                 .mmr_path
                 .ok_or(block::BlockInclusionProof::missing_field("mmr_path"))?)
                 .try_into()?,
+            chain_length: value.chain_length,
         };
 
         Ok(result)

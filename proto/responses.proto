@@ -106,7 +106,7 @@ message GetBlockInputsResponse {
     repeated NullifierBlockInputRecord nullifiers = 4;
 
     // The list of requested notes which were found in the database
-    note.NoteInclusionProofs found_unauthenticated_notes = 5;
+    note.NoteAuthenticationInfo found_unauthenticated_notes = 5;
 }
 
 // An account returned as a response to the GetTransactionInputs
@@ -137,7 +137,7 @@ message GetNotesByIdResponse {
 }
 
 message GetNoteInclusionProofsResponse {
-    note.NoteInclusionProofs proofs = 1;
+    note.NoteAuthenticationInfo proofs = 1;
 }
 
 message ListNullifiersResponse {

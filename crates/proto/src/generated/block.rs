@@ -40,4 +40,7 @@ pub struct BlockInclusionProof {
     pub block_header: ::core::option::Option<BlockHeader>,
     #[prost(message, optional, tag = "2")]
     pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
+    /// The chain length associated with `mmr_path`.
+    #[prost(fixed32, tag = "3")]
+    pub chain_length: u32,
 }

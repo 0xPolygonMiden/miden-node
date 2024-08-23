@@ -57,14 +57,11 @@ pub struct NoteSyncRecord {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct NoteInclusionProofs {
+pub struct NoteAuthenticationInfo {
     /// Proof of each note's inclusion in a block.
     #[prost(message, repeated, tag = "1")]
     pub note_proofs: ::prost::alloc::vec::Vec<NoteInclusionInBlockProof>,
     /// Proof of each block's inclusion in the chain.
     #[prost(message, repeated, tag = "2")]
     pub block_proofs: ::prost::alloc::vec::Vec<super::block::BlockInclusionProof>,
-    /// Current chain length used by the block proofs.
-    #[prost(fixed32, tag = "3")]
-    pub chain_length: u32,
 }

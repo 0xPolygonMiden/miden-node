@@ -410,7 +410,6 @@ mod tests {
         let found_unauthenticated_notes = NoteAuthenticationInfo {
             note_proofs: found_unauthenticated_notes,
             block_proofs: Default::default(),
-            chain_length: Default::default(),
         };
         let batch = TransactionBatch::new(txs, found_unauthenticated_notes).unwrap();
 

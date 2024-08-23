@@ -30,4 +30,6 @@ message BlockHeader {
 message BlockInclusionProof {
     BlockHeader block_header = 1;
     merkle.MerklePath mmr_path = 2;
+    // The chain length associated with `mmr_path`.
+    fixed32 chain_length = 3;
 }
