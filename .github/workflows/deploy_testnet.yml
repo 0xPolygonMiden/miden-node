@@ -1,0 +1,22 @@
+name: testnet deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: The tag of the release to trigger the workflow
+        required: true
+        
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  deploy:
+    name: Deploy to testnet
+    uses: ./.github/workflows/deploy_workflow.yml
+    with:
+      build_prefix: "--tag ${{ inputs.release_id }}"
+    secrets:
+      account_id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
+      instance_id: "${{ secrets.TESTNET_INSTANCE_ID }}"
