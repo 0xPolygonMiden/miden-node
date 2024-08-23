@@ -13,7 +13,7 @@ use miden_objects::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
         SMT_DEPTH,
     },
-    notes::{NoteExecutionHint, NoteHeader, NoteMetadata, NoteTag, NoteType},
+    notes::{NoteExecutionHint, NoteHeader, NoteMetadata, NoteTag, NoteType, Nullifier},
     transaction::{OutputNote, ProvenTransaction},
     Felt, BLOCK_NOTES_TREE_DEPTH, ONE, ZERO,
 };
@@ -614,7 +614,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
     let nullifier_1 = batches[0].produced_nullifiers().next().unwrap();
     let nullifier_2 = batches[1].produced_nullifiers().next().unwrap();
     let nullifier_3 =
-        Digest::from([101_u32.into(), 102_u32.into(), 103_u32.into(), 104_u32.into()]).into();
+        Nullifier::from([101_u32.into(), 102_u32.into(), 103_u32.into(), 104_u32.into()]);
 
     let block_inputs_from_store: BlockInputs = {
         let block_header = BlockHeader::mock(0, None, None, &[]);

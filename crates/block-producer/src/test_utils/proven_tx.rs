@@ -8,7 +8,7 @@ use miden_objects::{
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
 };
-use winterfell::StarkProof;
+use winterfell::Proof;
 
 use super::MockPrivateAccount;
 
@@ -99,7 +99,7 @@ impl MockProvenTxBuilder {
             self.initial_account_hash,
             self.final_account_hash,
             Digest::default(),
-            ExecutionProof::new(StarkProof::new_dummy(), HashFunction::Blake3_192),
+            ExecutionProof::new(Proof::new_dummy(), HashFunction::Blake3_192),
         )
         .add_input_notes(self.input_notes.unwrap_or_default())
         .add_input_notes(self.nullifiers.unwrap_or_default())
