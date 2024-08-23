@@ -1,9 +1,10 @@
 syntax = "proto3";
 package note;
 
+import "account.proto";
+import "block.proto";
 import "digest.proto";
 import "merkle.proto";
-import "account.proto";
 
 message NoteMetadata {
     account.AccountId sender = 1;
@@ -24,9 +25,23 @@ message Note {
     optional bytes details = 6;
 }
 
+message NoteInclusionInBlockProof {
+    digest.Digest note_id = 1;
+    fixed32 block_num = 2;
+    uint32 note_index_in_block = 3;
+    merkle.MerklePath merkle_path = 4;
+}
+
 message NoteSyncRecord {
     uint32 note_index = 1;
     digest.Digest note_id = 2;
     NoteMetadata metadata = 3;
     merkle.MerklePath merkle_path = 4;
+}
+
+message NoteAuthenticationInfo {
+    // Proof of each note's inclusion in a block.
+    repeated note.NoteInclusionInBlockProof note_proofs = 1;
+    // Proof of each block's inclusion in the chain.
+    repeated block.BlockInclusionProof block_proofs = 2;
 }

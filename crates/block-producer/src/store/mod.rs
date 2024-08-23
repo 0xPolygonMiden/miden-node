@@ -9,9 +9,9 @@ use itertools::Itertools;
 use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
-        digest, note,
+        digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNotesByIdRequest,
+            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
             GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
@@ -19,11 +19,11 @@ use miden_node_proto::{
     },
     AccountState,
 };
+use miden_node_store::state::NoteAuthenticationInfo;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
     block::Block,
-    crypto::merkle::MerklePath,
     notes::{NoteId, Nullifier},
     utils::Serializable,
     Digest,
@@ -56,15 +56,12 @@ pub trait Store: ApplyBlock {
 
     /// Returns note authentication information for the set of specified notes.
     ///
-    /// If authentication info could for a note does not exist in the store, the note is omitted
+    /// If authentication info for a note does not exist in the store, the note is omitted
     /// from the returned set of notes.
-    ///
-    /// TODO: right now this return only Merkle paths per note, but this will need to be updated to
-    /// return full authentication info.
     async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError>;
+    ) -> Result<NoteAuthenticationInfo, NotePathsError>;
 }
 
 #[async_trait]
@@ -257,33 +254,24 @@ impl Store for DefaultStore {
     async fn get_note_authentication_info(
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BTreeMap<NoteId, MerklePath>, NotePathsError> {
-        let request = tonic::Request::new(GetNotesByIdRequest {
+    ) -> Result<NoteAuthenticationInfo, NotePathsError> {
+        let request = tonic::Request::new(GetNoteAuthenticationInfoRequest {
             note_ids: notes.map(digest::Digest::from).collect(),
         });
 
         let store_response = self
             .store
             .clone()
-            .get_notes_by_id(request)
+            .get_note_authentication_info(request)
             .await
             .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
             .into_inner();
 
-        Ok(store_response
-            .notes
-            .into_iter()
-            .map(|note| {
-                Ok((
-                    RpoDigest::try_from(
-                        note.note_id.ok_or(note::Note::missing_field(stringify!(note_id)))?,
-                    )?
-                    .into(),
-                    note.merkle_path
-                        .ok_or(note::Note::missing_field(stringify!(merkle_path)))?
-                        .try_into()?,
-                ))
-            })
-            .collect::<Result<BTreeMap<_, _>, ConversionError>>()?)
+        let note_authentication_info = store_response
+            .proofs
+            .ok_or(GetTransactionInputsResponse::missing_field("proofs"))?
+            .try_into()?;
+
+        Ok(note_authentication_info)
     }
 }

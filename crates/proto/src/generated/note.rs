@@ -33,6 +33,18 @@ pub struct Note {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NoteInclusionInBlockProof {
+    #[prost(message, optional, tag = "1")]
+    pub note_id: ::core::option::Option<super::digest::Digest>,
+    #[prost(fixed32, tag = "2")]
+    pub block_num: u32,
+    #[prost(uint32, tag = "3")]
+    pub note_index_in_block: u32,
+    #[prost(message, optional, tag = "4")]
+    pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NoteSyncRecord {
     #[prost(uint32, tag = "1")]
     pub note_index: u32,
@@ -42,4 +54,14 @@ pub struct NoteSyncRecord {
     pub metadata: ::core::option::Option<NoteMetadata>,
     #[prost(message, optional, tag = "4")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NoteAuthenticationInfo {
+    /// Proof of each note's inclusion in a block.
+    #[prost(message, repeated, tag = "1")]
+    pub note_proofs: ::prost::alloc::vec::Vec<NoteInclusionInBlockProof>,
+    /// Proof of each block's inclusion in the chain.
+    #[prost(message, repeated, tag = "2")]
+    pub block_proofs: ::prost::alloc::vec::Vec<super::block::BlockInclusionProof>,
 }

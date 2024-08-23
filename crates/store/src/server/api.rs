@@ -6,21 +6,21 @@ use miden_node_proto::{
     generated::{
         self,
         account::AccountSummary,
-        note::NoteSyncRecord,
+        note::{NoteAuthenticationInfo as NoteAuthenticationInfoProto, NoteSyncRecord},
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNotesByIdRequest,
-            GetTransactionInputsRequest, ListAccountsRequest, ListNotesRequest,
-            ListNullifiersRequest, SyncNoteRequest, SyncStateRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
+            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
             GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNotesByIdResponse, GetTransactionInputsResponse, ListAccountsResponse,
-            ListNotesResponse, ListNullifiersResponse, NullifierTransactionInputRecord,
-            NullifierUpdate, SyncNoteResponse, SyncStateResponse,
+            GetNoteAuthenticationInfoResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -38,7 +38,11 @@ use miden_objects::{
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, types::AccountId, COMPONENT};
+use crate::{
+    state::{NoteAuthenticationInfo, State},
+    types::AccountId,
+    COMPONENT,
+};
 
 // STORE API
 // ================================================================================================
@@ -82,7 +86,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetBlockHeaderByNumberResponse {
             block_header: block_header.map(Into::into),
             chain_length: mmr_proof.as_ref().map(|p| p.forest as u32),
-            mmr_path: mmr_proof.map(|p| Into::into(p.merkle_path)),
+            mmr_path: mmr_proof.map(|p| Into::into(&p.merkle_path)),
         }))
     }
 
@@ -196,7 +200,7 @@ impl api_server::Api for StoreApi {
                 note_index: note.note_index.to_absolute_index(),
                 note_id: Some(note.note_id.into()),
                 metadata: Some(note.metadata.into()),
-                merkle_path: Some(note.merkle_path.into()),
+                merkle_path: Some(Into::into(&note.merkle_path)),
             })
             .collect();
 
@@ -247,14 +251,14 @@ impl api_server::Api for StoreApi {
                 note_index: note.note_index.to_absolute_index(),
                 note_id: Some(note.note_id.into()),
                 metadata: Some(note.metadata.into()),
-                merkle_path: Some(note.merkle_path.into()),
+                merkle_path: Some((&note.merkle_path).into()),
             })
             .collect();
 
         Ok(Response::new(SyncNoteResponse {
             chain_tip: state.chain_tip,
             block_header: Some(state.block_header.into()),
-            mmr_path: Some(mmr_proof.merkle_path.into()),
+            mmr_path: Some((&mmr_proof.merkle_path).into()),
             notes,
         }))
     }
@@ -292,6 +296,42 @@ impl api_server::Api for StoreApi {
             .collect();
 
         Ok(Response::new(GetNotesByIdResponse { notes }))
+    }
+
+    /// Returns a list of Note inclusion proofs for the specified NoteId's.
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_note_inclusion_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_note_authentication_info(
+        &self,
+        request: tonic::Request<GetNoteAuthenticationInfoRequest>,
+    ) -> Result<Response<GetNoteAuthenticationInfoResponse>, Status> {
+        info!(target: COMPONENT, ?request);
+
+        let note_ids = request.into_inner().note_ids;
+
+        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        let note_ids = note_ids.into_iter().map(From::from).collect();
+
+        let NoteAuthenticationInfo { block_proofs, note_proofs } = self
+            .state
+            .get_note_authentication_info(note_ids)
+            .await
+            .map_err(internal_error)?;
+
+        // Massage into shape required by protobuf
+        let note_proofs = note_proofs.iter().map(Into::into).collect();
+        let block_proofs = block_proofs.into_iter().map(Into::into).collect();
+
+        Ok(Response::new(GetNoteAuthenticationInfoResponse {
+            proofs: Some(NoteAuthenticationInfoProto { note_proofs, block_proofs }),
+        }))
     }
 
     /// Returns details for public (on-chain) account by id.
@@ -377,6 +417,7 @@ impl api_server::Api for StoreApi {
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
+        let unauthenticated_notes = unauthenticated_notes.into_iter().collect();
 
         self.state
             .get_block_inputs(&account_ids, &nullifiers, unauthenticated_notes)

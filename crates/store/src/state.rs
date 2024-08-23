@@ -2,11 +2,21 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{collections::BTreeSet, sync::Arc};
+
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use miden_node_proto::{
-    convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
-    AccountInputRecord, NullifierWitness,
+    convert,
+    domain::{accounts::AccountInfo, blocks::BlockInclusionProof},
+    errors::ConversionError,
+    generated::{
+        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
+        responses::GetBlockInputsResponse,
+    },
+    try_convert, AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
@@ -14,9 +24,11 @@ use miden_objects::{
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath},
+        merkle::{
+            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
+        },
     },
-    notes::{NoteId, Nullifier},
+    notes::{NoteId, NoteInclusionProof, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
     AccountError, BlockHeader, ACCOUNT_TREE_DEPTH,
@@ -31,8 +43,8 @@ use crate::{
     blocks::BlockStore,
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
-        ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError, NoteSyncError,
-        StateInitializationError, StateSyncError,
+        ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
+        GetNoteInclusionProofError, NoteSyncError, StateInitializationError, StateSyncError,
     },
     nullifier_tree::NullifierTree,
     types::{AccountId, BlockNumber},
@@ -58,7 +70,7 @@ pub struct BlockInputs {
     pub nullifiers: Vec<NullifierWitness>,
 
     /// List of notes found in the store
-    pub found_unauthenticated_notes: BTreeSet<NoteId>,
+    pub found_unauthenticated_notes: NoteAuthenticationInfo,
 }
 
 impl From<BlockInputs> for GetBlockInputsResponse {
@@ -68,7 +80,7 @@ impl From<BlockInputs> for GetBlockInputsResponse {
             mmr_peaks: convert(value.chain_peaks.peaks()),
             account_states: convert(value.account_states),
             nullifiers: convert(value.nullifiers),
-            found_unauthenticated_notes: convert(value.found_unauthenticated_notes),
+            found_unauthenticated_notes: Some(value.found_unauthenticated_notes.into()),
         }
     }
 }
@@ -85,6 +97,44 @@ struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
+}
+
+#[derive(Clone, Default, Debug)]
+pub struct NoteAuthenticationInfo {
+    pub block_proofs: Vec<BlockInclusionProof>,
+    pub note_proofs: BTreeMap<NoteId, NoteInclusionProof>,
+}
+
+impl NoteAuthenticationInfo {
+    pub fn contains_note(&self, note: &NoteId) -> bool {
+        self.note_proofs.contains_key(note)
+    }
+
+    pub fn note_ids(&self) -> BTreeSet<NoteId> {
+        self.note_proofs.keys().copied().collect()
+    }
+}
+
+impl From<NoteAuthenticationInfo> for NoteAuthenticationInfoProto {
+    fn from(value: NoteAuthenticationInfo) -> Self {
+        Self {
+            note_proofs: convert(&value.note_proofs),
+            block_proofs: convert(value.block_proofs),
+        }
+    }
+}
+
+impl TryFrom<NoteAuthenticationInfoProto> for NoteAuthenticationInfo {
+    type Error = ConversionError;
+
+    fn try_from(value: NoteAuthenticationInfoProto) -> Result<Self, Self::Error> {
+        let result = Self {
+            block_proofs: try_convert(value.block_proofs)?,
+            note_proofs: try_convert(&value.note_proofs)?,
+        };
+
+        Ok(result)
+    }
 }
 
 /// The rollup state
@@ -399,6 +449,66 @@ impl State {
         self.db.select_notes_by_id(note_ids).await
     }
 
+    /// Queries all the note inclusion proofs matching a certain Note IDs from the database.
+    pub async fn get_note_authentication_info(
+        &self,
+        note_ids: BTreeSet<NoteId>,
+    ) -> Result<NoteAuthenticationInfo, GetNoteInclusionProofError> {
+        // First we grab block-inclusion proofs for the known notes. These proofs only
+        // prove that the note was included in a given block. We then also need to prove that
+        // each of those blocks is included in the chain.
+        let note_proofs = self.db.select_note_inclusion_proofs(note_ids).await?;
+
+        // The set of blocks that the notes are included in.
+        let blocks = note_proofs
+            .values()
+            .map(|proof| proof.location().block_num())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        // Grab the block merkle paths from the inner state.
+        //
+        // NOTE: Scoped block to automatically drop the mutex guard asap.
+        //
+        // We also avoid accessing the db in the block as this would delay
+        // dropping the guard.
+        let (chain_length, merkle_paths) = {
+            let state = self.inner.read().await;
+            let chain_length = state.chain_mmr.forest();
+
+            let paths = blocks
+                .iter()
+                .map(|&block_num| {
+                    let proof = state.chain_mmr.open(block_num as usize, chain_length)?.merkle_path;
+
+                    Ok::<_, MmrError>((block_num, proof))
+                })
+                .collect::<Result<BTreeMap<_, _>, MmrError>>()?;
+
+            let chain_length = BlockNumber::try_from(chain_length)
+                .expect("Forest is a chain length so should fit into block number");
+
+            (chain_length, paths)
+        };
+
+        let headers = self.db.select_block_headers(blocks).await?;
+        let headers = headers
+            .into_iter()
+            .map(|header| (header.block_num(), header))
+            .collect::<BTreeMap<BlockNumber, _>>();
+
+        let mut block_proofs = Vec::with_capacity(merkle_paths.len());
+        for (block_num, mmr_path) in merkle_paths {
+            let block_header =
+                *headers.get(&block_num).ok_or(DatabaseError::BlockNotFoundInDb(block_num))?;
+
+            block_proofs.push(BlockInclusionProof { block_header, mmr_path, chain_length });
+        }
+
+        Ok(NoteAuthenticationInfo { block_proofs, note_proofs })
+    }
+
     /// Loads data to synchronize a client.
     ///
     /// The client's request contains a list of tag prefixes, this method will return the first
@@ -486,7 +596,7 @@ impl State {
         &self,
         account_ids: &[AccountId],
         nullifiers: &[Nullifier],
-        unauthenticated_notes: Vec<NoteId>,
+        unauthenticated_notes: BTreeSet<NoteId>,
     ) -> Result<BlockInputs, GetBlockInputsError> {
         let inner = self.inner.read().await;
 
@@ -535,7 +645,8 @@ impl State {
             })
             .collect();
 
-        let found_unauthenticated_notes = self.db.select_note_ids(unauthenticated_notes).await?;
+        let found_unauthenticated_notes =
+            self.get_note_authentication_info(unauthenticated_notes).await?;
 
         Ok(BlockInputs {
             block_header: latest,
@@ -665,7 +776,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitiali
 #[instrument(target = "miden-store", skip_all)]
 async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
     let block_hashes: Vec<RpoDigest> =
-        db.select_block_headers().await?.iter().map(BlockHeader::hash).collect();
+        db.select_all_block_headers().await?.iter().map(BlockHeader::hash).collect();
 
     Ok(block_hashes.into())
 }

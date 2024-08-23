@@ -17,6 +17,7 @@
 - Added `SyncNotes` endpoint (#424).
 - Cache sql statements (#427).
 - Added `execution_hint` field to `Notes` table (#441).
+- Implemented `GetNoteAuthenticationInfo` endpoint for both miden-store (#421).
 
 ### Fixes
 

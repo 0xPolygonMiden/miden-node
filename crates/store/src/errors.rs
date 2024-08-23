@@ -74,6 +74,8 @@ pub enum DatabaseError {
         expected: RpoDigest,
         calculated: RpoDigest,
     },
+    #[error("Block {0} not found in the database")]
+    BlockNotFoundInDb(BlockNumber),
     #[error("Unsupported database version. There is no migration chain from/to this version. Remove database files \
         and try again.")]
     UnsupportedDatabaseVersion,
@@ -203,6 +205,17 @@ pub enum GetBlockInputsError {
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
     #[error("Chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {forest}, block num: {block_num}")]
     IncorrectChainMmrForestNumber { forest: usize, block_num: u32 },
+    #[error("Note inclusion proof MMR error: {0}")]
+    NoteInclusionMmr(MmrError),
+}
+
+impl From<GetNoteInclusionProofError> for GetBlockInputsError {
+    fn from(value: GetNoteInclusionProofError) -> Self {
+        match value {
+            GetNoteInclusionProofError::DatabaseError(db_err) => db_err.into(),
+            GetNoteInclusionProofError::MmrError(mmr_err) => Self::NoteInclusionMmr(mmr_err),
+        }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -222,5 +235,13 @@ pub enum NoteSyncError {
     #[error("Block headers table is empty")]
     EmptyBlockHeadersTable,
     #[error("Error retrieving the merkle proof for the block: {0}")]
+    MmrError(#[from] MmrError),
+}
+
+#[derive(Error, Debug)]
+pub enum GetNoteInclusionProofError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
+    #[error("Mmr error: {0}")]
     MmrError(#[from] MmrError),
 }

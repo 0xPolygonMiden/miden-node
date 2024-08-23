@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, create_dir_all},
     sync::Arc,
 };
@@ -13,7 +13,7 @@ use miden_objects::{
     accounts::AccountDelta,
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::{NoteId, NoteMetadata, Nullifier},
+    notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
     utils::Serializable,
     BlockHeader, GENESIS_BLOCK,
@@ -75,7 +75,7 @@ impl From<NoteRecord> for NotePb {
             note_index: note.note_index.to_absolute_index(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
-            merkle_path: Some(note.merkle_path.into()),
+            merkle_path: Some(Into::into(&note.merkle_path)),
             details: note.details,
         }
     }
@@ -231,13 +231,28 @@ impl Db {
             })?
     }
 
-    /// Loads all the block headers from the DB.
+    /// Loads multiple block headers from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_block_headers(&self) -> Result<Vec<BlockHeader>> {
+    pub async fn select_block_headers(&self, blocks: Vec<BlockNumber>) -> Result<Vec<BlockHeader>> {
         self.pool
             .get()
             .await?
-            .interact(sql::select_block_headers)
+            .interact(move |conn| sql::select_block_headers(conn, blocks))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!(
+                    "Select many block headers task failed: {err}"
+                ))
+            })?
+    }
+
+    /// Loads all the block headers from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_all_block_headers(&self) -> Result<Vec<BlockHeader>> {
+        self.pool
+            .get()
+            .await?
+            .interact(sql::select_all_block_headers)
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select block headers task failed: {err}"))
@@ -318,6 +333,24 @@ impl Db {
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
+            })?
+    }
+
+    /// Loads inclusion proofs for notes matching the given IDs.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_note_inclusion_proofs(
+        &self,
+        note_ids: BTreeSet<NoteId>,
+    ) -> Result<BTreeMap<NoteId, NoteInclusionProof>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_note_inclusion_proofs(conn, note_ids))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!(
+                    "Select block note inclusion proofs task failed: {err}"
+                ))
             })?
     }
 

@@ -21,7 +21,7 @@ pub struct CheckNullifiersByPrefixResponse {
 pub struct GetBlockHeaderByNumberResponse {
     /// The requested block header
     #[prost(message, optional, tag = "1")]
-    pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
+    pub block_header: ::core::option::Option<super::block::BlockHeader>,
     /// Merkle path to verify the block's inclusion in the MMR at the returned `chain_length`
     #[prost(message, optional, tag = "2")]
     pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
@@ -45,7 +45,7 @@ pub struct SyncStateResponse {
     pub chain_tip: u32,
     /// Block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
-    pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
+    pub block_header: ::core::option::Option<super::block::BlockHeader>,
     /// Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
     #[prost(message, optional, tag = "3")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
@@ -71,7 +71,7 @@ pub struct SyncNoteResponse {
     pub chain_tip: u32,
     /// Block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
-    pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
+    pub block_header: ::core::option::Option<super::block::BlockHeader>,
     /// Merkle path to verify the block's inclusion in the MMR at the returned `chain_tip`.
     ///
     /// An MMR proof can be constructed for the leaf of index `block_header.block_num` of
@@ -107,7 +107,7 @@ pub struct NullifierBlockInputRecord {
 pub struct GetBlockInputsResponse {
     /// The latest block header
     #[prost(message, optional, tag = "1")]
-    pub block_header: ::core::option::Option<super::block_header::BlockHeader>,
+    pub block_header: ::core::option::Option<super::block::BlockHeader>,
     /// Peaks of the above block's mmr, The `forest` value is equal to the block number
     #[prost(message, repeated, tag = "2")]
     pub mmr_peaks: ::prost::alloc::vec::Vec<super::digest::Digest>,
@@ -118,8 +118,10 @@ pub struct GetBlockInputsResponse {
     #[prost(message, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
     /// The list of requested notes which were found in the database
-    #[prost(message, repeated, tag = "5")]
-    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    #[prost(message, optional, tag = "5")]
+    pub found_unauthenticated_notes: ::core::option::Option<
+        super::note::NoteAuthenticationInfo,
+    >,
 }
 /// An account returned as a response to the GetTransactionInputs
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -160,6 +162,12 @@ pub struct GetNotesByIdResponse {
     /// Lists Note's returned by the database
     #[prost(message, repeated, tag = "1")]
     pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetNoteAuthenticationInfoResponse {
+    #[prost(message, optional, tag = "1")]
+    pub proofs: ::core::option::Option<super::note::NoteAuthenticationInfo>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

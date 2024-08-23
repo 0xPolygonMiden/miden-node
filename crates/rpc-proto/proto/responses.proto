@@ -2,7 +2,7 @@ syntax = "proto3";
 package responses;
 
 import "account.proto";
-import "block_header.proto";
+import "block.proto";
 import "digest.proto";
 import "merkle.proto";
 import "mmr.proto";
@@ -24,7 +24,7 @@ message CheckNullifiersByPrefixResponse {
 
 message GetBlockHeaderByNumberResponse {
     // The requested block header
-    block_header.BlockHeader block_header = 1;
+    block.BlockHeader block_header = 1;
 
     // Merkle path to verify the block's inclusion in the MMR at the returned `chain_length`
     optional merkle.MerklePath mmr_path = 2;
@@ -43,7 +43,7 @@ message SyncStateResponse {
     fixed32 chain_tip = 1;
 
     // Block header of the block with the first note matching the specified criteria
-    block_header.BlockHeader block_header = 2;
+    block.BlockHeader block_header = 2;
 
     // Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
     mmr.MmrDelta mmr_delta = 3;
@@ -67,7 +67,7 @@ message SyncNoteResponse {
     fixed32 chain_tip = 1;
 
     // Block header of the block with the first note matching the specified criteria
-    block_header.BlockHeader block_header = 2;
+    block.BlockHeader block_header = 2;
 
     // Merkle path to verify the block's inclusion in the MMR at the returned `chain_tip`.
     //
@@ -94,7 +94,7 @@ message NullifierBlockInputRecord {
 
 message GetBlockInputsResponse {
     // The latest block header
-    block_header.BlockHeader block_header = 1;
+    block.BlockHeader block_header = 1;
 
     // Peaks of the above block's mmr, The `forest` value is equal to the block number
     repeated digest.Digest mmr_peaks = 2;
@@ -106,7 +106,7 @@ message GetBlockInputsResponse {
     repeated NullifierBlockInputRecord nullifiers = 4;
 
     // The list of requested notes which were found in the database
-    repeated digest.Digest found_unauthenticated_notes = 5;
+    note.NoteAuthenticationInfo found_unauthenticated_notes = 5;
 }
 
 // An account returned as a response to the GetTransactionInputs
@@ -134,6 +134,10 @@ message SubmitProvenTransactionResponse {}
 message GetNotesByIdResponse {
     // Lists Note's returned by the database
     repeated note.Note notes = 1;
+}
+
+message GetNoteAuthenticationInfoResponse {
+    note.NoteAuthenticationInfo proofs = 1;
 }
 
 message ListNullifiersResponse {
