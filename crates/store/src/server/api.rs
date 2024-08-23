@@ -449,12 +449,10 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
-        let (block_header, _ ) = self.state.get_block_header(None, false).await.map_err(internal_error)?;
+        let (block_header, _) =
+            self.state.get_block_header(None, false).await.map_err(internal_error)?;
 
-        let block_height = match block_header {
-            Some(block_header) => Some(block_header.block_num()),
-            None => None,
-        };
+        let block_height = block_header.map(|block_header| block_header.block_num());
 
         Ok(Response::new(GetTransactionInputsResponse {
             account_state: Some(AccountTransactionInputRecord {

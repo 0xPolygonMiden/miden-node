@@ -66,7 +66,8 @@ where
         );
         debug!(target: COMPONENT, proof = ?tx.proof());
 
-        let block_height = self.queue
+        let block_height = self
+            .queue
             .add_transaction(tx)
             .await
             .map_err(|err| Status::invalid_argument(format!("{:?}", err)))?

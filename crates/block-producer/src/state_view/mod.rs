@@ -65,7 +65,10 @@ where
     S: Store,
 {
     #[instrument(skip_all, err)]
-    async fn verify_tx(&self, candidate_tx: &ProvenTransaction) -> Result<Option<u32>, VerifyTxError> {
+    async fn verify_tx(
+        &self,
+        candidate_tx: &ProvenTransaction,
+    ) -> Result<Option<u32>, VerifyTxError> {
         if self.verify_tx_proofs {
             // Make sure that the transaction proof is valid and meets the required security level
             let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
@@ -95,7 +98,7 @@ where
         // of one of the inflight transactions)
         let mut tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
 
-        let current_block_height = tx_inputs.current_block_height.clone();
+        let current_block_height = tx_inputs.current_block_height;
 
         // The latest inflight account state takes precedence since this is the current block being
         // constructed.

@@ -149,10 +149,14 @@ where
     /// This method will validate the `tx` and ensure it is valid w.r.t. the rollup state, and the
     /// current in-flight transactions.
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    pub async fn add_transaction(&self, tx: ProvenTransaction) -> Result<Option<u32>, AddTransactionError> {
+    pub async fn add_transaction(
+        &self,
+        tx: ProvenTransaction,
+    ) -> Result<Option<u32>, AddTransactionError> {
         info!(target: COMPONENT, tx_id = %tx.id().to_hex(), account_id = %tx.account_id().to_hex());
 
-        let block_height = self.tx_validator
+        let block_height = self
+            .tx_validator
             .verify_tx(&tx)
             .await
             .map_err(AddTransactionError::VerificationFailed)?;
