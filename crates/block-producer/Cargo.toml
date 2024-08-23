@@ -43,4 +43,4 @@ miden-tx = { workspace = true, features = ["testing"] }
 once_cell = { version = "1.18" }
 rand_chacha = { version = "0.3", default-features = false }
 tokio = { version = "1.38", features = ["test-util"] }
-winterfell = { version = "0.8" }
+winterfell = { version = "0.9" }

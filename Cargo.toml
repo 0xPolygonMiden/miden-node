@@ -15,7 +15,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.78"
+rust-version = "1.80"
 version = "0.5.0"
 license = "MIT"
 authors = ["Miden contributors"]
@@ -25,7 +25,7 @@ exclude = [".github/"]
 readme = "README.md"
 
 [workspace.dependencies]
-miden-air = { version = "0.9", default-features = false }
+miden-air = { version = "0.10", default-features = false }
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.5" }
 miden-node-faucet = { path = "bin/faucet", version = "0.5" }
@@ -36,8 +36,8 @@ miden-node-store = { path = "crates/store", version = "0.5" }
 miden-node-test-macro = { path = "crates/test-macro" }
 miden-node-utils = { path = "crates/utils", version = "0.5" }
 miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
-miden-processor = { version = "0.9" }
-miden-stdlib = { version = "0.9", default-features = false }
+miden-processor = { version = "0.10" }
+miden-stdlib = { version = "0.10", default-features = false }
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 thiserror = { version = "1.0" }
 tonic = { version = "0.11" }

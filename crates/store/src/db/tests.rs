@@ -13,7 +13,6 @@ use miden_objects::{
         Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStorageDelta,
         AccountVaultDelta,
     },
-    assembly::{Assembler, ModuleAst},
     assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
@@ -356,7 +355,7 @@ fn test_sql_public_account_details() {
         ])
         .unwrap(),
         storage,
-        mock_account_code(&TransactionKernel::assembler()),
+        mock_account_code(),
         ZERO,
     );
 
@@ -981,13 +980,12 @@ fn insert_transactions(conn: &mut Connection) -> usize {
     count
 }
 
-pub fn mock_account_code(assembler: &Assembler) -> AccountCode {
+pub fn mock_account_code() -> AccountCode {
     let account_code = "\
             export.account_procedure_1
                 push.1.2
                 add
             end
             ";
-    let account_module_ast = ModuleAst::parse(account_code).unwrap();
-    AccountCode::new(account_module_ast, assembler).unwrap()
+    AccountCode::compile(account_code, TransactionKernel::assembler()).unwrap()
 }
