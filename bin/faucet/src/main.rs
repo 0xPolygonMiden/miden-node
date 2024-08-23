@@ -4,7 +4,7 @@ mod errors;
 mod handlers;
 mod state;
 
-use std::{fs::File, io::Write, path::PathBuf, sync::Arc, time::Duration};
+use std::{fs::File, io::Write, path::PathBuf};
 
 use actix_cors::Cors;
 use actix_web::{
@@ -27,7 +27,6 @@ use crate::{
 
 const COMPONENT: &str = "miden-faucet";
 const FAUCET_CONFIG_FILE_PATH: &str = "miden-faucet.toml";
-const CHAIN_TIP_UPDATER_INTERVAL: u64 = 5;
 
 // COMMANDS
 // ================================================================================================

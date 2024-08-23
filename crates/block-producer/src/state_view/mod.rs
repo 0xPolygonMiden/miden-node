@@ -65,7 +65,7 @@ where
     S: Store,
 {
     #[instrument(skip_all, err)]
-    async fn verify_tx(&self, candidate_tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
+    async fn verify_tx(&self, candidate_tx: &ProvenTransaction) -> Result<Option<u32>, VerifyTxError> {
         if self.verify_tx_proofs {
             // Make sure that the transaction proof is valid and meets the required security level
             let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
@@ -94,6 +94,9 @@ where
         // this set to verify that these notes are currently in flight (i.e., they are output notes
         // of one of the inflight transactions)
         let mut tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
+
+        let current_block_height = tx_inputs.current_block_height.clone();
+
         // The latest inflight account state takes precedence since this is the current block being
         // constructed.
         if let Some(inflight) = self.accounts_in_flight.read().await.get(candidate_tx.account_id())
@@ -129,7 +132,7 @@ where
             locked_notes_in_flight.extend(candidate_tx.output_notes().iter().map(OutputNote::id));
         }
 
-        Ok(())
+        Ok(current_block_height)
     }
 }
 
