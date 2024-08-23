@@ -99,7 +99,7 @@ message GetNotesByIdRequest {
     repeated digest.Digest note_ids = 1;
 }
 
-message GetNoteInclusionProofsRequest {
+message GetNoteAuthenticationInfoRequest {
     // List of NoteId's to be queried from the database
     repeated digest.Digest note_ids = 1;
 }

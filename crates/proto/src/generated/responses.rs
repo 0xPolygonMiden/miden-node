@@ -165,7 +165,7 @@ pub struct GetNotesByIdResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetNoteInclusionProofsResponse {
+pub struct GetNoteAuthenticationInfoResponse {
     #[prost(message, optional, tag = "1")]
     pub proofs: ::core::option::Option<super::note::NoteAuthenticationInfo>,
 }

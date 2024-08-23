@@ -16,7 +16,7 @@ service Api {
     rpc GetBlockByNumber(requests.GetBlockByNumberRequest) returns (responses.GetBlockByNumberResponse) {}
     rpc GetBlockHeaderByNumber(requests.GetBlockHeaderByNumberRequest) returns (responses.GetBlockHeaderByNumberResponse) {}
     rpc GetBlockInputs(requests.GetBlockInputsRequest) returns (responses.GetBlockInputsResponse) {}
-    rpc GetNoteInclusionProofs(requests.GetNoteInclusionProofsRequest) returns (responses.GetNoteInclusionProofsResponse) {}
+    rpc GetNoteAuthenticationInfo(requests.GetNoteAuthenticationInfoRequest) returns (responses.GetNoteAuthenticationInfoResponse) {}
     rpc GetNotesById(requests.GetNotesByIdRequest) returns (responses.GetNotesByIdResponse) {}
     rpc GetTransactionInputs(requests.GetTransactionInputsRequest) returns (responses.GetTransactionInputsResponse) {}
     rpc ListAccounts(requests.ListAccountsRequest) returns (responses.ListAccountsResponse) {}

@@ -121,7 +121,7 @@ pub struct GetNotesByIdRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetNoteInclusionProofsRequest {
+pub struct GetNoteAuthenticationInfoRequest {
     /// List of NoteId's to be queried from the database
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,

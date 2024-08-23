@@ -291,13 +291,13 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "GetBlockInputs"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn get_note_inclusion_proofs(
+        pub async fn get_note_authentication_info(
             &mut self,
             request: impl tonic::IntoRequest<
-                super::super::requests::GetNoteInclusionProofsRequest,
+                super::super::requests::GetNoteAuthenticationInfoRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetNoteInclusionProofsResponse>,
+            tonic::Response<super::super::responses::GetNoteAuthenticationInfoResponse>,
             tonic::Status,
         > {
             self.inner
@@ -311,11 +311,11 @@ pub mod api_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/store.Api/GetNoteInclusionProofs",
+                "/store.Api/GetNoteAuthenticationInfo",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("store.Api", "GetNoteInclusionProofs"));
+                .insert(GrpcMethod::new("store.Api", "GetNoteAuthenticationInfo"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_notes_by_id(
@@ -548,13 +548,13 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetBlockInputsResponse>,
             tonic::Status,
         >;
-        async fn get_note_inclusion_proofs(
+        async fn get_note_authentication_info(
             &self,
             request: tonic::Request<
-                super::super::requests::GetNoteInclusionProofsRequest,
+                super::super::requests::GetNoteAuthenticationInfoRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetNoteInclusionProofsResponse>,
+            tonic::Response<super::super::responses::GetNoteAuthenticationInfoResponse>,
             tonic::Status,
         >;
         async fn get_notes_by_id(
@@ -1080,15 +1080,15 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/store.Api/GetNoteInclusionProofs" => {
+                "/store.Api/GetNoteAuthenticationInfo" => {
                     #[allow(non_camel_case_types)]
-                    struct GetNoteInclusionProofsSvc<T: Api>(pub Arc<T>);
+                    struct GetNoteAuthenticationInfoSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::GetNoteInclusionProofsRequest,
-                    > for GetNoteInclusionProofsSvc<T> {
-                        type Response = super::super::responses::GetNoteInclusionProofsResponse;
+                        super::super::requests::GetNoteAuthenticationInfoRequest,
+                    > for GetNoteAuthenticationInfoSvc<T> {
+                        type Response = super::super::responses::GetNoteAuthenticationInfoResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -1096,12 +1096,13 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::GetNoteInclusionProofsRequest,
+                                super::super::requests::GetNoteAuthenticationInfoRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::get_note_inclusion_proofs(&inner, request).await
+                                <T as Api>::get_note_authentication_info(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -1113,7 +1114,7 @@ pub mod api_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = GetNoteInclusionProofsSvc(inner);
+                        let method = GetNoteAuthenticationInfoSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

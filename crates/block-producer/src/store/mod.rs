@@ -11,7 +11,7 @@ use miden_node_proto::{
     generated::{
         digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNoteInclusionProofsRequest,
+            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
             GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
@@ -255,14 +255,14 @@ impl Store for DefaultStore {
         &self,
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<NoteAuthenticationInfo, NotePathsError> {
-        let request = tonic::Request::new(GetNoteInclusionProofsRequest {
+        let request = tonic::Request::new(GetNoteAuthenticationInfoRequest {
             note_ids: notes.map(digest::Digest::from).collect(),
         });
 
         let store_response = self
             .store
             .clone()
-            .get_note_inclusion_proofs(request)
+            .get_note_authentication_info(request)
             .await
             .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
             .into_inner();

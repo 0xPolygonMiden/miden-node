@@ -10,7 +10,7 @@ use miden_node_proto::{
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteInclusionProofsRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
             GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
             ListNotesRequest, ListNullifiersRequest, SyncNoteRequest, SyncStateRequest,
         },
@@ -18,7 +18,7 @@ use miden_node_proto::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
             GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNoteInclusionProofsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            GetNoteAuthenticationInfoResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
             ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
             NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
         },
@@ -306,10 +306,10 @@ impl api_server::Api for StoreApi {
         ret(level = "debug"),
         err
     )]
-    async fn get_note_inclusion_proofs(
+    async fn get_note_authentication_info(
         &self,
-        request: tonic::Request<GetNoteInclusionProofsRequest>,
-    ) -> Result<Response<GetNoteInclusionProofsResponse>, Status> {
+        request: tonic::Request<GetNoteAuthenticationInfoRequest>,
+    ) -> Result<Response<GetNoteAuthenticationInfoResponse>, Status> {
         info!(target: COMPONENT, ?request);
 
         let note_ids = request.into_inner().note_ids;
@@ -329,7 +329,7 @@ impl api_server::Api for StoreApi {
         let note_proofs = note_proofs.iter().map(Into::into).collect();
         let block_proofs = block_proofs.into_iter().map(Into::into).collect();
 
-        Ok(Response::new(GetNoteInclusionProofsResponse {
+        Ok(Response::new(GetNoteAuthenticationInfoResponse {
             proofs: Some(NoteAuthenticationInfoProto { note_proofs, block_proofs }),
         }))
     }

@@ -136,7 +136,7 @@ message GetNotesByIdResponse {
     repeated note.Note notes = 1;
 }
 
-message GetNoteInclusionProofsResponse {
+message GetNoteAuthenticationInfoResponse {
     note.NoteAuthenticationInfo proofs = 1;
 }
 
