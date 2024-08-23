@@ -1824,7 +1824,6 @@ dependencies = [
  "miden-air",
  "miden-lib",
  "miden-node-proto",
- "miden-node-store",
  "miden-node-test-macro",
  "miden-node-utils",
  "miden-objects",
