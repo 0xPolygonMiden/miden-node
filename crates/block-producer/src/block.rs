@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
 use miden_node_proto::{
+    domain::notes::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
-use miden_node_store::state::NoteAuthenticationInfo;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},

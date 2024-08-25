@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use miden_node_proto::{
     convert,
+    domain::notes::NoteAuthenticationInfo,
     errors::ConversionError,
     generated::{
         self,
@@ -38,11 +39,7 @@ use miden_objects::{
 use tonic::{Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{
-    state::{NoteAuthenticationInfo, State},
-    types::AccountId,
-    COMPONENT,
-};
+use crate::{state::State, types::AccountId, COMPONENT};
 
 // STORE API
 // ================================================================================================

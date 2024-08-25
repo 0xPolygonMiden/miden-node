@@ -10,13 +10,9 @@ use std::{
 
 use miden_node_proto::{
     convert,
-    domain::{accounts::AccountInfo, blocks::BlockInclusionProof},
-    errors::ConversionError,
-    generated::{
-        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
-        responses::GetBlockInputsResponse,
-    },
-    try_convert, AccountInputRecord, NullifierWitness,
+    domain::{accounts::AccountInfo, blocks::BlockInclusionProof, notes::NoteAuthenticationInfo},
+    generated::responses::GetBlockInputsResponse,
+    AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
@@ -28,7 +24,7 @@ use miden_objects::{
             LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
         },
     },
-    notes::{NoteId, NoteInclusionProof, Nullifier},
+    notes::{NoteId, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
     AccountError, BlockHeader, ACCOUNT_TREE_DEPTH,
@@ -97,44 +93,6 @@ struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
-}
-
-#[derive(Clone, Default, Debug)]
-pub struct NoteAuthenticationInfo {
-    pub block_proofs: Vec<BlockInclusionProof>,
-    pub note_proofs: BTreeMap<NoteId, NoteInclusionProof>,
-}
-
-impl NoteAuthenticationInfo {
-    pub fn contains_note(&self, note: &NoteId) -> bool {
-        self.note_proofs.contains_key(note)
-    }
-
-    pub fn note_ids(&self) -> BTreeSet<NoteId> {
-        self.note_proofs.keys().copied().collect()
-    }
-}
-
-impl From<NoteAuthenticationInfo> for NoteAuthenticationInfoProto {
-    fn from(value: NoteAuthenticationInfo) -> Self {
-        Self {
-            note_proofs: convert(&value.note_proofs),
-            block_proofs: convert(value.block_proofs),
-        }
-    }
-}
-
-impl TryFrom<NoteAuthenticationInfoProto> for NoteAuthenticationInfo {
-    type Error = ConversionError;
-
-    fn try_from(value: NoteAuthenticationInfoProto) -> Result<Self, Self::Error> {
-        let result = Self {
-            block_proofs: try_convert(value.block_proofs)?,
-            note_proofs: try_convert(&value.note_proofs)?,
-        };
-
-        Ok(result)
-    }
 }
 
 /// The rollup state
