@@ -13,6 +13,7 @@
 - Added `GetNoteAuthenticationInfo` endpoint (#421).
 - Added `SyncNotes` endpoint (#424).
 - Added `execution_hint` field to the `Notes` table (#441).
+- Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
 
 ### Changes
 
