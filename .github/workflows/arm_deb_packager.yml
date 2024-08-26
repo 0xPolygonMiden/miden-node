@@ -1,20 +1,15 @@
-name: deb_packager
+name: arm_deb_packager
 
 on:
-  push:
-    branches: [main, next]
-    paths:
-      - '**'
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*-*'
+  release:
+    types: [released, prereleased]
 
 jobs:
   build:
     permissions:
       id-token: write
       contents: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu22-arm-4core
     steps:
       - name: Checkout
         uses: actions/checkout@main
@@ -31,7 +26,7 @@ jobs:
       - name: cleaning repo
         run: cargo clean
 
-      - name: Building for amd64
+      - name: Building for arm64
         run: cargo build --release
 
       - name: create package directories
@@ -50,7 +45,7 @@ jobs:
           cp packaging/postinst packaging/deb/miden-node/DEBIAN/postinst
           cp packaging/postrm packaging/deb/miden-node/DEBIAN/postrm
 
-      ########### Control file creation for amd64 ##########
+      ########### Control file creation for arm64 ##########
       - name: create control file
         run: |
           touch packaging/deb/miden-node/DEBIAN/control
@@ -58,7 +53,7 @@ jobs:
           echo "Version: ${{ env.VERSION }}" >> packaging/deb/miden-node/DEBIAN/control
           echo "Section: base" >> packaging/deb/miden-node/DEBIAN/control
           echo "Priority: optional" >> packaging/deb/miden-node/DEBIAN/control
-          echo "Architecture: amd64" >> packaging/deb/miden-node/DEBIAN/control
+          echo "Architecture: arm64" >> packaging/deb/miden-node/DEBIAN/control
           echo "Maintainer: Polygon Devops <devops@polygon.technology>" >> packaging/deb/miden-node/DEBIAN/control
           echo "Description: miden-node binary package" >> packaging/deb/miden-node/DEBIAN/control
           echo "Homepage: https://polygon.technology/polygon-miden" >> packaging/deb/miden-node/DEBIAN/control
@@ -68,17 +63,17 @@ jobs:
       - name: Creating package for binary for miden-node ${{ env.ARCH }}
         run: cp -rp packaging/deb/miden-node packaging/deb/miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}
         env:
-          ARCH: amd64
+          ARCH: arm64
 
       - name: Running package build
         run: dpkg-deb --build --root-owner-group packaging/deb/miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}
         env:
-          ARCH: amd64
+          ARCH: arm64
 
       - name: shasum the package
         run: cd packaging/deb/ && sha256sum miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb > miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb.checksum
         env:
-          ARCH: amd64
+          ARCH: arm64
 
       - name: release miden-node Packages
         uses: softprops/action-gh-release@v1
