@@ -10,7 +10,8 @@ jobs:
     permissions:
       id-token: write
       contents: write
-    runs-on: ubuntu22-arm-4core
+    runs-on:
+      labels: ubuntu22-arm-4core
     steps:
       - name: Checkout
         uses: actions/checkout@main
