@@ -45,7 +45,6 @@ pub struct FaucetClient {
     data_store: FaucetDataStore,
     id: AccountId,
     rng: RpoRandomCoin,
-    current_block_number: u32,
 }
 
 unsafe impl Send for FaucetClient {}
@@ -76,16 +75,7 @@ impl FaucetClient {
         let coin_seed: [u64; 4] = rng.gen();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-        let current_block_number = 0;
-
-        Ok(Self {
-            data_store,
-            rpc_api,
-            executor,
-            id,
-            rng,
-            current_block_number,
-        })
+        Ok(Self { data_store, rpc_api, executor, id, rng })
     }
 
     /// Executes a mint transaction for the target account.
@@ -161,12 +151,6 @@ impl FaucetClient {
 
     pub fn get_faucet_id(&self) -> AccountId {
         self.id
-    }
-
-    pub fn set_current_block_number(&mut self, new_block_height: u32) -> Result<(), FaucetError> {
-        self.current_block_number = new_block_height;
-
-        Ok(())
     }
 }
 

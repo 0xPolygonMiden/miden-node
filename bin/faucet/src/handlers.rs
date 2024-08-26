@@ -80,8 +80,6 @@ pub async fn get_tokens(
     }
     .to_bytes();
 
-    client.set_current_block_number(block_height)?;
-
     info!("A new note has been created: {}", note_id);
 
     // Send generated note to user
