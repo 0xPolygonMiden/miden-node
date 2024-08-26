@@ -23,7 +23,8 @@ use rusqlite::{
 };
 
 use super::{
-    NoteRecord, NoteSyncUpdate, NullifierInfo, Result, StateSyncUpdate, TransactionSummary,
+    NoteRecord, NoteSyncRecord, NoteSyncUpdate, NullifierInfo, Result, StateSyncUpdate,
+    TransactionSummary,
 };
 use crate::{
     errors::{DatabaseError, NoteSyncError, StateSyncError},
@@ -95,8 +96,6 @@ pub fn select_accounts_by_block_range(
     block_end: BlockNumber,
     account_ids: &[AccountId],
 ) -> Result<Vec<AccountSummary>> {
-    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
-
     let mut stmt = conn.prepare_cached(
         "
         SELECT
@@ -114,6 +113,7 @@ pub fn select_accounts_by_block_range(
     ",
     )?;
 
+    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
     let mut rows = stmt.query(params![block_start, block_end, Rc::new(account_ids)])?;
 
     let mut result = Vec::new();
@@ -531,7 +531,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
     Ok(count)
 }
 
-/// Select notes matching the tag and account_ids search criteria using the given [Connection].
+/// Select notes matching the tags and account IDs search criteria using the given [Connection].
 ///
 /// # Returns
 ///
@@ -548,10 +548,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     tags: &[u32],
     account_ids: &[AccountId],
     block_num: BlockNumber,
-) -> Result<Vec<NoteRecord>> {
-    let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
-    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
-
+) -> Result<Vec<NoteSyncRecord>> {
     let mut stmt = conn.prepare_cached(
         "
         SELECT
@@ -564,12 +561,11 @@ pub fn select_notes_since_block_by_tag_and_sender(
             tag,
             aux,
             execution_hint,
-            merkle_path,
-            details
+            merkle_path
         FROM
             notes
         WHERE
-            -- find the next block which contains at least one note with a matching tag
+            -- find the next block which contains at least one note with a matching tag or sender
             block_num = (
                 SELECT
                     block_num
@@ -584,9 +580,13 @@ pub fn select_notes_since_block_by_tag_and_sender(
                     1
             ) AND
             -- filter the block's notes and return only the ones matching the requested tags
+            -- or senders
             (tag IN rarray(?1) OR sender IN rarray(?2));
     ",
     )?;
+
+    let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
+    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
     let mut rows = stmt.query(params![Rc::new(tags), Rc::new(account_ids), block_num])?;
 
     let mut res = Vec::new();
@@ -603,8 +603,6 @@ pub fn select_notes_since_block_by_tag_and_sender(
         let execution_hint = column_value_as_u64(row, 8)?;
         let merkle_path_data = row.get_ref(9)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         let metadata = NoteMetadata::new(
             sender.try_into()?,
@@ -614,105 +612,10 @@ pub fn select_notes_since_block_by_tag_and_sender(
             aux,
         )?;
 
-        let note = NoteRecord {
+        let note = NoteSyncRecord {
             block_num,
             note_index,
             note_id,
-            details,
-            metadata,
-            merkle_path,
-        };
-        res.push(note);
-    }
-    Ok(res)
-}
-
-/// Select notes matching the tag search criteria using the given [Connection].
-///
-/// # Returns
-///
-/// All matching notes from the first block greater than `block_num` containing a matching note.
-/// A note is considered a match if it has any of the given tags. If no matching notes are found
-/// at all, then an empty vector is returned.
-///
-/// # Note
-///
-/// This method returns notes from a single block. To fetch all notes up to the chain tip,
-/// multiple requests are necessary.
-pub fn select_notes_since_block_by_tag(
-    conn: &mut Connection,
-    tags: &[u32],
-    block_num: BlockNumber,
-) -> Result<Vec<NoteRecord>> {
-    let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
-
-    let mut stmt = conn.prepare(
-        "
-        SELECT
-            block_num,
-            batch_index,
-            note_index,
-            note_id,
-            note_type,
-            sender,
-            tag,
-            aux,
-            execution_hint,
-            merkle_path,
-            details
-        FROM
-            notes
-        WHERE
-            -- find the next block which contains at least one note with a matching tag
-            block_num = (
-                SELECT
-                    block_num
-                FROM
-                    notes
-                WHERE
-                    tag IN rarray(?1) AND
-                    block_num > ?2
-                ORDER BY
-                    block_num ASC
-                LIMIT
-                    1
-            ) AND
-            -- filter the block's notes and return only the ones matching the requested tags
-            tag IN rarray(?1);
-    ",
-    )?;
-    let mut rows = stmt.query(params![Rc::new(tags), block_num])?;
-
-    let mut res = Vec::new();
-    while let Some(row) = rows.next()? {
-        let block_num = row.get(0)?;
-        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?);
-        let note_id_data = row.get_ref(3)?.as_blob()?;
-        let note_id = RpoDigest::read_from_bytes(note_id_data)?;
-        let note_type = row.get::<_, u8>(4)?;
-        let sender = column_value_as_u64(row, 5)?;
-        let tag: u32 = row.get(6)?;
-        let aux: u64 = row.get(7)?;
-        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = column_value_as_u64(row, 8)?;
-        let merkle_path_data = row.get_ref(9)?.as_blob()?;
-        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-
-        let metadata = NoteMetadata::new(
-            sender.try_into()?,
-            NoteType::try_from(note_type)?,
-            tag.into(),
-            execution_hint.try_into()?,
-            aux,
-        )?;
-
-        let note = NoteRecord {
-            block_num,
-            note_index,
-            note_id,
-            details,
             metadata,
             merkle_path,
         };
@@ -1042,19 +945,14 @@ pub fn get_state_sync(
         block_num,
     )?;
 
-    let (block_header, chain_tip) = if !notes.is_empty() {
-        let block_header = select_block_header_by_block_num(conn, Some(notes[0].block_num))?
-            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
-        let tip = select_block_header_by_block_num(conn, None)?
-            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
-
-        (block_header, tip.block_num())
-    } else {
-        let block_header = select_block_header_by_block_num(conn, None)?
-            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
-
-        let block_num = block_header.block_num();
-        (block_header, block_num)
+    let tip = select_block_header_by_block_num(conn, None)?
+        .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
+    let chain_tip = tip.block_num();
+    let block_header = match notes.first() {
+        None => tip,
+        Some(note) if note.block_num == chain_tip => tip,
+        Some(note) => select_block_header_by_block_num(conn, Some(note.block_num))?
+            .ok_or(StateSyncError::EmptyBlockHeadersTable)?,
     };
 
     let account_updates =
@@ -1093,21 +991,16 @@ pub fn get_note_sync(
     block_num: BlockNumber,
     note_tags: &[u32],
 ) -> Result<NoteSyncUpdate, NoteSyncError> {
-    let notes = select_notes_since_block_by_tag(conn, note_tags, block_num)?;
+    let notes = select_notes_since_block_by_tag_and_sender(conn, note_tags, &[], block_num)?;
 
-    let (block_header, chain_tip) = if !notes.is_empty() {
-        let block_header = select_block_header_by_block_num(conn, Some(notes[0].block_num))?
-            .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
-        let tip = select_block_header_by_block_num(conn, None)?
-            .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
-
-        (block_header, tip.block_num())
-    } else {
-        let block_header = select_block_header_by_block_num(conn, None)?
-            .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
-
-        let block_num = block_header.block_num();
-        (block_header, block_num)
+    let tip = select_block_header_by_block_num(conn, None)?
+        .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
+    let chain_tip = tip.block_num();
+    let block_header = match notes.first() {
+        None => tip,
+        Some(note) if note.block_num == chain_tip => tip,
+        Some(note) => select_block_header_by_block_num(conn, Some(note.block_num))?
+            .ok_or(NoteSyncError::EmptyBlockHeadersTable)?,
     };
 
     Ok(NoteSyncUpdate { notes, block_header, chain_tip })
