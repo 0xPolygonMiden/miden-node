@@ -1,6 +1,7 @@
 name: arm_deb_packager
 
 on:
+  workflow_dispatch:
   release:
     types: [released, prereleased]
 
