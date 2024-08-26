@@ -24,7 +24,7 @@ mod tests;
 /// it can determine when transactions are no longer in-flight.
 #[async_trait]
 pub trait TransactionValidator: Send + Sync + 'static {
-    /// Method to receive a `tx` for processing.
+    /// Method to receive a `tx` for processing and return the current block height.
     ///
     /// This method should:
     /// - Verify the transaction is valid, against the current's rollup state, and also against
@@ -144,7 +144,8 @@ where
         }
     }
 
-    /// Queues `tx` to be added in a batch and subsequently into a block.
+    /// Queues `tx` to be added in a batch and subsequently into a block and returns the current
+    /// block height.
     ///
     /// This method will validate the `tx` and ensure it is valid w.r.t. the rollup state, and the
     /// current in-flight transactions.
