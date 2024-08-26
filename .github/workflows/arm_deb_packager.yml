@@ -28,7 +28,9 @@ jobs:
         run: cargo clean
 
       - name: Building for arm64
-        run: cargo build --release
+        run: |
+          cargo build --release --locked --features testing --bin miden-node
+          cargo build --release --locked --features testing --bin miden-faucet
 
       - name: create package directories
         run: |
@@ -46,7 +48,7 @@ jobs:
           cp packaging/postinst packaging/deb/miden-node/DEBIAN/postinst
           cp packaging/postrm packaging/deb/miden-node/DEBIAN/postrm
 
-      ########### Control file creation for arm64 ##########
+      ########### Control file creation for arm64 miden-node##########
       - name: create control file
         run: |
           touch packaging/deb/miden-node/DEBIAN/control
@@ -71,8 +73,55 @@ jobs:
         env:
           ARCH: arm64
 
+      ########## Miden Faucet Package ##########################################
+      - name: create package directories
+        run: |
+          mkdir -p packaging/deb/miden-faucet/DEBIAN
+          mkdir -p packaging/deb/miden-faucet/usr/bin
+          mkdir -p packaging/deb/miden-faucet/lib/systemd/system
+          mkdir -p packaging/deb/miden-faucet/etc/miden
+
+      - name: copy package files
+        run: |
+          cp -p target/release/miden-faucet packaging/deb/miden-faucet/usr/bin/
+          cp config/miden-faucet.toml packaging/deb/miden-faucet/etc/miden/
+          cp config/genesis.toml packaging/deb/miden-faucet/etc/miden/
+          cp packaging/miden-faucet.service packaging/deb/miden-faucet/lib/systemd/system/
+          cp packaging/postinst packaging/deb/miden-faucet/DEBIAN/postinst
+          cp packaging/postrm packaging/deb/miden-faucet/DEBIAN/postrm
+
+      ########### Control file creation for arm64 miden-faucet ##########
+      - name: create control file
+        run: |
+          touch packaging/deb/miden-faucet/DEBIAN/control
+          echo "Package: miden-faucet" >> packaging/deb/miden-faucet/DEBIAN/control
+          echo "Version: ${{ env.VERSION }}" >> packaging/deb/miden-faucet/DEBIAN/control
+          echo "Section: base" >> packaging/deb/miden-faucet/DEBIAN/control
+          echo "Priority: optional" >> packaging/deb/miden-faucet/DEBIAN/control
+          echo "Architecture: arm64" >> packaging/deb/miden-faucet/DEBIAN/control
+          echo "Maintainer: Polygon Devops <devops@polygon.technology>" >> packaging/deb/miden-faucet/DEBIAN/control
+          echo "Description: miden-faucet binary package" >> packaging/deb/miden-faucet/DEBIAN/control
+          echo "Homepage: https://polygon.technology/polygon-miden" >> packaging/deb/miden-faucet/DEBIAN/control
+          echo "Vcs-Git: git@github.com:0xPolygonMiden/miden-node.git" >> packaging/deb/miden-faucet/DEBIAN/control
+          echo "Vcs-Browser: https://github.com/0xPolygonMiden/miden-node" >> packaging/deb/miden-faucet/DEBIAN/control
+
+      - name: Creating package for binary for miden-faucet ${{ env.ARCH }}
+        run: cp -rp packaging/deb/miden-node packaging/deb/miden-faucet-${{ env.GIT_TAG }}-${{ env.ARCH }}
+        env:
+          ARCH: arm64
+
+      - name: Running package build
+        run: dpkg-deb --build --root-owner-group packaging/deb/miden-faucet-${{ env.GIT_TAG }}-${{ env.ARCH }}
+        env:
+          ARCH: arm64
+
       - name: shasum the package
         run: cd packaging/deb/ && sha256sum miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb > miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb.checksum
+        env:
+          ARCH: arm64
+
+      - name: shasum the package
+        run: cd packaging/deb/ && sha256sum miden-faucet-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb > miden-faucet-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb.checksum
         env:
           ARCH: arm64
 
@@ -84,3 +133,5 @@ jobs:
           files: |
             packaging/deb/miden-node**.deb
             packaging/deb/miden-node**.deb.checksum
+            packaging/deb/miden-faucet**.deb
+            packaging/deb/miden-faucet**.deb.checksum

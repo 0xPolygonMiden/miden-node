@@ -1,0 +1,15 @@
+[Unit]
+Description=Miden faucet
+Wants=network-online.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=exec
+Environment="RUST_LOG=info"
+ExecStart=miden-faucet start --config /etc/miden/miden-faucet.toml
+WorkingDirectory=/opt/miden
+User=miden
+RestartSec=5
+Restart=always
