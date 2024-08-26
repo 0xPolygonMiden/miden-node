@@ -7,6 +7,7 @@ use std::{
 use async_trait::async_trait;
 use itertools::Itertools;
 use miden_node_proto::{
+    domain::notes::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
@@ -19,7 +20,6 @@ use miden_node_proto::{
     },
     AccountState,
 };
-use miden_node_store::state::NoteAuthenticationInfo;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,

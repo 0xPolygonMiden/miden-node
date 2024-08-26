@@ -19,7 +19,6 @@ async-trait = { version = "0.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.13" }
 miden-node-proto = { workspace = true }
-miden-node-store = { workspace = true }
 miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
 miden-processor = { workspace = true }
