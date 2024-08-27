@@ -85,10 +85,9 @@ jobs:
         run: |
           cp -p target/release/miden-faucet packaging/deb/miden-faucet/usr/bin/
           cp config/miden-faucet.toml packaging/deb/miden-faucet/etc/miden/
-          cp config/genesis.toml packaging/deb/miden-faucet/etc/miden/
           cp packaging/miden-faucet.service packaging/deb/miden-faucet/lib/systemd/system/
           cp packaging/postinst packaging/deb/miden-faucet/DEBIAN/postinst
-          cp packaging/postrm packaging/deb/miden-faucet/DEBIAN/postrm
+          cp packaging/postrm.faucet packaging/deb/miden-faucet/DEBIAN/postrm
 
       ########### Control file creation for arm64 miden-faucet ##########
       - name: create control file
