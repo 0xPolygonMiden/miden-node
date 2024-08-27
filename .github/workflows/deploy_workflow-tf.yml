@@ -88,6 +88,7 @@ jobs:
             --instance-ids ${{ secrets.instance_id }} \
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
+                "sleep 10",
                 "sudo /usr/bin/miden-node init -c /etc/miden/miden-node.toml -g /opt/miden/miden-node/genesis.toml",                
                 "sudo /usr/bin/miden-node make-genesis -i /opt/miden/miden-node/genesis.toml -o /opt/miden/miden-node/genesis.dat",
                 "sudo /usr/bin/miden-faucet init -c /opt/miden/miden-faucet/miden-faucet.toml"                
