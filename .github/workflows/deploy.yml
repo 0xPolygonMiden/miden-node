@@ -1,0 +1,149 @@
+# Deploy the miden node for testnet and devnet.
+#
+# testnet is deployed manually using `workflow_dispatch`, and devnet is deployed
+# on every push to the `next` branch.
+#
+# All previous node data is removed during deployment i.e. an update restarts the
+# node from genesis again.
+name: Node deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        required: true
+        default: 'devnet'
+        type: choice
+        options:
+          - devnet
+          - testnet
+        
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Configure the `NETWORK` env variable based on the trigger type.
+      #
+      # This is then used by subsequent steps to switch on devnet | testnet,
+      # instead of switching on trigger type which is less readible.
+      - name: Configure for testnet
+        if: ${{ inputs.network == 'testnet' }}
+        env:
+          INSTANCE_ID: ${{ secrets.TESTNET_INSTANCE_ID }}
+        run: |
+          echo "NETWORK=testnet" >> $GITHUB_ENV
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+      
+      - name: Configure for devnet
+        if: ${{ inputs.network == 'devnet' }}
+        env:
+          INSTANCE_ID: ${{ secrets.DEVNET_INSTANCE_ID }}
+        run: |
+          echo "NETWORK=devnet" >> $GITHUB_ENV
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+        
+      # Configure AWS credentials based on network.
+      - name: Configure testnet AWS credentials
+        if: env.NETWORK == 'testnet'
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::211125515935:role/Miden-GithubActionsRole
+          aws-region: us-west-1
+
+      - name: Configure devnet AWS credentials
+        if: env.NETWORK == 'devnet'
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::657556092833:role/Miden-GithubActionsRole
+          aws-region: us-west-1
+
+      - name: Stop services
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Stop Miden services" \
+            --parameters commands='[
+              "sudo systemctl stop miden-node",
+              "sudo systemctl stop miden-faucet"
+            ]' \
+            --output text
+
+      - name: Install prerequisites
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Install prerequisites" \
+            --parameters commands='[
+              "sudo yum update -y",
+              "sudo yum install -y git gcc openssl-devel bzip2-devel libffi-devel make",
+              "sudo yum groupinstall -y \"Development Tools\"",
+              "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
+              "source $HOME/.cargo/env",
+              "rustup update",
+              "sudo yum install -y clang cmake"
+            ]' \
+            --output text
+
+      - name: Install testnet 
+        if: env.NETWORK == 'testnet'
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Install Miden on testnet" \
+            --parameters commands='[
+              "cargo install miden-node miden-faucet --locked --features testing"
+            ]' \
+            --output text
+
+      - name: Install devnet
+        if: env.NETWORK == 'devnet'
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Install Miden on devnet" \
+            --parameters commands='[
+              "cargo install --git https://github.com/0xPolygonMiden/miden-node miden-node --branch next --bin miden-node --locked --features testing",
+              "cargo install --git https://github.com/0xPolygonMiden/miden-node miden-faucet --branch next --bin miden-faucet --locked --features testing"
+            ]' \
+            --output text
+
+      - name: Configure
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Configure Miden services" \
+            --parameters commands='[
+              "rm -rf ~/miden-node; mkdir ~/miden-node",
+              "rm -rf ~/miden-faucet; mkdir ~/miden-faucet",
+              "miden-node init -c ~/miden-node/miden-node.toml -g ~/miden-node/genesis.toml",
+              "miden-node make-genesis -i ~/miden-node/genesis.toml -o ~/miden-node/genesis.dat",
+              "miden-faucet init -c ~/miden-faucet/miden-faucet.toml",
+              "cat > /etc/systemd/system/miden-node.service << 'END_OF_CAT' ... END_OF_CAT",
+              "cat > /etc/systemd/system/miden-facuet.service << 'END_OF_CAT' ... END_OF_CAT"
+            ]' \
+            --output text
+
+      - name: Start services
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Start Miden services" \
+            --parameters commands='[
+              "sudo systemctl daemon-reload",
+              "sudo systemctl enable miden-node",
+              "sudo systemctl enable miden-faucet",
+              "sudo systemctl start miden-node",
+              "sleep 5",
+              "sudo systemctl start miden-faucet"
+            ]' \
+            --output text

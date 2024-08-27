@@ -1,0 +1,21 @@
+name: devnet deploy
+
+on:
+  push:
+    branches:
+      - next
+  workflow_dispatch:
+        
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  deploy:
+    name: Deploy to testnet
+    uses: ./.github/workflows/deploy_workflow.yml
+    with:
+      build_prefix: --branch next
+    secrets:
+      account_id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
+      instance_id: "${{ secrets.DEVNET_INSTANCE_ID }}"

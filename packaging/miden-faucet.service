@@ -1,5 +1,5 @@
 [Unit]
-Description=Miden node
+Description=Miden faucet
 Wants=network-online.target
 
 [Install]
@@ -8,8 +8,8 @@ WantedBy=multi-user.target
 [Service]
 Type=exec
 Environment="RUST_LOG=info"
-ExecStart=/usr/bin/miden-node start --config /etc/miden/miden-node.toml node
-WorkingDirectory=/opt/miden/miden-node
+ExecStart=/usr/bin/miden-faucet start --config /opt/miden/miden-faucet/miden-faucet.toml
+WorkingDirectory=/opt/miden/miden-faucet
 User=miden
 RestartSec=5
 Restart=always

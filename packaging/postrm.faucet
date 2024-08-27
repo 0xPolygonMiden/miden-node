@@ -3,8 +3,7 @@
 ###############
 # Remove miden installs
 ##############
-sudo rm -rf /lib/systemd/system/miden-node.service
-sudo rm -rf /etc/miden
-sudo rm -rf /opt/miden/miden-node
+sudo rm -rf /lib/systemd/system/miden-faucet.service
+sudo rm -rf /opt/miden/miden-faucet
 sudo deluser miden
 sudo systemctl daemon-reload
