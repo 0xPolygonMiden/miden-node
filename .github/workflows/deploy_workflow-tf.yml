@@ -131,14 +131,14 @@ jobs:
         run: |
           while true; do
             STATUS=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.cargo_install.outputs.command_id }} \
+                --command-id ${{ steps.package_install.outputs.command_id }} \
                 --details \
                 --query "CommandInvocations[0].Status" \
                 --output text)
             echo "Command Status: $STATUS"
             
             OUTPUT=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.cargo_install.outputs.command_id }} \
+                --command-id ${{ steps.package_install.outputs.command_id }} \
                 --details \
                 --query "CommandInvocations[0].CommandPlugins[0].Output" \
                 --output text)
