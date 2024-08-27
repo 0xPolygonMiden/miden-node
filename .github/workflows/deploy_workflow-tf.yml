@@ -134,11 +134,9 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
                 "sudo systemctl daemon-reload",
-                "sudo systemctl enable miden-node",
-                "sudo systemctl enable miden-faucet",
-                "sudo systemctl restart miden-node",
+                "sudo systemctl start miden-node",
                 "sleep 5",
-                "sudo systemctl restart miden-faucet"
+                "sudo systemctl start miden-faucet",
               ]}' \
             --output text \
             --query "Command.CommandId")
