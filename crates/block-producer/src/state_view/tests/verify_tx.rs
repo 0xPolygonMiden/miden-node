@@ -250,7 +250,7 @@ async fn test_verify_tx_dangling_note_found_in_inflight_notes() {
     let tx1 = MockProvenTxBuilder::with_account_index(1).output_notes(output_notes).build();
 
     let verify_tx1_result = state_view.verify_tx(&tx1).await;
-    assert_eq!(verify_tx1_result, Ok(Some(0)));
+    assert_eq!(verify_tx1_result, Ok(0));
 
     let tx2 = MockProvenTxBuilder::with_account_index(2)
         .unauthenticated_notes(dangling_notes.clone())
@@ -259,7 +259,7 @@ async fn test_verify_tx_dangling_note_found_in_inflight_notes() {
     let verify_tx2_result = state_view.verify_tx(&tx2).await;
     assert_eq!(
         verify_tx2_result,
-        Ok(Some(0)),
+        Ok(0),
         "Dangling unauthenticated notes must be found in the in-flight notes after previous tx verification"
     );
 }
@@ -300,7 +300,7 @@ async fn test_verify_tx_stored_unauthenticated_notes() {
     let verify_tx1_result = state_view.verify_tx(&tx1).await;
     assert_eq!(
         verify_tx1_result,
-        Ok(Some(0)),
+        Ok(0),
         "Dangling unauthenticated notes must be found in the store after block applying"
     );
 }

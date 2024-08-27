@@ -127,7 +127,7 @@ message GetTransactionInputsResponse {
     AccountTransactionInputRecord account_state = 1;
     repeated NullifierTransactionInputRecord nullifiers = 2;
     repeated digest.Digest missing_unauthenticated_notes = 3;
-    optional fixed32 block_height = 4;
+    fixed32 block_height = 4;
 }
 
 message SubmitProvenTransactionResponse {

@@ -86,7 +86,7 @@ pub struct TransactionInputs {
     /// List of unauthenticated notes that were not found in the store
     pub missing_unauthenticated_notes: Vec<NoteId>,
     /// The current block height
-    pub current_block_height: Option<u32>,
+    pub current_block_height: u32,
 }
 
 impl Display for TransactionInputs {

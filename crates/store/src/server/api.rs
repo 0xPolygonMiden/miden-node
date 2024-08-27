@@ -449,7 +449,7 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
-        let block_height = Some(self.state.latest_block_num().await);
+        let block_height = self.state.latest_block_num().await;
 
         Ok(Response::new(GetTransactionInputsResponse {
             account_state: Some(AccountTransactionInputRecord {

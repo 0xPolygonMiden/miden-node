@@ -70,8 +70,7 @@ where
             .queue
             .add_transaction(tx)
             .await
-            .map_err(|err| Status::invalid_argument(format!("{:?}", err)))?
-            .ok_or(Status::internal("Missing block height"))?;
+            .map_err(|err| Status::invalid_argument(format!("{:?}", err)))?;
 
         Ok(tonic::Response::new(SubmitProvenTransactionResponse { block_height }))
     }

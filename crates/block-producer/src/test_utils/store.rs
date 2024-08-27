@@ -285,7 +285,7 @@ impl Store for MockStoreSuccess {
             account_hash,
             nullifiers,
             missing_unauthenticated_notes,
-            current_block_height: Some(0),
+            current_block_height: 0,
         })
     }
 
