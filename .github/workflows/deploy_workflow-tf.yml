@@ -137,6 +137,7 @@ jobs:
                 "sudo systemctl daemon-reload",
                 "sudo systemctl start miden-node",
                 "sleep 10",
+                "sudo systemctl daemon-reload",
                 "sudo systemctl start miden-faucet"
               ]}' \
             --output text \
