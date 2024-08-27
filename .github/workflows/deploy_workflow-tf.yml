@@ -43,7 +43,7 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
                 "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-faucet-v0.4.0-arm64.deb",
-                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-node-v0.4.0-amd64.deb",
+                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-node-v0.4.0-arm64.deb",
                 "dpkg -i miden-node-v0.4.0-amd64.deb",
                 "dpkg -i miden-faucet-v0.4.0-arm64.deb"                
               ]}' \
