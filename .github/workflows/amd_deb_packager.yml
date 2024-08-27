@@ -37,12 +37,11 @@ jobs:
           mkdir -p packaging/deb/miden-node/usr/bin
           mkdir -p packaging/deb/miden-node/lib/systemd/system
           mkdir -p packaging/deb/miden-node/etc/miden
+          mkdir -p packaging/deb/miden-node/opt/miden/miden-node
 
       - name: copy package files
         run: |
           cp -p target/release/miden-node packaging/deb/miden-node/usr/bin/
-          cp config/miden-node.toml packaging/deb/miden-node/etc/miden/
-          cp config/genesis.toml packaging/deb/miden-node/etc/miden/
           cp packaging/miden-node.service packaging/deb/miden-node/lib/systemd/system/
           cp packaging/postinst packaging/deb/miden-node/DEBIAN/postinst
           cp packaging/postrm packaging/deb/miden-node/DEBIAN/postrm
@@ -79,11 +78,11 @@ jobs:
           mkdir -p packaging/deb/miden-faucet/usr/bin
           mkdir -p packaging/deb/miden-faucet/lib/systemd/system
           mkdir -p packaging/deb/miden-faucet/etc/miden
+          mkdir -p packaging/deb/miden-faucet/opt/miden/miden-faucet
 
       - name: copy package files
         run: |
           cp -p target/release/miden-faucet packaging/deb/miden-faucet/usr/bin/
-          cp config/miden-faucet.toml packaging/deb/miden-faucet/etc/miden/
           cp packaging/miden-faucet.service packaging/deb/miden-faucet/lib/systemd/system/
           cp packaging/postinst packaging/deb/miden-faucet/DEBIAN/postinst
           cp packaging/postrm.faucet packaging/deb/miden-faucet/DEBIAN/postrm
