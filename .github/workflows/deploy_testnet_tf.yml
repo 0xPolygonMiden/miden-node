@@ -1,4 +1,4 @@
-name: devnet deploy
+name: testnet deploy
 
 on:
   push:
@@ -18,4 +18,4 @@ jobs:
       build_prefix: --branch next
     secrets:
       account_id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
-      instance_id: "i-0c7fc359a8d21ed3b"
+      instance_id: "i-06f7e77fdabe347eb"
