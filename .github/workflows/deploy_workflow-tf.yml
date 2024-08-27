@@ -42,10 +42,10 @@ jobs:
             --instance-ids ${{ secrets.instance_id }} \
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
-                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v${{ env.VERSION }}/miden-faucet-v${{ env.VERSION }}-arm64.deb",
-                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v${{ env.VERSION }}/miden-node-v${{ env.VERSION }}-amd64.deb",
-                "dpkg -i miden-node-v${{ env.VERSION }}-amd64.deb",
-                "dpkg -i miden-faucet-v${{ env.VERSION }}-arm64.deb"                
+                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-faucet-v0.4.0-arm64.deb",
+                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-node-v0.4.0-amd64.deb",
+                "dpkg -i miden-node-v0.4.0-amd64.deb",
+                "dpkg -i miden-faucet-v0.4.0-arm64.deb"                
               ]}' \
             --output text \
             --query "Command.CommandId")
