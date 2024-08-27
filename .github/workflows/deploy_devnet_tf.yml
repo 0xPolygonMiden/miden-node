@@ -3,7 +3,7 @@ name: devnet deploy
 on:
   push:
     branches:
-      - next
+      - SPEC-161-miden-deployment-fix-from-package
   workflow_dispatch:
         
 permissions:
@@ -12,10 +12,10 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy to devnet
-    uses: ./.github/workflows/deploy_workflow.yml
+    name: Deploy to devnet tf
+    uses: ./.github/workflows/deploy_workflow-tf.yml
     with:
       build_prefix: --branch next
     secrets:
       account_id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
-      instance_id: "${{ secrets.DEVNET_INSTANCE_ID }}"
+      instance_id: "i-0c7fc359a8d21ed3b"

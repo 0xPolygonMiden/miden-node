@@ -1,0 +1,245 @@
+on:
+    workflow_call:
+      inputs:
+        build_prefix:
+          type: string
+        features:
+          type: string
+          default: "testing"
+      secrets:
+        account_id:
+          required: true
+        instance_id:
+          required: true
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: eu-west-1
+          role-to-assume: arn:aws:iam::${{ secrets.account_id }}:role/midendev-GithubActionsRole
+          role-session-name: GithubActionsSession
+
+      - name: Stop services
+        id: stop_services
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ secrets.instance_id }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":["sudo systemctl stop miden-node", "sudo systemctl stop miden-faucet"]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Check stop services command status and retrieve output
+        run: |
+          while true; do
+            STATUS=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.stop_services.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].Status" \
+                --output text)
+            echo "Command Status: $STATUS"
+            
+            OUTPUT=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.stop_services.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].CommandPlugins[0].Output" \
+                --output text)
+            echo "Command Output: $OUTPUT"
+            
+            if [ "$STATUS" == "Success" ]; then
+              echo "Command completed successfully."
+              break
+            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+              echo "Command failed with status: $STATUS"
+              exit 1
+            else
+              sleep 10  # Wait for 30 seconds before checking again
+            fi
+          done
+      
+      # - name: Recreate app folders
+      #   id: install_prereq
+      #   run: |
+      #     COMMAND_ID=$(aws ssm send-command \
+      #       --instance-ids ${{ secrets.instance_id }} \
+      #       --document-name "AWS-RunShellScript" \
+      #       --parameters '{"commands":[
+      #             "sudo rm -rf /opt/miden/miden-node",
+      #             "sudo rm -rf /opt/miden/miden-faucet",
+      #             "sudo mkdir /opt/miden/miden-node",
+      #             "sudo mkdir /opt/miden/miden-faucet"
+      #             ]}' \
+      #       --output text \
+      #       --query "Command.CommandId")
+      #     echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+  
+      # - name: Poll command status and retrieve live logs from install prereqs
+      #   run: |
+      #     while true; do
+      #       STATUS=$(aws ssm list-command-invocations \
+      #           --command-id ${{ steps.install_prereq.outputs.command_id }} \
+      #           --details \
+      #           --query "CommandInvocations[0].Status" \
+      #           --output text)
+      #       echo "Command Status: $STATUS"
+            
+      #       OUTPUT=$(aws ssm list-command-invocations \
+      #           --command-id ${{ steps.install_prereq.outputs.command_id }} \
+      #           --details \
+      #           --query "CommandInvocations[0].CommandPlugins[0].Output" \
+      #           --output text)
+      #       echo "Command Output: $OUTPUT"
+            
+      #       if [ "$STATUS" == "Success" ]; then
+      #         echo "Command completed successfully."
+      #         break
+      #       elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+      #         echo "Command failed with status: $STATUS"
+      #         exit 1
+      #       else
+      #         sleep 5
+      #       fi
+      #     done
+
+      - name: Package install
+        id: package_install
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ secrets.instance_id }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":[
+                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-faucet-v0.4.0-arm64.deb",
+                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-node-v0.4.0-amd64.deb",
+                "dpkg -i miden-node-v0.4.0-amd64.deb",
+                "dpkg -i miden-faucet-v0.4.0-arm64.deb"                
+              ]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Poll command status and retrieve live logs
+        run: |
+          while true; do
+            STATUS=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.cargo_install.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].Status" \
+                --output text)
+            echo "Command Status: $STATUS"
+            
+            OUTPUT=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.cargo_install.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].CommandPlugins[0].Output" \
+                --output text)
+            echo "Command Output: $OUTPUT"
+            
+            if [ "$STATUS" == "Success" ]; then
+              echo "Command completed successfully."
+              break
+            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+              echo "Command failed with status: $STATUS"
+              exit 1
+            else
+              sleep 60
+            fi
+          done
+
+      - name: Configure environment
+        id: configure_environment
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ secrets.instance_id }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":[
+                "sudo /usr/bin/miden-node init -c /etc/miden/miden-node.toml -g /opt/miden/miden-node/genesis.toml",                
+                "sudo /usr/bin/miden-node make-genesis -i /opt/miden/miden-node/genesis.toml -o /opt/miden/miden-node/genesis.dat",
+                "sudo /usr/bin/miden-faucet init -c /opt/miden/miden-faucet/miden-faucet.toml"                
+              ]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Check configure environment command status and retrieve output
+        run: |
+            while true; do
+              STATUS=$(aws ssm list-command-invocations \
+                  --command-id ${{ steps.configure_environment.outputs.command_id }} \
+                  --details \
+                  --query "CommandInvocations[0].Status" \
+                  --output text)
+              echo "Command Status: $STATUS"
+              
+              OUTPUT=$(aws ssm list-command-invocations \
+                  --command-id ${{ steps.configure_environment.outputs.command_id }} \
+                  --details \
+                  --query "CommandInvocations[0].CommandPlugins[0].Output" \
+                  --output text)
+              echo "Command Output: $OUTPUT"
+              
+              if [ "$STATUS" == "Success" ]; then
+                echo "Command completed successfully."
+                break
+              elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+                echo "Command failed with status: $STATUS"
+                exit 1
+              else
+                sleep 10
+              fi
+            done
+
+
+      - name: Start services
+        id: start_services
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ secrets.instance_id }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":[
+                "sudo systemctl daemon-reload",
+                "sudo systemctl enable miden-node",
+                "sudo systemctl enable miden-faucet",
+                "sudo systemctl start miden-node",
+                "sleep 5",
+                "sudo systemctl start miden-faucet"
+              ]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Check Start services command status and retrieve output
+        run: |
+          while true; do
+            STATUS=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.start_services.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].Status" \
+                --output text)
+            echo "Command Status: $STATUS"
+            
+            OUTPUT=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.start_services.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].CommandPlugins[0].Output" \
+                --output text)
+            echo "Command Output: $OUTPUT"
+            
+            if [ "$STATUS" == "Success" ]; then
+              echo "Command completed successfully."
+              break
+            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+              echo "Command failed with status: $STATUS"
+              exit 1
+            else
+              sleep 10
+            fi
+          done
