@@ -63,7 +63,7 @@ pub async fn get_tokens(
 
     // Run transaction prover & send transaction to node
     info!("Proving and submitting transaction.");
-    client.prove_and_submit_transaction(executed_tx).await?;
+    let block_height = client.prove_and_submit_transaction(executed_tx).await?;
 
     let note_id: NoteId = created_note.id();
     let note_details =
@@ -73,11 +73,9 @@ pub async fn get_tokens(
         .expect("failed to build note tag for local execution");
 
     // Serialize note into bytes
-    // NOTE: Because this client does not sync, it always effectively executes against block 0.
-    // Ideally, we should export these note details with a more sensible `after_block_num`
     let bytes = NoteFile::NoteDetails {
         details: note_details,
-        after_block_num: 0,
+        after_block_num: block_height,
         tag: Some(note_tag),
     }
     .to_bytes();

@@ -3,6 +3,7 @@ use.miden::contracts::auth::basic->auth_tx
 
 begin
     push.{recipient}
+    push.{execution_hint}
     push.{note_type}
     push.{aux}
     push.{tag}
@@ -10,5 +11,5 @@ begin
     call.faucet::distribute
 
     call.auth_tx::auth_tx_rpo_falcon512
-    dropw dropw
+    drop dropw dropw
 end

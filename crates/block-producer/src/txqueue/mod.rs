@@ -24,14 +24,14 @@ mod tests;
 /// it can determine when transactions are no longer in-flight.
 #[async_trait]
 pub trait TransactionValidator: Send + Sync + 'static {
-    /// Method to receive a `tx` for processing.
+    /// Method to receive a `tx` for processing and return the current block height.
     ///
     /// This method should:
     /// - Verify the transaction is valid, against the current's rollup state, and also against
     ///   in-flight transactions.
     /// - Track the necessary state of the transaction until it is committed to the `store`, to
     ///   perform the check above.
-    async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<(), VerifyTxError>;
+    async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<u32, VerifyTxError>;
 }
 
 // TRANSACTION QUEUE
@@ -144,15 +144,17 @@ where
         }
     }
 
-    /// Queues `tx` to be added in a batch and subsequently into a block.
+    /// Queues `tx` to be added in a batch and subsequently into a block and returns the current
+    /// block height.
     ///
     /// This method will validate the `tx` and ensure it is valid w.r.t. the rollup state, and the
     /// current in-flight transactions.
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    pub async fn add_transaction(&self, tx: ProvenTransaction) -> Result<(), AddTransactionError> {
+    pub async fn add_transaction(&self, tx: ProvenTransaction) -> Result<u32, AddTransactionError> {
         info!(target: COMPONENT, tx_id = %tx.id().to_hex(), account_id = %tx.account_id().to_hex());
 
-        self.tx_validator
+        let block_height = self
+            .tx_validator
             .verify_tx(&tx)
             .await
             .map_err(AddTransactionError::VerificationFailed)?;
@@ -165,6 +167,6 @@ where
 
         info!(target: COMPONENT, queue_len, "Transaction added to tx queue");
 
-        Ok(())
+        Ok(block_height)
     }
 }

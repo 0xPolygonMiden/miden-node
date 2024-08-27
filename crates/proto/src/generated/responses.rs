@@ -152,10 +152,16 @@ pub struct GetTransactionInputsResponse {
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierTransactionInputRecord>,
     #[prost(message, repeated, tag = "3")]
     pub missing_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    #[prost(fixed32, tag = "4")]
+    pub block_height: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SubmitProvenTransactionResponse {}
+pub struct SubmitProvenTransactionResponse {
+    /// The node's current block height
+    #[prost(fixed32, tag = "1")]
+    pub block_height: u32,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNotesByIdResponse {

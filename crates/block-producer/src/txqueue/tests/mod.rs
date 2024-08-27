@@ -11,8 +11,8 @@ struct TransactionValidatorSuccess;
 
 #[async_trait]
 impl TransactionValidator for TransactionValidatorSuccess {
-    async fn verify_tx(&self, _tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
-        Ok(())
+    async fn verify_tx(&self, _tx: &ProvenTransaction) -> Result<u32, VerifyTxError> {
+        Ok(0)
     }
 }
 
@@ -21,7 +21,7 @@ struct TransactionValidatorFailure;
 
 #[async_trait]
 impl TransactionValidator for TransactionValidatorFailure {
-    async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
+    async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<u32, VerifyTxError> {
         Err(VerifyTxError::InvalidTransactionProof(tx.id()))
     }
 }

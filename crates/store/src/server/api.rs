@@ -449,6 +449,8 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
+        let block_height = self.state.latest_block_num().await;
+
         Ok(Response::new(GetTransactionInputsResponse {
             account_state: Some(AccountTransactionInputRecord {
                 account_id: Some(account_id.into()),
@@ -467,6 +469,7 @@ impl api_server::Api for StoreApi {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
+            block_height,
         }))
     }
 
