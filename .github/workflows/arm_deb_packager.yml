@@ -107,7 +107,7 @@ jobs:
           echo "Vcs-Browser: https://github.com/0xPolygonMiden/miden-node" >> packaging/deb/miden-faucet/DEBIAN/control
 
       - name: Creating package for binary for miden-faucet ${{ env.ARCH }}
-        run: cp -rp packaging/deb/miden-node packaging/deb/miden-faucet-${{ env.GIT_TAG }}-${{ env.ARCH }}
+        run: cp -rp packaging/deb/miden-faucet packaging/deb/miden-faucet-${{ env.GIT_TAG }}-${{ env.ARCH }}
         env:
           ARCH: arm64
 
