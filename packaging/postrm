@@ -4,5 +4,6 @@
 # Remove miden installs
 ##############
 sudo rm -rf /lib/systemd/system/miden-node.service
+sudo rm -rf /etc/miden
 sudo deluser miden
 sudo systemctl daemon-reload
