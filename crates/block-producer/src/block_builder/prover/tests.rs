@@ -13,11 +13,12 @@ use miden_objects::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
         SMT_DEPTH,
     },
-    notes::{NoteHeader, NoteMetadata, NoteTag, NoteType},
-    transaction::OutputNote,
-    Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, ONE, ZERO,
+    notes::{NoteExecutionHint, NoteHeader, NoteMetadata, NoteTag, NoteType, Nullifier},
+    transaction::{OutputNote, ProvenTransaction},
+    Felt, BLOCK_NOTES_TREE_DEPTH, ONE, ZERO,
 };
 
+use self::block_witness::AccountUpdateWitness;
 use super::*;
 use crate::{
     block::{AccountWitness, BlockInputs},
@@ -69,7 +70,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
             )
             .build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         let batch_2 = {
@@ -80,7 +81,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
             )
             .build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -88,10 +89,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 
     let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
 
-    assert_eq!(
-        block_witness_result,
-        Err(BuildBlockError::InconsistentAccountIds(vec![account_id_1, account_id_3]))
-    );
+    assert!(block_witness_result.is_err());
 }
 
 /// Tests that `BlockWitness` constructor fails if the store and transaction batches contain a
@@ -141,7 +139,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 Digest::default(),
             )
             .build()],
-            None,
+            Default::default(),
         )
         .unwrap();
         let batch_2 = TransactionBatch::new(
@@ -151,7 +149,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
                 Digest::default(),
             )
             .build()],
-            None,
+            Default::default(),
         )
         .unwrap();
 
@@ -162,8 +160,106 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 
     assert_eq!(
         block_witness_result,
-        Err(BuildBlockError::InconsistentAccountStates(vec![account_id_1]))
+        Err(BuildBlockError::InconsistentAccountStateTransition(
+            account_id_1,
+            account_1_hash_store,
+            vec![account_1_hash_batches]
+        ))
     );
+}
+
+/// Creates two batches which each update the same pair of accounts.
+///
+/// The transactions are ordered such that the batches cannot be chronologically ordered
+/// themselves: `[tx_x0, tx_y1], [tx_y0, tx_x1]`. This test ensures that the witness is
+/// produced correctly as if for a single batch: `[tx_x0, tx_x1, tx_y0, tx_y1]`.
+#[test]
+fn test_block_witness_multiple_batches_per_account() {
+    let x_account_id =
+        AccountId::new_unchecked(Felt::new(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN));
+    let y_account_id = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
+
+    let x_hashes = [
+        Digest::new((0..4).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+        Digest::new((4..8).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+        Digest::new((8..12).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+    ];
+    let y_hashes = [
+        Digest::new((12..16).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+        Digest::new((16..20).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+        Digest::new((20..24).map(Felt::new).collect::<Vec<_>>().try_into().unwrap()),
+    ];
+
+    let x_txs = [
+        MockProvenTxBuilder::with_account(x_account_id, x_hashes[0], x_hashes[1]).build(),
+        MockProvenTxBuilder::with_account(x_account_id, x_hashes[1], x_hashes[2]).build(),
+    ];
+    let y_txs = [
+        MockProvenTxBuilder::with_account(y_account_id, y_hashes[0], y_hashes[1]).build(),
+        MockProvenTxBuilder::with_account(y_account_id, y_hashes[1], y_hashes[2]).build(),
+    ];
+
+    let x_proof = MerklePath::new(vec![Digest::new(
+        (24..28).map(Felt::new).collect::<Vec<_>>().try_into().unwrap(),
+    )]);
+    let y_proof = MerklePath::new(vec![Digest::new(
+        (28..32).map(Felt::new).collect::<Vec<_>>().try_into().unwrap(),
+    )]);
+
+    let block_inputs_from_store: BlockInputs = {
+        let block_header = BlockHeader::mock(0, None, None, &[]);
+        let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+
+        let x_witness = AccountWitness {
+            hash: x_hashes[0],
+            proof: x_proof.clone(),
+        };
+        let y_witness = AccountWitness {
+            hash: y_hashes[0],
+            proof: y_proof.clone(),
+        };
+        let accounts = BTreeMap::from_iter([(x_account_id, x_witness), (y_account_id, y_witness)]);
+
+        BlockInputs {
+            block_header,
+            chain_peaks,
+            accounts,
+            nullifiers: Default::default(),
+            found_unauthenticated_notes: Default::default(),
+        }
+    };
+
+    let batches = {
+        let batch_1 =
+            TransactionBatch::new(vec![x_txs[0].clone(), y_txs[1].clone()], Default::default())
+                .unwrap();
+        let batch_2 =
+            TransactionBatch::new(vec![y_txs[0].clone(), x_txs[1].clone()], Default::default())
+                .unwrap();
+
+        vec![batch_1, batch_2]
+    };
+
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let account_witnesses = block_witness.updated_accounts.into_iter().collect::<BTreeMap<_, _>>();
+
+    let x_expected = AccountUpdateWitness {
+        initial_state_hash: x_hashes[0],
+        final_state_hash: *x_hashes.last().unwrap(),
+        proof: x_proof,
+        transactions: x_txs.iter().map(ProvenTransaction::id).collect(),
+    };
+
+    let y_expected = AccountUpdateWitness {
+        initial_state_hash: y_hashes[0],
+        final_state_hash: *y_hashes.last().unwrap(),
+        proof: y_proof,
+        transactions: y_txs.iter().map(ProvenTransaction::id).collect(),
+    };
+
+    let expected = [(x_account_id, x_expected), (y_account_id, y_expected)].into();
+
+    assert_eq!(account_witnesses, expected);
 }
 
 // ACCOUNT ROOT TESTS
@@ -235,13 +331,13 @@ async fn test_compute_account_root_success() {
             })
             .collect();
 
-        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), None).unwrap();
-        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), None).unwrap();
+        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), Default::default()).unwrap();
+        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), Default::default()).unwrap();
 
         vec![batch_1, batch_2]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -314,7 +410,7 @@ async fn test_compute_account_root_empty_batches() {
         .unwrap();
 
     let batches = Vec::new();
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -348,14 +444,14 @@ async fn test_compute_note_root_empty_batches_success() {
 
     let batches: Vec<TransactionBatch> = Vec::new();
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -379,18 +475,18 @@ async fn test_compute_note_root_empty_notes_success() {
         .unwrap();
 
     let batches: Vec<TransactionBatch> = {
-        let batch = TransactionBatch::new(vec![], None).unwrap();
+        let batch = TransactionBatch::new(vec![], Default::default()).unwrap();
         vec![batch]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -417,8 +513,9 @@ async fn test_compute_note_root_success() {
             note_digest.into(),
             NoteMetadata::new(
                 account_id,
-                NoteType::OffChain,
+                NoteType::Private,
                 NoteTag::for_local_use_case(0u16, 0u16).unwrap(),
+                NoteExecutionHint::none(),
                 ONE,
             )
             .unwrap(),
@@ -447,18 +544,18 @@ async fn test_compute_note_root_success() {
             .map(|(note, &account_id)| {
                 let note = OutputNote::Header(*note);
                 MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
-                    .notes_created(vec![note])
+                    .output_notes(vec![note])
                     .build()
             })
             .collect();
 
-        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), None).unwrap();
-        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), None).unwrap();
+        let batch_1 = TransactionBatch::new(txs[..2].to_vec(), Default::default()).unwrap();
+        let batch_2 = TransactionBatch::new(txs[2..].to_vec(), Default::default()).unwrap();
 
         vec![batch_1, batch_2]
     };
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -467,13 +564,14 @@ async fn test_compute_note_root_success() {
     // ---------------------------------------------------------------------------------------------
 
     // The current logic is hardcoded to a depth of 21
-    // Specifically, we assume the block has up to 2^8 batches, and each batch up to 2^12 created notes,
-    // where each note is stored at depth 13 in the batch as 2 contiguous nodes: note hash, then metadata.
-    assert_eq!(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 21);
+    // Specifically, we assume the block has up to 2^8 batches, and each batch up to 2^12 created
+    // notes, where each note is stored at depth 13 in the batch as 2 contiguous nodes: note
+    // hash, then metadata.
+    assert_eq!(BLOCK_NOTES_TREE_DEPTH, 21);
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
     // the second subtree of depth 12
-    let notes_smt = SimpleSmt::<BLOCK_OUTPUT_NOTES_TREE_DEPTH>::with_leaves(vec![
+    let notes_smt = SimpleSmt::<BLOCK_NOTES_TREE_DEPTH>::with_leaves(vec![
         (0u64, notes_created[0].id().into()),
         (1u64, notes_created[0].metadata().into()),
         (2u64, notes_created[1].id().into()),
@@ -501,13 +599,13 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -516,7 +614,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
     let nullifier_1 = batches[0].produced_nullifiers().next().unwrap();
     let nullifier_2 = batches[1].produced_nullifiers().next().unwrap();
     let nullifier_3 =
-        Digest::from([101_u32.into(), 102_u32.into(), 103_u32.into(), 104_u32.into()]).into();
+        Nullifier::from([101_u32.into(), 102_u32.into(), 103_u32.into(), 104_u32.into()]);
 
     let block_inputs_from_store: BlockInputs = {
         let block_header = BlockHeader::mock(0, None, None, &[]);
@@ -570,20 +668,21 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
     );
 }
 
-/// Tests that the block kernel returns the expected nullifier tree when no nullifiers are present in the transaction
+/// Tests that the block kernel returns the expected nullifier tree when no nullifiers are present
+/// in the transaction
 #[tokio::test]
 async fn test_compute_nullifier_root_empty_success() {
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -609,7 +708,7 @@ async fn test_compute_nullifier_root_empty_success() {
         .await
         .unwrap();
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -623,20 +722,21 @@ async fn test_compute_nullifier_root_empty_success() {
     assert_eq!(block_header.nullifier_root(), nullifier_smt.root());
 }
 
-/// Tests that the block kernel returns the expected nullifier tree when multiple nullifiers are present in the transaction
+/// Tests that the block kernel returns the expected nullifier tree when multiple nullifiers are
+/// present in the transaction
 #[tokio::test]
 async fn test_compute_nullifier_root_success() {
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
-            TransactionBatch::new(vec![tx], None).unwrap()
+            TransactionBatch::new(vec![tx], Default::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -670,7 +770,7 @@ async fn test_compute_nullifier_root_success() {
         .await
         .unwrap();
 
-    let block_witness = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
@@ -678,7 +778,8 @@ async fn test_compute_nullifier_root_success() {
     // Create SMT by hand to get new root
     // ---------------------------------------------------------------------------------------------
 
-    // Note that the block number in store is 42; the nullifiers get added to the next block (i.e. block number 43)
+    // Note that the block number in store is 42; the nullifiers get added to the next block (i.e.
+    // block number 43)
     let nullifier_smt =
         Smt::with_entries(nullifiers.into_iter().map(|nullifier| {
             (nullifier.inner(), [(initial_block_num + 1).into(), ZERO, ZERO, ZERO])

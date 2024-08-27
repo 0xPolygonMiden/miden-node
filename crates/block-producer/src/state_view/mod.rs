@@ -3,7 +3,6 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::AccountId,
     block::Block,
     notes::{NoteId, Nullifier},
     transaction::OutputNote,
@@ -13,6 +12,7 @@ use miden_tx::TransactionVerifier;
 use tokio::sync::RwLock;
 use tracing::{debug, instrument};
 
+use self::account_state::InflightAccountStates;
 use crate::{
     errors::VerifyTxError,
     store::{ApplyBlock, ApplyBlockError, Store, TransactionInputs},
@@ -20,6 +20,7 @@ use crate::{
     ProvenTransaction, COMPONENT,
 };
 
+mod account_state;
 #[cfg(test)]
 mod tests;
 
@@ -29,11 +30,11 @@ pub struct DefaultStateView<S> {
     /// Enables or disables the verification of transaction proofs in `verify_tx`
     verify_tx_proofs: bool,
 
-    /// The account ID of accounts being modified by transactions currently in the block production
-    /// pipeline. We currently ensure that only 1 tx/block modifies any given account (issue: #186).
-    accounts_in_flight: Arc<RwLock<BTreeSet<AccountId>>>,
+    /// The account states modified by transactions currently in the block production pipeline.
+    accounts_in_flight: Arc<RwLock<InflightAccountStates>>,
 
-    /// The nullifiers of notes consumed by transactions currently in the block production pipeline.
+    /// The nullifiers of notes consumed by transactions currently in the block production
+    /// pipeline.
     nullifiers_in_flight: Arc<RwLock<BTreeSet<Nullifier>>>,
 
     /// The output notes of transactions currently in the block production pipeline.
@@ -64,7 +65,7 @@ where
     S: Store,
 {
     #[instrument(skip_all, err)]
-    async fn verify_tx(&self, candidate_tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
+    async fn verify_tx(&self, candidate_tx: &ProvenTransaction) -> Result<u32, VerifyTxError> {
         if self.verify_tx_proofs {
             // Make sure that the transaction proof is valid and meets the required security level
             let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
@@ -92,7 +93,16 @@ where
         // identify a set of unauthenticated input notes which are not in the store yet; we'll use
         // this set to verify that these notes are currently in flight (i.e., they are output notes
         // of one of the inflight transactions)
-        let tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
+        let mut tx_inputs = self.store.get_tx_inputs(candidate_tx).await?;
+
+        let current_block_height = tx_inputs.current_block_height;
+
+        // The latest inflight account state takes precedence since this is the current block being
+        // constructed.
+        if let Some(inflight) = self.accounts_in_flight.read().await.get(candidate_tx.account_id())
+        {
+            tx_inputs.account_hash = Some(*inflight);
+        }
         let missing_notes = ensure_tx_inputs_constraints(candidate_tx, tx_inputs)?;
 
         // Re-check in-flight transaction constraints, and if verification passes, register
@@ -113,13 +123,16 @@ where
                 &missing_notes,
             )?;
 
-            // Success! Register transaction as successfully verified
-            locked_accounts_in_flight.insert(candidate_tx.account_id());
+            locked_accounts_in_flight.verify_and_add(
+                candidate_tx.account_id(),
+                candidate_tx.account_update().init_state_hash(),
+                candidate_tx.account_update().final_state_hash(),
+            )?;
             locked_nullifiers_in_flight.extend(&mut candidate_tx.get_nullifiers());
             locked_notes_in_flight.extend(candidate_tx.output_notes().iter().map(OutputNote::id));
         }
 
-        Ok(())
+        Ok(current_block_height)
     }
 }
 
@@ -141,22 +154,21 @@ where
 
         // Remove account ids of transactions in block
         for update in block.updated_accounts() {
-            let was_in_flight = locked_accounts_in_flight.remove(&update.account_id());
-            debug_assert!(was_in_flight);
+            locked_accounts_in_flight
+                .remove(update.account_id(), update.new_state_hash())
+                .expect("Account update should be valid");
         }
 
         // Remove new nullifiers of transactions in block
-        for nullifier in block.created_nullifiers() {
+        for nullifier in block.nullifiers() {
             let was_in_flight = locked_nullifiers_in_flight.remove(nullifier);
             debug_assert!(was_in_flight);
         }
 
         // Remove new notes of transactions in block
-        for batch in block.created_notes() {
-            for note in batch.iter() {
-                let was_in_flight = locked_notes_in_flight.remove(&note.id());
-                debug_assert!(was_in_flight);
-            }
+        for (_, note) in block.notes() {
+            let was_in_flight = locked_notes_in_flight.remove(&note.id());
+            debug_assert!(was_in_flight);
         }
 
         Ok(())
@@ -167,25 +179,26 @@ where
 // -------------------------------------------------------------------------------------------------
 
 /// Ensures the constraints related to in-flight transactions:
-/// - the candidate transaction doesn't modify the same account as an existing in-flight
-///   transaction (issue: #186)
+/// - the candidate tx's initial state matches the latest inflight state (if any)
 /// - no note's nullifier in candidate tx's consumed notes is already contained in
 ///   `already_consumed_nullifiers`
 /// - all notes in `tx_notes_not_in_store` are currently in flight
+///
+/// The account state is not verified as it is performed by [InflightAccountStates].
 #[instrument(target = "miden-block-producer", skip_all, err)]
 fn ensure_in_flight_constraints(
     candidate_tx: &ProvenTransaction,
-    accounts_in_flight: &BTreeSet<AccountId>,
+    accounts_in_flight: &InflightAccountStates,
     already_consumed_nullifiers: &BTreeSet<Nullifier>,
     notes_in_flight: &BTreeSet<NoteId>,
     tx_notes_not_in_store: &[NoteId],
 ) -> Result<(), VerifyTxError> {
-    debug!(target: COMPONENT, accounts_in_flight = %format_array(accounts_in_flight), already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
+    debug!(target: COMPONENT, already_consumed_nullifiers = %format_array(already_consumed_nullifiers));
 
-    // Check account id hasn't been modified yet
-    if accounts_in_flight.contains(&candidate_tx.account_id()) {
-        return Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(candidate_tx.account_id()));
-    }
+    accounts_in_flight.verify_update(
+        candidate_tx.account_id(),
+        candidate_tx.account_update().init_state_hash(),
+    )?;
 
     // Check no consumed notes were already consumed
     let infracting_nullifiers: Vec<Nullifier> = {
@@ -213,8 +226,8 @@ fn ensure_in_flight_constraints(
 }
 
 /// Ensures the constraints related to transaction inputs:
-/// - the candidate transaction's initial account state hash must be the same as the one
-///   in the Store or empty for new accounts
+/// - the candidate transaction's initial account state hash must be the same as the one in the
+///   Store or empty for new accounts
 /// - input notes must not be already consumed
 ///
 /// Returns a list of unauthenticated input notes that were not found in the store.
@@ -232,7 +245,7 @@ fn ensure_tx_inputs_constraints(
             if candidate_tx.account_update().init_state_hash() != store_account_hash {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
                     tx_initial_account_hash: candidate_tx.account_update().init_state_hash(),
-                    store_account_hash: Some(store_account_hash),
+                    current_account_hash: Some(store_account_hash),
                 });
             }
         },
@@ -243,7 +256,7 @@ fn ensure_tx_inputs_constraints(
             if candidate_tx.account_update().init_state_hash() != Digest::default() {
                 return Err(VerifyTxError::IncorrectAccountInitialHash {
                     tx_initial_account_hash: candidate_tx.account_update().init_state_hash(),
-                    store_account_hash: None,
+                    current_account_hash: None,
                 });
             }
         },
@@ -252,7 +265,7 @@ fn ensure_tx_inputs_constraints(
     let infracting_nullifiers: Vec<Nullifier> = tx_inputs
         .nullifiers
         .into_iter()
-        .filter_map(|(nullifier_in_tx, block_num)| (block_num != 0).then_some(nullifier_in_tx))
+        .filter_map(|(nullifier_in_tx, block_num)| block_num.is_some().then_some(nullifier_in_tx))
         .collect();
 
     if !infracting_nullifiers.is_empty() {

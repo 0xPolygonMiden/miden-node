@@ -2,12 +2,20 @@ syntax = "proto3";
 package requests;
 
 import "account.proto";
-import "block_header.proto";
 import "digest.proto";
 import "note.proto";
 
 message ApplyBlockRequest {
     bytes block = 1;
+}
+
+// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
+message CheckNullifiersByPrefixRequest {
+    // Number of bits used for nullifier prefix. Currently the only supported value is 16.
+    uint32 prefix_len = 1;
+    // List of nullifiers to check. Each nullifier is specified by its prefix with length equal
+    // to prefix_len
+    repeated uint32 nullifiers = 2;
 }
 
 message CheckNullifiersRequest {
@@ -45,18 +53,25 @@ message SyncStateRequest {
     // it won't be included in the response.
     repeated account.AccountId account_ids = 2;
 
-    // Determines the tags which the client is interested in. These are only the 16high bits of the
-    // note's complete tag.
-    //
-    // The above means it is not possible to request an specific note, but only a "note family",
-    // this is done to increase the privacy of the client, by hiding the note's the client is
-    // intereted on.
-    repeated uint32 note_tags = 3;
+    // Specifies the tags which the client is interested in.
+    repeated fixed32 note_tags = 3;
 
-    // Determines the nullifiers the client is interested in.
-    //
-    // Similarly to the note_tags, this determins only the 16high bits of the target nullifier.
+    // Determines the nullifiers the client is interested in by specifying the 16high bits of the
+    // target nullifier.
     repeated uint32 nullifiers = 4;
+}
+
+// Note synchronization request.
+//
+// Specifies note tags that client is intersted in. The server will return the first block which
+// contains a note matching `note_tags` or the chain tip.
+message SyncNoteRequest {
+    // Last block known by the client. The response will contain data starting from the next block,
+    // until the first block which contains a note of matching the requested tag.
+    fixed32 block_num = 1;
+
+    // Specifies the tags which the client is interested in.
+    repeated fixed32 note_tags = 2;
 }
 
 message GetBlockInputsRequest {
@@ -84,6 +99,11 @@ message GetNotesByIdRequest {
     repeated digest.Digest note_ids = 1;
 }
 
+message GetNoteAuthenticationInfoRequest {
+    // List of NoteId's to be queried from the database
+    repeated digest.Digest note_ids = 1;
+}
+
 message ListNullifiersRequest {}
 
 message ListAccountsRequest {}
@@ -99,4 +119,15 @@ message GetAccountDetailsRequest {
 message GetBlockByNumberRequest {
     // The block number of the target block.
     fixed32 block_num = 1;
+}
+
+// Returns delta of the account states in the range from `from_block_num` (exclusive) to
+// `to_block_num` (inclusive).
+message GetAccountStateDeltaRequest {
+    // ID of the account for which the delta is requested.
+    account.AccountId account_id = 1;
+    // Block number from which the delta is requested (exclusive).
+    fixed32 from_block_num = 2;
+    // Block number up to which the delta is requested (inclusive).
+    fixed32 to_block_num = 3;
 }

@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 
 mod proven_tx;
 
-pub use proven_tx::MockProvenTxBuilder;
+pub use proven_tx::{mock_proven_tx, MockProvenTxBuilder};
 
 mod store;
 
@@ -13,8 +13,10 @@ pub use store::{MockStoreFailure, MockStoreSuccess, MockStoreSuccessBuilder};
 
 mod account;
 
-pub use account::MockPrivateAccount;
+pub use account::{mock_account_id, MockPrivateAccount};
 
 pub mod block;
 
 pub mod batch;
+
+pub mod note;

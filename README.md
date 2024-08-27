@@ -11,11 +11,11 @@ This repository holds the Miden node; that is, the software which processes tran
 
 The Miden node is still under heavy development and the project can be considered to be in an _alpha_ stage. Many features are yet to be implemented and there is a number of limitations which we will lift in the near future.
 
-At this point, we are developing the Miden node for a centralized operator. Thus, the work does not yet include such components as P2P networking and consensus. These will also be added in the future.
+At this point, we are developing the Miden node for a centralized operator. As such, the work does not yet include components such as P2P networking and consensus. These will be added in the future.
 
 ## Architecture
 
-The Miden node is made up of 3 main components, which communicate over gRPC:
+The Miden node consists of 3 main components, which communicate using gRPC:
 
 - **[RPC](crates/rpc):** an externally-facing component through which clients can interact with the node. It receives client requests (e.g., to synchronize with the latest state of the chain, or to submit transactions), performs basic validation, and forwards the requests to the appropriate internal components.
 - **[Store](crates/store):** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in the store, the node does not consider it to be part of the chain.
@@ -27,9 +27,38 @@ The diagram below illustrates high-level design of each component as well as bas
 
 ![Architecture diagram](./assets/architecture.png)
 
-## Usage
+## Installation
 
-Before you can build and run the Miden node or any of its components, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden node v0.2 requires Rust version **1.78** or later.
+The node software can be installed as a Debian package or using Rust's package manager `cargo`.
+
+Official releases are available as debian packages which can be found under our [releases](https://github.com/0xPolygonMiden/miden-node/releases) page.
+
+Alternatively, the Rust package manager `cargo` can be used to install on non-debian distributions or to compile from source.
+
+### Debian package
+
+Debian packages are available and are the fastest way to install the node on a Debian-based system. Currently only `amd64` architecture are supported.
+
+These packages can be found under our [releases](https://github.com/0xPolygonMiden/miden-node/releases) page along with a checksum.
+
+Note that this includes a `systemd` service called `miden-node` (disabled by default).
+
+To install, download the desired releases `.deb` package and checksum files. Install using
+
+```sh
+sudo dpkg -i $package_name.deb
+```
+
+> [!TIP]
+> You should verify the checksum using a SHA256 utility. This differs from platform to platform, but on most linux distros:
+> ```sh
+> sha256sum --check $checksum_file.deb.checksum
+> ```
+> can be used so long as the checksum file and the package file are in the same folder.
+
+### Intall using `cargo`
+
+Install Rust version **1.78** or greater using the official Rust installation [instructions](https://www.rust-lang.org/tools/install).
 
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 
@@ -37,129 +66,127 @@ Depending on the platform, you may need to install additional libraries. For exa
 sudo apt install llvm clang bindgen pkg-config libssl-dev libsqlite3-dev
 ```
 
-### Installing the node
-
-To install for production use cases, run:
+Install the node binary for production using `cargo`:
 
 ```sh
-cargo install --path bin/node
+cargo install miden-node --locked
 ```
 
-This will install the executable `miden-node` in your PATH, at `~/.cargo/bin/miden-node`.
-
-Otherwise, if only to try the node out for testing, run:
+This will install the latest official version of the node. You can install a specific version using `--version <x.y.z>`:
 
 ```sh
-cargo install --features testing --path bin/node
+cargo install miden-node --locked --version x.y.z
 ```
 
-Currently, the only difference between the two is how long the `make-genesis` command will take to run (see next subsection).
-
-### Generating the genesis file
-
-Before running the node, you must first generate the genesis file. The contents of the genesis file are fully configurable through a genesis inputs file written in TOML. An example genesis inputs file can be found here: [genesis.toml](./config/genesis.toml)
-
-To generate the genesis file, run:
+You can also use `cargo` to compile the node from the source code if for some reason you need a specific git revision. Note that since these aren't official releases we cannot provide much support for any issues you run into, so consider this for advanced users only. The incantation is a little different as you'll be targetting this repo instead: 
 
 ```sh
-miden-node make-genesis
+# Install from a specific branch
+cargo install --locked --path bin/miden --git https://github.com/0xPolygonMiden/miden-node --branch <branch>
+
+# Install a specific tag
+cargo install --locked --path bin/miden --git https://github.com/0xPolygonMiden/miden-node --tag <tag>
+
+# Install a specific git revision
+cargo install --locked --path bin/miden --git https://github.com/0xPolygonMiden/miden-node --rev <git-sha>
 ```
 
-By default this will generate 1 file and 1 folder in the current directory:
+More information on the various options can be found [here](https://doc.rust-lang.org/cargo/commands/cargo-install.html#install-options).
 
-- `genesis.dat`: the genesis file.
-- `accounts` directory containing `.mac` files (one per account) for the accounts defined in the genesis inputs file. Each `.mac` file contains full serialization of an account, including code, storage, and authentication info.
+> [!TIP]
+> Miden account generation uses a proof-of-work puzzle to prevent DoS attacks. These puzzles can be quite expensive, especially for test purposes. You can lower the difficulty of the puzzle by appending `--features testing` to the `cargo install ..` invocation. For example:
+> ```sh
+> cargo install miden-node --locked --features testing
+> ```
+
+### Verify installation
+
+You can verify the installation by checking the node's version:
+
+```sh
+miden-node --version
+```
+
+## Usage
+
+### Setup
+
+Decide on a location to store all the node data and configuration files in. This guide will use the placeholder `<STORAGE>` and `<CONFIG>` to represent these directories. They are allowed to be the same, though most unix distributions have conventions for these being `/opt/miden` and `/etc/miden` respectively. Note that if you intend to use the `systemd` service then by default it expects these conventions to be upheld.
+
+We need to configure the node as well as bootstrap the chain by creating the genesis block. Generate the default configurations for both:
+
+```sh
+miden-node init \
+  --config-path  <CONFIG>/miden-node.toml \
+  --genesis-path <CONFIG>/genesis.toml  
+```
+
+which will generate `miden-node.toml` and `genesis.toml` files. The latter controls the accounts that the genesis block will be spawned with and by default includes a basic wallet account and a basic fungible faucet account. You can modify this file to add/remove accounts as desired.
+
+Next, bootstrap the chain by generating the genesis data:
+
+```sh
+miden-node make-genesis \
+  --input-path  <CONFIG>/genesis.toml \
+  --output-path <STORAGE>/genesis.dat
+```
+
+which will create `genesis.dat` and an `accounts` directory containing account data based on the `genesis.toml` file.
+
+> [!NOTE]
+> `make-genesis` will take a long time if you're running the production version of `miden-node`, see the tip in the [installation](#install-using-`cargo`) section.
+
+Modify the `miden-node.toml` configuration file such that the `[store]` paths point to our `<STORAGE>` folder:
+
+```toml
+[store]
+database_filepath = "<STORAGE>/miden-store.sqlite3"
+genesis_filepath  = "<STORAGE>/genesis.dat"
+blockstore_dir    = "<STORAGE>/blocks"
+```
+
+Finally, configure the node's endpoints to your liking.
+
+### Systemd
+
+An example service file is provided [here](packaging/miden-node.service). If you used the Debian package installer then this service was already installed alongside it.
 
 ### Running the node
 
-Create a configuration file based on [node/miden-node.toml](./config/miden-node.toml), then create the necessary directories and start the node:
+Using the node configuration file created in the previous step, start the node:
 
 ```sh
-mkdir -p /opt/miden
-miden-node start --config <path-to-config-file> <component-to-be-started>
+miden-node start \
+  --config <CONFIG>/miden-node.toml \
+  node
 ```
 
-Note that the `store.genesis_filepath` field in the config file must point to the `genesis.dat` file that you generated in the previous step.
-
-### Running the node as separate components
-
-If you intend on running the node as different processes, you will need to install and run each component separately.
-Please, refer to each component's documentation:
-
-- [RPC](crates/rpc/README.md#usage)
-- [Store](crates/store/README.md#usage)
-- [Block Producer](crates/block-producer/README.md#usage)
-
-Each directory containing the executables also contains an example configuration file. Make sure that the configuration files are mutually consistent. That is, make sure that the URLs are valid and point to the right endpoint.
-
-### Running the node using Docker
-
-If you intend on running the node inside a Docker container, you will need to follow these steps:
-
-1. Build the docker image from source
-
-   ```sh
-   make docker-build-node
-   ```
-
-   This command will build the docker image for the Miden node and save it locally.
-
-2. Run the Docker container
-
-   ```sh
-   # Using make
-   make docker-run-node
-
-   # Manually
-   docker run --name miden-node -p 57291:57291 -d miden-node-image
-   ```
-
-   This command will run the node as a container named `miden-node` using the `miden-node-image` and make port `57291` available (rpc endpoint).
-
-3. Monitor container
-
-   ```sh
-   docker ps
-   ```
-
-    After running this command you should see the name of the container `miden-node` being outputted and marked as `Up`.
-
-### Debian Packages
-
-The debian packages allow for easy install for miden on debian based systems. Note that there are checksums available for the package.
-Current support is for amd64, arm64 support coming soon.
-
-To install the debian package:
+or alternatively start the systemd service if that's how you wish to operate:
 
 ```sh
-sudo dpkg -i $package_name.deb
+systemctl start miden-node.service
 ```
 
-Note, when using the debian package to run the `make-genesis` function, you should define the location of your output:
+## Updating
+
+We currently make no guarantees about backwards compatibility. Updating the node software therefore consists of wiping all existing data and re-installing the node's software again. This includes regenerating the configuration files and genesis block as these formats may have changed. This effectively means every update is a complete reset of the blockchain.
+
+First stop the currently running node or systemd service then remove all existing data. If you followed the [Setup](#setup) section, then this can be achieved by deleting all information in `<STORAGE>`:
 
 ```sh
-miden-node make-genesis -i $input_location_for_genesis.toml -o $output_for_genesis.dat_and_accounts
+rm -rf <STORAGE>
 ```
 
-The debian package has a checksum, you can verify this checksum by downloading the debian package and checksum file to the same directory and running the following command:
+> [!WARNING]
+> Failure to remove existing node data could result in strange behaviour.
 
-```sh
-sha256sum --check $checksumfile
-```
+## Development
 
-Please make sure you have the sha256sum program installed, for most linux operating systems this is already installed. If you wish to install it on your macOS, you can use brew:
-
-```sh
-brew install coreutils
-```
-
-## Testing
-
-In order to test the node run the following command:
+See our [contributing](CONTRIBUTING.md) guidelines and our [makefile](Makefile) for example workflows e.g. run the testsuite using
 
 ```sh
 make test
-```
+``` 
 
 ## License
 

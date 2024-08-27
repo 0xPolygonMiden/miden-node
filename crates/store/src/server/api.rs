@@ -2,23 +2,26 @@ use std::sync::Arc;
 
 use miden_node_proto::{
     convert,
+    domain::notes::NoteAuthenticationInfo,
     errors::ConversionError,
     generated::{
         self,
         account::AccountSummary,
-        note::NoteSyncRecord,
+        note::{NoteAuthenticationInfo as NoteAuthenticationInfoProto, NoteSyncRecord},
         requests::{
-            ApplyBlockRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
+            GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
+            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
             GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
-            ListNotesRequest, ListNullifiersRequest, SyncStateRequest,
+            ListNotesRequest, ListNullifiersRequest, SyncNoteRequest, SyncStateRequest,
         },
         responses::{
-            AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersResponse,
-            GetAccountDetailsResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
+            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
+            GetNoteAuthenticationInfoResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
             ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncStateResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -30,7 +33,7 @@ use miden_objects::{
     block::Block,
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, Nullifier},
-    utils::Deserializable,
+    utils::{Deserializable, Serializable},
     Felt, ZERO,
 };
 use tonic::{Response, Status};
@@ -80,7 +83,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetBlockHeaderByNumberResponse {
             block_header: block_header.map(Into::into),
             chain_length: mmr_proof.as_ref().map(|p| p.forest as u32),
-            mmr_path: mmr_proof.map(|p| Into::into(p.merkle_path)),
+            mmr_path: mmr_proof.map(|p| Into::into(&p.merkle_path)),
         }))
     }
 
@@ -109,6 +112,41 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(CheckNullifiersResponse { proofs: convert(proofs) }))
     }
 
+    /// Returns nullifiers that match the specified prefixes and have been consumed.
+    ///
+    /// Currently the only supported prefix length is 16 bits.
+    #[instrument(
+        target = "miden-store",
+        name = "store:check_nullifiers_by_prefix",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn check_nullifiers_by_prefix(
+        &self,
+        request: tonic::Request<CheckNullifiersByPrefixRequest>,
+    ) -> Result<Response<CheckNullifiersByPrefixResponse>, Status> {
+        let request = request.into_inner();
+
+        if request.prefix_len != 16 {
+            return Err(Status::invalid_argument("Only 16-bit prefixes are supported"));
+        }
+
+        let nullifiers = self
+            .state
+            .check_nullifiers_by_prefix(request.prefix_len, request.nullifiers)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|nullifier_info| NullifierUpdate {
+                nullifier: Some(nullifier_info.nullifier.into()),
+                block_num: nullifier_info.block_num,
+            })
+            .collect();
+
+        Ok(Response::new(CheckNullifiersByPrefixResponse { nullifiers }))
+    }
+
     /// Returns info which can be used by the client to sync up to the latest state of the chain
     /// for the objects the client is interested in.
     #[instrument(
@@ -128,7 +166,7 @@ impl api_server::Api for StoreApi {
 
         let (state, delta) = self
             .state
-            .sync_state(request.block_num, &account_ids, &request.note_tags, &request.nullifiers)
+            .sync_state(request.block_num, account_ids, request.note_tags, request.nullifiers)
             .await
             .map_err(internal_error)?;
 
@@ -156,10 +194,10 @@ impl api_server::Api for StoreApi {
             .notes
             .into_iter()
             .map(|note| NoteSyncRecord {
-                note_index: note.note_index.to_absolute_index() as u32,
+                note_index: note.note_index.to_absolute_index(),
                 note_id: Some(note.note_id.into()),
                 metadata: Some(note.metadata.into()),
-                merkle_path: Some(note.merkle_path.into()),
+                merkle_path: Some(Into::into(&note.merkle_path)),
             })
             .collect();
 
@@ -180,6 +218,45 @@ impl api_server::Api for StoreApi {
             transactions,
             notes,
             nullifiers,
+        }))
+    }
+
+    /// Returns info which can be used by the client to sync note state.
+    #[instrument(
+        target = "miden-store",
+        name = "store:sync_notes",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn sync_notes(
+        &self,
+        request: tonic::Request<SyncNoteRequest>,
+    ) -> Result<Response<SyncNoteResponse>, Status> {
+        let request = request.into_inner();
+
+        let (state, mmr_proof) = self
+            .state
+            .sync_notes(request.block_num, request.note_tags)
+            .await
+            .map_err(internal_error)?;
+
+        let notes = state
+            .notes
+            .into_iter()
+            .map(|note| NoteSyncRecord {
+                note_index: note.note_index.to_absolute_index(),
+                note_id: Some(note.note_id.into()),
+                metadata: Some(note.metadata.into()),
+                merkle_path: Some((&note.merkle_path).into()),
+            })
+            .collect();
+
+        Ok(Response::new(SyncNoteResponse {
+            chain_tip: state.chain_tip,
+            block_header: Some(state.block_header.into()),
+            mmr_path: Some((&mmr_proof.merkle_path).into()),
+            notes,
         }))
     }
 
@@ -216,6 +293,42 @@ impl api_server::Api for StoreApi {
             .collect();
 
         Ok(Response::new(GetNotesByIdResponse { notes }))
+    }
+
+    /// Returns a list of Note inclusion proofs for the specified NoteId's.
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_note_inclusion_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_note_authentication_info(
+        &self,
+        request: tonic::Request<GetNoteAuthenticationInfoRequest>,
+    ) -> Result<Response<GetNoteAuthenticationInfoResponse>, Status> {
+        info!(target: COMPONENT, ?request);
+
+        let note_ids = request.into_inner().note_ids;
+
+        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+
+        let note_ids = note_ids.into_iter().map(From::from).collect();
+
+        let NoteAuthenticationInfo { block_proofs, note_proofs } = self
+            .state
+            .get_note_authentication_info(note_ids)
+            .await
+            .map_err(internal_error)?;
+
+        // Massage into shape required by protobuf
+        let note_proofs = note_proofs.iter().map(Into::into).collect();
+        let block_proofs = block_proofs.into_iter().map(Into::into).collect();
+
+        Ok(Response::new(GetNoteAuthenticationInfoResponse {
+            proofs: Some(NoteAuthenticationInfoProto { note_proofs, block_proofs }),
+        }))
     }
 
     /// Returns details for public (on-chain) account by id.
@@ -274,8 +387,8 @@ impl api_server::Api for StoreApi {
             block_num,
             block_hash = %block.hash(),
             account_count = block.updated_accounts().len(),
-            note_count = block.created_notes().len(),
-            nullifier_count = block.created_nullifiers().len(),
+            note_count = block.notes().count(),
+            nullifier_count = block.nullifiers().len(),
         );
 
         // TODO: Why the error is swallowed here? Fix or add a comment with explanation.
@@ -301,6 +414,7 @@ impl api_server::Api for StoreApi {
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
+        let unauthenticated_notes = unauthenticated_notes.into_iter().collect();
 
         self.state
             .get_block_inputs(&account_ids, &nullifiers, unauthenticated_notes)
@@ -335,6 +449,8 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
+        let block_height = self.state.latest_block_num().await;
+
         Ok(Response::new(GetTransactionInputsResponse {
             account_state: Some(AccountTransactionInputRecord {
                 account_id: Some(account_id.into()),
@@ -353,6 +469,7 @@ impl api_server::Api for StoreApi {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
+            block_height,
         }))
     }
 
@@ -374,6 +491,34 @@ impl api_server::Api for StoreApi {
         let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
+    }
+
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_account_state_delta",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_state_delta(
+        &self,
+        request: tonic::Request<GetAccountStateDeltaRequest>,
+    ) -> Result<Response<GetAccountStateDeltaResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        let delta = self
+            .state
+            .get_account_state_delta(
+                request.account_id.ok_or(invalid_argument("account_id is missing"))?.id,
+                request.from_block_num,
+                request.to_block_num,
+            )
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Response::new(GetAccountStateDeltaResponse { delta: Some(delta.to_bytes()) }))
     }
 
     // TESTING ENDPOINTS

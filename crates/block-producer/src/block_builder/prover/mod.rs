@@ -195,11 +195,11 @@ impl BlockProver {
     pub fn new() -> Self {
         let account_program = {
             let assembler = Assembler::default()
-                .with_library(&StdLibrary::default())
+                .with_library(StdLibrary::default())
                 .expect("failed to load std-lib");
 
             assembler
-                .compile(BLOCK_KERNEL_MASM)
+                .assemble_program(BLOCK_KERNEL_MASM)
                 .expect("failed to load account update program")
         };
 
@@ -245,7 +245,10 @@ impl BlockProver {
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
 
-            DefaultHost::new(advice_provider)
+            let mut host = DefaultHost::new(advice_provider);
+            host.load_mast_forest(StdLibrary::default().into());
+
+            host
         };
 
         let execution_output =

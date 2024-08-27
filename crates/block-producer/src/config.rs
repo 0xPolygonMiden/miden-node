@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Block producer specific configuration
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BlockProducerConfig {
     pub endpoint: Endpoint,
 

@@ -9,18 +9,20 @@ pub mod transactions;
 // UTILITIES
 // ================================================================================================
 
-pub fn convert<T, From, To>(from: T) -> Vec<To>
+pub fn convert<T, From, To, R>(from: T) -> R
 where
     T: IntoIterator<Item = From>,
     From: Into<To>,
+    R: FromIterator<To>,
 {
     from.into_iter().map(|e| e.into()).collect()
 }
 
-pub fn try_convert<T, E, From, To>(from: T) -> Result<Vec<To>, E>
+pub fn try_convert<T, E, From, To, R>(from: T) -> Result<R, E>
 where
     T: IntoIterator<Item = From>,
     From: TryInto<To, Error = E>,
+    R: FromIterator<To>,
 {
     from.into_iter().map(|e| e.try_into()).collect()
 }

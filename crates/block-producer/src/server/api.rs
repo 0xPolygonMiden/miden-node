@@ -66,11 +66,12 @@ where
         );
         debug!(target: COMPONENT, proof = ?tx.proof());
 
-        self.queue
+        let block_height = self
+            .queue
             .add_transaction(tx)
             .await
             .map_err(|err| Status::invalid_argument(format!("{:?}", err)))?;
 
-        Ok(tonic::Response::new(SubmitProvenTransactionResponse {}))
+        Ok(tonic::Response::new(SubmitProvenTransactionResponse { block_height }))
     }
 }

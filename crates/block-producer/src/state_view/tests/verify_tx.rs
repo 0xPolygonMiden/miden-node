@@ -2,8 +2,8 @@
 //!
 //! Store-related requirements
 //! VT1: `tx.initial_account_hash` must match the account hash in store
-//! VT2: If store doesn't contain account, `verify_tx` should check that it is a new account ( TODO ) and succeed
-//! VT3: If `tx` consumes an already-consumed note in the store, `verify_tx` must fail
+//! VT2: If store doesn't contain account, `verify_tx` should check that it is a new account ( TODO
+//! ) and succeed VT3: If `tx` consumes an already-consumed note in the store, `verify_tx` must fail
 //!
 //! in-flight related requirements
 //! VT4: In each block, at most 1 transaction is allowed to modify any given account
@@ -12,10 +12,11 @@
 
 use std::iter;
 
+use miden_objects::notes::Note;
 use tokio::task::JoinSet;
 
 use super::*;
-use crate::test_utils::MockStoreSuccessBuilder;
+use crate::test_utils::{block::MockBlockBuilder, note::mock_note, MockStoreSuccessBuilder};
 
 /// Tests the happy path where 3 transactions who modify different accounts and consume different
 /// notes all verify successfully
@@ -98,7 +99,7 @@ async fn test_verify_tx_vt1() {
         verify_tx_result,
         Err(VerifyTxError::IncorrectAccountInitialHash {
             tx_initial_account_hash: account.states[1],
-            store_account_hash: Some(account.states[0]),
+            current_account_hash: Some(account.states[0]),
         })
     );
 }
@@ -170,8 +171,8 @@ async fn test_verify_tx_vt4() {
     let tx1 =
         MockProvenTxBuilder::with_account(account.id, account.states[0], account.states[1]).build();
 
-    // Notice: tx2 modifies the same account as tx1, even though from a different initial state,
-    // which is currently disallowed
+    // Notice: tx2 follows tx1, using the same account and with an initial state matching the final
+    // state of the first.         We expect both to pass.
     let tx2 =
         MockProvenTxBuilder::with_account(account.id, account.states[1], account.states[2]).build();
 
@@ -181,10 +182,7 @@ async fn test_verify_tx_vt4() {
     assert!(verify_tx1_result.is_ok());
 
     let verify_tx2_result = state_view.verify_tx(&tx2).await;
-    assert_eq!(
-        verify_tx2_result,
-        Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(account.id))
-    );
+    assert!(verify_tx2_result.is_ok());
 }
 
 /// Verifies requirement VT5
@@ -198,7 +196,7 @@ async fn test_verify_tx_vt5() {
     // Notice: `consumed_note_in_both_txs` is NOT in the store
     let store = Arc::new(
         MockStoreSuccessBuilder::from_accounts(
-            vec![account_1, account_2]
+            [account_1, account_2]
                 .into_iter()
                 .map(|account| (account.id, account.states[0])),
         )
@@ -226,5 +224,83 @@ async fn test_verify_tx_vt5() {
     assert_eq!(
         verify_tx2_result,
         Err(VerifyTxError::InputNotesAlreadyConsumed(vec![nullifier_in_both_txs]))
+    );
+}
+
+/// Tests that `verify_tx()` succeeds when the unauthenticated input note found in the in-flight
+/// notes
+#[tokio::test]
+#[miden_node_test_macro::enable_logging]
+async fn test_verify_tx_dangling_note_found_in_inflight_notes() {
+    let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(1);
+    let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(2);
+    let store = Arc::new(
+        MockStoreSuccessBuilder::from_accounts(
+            [account_1, account_2]
+                .into_iter()
+                .map(|account| (account.id, account.states[0])),
+        )
+        .build(),
+    );
+    let state_view = DefaultStateView::new(Arc::clone(&store), false);
+
+    let dangling_notes = vec![mock_note(1)];
+    let output_notes = dangling_notes.iter().cloned().map(OutputNote::Full).collect();
+
+    let tx1 = MockProvenTxBuilder::with_account_index(1).output_notes(output_notes).build();
+
+    let verify_tx1_result = state_view.verify_tx(&tx1).await;
+    assert_eq!(verify_tx1_result, Ok(0));
+
+    let tx2 = MockProvenTxBuilder::with_account_index(2)
+        .unauthenticated_notes(dangling_notes.clone())
+        .build();
+
+    let verify_tx2_result = state_view.verify_tx(&tx2).await;
+    assert_eq!(
+        verify_tx2_result,
+        Ok(0),
+        "Dangling unauthenticated notes must be found in the in-flight notes after previous tx verification"
+    );
+}
+
+/// Tests that `verify_tx()` fails when the unauthenticated input note not found not in the
+/// in-flight notes nor in the store
+#[tokio::test]
+#[miden_node_test_macro::enable_logging]
+async fn test_verify_tx_stored_unauthenticated_notes() {
+    let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(1);
+    let store = Arc::new(
+        MockStoreSuccessBuilder::from_accounts(
+            [account_1].into_iter().map(|account| (account.id, account.states[0])),
+        )
+        .build(),
+    );
+    let dangling_notes = vec![mock_note(1)];
+    let tx1 = MockProvenTxBuilder::with_account_index(1)
+        .unauthenticated_notes(dangling_notes.clone())
+        .build();
+
+    let state_view = DefaultStateView::new(Arc::clone(&store), false);
+
+    let verify_tx1_result = state_view.verify_tx(&tx1).await;
+    assert_eq!(
+        verify_tx1_result,
+        Err(VerifyTxError::UnauthenticatedNotesNotFound(
+            dangling_notes.iter().map(Note::id).collect()
+        )),
+        "Dangling unauthenticated notes must not be found in the store by this moment"
+    );
+
+    let output_notes = dangling_notes.into_iter().map(OutputNote::Full).collect();
+    let block = MockBlockBuilder::new(&store).await.created_notes(vec![output_notes]).build();
+
+    store.apply_block(&block).await.unwrap();
+
+    let verify_tx1_result = state_view.verify_tx(&tx1).await;
+    assert_eq!(
+        verify_tx1_result,
+        Ok(0),
+        "Dangling unauthenticated notes must be found in the store after block applying"
     );
 }

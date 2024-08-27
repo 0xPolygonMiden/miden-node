@@ -1,7 +1,8 @@
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use miden_lib::{
-    accounts::faucets::create_basic_fungible_faucet, notes::create_p2id_note, AuthScheme,
+    accounts::faucets::create_basic_fungible_faucet, notes::create_p2id_note,
+    transaction::TransactionKernel, AuthScheme,
 };
 use miden_node_proto::generated::{
     requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest},
@@ -9,7 +10,6 @@ use miden_node_proto::generated::{
 };
 use miden_objects::{
     accounts::{Account, AccountDelta, AccountId, AccountStorageType, AuthSecretKey},
-    assembly::{ModuleAst, ProgramAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::{
         dsa::rpo_falcon512::SecretKey,
@@ -17,7 +17,7 @@ use miden_objects::{
         rand::RpoRandomCoin,
     },
     notes::{Note, NoteId, NoteType},
-    transaction::{ChainMmr, ExecutedTransaction, InputNotes, TransactionArgs},
+    transaction::{ChainMmr, ExecutedTransaction, InputNotes, TransactionArgs, TransactionScript},
     vm::AdviceMap,
     BlockHeader, Felt, Word,
 };
@@ -37,7 +37,7 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
 // FAUCET CLIENT
 // ================================================================================================
 
-/// Basic client that handles execution, proving and submiting of mint transactions
+/// Basic client that handles execution, proving and submitting of mint transactions
 /// for the faucet.
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
@@ -69,16 +69,12 @@ impl FaucetClient {
             secret.public_key().into(),
             AuthSecretKey::RpoFalcon512(secret),
         )]);
-        let mut executor =
-            TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
-
-        executor
-            .load_account(id)
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+        let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
 
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+
         Ok(Self { data_store, rpc_api, executor, id, rng })
     }
 
@@ -95,7 +91,7 @@ impl FaucetClient {
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
         let note_type = if is_private_note {
-            NoteType::OffChain
+            NoteType::Private
         } else {
             NoteType::Public
         };
@@ -110,8 +106,7 @@ impl FaucetClient {
         )
         .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
-        let transaction_args =
-            build_transaction_arguments(&output_note, &self.executor, note_type, asset)?;
+        let transaction_args = build_transaction_arguments(&output_note, note_type, asset)?;
 
         let executed_tx = self
             .executor
@@ -127,7 +122,7 @@ impl FaucetClient {
     pub async fn prove_and_submit_transaction(
         &mut self,
         executed_tx: ExecutedTransaction,
-    ) -> Result<(), FaucetError> {
+    ) -> Result<u32, FaucetError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
 
         let delta = executed_tx.account_delta().clone();
@@ -141,7 +136,8 @@ impl FaucetClient {
             transaction: proven_transaction.to_bytes(),
         };
 
-        self.rpc_api
+        let response = self
+            .rpc_api
             .submit_proven_transaction(request)
             .await
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
@@ -150,7 +146,7 @@ impl FaucetClient {
             FaucetError::InternalServerError(format!("Failed to update account: {}", err))
         })?;
 
-        Ok(())
+        Ok(response.into_inner().block_height)
     }
 
     pub fn get_faucet_id(&self) -> AccountId {
@@ -216,16 +212,6 @@ impl DataStore for FaucetDataStore {
             empty_input_notes,
         )
         .map_err(DataStoreError::InvalidTransactionInput)
-    }
-
-    fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        let account = self.faucet_account.borrow();
-        if account_id != account.id() {
-            return Err(DataStoreError::AccountNotFound(account_id));
-        }
-
-        let module_ast = account.code().module().clone();
-        Ok(module_ast)
     }
 }
 
@@ -299,7 +285,6 @@ pub async fn initialize_faucet_client(
 /// Builds transaction arguments for the mint transaction.
 fn build_transaction_arguments(
     output_note: &Note,
-    executor: &TransactionExecutor<FaucetDataStore, BasicAuthenticator<StdRng>>,
     note_type: NoteType,
     asset: FungibleAsset,
 ) -> Result<TransactionArgs, FaucetError> {
@@ -313,20 +298,20 @@ fn build_transaction_arguments(
 
     let tag = output_note.metadata().tag().inner();
     let aux = output_note.metadata().aux().inner();
+    let execution_hint = output_note.metadata().execution_hint().into();
 
-    let script = ProgramAst::parse(
-        &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
-            .replace("{recipient}", &recipient)
-            .replace("{note_type}", &Felt::new(note_type as u64).to_string())
-            .replace("{aux}", &Felt::new(aux).to_string())
-            .replace("{tag}", &Felt::new(tag.into()).to_string())
-            .replace("{amount}", &Felt::new(asset.amount()).to_string()),
-    )
-    .expect("shipped MASM is well-formed");
+    let script = &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
+        .replace("{recipient}", &recipient)
+        .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+        .replace("{aux}", &Felt::new(aux).to_string())
+        .replace("{tag}", &Felt::new(tag.into()).to_string())
+        .replace("{amount}", &Felt::new(asset.amount()).to_string())
+        .replace("{execution_hint}", &Felt::new(execution_hint).to_string());
 
-    let script = executor.compile_tx_script(script, vec![], vec![]).map_err(|err| {
-        FaucetError::InternalServerError(format!("Failed to compile script: {}", err))
-    })?;
+    let script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
+        .map_err(|err| {
+            FaucetError::InternalServerError(format!("Failed to compile script: {}", err))
+        })?;
 
     let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());
     transaction_args.extend_expected_output_notes(vec![output_note.clone()]);

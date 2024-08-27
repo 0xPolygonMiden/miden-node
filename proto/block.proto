@@ -1,7 +1,8 @@
 syntax = "proto3";
-package block_header;
+package block;
 
 import "digest.proto";
+import "merkle.proto";
 
 message BlockHeader {
     // specifies the version of the protocol.
@@ -24,4 +25,11 @@ message BlockHeader {
     digest.Digest proof_hash = 9;
     // the time when the block was created.
     fixed32 timestamp = 10;
+}
+
+message BlockInclusionProof {
+    BlockHeader block_header = 1;
+    merkle.MerklePath mmr_path = 2;
+    // The chain length associated with `mmr_path`.
+    fixed32 chain_length = 3;
 }

@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Context, Result};
 pub use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
 use miden_lib::{
     accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
@@ -78,12 +78,13 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
         },
     };
 
-    let genesis_input: GenesisInput = load_config(inputs_path).extract().map_err(|err| {
+    let genesis_input: GenesisInput = load_config(inputs_path).map_err(|err| {
         anyhow!("Failed to load {} genesis input file: {err}", inputs_path.display())
     })?;
     info!("Genesis input file: {} has successfully been loaded.", output_path.display());
 
-    let accounts = create_accounts(&genesis_input.accounts, parent_path, force)?;
+    let accounts =
+        create_accounts(&genesis_input.accounts.unwrap_or_default(), parent_path, force)?;
     info!(
         "Accounts have successfully been created at: {}/{}",
         parent_path.display(),
@@ -110,10 +111,17 @@ fn create_accounts(
     let mut accounts_path = PathBuf::from(&parent_path);
     accounts_path.push(DEFAULT_ACCOUNTS_DIR);
 
-    if !accounts_path.try_exists()? {
-        fs::create_dir_all(&accounts_path)
-            .map_err(|err| anyhow!("Failed to create accounts directory: {err}"))?;
+    if accounts_path.try_exists()? {
+        if !force {
+            bail!(
+                "Failed to create accounts directory because it already exists. \
+                Use the --force flag to overwrite."
+            );
+        }
+        fs::remove_dir_all(&accounts_path).context("Failed to remove accounts directory")?;
     }
+
+    fs::create_dir_all(&accounts_path).context("Failed to create accounts directory")?;
 
     let mut final_accounts = Vec::new();
 
@@ -167,7 +175,7 @@ fn create_accounts(
 
         if let Ok(path_exists) = path.try_exists() {
             if path_exists && !force {
-                return Err(anyhow!("Failed to generate account file {} because it already exists. Use the --force flag to overwrite.", path.display()));
+                bail!("Failed to generate account file {} because it already exists. Use the --force flag to overwrite.", path.display());
             }
         }
 

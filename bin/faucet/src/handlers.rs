@@ -1,7 +1,7 @@
 use actix_web::{get, http::header, post, web, HttpResponse, Result};
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteDetails, NoteExecutionHint, NoteFile, NoteId, NoteTag},
+    notes::{NoteDetails, NoteExecutionMode, NoteFile, NoteId, NoteTag},
     utils::serde::Serializable,
 };
 use serde::{Deserialize, Serialize};
@@ -63,17 +63,22 @@ pub async fn get_tokens(
 
     // Run transaction prover & send transaction to node
     info!("Proving and submitting transaction.");
-    client.prove_and_submit_transaction(executed_tx).await?;
+    let block_height = client.prove_and_submit_transaction(executed_tx).await?;
 
     let note_id: NoteId = created_note.id();
     let note_details =
         NoteDetails::new(created_note.assets().clone(), created_note.recipient().clone());
 
-    let note_tag = NoteTag::from_account_id(target_account_id, NoteExecutionHint::Local)
+    let note_tag = NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)
         .expect("failed to build note tag for local execution");
 
     // Serialize note into bytes
-    let bytes = NoteFile::NoteDetails(note_details, Some(note_tag)).to_bytes();
+    let bytes = NoteFile::NoteDetails {
+        details: note_details,
+        after_block_num: block_height,
+        tag: Some(note_tag),
+    }
+    .to_bytes();
 
     info!("A new note has been created: {}", note_id);
 

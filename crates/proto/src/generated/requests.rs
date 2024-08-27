@@ -5,6 +5,18 @@ pub struct ApplyBlockRequest {
     #[prost(bytes = "vec", tag = "1")]
     pub block: ::prost::alloc::vec::Vec<u8>,
 }
+/// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckNullifiersByPrefixRequest {
+    /// Number of bits used for nullifier prefix. Currently the only supported value is 16.
+    #[prost(uint32, tag = "1")]
+    pub prefix_len: u32,
+    /// List of nullifiers to check. Each nullifier is specified by its prefix with length equal
+    /// to prefix_len
+    #[prost(uint32, repeated, tag = "2")]
+    pub nullifiers: ::prost::alloc::vec::Vec<u32>,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersRequest {
@@ -47,19 +59,28 @@ pub struct SyncStateRequest {
     /// it won't be included in the response.
     #[prost(message, repeated, tag = "2")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Determines the tags which the client is interested in. These are only the 16high bits of the
-    /// note's complete tag.
-    ///
-    /// The above means it is not possible to request an specific note, but only a "note family",
-    /// this is done to increase the privacy of the client, by hiding the note's the client is
-    /// intereted on.
-    #[prost(uint32, repeated, tag = "3")]
+    /// Specifies the tags which the client is interested in.
+    #[prost(fixed32, repeated, tag = "3")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
-    /// Determines the nullifiers the client is interested in.
-    ///
-    /// Similarly to the note_tags, this determins only the 16high bits of the target nullifier.
+    /// Determines the nullifiers the client is interested in by specifying the 16high bits of the
+    /// target nullifier.
     #[prost(uint32, repeated, tag = "4")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
+}
+/// Note synchronization request.
+///
+/// Specifies note tags that client is intersted in. The server will return the first block which
+/// contains a note matching `note_tags` or the chain tip.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SyncNoteRequest {
+    /// Last block known by the client. The response will contain data starting from the next block,
+    /// until the first block which contains a note of matching the requested tag.
+    #[prost(fixed32, tag = "1")]
+    pub block_num: u32,
+    /// Specifies the tags which the client is interested in.
+    #[prost(fixed32, repeated, tag = "2")]
+    pub note_tags: ::prost::alloc::vec::Vec<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -100,6 +121,13 @@ pub struct GetNotesByIdRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetNoteAuthenticationInfoRequest {
+    /// List of NoteId's to be queried from the database
+    #[prost(message, repeated, tag = "1")]
+    pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListNullifiersRequest {}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -121,4 +149,19 @@ pub struct GetBlockByNumberRequest {
     /// The block number of the target block.
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
+}
+/// Returns delta of the account states in the range from `from_block_num` (exclusive) to
+/// `to_block_num` (inclusive).
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAccountStateDeltaRequest {
+    /// ID of the account for which the delta is requested.
+    #[prost(message, optional, tag = "1")]
+    pub account_id: ::core::option::Option<super::account::AccountId>,
+    /// Block number from which the delta is requested (exclusive).
+    #[prost(fixed32, tag = "2")]
+    pub from_block_num: u32,
+    /// Block number up to which the delta is requested (inclusive).
+    #[prost(fixed32, tag = "3")]
+    pub to_block_num: u32,
 }
