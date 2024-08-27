@@ -127,16 +127,55 @@ jobs:
             done
 
 
-      - name: Start services
-        id: start_services
+      - name: Start miden node service
+        id: start_miden_service
         run: |
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids ${{ secrets.instance_id }} \
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
                 "sudo systemctl daemon-reload",
-                "sudo systemctl start miden-node",
-                "sleep 10",
+                "sudo systemctl start miden-node"                
+              ]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Check Start services command status and retrieve output
+        run: |
+          while true; do
+            STATUS=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.start_miden_service.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].Status" \
+                --output text)
+            echo "Command Status: $STATUS"
+            
+            OUTPUT=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.start_miden_service.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].CommandPlugins[0].Output" \
+                --output text)
+            echo "Command Output: $OUTPUT"
+            
+            if [ "$STATUS" == "Success" ]; then
+              echo "Command completed successfully."
+              break
+            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+              echo "Command failed with status: $STATUS"
+              exit 1
+            else
+              sleep 10
+            fi
+          done
+
+      - name: Start miden faucet service
+        id: start_miden_faucet_service
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ secrets.instance_id }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":[
                 "sudo systemctl daemon-reload",
                 "sudo systemctl start miden-faucet"
               ]}' \
@@ -148,14 +187,14 @@ jobs:
         run: |
           while true; do
             STATUS=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.start_services.outputs.command_id }} \
+                --command-id ${{ steps.start_miden_faucet_service.outputs.command_id }} \
                 --details \
                 --query "CommandInvocations[0].Status" \
                 --output text)
             echo "Command Status: $STATUS"
             
             OUTPUT=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.start_services.outputs.command_id }} \
+                --command-id ${{ steps.start_miden_faucet_service.outputs.command_id }} \
                 --details \
                 --query "CommandInvocations[0].CommandPlugins[0].Output" \
                 --output text)
