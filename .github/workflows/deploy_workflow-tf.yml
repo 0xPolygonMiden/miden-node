@@ -42,7 +42,9 @@ jobs:
             --instance-ids ${{ secrets.instance_id }} \
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
-                "sudo rm -f miden-*",
+                "sudo rm -f miden-*",                
+                "sudo systemctl stop miden-node",
+                "sudo systemctl stop miden-faucet",
                 "sudo apt remove miden-node miden-faucet -y",
                 "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-faucet-v0.4.0-arm64.deb",
                 "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-node-v0.4.0-arm64.deb",
