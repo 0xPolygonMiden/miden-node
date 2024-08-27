@@ -43,7 +43,7 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --parameters '{"commands":[
                 "sudo rm -f miden-*",
-                "sudo rm -rf /opt/miden",
+                "sudo apt remove miden-node miden-faucet -y",
                 "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-faucet-v0.4.0-arm64.deb",
                 "wget https://github.com/0xPolygonMiden/miden-node/releases/download/v0.4.0/miden-node-v0.4.0-arm64.deb",
                 "dpkg -i miden-node-v0.4.0-arm64.deb",
