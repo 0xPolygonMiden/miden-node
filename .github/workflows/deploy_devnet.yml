@@ -1,5 +1,3 @@
-name: devnet deploy
-
 on:
   push:
     branches:
@@ -12,10 +10,34 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy to testnet
-    uses: ./.github/workflows/deploy_workflow.yml
-    with:
-      build_prefix: --branch next
+    name: Deploy devnet
+    # Our devnet instance is arm based.
+    runs-on:
+      labels: ubuntu22-arm-4core
+
+    # Required for devnet instance access.
     secrets:
       account_id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
       instance_id: "${{ secrets.DEVNET_INSTANCE_ID }}"
+
+    steps:
+      - uses: actions/checkout@main
+
+      - name: Set version
+        id: version
+        run: echo "VERSION=$(git describe)" >> $GITHUB_OUTPUT
+
+      - name: Build Debian packages
+        id: build
+        uses: ./.github/actions/debian-packages
+        with:
+          version: ${{ steps.version.outputs.VERSION }}
+
+      - name: Deploy packages
+        uses: ./.github/actions/deploy
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.account_id }}:role/midendev-GithubActionsRole
+          aws-region: us-west-1
+          instance-id: ${{ secrets.instance_id }}
+          node_package: ${{ steps.build.outputs.NODE_PATH }}
+          faucet_package: ${{ steps.build.outputs.FAUCET_PATH }}
