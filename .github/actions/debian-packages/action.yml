@@ -1,0 +1,18 @@
+
+name: 'Build Debian packages'
+description: 'Builds miden-node and miden-faucet Debian packages'
+inputs:
+  suffix:
+    required: true
+outputs:
+  node-package:
+    description: "Path to the miden-node package"
+    value: ${{ steps.some-step.outputs.node-package }} 
+  faucet-package:
+    description: "Path to the miden-faucet package"
+    value: ${{ steps.some-step.outputs.faucet-package }} 
+runs:
+  using: "composite"
+  steps:
+    - name: Do the thing
+      run: echo "copy over existing packaging stuff"
