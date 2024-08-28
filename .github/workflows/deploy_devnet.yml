@@ -25,13 +25,13 @@ jobs:
 
       - name: Set version
         id: version
-        run: echo "VERSION=$(git describe)" >> $GITHUB_OUTPUT
+        run: echo "version=$(git describe)" >> $GITHUB_OUTPUT
 
       - name: Build Debian packages
         id: build
         uses: ./.github/actions/debian-packages
         with:
-          version: ${{ steps.version.outputs.VERSION }}
+          version: ${{ steps.version.outputs.version }}
 
       - name: Deploy packages
         uses: ./.github/actions/deploy
@@ -39,5 +39,5 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.account_id }}:role/midendev-GithubActionsRole
           aws-region: us-west-1
           instance-id: ${{ secrets.instance_id }}
-          node_package: ${{ steps.build.outputs.NODE_PATH }}
-          faucet_package: ${{ steps.build.outputs.FAUCET_PATH }}
+          node_package: ${{ steps.build.outputs.node_path }}
+          faucet_package: ${{ steps.build.outputs.faucet_path }}
