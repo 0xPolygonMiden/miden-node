@@ -112,7 +112,6 @@ jobs:
         env:
           ARCH: amd64
 
-
       - name: shasum the package
         run: cd packaging/deb/ && sha256sum miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb > miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb.checksum
         env:

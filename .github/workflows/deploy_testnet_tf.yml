@@ -3,7 +3,7 @@ name: testnet deploy
 on:
   push:
     branches:
-      - SPEC-161-miden-deployment-fix-from-package
+      - next
   workflow_dispatch:
         
 permissions:

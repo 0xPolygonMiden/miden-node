@@ -3,7 +3,7 @@ name: devnet deploy
 on:
   push:
     branches:
-      - next
+      - SPEC-161-miden-deployment-fix-from-package
   workflow_dispatch:
         
 permissions:

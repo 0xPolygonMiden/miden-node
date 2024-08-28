@@ -4,9 +4,12 @@ on:
   workflow_dispatch:
   release:
     types: [released, prereleased]
+  push:
+    branches:
+      - next
 
 jobs:
-  build:
+  build_package:
     permissions:
       id-token: write
       contents: write
@@ -124,7 +127,7 @@ jobs:
         env:
           ARCH: arm64
 
-      - name: release miden-node Packages
+      - name: release miden-node Packages for testnet
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.GIT_TAG }}
@@ -134,3 +137,42 @@ jobs:
             packaging/deb/miden-node**.deb.checksum
             packaging/deb/miden-faucet**.deb
             packaging/deb/miden-faucet**.deb.checksum
+        if: ${{ github.event_name == 'release' || github.event_name == 'prereleased' }}
+
+      - name: release miden-node Packages for devnet
+        uses: actions/upload-artifact@v3
+        with:
+          name: devnet_package
+          path: |
+            packaging/deb/miden-node-next.deb
+            packaging/deb/miden-node-next.deb.checksum
+            packaging/deb/miden-faucet-next.deb
+            packaging/deb/miden-faucet-next.deb.checksum
+        if: ${{ github.event_name == 'push' }}
+
+      - name: Determine build type
+        run: |
+          if [[ ${{ github.event_name }} == "release" || ${{ github.event_name }} == "prereleased" ]]; then
+            run: echo "target=testnet" >> $GITHUB_OUTPUT
+            run: echo "tag=${{ env.GIT_TAG }}" >> $GITHUB_OUTPUT
+            run: echo "account_id=${{ secrets.MIDEN_DEV_ACCOUNT_ID }}" >> $GITHUB_OUTPUT
+            run: echo "instance_id=${{ secrets.TESTNET_INSTANCE_ID }}" >> $GITHUB_OUTPUT
+          else
+            run: echo "target=devnet" >> $GITHUB_OUTPUT
+            run: echo "tag=next" >> $GITHUB_OUTPUT
+            run: echo "account_id=${{ secrets.MIDEN_DEV_ACCOUNT_ID }}" >> $GITHUB_OUTPUT
+            run: echo "instance_id=${{ secrets.DEVNET_INSTANCE_ID }}" >> $GITHUB_OUTPUT
+          fi
+      
+
+  deploy:
+    name: Deploy to ${{ needs.build_package.outputs.target }}
+    needs: build_package
+    uses: ./.github/workflows/deploy_package.yml
+    with:
+      target: ${{ needs.build_package.outputs.target }}
+      tag: ${{ needs.build_package.outputs.tag }}
+    secrets:
+      account_id: ${{ needs.build_package.outputs.account_id }}
+      instance_id: ${{ needs.build_package.outputs.instance_id }}
+
