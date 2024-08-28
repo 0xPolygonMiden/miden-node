@@ -1,0 +1,68 @@
+on:
+  workflow_dispatch:
+  # Disabled until we get this working properly.
+  #
+  # release:
+  #   types: [released, prereleased]
+        
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  package:
+    strategy:
+    matrix:
+      # This isn't quite correct, we need some weird combo of labels and normal runner which I'm unsure how to do.
+      # Worst case scenario we just duplicate this job for each.
+      runner: [ubuntu-latest, ubuntu22-arm-4core]
+
+    steps:
+
+    
+
+  
+  deploy:
+    name: Deploy testnet
+
+    # We need to wait for the arm debian packages to be created as these
+    # are the ones we are deploying.
+    needs: package-ubuntu22-arm-4core
+
+    # Required for testnet instance access.
+    secrets:
+      account_id: "${{ secrets.MIDEN_TESTNET_ACCOUNT_ID }}"
+      instance_id: "${{ secrets.TESTNET_INSTANCE_ID }}"
+
+    steps:
+      - name: Select latest version
+        id: version
+        run: echo "VERSION=gh release ls --exclude-drafts --limit 1 --json tagName | jq -e '.[0].tagName'" >> $GITHUB_OUTPUT
+      
+      - name: Download packages
+        id: download
+        run: |
+          # This would be possible to do without the version as by default gh release download chooses the latest version, 
+          # but then we wouldn't be sure what exactly the files are called. And it also interacts strangely with draft releases.
+          gh release ${{ steps.version.outputs.VERSION }} download miden-node-${{ steps.version.outputs.VERSION }}-arm64.deb
+          gh release ${{ steps.version.outputs.VERSION }} download miden-node-${{ steps.version.outputs.VERSION }}-arm64.deb.checksum
+          gh release ${{ steps.version.outputs.VERSION }} download miden-faucet-${{ steps.version.outputs.VERSION }}-arm64.deb
+          gh release ${{ steps.version.outputs.VERSION }} download miden-faucet-${{ steps.version.outputs.VERSION }}-arm64.deb.checksum
+
+          # Store the filepaths as outputs so only this step has to know about these things.
+          echo "NODE_FILE=miden-node-${{ steps.version.outputs.VERSION }}-arm64.deb" >> $GITHUB_OUTPUT
+          echo "FAUCET_FILE=miden-faucet-${{ steps.version.outputs.VERSION }}-arm64.deb" >> $GITHUB_OUTPUT
+
+      - name: Verify checksums
+        run: |
+          sha256 --check ${{ steps.download.outputs.NODE_FILE }}.checksum
+          sha256 --check ${{ steps.download.outputs.FAUCET_FILE }}.checksum
+
+      - name: Deploy packages
+        uses: ./.github/actions/deploy
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.account_id }}:role/midendev-GithubActionsRole
+          aws-region: us-west-1
+          instance-id: ${{ secrets.instance_id }}
+          node_package: ${{ steps.download.outputs.NODE_FILE }}
+          faucet_package: ${{ steps.download.outputs.FAUCET_FILE }}
