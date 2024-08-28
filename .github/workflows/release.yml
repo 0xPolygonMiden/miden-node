@@ -14,8 +14,8 @@ jobs:
     runs-on:
       labels: ubuntu22-arm-4core
     outputs:
-      node_file: ${{ steps.build.outputs.node_file }}
-      faucet_file: ${{ steps.build.outputs.faucet_file }}
+      node-package: ${{ steps.build.outputs.node-package }}
+      faucet-package: ${{ steps.build.outputs.faucet-package }}
       # Unsure if this env call will work or if it must be outputs.
       version: $${{ env.TAG }}
       
@@ -38,7 +38,7 @@ jobs:
         id: build
         uses: ./.github/actions/debian-packages
         with:
-          version: ${{ env.TAG }}
+          suffix: ${{ env.TAG }}-arm64
 
       - name: Upload packages
         uses: softprops/action-gh-release@v1
@@ -46,10 +46,10 @@ jobs:
           tag_name: ${{ env.TAG }}
           prerelease: true
           files: |
-            ${{ steps.build.outputs.node_file }}
-            ${{ steps.build.outputs.node_file }}.checksum
-            ${{ steps.build.outputs.faucet_file }}
-            ${{ steps.build.outputs.faucet_file }}.checksum
+            ${{ steps.build.outputs.node-package }}
+            ${{ steps.build.outputs.node-package }}.checksum
+            ${{ steps.build.outputs.faucet-package }}
+            ${{ steps.build.outputs.faucet-package }}.checksum
 
   amd_package:
     runs-on: ubuntu-latest
@@ -72,7 +72,7 @@ jobs:
         id: build
         uses: ./.github/actions/debian-packages
         with:
-          version: ${{ env.TAG }}
+          suffix: ${{ env.TAG }}-amd64
 
       - name: Upload packages
         uses: softprops/action-gh-release@v1
@@ -80,10 +80,10 @@ jobs:
           tag_name: ${{ env.TAG }}
           prerelease: true
           files: |
-            ${{ steps.build.outputs.node_file }}
-            ${{ steps.build.outputs.node_file }}.checksum
-            ${{ steps.build.outputs.faucet_file }}
-            ${{ steps.build.outputs.faucet_file }}.checksum
+            ${{ steps.build.outputs.node-package }}
+            ${{ steps.build.outputs.node-package }}.checksum
+            ${{ steps.build.outputs.faucet-package }}
+            ${{ steps.build.outputs.faucet-package }}.checksum
 
   deploy:
     name: Deploy testnet
@@ -94,33 +94,32 @@ jobs:
 
     # Required for testnet instance access.
     secrets:
-      account_id: "${{ secrets.MIDEN_TESTNET_ACCOUNT_ID }}"
-      instance_id: "${{ secrets.TESTNET_INSTANCE_ID }}"
+      account-id: "${{ secrets.MIDEN_TESTNET_ACCOUNT_ID }}"
+      instance-id: "${{ secrets.TESTNET_INSTANCE_ID }}"
 
     env:
       VERSION: ${{ needs.arm_package.outputs.version }}
-      NODE_FILE: ${{ needs.arm_package.outputs.node_file }} 
-      FAUCET_FILE: ${{ needs.arm_package.outputs.faucet_file }} 
+      NODE_PACKAGE: ${{ needs.arm_package.outputs.node-package }} 
+      FAUCET_PACKAGE: ${{ needs.arm_package.outputs.faucet-package }} 
 
     steps:
       - name: Download packages
-        id: download
         run: |
-          gh release ${{ env.VERSION }} download ${{ env.NODE_FILE }}
-          gh release ${{ env.VERSION }} download ${{ env.NODE_FILE }}.checksum
-          gh release ${{ env.VERSION }} download ${{ env.FAUCET_FILE }}
-          gh release ${{ env.VERSION }} download ${{ env.FAUCET_FILE }}.checksum
+          gh release ${{ env.VERSION }} download ${{ env.NODE_PACKAGE }}
+          gh release ${{ env.VERSION }} download ${{ env.NODE_PACKAGE }}.checksum
+          gh release ${{ env.VERSION }} download ${{ env.FAUCET_PACKAGE }}
+          gh release ${{ env.VERSION }} download ${{ env.FAUCET_PACKAGE }}.checksum
 
       - name: Verify checksums
         run: |
-          sha256 --check ${{ env.NODE_FILE }}.checksum
-          sha256 --check ${{ env.FAUCET_FILE }}.checksum
+          sha256 --check ${{ env.NODE_PACKAGE }}.checksum
+          sha256 --check ${{ env.FAUCET_PACKAGE }}.checksum
 
       - name: Deploy packages
         uses: ./.github/actions/deploy
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.account_id }}:role/midendev-GithubActionsRole
+          role-to-assume: arn:aws:iam::${{ secrets.account-id }}:role/midendev-GithubActionsRole
           aws-region: us-west-1
-          instance-id: ${{ secrets.instance_id }}
-          node_package: ${{ env.NODE_FILE }}
-          faucet_package: ${{ env.FAUCET_FILE }}
+          instance-id: ${{ secrets.instance-id }}
+          node_package: ${{ env.NODE_PACKAGE }}
+          faucet_package: ${{ env.FAUCET_PACKAGE }}
