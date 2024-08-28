@@ -1,17 +1,15 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use miden_node_proto::{
+    domain::notes::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
 use miden_objects::{
     accounts::AccountId,
-    crypto::{
-        hash::rpo::RpoDigest,
-        merkle::{MerklePath, MmrPeaks, SmtProof},
-    },
-    notes::{NoteId, Nullifier},
+    crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
+    notes::Nullifier,
     BlockHeader, Digest,
 };
 
@@ -36,7 +34,7 @@ pub struct BlockInputs {
     pub nullifiers: BTreeMap<Nullifier, SmtProof>,
 
     /// List of unauthenticated notes found in the store
-    pub found_unauthenticated_notes: BTreeSet<NoteId>,
+    pub found_unauthenticated_notes: NoteAuthenticationInfo,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -95,9 +93,8 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
 
         let found_unauthenticated_notes = response
             .found_unauthenticated_notes
-            .into_iter()
-            .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
-            .collect::<Result<_, ConversionError>>()?;
+            .ok_or(GetBlockInputsResponse::missing_field("found_authenticated_notes"))?
+            .try_into()?;
 
         Ok(Self {
             block_header,

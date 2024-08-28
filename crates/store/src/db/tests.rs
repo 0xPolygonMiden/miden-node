@@ -13,11 +13,10 @@ use miden_objects::{
         Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStorageDelta,
         AccountVaultDelta,
     },
-    assembly::{Assembler, ModuleAst},
     assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteId, NoteMetadata, NoteType, Nullifier},
+    notes::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
     BlockHeader, Felt, FieldElement, Word, ONE, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
@@ -175,6 +174,7 @@ fn test_sql_select_notes() {
                 ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
                 NoteType::Public,
                 i.into(),
+                NoteExecutionHint::none(),
                 Default::default(),
             )
             .unwrap(),
@@ -190,6 +190,93 @@ fn test_sql_select_notes() {
         let notes = sql::select_notes(&mut conn).unwrap();
         assert_eq!(notes, state);
     }
+}
+
+#[test]
+fn test_sql_select_notes_different_execution_hints() {
+    let mut conn = create_db();
+
+    let block_num = 1;
+    create_block(&mut conn, block_num);
+
+    // test querying empty table
+    let notes = sql::select_notes(&mut conn).unwrap();
+    assert!(notes.is_empty());
+
+    // test multiple entries
+    let mut state = vec![];
+
+    let note_none = NoteRecord {
+        block_num,
+        note_index: BlockNoteIndex::new(0, 0),
+        note_id: num_to_rpo_digest(0),
+        metadata: NoteMetadata::new(
+            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            NoteType::Public,
+            0.into(),
+            NoteExecutionHint::none(),
+            Default::default(),
+        )
+        .unwrap(),
+        details: Some(vec![1, 2, 3]),
+        merkle_path: MerklePath::new(vec![]),
+    };
+    state.push(note_none.clone());
+
+    let transaction = conn.transaction().unwrap();
+    let res = sql::insert_notes(&transaction, &[note_none]);
+    assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+    transaction.commit().unwrap();
+    let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(0).into()]).unwrap()[0];
+    assert_eq!(note.metadata.execution_hint(), NoteExecutionHint::none());
+
+    let note_always = NoteRecord {
+        block_num,
+        note_index: BlockNoteIndex::new(0, 1),
+        note_id: num_to_rpo_digest(1),
+        metadata: NoteMetadata::new(
+            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            NoteType::Public,
+            1.into(),
+            NoteExecutionHint::always(),
+            Default::default(),
+        )
+        .unwrap(),
+        details: Some(vec![1, 2, 3]),
+        merkle_path: MerklePath::new(vec![]),
+    };
+    state.push(note_always.clone());
+
+    let transaction = conn.transaction().unwrap();
+    let res = sql::insert_notes(&transaction, &[note_always]);
+    assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+    transaction.commit().unwrap();
+    let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(1).into()]).unwrap()[0];
+    assert_eq!(note.metadata.execution_hint(), NoteExecutionHint::always());
+
+    let note_after_block = NoteRecord {
+        block_num,
+        note_index: BlockNoteIndex::new(0, 2),
+        note_id: num_to_rpo_digest(2),
+        metadata: NoteMetadata::new(
+            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            NoteType::Public,
+            2.into(),
+            NoteExecutionHint::after_block(12),
+            Default::default(),
+        )
+        .unwrap(),
+        details: Some(vec![1, 2, 3]),
+        merkle_path: MerklePath::new(vec![]),
+    };
+    state.push(note_after_block.clone());
+
+    let transaction = conn.transaction().unwrap();
+    let res = sql::insert_notes(&transaction, &[note_after_block]);
+    assert_eq!(res.unwrap(), 1, "One element must have been inserted");
+    transaction.commit().unwrap();
+    let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(2).into()]).unwrap()[0];
+    assert_eq!(note.metadata.execution_hint(), NoteExecutionHint::after_block(12));
 }
 
 #[test]
@@ -268,7 +355,7 @@ fn test_sql_public_account_details() {
         ])
         .unwrap(),
         storage,
-        mock_account_code(&TransactionKernel::assembler()),
+        mock_account_code(),
         ZERO,
     );
 
@@ -300,11 +387,8 @@ fn test_sql_public_account_details() {
     let account_read = accounts_in_db.pop().unwrap().details.unwrap();
     assert_eq!(account_read, account);
 
-    let storage_delta = AccountStorageDelta {
-        cleared_items: vec![3],
-        updated_items: vec![(4, num_to_word(5)), (5, num_to_word(6))],
-        updated_maps: vec![],
-    };
+    let storage_delta =
+        AccountStorageDelta::from_iters([3], [(4, num_to_word(5)), (5, num_to_word(6))], []);
 
     let nft2 = Asset::NonFungible(
         NonFungibleAsset::new(
@@ -313,10 +397,7 @@ fn test_sql_public_account_details() {
         .unwrap(),
     );
 
-    let vault_delta = AccountVaultDelta {
-        added_assets: vec![nft2],
-        removed_assets: vec![nft1],
-    };
+    let vault_delta = AccountVaultDelta::from_iters([nft2], [nft1]);
 
     let delta = AccountDelta::new(storage_delta, vault_delta, Some(ONE)).unwrap();
 
@@ -352,11 +433,7 @@ fn test_sql_public_account_details() {
     // Cleared item was not serialized, check it and apply delta only with clear item second time:
     assert_eq!(account_read.storage().get_item(3), RpoDigest::default());
 
-    let storage_delta = AccountStorageDelta {
-        cleared_items: vec![3],
-        updated_items: vec![],
-        updated_maps: vec![],
-    };
+    let storage_delta = AccountStorageDelta::from_iters([3], [], []);
     account_read
         .apply_delta(
             &AccountDelta::new(storage_delta, AccountVaultDelta::default(), Some(Felt::new(2)))
@@ -365,6 +442,51 @@ fn test_sql_public_account_details() {
         .unwrap();
 
     assert_eq!(account_read.storage(), account.storage());
+
+    let storage_delta2 = AccountStorageDelta::from_iters([5], [], []);
+
+    let delta2 = AccountDelta::new(
+        storage_delta2,
+        AccountVaultDelta::from_iters([nft1], []),
+        Some(Felt::new(3)),
+    )
+    .unwrap();
+
+    account.apply_delta(&delta2).unwrap();
+
+    create_block(&mut conn, block_num + 1);
+
+    let transaction = conn.transaction().unwrap();
+    let inserted = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_id,
+            account.hash(),
+            AccountUpdateDetails::Delta(delta2.clone()),
+            vec![],
+        )],
+        block_num + 1,
+    )
+    .unwrap();
+
+    assert_eq!(inserted, 1, "One element must have been inserted");
+
+    transaction.commit().unwrap();
+
+    let mut accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+
+    assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
+
+    let account_read = accounts_in_db.pop().unwrap().details.unwrap();
+
+    assert_eq!(account_read.id(), account.id());
+    assert_eq!(account_read.vault(), account.vault());
+    assert_eq!(account_read.nonce(), account.nonce());
+
+    let read_deltas =
+        sql::select_account_deltas(&mut conn, account_id.into(), 0, block_num + 1).unwrap();
+
+    assert_eq!(read_deltas, vec![delta, delta2]);
 }
 
 #[test]
@@ -486,6 +608,108 @@ fn test_sql_select_nullifiers_by_block_range() {
 }
 
 #[test]
+fn test_select_nullifiers_by_prefix() {
+    let mut conn = create_db();
+    const PREFIX_LEN: u32 = 16;
+    // test empty table
+    let nullifiers = sql::select_nullifiers_by_prefix(&mut conn, PREFIX_LEN, &[]).unwrap();
+    assert!(nullifiers.is_empty());
+
+    // test single item
+    let nullifier1 = num_to_nullifier(1 << 48);
+    let block_number1 = 1;
+    create_block(&mut conn, block_number1);
+
+    let transaction = conn.transaction().unwrap();
+    sql::insert_nullifiers_for_block(&transaction, &[nullifier1], block_number1).unwrap();
+    transaction.commit().unwrap();
+
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&nullifier1)],
+    )
+    .unwrap();
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier1,
+            block_num: block_number1
+        }]
+    );
+
+    // test two elements
+    let nullifier2 = num_to_nullifier(2 << 48);
+    let block_number2 = 2;
+    create_block(&mut conn, block_number2);
+
+    let transaction = conn.transaction().unwrap();
+    sql::insert_nullifiers_for_block(&transaction, &[nullifier2], block_number2).unwrap();
+    transaction.commit().unwrap();
+
+    let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
+    assert_eq!(nullifiers, vec![(nullifier1, block_number1), (nullifier2, block_number2)]);
+
+    // only the nullifiers matching the prefix are included
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&nullifier1)],
+    )
+    .unwrap();
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier1,
+            block_num: block_number1
+        }]
+    );
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&nullifier2)],
+    )
+    .unwrap();
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier2,
+            block_num: block_number2
+        }]
+    );
+
+    // All matching nullifiers are included
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+    )
+    .unwrap();
+    assert_eq!(
+        nullifiers,
+        vec![
+            NullifierInfo {
+                nullifier: nullifier1,
+                block_num: block_number1
+            },
+            NullifierInfo {
+                nullifier: nullifier2,
+                block_num: block_number2
+            }
+        ]
+    );
+
+    // If a non-matching prefix is provided, no nullifiers are returned
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[sql::get_nullifier_prefix(&num_to_nullifier(3 << 48))],
+    )
+    .unwrap();
+    assert!(nullifiers.is_empty());
+}
+
+#[test]
 fn test_db_block_header() {
     let mut conn = create_db();
 
@@ -497,7 +721,7 @@ fn test_db_block_header() {
     let res = sql::select_block_header_by_block_num(&mut conn, None).unwrap();
     assert!(res.is_none());
 
-    let res = sql::select_block_headers(&mut conn).unwrap();
+    let res = sql::select_all_block_headers(&mut conn).unwrap();
     assert!(res.is_empty());
 
     let block_header = BlockHeader::new(
@@ -552,7 +776,7 @@ fn test_db_block_header() {
     let res = sql::select_block_header_by_block_num(&mut conn, None).unwrap();
     assert_eq!(res.unwrap(), block_header2);
 
-    let res = sql::select_block_headers(&mut conn).unwrap();
+    let res = sql::select_all_block_headers(&mut conn).unwrap();
     assert_eq!(res, [block_header, block_header2]);
 }
 
@@ -630,7 +854,9 @@ fn test_notes() {
     let note_id = num_to_rpo_digest(3);
     let tag = 5u32;
     let sender = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
-    let note_metadata = NoteMetadata::new(sender, NoteType::Public, tag.into(), ZERO).unwrap();
+    let note_metadata =
+        NoteMetadata::new(sender, NoteType::Public, tag.into(), NoteExecutionHint::none(), ZERO)
+            .unwrap();
 
     let values = [(note_index, note_id, note_metadata)];
     let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
@@ -641,8 +867,14 @@ fn test_notes() {
         block_num: block_num_1,
         note_index,
         note_id,
-        metadata: NoteMetadata::new(sender, NoteType::Public, tag.into(), Default::default())
-            .unwrap(),
+        metadata: NoteMetadata::new(
+            sender,
+            NoteType::Public,
+            tag.into(),
+            NoteExecutionHint::none(),
+            Default::default(),
+        )
+        .unwrap(),
         details,
         merkle_path: merkle_path.clone(),
     };
@@ -748,13 +980,12 @@ fn insert_transactions(conn: &mut Connection) -> usize {
     count
 }
 
-pub fn mock_account_code(assembler: &Assembler) -> AccountCode {
+pub fn mock_account_code() -> AccountCode {
     let account_code = "\
             export.account_procedure_1
                 push.1.2
                 add
             end
             ";
-    let account_module_ast = ModuleAst::parse(account_code).unwrap();
-    AccountCode::new(account_module_ast, assembler).unwrap()
+    AccountCode::compile(account_code, TransactionKernel::assembler()).unwrap()
 }

@@ -11,8 +11,8 @@ struct TransactionValidatorSuccess;
 
 #[async_trait]
 impl TransactionValidator for TransactionValidatorSuccess {
-    async fn verify_tx(&self, _tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
-        Ok(())
+    async fn verify_tx(&self, _tx: &ProvenTransaction) -> Result<u32, VerifyTxError> {
+        Ok(0)
     }
 }
 
@@ -21,8 +21,8 @@ struct TransactionValidatorFailure;
 
 #[async_trait]
 impl TransactionValidator for TransactionValidatorFailure {
-    async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<(), VerifyTxError> {
-        Err(VerifyTxError::AccountAlreadyModifiedByOtherTx(tx.account_id()))
+    async fn verify_tx(&self, tx: &ProvenTransaction) -> Result<u32, VerifyTxError> {
+        Err(VerifyTxError::InvalidTransactionProof(tx.id()))
     }
 }
 
@@ -40,8 +40,8 @@ impl BatchBuilderSuccess {
 #[async_trait]
 impl BatchBuilder for BatchBuilderSuccess {
     async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError> {
-        let batch =
-            TransactionBatch::new(txs, None).expect("Tx batch building should have succeeded");
+        let batch = TransactionBatch::new(txs, Default::default())
+            .expect("Tx batch building should have succeeded");
         self.ready_batches
             .send(batch)
             .expect("Sending to channel should have succeeded");
@@ -105,17 +105,19 @@ async fn test_build_batch_success() {
         receiver.try_recv(),
         "A single transaction produces a single batch"
     );
-    let expected = TransactionBatch::new(vec![tx.clone()], None).expect("Valid transactions");
+    let expected =
+        TransactionBatch::new(vec![tx.clone()], Default::default()).expect("Valid transactions");
     assert_eq!(expected, batch, "The batch should have the one transaction added to the queue");
 
     // a batch will include up to `batch_size` transactions
     let mut txs = Vec::new();
-    for _ in 0..batch_size {
+    for i in 0..batch_size {
+        let tx = MockProvenTxBuilder::with_account_index(i as u32).build();
         tx_queue
             .add_transaction(tx.clone())
             .await
             .expect("Transaction queue is running");
-        txs.push(tx.clone())
+        txs.push(tx);
     }
     tokio::time::advance(build_batch_frequency).await;
     let batch = receiver.try_recv().expect("Queue not empty");
@@ -124,12 +126,13 @@ async fn test_build_batch_success() {
         receiver.try_recv(),
         "{batch_size} transactions create a single batch"
     );
-    let expected = TransactionBatch::new(txs, None).expect("Valid transactions");
+    let expected = TransactionBatch::new(txs, Default::default()).expect("Valid transactions");
     assert_eq!(expected, batch, "The batch should the transactions to fill a batch");
 
     // the transaction queue eagerly produces batches
     let mut txs = Vec::new();
-    for _ in 0..(2 * batch_size + 1) {
+    for i in 0..(2 * batch_size + 1) {
+        let tx = MockProvenTxBuilder::with_account_index(i as u32).build();
         tx_queue
             .add_transaction(tx.clone())
             .await
@@ -139,7 +142,8 @@ async fn test_build_batch_success() {
     for expected_batch in txs.chunks(batch_size).map(|txs| txs.to_vec()) {
         tokio::time::advance(build_batch_frequency).await;
         let batch = receiver.try_recv().expect("Queue not empty");
-        let expected = TransactionBatch::new(expected_batch, None).expect("Valid transactions");
+        let expected =
+            TransactionBatch::new(expected_batch, Default::default()).expect("Valid transactions");
         assert_eq!(expected, batch, "The batch should the transactions to fill a batch");
     }
 

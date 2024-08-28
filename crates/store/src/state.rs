@@ -2,18 +2,27 @@
 //!
 //! The [State] provides data access and modifications methods, its main purpose is to ensure that
 //! data is atomically written, and that reads are consistent.
-use std::{collections::BTreeSet, sync::Arc};
+
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use miden_node_proto::{
-    convert, domain::accounts::AccountInfo, generated::responses::GetBlockInputsResponse,
+    convert,
+    domain::{accounts::AccountInfo, blocks::BlockInclusionProof, notes::NoteAuthenticationInfo},
+    generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
+    accounts::AccountDelta,
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{LeafIndex, Mmr, MmrDelta, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath},
+        merkle::{
+            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
+        },
     },
     notes::{NoteId, Nullifier},
     transaction::OutputNote,
@@ -28,10 +37,10 @@ use tracing::{info, info_span, instrument};
 
 use crate::{
     blocks::BlockStore,
-    db::{Db, NoteRecord, NullifierInfo, StateSyncUpdate},
+    db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
-        StateInitializationError, StateSyncError,
+        GetNoteInclusionProofError, NoteSyncError, StateInitializationError, StateSyncError,
     },
     nullifier_tree::NullifierTree,
     types::{AccountId, BlockNumber},
@@ -57,7 +66,7 @@ pub struct BlockInputs {
     pub nullifiers: Vec<NullifierWitness>,
 
     /// List of notes found in the store
-    pub found_unauthenticated_notes: BTreeSet<NoteId>,
+    pub found_unauthenticated_notes: NoteAuthenticationInfo,
 }
 
 impl From<BlockInputs> for GetBlockInputsResponse {
@@ -67,7 +76,7 @@ impl From<BlockInputs> for GetBlockInputsResponse {
             mmr_peaks: convert(value.chain_peaks.peaks()),
             account_states: convert(value.account_states),
             nullifiers: convert(value.nullifiers),
-            found_unauthenticated_notes: convert(value.found_unauthenticated_notes),
+            found_unauthenticated_notes: Some(value.found_unauthenticated_notes.into()),
         }
     }
 }
@@ -88,7 +97,8 @@ struct InnerState {
 
 /// The rollup state
 pub struct State {
-    /// The database which stores block headers, nullifiers, notes, and the latest states of accounts.
+    /// The database which stores block headers, nullifiers, notes, and the latest states of
+    /// accounts.
     db: Arc<Db>,
 
     /// The block store which stores full block contents for all blocks.
@@ -133,12 +143,12 @@ impl State {
     /// following steps are used:
     ///
     /// - the request data is validated, prior to starting any modifications.
-    /// - block is being saved into the store in parallel with updating the DB, but before committing.
-    ///   This block is considered as candidate and not yet available for reading because the latest
-    ///   block pointer is not updated yet.
+    /// - block is being saved into the store in parallel with updating the DB, but before
+    ///   committing. This block is considered as candidate and not yet available for reading
+    ///   because the latest block pointer is not updated yet.
     /// - a transaction is open in the DB and the writes are started.
-    /// - while the transaction is not committed, concurrent reads are allowed, both the DB and
-    ///   the in-memory representations, which are consistent at this stage.
+    /// - while the transaction is not committed, concurrent reads are allowed, both the DB and the
+    ///   in-memory representations, which are consistent at this stage.
     /// - prior to committing the changes to the DB, an exclusive lock to the in-memory data is
     ///   acquired, preventing concurrent reads to the in-memory data, since that will be
     ///   out-of-sync w.r.t. the DB.
@@ -180,10 +190,11 @@ impl State {
 
         let block_data = block.to_bytes();
 
-        // Save the block to the block store. In a case of a rolled-back DB transaction, the in-memory
-        // state will be unchanged, but the block might still be written into the block store.
-        // Thus, such block should be considered as block candidates, but not finalized blocks.
-        // So we should check for the latest block when getting block from the store.
+        // Save the block to the block store. In a case of a rolled-back DB transaction, the
+        // in-memory state will be unchanged, but the block might still be written into the
+        // block store. Thus, such block should be considered as block candidates, but not
+        // finalized blocks. So we should check for the latest block when getting block from
+        // the store.
         let store = self.block_store.clone();
         let block_save_task =
             tokio::spawn(async move { store.save_block(block_num, &block_data).await });
@@ -196,7 +207,7 @@ impl State {
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = block
-                .created_nullifiers()
+                .nullifiers()
                 .iter()
                 .filter(|&n| inner.nullifier_tree.get_block_num(n).is_some())
                 .cloned()
@@ -230,7 +241,7 @@ impl State {
             // update nullifier tree
             let nullifier_tree = {
                 let mut nullifier_tree = inner.nullifier_tree.clone();
-                for nullifier in block.created_nullifiers() {
+                for nullifier in block.nullifiers() {
                     nullifier_tree
                         .insert(nullifier, block_num)
                         .map_err(ApplyBlockError::FailedToUpdateNullifierTree)?;
@@ -367,6 +378,14 @@ impl State {
         }
     }
 
+    pub async fn check_nullifiers_by_prefix(
+        &self,
+        prefix_len: u32,
+        nullifier_prefixes: Vec<u32>,
+    ) -> Result<Vec<NullifierInfo>, DatabaseError> {
+        self.db.select_nullifiers_by_prefix(prefix_len, nullifier_prefixes).await
+    }
+
     /// Generates membership proofs for each one of the `nullifiers` against the latest nullifier
     /// tree.
     ///
@@ -379,13 +398,73 @@ impl State {
 
     /// Queries a list of [NoteRecord] from the database.
     ///
-    /// If the provided list of [NoteId] given is empty or no [NoteRecord] matches the provided [NoteId]
-    /// an empty list is returned.
+    /// If the provided list of [NoteId] given is empty or no [NoteRecord] matches the provided
+    /// [NoteId] an empty list is returned.
     pub async fn get_notes_by_id(
         &self,
         note_ids: Vec<NoteId>,
     ) -> Result<Vec<NoteRecord>, DatabaseError> {
         self.db.select_notes_by_id(note_ids).await
+    }
+
+    /// Queries all the note inclusion proofs matching a certain Note IDs from the database.
+    pub async fn get_note_authentication_info(
+        &self,
+        note_ids: BTreeSet<NoteId>,
+    ) -> Result<NoteAuthenticationInfo, GetNoteInclusionProofError> {
+        // First we grab block-inclusion proofs for the known notes. These proofs only
+        // prove that the note was included in a given block. We then also need to prove that
+        // each of those blocks is included in the chain.
+        let note_proofs = self.db.select_note_inclusion_proofs(note_ids).await?;
+
+        // The set of blocks that the notes are included in.
+        let blocks = note_proofs
+            .values()
+            .map(|proof| proof.location().block_num())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        // Grab the block merkle paths from the inner state.
+        //
+        // NOTE: Scoped block to automatically drop the mutex guard asap.
+        //
+        // We also avoid accessing the db in the block as this would delay
+        // dropping the guard.
+        let (chain_length, merkle_paths) = {
+            let state = self.inner.read().await;
+            let chain_length = state.chain_mmr.forest();
+
+            let paths = blocks
+                .iter()
+                .map(|&block_num| {
+                    let proof = state.chain_mmr.open(block_num as usize, chain_length)?.merkle_path;
+
+                    Ok::<_, MmrError>((block_num, proof))
+                })
+                .collect::<Result<BTreeMap<_, _>, MmrError>>()?;
+
+            let chain_length = BlockNumber::try_from(chain_length)
+                .expect("Forest is a chain length so should fit into block number");
+
+            (chain_length, paths)
+        };
+
+        let headers = self.db.select_block_headers(blocks).await?;
+        let headers = headers
+            .into_iter()
+            .map(|header| (header.block_num(), header))
+            .collect::<BTreeMap<BlockNumber, _>>();
+
+        let mut block_proofs = Vec::with_capacity(merkle_paths.len());
+        for (block_num, mmr_path) in merkle_paths {
+            let block_header =
+                *headers.get(&block_num).ok_or(DatabaseError::BlockNotFoundInDb(block_num))?;
+
+            block_proofs.push(BlockInclusionProof { block_header, mmr_path, chain_length });
+        }
+
+        Ok(NoteAuthenticationInfo { block_proofs, note_proofs })
     }
 
     /// Loads data to synchronize a client.
@@ -396,27 +475,26 @@ impl State {
     ///
     /// # Arguments
     ///
-    /// - `block_num`: The last block *know* by the client, updates start from the next block.
+    /// - `block_num`: The last block *known* by the client, updates start from the next block.
     /// - `account_ids`: Include the account's hash if their _last change_ was in the result's block
     ///   range.
-    /// - `note_tag_prefixes`: Only the 16 high bits of the tags the client is interested in, result
-    ///   will include notes with matching prefixes, the first block with a matching note determines
-    ///   the block range.
+    /// - `note_tags`: The tags the client is interested in, result is restricted to the first block
+    ///   with any matches tags.
     /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is interested in,
     ///   results will include nullifiers matching prefixes produced in the given block range.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
-        account_ids: &[AccountId],
-        note_tag_prefixes: &[u32],
-        nullifier_prefixes: &[u32],
+        account_ids: Vec<AccountId>,
+        note_tags: Vec<u32>,
+        nullifier_prefixes: Vec<u32>,
     ) -> Result<(StateSyncUpdate, MmrDelta), StateSyncError> {
         let inner = self.inner.read().await;
 
         let state_sync = self
             .db
-            .get_state_sync(block_num, account_ids, note_tag_prefixes, nullifier_prefixes)
+            .get_state_sync(block_num, account_ids, note_tags, nullifier_prefixes)
             .await?;
 
         let delta = if block_num == state_sync.block_header.block_num() {
@@ -427,9 +505,10 @@ impl State {
             //
             // - The Mmr forest is 1-indexed whereas the block number is 0-indexed. The Mmr root
             // contained in the block header always lag behind by one block, this is because the Mmr
-            // leaves are hashes of block headers, and we can't have self-referential hashes. These two
-            // points cancel out and don't require adjusting.
-            // - Mmr::get_delta is inclusive, whereas the sync_state request block_num is defined to be
+            // leaves are hashes of block headers, and we can't have self-referential hashes. These
+            // two points cancel out and don't require adjusting.
+            // - Mmr::get_delta is inclusive, whereas the sync_state request block_num is defined to
+            //   be
             // exclusive, so the from_forest has to be adjusted with a +1
             let from_forest = (block_num + 1) as usize;
             let to_forest = state_sync.block_header.block_num() as usize;
@@ -442,12 +521,40 @@ impl State {
         Ok((state_sync, delta))
     }
 
+    /// Loads data to synchronize a client's notes.
+    ///
+    /// The client's request contains a list of tags, this method will return the first
+    /// block with a matching tag, or the chain tip. All the other values are filter based on this
+    /// block range.
+    ///
+    /// # Arguments
+    ///
+    /// - `block_num`: The last block *known* by the client, updates start from the next block.
+    /// - `note_tags`: The tags the client is interested in, resulting notes are restricted to the
+    ///   first block containing a matching note.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn sync_notes(
+        &self,
+        block_num: BlockNumber,
+        note_tags: Vec<u32>,
+    ) -> Result<(NoteSyncUpdate, MmrProof), NoteSyncError> {
+        let inner = self.inner.read().await;
+
+        let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
+
+        let mmr_proof = inner
+            .chain_mmr
+            .open(note_sync.block_header.block_num() as usize, inner.chain_mmr.forest())?;
+
+        Ok((note_sync, mmr_proof))
+    }
+
     /// Returns data needed by the block producer to construct and prove the next block.
     pub async fn get_block_inputs(
         &self,
         account_ids: &[AccountId],
         nullifiers: &[Nullifier],
-        unauthenticated_notes: Vec<NoteId>,
+        unauthenticated_notes: BTreeSet<NoteId>,
     ) -> Result<BlockInputs, GetBlockInputsError> {
         let inner = self.inner.read().await;
 
@@ -496,7 +603,8 @@ impl State {
             })
             .collect();
 
-        let found_unauthenticated_notes = self.db.select_note_ids(unauthenticated_notes).await?;
+        let found_unauthenticated_notes =
+            self.get_note_authentication_info(unauthenticated_notes).await?;
 
         Ok(BlockInputs {
             block_header: latest,
@@ -550,8 +658,8 @@ impl State {
         self.db.select_nullifiers().await
     }
 
-    /// Lists all known accounts, with their ids, latest state hash, and block at which the account was last
-    /// modified, intended for testing.
+    /// Lists all known accounts, with their ids, latest state hash, and block at which the account
+    /// was last modified, intended for testing.
     pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, DatabaseError> {
         self.db.select_accounts().await
     }
@@ -564,6 +672,24 @@ impl State {
     /// Returns details for public (on-chain) account.
     pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await
+    }
+
+    /// Returns the state delta between `from_block` (exclusive) and `to_block` (inclusive) for the
+    /// given account.
+    pub(crate) async fn get_account_state_delta(
+        &self,
+        account_id: AccountId,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+    ) -> Result<AccountDelta, DatabaseError> {
+        let deltas = self.db.select_account_state_deltas(account_id, from_block, to_block).await?;
+
+        deltas
+            .into_iter()
+            .try_fold(AccountDelta::default(), |mut accumulator, delta| {
+                accumulator.merge(delta).map(|_| accumulator)
+            })
+            .map_err(Into::into)
     }
 
     /// Loads a block from the block store. Return `Ok(None)` if the block is not found.
@@ -608,7 +734,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitiali
 #[instrument(target = "miden-store", skip_all)]
 async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
     let block_hashes: Vec<RpoDigest> =
-        db.select_block_headers().await?.iter().map(BlockHeader::hash).collect();
+        db.select_all_block_headers().await?.iter().map(BlockHeader::hash).collect();
 
     Ok(block_hashes.into())
 }

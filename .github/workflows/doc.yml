@@ -8,13 +8,21 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
+# Limits workflow concurrency to only the latest commit in the PR.
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
+  cancel-in-progress: true
+
 jobs:
   doc:
     name: doc stable on ubuntu-latest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+      - name: Rustup
+        run: rustup update --no-self-update
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
       - name: Build docs
-        run: |
-          rustup update --no-self-update stable
-          make doc
+        run: make doc

@@ -170,7 +170,7 @@ where
         //       and only then checking against the other ready batches
         let dangling_notes = self.find_dangling_notes(&txs).await;
         let found_unauthenticated_notes = match dangling_notes.is_empty() {
-            true => None,
+            true => Default::default(),
             false => {
                 let stored_notes =
                     match self.store.get_note_authentication_info(dangling_notes.iter()).await {
@@ -179,14 +179,14 @@ where
                     };
                 let missing_notes: Vec<_> = dangling_notes
                     .into_iter()
-                    .filter(|note_id| !stored_notes.contains_key(note_id))
+                    .filter(|note_id| !stored_notes.contains_note(note_id))
                     .collect();
 
                 if !missing_notes.is_empty() {
                     return Err(BuildBatchError::UnauthenticatedNotesNotFound(missing_notes, txs));
                 }
 
-                Some(stored_notes)
+                stored_notes
             },
         };
 

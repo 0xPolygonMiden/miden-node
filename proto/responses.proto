@@ -2,7 +2,7 @@ syntax = "proto3";
 package responses;
 
 import "account.proto";
-import "block_header.proto";
+import "block.proto";
 import "digest.proto";
 import "merkle.proto";
 import "mmr.proto";
@@ -17,9 +17,14 @@ message CheckNullifiersResponse {
     repeated smt.SmtOpening proofs = 1;
 }
 
+message CheckNullifiersByPrefixResponse {
+    // List of nullifiers matching the prefixes specified in the request.
+    repeated NullifierUpdate nullifiers = 1;
+}
+
 message GetBlockHeaderByNumberResponse {
     // The requested block header
-    block_header.BlockHeader block_header = 1;
+    block.BlockHeader block_header = 1;
 
     // Merkle path to verify the block's inclusion in the MMR at the returned `chain_length`
     optional merkle.MerklePath mmr_path = 2;
@@ -38,7 +43,7 @@ message SyncStateResponse {
     fixed32 chain_tip = 1;
 
     // Block header of the block with the first note matching the specified criteria
-    block_header.BlockHeader block_header = 2;
+    block.BlockHeader block_header = 2;
 
     // Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
     mmr.MmrDelta mmr_delta = 3;
@@ -57,6 +62,23 @@ message SyncStateResponse {
     repeated NullifierUpdate nullifiers = 8;
 }
 
+message SyncNoteResponse {
+    // Number of the latest block in the chain
+    fixed32 chain_tip = 1;
+
+    // Block header of the block with the first note matching the specified criteria
+    block.BlockHeader block_header = 2;
+
+    // Merkle path to verify the block's inclusion in the MMR at the returned `chain_tip`.
+    //
+    // An MMR proof can be constructed for the leaf of index `block_header.block_num` of
+    // an MMR of forest `chain_tip` with this path.
+    merkle.MerklePath mmr_path = 3;
+
+    // List of all notes together with the Merkle paths from `response.block_header.note_root`
+    repeated note.NoteSyncRecord notes = 4;
+}
+
 // An account returned as a response to the GetBlockInputs
 message AccountBlockInputRecord {
     account.AccountId account_id = 1;
@@ -72,7 +94,7 @@ message NullifierBlockInputRecord {
 
 message GetBlockInputsResponse {
     // The latest block header
-    block_header.BlockHeader block_header = 1;
+    block.BlockHeader block_header = 1;
 
     // Peaks of the above block's mmr, The `forest` value is equal to the block number
     repeated digest.Digest mmr_peaks = 2;
@@ -84,7 +106,7 @@ message GetBlockInputsResponse {
     repeated NullifierBlockInputRecord nullifiers = 4;
 
     // The list of requested notes which were found in the database
-    repeated digest.Digest found_unauthenticated_notes = 5;
+    note.NoteAuthenticationInfo found_unauthenticated_notes = 5;
 }
 
 // An account returned as a response to the GetTransactionInputs
@@ -105,13 +127,21 @@ message GetTransactionInputsResponse {
     AccountTransactionInputRecord account_state = 1;
     repeated NullifierTransactionInputRecord nullifiers = 2;
     repeated digest.Digest missing_unauthenticated_notes = 3;
+    fixed32 block_height = 4;
 }
 
-message SubmitProvenTransactionResponse {}
+message SubmitProvenTransactionResponse {
+    // The node's current block height
+    fixed32 block_height = 1;
+}
 
 message GetNotesByIdResponse {
     // Lists Note's returned by the database
     repeated note.Note notes = 1;
+}
+
+message GetNoteAuthenticationInfoResponse {
+    note.NoteAuthenticationInfo proofs = 1;
 }
 
 message ListNullifiersResponse {
@@ -137,4 +167,9 @@ message GetAccountDetailsResponse {
 message GetBlockByNumberResponse {
     // The requested `Block` data encoded using miden native format
     optional bytes block = 1;
+}
+
+message GetAccountStateDeltaResponse {
+    // The calculated `AccountStateDelta` encoded using miden native format
+    optional bytes delta = 1;
 }

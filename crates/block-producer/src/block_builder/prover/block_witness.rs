@@ -1,15 +1,17 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{delta::AccountUpdateDetails, AccountId},
+    block::BlockAccountUpdate,
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
     notes::Nullifier,
     transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
-    BlockHeader, Digest, Felt, BLOCK_OUTPUT_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
+    BlockHeader, Digest, Felt, BLOCK_NOTES_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
 use crate::{
+    batch_builder::batch::AccountUpdate,
     block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
     TransactionBatch,
@@ -31,44 +33,13 @@ pub struct BlockWitness {
 
 impl BlockWitness {
     pub fn new(
-        block_inputs: BlockInputs,
+        mut block_inputs: BlockInputs,
         batches: &[TransactionBatch],
-    ) -> Result<Self, BuildBlockError> {
-        Self::validate_inputs(&block_inputs, batches)?;
-
-        let updated_accounts = {
-            let mut account_initial_states: BTreeMap<AccountId, Digest> =
-                batches.iter().flat_map(TransactionBatch::account_initial_states).collect();
-
-            let mut account_merkle_proofs: BTreeMap<AccountId, MerklePath> = block_inputs
-                .accounts
-                .into_iter()
-                .map(|(account_id, witness)| (account_id, witness.proof))
-                .collect();
-
-            batches
-                .iter()
-                .flat_map(TransactionBatch::updated_accounts)
-                .map(|update| {
-                    let initial_state_hash = account_initial_states
-                        .remove(&update.account_id())
-                        .expect("already validated that key exists");
-                    let proof = account_merkle_proofs
-                        .remove(&update.account_id())
-                        .expect("already validated that key exists");
-
-                    (
-                        update.account_id(),
-                        AccountUpdateWitness {
-                            initial_state_hash,
-                            final_state_hash: update.new_state_hash(),
-                            proof,
-                            transactions: update.transactions().to_vec(),
-                        },
-                    )
-                })
-                .collect()
-        };
+    ) -> Result<(Self, Vec<BlockAccountUpdate>), BuildBlockError> {
+        if batches.len() > MAX_BATCHES_PER_BLOCK {
+            return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
+        }
+        Self::validate_nullifiers(&block_inputs, batches)?;
 
         let batch_created_notes_roots = batches
             .iter()
@@ -77,13 +48,88 @@ impl BlockWitness {
             .map(|(batch_index, batch)| (batch_index, batch.output_notes_root()))
             .collect();
 
-        Ok(Self {
-            updated_accounts,
-            batch_created_notes_roots,
-            produced_nullifiers: block_inputs.nullifiers,
-            chain_peaks: block_inputs.chain_peaks,
-            prev_header: block_inputs.block_header,
-        })
+        // Order account updates by account ID and each update's initial state hash.
+        //
+        // This let's us chronologically order the updates per account across batches.
+        let mut updated_accounts = BTreeMap::<AccountId, BTreeMap<Digest, AccountUpdate>>::new();
+        for (account_id, update) in batches.iter().flat_map(TransactionBatch::updated_accounts) {
+            updated_accounts
+                .entry(*account_id)
+                .or_default()
+                .insert(update.init_state, update.clone());
+        }
+
+        // Build account witnesses.
+        let mut account_witnesses = Vec::with_capacity(updated_accounts.len());
+        let mut block_updates = Vec::with_capacity(updated_accounts.len());
+
+        for (account_id, mut updates) in updated_accounts {
+            let (initial_state_hash, proof) = block_inputs
+                .accounts
+                .remove(&account_id)
+                .map(|witness| (witness.hash, witness.proof))
+                .ok_or(BuildBlockError::MissingAccountInput(account_id))?;
+
+            let mut details: Option<AccountUpdateDetails> = None;
+
+            // Chronologically chain updates for this account together using the state hashes to
+            // link them.
+            let mut transactions = Vec::new();
+            let mut current_hash = initial_state_hash;
+            while !updates.is_empty() {
+                let update = updates.remove(&current_hash).ok_or_else(|| {
+                    BuildBlockError::InconsistentAccountStateTransition(
+                        account_id,
+                        current_hash,
+                        updates.keys().copied().collect(),
+                    )
+                })?;
+
+                transactions.extend(update.transactions);
+                current_hash = update.final_state;
+
+                details = Some(match details {
+                    None => update.details,
+                    Some(details) => details.merge(update.details).map_err(|err| {
+                        BuildBlockError::AccountUpdateError { account_id, error: err }
+                    })?,
+                });
+            }
+
+            account_witnesses.push((
+                account_id,
+                AccountUpdateWitness {
+                    initial_state_hash,
+                    final_state_hash: current_hash,
+                    proof,
+                    transactions: transactions.clone(),
+                },
+            ));
+
+            block_updates.push(BlockAccountUpdate::new(
+                account_id,
+                current_hash,
+                details.expect("Must be some by now"),
+                transactions,
+            ));
+        }
+
+        if !block_inputs.accounts.is_empty() {
+            return Err(BuildBlockError::ExtraStoreData(
+                block_inputs.accounts.keys().copied().collect(),
+            ));
+        }
+
+        Ok((
+            Self {
+                updated_accounts: account_witnesses,
+                batch_created_notes_roots,
+                produced_nullifiers: block_inputs.nullifiers,
+                chain_peaks: block_inputs.chain_peaks,
+                prev_header: block_inputs.block_header,
+            },
+            block_updates,
+        ))
     }
 
     /// Converts [`BlockWitness`] into inputs to the block kernel program
@@ -96,7 +142,8 @@ impl BlockWitness {
         Ok((advice_inputs, stack_inputs))
     }
 
-    /// Returns an iterator over all transactions which affected accounts in the block with corresponding account IDs.
+    /// Returns an iterator over all transactions which affected accounts in the block with
+    /// corresponding account IDs.
     pub(super) fn transactions(&self) -> impl Iterator<Item = (TransactionId, AccountId)> + '_ {
         self.updated_accounts.iter().flat_map(|(account_id, update)| {
             update.transactions.iter().map(move |tx_id| (*tx_id, *account_id))
@@ -106,72 +153,9 @@ impl BlockWitness {
     // HELPERS
     // ---------------------------------------------------------------------------------------------
 
-    fn validate_inputs(
-        block_inputs: &BlockInputs,
-        batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError> {
-        if batches.len() > MAX_BATCHES_PER_BLOCK {
-            return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
-        }
-
-        Self::validate_account_states(block_inputs, batches)?;
-        Self::validate_nullifiers(block_inputs, batches)?;
-
-        Ok(())
-    }
-
-    /// Validates that initial account states coming from the batches are the same as the account
-    /// states returned from the store
-    fn validate_account_states(
-        block_inputs: &BlockInputs,
-        batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError> {
-        let batches_initial_states: BTreeMap<AccountId, Digest> =
-            batches.iter().flat_map(|batch| batch.account_initial_states()).collect();
-
-        let accounts_in_batches: BTreeSet<AccountId> =
-            batches_initial_states.keys().cloned().collect();
-        let accounts_in_store: BTreeSet<AccountId> =
-            block_inputs.accounts.keys().copied().collect();
-
-        if accounts_in_batches == accounts_in_store {
-            let accounts_with_different_hashes: Vec<AccountId> = block_inputs
-                .accounts
-                .iter()
-                .filter_map(|(account_id, witness)| {
-                    let hash_in_store = witness.hash;
-                    let hash_in_batches = batches_initial_states
-                        .get(account_id)
-                        .expect("we already verified that account id is contained in batches");
-
-                    if hash_in_store == *hash_in_batches {
-                        None
-                    } else {
-                        Some(*account_id)
-                    }
-                })
-                .collect();
-
-            if accounts_with_different_hashes.is_empty() {
-                Ok(())
-            } else {
-                Err(BuildBlockError::InconsistentAccountStates(accounts_with_different_hashes))
-            }
-        } else {
-            // The batches and store don't modify the same set of accounts
-            let union: BTreeSet<AccountId> =
-                accounts_in_batches.union(&accounts_in_store).cloned().collect();
-            let intersection: BTreeSet<AccountId> =
-                accounts_in_batches.intersection(&accounts_in_store).cloned().collect();
-
-            let difference: Vec<AccountId> = union.difference(&intersection).cloned().collect();
-
-            Err(BuildBlockError::InconsistentAccountIds(difference))
-        }
-    }
-
-    /// Validates that the nullifiers returned from the store are the same the produced nullifiers in the batches.
-    /// Note that validation that the value of the nullifiers is `0` will be done in MASM.
+    /// Validates that the nullifiers returned from the store are the same the produced nullifiers
+    /// in the batches. Note that validation that the value of the nullifiers is `0` will be
+    /// done in MASM.
     fn validate_nullifiers(
         block_inputs: &BlockInputs,
         batches: &[TransactionBatch],
@@ -237,7 +221,7 @@ impl BlockWitness {
                 stack_inputs.push(batch_index);
             }
 
-            let empty_root = EmptySubtreeRoots::entry(BLOCK_OUTPUT_NOTES_TREE_DEPTH, 0);
+            let empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
             stack_inputs.extend(*empty_root);
             stack_inputs.push(
                 Felt::try_from(self.batch_created_notes_roots.len() as u64)

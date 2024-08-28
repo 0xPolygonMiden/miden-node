@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, create_dir_all},
     sync::Arc,
 };
@@ -10,9 +10,10 @@ use miden_node_proto::{
     generated::note::Note as NotePb,
 };
 use miden_objects::{
+    accounts::AccountDelta,
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::{NoteId, NoteMetadata, Nullifier},
+    notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
     utils::Serializable,
     BlockHeader, GENESIS_BLOCK,
@@ -25,10 +26,10 @@ use crate::{
     blocks::BlockStore,
     config::StoreConfig,
     db::migrations::apply_migrations,
-    errors::{DatabaseError, DatabaseSetupError, GenesisError, StateSyncError},
+    errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
     types::{AccountId, BlockNumber},
-    COMPONENT,
+    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
 mod migrations;
@@ -71,10 +72,10 @@ impl From<NoteRecord> for NotePb {
     fn from(note: NoteRecord) -> Self {
         Self {
             block_num: note.block_num,
-            note_index: note.note_index.to_absolute_index() as u32,
+            note_index: note.note_index.to_absolute_index(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
-            merkle_path: Some(note.merkle_path.into()),
+            merkle_path: Some(Into::into(&note.merkle_path)),
             details: note.details,
         }
     }
@@ -88,6 +89,13 @@ pub struct StateSyncUpdate {
     pub account_updates: Vec<AccountSummary>,
     pub transactions: Vec<TransactionSummary>,
     pub nullifiers: Vec<NullifierInfo>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct NoteSyncUpdate {
+    pub notes: Vec<NoteRecord>,
+    pub block_header: BlockHeader,
+    pub chain_tip: BlockNumber,
 }
 
 impl Db {
@@ -117,6 +125,11 @@ impl Db {
                             // queries we want to run
                             array::load_module(conn)?;
 
+                            // Increase the statement cache size.
+                            conn.set_prepared_statement_cache_capacity(
+                                SQL_STATEMENT_CACHE_CAPACITY,
+                            );
+
                             // Enable the WAL mode. This allows concurrent reads while the
                             // transaction is being written, this is required for proper
                             // synchronization of the servers in-memory and on-disk representations
@@ -128,7 +141,7 @@ impl Db {
                         })
                         .await
                         .map_err(|e| {
-                            HookError::Message(format!("Loading carray module failed: {e}"))
+                            HookError::Message(format!("Loading carray module failed: {e}").into())
                         })?;
 
                     Ok(())
@@ -161,6 +174,27 @@ impl Db {
         self.pool.get().await?.interact(sql::select_nullifiers).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
         })?
+    }
+
+    /// Loads the nullifiers that match the prefixes from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_nullifiers_by_prefix(
+        &self,
+        prefix_len: u32,
+        nullifier_prefixes: Vec<u32>,
+    ) -> Result<Vec<NullifierInfo>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| {
+                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes)
+            })
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!(
+                    "Select nullifiers by prefix task failed: {err}"
+                ))
+            })?
     }
 
     /// Loads all the notes from the DB.
@@ -197,13 +231,28 @@ impl Db {
             })?
     }
 
-    /// Loads all the block headers from the DB.
+    /// Loads multiple block headers from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_block_headers(&self) -> Result<Vec<BlockHeader>> {
+    pub async fn select_block_headers(&self, blocks: Vec<BlockNumber>) -> Result<Vec<BlockHeader>> {
         self.pool
             .get()
             .await?
-            .interact(sql::select_block_headers)
+            .interact(move |conn| sql::select_block_headers(conn, blocks))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!(
+                    "Select many block headers task failed: {err}"
+                ))
+            })?
+    }
+
+    /// Loads all the block headers from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_all_block_headers(&self) -> Result<Vec<BlockHeader>> {
+        self.pool
+            .get()
+            .await?
+            .interact(sql::select_all_block_headers)
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select block headers task failed: {err}"))
@@ -240,30 +289,37 @@ impl Db {
     pub async fn get_state_sync(
         &self,
         block_num: BlockNumber,
-        account_ids: &[AccountId],
-        note_tag_prefixes: &[u32],
-        nullifier_prefixes: &[u32],
+        account_ids: Vec<AccountId>,
+        note_tags: Vec<u32>,
+        nullifier_prefixes: Vec<u32>,
     ) -> Result<StateSyncUpdate, StateSyncError> {
-        let account_ids = account_ids.to_vec();
-        let note_tag_prefixes = note_tag_prefixes.to_vec();
-        let nullifier_prefixes = nullifier_prefixes.to_vec();
-
         self.pool
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
             .interact(move |conn| {
-                sql::get_state_sync(
-                    conn,
-                    block_num,
-                    &account_ids,
-                    &note_tag_prefixes,
-                    &nullifier_prefixes,
-                )
+                sql::get_state_sync(conn, block_num, &account_ids, &note_tags, &nullifier_prefixes)
             })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get state sync task failed: {err}"))
+            })?
+    }
+
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn get_note_sync(
+        &self,
+        block_num: BlockNumber,
+        note_tags: Vec<u32>,
+    ) -> Result<NoteSyncUpdate, NoteSyncError> {
+        self.pool
+            .get()
+            .await
+            .map_err(DatabaseError::MissingDbConnection)?
+            .interact(move |conn| sql::get_note_sync(conn, block_num, &note_tags))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Get notes sync task failed: {err}"))
             })?
     }
 
@@ -277,6 +333,24 @@ impl Db {
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
+            })?
+    }
+
+    /// Loads inclusion proofs for notes matching the given IDs.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_note_inclusion_proofs(
+        &self,
+        note_ids: BTreeSet<NoteId>,
+    ) -> Result<BTreeMap<NoteId, NoteInclusionProof>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_note_inclusion_proofs(conn, note_ids))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!(
+                    "Select block note inclusion proofs task failed: {err}"
+                ))
             })?
     }
 
@@ -313,7 +387,7 @@ impl Db {
                     &transaction,
                     &block.header(),
                     &notes,
-                    block.created_nullifiers(),
+                    block.nullifiers(),
                     block.updated_accounts(),
                 )?;
 
@@ -334,12 +408,31 @@ impl Db {
         Ok(())
     }
 
+    /// Loads account deltas from the DB for given account ID and block range.
+    /// Note, that `from_block` is exclusive and `to_block` is inclusive.
+    pub(crate) async fn select_account_state_deltas(
+        &self,
+        account_id: AccountId,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+    ) -> Result<Vec<AccountDelta>> {
+        self.pool
+            .get()
+            .await
+            .map_err(DatabaseError::MissingDbConnection)?
+            .interact(move |conn| -> Result<Vec<AccountDelta>> {
+                sql::select_account_deltas(conn, account_id, from_block, to_block)
+            })
+            .await
+            .map_err(|err| DatabaseError::InteractError(err.to_string()))?
+    }
+
     // HELPERS
     // ---------------------------------------------------------------------------------------------
 
-    /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that the
-    /// genesis block in the database is consistent with the genesis block data in the genesis JSON
-    /// file.
+    /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that
+    /// the genesis block in the database is consistent with the genesis block data in the
+    /// genesis JSON file.
     #[instrument(target = "miden-store", skip_all, err)]
     async fn ensure_genesis_block(
         &self,
@@ -384,7 +477,8 @@ impl Db {
                     .await
                     .map_err(DatabaseError::MissingDbConnection)?
                     .interact(move |conn| -> Result<()> {
-                        // TODO: This span is logged in a root span, we should connect it to the parent one.
+                        // TODO: This span is logged in a root span, we should connect it to the
+                        // parent one.
                         let span = info_span!(target: COMPONENT, "write_genesis_block_to_db");
                         let guard = span.enter();
 

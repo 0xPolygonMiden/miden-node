@@ -7,6 +7,8 @@ use thiserror::Error;
 pub enum ConversionError {
     #[error("Hex error: {0}")]
     HexError(#[from] hex::FromHexError),
+    #[error("Note error: {0}")]
+    NoteError(#[from] miden_objects::NoteError),
     #[error("SMT leaf error: {0}")]
     SmtLeafError(#[from] SmtLeafError),
     #[error("SMT proof error: {0}")]
@@ -17,8 +19,6 @@ pub enum ConversionError {
     InsufficientData { expected: usize, got: usize },
     #[error("Value is not in the range 0..MODULUS")]
     NotAValidFelt,
-    #[error("Invalid note type value: {0}")]
-    NoteTypeError(#[from] miden_objects::NoteError),
     #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
     MissingFieldInProtobufRepresentation {
         entity: &'static str,

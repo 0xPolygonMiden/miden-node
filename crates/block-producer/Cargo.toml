@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-block-producer"
-version = "0.4.0"
+version.workspace = true
 description = "Miden node's block producer component"
 readme = "README.md"
 keywords = ["miden", "node", "block-producer"]
@@ -17,9 +17,8 @@ tracing-forest = ["miden-node-utils/tracing-forest"]
 [dependencies]
 async-trait = { version = "0.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
-itertools = { version = "0.12" }
+itertools = { version = "0.13" }
 miden-node-proto = { workspace = true }
-miden-node-store = { workspace = true }
 miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
 miden-processor = { workspace = true }
@@ -27,7 +26,7 @@ miden-stdlib = { workspace = true }
 miden-tx = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
-tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
+tokio = { version = "1.38", features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
 toml = { version = "0.8" }
 tonic = { workspace = true }
 tracing = { workspace = true }
@@ -36,8 +35,11 @@ tracing-subscriber = { workspace = true }
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env", "test"] }
 miden-air = { workspace = true }
+miden-lib = { workspace = true, features = ["testing"] }
 miden-node-test-macro = { path = "../test-macro" }
 miden-objects = { workspace = true, features = ["testing"] }
+miden-tx = { workspace = true, features = ["testing"] }
 once_cell = { version = "1.18" }
-tokio = { version = "1.29", features = ["test-util"] }
-winterfell = { version = "0.8" }
+rand_chacha = { version = "0.3", default-features = false }
+tokio = { version = "1.38", features = ["test-util"] }
+winterfell = { version = "0.9" }

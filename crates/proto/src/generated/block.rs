@@ -33,3 +33,14 @@ pub struct BlockHeader {
     #[prost(fixed32, tag = "10")]
     pub timestamp: u32,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BlockInclusionProof {
+    #[prost(message, optional, tag = "1")]
+    pub block_header: ::core::option::Option<BlockHeader>,
+    #[prost(message, optional, tag = "2")]
+    pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
+    /// The chain length associated with `mmr_path`.
+    #[prost(fixed32, tag = "3")]
+    pub chain_length: u32,
+}
