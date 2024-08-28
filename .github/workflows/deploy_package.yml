@@ -7,267 +7,130 @@ on:
       tag:
         type: string
         default: "next"
-    secrets:
+      oidcrole:
+        type: string
+        default: midendev
       account_id:
-        required: true
+        type: string
       instance_id:
-        required: true
+        type: string
 
 permissions:
   id-token: write
   contents: write
 
 jobs:
-  deploy_tff:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
-        with:
+        with: 
           aws-region: eu-west-1
-          role-to-assume: arn:aws:iam::${{ secrets.account_id }}:role/midendev-GithubActionsRole
+          role-to-assume: "arn:aws:iam::${{ secrets[inputs.account_id] }}:role/${{ inputs.oidcrole }}-GithubActionsRole"
           role-session-name: GithubActionsSession
+
+      - name: Checkout Code Repository for reusable action
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install awscli
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[inputs.instance_id] }}
+          command: |
+            sudo apt udpate; \
+            sudo apt install awscli -y
+        if: ${{ inputs.target == 'devnet' }}
+
+      - name: Execute Architecture for instance
+        id: get_arch
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[inputs.instance_id] }}
+          command: |
+            uname -m
 
       - name: Determine architecture
         run: |
-          ARCHITECTURE=$(uname -m)
-          if [[ "$ARCHITECTURE" =~ ^x86 ]]; then
-            echo "package_postfix=amd64.dev" >> $GITHUB_ENV
+          if [[ "${{ steps.get_arch.outputs.cmd_result }}" =~ ^x86 ]]; then
+            echo "package_postfix=amd64.deb" >> $GITHUB_ENV
           else
-            echo "package_postfix=arm64.dev" >> $GITHUB_ENV
+            echo "package_postfix=arm64.deb" >> $GITHUB_ENV
           fi
 
-      - name: Package install testnet
-        id: package_install_testnet
-        run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids ${{ secrets.instance_id }} \
-            --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":[
-                "sudo rm -f miden-*",                
-                "sudo systemctl stop miden-node",
-                "sudo systemctl stop miden-faucet",
-                "sudo apt remove miden-node miden-faucet -y",
-                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/${{ inputs.tag }}/miden-faucet-${{ inputs.tag }}-${{ env.package_postfix }}",
-                "wget https://github.com/0xPolygonMiden/miden-node/releases/download/${{ inputs.tag }}/miden-node-${{ inputs.tag }}-${{ env.package_postfix }}",
-                "dpkg -i miden-node-${{ inputs.tag }}-${{ env.package_postfix }}",
-                "dpkg -i miden-faucet-${{ inputs.tag }}-${{ env.package_postfix }}"
-              ]}' \
-            --output text \
-            --query "Command.CommandId")
-          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
-        if: ${{ inputs.target }} == "testnet"
+      - name: Stop miden services
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[inputs.instance_id] }}
+          command: |
+            sudo rm -f miden-*; sudo systemctl stop miden-node; sudo systemctl stop miden-faucet; sudo apt remove miden-node miden-faucet -y
 
-      - name: Poll command status and retrieve live logs from testnet install
-        run: |
-          while true; do
-            STATUS=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.package_install_testnet.outputs.command_id }} \
-                --details \
-                --query "CommandInvocations[0].Status" \
-                --output text)
-            echo "Command Status: $STATUS"
-            
-            OUTPUT=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.package_install_testnet.outputs.command_id }} \
-                --details \
-                --query "CommandInvocations[0].CommandPlugins[0].Output" \
-                --output text)
-            echo "Command Output: $OUTPUT"
-            
-            if [ "$STATUS" == "Success" ]; then
-              echo "Command completed successfully."
-              break
-            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
-              echo "Command failed with status: $STATUS"
-              exit 1
-            else
-              sleep 10
-            fi
-          done
-        if: ${{ inputs.target }} == "testnet"
+      - name: Package download testnet
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[inputs.instance_id] }}
+          command: |
+            wget https://github.com/0xPolygonMiden/miden-node/releases/download/${{ inputs.tag }}/miden-faucet-${{ inputs.tag }}-${{ env.package_postfix }}; \
+            wget https://github.com/0xPolygonMiden/miden-node/releases/download/${{ inputs.tag }}/miden-node-${{ inputs.tag }}-${{ env.package_postfix }}
+        if: ${{ inputs.target == 'testnet' }}
 
-      - name: Download artifact
+      - name: Download package to github runner
         uses: actions/download-artifact@v3
         with:
           name: devnet_package
-        if: ${{ inputs.target }} == "devnet"
+        if: ${{ inputs.target == 'devnet' }}
 
-      - name: Package install devnet
-        id: package_install_devnet
+      - name: Upload packages to S3
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids ${{ secrets.instance_id }} \
-            --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":[
-                "sudo rm -f miden-*",                
-                "sudo systemctl stop miden-node",
-                "sudo systemctl stop miden-faucet",
-                "sudo apt remove miden-node miden-faucet -y",
-                "dpkg -i miden-node-${{ inputs.tag }}-${{ env.package_postfix }}",
-                "dpkg -i miden-faucet-${{ inputs.tag }}-${{ env.package_postfix }}"
-              ]}' \
-            --output text \
-            --query "Command.CommandId")
-          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
-        if: ${{ inputs.target }} == "devnet"
+          # Copy miden-node package to S3
+          aws s3 cp ${{ runner.workspace }}/miden-node/miden-node-${{ inputs.tag }}-${{ env.package_postfix }} \
+            s3://release-artifacts-${{ secrets[inputs.account_id] }}/miden-node-${{ inputs.tag }}-${{ env.package_postfix }}
+          # Copy miden-faucet package to S3
+          aws s3 cp ${{ runner.workspace }}/miden-node/miden-faucet-${{ inputs.tag }}-${{ env.package_postfix }} \
+            s3://release-artifacts-${{ secrets[inputs.account_id] }}/miden-faucet-${{ inputs.tag }}-${{ env.package_postfix }}
+        if: ${{ inputs.target == 'devnet' }}
 
-      - name: Poll command status and retrieve live logs from devnet install
-        run: |
-          while true; do
-            STATUS=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.package_install_devnet.outputs.command_id }} \
-                --details \
-                --query "CommandInvocations[0].Status" \
-                --output text)
-            echo "Command Status: $STATUS"
-            
-            OUTPUT=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.package_install_devnet.outputs.command_id }} \
-                --details \
-                --query "CommandInvocations[0].CommandPlugins[0].Output" \
-                --output text)
-            echo "Command Output: $OUTPUT"
-            
-            if [ "$STATUS" == "Success" ]; then
-              echo "Command completed successfully."
-              break
-            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
-              echo "Command failed with status: $STATUS"
-              exit 1
-            else
-              sleep 10
-            fi
-          done
-        if: ${{ inputs.target }} == "testnet"
+      - name: Download package to devnet
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[inputs.instance_id] }}
+          command: |
+            aws s3 cp s3://release-artifacts-${{ secrets[inputs.account_id] }}/miden-node-${{ inputs.tag }}-${{ env.package_postfix }} miden-node-${{ inputs.tag }}-${{ env.package_postfix }}; \
+            aws s3 cp s3://release-artifacts-${{ secrets[inputs.account_id] }}/miden-faucet-${{ inputs.tag }}-${{ env.package_postfix }} miden-faucet-${{ inputs.tag }}-${{ env.package_postfix }}
+        if: ${{ inputs.target == 'devnet' }}
       
+      - name: Package install on ${{ inputs.target }}
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[inputs.instance_id] }}
+          command: |
+            dpkg -i miden-node-${{ inputs.tag }}-${{ env.package_postfix }}; \
+            dpkg -i miden-faucet-${{ inputs.tag }}-${{ env.package_postfix }}
 
       - name: Configure environment
-        id: configure_environment
-        run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids ${{ secrets.instance_id }} \
-            --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":[
-                "sleep 10",
-                "sudo chown -R miden /opt/miden",
-                "sudo /usr/bin/miden-node init -c /etc/miden/miden-node.toml -g /opt/miden/miden-node/genesis.toml",                
-                "sudo /usr/bin/miden-node make-genesis -i /opt/miden/miden-node/genesis.toml -o /opt/miden/miden-node/genesis.dat",
-                "sudo /usr/bin/miden-faucet init -c /opt/miden/miden-faucet/miden-faucet.toml"                
-              ]}' \
-            --output text \
-            --query "Command.CommandId")
-          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
-
-      - name: Check configure environment command status and retrieve output
-        run: |
-            while true; do
-              STATUS=$(aws ssm list-command-invocations \
-                  --command-id ${{ steps.configure_environment.outputs.command_id }} \
-                  --details \
-                  --query "CommandInvocations[0].Status" \
-                  --output text)
-              echo "Command Status: $STATUS"
-              
-              OUTPUT=$(aws ssm list-command-invocations \
-                  --command-id ${{ steps.configure_environment.outputs.command_id }} \
-                  --details \
-                  --query "CommandInvocations[0].CommandPlugins[0].Output" \
-                  --output text)
-              echo "Command Output: $OUTPUT"
-              
-              if [ "$STATUS" == "Success" ]; then
-                echo "Command completed successfully."
-                break
-              elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
-                echo "Command failed with status: $STATUS"
-                exit 1
-              else
-                sleep 10
-              fi
-            done
-
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[inputs.instance_id] }}
+          command: |
+            sudo chown -R miden /opt/miden; \
+            sudo /usr/bin/miden-node init -c /etc/miden/miden-node.toml -g /opt/miden/miden-node/genesis.toml; \
+            sudo /usr/bin/miden-node make-genesis -i /opt/miden/miden-node/genesis.toml -o /opt/miden/miden-node/genesis.dat --force; \
+            sudo /usr/bin/miden-faucet init -c /opt/miden/miden-faucet/miden-faucet.toml
 
       - name: Start miden node service
-        id: start_miden_service
-        run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids ${{ secrets.instance_id }} \
-            --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":[
-                "sudo systemctl daemon-reload",
-                "sudo systemctl start miden-node"                
-              ]}' \
-            --output text \
-            --query "Command.CommandId")
-          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
-
-      - name: Check Start services command status and retrieve output
-        run: |
-          while true; do
-            STATUS=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.start_miden_service.outputs.command_id }} \
-                --details \
-                --query "CommandInvocations[0].Status" \
-                --output text)
-            echo "Command Status: $STATUS"
-            
-            OUTPUT=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.start_miden_service.outputs.command_id }} \
-                --details \
-                --query "CommandInvocations[0].CommandPlugins[0].Output" \
-                --output text)
-            echo "Command Output: $OUTPUT"
-            
-            if [ "$STATUS" == "Success" ]; then
-              echo "Command completed successfully."
-              break
-            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
-              echo "Command failed with status: $STATUS"
-              exit 1
-            else
-              sleep 10
-            fi
-          done
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[inputs.instance_id] }}
+          command: |
+              sudo systemctl daemon-reload; \
+              sudo systemctl start miden-node
 
       - name: Start miden faucet service
-        id: start_miden_faucet_service
-        run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids ${{ secrets.instance_id }} \
-            --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":[
-                "sudo systemctl daemon-reload",
-                "sudo systemctl start miden-faucet"
-              ]}' \
-            --output text \
-            --query "Command.CommandId")
-          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
-
-      - name: Check Start services command status and retrieve output
-        run: |
-          while true; do
-            STATUS=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.start_miden_faucet_service.outputs.command_id }} \
-                --details \
-                --query "CommandInvocations[0].Status" \
-                --output text)
-            echo "Command Status: $STATUS"
-            
-            OUTPUT=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.start_miden_faucet_service.outputs.command_id }} \
-                --details \
-                --query "CommandInvocations[0].CommandPlugins[0].Output" \
-                --output text)
-            echo "Command Output: $OUTPUT"
-            
-            if [ "$STATUS" == "Success" ]; then
-              echo "Command completed successfully."
-              break
-            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
-              echo "Command failed with status: $STATUS"
-              exit 1
-            else
-              sleep 10
-            fi
-          done
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[inputs.instance_id] }}
+          command: |
+            sudo systemctl daemon-reload; \
+            sudo systemctl start miden-faucet
