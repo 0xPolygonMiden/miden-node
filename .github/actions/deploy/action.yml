@@ -18,12 +18,12 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-region: ${{ inputs.aws-region }}
-        role-to-assume: ${{ inputs.role-to-assume }}
-        role-session-name: GithubActionsSession
+    # - name: Configure AWS credentials
+    #   uses: aws-actions/configure-aws-credentials@v4
+    #   with:
+    #     aws-region: ${{ inputs.aws-region }}
+    #     role-to-assume: ${{ inputs.role-to-assume }}
+    #     role-session-name: GithubActionsSession
 
     - name: Configure ssh for scp access
       shell: bash
@@ -36,11 +36,6 @@ runs:
         echo "host i-* mi-*" >> ~/.ssh/config
         echo "    ProxyCommand sh -c \"aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p'\"" >> ~/.ssh/config
 
-    - name: ls before
-      uses: ../ssm-send-command
-      with:
-        instance-id: ${{ inputs.instance-id }}
-        command: "ls /tmp"
 
     - name: Test scp
       shell: bash
@@ -48,14 +43,3 @@ runs:
         echo "test data" > testfile
         scp testfile ${{ inputs.instance-id}}:/tmp/testfile
         
-    - name: ls after
-      uses: ../ssm-send-command
-      with:
-        instance-id: ${{ inputs.instance-id }}
-        command: "ls /tmp"
-
-    - name: cat after
-      uses: ../ssm-send-command
-      with:
-        instance-id: ${{ inputs.instance-id }}
-        command: "cat /tmp/testfile"

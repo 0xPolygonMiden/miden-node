@@ -33,6 +33,19 @@ jobs:
       #   with:
       #     suffix: ${{ steps.version.outputs.version }}-arm64
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.account-id }}:role/midendev-GithubActionsRole
+          aws-region: us-west-1
+          role-session-name: GithubActionsSession
+
+      - name: ls before
+        uses: ../ssm-send-command
+        with:
+          instance-id: ${{ inputs.instance-id }}
+          command: "ls /tmp"
+
       - name: Deploy packages
         uses: ./.github/actions/deploy
         with:
@@ -41,3 +54,15 @@ jobs:
           instance-id: ${{ env.instance-id }}
           # node-package: ${{ steps.build.outputs.node-package }}
           # faucet-package: ${{ steps.build.outputs.faucet-package }}
+
+      - name: ls after
+        uses: ../ssm-send-command
+        with:
+          instance-id: ${{ inputs.instance-id }}
+          command: "ls /tmp"
+
+      - name: cat after
+        uses: ../ssm-send-command
+        with:
+          instance-id: ${{ inputs.instance-id }}
+          command: "cat /tmp/testfile"
