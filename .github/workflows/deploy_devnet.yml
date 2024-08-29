@@ -16,7 +16,7 @@ jobs:
       labels: ubuntu22-arm-4core
 
     # Required for devnet instance access.
-    secrets:
+    env:
       account-id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
       instance-id: "${{ secrets.DEVNET_INSTANCE_ID }}"
 
@@ -36,8 +36,8 @@ jobs:
       - name: Deploy packages
         uses: ./.github/actions/deploy
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.account-id }}:role/midendev-GithubActionsRole
+          role-to-assume: arn:aws:iam::${{ env.account-id }}:role/midendev-GithubActionsRole
           aws-region: us-west-1
-          instance-id: ${{ secrets.instance-id }}
+          instance-id: ${{ env.instance-id }}
           # node-package: ${{ steps.build.outputs.node-package }}
           # faucet-package: ${{ steps.build.outputs.faucet-package }}
