@@ -12,47 +12,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Stop services
-      shell: bash
-      id: stop_services
-      run: |
-        COMMAND_ID=$(aws ssm send-command \
-          --instance-ids ${{ inputs.instance-id }} \
-          --document-name "AWS-RunShellScript" \
-          --parameters '{"commands":["ls -l"]}' \
-          --output text \
-          --query "Command.CommandId")
-        echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
-
-    - name: Check stop services command status and retrieve output
-      shell: bash
-      run: |
-        while true; do
-          STATUS=$(aws ssm list-command-invocations \
-              --command-id ${{ steps.stop_services.outputs.command_id }} \
-              --details \
-              --query "CommandInvocations[0].Status" \
-              --output text)
-          echo "Command Status: $STATUS"
-          
-          OUTPUT=$(aws ssm list-command-invocations \
-              --command-id ${{ steps.stop_services.outputs.command_id }} \
-              --details \
-              --query "CommandInvocations[0].CommandPlugins[0].Output" \
-              --output text)
-          echo "Command Output: $OUTPUT"
-          
-          if [ "$STATUS" == "Success" ]; then
-            echo "Command completed successfully."
-            break
-          elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
-            echo "Command failed with status: $STATUS"
-            exit 1
-          else
-            sleep 5 # Wait for 30 seconds before checking again
-          fi
-        done
-
     - name: Execute command
       shell: bash
       id: run-command
@@ -65,8 +24,9 @@ runs:
             --query "Command.CommandId")
           echo "command-id=$COMMAND_ID" >> $GITHUB_OUTPUT
 
-    - name: Monitor command logs and status
+    - name: Wait for command completion
       shell: bash
+      id: poll-status
       run: |
         echo "Waiting for command to complete"
         while true; do
@@ -77,20 +37,25 @@ runs:
                 --query "CommandInvocations[0].Status" \
                 --output text)
 
-            echo "Command status: $STATUS"
-
             # Print a progress `.` token until the command completes.
             case $STATUS in
               Pending | InProgress | Delayed )
                 echo .
                 sleep 5
+                continue
                 ;; 
               *) 
                 echo; # add a newline to end the progress line print. 
+                echo "status=$STATUS" >> $GITHUB_OUTPUT
                 break ;;
             esac
         done
 
+    - name: Log output and status
+      shell: bash
+      env:
+        STATUS: ${{ steps.poll-status.outputs.status }}
+      run: |
         # Grab the command output. Unfortunately this gets truncated at 2500 characters so its
         # not terribly useful for debugging but such is life.
         OUTPUT=$(aws ssm list-command-invocations \
@@ -100,9 +65,8 @@ runs:
             --query "CommandInvocations[0].CommandPlugins[0].Output" \
             --output text)
         echo "Command output: $OUTPUT"
-
-        echo "Command status: $STATUS"
             
-        if [ "$STATUS" != "Success" ]; then
+        echo "Command status: ${{ env.STATUS }}"
+        if [ ${{ env.STATUS }} != "Success" ]; then
               exit 1
         fi
