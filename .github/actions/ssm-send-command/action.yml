@@ -19,7 +19,7 @@ runs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids ${{ inputs.instance_id }} \
             --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":["${{ inputs.command }}"]}' \
+            --parameters '{"commands":["echo internal"]}' \
             --output text \
             --query "Command.CommandId")
           echo "command-id=$COMMAND_ID" >> $GITHUB_OUTPUT
@@ -37,8 +37,8 @@ runs:
 
             # Print a progress `.` token until the command completes.
             case $STATUS in
-              Pending | InProgress | Delayed | None)
-                echo -n .
+              Pending | InProgress | Delayed )
+                echo .
                 sleep 5
                 ;; 
               *) 
