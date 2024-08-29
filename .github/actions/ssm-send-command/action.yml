@@ -14,6 +14,7 @@ runs:
   steps:
     - name: Execute command
       shell: bash
+      id: run-command
       run: |
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids ${{ inputs.instance_id }} \
@@ -29,7 +30,7 @@ runs:
         echo "Waiting for command to complete"
         while true; do
             STATUS=$(aws ssm list-command-invocations \
-                --command-id ${{ steps.stop_services.outputs.command_id }} \
+                --command-id ${{ steps.run-command.outputs.command-id }} \
                 --details \
                 --query "CommandInvocations[0].Status" \
                 --output text)
@@ -49,7 +50,7 @@ runs:
         # Grab the command output. Unfortunately this gets truncated at 2500 characters so its
         # note terribly useful for debugging but such is life.
         OUTPUT=$(aws ssm list-command-invocations \
-            --command-id ${{ steps.stop_services.outputs.command_id }} \
+            --command-id ${{ steps.run-command.outputs.command-id }} \
             --details \
             --query "CommandInvocations[0].CommandPlugins[0].Output" \
             --output text)
