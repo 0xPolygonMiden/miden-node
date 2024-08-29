@@ -44,7 +44,7 @@ jobs:
         uses: ./.github/actions/ssm-send-command
         with:
           instance-id: ${{ inputs.instance-id }}
-          command: "ls /tmp"
+          command: "ls"
 
       - name: Deploy packages
         uses: ./.github/actions/deploy
@@ -59,10 +59,10 @@ jobs:
         uses: ./.github/actions/ssm-send-command
         with:
           instance-id: ${{ inputs.instance-id }}
-          command: "ls /tmp"
+          command: "ls"
 
       - name: cat after
         uses: ./.github/actions/ssm-send-command
         with:
           instance-id: ${{ inputs.instance-id }}
-          command: "cat /tmp/testfile"
+          command: "cat testfile"

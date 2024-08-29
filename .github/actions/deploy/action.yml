@@ -41,5 +41,5 @@ runs:
       shell: bash
       run: |
         echo "test data" > testfile
-        scp testfile ${{ inputs.instance-id}}:/tmp/testfile
+        scp testfile ${{ inputs.instance-id}}:testfile
         
