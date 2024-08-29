@@ -12,6 +12,47 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Stop services
+      shell: bash
+      id: stop_services
+      run: |
+        COMMAND_ID=$(aws ssm send-command \
+          --instance-ids ${{ inputs.instance-id }} \
+          --document-name "AWS-RunShellScript" \
+          --parameters '{"commands":["ls -l"]}' \
+          --output text \
+          --query "Command.CommandId")
+        echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+    - name: Check stop services command status and retrieve output
+      shell: bash
+      run: |
+        while true; do
+          STATUS=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.stop_services.outputs.command_id }} \
+              --details \
+              --query "CommandInvocations[0].Status" \
+              --output text)
+          echo "Command Status: $STATUS"
+          
+          OUTPUT=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.stop_services.outputs.command_id }} \
+              --details \
+              --query "CommandInvocations[0].CommandPlugins[0].Output" \
+              --output text)
+          echo "Command Output: $OUTPUT"
+          
+          if [ "$STATUS" == "Success" ]; then
+            echo "Command completed successfully."
+            break
+          elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+            echo "Command failed with status: $STATUS"
+            exit 1
+          else
+            sleep 5 # Wait for 30 seconds before checking again
+          fi
+        done
+
     - name: Execute command
       shell: bash
       id: run-command
