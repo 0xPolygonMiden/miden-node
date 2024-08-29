@@ -188,8 +188,8 @@ pub(crate) fn flatten_output_notes<'a>(
 pub(crate) fn note_created_smt_from_note_batches<'a>(
     batches: impl Iterator<Item = &'a NoteBatch>,
 ) -> BlockNoteTree {
-    let note_leaf_iterator = flatten_output_notes(batches)
-        .map(|(index, note)| (index, note.id().into(), *note.metadata()));
+    let note_leaf_iterator =
+        flatten_output_notes(batches).map(|(index, note)| (index, note.id(), *note.metadata()));
 
     BlockNoteTree::with_entries(note_leaf_iterator).unwrap()
 }

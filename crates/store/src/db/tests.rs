@@ -858,7 +858,7 @@ fn test_notes() {
         NoteMetadata::new(sender, NoteType::Public, tag.into(), NoteExecutionHint::none(), ZERO)
             .unwrap();
 
-    let values = [(note_index, note_id, note_metadata)];
+    let values = [(note_index, note_id.into(), note_metadata)];
     let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
     let details = Some(vec![1, 2, 3]);
     let merkle_path = notes_db.get_note_path(note_index).unwrap();
