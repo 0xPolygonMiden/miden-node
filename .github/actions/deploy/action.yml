@@ -24,9 +24,9 @@ runs:
         aws-region: ${{ inputs.aws-region }}
         role-to-assume: ${{ inputs.role-to-assume }}
         role-session-name: GithubActionsSession
-      shell: bash
 
     - name: Configure ssh for scp access
+      shell: bash
       run: |
         # Ensure ssh config file exists.
         touch ~/.ssh/config
@@ -43,6 +43,7 @@ runs:
         command: "ls /tmp"
 
     - name: Test scp
+      shell: bash
       run: |
         echo "test data" > testfile
         scp testfile ${{ inputs.instance-id}}:/tmp/testfile
