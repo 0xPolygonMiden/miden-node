@@ -64,7 +64,8 @@ runs:
             --details \
             --query "CommandInvocations[0].CommandPlugins[0].Output" \
             --output text)
-        echo "Command output:\n$OUTPUT"
+        echo "Command logs:"
+        echo "$OUTPUT"
             
         echo "Command status: ${{ env.STATUS }}"
         if [ ${{ env.STATUS }} != "Success" ]; then
