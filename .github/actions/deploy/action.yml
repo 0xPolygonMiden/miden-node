@@ -9,12 +9,12 @@ inputs:
     required: true
   instance-id:
     required: true
-  node-package:
-    required: true
-    description: "Path to the miden-node debian package."
-  faucet-package:
-    required: true
-    description: "Path to the miden-faucet debian package."
+  # node-package:
+  #   required: true
+  #   description: "Path to the miden-node debian package."
+  # faucet-package:
+  #   required: true
+  #   description: "Path to the miden-faucet debian package."
 runs:
   using: "composite"
   steps:
