@@ -17,12 +17,41 @@ runs:
       id: run-command
       run: |
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids ${{ inputs.instance_id }} \
+            --instance-ids ${{ inputs.instance-id }} \
             --document-name "AWS-RunShellScript" \
-            --parameters '{"commands": ["ls -l"]}' \
+            --parameters '{"commands":["ls -l"]}' \
             --output text \
             --query "Command.CommandId")
           echo "command-id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+    - name: Check stop services command status and retrieve output
+      shell: bash
+      run: |
+        while true; do
+          STATUS=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.run-command.outputs.command-id }} \
+              --details \
+              --query "CommandInvocations[0].Status" \
+              --output text)
+          echo "Command Status: $STATUS"
+          
+          OUTPUT=$(aws ssm list-command-invocations \
+              --command-id ${{ steps.run-command.outputs.command-id }} \
+              --details \
+              --query "CommandInvocations[0].CommandPlugins[0].Output" \
+              --output text)
+          echo "Command Output: $OUTPUT"
+          
+          if [ "$STATUS" == "Success" ]; then
+            echo "Command completed successfully."
+            break
+          elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+            echo "Command failed with status: $STATUS"
+            exit 1
+          else
+            sleep 10  # Wait for 30 seconds before checking again
+          fi
+        done
 
     - name: Wait for command completion
       shell: bash
@@ -36,6 +65,8 @@ runs:
                 --details \
                 --query "CommandInvocations[0].Status" \
                 --output text)
+
+            echo "status is $STATUS"
 
             # Print a progress `.` token until the command completes.
             case $STATUS in
