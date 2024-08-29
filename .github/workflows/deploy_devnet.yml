@@ -1,5 +1,3 @@
-name: devnet deploy
-
 on:
   push:
     branches:
@@ -12,10 +10,59 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy to testnet
-    uses: ./.github/workflows/deploy_workflow.yml
-    with:
-      build_prefix: --branch next
-    secrets:
-      account_id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
-      instance_id: "${{ secrets.DEVNET_INSTANCE_ID }}"
+    name: Deploy devnet
+    # Our devnet instance is arm based.
+    runs-on:
+      labels: ubuntu22-arm-4core
+
+    # Required for devnet instance access.
+    env:
+      account-id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
+      instance-id: "${{ secrets.DEVNET_INSTANCE_ID }}"
+
+    steps:
+      - uses: actions/checkout@main
+
+      # - name: Set version
+      #   id: version
+      #   run: echo "version=$(git describe)" >> $GITHUB_OUTPUT
+
+      # - name: Build Debian packages
+      #   id: build
+      #   uses: ./.github/actions/debian-packages
+      #   with:
+      #     suffix: ${{ steps.version.outputs.version }}-arm64
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.account-id }}:role/midendev-GithubActionsRole
+          aws-region: us-west-1
+          role-session-name: GithubActionsSession
+
+      - name: ls before
+        uses: ./.github/actions/ssm-send-command
+        with:
+          instance-id: ${{ env.instance-id }}
+          command: "ls"
+
+      - name: Deploy packages
+        uses: ./.github/actions/deploy
+        with:
+          role-to-assume: arn:aws:iam::${{ env.account-id }}:role/midendev-GithubActionsRole
+          aws-region: us-west-1
+          instance-id: ${{ env.instance-id }}
+          # node-package: ${{ steps.build.outputs.node-package }}
+          # faucet-package: ${{ steps.build.outputs.faucet-package }}
+
+      - name: ls after
+        uses: ./.github/actions/ssm-send-command
+        with:
+          instance-id: ${{ env.instance-id }}
+          command: "ls"
+
+      - name: cat after
+        uses: ./.github/actions/ssm-send-command
+        with:
+          instance-id: ${{ env.instance-id }}
+          command: "cat testfile"

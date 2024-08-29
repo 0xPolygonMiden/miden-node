@@ -1,0 +1,45 @@
+# This action should deploy the given node and faucet packages to the provided aws instance using ssm and scp.
+
+name: 'Deploy node and faucet'
+description: 'Deploys the node and faucet Debian packages to an aws instance.'
+inputs:
+  role-to-assume:
+    required: true
+  aws-region:
+    required: true
+  instance-id:
+    required: true
+  # node-package:
+  #   required: true
+  #   description: "Path to the miden-node debian package."
+  # faucet-package:
+  #   required: true
+  #   description: "Path to the miden-faucet debian package."
+runs:
+  using: "composite"
+  steps:
+    # - name: Configure AWS credentials
+    #   uses: aws-actions/configure-aws-credentials@v4
+    #   with:
+    #     aws-region: ${{ inputs.aws-region }}
+    #     role-to-assume: ${{ inputs.role-to-assume }}
+    #     role-session-name: GithubActionsSession
+
+    - name: Configure ssh for scp access
+      shell: bash
+      run: |
+        # Ensure ssh config file exists.
+        touch ~/.ssh/config
+        # Follow instructions from:
+        # https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html
+        echo "# SSH over Session Manager" >> ~/.ssh/config
+        echo "host i-* mi-*" >> ~/.ssh/config
+        echo "    ProxyCommand sh -c \"aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p'\"" >> ~/.ssh/config
+
+
+    - name: Test scp
+      shell: bash
+      run: |
+        echo "test data" > testfile
+        scp testfile ${{ inputs.instance-id}}:testfile
+        

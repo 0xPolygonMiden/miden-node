@@ -1,0 +1,125 @@
+on:
+  workflow_dispatch:
+  # Disabled until we get this working properly.
+  #
+  # release:
+  #   types: [released, prereleased]
+        
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  arm_package:
+    runs-on:
+      labels: ubuntu22-arm-4core
+    outputs:
+      node-package: ${{ steps.build.outputs.node-package }}
+      faucet-package: ${{ steps.build.outputs.faucet-package }}
+      # Unsure if this env call will work or if it must be outputs.
+      version: $${{ env.TAG }}
+      
+    steps:
+      # This version selection is only required to handle workflow dispatch triggers, so we can simplify this once
+      # we are done testing and drop workflow dispatch trigger.
+      - name: Select version tag (release)
+        if: github.event_name == 'release'
+        run: echo "TAG=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+
+      - name: Select version tag (non-release)
+        if: github.event_name != 'release'
+        run: echo "TAG=gh release ls --exclude-drafts --limit 1 --json tagName | jq -e '.[0].tagName'" >> $GITHUB_ENV
+
+      - uses: actions/checkout@main
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Build Debian packages
+        id: build
+        uses: ./.github/actions/debian-packages
+        with:
+          suffix: ${{ env.TAG }}-arm64
+
+      - name: Upload packages
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          prerelease: true
+          files: |
+            ${{ steps.build.outputs.node-package }}
+            ${{ steps.build.outputs.node-package }}.checksum
+            ${{ steps.build.outputs.faucet-package }}
+            ${{ steps.build.outputs.faucet-package }}.checksum
+
+  amd_package:
+    runs-on: ubuntu-latest
+    steps:
+      # This version selection is only required to handle workflow dispatch triggers, so we can simplify this once
+      # we are done testing and drop workflow dispatch trigger.
+      - name: Select version tag (release)
+        if: github.event_name == 'release'
+        run: echo "TAG=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+
+      - name: Select version tag (non-release)
+        if: github.event_name != 'release'
+        run: echo "TAG=gh release ls --exclude-drafts --limit 1 --json tagName | jq -e '.[0].tagName'" >> $GITHUB_ENV
+
+      - uses: actions/checkout@main
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Build Debian packages
+        id: build
+        uses: ./.github/actions/debian-packages
+        with:
+          suffix: ${{ env.TAG }}-amd64
+
+      - name: Upload packages
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          prerelease: true
+          files: |
+            ${{ steps.build.outputs.node-package }}
+            ${{ steps.build.outputs.node-package }}.checksum
+            ${{ steps.build.outputs.faucet-package }}
+            ${{ steps.build.outputs.faucet-package }}.checksum
+
+  deploy:
+    name: Deploy testnet
+
+    # We need to wait for the arm debian packages to be created as these
+    # are the ones we are deploying.
+    needs: arm_package
+
+    # Required for testnet instance access.
+    secrets:
+      account-id: "${{ secrets.MIDEN_TESTNET_ACCOUNT_ID }}"
+      instance-id: "${{ secrets.TESTNET_INSTANCE_ID }}"
+
+    env:
+      VERSION: ${{ needs.arm_package.outputs.version }}
+      NODE_PACKAGE: ${{ needs.arm_package.outputs.node-package }} 
+      FAUCET_PACKAGE: ${{ needs.arm_package.outputs.faucet-package }} 
+
+    steps:
+      - name: Download packages
+        run: |
+          gh release ${{ env.VERSION }} download ${{ env.NODE_PACKAGE }}
+          gh release ${{ env.VERSION }} download ${{ env.NODE_PACKAGE }}.checksum
+          gh release ${{ env.VERSION }} download ${{ env.FAUCET_PACKAGE }}
+          gh release ${{ env.VERSION }} download ${{ env.FAUCET_PACKAGE }}.checksum
+
+      - name: Verify checksums
+        run: |
+          sha256 --check ${{ env.NODE_PACKAGE }}.checksum
+          sha256 --check ${{ env.FAUCET_PACKAGE }}.checksum
+
+      - name: Deploy packages
+        uses: ./.github/actions/deploy
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.account-id }}:role/midendev-GithubActionsRole
+          aws-region: us-west-1
+          instance-id: ${{ secrets.instance-id }}
+          node_package: ${{ env.NODE_PACKAGE }}
+          faucet_package: ${{ env.FAUCET_PACKAGE }}
