@@ -41,7 +41,7 @@ jobs:
           role-session-name: GithubActionsSession
 
       - name: ls before
-        uses: ../ssm-send-command
+        uses: ./.github/actions/ssm-send-command
         with:
           instance-id: ${{ inputs.instance-id }}
           command: "ls /tmp"
@@ -56,13 +56,13 @@ jobs:
           # faucet-package: ${{ steps.build.outputs.faucet-package }}
 
       - name: ls after
-        uses: ../ssm-send-command
+        uses: ./.github/actions/ssm-send-command
         with:
           instance-id: ${{ inputs.instance-id }}
           command: "ls /tmp"
 
       - name: cat after
-        uses: ../ssm-send-command
+        uses: ./.github/actions/ssm-send-command
         with:
           instance-id: ${{ inputs.instance-id }}
           command: "cat /tmp/testfile"
