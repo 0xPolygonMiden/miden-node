@@ -16,28 +16,28 @@ jobs:
       labels: ubuntu22-arm-4core
 
     # Required for devnet instance access.
-    secrets:
-      account_id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
-      instance_id: "${{ secrets.DEVNET_INSTANCE_ID }}"
+    env:
+      account-id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
+      instance-id: "${{ secrets.DEVNET_INSTANCE_ID }}"
 
     steps:
       - uses: actions/checkout@main
 
-      - name: Set version
-        id: version
-        run: echo "version=$(git describe)" >> $GITHUB_OUTPUT
-
-      - name: Build Debian packages
-        id: build
-        uses: ./.github/actions/debian-packages
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          version: ${{ steps.version.outputs.version }}
+          aws-region: eu-west-1
+          role-to-assume: arn:aws:iam::${{ env.account-id }}:role/midendev-GithubActionsRole
+          role-session-name: GithubActionsSession
 
-      - name: Deploy packages
-        uses: ./.github/actions/deploy
+      - name: ssm basic echo
+        uses: ./.github/actions/ssm-send-command
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.account_id }}:role/midendev-GithubActionsRole
-          aws-region: us-west-1
-          instance-id: ${{ secrets.instance_id }}
-          node_package: ${{ steps.build.outputs.node_path }}
-          faucet_package: ${{ steps.build.outputs.faucet_path }}
+          instance-id: ${{ env.instance-id }}
+          command: "echo 'hello there'"
+
+      - name: ssm failure
+        uses: ./.github/actions/ssm-send-command
+        with:
+          instance-id: ${{ env.instance-id }}
+          command: "exit 511"
