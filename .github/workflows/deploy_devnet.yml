@@ -34,7 +34,7 @@ jobs:
         uses: ./.github/actions/ssm-send-command
         with:
           instance-id: ${{ env.instance-id }}
-          command: "echo 'hello there'"
+          command: "echo hello there"
 
       - name: ssm failure
         uses: ./.github/actions/ssm-send-command
