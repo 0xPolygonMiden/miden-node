@@ -16,28 +16,28 @@ jobs:
       labels: ubuntu22-arm-4core
 
     # Required for devnet instance access.
-    env:
+    secrets:
       account-id: "${{ secrets.MIDEN_DEV_ACCOUNT_ID }}"
       instance-id: "${{ secrets.DEVNET_INSTANCE_ID }}"
 
     steps:
       - uses: actions/checkout@main
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: eu-west-1
-          role-to-assume: arn:aws:iam::${{ env.account-id }}:role/midendev-GithubActionsRole
-          role-session-name: GithubActionsSession
+      - name: Set version
+        id: version
+        run: echo "version=$(git describe)" >> $GITHUB_OUTPUT
 
-      - name: ssm basic echo
-        uses: ./.github/actions/ssm-send-command
+      - name: Build Debian packages
+        id: build
+        uses: ./.github/actions/debian-packages
         with:
-          instance-id: ${{ env.instance-id }}
-          command: "echo hello there"
+          suffix: ${{ steps.version.outputs.version }}-arm64
 
-      - name: ssm failure
-        uses: ./.github/actions/ssm-send-command
+      - name: Deploy packages
+        uses: ./.github/actions/deploy
         with:
-          instance-id: ${{ env.instance-id }}
-          command: "exit 511"
+          role-to-assume: arn:aws:iam::${{ secrets.account-id }}:role/midendev-GithubActionsRole
+          aws-region: us-west-1
+          instance-id: ${{ secrets.instance-id }}
+          node-package: ${{ steps.build.outputs.node-package }}
+          faucet-package: ${{ steps.build.outputs.faucet-package }}
