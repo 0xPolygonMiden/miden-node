@@ -31,7 +31,7 @@ runs:
         while true; do
             STATUS=$(aws ssm list-command-invocations \
                 --command-id ${{ steps.run-command.outputs.command-id }} \
-                --instance-id ${{ inputs.instance_id }} \
+                --instance-id ${{ inputs.instance-id }} \
                 --details \
                 --query "CommandInvocations[0].Status" \
                 --output text)
@@ -54,7 +54,7 @@ runs:
         # not terribly useful for debugging but such is life.
         OUTPUT=$(aws ssm list-command-invocations \
             --command-id ${{ steps.run-command.outputs.command-id }} \
-            --instance-id ${{ inputs.instance_id }} \
+            --instance-id ${{ inputs.instance-id }} \
             --details \
             --query "CommandInvocations[0].CommandPlugins[0].Output" \
             --output text)
