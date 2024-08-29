@@ -31,9 +31,12 @@ runs:
         while true; do
             STATUS=$(aws ssm list-command-invocations \
                 --command-id ${{ steps.run-command.outputs.command-id }} \
+                --instance-id ${{ inputs.instance_id }} \
                 --details \
                 --query "CommandInvocations[0].Status" \
                 --output text)
+
+            echo "Command status: $STATUS"
 
             # Print a progress `.` token until the command completes.
             case $STATUS in
@@ -48,9 +51,10 @@ runs:
         done
 
         # Grab the command output. Unfortunately this gets truncated at 2500 characters so its
-        # note terribly useful for debugging but such is life.
+        # not terribly useful for debugging but such is life.
         OUTPUT=$(aws ssm list-command-invocations \
             --command-id ${{ steps.run-command.outputs.command-id }} \
+            --instance-id ${{ inputs.instance_id }} \
             --details \
             --query "CommandInvocations[0].CommandPlugins[0].Output" \
             --output text)
