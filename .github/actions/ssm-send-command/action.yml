@@ -37,7 +37,7 @@ runs:
 
             # Print a progress `.` token until the command completes.
             case $STATUS in
-              Pending | InProgress | Delayed)
+              Pending | InProgress | Delayed | None)
                 echo -n .
                 sleep 5
                 ;; 
