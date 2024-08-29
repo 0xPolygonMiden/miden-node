@@ -11,8 +11,10 @@ inputs:
     required: true
   node-package:
     required: true
+    description: "Path to the miden-node debian package."
   faucet-package:
     required: true
+    description: "Path to the miden-faucet debian package."
 runs:
   using: "composite"
   steps:
@@ -22,6 +24,8 @@ runs:
         aws-region: ${{ inputs.aws-region }}
         role-to-assume: ${{ inputs.role-to-assume }}
         role-session-name: GithubActionsSession
+      shell: bash
 
     - name: Rest of the owl
       run: echo "The rest of the stuff should be copy pasted in, but use the **-package filepaths to scm the packages across."
+      shell: bash

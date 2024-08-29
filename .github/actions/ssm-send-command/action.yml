@@ -13,6 +13,7 @@ runs:
   using: "composite"
   steps:
     - name: Execute command
+      shell: bash
       run: |
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids ${{ inputs.instance_id }} \
@@ -23,6 +24,7 @@ runs:
           echo "command-id=$COMMAND_ID" >> $GITHUB_OUTPUT
 
     - name: Monitor command logs and status
+      shell: bash
       run: |
         echo "Waiting for command to complete"
         while true; do
