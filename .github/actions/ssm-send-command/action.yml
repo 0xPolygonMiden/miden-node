@@ -19,7 +19,7 @@ runs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids ${{ inputs.instance_id }} \
             --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":["echo internal"]}' \
+            --parameters '{"commands": ["ls -l"]}' \
             --output text \
             --query "Command.CommandId")
           echo "command-id=$COMMAND_ID" >> $GITHUB_OUTPUT
