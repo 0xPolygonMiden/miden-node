@@ -2,7 +2,7 @@
 # and additionally fails if the command failed.
 
 name: SSM send-command wrapper
-description: 'Runs the given commands using aws ssm send-command as a shell script. The logs and status are monitored for success.'
+description: 'Runs the given command using aws ssm send-command as a shell script. The logs and status are monitored for success.'
 inputs:
   instance-id:
     required: true

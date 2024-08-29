@@ -26,6 +26,35 @@ runs:
         role-session-name: GithubActionsSession
       shell: bash
 
-    - name: Rest of the owl
-      run: echo "The rest of the stuff should be copy pasted in, but use the **-package filepaths to scm the packages across."
-      shell: bash
+    - name: Configure ssh for scp access
+      run: |
+        # Ensure ssh config file exists.
+        touch ~/.ssh/config
+        # Follow instructions from:
+        # https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html
+        echo "# SSH over Session Manager" >> ~/.ssh/config
+        echo "host i-* mi-*" >> ~/.ssh/config
+        echo "    ProxyCommand sh -c \"aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p'\"" >> ~/.ssh/config
+
+    - name: ls before
+      uses: ../ssm-send-command
+      with:
+        instance-id: ${{ inputs.instance-id }}
+        command: "ls /tmp"
+
+    - name: Test scp
+      run: |
+        echo "test data" > testfile
+        scp testfile ${{ inputs.instance-id}}:/tmp/testfile
+        
+    - name: ls after
+      uses: ../ssm-send-command
+      with:
+        instance-id: ${{ inputs.instance-id }}
+        command: "ls /tmp"
+
+    - name: cat after
+      uses: ../ssm-send-command
+      with:
+        instance-id: ${{ inputs.instance-id }}
+        command: "cat /tmp/testfile"
