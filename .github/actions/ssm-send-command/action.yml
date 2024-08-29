@@ -1,0 +1,60 @@
+
+# This action should deploy the given node and faucet packages to the provided aws instance using ssm and scp.
+
+name: SSM send-command wrapper
+description: 'Runs the given commands using aws ssm send-command as a shell script. The logs and status are monitored for success.'
+inputs:
+  instance-id:
+    required: true
+  command:
+    required: true
+    description: 'A single command only'
+runs:
+  using: "composite"
+  steps:
+    - name: Execute command
+      run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ inputs.instance_id }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{"commands":[${{ inputs.command }}]}' \
+            --output text \
+            --query "Command.CommandId")
+          echo "command-id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+    - name: Monitor command logs and status
+      run: |
+        echo "Waiting for command to complete"
+        while true; do
+            STATUS=$(aws ssm list-command-invocations \
+                --command-id ${{ steps.stop_services.outputs.command_id }} \
+                --details \
+                --query "CommandInvocations[0].Status" \
+                --output text)
+
+            # Print a progress `.` token until the command completes.
+            case $STATUS in
+              Pending | InProgress | Delayed)
+                echo -n .
+                sleep 5
+                ;; 
+              *) 
+                echo; # add a newline to end the progress line print. 
+                break ;;
+            esac
+        done
+
+        # Grab the command output. Unfortunately this gets truncated at 2500 characters so its
+        # note terribly useful for debugging but such is life.
+        OUTPUT=$(aws ssm list-command-invocations \
+            --command-id ${{ steps.stop_services.outputs.command_id }} \
+            --details \
+            --query "CommandInvocations[0].CommandPlugins[0].Output" \
+            --output text)
+        echo "Command output: $OUTPUT"
+
+        echo "Command status: $STATUS"
+            
+        if [ "$STATUS" != "Success" ]; then
+              exit 1
+        fi
