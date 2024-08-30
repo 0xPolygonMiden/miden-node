@@ -602,7 +602,7 @@ fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<N
 fn validate_notes(notes: &[generated::digest::Digest]) -> Result<Vec<NoteId>, Status> {
     notes
         .iter()
-        .map(|digest| Ok(RpoDigest::try_from(digest.clone())?.into()))
+        .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }

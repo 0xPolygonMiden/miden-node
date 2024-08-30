@@ -39,7 +39,8 @@ miden-objects = { version = "0.5" }
 miden-processor = { version = "0.10" }
 miden-stdlib = { version = "0.10", default-features = false }
 miden-tx = { version = "0.5" }
+prost = { version = "0.13" }
 thiserror = { version = "1.0" }
-tonic = { version = "0.11" }
+tonic = { version = "0.12" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["fmt",  "json",  "env-filter"] }
