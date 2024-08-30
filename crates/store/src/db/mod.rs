@@ -85,7 +85,6 @@ impl From<NoteRecord> for NotePb {
 pub struct StateSyncUpdate {
     pub notes: Vec<NoteSyncRecord>,
     pub block_header: BlockHeader,
-    pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
     pub transactions: Vec<TransactionSummary>,
     pub nullifiers: Vec<NullifierInfo>,
@@ -95,7 +94,6 @@ pub struct StateSyncUpdate {
 pub struct NoteSyncUpdate {
     pub notes: Vec<NoteSyncRecord>,
     pub block_header: BlockHeader,
-    pub chain_tip: BlockNumber,
 }
 
 #[derive(Debug, Clone, PartialEq)]

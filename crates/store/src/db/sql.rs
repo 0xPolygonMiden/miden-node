@@ -945,15 +945,9 @@ pub fn get_state_sync(
         block_num,
     )?;
 
-    let tip = select_block_header_by_block_num(conn, None)?
-        .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
-    let chain_tip = tip.block_num();
-    let block_header = match notes.first() {
-        None => tip,
-        Some(note) if note.block_num == chain_tip => tip,
-        Some(note) => select_block_header_by_block_num(conn, Some(note.block_num))?
-            .ok_or(StateSyncError::EmptyBlockHeadersTable)?,
-    };
+    let block_header =
+        select_block_header_by_block_num(conn, notes.first().map(|note| note.block_num))?
+            .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
 
     let account_updates =
         select_accounts_by_block_range(conn, block_num, block_header.block_num(), account_ids)?;
@@ -975,7 +969,6 @@ pub fn get_state_sync(
     Ok(StateSyncUpdate {
         notes,
         block_header,
-        chain_tip,
         account_updates,
         transactions,
         nullifiers,
@@ -993,17 +986,11 @@ pub fn get_note_sync(
 ) -> Result<NoteSyncUpdate, NoteSyncError> {
     let notes = select_notes_since_block_by_tag_and_sender(conn, note_tags, &[], block_num)?;
 
-    let tip = select_block_header_by_block_num(conn, None)?
-        .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
-    let chain_tip = tip.block_num();
-    let block_header = match notes.first() {
-        None => tip,
-        Some(note) if note.block_num == chain_tip => tip,
-        Some(note) => select_block_header_by_block_num(conn, Some(note.block_num))?
-            .ok_or(NoteSyncError::EmptyBlockHeadersTable)?,
-    };
+    let block_header =
+        select_block_header_by_block_num(conn, notes.first().map(|note| note.block_num))?
+            .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
 
-    Ok(NoteSyncUpdate { notes, block_header, chain_tip })
+    Ok(NoteSyncUpdate { notes, block_header })
 }
 
 // APPLY BLOCK
