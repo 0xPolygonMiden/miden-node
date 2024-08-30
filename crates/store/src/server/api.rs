@@ -7,7 +7,7 @@ use miden_node_proto::{
     generated::{
         self,
         account::AccountSummary,
-        note::{NoteAuthenticationInfo as NoteAuthenticationInfoProto, NoteSyncRecord},
+        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
@@ -190,16 +190,7 @@ impl api_server::Api for StoreApi {
             })
             .collect();
 
-        let notes = state
-            .notes
-            .into_iter()
-            .map(|note| NoteSyncRecord {
-                note_index: note.note_index.to_absolute_index(),
-                note_id: Some(note.note_id.into()),
-                metadata: Some(note.metadata.into()),
-                merkle_path: Some(Into::into(&note.merkle_path)),
-            })
-            .collect();
+        let notes = state.notes.into_iter().map(Into::into).collect();
 
         let nullifiers = state
             .nullifiers
@@ -241,16 +232,7 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
-        let notes = state
-            .notes
-            .into_iter()
-            .map(|note| NoteSyncRecord {
-                note_index: note.note_index.to_absolute_index(),
-                note_id: Some(note.note_id.into()),
-                metadata: Some(note.metadata.into()),
-                merkle_path: Some((&note.merkle_path).into()),
-            })
-            .collect();
+        let notes = state.notes.into_iter().map(Into::into).collect();
 
         Ok(Response::new(SyncNoteResponse {
             chain_tip: state.chain_tip,
