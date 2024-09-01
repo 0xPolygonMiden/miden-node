@@ -35,7 +35,7 @@ impl TryFrom<&block::BlockHeader> for BlockHeader {
     type Error = ConversionError;
 
     fn try_from(value: &block::BlockHeader) -> Result<Self, Self::Error> {
-        value.clone().try_into()
+        value.try_into()
     }
 }
 

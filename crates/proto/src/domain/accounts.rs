@@ -186,7 +186,6 @@ impl TryFrom<AccountTransactionInputRecord> for AccountState {
     fn try_from(from: AccountTransactionInputRecord) -> Result<Self, Self::Error> {
         let account_id = from
             .account_id
-            .clone()
             .ok_or(AccountTransactionInputRecord::missing_field(stringify!(account_id)))?
             .try_into()?;
 

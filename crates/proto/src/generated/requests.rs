@@ -28,7 +28,7 @@ pub struct CheckNullifiersRequest {
 ///
 /// The Merkle path is an MMR proof for the block's leaf, based on the current chain length.
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetBlockHeaderByNumberRequest {
     /// The block number of the target block.
     ///
@@ -127,24 +127,24 @@ pub struct GetNoteAuthenticationInfoRequest {
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListNullifiersRequest {}
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListAccountsRequest {}
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListNotesRequest {}
 /// Returns the latest state of an account with the specified ID.
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsRequest {
     /// Account ID to get details.
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetBlockByNumberRequest {
     /// The block number of the target block.
     #[prost(fixed32, tag = "1")]
@@ -153,7 +153,7 @@ pub struct GetBlockByNumberRequest {
 /// Returns delta of the account states in the range from `from_block_num` (exclusive) to
 /// `to_block_num` (inclusive).
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetAccountStateDeltaRequest {
     /// ID of the account for which the delta is requested.
     #[prost(message, optional, tag = "1")]

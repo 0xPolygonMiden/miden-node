@@ -4,7 +4,7 @@ use std::{
 };
 
 use miette::IntoDiagnostic;
-use prost::Message;
+use protox::prost::Message;
 
 /// Generates Rust protobuf bindings from .proto files in the root directory.
 ///
