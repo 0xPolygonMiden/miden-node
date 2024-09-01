@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.0 (TBD)
+
+- Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
+
 ## 0.5.0 (2024-08-27)
 
 ### Enhancements
@@ -13,7 +17,6 @@
 - Added `GetNoteAuthenticationInfo` endpoint (#421).
 - Added `SyncNotes` endpoint (#424).
 - Added `execution_hint` field to the `Notes` table (#441).
-- Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
 
 ### Changes
 

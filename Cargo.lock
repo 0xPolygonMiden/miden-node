@@ -1114,9 +1114,9 @@ dependencies = [
 
 [[package]]
 name = "generator"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "979f00864edc7516466d6b3157706e06c032f22715700ddd878228a91d02bc56"
+checksum = "dbb949699c3e4df3a183b1d2142cb24277057055ed23c68ed58894f76c517223"
 dependencies = [
  "cfg-if",
  "libc",
@@ -1170,7 +1170,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.12",
- "indexmap 2.4.0",
+ "indexmap 2.5.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -1189,7 +1189,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http 1.1.0",
- "indexmap 2.4.0",
+ "indexmap 2.5.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -1406,9 +1406,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ead53efc7ea8ed3cfb0c79fc8023fbb782a5432b52830b6518941cebe6505c"
+checksum = "68b900aa2f7301e21c36462b170ee99994de34dff39a4a6a528e80e7376d07e5"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.5",
@@ -1758,7 +1758,7 @@ dependencies = [
 
 [[package]]
 name = "miden-faucet"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "actix-cors",
  "actix-web",
@@ -1846,7 +1846,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1867,7 +1867,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-block-producer"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "async-trait",
  "figment",
@@ -1894,7 +1894,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-proto"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "hex",
  "miden-node-utils",
@@ -1911,7 +1911,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "directories",
  "figment",
@@ -1934,7 +1934,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-store"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "deadpool-sqlite",
  "directories",
@@ -1966,7 +1966,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-utils"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "figment",
@@ -2021,7 +2021,7 @@ dependencies = [
 
 [[package]]
 name = "miden-rpc-proto"
-version = "0.5.0"
+version = "0.6.0"
 
 [[package]]
 name = "miden-stdlib"
@@ -2410,7 +2410,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset",
- "indexmap 2.4.0",
+ "indexmap 2.5.0",
 ]
 
 [[package]]
@@ -3106,9 +3106,9 @@ checksum = "b7401a30af6cb5818bb64852270bb722533397edcfc7344954a38f420819ece2"
 
 [[package]]
 name = "syn"
-version = "2.0.76"
+version = "2.0.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578e081a14e0cefc3279b0472138c513f37b41a08d5a3cca9b6e4e8ceb6cd525"
+checksum = "9f35bcdf61fd8e7be6caf75f429fdca8beb3ed76584befb503b1569faee373ed"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3346,7 +3346,7 @@ version = "0.22.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "583c44c02ad26b0c3f3066fe629275e50627026c51ac2e595cca4c230ce1ce1d"
 dependencies = [
- "indexmap 2.4.0",
+ "indexmap 2.5.0",
  "serde",
  "serde_spanned",
  "toml_datetime",

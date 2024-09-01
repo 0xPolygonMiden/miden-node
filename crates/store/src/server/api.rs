@@ -202,7 +202,7 @@ impl api_server::Api for StoreApi {
             .collect();
 
         Ok(Response::new(SyncStateResponse {
-            chain_tip: state.chain_tip,
+            chain_tip: self.state.latest_block_num().await,
             block_header: Some(state.block_header.into()),
             mmr_delta: Some(delta.into()),
             accounts,
@@ -235,7 +235,7 @@ impl api_server::Api for StoreApi {
         let notes = state.notes.into_iter().map(Into::into).collect();
 
         Ok(Response::new(SyncNoteResponse {
-            chain_tip: state.chain_tip,
+            chain_tip: self.state.latest_block_num().await,
             block_header: Some(state.block_header.into()),
             mmr_path: Some((&mmr_proof.merkle_path).into()),
             notes,
