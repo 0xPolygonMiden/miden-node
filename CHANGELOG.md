@@ -3,6 +3,7 @@
 ## v0.6.0 (TBD)
 
 - Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
+- [BREAKING] Changed `GetAccountDetailsResponse` field to `details` (#481).
 
 ## 0.5.0 (2024-08-27)
 
