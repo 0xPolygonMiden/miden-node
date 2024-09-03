@@ -335,7 +335,7 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)?;
 
         Ok(Response::new(GetAccountDetailsResponse {
-            account: Some((&account_info).into()),
+            details: Some((&account_info).into()),
         }))
     }
 
