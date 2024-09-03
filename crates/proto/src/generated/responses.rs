@@ -201,7 +201,7 @@ pub struct ListNotesResponse {
 pub struct GetAccountDetailsResponse {
     /// Account info (with details for on-chain accounts)
     #[prost(message, optional, tag = "1")]
-    pub account: ::core::option::Option<super::account::AccountInfo>,
+    pub details: ::core::option::Option<super::account::AccountInfo>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
