@@ -56,7 +56,7 @@ impl Store {
 
     /// Serves the store's RPC API.
     ///
-    /// Note: this will block until the server dies.
+    /// Note: this blocks until the server dies.
     pub async fn serve(self) -> Result<(), ApiError> {
         tonic::transport::Server::builder()
             .add_service(self.api_service)

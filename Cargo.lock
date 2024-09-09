@@ -1877,6 +1877,7 @@ dependencies = [
  "prost",
  "serde",
  "tokio",
+ "tokio-stream",
  "toml",
  "tonic",
  "tonic-web",

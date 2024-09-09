@@ -2,11 +2,9 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
-use commands::{
-    init::init_config_files,
-    start::{start_node, start_rpc},
-};
+use commands::{init::init_config_files, start::start_node};
 use miden_node_block_producer::server::BlockProducer;
+use miden_node_rpc::server::Rpc;
 use miden_node_store::server::Store;
 use miden_node_utils::config::load_config;
 
@@ -105,7 +103,12 @@ async fn main() -> anyhow::Result<()> {
             },
             StartCommand::Rpc => {
                 let config = load_config(config).context("Loading configuration file")?;
-                start_rpc(config).await
+                Rpc::load(config)
+                    .await
+                    .context("Loading RPC")?
+                    .serve()
+                    .await
+                    .context("Serving RPC")
             },
             StartCommand::Store => {
                 let config = load_config(config).context("Loading configuration file")?;

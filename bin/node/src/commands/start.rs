@@ -1,8 +1,6 @@
-use std::time::Duration;
-
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use miden_node_block_producer::server::BlockProducer;
-use miden_node_rpc::{config::RpcConfig, server as rpc_server};
+use miden_node_rpc::server::Rpc;
 use miden_node_store::server::Store;
 use tokio::task::JoinSet;
 
@@ -20,28 +18,20 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
     let store = Store::load(store).await.context("Loading store")?;
     join_set.spawn(async move { store.serve().await.context("Serving store") });
 
-    // Wait for store to start & start block-producer
+    // Start block-producer. The block-producer's endpoint is available after loading completes.
     let block_producer =
         BlockProducer::load(block_producer).await.context("Loading block-producer")?;
     join_set.spawn(async move { block_producer.serve().await.context("Serving block-producer") });
 
-    // Wait for block-producer to start & start rpc
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    join_set.spawn(start_rpc(rpc));
+    // Start RPC component.
+    let rpc = Rpc::load(rpc).await.context("Loading RPC")?;
+    join_set.spawn(async move { rpc.serve().await.context("Serving RPC") });
 
     // block on all tasks
     while let Some(res) = join_set.join_next().await {
         // For now, if one of the components fails, crash the node
         res??;
     }
-
-    Ok(())
-}
-
-pub async fn start_rpc(config: RpcConfig) -> Result<()> {
-    rpc_server::serve(config)
-        .await
-        .map_err(|err| anyhow!("Failed to serve rpc: {}", err))?;
 
     Ok(())
 }
