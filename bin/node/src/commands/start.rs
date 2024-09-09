@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
-use miden_node_block_producer::{config::BlockProducerConfig, server as block_producer_server};
+use miden_node_block_producer::server::BlockProducer;
 use miden_node_rpc::{config::RpcConfig, server as rpc_server};
 use miden_node_store::server::Store;
 use tokio::task::JoinSet;
@@ -21,7 +21,9 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
     join_set.spawn(async move { store.serve().await.context("Serving store") });
 
     // Wait for store to start & start block-producer
-    join_set.spawn(start_block_producer(block_producer));
+    let block_producer =
+        BlockProducer::load(block_producer).await.context("Loading block-producer")?;
+    join_set.spawn(async move { block_producer.serve().await.context("Serving block-producer") });
 
     // Wait for block-producer to start & start rpc
     tokio::time::sleep(Duration::from_secs(1)).await;
@@ -32,14 +34,6 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
         // For now, if one of the components fails, crash the node
         res??;
     }
-
-    Ok(())
-}
-
-pub async fn start_block_producer(config: BlockProducerConfig) -> Result<()> {
-    block_producer_server::serve(config)
-        .await
-        .map_err(|err| anyhow!("Failed to serve block-producer: {}", err))?;
 
     Ok(())
 }

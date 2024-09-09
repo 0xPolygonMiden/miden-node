@@ -27,6 +27,7 @@ miden-tx = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
+tokio-stream = { workspace = true, features = ["net"] }
 toml = { version = "0.8" }
 tonic = { workspace = true }
 tracing = { workspace = true }

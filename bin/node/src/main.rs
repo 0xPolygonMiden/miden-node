@@ -4,8 +4,9 @@ use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use commands::{
     init::init_config_files,
-    start::{start_block_producer, start_node, start_rpc},
+    start::{start_node, start_rpc},
 };
+use miden_node_block_producer::server::BlockProducer;
 use miden_node_store::server::Store;
 use miden_node_utils::config::load_config;
 
@@ -95,7 +96,12 @@ async fn main() -> anyhow::Result<()> {
             },
             StartCommand::BlockProducer => {
                 let config = load_config(config).context("Loading configuration file")?;
-                start_block_producer(config).await
+                BlockProducer::load(config)
+                    .await
+                    .context("Loading block-producer")?
+                    .serve()
+                    .await
+                    .context("Serving block-producer")
             },
             StartCommand::Rpc => {
                 let config = load_config(config).context("Loading configuration file")?;
