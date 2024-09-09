@@ -19,27 +19,27 @@ use crate::{
 
 pub mod api;
 
+type Api = api::BlockProducerApi<
+    DefaultBatchBuilder<
+        DefaultStore,
+        DefaultBlockBuilder<DefaultStore, DefaultStateView<DefaultStore>>,
+    >,
+    DefaultStateView<DefaultStore>,
+>;
+
 /// Represents an initialized block-producer component where the RPC connection is open,
 /// but not yet actively responding to requests. Separating the connection binding
 /// from the server spawning allows the caller to connect other components to the
 /// store without resorting to sleeps or other mechanisms to spawn dependent components.
 pub struct BlockProducer {
-    api_service: api_server::ApiServer<
-        api::BlockProducerApi<
-            DefaultBatchBuilder<
-                DefaultStore,
-                DefaultBlockBuilder<DefaultStore, DefaultStateView<DefaultStore>>,
-            >,
-            DefaultStateView<DefaultStore>,
-        >,
-    >,
+    api_service: api_server::ApiServer<Api>,
     listener: TcpListener,
 }
 
 impl BlockProducer {
-    /// Performs all expensive initialization tasks, and notably begins listening on the rpc endpoint without
-    /// serving the API yet. Incoming requests will be queued until [`serve`](Self::serve) is
-    /// called.
+    /// Performs all expensive initialization tasks, and notably begins listening on the rpc
+    /// endpoint without serving the API yet. Incoming requests will be queued until
+    /// [`serve`](Self::serve) is called.
     pub async fn load(config: BlockProducerConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
