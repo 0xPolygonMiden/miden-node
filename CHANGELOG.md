@@ -2,6 +2,7 @@
 
 ## v0.6.0 (TBD)
 
+- [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#489).
 - Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
 - [BREAKING] Changed `GetAccountDetailsResponse` field to `details` (#481).
 
