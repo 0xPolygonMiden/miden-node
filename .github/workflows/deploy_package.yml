@@ -65,7 +65,7 @@ jobs:
         with:
           instance_id: ${{ secrets[inputs.instance_id] }}
           command: |
-            sudo rm -f miden-*; sudo systemctl stop miden-node; sudo systemctl stop miden-faucet; sudo apt remove miden-node miden-faucet -y
+            sudo systemctl stop miden-node; sudo systemctl stop miden-faucet; sudo apt remove miden-node miden-faucet -y; sudo rm -f miden-*
 
       - name: Package download testnet
         uses: ./.github/actions/ssm_execute
