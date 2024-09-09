@@ -20,7 +20,7 @@ message Note {
     digest.Digest note_id = 3;
     NoteMetadata metadata = 4;
     merkle.MerklePath merkle_path = 5;
-    // This field will be present when the note is on-chain.
+    // This field will be present when the note is public.
     // details contain the `Note` in a serialized format.
     optional bytes details = 6;
 }

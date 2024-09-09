@@ -313,7 +313,7 @@ impl api_server::Api for StoreApi {
         }))
     }
 
-    /// Returns details for public (on-chain) account by id.
+    /// Returns details for public (public) account by id.
     #[instrument(
         target = "miden-store",
         name = "store:get_account_details",

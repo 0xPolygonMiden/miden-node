@@ -12,7 +12,7 @@ use miden_lib::{
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::config::load_config;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountStorageType, AccountType, AuthSecretKey},
+    accounts::{Account, AccountData, AccountStorageMode, AccountType, AuthSecretKey},
     assets::TokenSymbol,
     crypto::{
         dsa::rpo_falcon512::SecretKey,
@@ -135,7 +135,7 @@ fn create_accounts(
                 let (auth_scheme, auth_secret_key) =
                     parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
-                let storage_mode = parse_storage_mode(&inputs.storage_mode)?;
+                let storage_mode: AccountStorageMode = inputs.storage_mode.as_str().try_into()?;
 
                 let (account, account_seed) = create_basic_wallet(
                     init_seed,
@@ -153,7 +153,7 @@ fn create_accounts(
                 let (auth_scheme, auth_secret_key) =
                     parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
 
-                let storage_mode = parse_storage_mode(&inputs.storage_mode)?;
+                let storage_mode: AccountStorageMode = inputs.storage_mode.as_str().try_into()?;
 
                 let (account, account_seed) = create_basic_fungible_faucet(
                     init_seed,
@@ -208,14 +208,6 @@ fn parse_auth_inputs(
     }
 }
 
-fn parse_storage_mode(storage_mode: &str) -> Result<AccountStorageType> {
-    match storage_mode.to_lowercase().as_str() {
-        "on-chain" => Ok(AccountStorageType::OnChain),
-        "off-chain" => Ok(AccountStorageType::OffChain),
-        mode => Err(anyhow!("The provided value for storage_type ({mode}) does not match the expected values (on-chain, off-chain)"))
-    }
-}
-
 // TESTS
 // ================================================================================================
 
@@ -247,7 +239,7 @@ mod tests {
                 init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
                 auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                storage_mode = "off-chain"
+                storage_mode = "private"
 
                 [[accounts]]
                 type = "BasicFungibleFaucet"
@@ -257,7 +249,7 @@ mod tests {
                 token_symbol = "POL"
                 decimals = 12
                 max_supply = 1000000
-                storage_mode = "on-chain"
+                storage_mode = "public"
             "#,
             )?;
 
@@ -279,8 +271,8 @@ mod tests {
             let a1 = AccountData::read(a1_file_path).unwrap();
 
             // assert that the accounts have the corresponding storage mode
-            assert!(!a0.account.is_on_chain());
-            assert!(a1.account.is_on_chain());
+            assert!(!a0.account.is_public());
+            assert!(a1.account.is_public());
 
             let genesis_file_contents = fs::read(genesis_dat_file_path).unwrap();
             let genesis_state = GenesisState::read_from_bytes(&genesis_file_contents).unwrap();

@@ -160,7 +160,7 @@ message ListNotesResponse {
 }
 
 message GetAccountDetailsResponse {
-    // Account info (with details for on-chain accounts)
+    // Account info (with details for public accounts)
     account.AccountInfo details = 1;
 }
 
