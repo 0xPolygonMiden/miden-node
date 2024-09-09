@@ -2,47 +2,66 @@ use std::{net::ToSocketAddrs, sync::Arc};
 
 use miden_node_proto::generated::store::api_server;
 use miden_node_utils::errors::ApiError;
-use tonic::transport::Server;
+use tokio::net::TcpListener;
+use tokio_stream::wrappers::TcpListenerStream;
 use tracing::info;
 
 use crate::{blocks::BlockStore, config::StoreConfig, db::Db, state::State, COMPONENT};
 
 mod api;
 
-// STORE INITIALIZER
-// ================================================================================================
+/// Represents an initialized store component where the RPC connection is open,
+/// but not yet actively responding to requests. Separating the connection binding
+/// from the server spawning allows the caller to connect other components to the
+/// store without resorting to sleeps or other mechanisms to spawn dependent components.
+pub struct Store {
+    api_service: api_server::ApiServer<api::StoreApi>,
+    listener: TcpListener,
+}
 
-pub async fn serve(config: StoreConfig) -> Result<(), ApiError> {
-    info!(target: COMPONENT, %config, "Initializing server");
+impl Store {
+    /// Loads the required database data and initializes the TCP listener without
+    /// serving the API yet. Incoming requests will be queued until [`serve`](Self::serve) is
+    /// called.
+    pub async fn load(config: StoreConfig) -> Result<Self, ApiError> {
+        info!(target: COMPONENT, %config, "Loading database");
 
-    let block_store = Arc::new(BlockStore::new(config.blockstore_dir.clone()).await?);
+        let block_store = Arc::new(BlockStore::new(config.blockstore_dir.clone()).await?);
 
-    let db = Db::setup(config.clone(), Arc::clone(&block_store))
-        .await
-        .map_err(|err| ApiError::ApiInitialisationFailed(err.to_string()))?;
-
-    let state = Arc::new(
-        State::load(db, block_store)
+        let db = Db::setup(config.clone(), Arc::clone(&block_store))
             .await
-            .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
-    );
+            .map_err(|err| ApiError::ApiInitialisationFailed(err.to_string()))?;
 
-    let store = api_server::ApiServer::new(api::StoreApi { state });
+        let state = Arc::new(
+            State::load(db, block_store)
+                .await
+                .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
+        );
 
-    info!(target: COMPONENT, "Server initialized");
+        let api_service = api_server::ApiServer::new(api::StoreApi { state });
 
-    let addr = config
-        .endpoint
-        .to_socket_addrs()
-        .map_err(ApiError::EndpointToSocketFailed)?
-        .next()
-        .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))?;
+        let addr = config
+            .endpoint
+            .to_socket_addrs()
+            .map_err(ApiError::EndpointToSocketFailed)?
+            .next()
+            .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))?;
 
-    Server::builder()
-        .add_service(store)
-        .serve(addr)
-        .await
-        .map_err(ApiError::ApiServeFailed)?;
+        let listener = TcpListener::bind(addr).await?;
 
-    Ok(())
+        info!(target: COMPONENT, "Database loaded");
+
+        Ok(Self { api_service, listener })
+    }
+
+    /// Serves the store's RPC API.
+    ///
+    /// Note: this will block until the server dies.
+    pub async fn serve(self) -> Result<(), ApiError> {
+        tonic::transport::Server::builder()
+            .add_service(self.api_service)
+            .serve_with_incoming(TcpListenerStream::new(self.listener))
+            .await
+            .map_err(ApiError::ApiServeFailed)
+    }
 }

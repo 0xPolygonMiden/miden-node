@@ -4,8 +4,9 @@ use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use commands::{
     init::init_config_files,
-    start::{start_block_producer, start_node, start_rpc, start_store},
+    start::{start_block_producer, start_node, start_rpc},
 };
+use miden_node_store::server::Store;
 use miden_node_utils::config::load_config;
 
 mod commands;
@@ -102,7 +103,12 @@ async fn main() -> anyhow::Result<()> {
             },
             StartCommand::Store => {
                 let config = load_config(config).context("Loading configuration file")?;
-                start_store(config).await
+                Store::load(config)
+                    .await
+                    .context("Loading store")?
+                    .serve()
+                    .await
+                    .context("Serving store")
             },
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {

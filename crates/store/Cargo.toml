@@ -27,6 +27,7 @@ rusqlite_migration = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs", "net", "macros", "rt-multi-thread"] }
+tokio-stream = { workspace = true, features = ["net"] }
 toml = { version = "0.8" }
 tonic = { workspace = true }
 tracing = { workspace = true }
