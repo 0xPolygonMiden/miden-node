@@ -61,7 +61,7 @@ impl Default for GenesisInput {
                     auth_scheme: AuthSchemeInput::RpoFalcon512,
                     auth_seed: "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                         .to_string(),
-                    storage_mode: "off-chain".to_string(),
+                    storage_mode: "private".to_string(),
                 }),
                 AccountInput::BasicFungibleFaucet(BasicFungibleFaucetInputs {
                     init_seed: "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -72,7 +72,7 @@ impl Default for GenesisInput {
                     token_symbol: "POL".to_string(),
                     decimals: 12,
                     max_supply: 1000000,
-                    storage_mode: "on-chain".to_string(),
+                    storage_mode: "public".to_string(),
                 }),
             ]),
         }

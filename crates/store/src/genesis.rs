@@ -31,7 +31,7 @@ impl GenesisState {
             .accounts
             .iter()
             .map(|account| {
-                let account_update_details = if account.id().is_on_chain() {
+                let account_update_details = if account.id().is_public() {
                     AccountUpdateDetails::New(account.clone())
                 } else {
                     AccountUpdateDetails::Private
