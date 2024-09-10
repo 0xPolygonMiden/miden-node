@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 (TBD)
+
+### Enhancements
+
+- Node component server startup is now coherent instead of requiring an arbitrary sleep amount (#488).
+
 ## 0.5.0 (2024-08-27)
 
 ### Enhancements

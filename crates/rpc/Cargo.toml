@@ -23,7 +23,8 @@ miden-objects = { workspace = true }
 miden-tx = { workspace = true }
 prost = { version = "0.12" }
 serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "1.38", features = ["rt-multi-thread", "net", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros"] }
+tokio-stream = { workspace = true, features = ["net"] }
 toml = { version = "0.8" }
 tonic = { workspace = true }
 tonic-web = { version = "0.11" }

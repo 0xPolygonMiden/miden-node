@@ -2,10 +2,10 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
-use commands::{
-    init::init_config_files,
-    start::{start_block_producer, start_node, start_rpc, start_store},
-};
+use commands::{init::init_config_files, start::start_node};
+use miden_node_block_producer::server::BlockProducer;
+use miden_node_rpc::server::Rpc;
+use miden_node_store::server::Store;
 use miden_node_utils::config::load_config;
 
 mod commands;
@@ -94,15 +94,30 @@ async fn main() -> anyhow::Result<()> {
             },
             StartCommand::BlockProducer => {
                 let config = load_config(config).context("Loading configuration file")?;
-                start_block_producer(config).await
+                BlockProducer::init(config)
+                    .await
+                    .context("Loading block-producer")?
+                    .serve()
+                    .await
+                    .context("Serving block-producer")
             },
             StartCommand::Rpc => {
                 let config = load_config(config).context("Loading configuration file")?;
-                start_rpc(config).await
+                Rpc::init(config)
+                    .await
+                    .context("Loading RPC")?
+                    .serve()
+                    .await
+                    .context("Serving RPC")
             },
             StartCommand::Store => {
                 let config = load_config(config).context("Loading configuration file")?;
-                start_store(config).await
+                Store::init(config)
+                    .await
+                    .context("Loading store")?
+                    .serve()
+                    .await
+                    .context("Serving store")
             },
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {

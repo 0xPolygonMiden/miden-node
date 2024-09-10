@@ -26,7 +26,8 @@ miden-stdlib = { workspace = true }
 miden-tx = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
-tokio = { version = "1.38", features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
+tokio-stream = { workspace = true, features = ["net"] }
 toml = { version = "0.8" }
 tonic = { workspace = true }
 tracing = { workspace = true }
@@ -41,5 +42,5 @@ miden-objects = { workspace = true, features = ["testing"] }
 miden-tx = { workspace = true, features = ["testing"] }
 once_cell = { version = "1.18" }
 rand_chacha = { version = "0.3", default-features = false }
-tokio = { version = "1.38", features = ["test-util"] }
+tokio = { workspace = true, features = ["test-util"] }
 winterfell = { version = "0.9" }
