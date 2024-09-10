@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 (TBD)
+
+### Enhancements
+
+- Node component server startup is now coherent instead of requiring an arbitrary sleep amount (#488).
+
 ## 0.5.0 (2024-08-27)
 
 ### Enhancements
@@ -13,7 +19,6 @@
 - Added `GetNoteAuthenticationInfo` endpoint (#421).
 - Added `SyncNotes` endpoint (#424).
 - Added `execution_hint` field to the `Notes` table (#441).
-- Node component server startup is now coherent instead of requiring an arbitrary sleep amount (#488).
 
 ### Changes
 
