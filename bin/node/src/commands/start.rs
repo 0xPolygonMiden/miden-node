@@ -15,16 +15,16 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
     let mut join_set = JoinSet::new();
 
     // Start store. The store endpoint is available after loading completes.
-    let store = Store::load(store).await.context("Loading store")?;
+    let store = Store::init(store).await.context("Loading store")?;
     join_set.spawn(async move { store.serve().await.context("Serving store") });
 
     // Start block-producer. The block-producer's endpoint is available after loading completes.
     let block_producer =
-        BlockProducer::load(block_producer).await.context("Loading block-producer")?;
+        BlockProducer::init(block_producer).await.context("Loading block-producer")?;
     join_set.spawn(async move { block_producer.serve().await.context("Serving block-producer") });
 
     // Start RPC component.
-    let rpc = Rpc::load(rpc).await.context("Loading RPC")?;
+    let rpc = Rpc::init(rpc).await.context("Loading RPC")?;
     join_set.spawn(async move { rpc.serve().await.context("Serving RPC") });
 
     // block on all tasks

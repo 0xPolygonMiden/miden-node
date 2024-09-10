@@ -23,7 +23,7 @@ impl Store {
     /// Loads the required database data and initializes the TCP listener without
     /// serving the API yet. Incoming requests will be queued until [`serve`](Self::serve) is
     /// called.
-    pub async fn load(config: StoreConfig) -> Result<Self, ApiError> {
+    pub async fn init(config: StoreConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Loading database");
 
         let block_store = Arc::new(BlockStore::new(config.blockstore_dir.clone()).await?);

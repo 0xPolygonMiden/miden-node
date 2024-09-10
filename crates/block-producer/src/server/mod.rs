@@ -40,7 +40,7 @@ impl BlockProducer {
     /// Performs all expensive initialization tasks, and notably begins listening on the rpc
     /// endpoint without serving the API yet. Incoming requests will be queued until
     /// [`serve`](Self::serve) is called.
-    pub async fn load(config: BlockProducerConfig) -> Result<Self, ApiError> {
+    pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
         let store = Arc::new(DefaultStore::new(

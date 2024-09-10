@@ -21,7 +21,7 @@ pub struct Rpc {
 }
 
 impl Rpc {
-    pub async fn load(config: RpcConfig) -> Result<Self, ApiError> {
+    pub async fn init(config: RpcConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
         let api = api::RpcApi::from_config(&config)

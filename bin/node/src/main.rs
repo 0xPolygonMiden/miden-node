@@ -94,7 +94,7 @@ async fn main() -> anyhow::Result<()> {
             },
             StartCommand::BlockProducer => {
                 let config = load_config(config).context("Loading configuration file")?;
-                BlockProducer::load(config)
+                BlockProducer::init(config)
                     .await
                     .context("Loading block-producer")?
                     .serve()
@@ -103,7 +103,7 @@ async fn main() -> anyhow::Result<()> {
             },
             StartCommand::Rpc => {
                 let config = load_config(config).context("Loading configuration file")?;
-                Rpc::load(config)
+                Rpc::init(config)
                     .await
                     .context("Loading RPC")?
                     .serve()
@@ -112,7 +112,7 @@ async fn main() -> anyhow::Result<()> {
             },
             StartCommand::Store => {
                 let config = load_config(config).context("Loading configuration file")?;
-                Store::load(config)
+                Store::init(config)
                     .await
                     .context("Loading store")?
                     .serve()
