@@ -58,7 +58,7 @@ impl From<(&NoteId, &NoteInclusionProof)> for NoteInclusionInBlockProofPb {
         Self {
             note_id: Some(note_id.into()),
             block_num: proof.location().block_num(),
-            note_index_in_block: proof.location().node_index_in_block(),
+            note_index_in_block: proof.location().node_index_in_block().into(),
             merkle_path: Some(Into::into(proof.note_path())),
         }
     }
@@ -80,7 +80,7 @@ impl TryFrom<&NoteInclusionInBlockProofPb> for (NoteId, NoteInclusionProof) {
             .into(),
             NoteInclusionProof::new(
                 proof.block_num,
-                proof.note_index_in_block,
+                proof.note_index_in_block.try_into()?,
                 proof
                     .merkle_path
                     .as_ref()

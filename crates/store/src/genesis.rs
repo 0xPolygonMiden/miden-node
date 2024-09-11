@@ -2,9 +2,8 @@ use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account},
     block::{Block, BlockAccountUpdate},
     crypto::merkle::{EmptySubtreeRoots, MmrPeaks, SimpleSmt, Smt},
-    notes::NOTE_LEAF_DEPTH,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, GENESIS_BLOCK,
+    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, BLOCK_NOTE_TREE_DEPTH, GENESIS_BLOCK,
 };
 
 use crate::errors::GenesisError;
@@ -59,7 +58,7 @@ impl GenesisState {
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             Smt::default().root(),
-            *EmptySubtreeRoots::entry(NOTE_LEAF_DEPTH, 0),
+            *EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0),
             Digest::default(),
             Digest::default(),
             self.timestamp,

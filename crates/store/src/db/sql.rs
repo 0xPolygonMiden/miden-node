@@ -466,7 +466,7 @@ pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
 
         notes.push(NoteRecord {
             block_num: row.get(0)?,
-            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
+            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
             note_id,
             metadata,
             details,
@@ -592,7 +592,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     let mut res = Vec::new();
     while let Some(row) = rows.next()? {
         let block_num = row.get(0)?;
-        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?);
+        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
         let note_type = row.get::<_, u8>(4)?;
@@ -686,7 +686,7 @@ pub fn select_notes_since_block_by_tag(
     let mut res = Vec::new();
     while let Some(row) = rows.next()? {
         let block_num = row.get(0)?;
-        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?);
+        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
         let note_type = row.get::<_, u8>(4)?;
@@ -780,13 +780,14 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
 
         notes.push(NoteRecord {
             block_num: row.get(0)?,
-            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?),
+            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
             details,
             note_id: note_id.into(),
             metadata,
             merkle_path,
         })
     }
+
     Ok(notes)
 }
 
@@ -829,7 +830,7 @@ pub fn select_note_inclusion_proofs(
 
         let batch_index = row.get(2)?;
         let note_index = row.get(3)?;
-        let node_index_in_block = BlockNoteIndex::new(batch_index, note_index).to_absolute_index();
+        let node_index_in_block = BlockNoteIndex::new(batch_index, note_index)?.leaf_index_value();
 
         let merkle_path_data = row.get_ref(4)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;

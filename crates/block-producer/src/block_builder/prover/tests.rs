@@ -14,7 +14,7 @@ use miden_objects::{
     },
     notes::{NoteExecutionHint, NoteHeader, NoteMetadata, NoteTag, NoteType, Nullifier},
     transaction::{OutputNote, ProvenTransaction},
-    Felt, BLOCK_NOTES_TREE_DEPTH, ONE, ZERO,
+    Felt, BLOCK_NOTE_TREE_DEPTH, ONE, ZERO,
 };
 
 use self::block_witness::AccountUpdateWitness;
@@ -450,7 +450,7 @@ async fn test_compute_note_root_empty_batches_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -485,7 +485,7 @@ async fn test_compute_note_root_empty_notes_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -564,9 +564,21 @@ async fn test_compute_note_root_success() {
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second
     let note_tree = BlockNoteTree::with_entries([
-        (BlockNoteIndex::new(0, 0), notes_created[0].id(), *notes_created[0].metadata()),
-        (BlockNoteIndex::new(0, 1), notes_created[1].id(), *notes_created[1].metadata()),
-        (BlockNoteIndex::new(1, 0), notes_created[2].id(), *notes_created[2].metadata()),
+        (
+            BlockNoteIndex::new(0, 0).unwrap(),
+            notes_created[0].id(),
+            *notes_created[0].metadata(),
+        ),
+        (
+            BlockNoteIndex::new(0, 1).unwrap(),
+            notes_created[1].id(),
+            *notes_created[1].metadata(),
+        ),
+        (
+            BlockNoteIndex::new(1, 0).unwrap(),
+            notes_created[2].id(),
+            *notes_created[2].metadata(),
+        ),
     ])
     .unwrap();
 

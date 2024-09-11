@@ -180,7 +180,7 @@ pub(crate) fn flatten_output_notes<'a>(
 ) -> impl Iterator<Item = (BlockNoteIndex, &'a OutputNote)> {
     batches.enumerate().flat_map(|(batch_idx, batch)| {
         batch.iter().enumerate().map(move |(note_idx_in_batch, note)| {
-            (BlockNoteIndex::new(batch_idx, note_idx_in_batch), note)
+            (BlockNoteIndex::new(batch_idx, note_idx_in_batch).unwrap(), note)
         })
     })
 }
