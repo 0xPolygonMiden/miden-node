@@ -160,8 +160,8 @@ message ListNotesResponse {
 }
 
 message GetAccountDetailsResponse {
-    // Account info (with details for on-chain accounts)
-    account.AccountInfo account = 1;
+    // Account info (with details for public accounts)
+    account.AccountInfo details = 1;
 }
 
 message GetBlockByNumberResponse {

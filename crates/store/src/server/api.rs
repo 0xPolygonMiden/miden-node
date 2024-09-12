@@ -7,7 +7,7 @@ use miden_node_proto::{
     generated::{
         self,
         account::AccountSummary,
-        note::{NoteAuthenticationInfo as NoteAuthenticationInfoProto, NoteSyncRecord},
+        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
@@ -190,16 +190,7 @@ impl api_server::Api for StoreApi {
             })
             .collect();
 
-        let notes = state
-            .notes
-            .into_iter()
-            .map(|note| NoteSyncRecord {
-                note_index: note.note_index.leaf_index_value().into(),
-                note_id: Some(note.note_id.into()),
-                metadata: Some(note.metadata.into()),
-                merkle_path: Some(Into::into(&note.merkle_path)),
-            })
-            .collect();
+        let notes = state.notes.into_iter().map(Into::into).collect();
 
         let nullifiers = state
             .nullifiers
@@ -211,7 +202,7 @@ impl api_server::Api for StoreApi {
             .collect();
 
         Ok(Response::new(SyncStateResponse {
-            chain_tip: state.chain_tip,
+            chain_tip: self.state.latest_block_num().await,
             block_header: Some(state.block_header.into()),
             mmr_delta: Some(delta.into()),
             accounts,
@@ -241,19 +232,10 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
-        let notes = state
-            .notes
-            .into_iter()
-            .map(|note| NoteSyncRecord {
-                note_index: note.note_index.leaf_index_value().into(),
-                note_id: Some(note.note_id.into()),
-                metadata: Some(note.metadata.into()),
-                merkle_path: Some((&note.merkle_path).into()),
-            })
-            .collect();
+        let notes = state.notes.into_iter().map(Into::into).collect();
 
         Ok(Response::new(SyncNoteResponse {
-            chain_tip: state.chain_tip,
+            chain_tip: self.state.latest_block_num().await,
             block_header: Some(state.block_header.into()),
             mmr_path: Some((&mmr_proof.merkle_path).into()),
             notes,
@@ -331,7 +313,7 @@ impl api_server::Api for StoreApi {
         }))
     }
 
-    /// Returns details for public (on-chain) account by id.
+    /// Returns details for public (public) account by id.
     #[instrument(
         target = "miden-store",
         name = "store:get_account_details",
@@ -353,7 +335,7 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)?;
 
         Ok(Response::new(GetAccountDetailsResponse {
-            account: Some((&account_info).into()),
+            details: Some((&account_info).into()),
         }))
     }
 
@@ -620,7 +602,7 @@ fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<N
 fn validate_notes(notes: &[generated::digest::Digest]) -> Result<Vec<NoteId>, Status> {
     notes
         .iter()
-        .map(|digest| Ok(RpoDigest::try_from(digest.clone())?.into()))
+        .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }

@@ -7,7 +7,7 @@ use std::{
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
     domain::accounts::{AccountInfo, AccountSummary},
-    generated::note::Note as NotePb,
+    generated::note::{Note as NotePb, NoteSyncRecord as NoteSyncRecordPb},
 };
 use miden_objects::{
     accounts::AccountDelta,
@@ -83,9 +83,8 @@ impl From<NoteRecord> for NotePb {
 
 #[derive(Debug, PartialEq)]
 pub struct StateSyncUpdate {
-    pub notes: Vec<NoteRecord>,
+    pub notes: Vec<NoteSyncRecord>,
     pub block_header: BlockHeader,
-    pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
     pub transactions: Vec<TransactionSummary>,
     pub nullifiers: Vec<NullifierInfo>,
@@ -93,9 +92,40 @@ pub struct StateSyncUpdate {
 
 #[derive(Debug, PartialEq)]
 pub struct NoteSyncUpdate {
-    pub notes: Vec<NoteRecord>,
+    pub notes: Vec<NoteSyncRecord>,
     pub block_header: BlockHeader,
-    pub chain_tip: BlockNumber,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteSyncRecord {
+    pub block_num: BlockNumber,
+    pub note_index: BlockNoteIndex,
+    pub note_id: RpoDigest,
+    pub metadata: NoteMetadata,
+    pub merkle_path: MerklePath,
+}
+
+impl From<NoteSyncRecord> for NoteSyncRecordPb {
+    fn from(note: NoteSyncRecord) -> Self {
+        Self {
+            note_index: note.note_index.to_absolute_index(),
+            note_id: Some(note.note_id.into()),
+            metadata: Some(note.metadata.into()),
+            merkle_path: Some(Into::into(&note.merkle_path)),
+        }
+    }
+}
+
+impl From<NoteRecord> for NoteSyncRecord {
+    fn from(note: NoteRecord) -> Self {
+        Self {
+            block_num: note.block_num,
+            note_index: note.note_index,
+            note_id: note.note_id,
+            metadata: note.metadata,
+            merkle_path: note.merkle_path,
+        }
+    }
 }
 
 impl Db {

@@ -190,7 +190,7 @@ impl api_server::Api for RpcApi {
         self.block_producer.clone().submit_proven_transaction(request).await
     }
 
-    /// Returns details for public (on-chain) account by id.
+    /// Returns details for public (public) account by id.
     #[instrument(
         target = "miden-rpc",
         name = "rpc:get_account_details",
@@ -208,7 +208,6 @@ impl api_server::Api for RpcApi {
         let _account_id: AccountId = request
             .get_ref()
             .account_id
-            .clone()
             .ok_or(Status::invalid_argument("account_id is missing"))?
             .try_into()
             .map_err(|err| Status::invalid_argument(format!("Invalid account id: {err}")))?;

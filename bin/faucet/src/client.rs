@@ -9,7 +9,7 @@ use miden_node_proto::generated::{
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
-    accounts::{Account, AccountDelta, AccountId, AccountStorageType, AuthSecretKey},
+    accounts::{Account, AccountDelta, AccountId, AccountStorageMode, AuthSecretKey},
     assets::{FungibleAsset, TokenSymbol},
     crypto::{
         dsa::rpo_falcon512::SecretKey,
@@ -238,7 +238,7 @@ fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), Fau
         config.decimals,
         Felt::try_from(config.max_supply)
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?,
-        AccountStorageType::OffChain,
+        AccountStorageMode::Private,
         auth_scheme,
     )
     .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;

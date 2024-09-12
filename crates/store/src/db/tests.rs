@@ -896,7 +896,7 @@ fn test_notes() {
     let res =
         sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[tag], &[], block_num_1 - 1)
             .unwrap();
-    assert_eq!(res, vec![note.clone()]);
+    assert_eq!(res, vec![note.clone().into()]);
 
     let block_num_2 = note.block_num + 1;
     create_block(&mut conn, block_num_2);
@@ -919,12 +919,12 @@ fn test_notes() {
     let res =
         sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[tag], &[], block_num_1 - 1)
             .unwrap();
-    assert_eq!(res, vec![note.clone()]);
+    assert_eq!(res, vec![note.clone().into()]);
 
     // only the second note is returned
     let res = sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[tag], &[], block_num_1)
         .unwrap();
-    assert_eq!(res, vec![note2.clone()]);
+    assert_eq!(res, vec![note2.clone().into()]);
 
     // test query notes by id
     let notes = vec![note, note2];

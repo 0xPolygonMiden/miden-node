@@ -70,7 +70,7 @@ pub enum DatabaseError {
     AccountNotFoundInDb(AccountId),
     #[error("Account {0} is not on the chain")]
     AccountNotOnChain(AccountId),
-    #[error("Failed to apply block because of on-chain account final hashes mismatch (expected {expected}, \
+    #[error("Failed to apply block because of public account final hashes mismatch (expected {expected}, \
         but calculated is {calculated}")]
     ApplyBlockFailedAccountHashesMismatch {
         expected: RpoDigest,

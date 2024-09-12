@@ -667,7 +667,7 @@ impl State {
         self.db.select_notes().await
     }
 
-    /// Returns details for public (on-chain) account.
+    /// Returns details for public (public) account.
     pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await
     }
