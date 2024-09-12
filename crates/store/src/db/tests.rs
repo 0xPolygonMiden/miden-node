@@ -1,5 +1,3 @@
-use std::iter;
-
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::accounts::AccountSummary;
 use miden_objects::{
@@ -335,9 +333,10 @@ fn test_sql_public_account_details() {
     let non_fungible_faucet_id =
         AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
 
-    let mut storage =
-        AccountStorage::new(iter::repeat(StorageSlot::Value(Word::default())).take(6).collect())
-            .unwrap();
+    let mut storage = AccountStorage::new(
+        std::iter::repeat(StorageSlot::Value(Word::default())).take(6).collect(),
+    )
+    .unwrap();
     storage.set_item(1, num_to_word(1)).unwrap();
     storage.set_item(3, num_to_word(3)).unwrap();
     storage.set_item(5, num_to_word(5)).unwrap();
