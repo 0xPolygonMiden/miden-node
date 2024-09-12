@@ -22,8 +22,9 @@ use miden_objects::{
     BlockHeader, Felt, Word,
 };
 use miden_tx::{
-    auth::BasicAuthenticator, utils::Serializable, DataStore, DataStoreError, ProvingOptions,
-    TransactionExecutor, TransactionInputs, TransactionProver,
+    auth::BasicAuthenticator, utils::Serializable, DataStore, DataStoreError,
+    LocalTransactionProver, ProvingOptions, TransactionExecutor, TransactionInputs,
+    TransactionProver,
 };
 use rand::{rngs::StdRng, thread_rng, Rng};
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
@@ -123,14 +124,13 @@ impl FaucetClient {
         &mut self,
         executed_tx: ExecutedTransaction,
     ) -> Result<u32, FaucetError> {
-        let transaction_prover = TransactionProver::new(ProvingOptions::default());
+        let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
 
         let delta = executed_tx.account_delta().clone();
 
-        let proven_transaction =
-            transaction_prover.prove_transaction(executed_tx).map_err(|err| {
-                FaucetError::InternalServerError(format!("Failed to prove transaction: {}", err))
-            })?;
+        let proven_transaction = transaction_prover.prove(executed_tx).map_err(|err| {
+            FaucetError::InternalServerError(format!("Failed to prove transaction: {}", err))
+        })?;
 
         let request = SubmitProvenTransactionRequest {
             transaction: proven_transaction.to_bytes(),
