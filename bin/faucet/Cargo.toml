@@ -21,7 +21,7 @@ actix-cors = "0.7"
 actix-web = "4.8"
 actix-web-static-files = "4.0"
 async-mutex = "1.4"
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive", "string"] }
 derive_more = "0.99"
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-lib = { workspace = true, features = ["concurrent"] }
@@ -39,4 +39,6 @@ tonic = { workspace = true }
 tracing = { workspace = true }
 
 [build-dependencies]
+# Required to inject build metadata.
+miden-node-utils = { workspace = true, features = ["vergen"] }
 static-files = "0.2"
