@@ -67,9 +67,13 @@ proc.compute_note_root
     while.true
         #=> [note_roots_left_to_update, ROOT_i, batch_note_root_idx_i, BATCH_NOTE_TREE_ROOT_i, ... ]
 
+        # Move counter down for next iteration
+        movdn.9
+        #=> [ROOT_i, batch_note_root_idx_i, BATCH_NOTE_TREE_ROOT_i, note_roots_left_to_update, ... ]
+
         # Prepare stack for mtree_set
-        movdn.9 movup.4 push.BLOCK_NOTES_BATCH_TREE_DEPTH
-        #=> [depth=BLOCK_NOTES_BATCH_TREE_DEPTH, batch_note_root_idx_i, ROOT_i,
+        movup.4 push.BLOCK_NOTES_BATCH_TREE_DEPTH
+        #=> [depth=batch_tree_depth, batch_note_root_idx_i, ROOT_i,
         #    BATCH_NOTE_TREE_ROOT_i, note_roots_left_to_update, ... ]
 
         mtree_set dropw
