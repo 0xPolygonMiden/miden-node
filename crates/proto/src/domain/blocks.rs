@@ -19,6 +19,7 @@ impl From<&BlockHeader> for block::BlockHeader {
             nullifier_root: Some(header.nullifier_root().into()),
             note_root: Some(header.note_root().into()),
             tx_hash: Some(header.tx_hash().into()),
+            kernel_root: Some(header.kernel_root().into()),
             proof_hash: Some(header.proof_hash().into()),
             timestamp: header.timestamp(),
         }
@@ -69,6 +70,10 @@ impl TryFrom<block::BlockHeader> for BlockHeader {
             value
                 .tx_hash
                 .ok_or(block::BlockHeader::missing_field(stringify!(tx_hash)))?
+                .try_into()?,
+            value
+                .kernel_root
+                .ok_or(block::BlockHeader::missing_field(stringify!(kernel_root)))?
                 .try_into()?,
             value
                 .proof_hash

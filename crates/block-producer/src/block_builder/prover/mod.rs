@@ -72,6 +72,7 @@ impl BlockProver {
             nullifier_root,
             note_root,
             tx_hash,
+            Digest::default(),
             proof_hash,
             timestamp,
         ))

@@ -65,7 +65,8 @@ pub async fn build_expected_block_header(
         Digest::default(),
         note_created_smt.root(),
         Digest::default(),
-        Digest::default(),
+            Digest::default(),
+            Digest::default(),
         1,
     )
 }
@@ -160,6 +161,7 @@ impl MockBlockBuilder {
             self.store_accounts.root(),
             Digest::default(),
             note_created_smt_from_note_batches(created_notes.iter()).root(),
+            Digest::default(),
             Digest::default(),
             Digest::default(),
             1,
