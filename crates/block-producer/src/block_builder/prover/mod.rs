@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{assembly::Assembler, block::compute_tx_hash, BlockHeader, Digest};
 use miden_processor::{execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
@@ -61,7 +62,7 @@ impl BlockProver {
             .expect("today is expected to be after 1970")
             .as_secs()
             .try_into()
-            .expect("timestamp must fit to `u32`");
+            .expect("timestamp must fit in a `u32`");
 
         Ok(BlockHeader::new(
             version,
@@ -72,7 +73,7 @@ impl BlockProver {
             nullifier_root,
             note_root,
             tx_hash,
-            Digest::default(),
+            TransactionKernel::kernel_root(),
             proof_hash,
             timestamp,
         ))
