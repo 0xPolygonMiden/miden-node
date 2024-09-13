@@ -6,6 +6,12 @@
 - Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
 - [BREAKING] Changed `GetAccountDetailsResponse` field to `details` (#481).
 
+## 0.5.1 (2024-09-12)
+
+### Enhancements
+
+- Node component server startup is now coherent instead of requiring an arbitrary sleep amount (#488).
+
 ## 0.5.0 (2024-08-27)
 
 ### Enhancements
