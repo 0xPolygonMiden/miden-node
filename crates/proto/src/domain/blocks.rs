@@ -2,13 +2,13 @@ use miden_objects::{crypto::merkle::MerklePath, BlockHeader};
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
-    generated::block,
+    generated::block as proto,
 };
 
 // BLOCK HEADER
 // ================================================================================================
 
-impl From<&BlockHeader> for block::BlockHeader {
+impl From<&BlockHeader> for proto::BlockHeader {
     fn from(header: &BlockHeader) -> Self {
         Self {
             version: header.version(),
@@ -26,58 +26,58 @@ impl From<&BlockHeader> for block::BlockHeader {
     }
 }
 
-impl From<BlockHeader> for block::BlockHeader {
+impl From<BlockHeader> for proto::BlockHeader {
     fn from(header: BlockHeader) -> Self {
         (&header).into()
     }
 }
 
-impl TryFrom<&block::BlockHeader> for BlockHeader {
+impl TryFrom<&proto::BlockHeader> for BlockHeader {
     type Error = ConversionError;
 
-    fn try_from(value: &block::BlockHeader) -> Result<Self, Self::Error> {
+    fn try_from(value: &proto::BlockHeader) -> Result<Self, Self::Error> {
         value.try_into()
     }
 }
 
-impl TryFrom<block::BlockHeader> for BlockHeader {
+impl TryFrom<proto::BlockHeader> for BlockHeader {
     type Error = ConversionError;
 
-    fn try_from(value: block::BlockHeader) -> Result<Self, Self::Error> {
+    fn try_from(value: proto::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(
             value.version,
             value
                 .prev_hash
-                .ok_or(block::BlockHeader::missing_field(stringify!(prev_hash)))?
+                .ok_or(proto::BlockHeader::missing_field(stringify!(prev_hash)))?
                 .try_into()?,
             value.block_num,
             value
                 .chain_root
-                .ok_or(block::BlockHeader::missing_field(stringify!(chain_root)))?
+                .ok_or(proto::BlockHeader::missing_field(stringify!(chain_root)))?
                 .try_into()?,
             value
                 .account_root
-                .ok_or(block::BlockHeader::missing_field(stringify!(account_root)))?
+                .ok_or(proto::BlockHeader::missing_field(stringify!(account_root)))?
                 .try_into()?,
             value
                 .nullifier_root
-                .ok_or(block::BlockHeader::missing_field(stringify!(nullifier_root)))?
+                .ok_or(proto::BlockHeader::missing_field(stringify!(nullifier_root)))?
                 .try_into()?,
             value
                 .note_root
-                .ok_or(block::BlockHeader::missing_field(stringify!(note_root)))?
+                .ok_or(proto::BlockHeader::missing_field(stringify!(note_root)))?
                 .try_into()?,
             value
                 .tx_hash
-                .ok_or(block::BlockHeader::missing_field(stringify!(tx_hash)))?
+                .ok_or(proto::BlockHeader::missing_field(stringify!(tx_hash)))?
                 .try_into()?,
             value
                 .kernel_root
-                .ok_or(block::BlockHeader::missing_field(stringify!(kernel_root)))?
+                .ok_or(proto::BlockHeader::missing_field(stringify!(kernel_root)))?
                 .try_into()?,
             value
                 .proof_hash
-                .ok_or(block::BlockHeader::missing_field(stringify!(proof_hash)))?
+                .ok_or(proto::BlockHeader::missing_field(stringify!(proof_hash)))?
                 .try_into()?,
             value.timestamp,
         ))
@@ -92,7 +92,7 @@ pub struct BlockInclusionProof {
     pub chain_length: u32,
 }
 
-impl From<BlockInclusionProof> for block::BlockInclusionProof {
+impl From<BlockInclusionProof> for proto::BlockInclusionProof {
     fn from(value: BlockInclusionProof) -> Self {
         Self {
             block_header: Some(value.block_header.into()),
@@ -102,18 +102,18 @@ impl From<BlockInclusionProof> for block::BlockInclusionProof {
     }
 }
 
-impl TryFrom<block::BlockInclusionProof> for BlockInclusionProof {
+impl TryFrom<proto::BlockInclusionProof> for BlockInclusionProof {
     type Error = ConversionError;
 
-    fn try_from(value: block::BlockInclusionProof) -> Result<Self, ConversionError> {
+    fn try_from(value: proto::BlockInclusionProof) -> Result<Self, ConversionError> {
         let result = Self {
             block_header: value
                 .block_header
-                .ok_or(block::BlockInclusionProof::missing_field("block_header"))?
+                .ok_or(proto::BlockInclusionProof::missing_field("block_header"))?
                 .try_into()?,
             mmr_path: (&value
                 .mmr_path
-                .ok_or(block::BlockInclusionProof::missing_field("mmr_path"))?)
+                .ok_or(proto::BlockInclusionProof::missing_field("mmr_path"))?)
                 .try_into()?,
             chain_length: value.chain_length,
         };
