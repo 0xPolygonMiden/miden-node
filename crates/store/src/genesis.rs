@@ -62,6 +62,7 @@ impl GenesisState {
             *EmptySubtreeRoots::entry(NOTE_LEAF_DEPTH, 0),
             Digest::default(),
             Digest::default(),
+            Digest::default(),
             self.timestamp,
         );
 

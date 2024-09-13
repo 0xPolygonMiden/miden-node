@@ -40,7 +40,8 @@ fn create_block(conn: &mut Connection, block_num: u32) {
         num_to_rpo_digest(7),
         num_to_rpo_digest(8),
         num_to_rpo_digest(9),
-        10_u8.into(),
+        num_to_rpo_digest(10),
+        11_u8.into(),
     );
 
     let transaction = conn.transaction().unwrap();
@@ -735,9 +736,9 @@ fn test_db_block_header() {
         num_to_rpo_digest(7),
         num_to_rpo_digest(8),
         num_to_rpo_digest(9),
-        10_u8.into(),
+        num_to_rpo_digest(10),
+        11_u8.into(),
     );
-
     // test insertion
     let transaction = conn.transaction().unwrap();
     sql::insert_block_header(&transaction, &block_header).unwrap();
@@ -767,7 +768,8 @@ fn test_db_block_header() {
         num_to_rpo_digest(17),
         num_to_rpo_digest(18),
         num_to_rpo_digest(19),
-        20_u8.into(),
+        num_to_rpo_digest(20),
+        21_u8.into(),
     );
 
     let transaction = conn.transaction().unwrap();

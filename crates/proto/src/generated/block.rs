@@ -28,8 +28,11 @@ pub struct BlockHeader {
     /// a hash of a STARK proof attesting to the correct state transition.
     #[prost(message, optional, tag = "9")]
     pub proof_hash: ::core::option::Option<super::digest::Digest>,
+    /// a commitment to all transaction kernels supported by this block.
+    #[prost(message, optional, tag = "10")]
+    pub kernel_root: ::core::option::Option<super::digest::Digest>,
     /// the time when the block was created.
-    #[prost(fixed32, tag = "10")]
+    #[prost(fixed32, tag = "11")]
     pub timestamp: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
