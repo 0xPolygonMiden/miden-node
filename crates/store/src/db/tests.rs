@@ -736,7 +736,7 @@ fn test_db_block_header() {
         num_to_rpo_digest(7),
         num_to_rpo_digest(8),
         num_to_rpo_digest(9),
-            num_to_rpo_digest(10),
+        num_to_rpo_digest(10),
         11_u8.into(),
     );
     // test insertion
@@ -768,7 +768,7 @@ fn test_db_block_header() {
         num_to_rpo_digest(17),
         num_to_rpo_digest(18),
         num_to_rpo_digest(19),
-            num_to_rpo_digest(20),
+        num_to_rpo_digest(20),
         21_u8.into(),
     );
 
