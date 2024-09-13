@@ -1708,7 +1708,7 @@ dependencies = [
 
 [[package]]
 name = "miden-faucet"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "actix-cors",
  "actix-web",
@@ -1796,7 +1796,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1817,7 +1817,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-block-producer"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "async-trait",
  "figment",
@@ -1846,7 +1846,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-proto"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "hex",
  "miden-node-utils",
@@ -1863,7 +1863,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-rpc"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "directories",
  "figment",
@@ -1887,7 +1887,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-store"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "deadpool-sqlite",
  "directories",
@@ -1921,7 +1921,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-utils"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "figment",
@@ -1976,7 +1976,7 @@ dependencies = [
 
 [[package]]
 name = "miden-rpc-proto"
-version = "0.5.0"
+version = "0.5.1"
 
 [[package]]
 name = "miden-stdlib"
