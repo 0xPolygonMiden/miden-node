@@ -72,7 +72,7 @@ impl From<NoteRecord> for NotePb {
     fn from(note: NoteRecord) -> Self {
         Self {
             block_num: note.block_num,
-            note_index: note.note_index.to_absolute_index(),
+            note_index: note.note_index.leaf_index_value().into(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
             merkle_path: Some(Into::into(&note.merkle_path)),
@@ -108,7 +108,7 @@ pub struct NoteSyncRecord {
 impl From<NoteSyncRecord> for NoteSyncRecordPb {
     fn from(note: NoteSyncRecord) -> Self {
         Self {
-            note_index: note.note_index.to_absolute_index(),
+            note_index: note.note_index.leaf_index_value().into(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
             merkle_path: Some(Into::into(&note.merkle_path)),

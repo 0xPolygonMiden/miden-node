@@ -48,6 +48,8 @@ pub enum DatabaseError {
     IoError(#[from] io::Error),
     #[error("Account error: {0}")]
     AccountError(#[from] AccountError),
+    #[error("Block error: {0}")]
+    BlockError(#[from] BlockError),
     #[error("Note error: {0}")]
     NoteError(#[from] NoteError),
     #[error("Migration error: {0}")]
@@ -167,8 +169,6 @@ pub enum ApplyBlockError {
     NewBlockInvalidNullifierRoot,
     #[error("Duplicated nullifiers {0:?}")]
     DuplicatedNullifiers(Vec<Nullifier>),
-    #[error("Unable to create proof for note: {0}")]
-    UnableToCreateProofForNote(MerkleError),
     #[error("Block applying was broken because of closed channel on database side: {0}")]
     BlockApplyingBrokenBecauseOfClosedChannel(RecvError),
     #[error("Failed to create notes tree: {0}")]

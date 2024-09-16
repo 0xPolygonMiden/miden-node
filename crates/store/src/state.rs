@@ -283,9 +283,7 @@ impl State {
                         note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
                     };
 
-                    let merkle_path = note_tree
-                        .get_note_path(note_index)
-                        .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
+                    let merkle_path = note_tree.get_note_path(note_index);
 
                     Ok(NoteRecord {
                         block_num,

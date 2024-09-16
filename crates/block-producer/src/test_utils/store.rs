@@ -137,8 +137,8 @@ impl MockStoreSuccessBuilder {
                     note.id(),
                     NoteInclusionProof::new(
                         block_num,
-                        index.to_absolute_index(),
-                        block_note_tree.get_note_path(index).unwrap(),
+                        index.leaf_index_value(),
+                        block_note_tree.get_note_path(index),
                     )
                     .expect("Failed to create `NoteInclusionProof`"),
                 )
@@ -225,8 +225,8 @@ impl ApplyBlock for MockStoreSuccess {
                 note.id(),
                 NoteInclusionProof::new(
                     header.block_num(),
-                    note_index.to_absolute_index(),
-                    note_tree.get_note_path(note_index).unwrap_or_default(),
+                    note_index.leaf_index_value(),
+                    note_tree.get_note_path(note_index),
                 )
                 .expect("Failed to build `NoteInclusionProof`"),
             );

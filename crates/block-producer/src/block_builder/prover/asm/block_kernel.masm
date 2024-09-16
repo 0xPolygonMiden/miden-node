@@ -8,6 +8,7 @@ use.std::collections::smt
 use.std::collections::mmr
 
 const.ACCOUNT_TREE_DEPTH=64
+const.BLOCK_NOTES_BATCH_TREE_DEPTH=6
 const.CHAIN_MMR_PTR=1000
 
 #! Compute the account root
@@ -46,12 +47,12 @@ end
 
 #! Compute the note root.
 #!
-#! Each batch contains a tree of depth 13 for its created notes. The block's created notes tree is created
-#! by aggregating up to 2^8 tree roots coming from the batches contained in the block.
+#! Each batch contains a tree of depth 10 for its created notes. The block's created notes tree is created
+#! by aggregating up to 2^6 tree roots coming from the batches contained in the block.
 #!
-#! `SMT_EMPTY_ROOT` must be `E21`, the root of the empty tree of depth 21. If less than 2^8 batches are
-#! contained in the block, `E13` is used as the padding value; this is derived from the fact that
-#! `SMT_EMPTY_ROOT` is `E21`, and that our tree has depth 8.
+#! `SMT_EMPTY_ROOT` must be `E16`, the root of the empty tree of depth 16. If less than 2^6 batches are
+#! contained in the block, `E10` is used as the padding value; this is derived from the fact that
+#! `SMT_EMPTY_ROOT` is `E16`, and that our tree has depth 6.
 #!
 #! Stack: [num_notes_updated, SMT_EMPTY_ROOT,
 #!         batch_note_root_idx_0, BATCH_NOTE_TREE_ROOT_0,
@@ -66,9 +67,14 @@ proc.compute_note_root
     while.true
         #=> [note_roots_left_to_update, ROOT_i, batch_note_root_idx_i, BATCH_NOTE_TREE_ROOT_i, ... ]
 
+        # Move counter down for next iteration
+        movdn.9
+        #=> [ROOT_i, batch_note_root_idx_i, BATCH_NOTE_TREE_ROOT_i, note_roots_left_to_update, ... ]
+
         # Prepare stack for mtree_set
-        movdn.9 movup.4 push.8
-        #=> [depth=8, batch_note_root_idx_i, ROOT_i, BATCH_NOTE_TREE_ROOT_i, note_roots_left_to_update, ... ]
+        movup.4 push.BLOCK_NOTES_BATCH_TREE_DEPTH
+        #=> [depth=batch_tree_depth, batch_note_root_idx_i, ROOT_i,
+        #    BATCH_NOTE_TREE_ROOT_i, note_roots_left_to_update, ... ]
 
         mtree_set dropw
         #=> [ROOT_{i+1}, note_roots_left_to_update, ... ]

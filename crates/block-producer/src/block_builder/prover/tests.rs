@@ -8,14 +8,13 @@ use miden_objects::{
         delta::AccountUpdateDetails,
         AccountId,
     },
-    block::BlockAccountUpdate,
+    block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::merkle::{
-        EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, SimpleSmt, Smt, SmtLeaf, SmtProof,
-        SMT_DEPTH,
+        EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, Smt, SmtLeaf, SmtProof, SMT_DEPTH,
     },
     notes::{NoteExecutionHint, NoteHeader, NoteMetadata, NoteTag, NoteType, Nullifier},
     transaction::{OutputNote, ProvenTransaction},
-    Felt, BLOCK_NOTES_TREE_DEPTH, ONE, ZERO,
+    Felt, BATCH_NOTE_TREE_DEPTH, BLOCK_NOTE_TREE_DEPTH, ONE, ZERO,
 };
 
 use self::block_witness::AccountUpdateWitness;
@@ -451,7 +450,7 @@ async fn test_compute_note_root_empty_batches_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -486,7 +485,7 @@ async fn test_compute_note_root_empty_notes_success() {
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTES_TREE_DEPTH, 0);
+    let created_notes_empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
     assert_eq!(block_header.note_root(), *created_notes_empty_root);
 }
 
@@ -560,30 +559,37 @@ async fn test_compute_note_root_success() {
     let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
-    // Create SMT by hand to get new root
+    // Create block note tree to get new root
     // ---------------------------------------------------------------------------------------------
 
-    // The current logic is hardcoded to a depth of 21
-    // Specifically, we assume the block has up to 2^8 batches, and each batch up to 2^12 created
-    // notes, where each note is stored at depth 13 in the batch as 2 contiguous nodes: note
-    // hash, then metadata.
-    assert_eq!(BLOCK_NOTES_TREE_DEPTH, 21);
+    // The current logic is hardcoded to a depth of 6
+    // Specifically, we assume the block has up to 2^6 batches, and each batch up to 2^10 created
+    // notes, where each note is stored at depth 10 in the batch tree.
+    const _: () = assert!(BLOCK_NOTE_TREE_DEPTH - BATCH_NOTE_TREE_DEPTH == 6);
 
-    // The first 2 txs were put in the first batch; the 3rd was put in the second. It will lie in
-    // the second subtree of depth 12
-    let notes_smt = SimpleSmt::<BLOCK_NOTES_TREE_DEPTH>::with_leaves(vec![
-        (0u64, notes_created[0].id().into()),
-        (1u64, notes_created[0].metadata().into()),
-        (2u64, notes_created[1].id().into()),
-        (3u64, notes_created[1].metadata().into()),
-        (2u64.pow(13), notes_created[2].id().into()),
-        (2u64.pow(13) + 1, notes_created[2].metadata().into()),
+    // The first 2 txs were put in the first batch; the 3rd was put in the second
+    let note_tree = BlockNoteTree::with_entries([
+        (
+            BlockNoteIndex::new(0, 0).unwrap(),
+            notes_created[0].id(),
+            *notes_created[0].metadata(),
+        ),
+        (
+            BlockNoteIndex::new(0, 1).unwrap(),
+            notes_created[1].id(),
+            *notes_created[1].metadata(),
+        ),
+        (
+            BlockNoteIndex::new(1, 0).unwrap(),
+            notes_created[2].id(),
+            *notes_created[2].metadata(),
+        ),
     ])
     .unwrap();
 
     // Compare roots
     // ---------------------------------------------------------------------------------------------
-    assert_eq!(block_header.note_root(), notes_smt.root());
+    assert_eq!(block_header.note_root(), note_tree.root());
 }
 
 // NULLIFIER ROOT TESTS
