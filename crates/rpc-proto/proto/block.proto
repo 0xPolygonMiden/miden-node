@@ -23,8 +23,10 @@ message BlockHeader {
     digest.Digest tx_hash = 8;
     // a hash of a STARK proof attesting to the correct state transition.
     digest.Digest proof_hash = 9;
+    // a commitment to all transaction kernels supported by this block.
+    digest.Digest kernel_root = 10;
     // the time when the block was created.
-    fixed32 timestamp = 10;
+    fixed32 timestamp = 11;
 }
 
 message BlockInclusionProof {

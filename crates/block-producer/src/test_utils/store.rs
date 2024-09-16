@@ -127,6 +127,7 @@ impl MockStoreSuccessBuilder {
             note_root,
             Digest::default(),
             Digest::default(),
+            Digest::default(),
             1,
         );
 

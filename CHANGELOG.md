@@ -2,9 +2,16 @@
 
 ## v0.6.0 (TBD)
 
+- [BREAKING] Added `kernel_root` to block header's protobuf message definitions (#496).
 - [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#489).
 - Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
 - [BREAKING] Changed `GetAccountDetailsResponse` field to `details` (#481).
+
+## 0.5.1 (2024-09-12)
+
+### Enhancements
+
+- Node component server startup is now coherent instead of requiring an arbitrary sleep amount (#488).
 
 ## 0.5.0 (2024-08-27)
 
