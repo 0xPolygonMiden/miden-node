@@ -1788,7 +1788,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-note-tree-refactor#48e5f4743c4ff2e842296a963be25fc8b071d0f6"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#76a6635593ca168eda4517061ee0b4b845ad1c0f"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1979,7 +1979,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-note-tree-refactor#48e5f4743c4ff2e842296a963be25fc8b071d0f6"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#76a6635593ca168eda4517061ee0b4b845ad1c0f"
 dependencies = [
  "miden-assembly",
  "miden-core",
@@ -2050,7 +2050,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-note-tree-refactor#48e5f4743c4ff2e842296a963be25fc8b071d0f6"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#76a6635593ca168eda4517061ee0b4b845ad1c0f"
 dependencies = [
  "miden-lib",
  "miden-objects",
