@@ -1,3 +1,4 @@
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account},
     block::{Block, BlockAccountUpdate},
@@ -60,7 +61,7 @@ impl GenesisState {
             Smt::default().root(),
             *EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0),
             Digest::default(),
-            Digest::default(),
+            TransactionKernel::kernel_root(),
             Digest::default(),
             self.timestamp,
         );
