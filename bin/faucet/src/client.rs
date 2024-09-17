@@ -29,6 +29,7 @@ use miden_tx::{
 use rand::{rngs::StdRng, thread_rng, Rng};
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use tonic::transport::Channel;
+use tracing::{error, info};
 
 use crate::{config::FaucetConfig, errors::FaucetError};
 
@@ -113,9 +114,10 @@ impl FaucetClient {
             .executor
             .execute_transaction(self.id, 0, &[], transaction_args)
             .map_err(|err| {
+                error!("{err}");
                 FaucetError::InternalServerError(format!("Failed to execute transaction: {}", err))
             })?;
-
+        
         Ok((executed_tx, output_note))
     }
 

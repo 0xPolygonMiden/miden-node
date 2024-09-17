@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter},
-    path::PathBuf,
-};
+use std::fmt::{Display, Formatter};
 
 use miden_node_utils::config::{Endpoint, DEFAULT_FAUCET_SERVER_PORT, DEFAULT_NODE_RPC_PORT};
 use serde::{Deserialize, Serialize};
@@ -18,8 +15,6 @@ pub struct FaucetConfig {
     pub node_url: String,
     /// Timeout for RPC requests in milliseconds
     pub timeout_ms: u64,
-    /// Location to store database files
-    pub database_filepath: PathBuf,
     /// Possible options on the amount of asset that should be dispersed on each faucet request
     pub asset_amount_options: Vec<u64>,
     /// Token symbol of the generated fungible asset
@@ -39,8 +34,8 @@ impl FaucetConfig {
 impl Display for FaucetConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{{ endpoint: \"{}\",  database_filepath: {:?}, asset_amount_options: {:?}, token_symbol: {}, decimals: {}, max_supply: {} }}",
-            self.endpoint, self.database_filepath, self.asset_amount_options, self.token_symbol, self.decimals, self.max_supply
+            "{{ endpoint: \"{}\", asset_amount_options: {:?}, token_symbol: {}, decimals: {}, max_supply: {} }}",
+            self.endpoint, self.asset_amount_options, self.token_symbol, self.decimals, self.max_supply
         ))
     }
 }
@@ -51,7 +46,6 @@ impl Default for FaucetConfig {
             endpoint: Endpoint::localhost(DEFAULT_FAUCET_SERVER_PORT),
             node_url: Endpoint::localhost(DEFAULT_NODE_RPC_PORT).to_string(),
             timeout_ms: 10000,
-            database_filepath: PathBuf::from("store.sqlite3"),
             asset_amount_options: vec![100, 500, 1000],
             token_symbol: "POL".to_string(),
             decimals: 8,

@@ -990,5 +990,5 @@ pub fn mock_account_code() -> AccountCode {
                 add
             end
             ";
-    AccountCode::compile(account_code, TransactionKernel::assembler()).unwrap()
+    AccountCode::compile(account_code, TransactionKernel::assembler(), false).unwrap()
 }
