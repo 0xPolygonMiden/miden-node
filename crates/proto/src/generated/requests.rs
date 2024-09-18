@@ -28,7 +28,7 @@ pub struct CheckNullifiersRequest {
 pub struct GetBlockHeaderByNumberRequest {
     /// The block number of the target block.
     ///
-    /// If not provided, means latest know block.
+    /// If not provided, means latest known block.
     #[prost(uint32, optional, tag = "1")]
     pub block_num: ::core::option::Option<u32>,
     /// Whether or not to return authentication data for the block header.
@@ -37,7 +37,7 @@ pub struct GetBlockHeaderByNumberRequest {
 }
 /// State synchronization request.
 ///
-/// Specifies state updates the client is intersted in. The server will return the first block which
+/// Specifies state updates the client is interested in. The server will return the first block which
 /// contains a note matching `note_tags` or the chain tip. And the corresponding updates to
 /// `nullifiers` and `account_ids` for that block range.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -64,7 +64,7 @@ pub struct SyncStateRequest {
 }
 /// Note synchronization request.
 ///
-/// Specifies note tags that client is intersted in. The server will return the first block which
+/// Specifies note tags that client is interested in. The server will return the first block which
 /// contains a note matching `note_tags` or the chain tip.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncNoteRequest {

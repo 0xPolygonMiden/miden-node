@@ -9,7 +9,7 @@ This repository holds the Miden node; that is, the software which processes tran
 
 ### Status
 
-The Miden node is still under heavy development and the project can be considered to be in an _alpha_ stage. Many features are yet to be implemented and there is a number of limitations which we will lift in the near future.
+The Miden node is still under heavy development and the project can be considered to be in an _alpha_ stage. Many features are yet to be implemented and there are a number of limitations which we will lift in the near future.
 
 At this point, we are developing the Miden node for a centralized operator. As such, the work does not yet include components such as P2P networking and consensus. These will be added in the future.
 
