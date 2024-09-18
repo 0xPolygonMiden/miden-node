@@ -28,7 +28,7 @@ impl std::fmt::Display for LongVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self {
             version,
-            sha,
+            mut sha,
             mut branch,
             dirty,
             features,
@@ -39,10 +39,9 @@ impl std::fmt::Display for LongVersion {
             debug,
         } = self;
 
-        let mut sha = if dirty == &"true" {
-            format!("{sha}-dirty")
-        } else {
-            sha.to_string()
+        let dirty = match *dirty {
+            "true" => "-dirty",
+            _ => "",
         };
 
         // This is the default value set by `vergen` when these values are missing.
@@ -53,13 +52,13 @@ impl std::fmt::Display for LongVersion {
             branch = "";
         }
         if sha == "VERGEN_IDEMPOTENT_OUTPUT" {
-            sha.clear();
+            sha = "";
         }
 
         f.write_fmt(format_args!(
             "{version}
 
-SHA:          {sha}
+SHA:          {sha}{dirty}
 branch:       {branch}
 features:     {features}
 rust version: {rust_version}
