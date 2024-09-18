@@ -12,6 +12,7 @@ mod block_builder;
 mod errors;
 mod state_view;
 mod store;
+mod tx_pool;
 mod txqueue;
 
 pub mod block;
