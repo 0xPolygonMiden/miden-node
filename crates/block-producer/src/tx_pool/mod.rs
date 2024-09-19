@@ -223,13 +223,20 @@ impl TransactionPool {
 
         let (batches, mut transactions) = self.batch_descendents(batch);
 
-        // Drop all impacted batches.
+        // Drop all impacted batches and inform parent batches that they've lost these children.
         //
         // We could also re-attempt the batch but we don't have
         // the information yet to make such a call. This could also be grounds for a complete
         // shutdown instead.
-        for batch in &batches {
-            self.batch_pool.remove(batch);
+        for batch_id in &batches {
+            let batch = self.batch_pool.remove(batch_id).expect("Batch must exist in pool");
+
+            for parent in batch.parents {
+                // Its possible for a parent to be removed as part of this set already.
+                if let Some(parent) = self.batch_pool.get_mut(&parent) {
+                    parent.remove_child(batch_id);
+                }
+            }
         }
 
         // Mark all transactions as back in-queue.
@@ -478,6 +485,10 @@ impl InflightBatch {
 
     fn add_child(&mut self, child: BatchId) {
         self.children.insert(child);
+    }
+
+    fn remove_child(&mut self, child: &BatchId) {
+        self.children.remove(child);
     }
 
     fn remove_parent(&mut self, parent: &BatchId) {
