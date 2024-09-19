@@ -103,7 +103,8 @@ impl TransactionPool {
 
         let account_update = transaction.account_update();
 
-        // Inflight transactions upon which this new transaction depends due to building on their outputs.
+        // Inflight transactions upon which this new transaction depends due to building on their
+        // outputs.
         let mut parents = BTreeSet::new();
 
         // Merge inflight state with inputs.
@@ -198,7 +199,7 @@ impl TransactionPool {
         let tx_indices = batch.iter().map(|tx| tx.id()).collect();
         for parent in &parent_batches {
             self.batch_pool
-                .get_mut(&parent)
+                .get_mut(parent)
                 .expect("Parent batch must be in pool")
                 .add_child(batch_id);
         }
@@ -225,7 +226,8 @@ impl TransactionPool {
         // Drop all impacted batches.
         //
         // We could also re-attempt the batch but we don't have
-        // the information yet to make such a call. This could also be grounds for a complete shutdown instead.
+        // the information yet to make such a call. This could also be grounds for a complete
+        // shutdown instead.
         for batch in &batches {
             self.batch_pool.remove(batch);
         }
@@ -240,7 +242,7 @@ impl TransactionPool {
 
         // Check all transactions as possible roots. We also need to recheck the current roots as
         // they may now be invalidated as roots.
-        transactions.extend(self.tx_roots.clone().into_iter());
+        transactions.extend(self.tx_roots.clone());
         self.tx_roots.clear();
         for tx in transactions {
             self.try_root_transaction(tx);
@@ -289,8 +291,8 @@ impl TransactionPool {
                 self.try_root_batch(child);
             }
 
-            // Unlike `select_batch` we don't need to track block depedencies. This is because block's have
-            // an inherit sequential dependency.
+            // Unlike `select_batch` we don't need to track block depedencies. This is because
+            // block's have an inherit sequential dependency.
         }
 
         assert!(batches.len() <= count, "Must return at most `count` batches");
@@ -300,7 +302,8 @@ impl TransactionPool {
 
     /// Notify the pool that the block was succesfully completed.
     ///
-    /// Panics if blocks are completed out-of-order. todo: might be a better way, but this is pretty unrecoverable..
+    /// Panics if blocks are completed out-of-order. todo: might be a better way, but this is pretty
+    /// unrecoverable..
     pub fn block_completed(&mut self, block_number: BlockNumber) {
         assert_eq!(
             block_number, self.next_completed_block,
@@ -312,16 +315,19 @@ impl TransactionPool {
         self.next_completed_block.increment();
 
         let Some(stale_batches) = self.block_pool.remove(&self.stale_block) else {
-            // We expect no stale blocks at startup. Alternatively we could improve the stale block tracing to account for this instead.
+            // We expect no stale blocks at startup. Alternatively we could improve the stale block
+            // tracing to account for this instead.
             return;
         };
 
-        // Update batch and transaction dependencies to forget about all batches and transactions in this block.
+        // Update batch and transaction dependencies to forget about all batches and transactions in
+        // this block.
         for batch_id in stale_batches {
             let batch = self.batch_pool.remove(&batch_id).expect("Batch must be in pool");
 
             for child in batch.children {
-                // Its possible for a child to already be removed as part of this set of stale batches.
+                // Its possible for a child to already be removed as part of this set of stale
+                // batches.
                 if let Some(child) = self.batch_pool.get_mut(&child) {
                     child.remove_parent(&batch_id);
                 }
@@ -332,8 +338,8 @@ impl TransactionPool {
 
                 // Remove mentions from inflight state.
                 //
-                // Its possible for the state to already have been removed by another stale transaction.
-                // TODO: notes and nullifiers.
+                // Its possible for the state to already have been removed by another stale
+                // transaction. TODO: notes and nullifiers.
                 if let Entry::Occupied(account) = self.account_state.entry(tx.data.account_id()) {
                     if account.get().1 == tx_id {
                         account.remove();
@@ -341,7 +347,8 @@ impl TransactionPool {
                 }
 
                 for child in tx.children {
-                    // Its possible for a child to already be removed as part of this set of stale batches.
+                    // Its possible for a child to already be removed as part of this set of stale
+                    // batches.
                     if let Some(child) = self.tx_pool.get_mut(&child) {
                         child.remove_parent(&tx_id);
                     }
@@ -366,7 +373,8 @@ impl TransactionPool {
         let mut transactions = BTreeSet::new();
 
         while let Some(batch) = to_process.pop() {
-            // Guard against repeat processing. This is possible because a batch can have multiple parents.
+            // Guard against repeat processing. This is possible because a batch can have multiple
+            // parents.
             if descendents.insert(batch) {
                 let batch = self.batch_pool.get(&batch).expect("Batch should exist");
 
@@ -382,7 +390,7 @@ impl TransactionPool {
     fn try_root_transaction(&mut self, tx_id: TransactionId) {
         let tx = self.tx_pool.get(&tx_id).expect("Transaction mut be in pool");
         for parent in &tx.parents {
-            let parent = self.tx_pool.get(&parent).expect("Parent must be in pool");
+            let parent = self.tx_pool.get(parent).expect("Parent must be in pool");
 
             if parent.status == TransactionStatus::InQueue {
                 return;
