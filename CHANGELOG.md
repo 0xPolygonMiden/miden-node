@@ -6,6 +6,7 @@
 - [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#489).
 - Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
 - [BREAKING] Changed `GetAccountDetailsResponse` field to `details` (#481).
+- Improve `--version` by adding build metadata (#495).
 
 ## 0.5.1 (2024-09-12)
 
