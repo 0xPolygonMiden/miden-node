@@ -44,7 +44,7 @@ impl BlockNumber {
     }
 }
 
-pub struct TransactionPool {
+pub struct Mempool {
     /// The latest inflight state of each account.
     ///
     /// Accounts without inflight transactions are not stored.
@@ -86,7 +86,7 @@ pub struct TransactionPool {
     next_completed_block: BlockNumber,
 }
 
-impl TransactionPool {
+impl Mempool {
     /// Complete barring todos.
     pub fn add_transaction(
         mut self,
