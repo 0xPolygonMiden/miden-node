@@ -11,6 +11,7 @@ use miden_objects::{
     transaction::{ProvenTransaction, TransactionId},
     Digest,
 };
+use transaction_pool::TransactionGraph;
 
 use crate::store::TransactionInputs;
 
@@ -61,15 +62,8 @@ pub struct Mempool {
     /// The number of the next block we hand out.
     next_block: BlockNumber,
 
-    /// All transactions currently inflight.
-    ///
-    /// This includes those not yet processed, those in batches and blocks after the stale block.
-    tx_pool: BTreeMap<TransactionId, InflightTransaction>,
-
-    /// Transactions ready to be included in a batch.
-    ///
-    /// aka transactions whose parent transactions are already included in batches.
-    tx_roots: BTreeSet<TransactionId>,
+    /// Inflight transactions.
+    transactions: TransactionGraph,
 
     /// The next batches ID.
     next_batch_id: BatchId,
@@ -133,14 +127,7 @@ impl Mempool {
         self.account_state
             .insert(transaction.account_id(), (account_update.final_state_hash(), tx_id));
 
-        // Inform parent's of their new child.
-        for parent in &parents {
-            self.tx_pool.get_mut(parent).expect("Parent must be in pool").add_child(tx_id);
-        }
-
-        // Insert transaction into pool and possibly as a root transaction.
-        self.tx_pool.insert(tx_id, InflightTransaction::new(transaction, parents));
-        self.try_root_transaction(tx_id);
+        self.transactions.insert(transaction, parents);
 
         Ok(())
     }
@@ -395,20 +382,6 @@ impl Mempool {
         (descendents, transactions)
     }
 
-    /// Adds the transaction to the set of roots IFF all of its parent's have been processed.
-    fn try_root_transaction(&mut self, tx_id: TransactionId) {
-        let tx = self.tx_pool.get(&tx_id).expect("Transaction mut be in pool");
-        for parent in &tx.parents {
-            let parent = self.tx_pool.get(parent).expect("Parent must be in pool");
-
-            if parent.status == TransactionStatus::InQueue {
-                return;
-            }
-        }
-
-        self.tx_roots.insert(tx_id);
-    }
-
     /// Add the batch as a root if all parents have been placed into blocks.
     fn try_root_batch(&mut self, batch_id: BatchId) {
         let batch = self.batch_pool.get_mut(&batch_id).expect("Batch must be in pool");
@@ -454,13 +427,6 @@ impl InflightTransaction {
 
     fn add_child(&mut self, child: TransactionId) {
         self.children.insert(child);
-    }
-
-    fn batch_id(&self) -> Option<BatchId> {
-        match self.status {
-            TransactionStatus::Batched(id) => Some(id),
-            _ => None,
-        }
     }
 
     fn remove_parent(&mut self, parent: &TransactionId) {
