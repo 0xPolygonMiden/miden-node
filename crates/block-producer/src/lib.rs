@@ -10,9 +10,9 @@ pub mod test_utils;
 mod batch_builder;
 mod block_builder;
 mod errors;
+mod pool;
 mod state_view;
 mod store;
-mod tx_pool;
 mod txqueue;
 
 pub mod block;
