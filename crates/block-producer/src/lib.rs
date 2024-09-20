@@ -10,7 +10,7 @@ pub mod test_utils;
 mod batch_builder;
 mod block_builder;
 mod errors;
-mod pool;
+mod mempool;
 mod state_view;
 mod store;
 mod txqueue;

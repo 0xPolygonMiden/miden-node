@@ -14,6 +14,8 @@ use miden_objects::{
 
 use crate::store::TransactionInputs;
 
+mod transaction_pool;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BatchId(u64);
 
