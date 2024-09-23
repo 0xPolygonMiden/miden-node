@@ -225,7 +225,7 @@ fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), Fau
     let token_symbol = TokenSymbol::new(config.token_symbol.as_str())
         .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
 
-    let seed: [u8; 32] = [0; 32];
+    let seed: [u8; 32] = [1; 32];
 
     // Instantiate keypair and authscheme
     let mut rng = ChaCha20Rng::from_seed(seed);
