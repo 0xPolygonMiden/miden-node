@@ -5,8 +5,8 @@ use miden_objects::{
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
-    AccountDeltaError, Digest, TransactionInputError, MAX_BATCHES_PER_BLOCK, MAX_NOTES_PER_BATCH,
-    MAX_TRANSACTIONS_PER_BATCH,
+    AccountDeltaError, Digest, TransactionInputError, MAX_BATCHES_PER_BLOCK,
+    MAX_INPUT_NOTES_PER_BATCH, MAX_NOTES_PER_BATCH, MAX_TRANSACTIONS_PER_BATCH,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -68,6 +68,12 @@ pub enum AddTransactionError {
 /// queue can re-queue them.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum BuildBatchError {
+    #[error(
+        "Too many input notes in the batch. Got: {0}, max: {}",
+        MAX_INPUT_NOTES_PER_BATCH
+    )]
+    TooManyInputNotes(usize, Vec<ProvenTransaction>),
+
     #[error("Too many notes in the batch. Got: {0}, max: {}", MAX_NOTES_PER_BATCH)]
     TooManyNotesCreated(usize, Vec<ProvenTransaction>),
 
@@ -112,6 +118,7 @@ pub enum BuildBatchError {
 impl BuildBatchError {
     pub fn into_transactions(self) -> Vec<ProvenTransaction> {
         match self {
+            BuildBatchError::TooManyInputNotes(_, txs) => txs,
             BuildBatchError::TooManyNotesCreated(_, txs) => txs,
             BuildBatchError::TooManyTransactionsInBatch(txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,

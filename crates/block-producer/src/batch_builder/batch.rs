@@ -10,7 +10,8 @@ use miden_objects::{
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteHeader, NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote, TransactionId},
-    AccountDeltaError, Digest, MAX_NOTES_PER_BATCH, MAX_TRANSACTIONS_PER_BATCH,
+    AccountDeltaError, Digest, MAX_INPUT_NOTES_PER_BATCH, MAX_NOTES_PER_BATCH,
+    MAX_TRANSACTIONS_PER_BATCH,
 };
 use tracing::instrument;
 
@@ -152,6 +153,10 @@ impl TransactionBatch {
                 None => input_note.clone(),
             };
             input_notes.push(input_note)
+        }
+
+        if input_notes.len() > MAX_INPUT_NOTES_PER_BATCH {
+            return Err(BuildBatchError::TooManyInputNotes(input_notes.len(), txs));
         }
 
         let output_notes = output_notes.into_notes();
