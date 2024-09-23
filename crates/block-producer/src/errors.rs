@@ -6,6 +6,7 @@ use miden_objects::{
     notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
     AccountDeltaError, Digest, TransactionInputError, MAX_BATCHES_PER_BLOCK, MAX_NOTES_PER_BATCH,
+    MAX_TRANSACTIONS_PER_BATCH,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -70,6 +71,13 @@ pub enum BuildBatchError {
     #[error("Too many notes in the batch. Got: {0}, max: {}", MAX_NOTES_PER_BATCH)]
     TooManyNotesCreated(usize, Vec<ProvenTransaction>),
 
+    #[error(
+        "Too many transactions in the batch. Got: {}, max: {}",
+        .0.len(),
+        MAX_TRANSACTIONS_PER_BATCH
+    )]
+    TooManyTransactionsInBatch(Vec<ProvenTransaction>),
+
     #[error("Failed to create notes SMT: {0}")]
     NotesSmtError(MerkleError, Vec<ProvenTransaction>),
 
@@ -105,6 +113,7 @@ impl BuildBatchError {
     pub fn into_transactions(self) -> Vec<ProvenTransaction> {
         match self {
             BuildBatchError::TooManyNotesCreated(_, txs) => txs,
+            BuildBatchError::TooManyTransactionsInBatch(txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
             BuildBatchError::NotePathsError(_, txs) => txs,
             BuildBatchError::DuplicateUnauthenticatedNote(_, txs) => txs,

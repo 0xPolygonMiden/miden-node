@@ -10,7 +10,7 @@ use miden_objects::{
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteHeader, NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote, TransactionId},
-    AccountDeltaError, Digest, MAX_NOTES_PER_BATCH,
+    AccountDeltaError, Digest, MAX_NOTES_PER_BATCH, MAX_TRANSACTIONS_PER_BATCH,
 };
 use tracing::instrument;
 
@@ -88,6 +88,10 @@ impl TransactionBatch {
         txs: Vec<ProvenTransaction>,
         found_unauthenticated_notes: NoteAuthenticationInfo,
     ) -> Result<Self, BuildBatchError> {
+        if txs.len() > MAX_TRANSACTIONS_PER_BATCH {
+            return Err(BuildBatchError::TooManyTransactionsInBatch(txs));
+        }
+
         let id = Self::compute_id(&txs);
 
         // Populate batch output notes and updated accounts.

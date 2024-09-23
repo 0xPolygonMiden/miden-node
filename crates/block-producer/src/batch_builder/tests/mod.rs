@@ -303,12 +303,13 @@ async fn test_block_builder_fails_if_notes_are_missing() {
 
     let batch = TransactionBatch::new(txs.clone(), Default::default()).unwrap();
     let build_block_result = batch_builder.block_builder.build_block(&[batch]).await;
+
+    let mut expected_missing_notes = vec![notes[4].id(), notes[5].id()];
+    expected_missing_notes.sort();
+
     assert_eq!(
         build_block_result,
-        Err(BuildBlockError::UnauthenticatedNotesNotFound(vec![
-            notes[4].id(),
-            notes[5].id()
-        ]))
+        Err(BuildBlockError::UnauthenticatedNotesNotFound(expected_missing_notes))
     );
 }
 
