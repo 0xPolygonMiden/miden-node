@@ -49,6 +49,10 @@ impl BlockNumber {
     pub fn increment(mut self) {
         self.0 += 1;
     }
+
+    pub fn checked_sub(&self, rhs: Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(Self)
+    }
 }
 
 pub struct Mempool {
@@ -57,14 +61,8 @@ pub struct Mempool {
     /// Accounts without inflight transactions are not stored.
     account_state: BTreeMap<AccountId, (Digest, TransactionId)>,
 
-    /// Block number at which transaction inputs are considered stale.
-    ///
-    /// This means we track inflight data and in blocks completed after this block,
-    /// **excluding** this block.
-    stale_block: BlockNumber,
-
     /// The number of the next block we hand out.
-    next_block: BlockNumber,
+    next_inflight_block: BlockNumber,
 
     /// Inflight transactions.
     transactions: TransactionGraph,
@@ -78,8 +76,11 @@ pub struct Mempool {
     /// Blocks which are inflight or completed but not yet considered stale.
     block_pool: BTreeMap<BlockNumber, Vec<BatchId>>,
 
-    /// The next block we expect to complete.
-    next_completed_block: BlockNumber,
+    /// The current block height of the chain.
+    completed_blocks: BlockNumber,
+
+    /// Number of blocks before transaction input is considered stale.
+    staleness: BlockNumber,
 }
 
 impl Mempool {
@@ -90,11 +91,13 @@ impl Mempool {
         mut inputs: TransactionInputs,
     ) -> Result<(), AddTransactionError> {
         // Ensure inputs aren't stale.
-        if inputs.current_block_height <= self.stale_block.0 {
-            return Err(AddTransactionError::StaleInputs {
-                input_block: BlockNumber(inputs.current_block_height),
-                stale_limit: self.stale_block,
-            });
+        if let Some(stale_block) = self.stale_block() {
+            if inputs.current_block_height <= stale_block.0 {
+                return Err(AddTransactionError::StaleInputs {
+                    input_block: BlockNumber(inputs.current_block_height),
+                    stale_limit: stale_block,
+                });
+            }
         }
 
         let account_update = transaction.account_update();
@@ -208,8 +211,8 @@ impl Mempool {
             // is inherently sequential.
         }
 
-        let block_number = self.next_block;
-        self.next_block.increment();
+        let block_number = self.next_inflight_block;
+        self.next_inflight_block.increment();
         self.block_pool.insert(block_number, batches.clone());
 
         (block_number, batches)
@@ -220,21 +223,16 @@ impl Mempool {
     /// Panics if blocks are completed out-of-order. todo: might be a better way, but this is pretty
     /// unrecoverable..
     pub fn block_completed(&mut self, block_number: BlockNumber) {
-        assert_eq!(
-            block_number, self.next_completed_block,
-            "Blocks must be submitted sequentially"
-        );
+        assert_eq!(block_number, self.completed_blocks, "Blocks must be submitted sequentially");
 
         // Update book keeping by removing the inflight data that just became stale.
-        let stale_block = self.stale_block;
-        self.stale_block.increment();
-        self.next_completed_block.increment();
+        self.completed_blocks.increment();
 
-        let Some(stale_batches) = self.block_pool.remove(&stale_block) else {
-            // We expect no stale blocks at startup. Alternatively we could improve the stale block
-            // tracing to account for this instead.
+        let Some(stale_block) = self.stale_block() else {
             return;
         };
+
+        let stale_batches = self.block_pool.remove(&stale_block).expect("Block should be in graph");
 
         let stale_transations = self.batches.remove_stale(stale_batches);
         self.transactions.removed_stale(stale_transations);
@@ -246,6 +244,13 @@ impl Mempool {
         //
         // Given lack of information at this stage we should probably just abort the node?
         // In the future we might improve the situation with more fine-grained failure reasons.
+    }
+
+    /// The highest block height we consider stale.
+    ///
+    /// Returns [None] if the blockchain is so short that all blocks are considered fresh.
+    fn stale_block(&self) -> Option<BlockNumber> {
+        self.completed_blocks.checked_sub(self.staleness)
     }
 }
 
