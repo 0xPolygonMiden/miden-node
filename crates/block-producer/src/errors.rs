@@ -5,8 +5,8 @@ use miden_objects::{
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
-    AccountDeltaError, Digest, TransactionInputError, MAX_BATCHES_PER_BLOCK,
-    MAX_INPUT_NOTES_PER_BATCH, MAX_NOTES_PER_BATCH, MAX_TRANSACTIONS_PER_BATCH,
+    AccountDeltaError, Digest, TransactionInputError, MAX_ACCOUNTS_PER_BATCH,
+    MAX_BATCHES_PER_BLOCK, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -69,20 +69,23 @@ pub enum AddTransactionError {
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum BuildBatchError {
     #[error(
-        "Too many input notes in the batch. Got: {0}, max: {}",
+        "Too many input notes in the batch. Got: {0}, limit: {}",
         MAX_INPUT_NOTES_PER_BATCH
     )]
     TooManyInputNotes(usize, Vec<ProvenTransaction>),
 
-    #[error("Too many notes in the batch. Got: {0}, max: {}", MAX_NOTES_PER_BATCH)]
+    #[error(
+        "Too many notes created in the batch. Got: {0}, limit: {}",
+        MAX_OUTPUT_NOTES_PER_BATCH
+    )]
     TooManyNotesCreated(usize, Vec<ProvenTransaction>),
 
     #[error(
-        "Too many transactions in the batch. Got: {}, max: {}",
+        "Too many account updates in the batch. Got: {}, limit: {}",
         .0.len(),
-        MAX_TRANSACTIONS_PER_BATCH
+        MAX_ACCOUNTS_PER_BATCH
     )]
-    TooManyTransactionsInBatch(Vec<ProvenTransaction>),
+    TooManyAccountsInBatch(Vec<ProvenTransaction>),
 
     #[error("Failed to create notes SMT: {0}")]
     NotesSmtError(MerkleError, Vec<ProvenTransaction>),
@@ -120,7 +123,7 @@ impl BuildBatchError {
         match self {
             BuildBatchError::TooManyInputNotes(_, txs) => txs,
             BuildBatchError::TooManyNotesCreated(_, txs) => txs,
-            BuildBatchError::TooManyTransactionsInBatch(txs) => txs,
+            BuildBatchError::TooManyAccountsInBatch(txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
             BuildBatchError::NotePathsError(_, txs) => txs,
             BuildBatchError::DuplicateUnauthenticatedNote(_, txs) => txs,
