@@ -235,7 +235,7 @@ impl Mempool {
         let stale_batches = self.block_pool.remove(&stale_block).expect("Block should be in graph");
 
         let stale_transations = self.batches.remove_stale(stale_batches);
-        self.transactions.removed_stale(stale_transations);
+        self.transactions.remove_stale(stale_transations);
     }
 
     pub fn block_failed(&mut self, block: BlockNumber) {

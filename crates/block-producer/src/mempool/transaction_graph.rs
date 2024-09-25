@@ -77,7 +77,7 @@ impl TransactionGraph {
         }
     }
 
-    pub fn removed_stale(&mut self, transactions: Vec<TransactionId>) {
+    pub fn remove_stale(&mut self, transactions: Vec<TransactionId>) {
         for transaction in transactions {
             let node = self.nodes.remove(&transaction).expect("Node must be in graph");
             assert_eq!(node.status, Status::Processed);
