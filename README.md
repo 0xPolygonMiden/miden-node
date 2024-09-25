@@ -82,13 +82,13 @@ You can also use `cargo` to compile the node from the source code if for some re
 
 ```sh
 # Install from a specific branch
-cargo install --locked --path bin/miden --git https://github.com/0xPolygonMiden/miden-node --branch <branch>
+cargo install --locked --git https://github.com/0xPolygonMiden/miden-node miden-node --branch <branch>
 
 # Install a specific tag
-cargo install --locked --path bin/miden --git https://github.com/0xPolygonMiden/miden-node --tag <tag>
+cargo install --locked --git https://github.com/0xPolygonMiden/miden-node miden-node --tag <tag>
 
 # Install a specific git revision
-cargo install --locked --path bin/miden --git https://github.com/0xPolygonMiden/miden-node --rev <git-sha>
+cargo install --locked --git https://github.com/0xPolygonMiden/miden-node miden-node --rev <git-sha>
 ```
 
 More information on the various options can be found [here](https://doc.rust-lang.org/cargo/commands/cargo-install.html#install-options).
