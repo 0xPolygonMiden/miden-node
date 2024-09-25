@@ -86,10 +86,10 @@ pub struct Mempool {
 impl Mempool {
     /// Complete barring todos.
     pub fn add_transaction(
-        mut self,
+        &mut self,
         transaction: ProvenTransaction,
         mut inputs: TransactionInputs,
-    ) -> Result<(), AddTransactionError> {
+    ) -> Result<u32, AddTransactionError> {
         // Ensure inputs aren't stale.
         if let Some(stale_block) = self.stale_block() {
             if inputs.current_block_height <= stale_block.0 {
@@ -132,7 +132,7 @@ impl Mempool {
 
         self.transactions.insert(transaction, parents);
 
-        Ok(())
+        Ok(self.completed_blocks.0)
     }
 
     /// Returns at most `count` transactions and a batch ID.

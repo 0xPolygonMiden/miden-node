@@ -1,15 +1,26 @@
 use std::{net::ToSocketAddrs, sync::Arc};
 
-use miden_node_proto::generated::{block_producer::api_server, store::api_client as store_client};
+use miden_node_proto::generated::{
+    block_producer::api_server, requests::SubmitProvenTransactionRequest,
+    responses::SubmitProvenTransactionResponse, store::api_client as store_client,
+};
 use miden_node_utils::errors::ApiError;
-use tokio::net::TcpListener;
+use miden_node_utils::formatting::{format_input_notes, format_output_notes};
+use miden_objects::MIN_PROOF_SECURITY_LEVEL;
+use miden_objects::{transaction::ProvenTransaction, utils::serde::Deserializable};
+use miden_tx::TransactionVerifier;
+use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
-use tracing::info;
+use tonic::Status;
+use tracing::{debug, info, instrument};
 
+use crate::mempool::AddTransactionError;
+use crate::store::Store;
 use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
+    mempool::Mempool,
     state_view::DefaultStateView,
     store::DefaultStore,
     txqueue::{TransactionQueue, TransactionQueueOptions},
@@ -103,5 +114,87 @@ impl BlockProducer {
             .serve_with_incoming(TcpListenerStream::new(self.listener))
             .await
             .map_err(ApiError::ApiServeFailed)
+    }
+}
+
+pub struct Server {
+    /// This outer mutex enforces that the incoming transactions won't crowd out more important mempool locks.
+    ///
+    /// The inner mutex will be abstracted away once we are happy with the api.
+    mempool: Mutex<Arc<Mutex<Mempool>>>,
+
+    store: DefaultStore,
+}
+
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
+#[tonic::async_trait]
+impl api_server::Api for Server {
+    #[instrument(
+        target = "miden-block-producer",
+        name = "block_producer:submit_proven_transaction",
+        skip_all,
+        err
+    )]
+    async fn submit_proven_transaction(
+        &self,
+        request: tonic::Request<SubmitProvenTransactionRequest>,
+    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
+        let request = request.into_inner();
+        debug!(target: COMPONENT, ?request);
+
+        let tx = ProvenTransaction::read_from_bytes(&request.transaction)
+            .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
+
+        let tx_id = tx.id();
+
+        info!(
+            target: COMPONENT,
+            tx_id = %tx_id.to_hex(),
+            account_id = %tx.account_id().to_hex(),
+            initial_account_hash = %tx.account_update().init_state_hash(),
+            final_account_hash = %tx.account_update().final_state_hash(),
+            input_notes = %format_input_notes(tx.input_notes()),
+            output_notes = %format_output_notes(tx.output_notes()),
+            block_ref = %tx.block_ref(),
+            "Deserialized transaction"
+        );
+        debug!(target: COMPONENT, proof = ?tx.proof());
+
+        // TODO: These steps should actually change the type of the transaction.
+        // TODO: How expensive is this step? Should it be spawn_blocking?
+        TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL)
+            .verify(tx.clone())
+            .map_err(|err| Status::invalid_argument(format!("{:?}", err)))?;
+
+        let inputs = self
+            .store
+            .get_tx_inputs(&tx)
+            .await
+            .inspect_err(|err|
+                tracing::warn!(tx_id=%tx_id.to_hex(), %err, "Transaction declined due to internal error.")
+            )
+            .map_err(|_| Status::internal("Internal error"))?;
+
+        let block_height = self
+            .mempool
+            .lock()
+            .await
+            .lock()
+            .await
+            .add_transaction(tx, inputs)
+            // Log internal errors.
+            .inspect_err(|err| if let AddTransactionError::StaleInputs { .. } = err {
+                tracing::warn!(tx_id=%tx_id.to_hex(), %err, "Transaction declined due to internal error.");
+            })
+            .map_err(|err| match err {
+                AddTransactionError::InvalidAccountState { .. } => {
+                    Status::invalid_argument(format!("{:?}", err))
+                },
+                AddTransactionError::StaleInputs { .. } => Status::internal("Internal error"),
+            })?;
+
+        Ok(tonic::Response::new(SubmitProvenTransactionResponse { block_height }))
     }
 }
