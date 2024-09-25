@@ -173,3 +173,30 @@ message GetAccountStateDeltaResponse {
     // The calculated `AccountStateDelta` encoded using miden native format
     optional bytes delta = 1;
 }
+
+message GetAccountStateResponse {
+    // Block number at which the state of the account was returned.
+    fixed32 block_num = 1;
+    // List of account state infos for the requested account keys.
+    repeated AccountStateResponse account_state_infos = 2;
+}
+
+message AccountStateResponse {
+    // Account header consisting of account_id, vault_root, storage_root, code_root, and nonce.
+    account.AccountHeader header = 1;
+    // Authentication path from the account_root for the block header to the account.
+    merkle.MerklePath account_proof = 2;
+    /// Values of all account storage slots (max 255).
+    bytes storage_header = 3;
+    // A list of key-value pairs (and their corresponding proofs) for the requested keys.
+    repeated StorageMapItem map_items = 4;
+    // An optional list of all assets in the account.
+    repeated bytes assets = 5;
+}
+
+message StorageMapItem {
+    // Index of the storage slot containing the storage map.
+    uint32 slot_index = 1;
+    // Opening containing key, value, and a proof attesting that the key opens to the value.
+    smt.SmtOpening opening = 2;
+}

@@ -195,3 +195,39 @@ pub struct GetAccountStateDeltaResponse {
     #[prost(bytes = "vec", optional, tag = "1")]
     pub delta: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAccountStateResponse {
+    /// Block number at which the state of the account was returned.
+    #[prost(fixed32, tag = "1")]
+    pub block_num: u32,
+    /// List of account state infos for the requested account keys.
+    #[prost(message, repeated, tag = "2")]
+    pub account_state_infos: ::prost::alloc::vec::Vec<AccountStateResponse>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountStateResponse {
+    /// Account header consisting of account_id, vault_root, storage_root, code_root, and nonce.
+    #[prost(message, optional, tag = "1")]
+    pub header: ::core::option::Option<super::account::AccountHeader>,
+    /// Authentication path from the account_root for the block header to the account.
+    #[prost(message, optional, tag = "2")]
+    pub account_proof: ::core::option::Option<super::merkle::MerklePath>,
+    /// / Values of all account storage slots (max 255).
+    #[prost(bytes = "vec", tag = "3")]
+    pub storage_header: ::prost::alloc::vec::Vec<u8>,
+    /// A list of key-value pairs (and their corresponding proofs) for the requested keys.
+    #[prost(message, repeated, tag = "4")]
+    pub map_items: ::prost::alloc::vec::Vec<StorageMapItem>,
+    /// An optional list of all assets in the account.
+    #[prost(bytes = "vec", repeated, tag = "5")]
+    pub assets: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StorageMapItem {
+    /// Index of the storage slot containing the storage map.
+    #[prost(uint32, tag = "1")]
+    pub slot_index: u32,
+    /// Opening containing key, value, and a proof attesting that the key opens to the value.
+    #[prost(message, optional, tag = "2")]
+    pub opening: ::core::option::Option<super::smt::SmtOpening>,
+}

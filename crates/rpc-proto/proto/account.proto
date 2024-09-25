@@ -20,3 +20,16 @@ message AccountInfo {
     AccountSummary summary = 1;
     optional bytes details = 2;
 }
+
+message AccountHeader {
+    // Account ID.
+    account.AccountId account_id = 1;
+    // Vault root hash.
+    digest.Digest vault_root = 2;
+    // Storage root hash.
+    digest.Digest storage_root = 3;
+    // Code root hash.
+    digest.Digest code_root = 4;
+    // Account nonce.
+    uint32 nonce = 5;
+}
