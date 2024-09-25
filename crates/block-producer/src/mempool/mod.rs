@@ -14,12 +14,12 @@ use miden_objects::{
     Digest,
 };
 use miden_tx::utils::collections::KvMap;
-use transaction_pool::TransactionGraph;
+use transaction_graph::TransactionGraph;
 
 use crate::store::TransactionInputs;
 
 mod batch_graph;
-mod transaction_pool;
+mod transaction_graph;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BatchId(u64);
