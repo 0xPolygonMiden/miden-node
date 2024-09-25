@@ -40,27 +40,54 @@ impl TransactionGraph {
         self.try_make_root(id);
     }
 
-    /// Removes the transaction from the graph.
-    pub fn remove(&mut self, tx_id: &TransactionId) {
-        if let Some(transaction) = self.nodes.remove(tx_id) {
-            for parent in transaction.parents {
-                self.nodes
-                    .get_mut(&parent)
-                    .expect("Parent must be in pool")
-                    .children
-                    .remove(tx_id);
-            }
-        }
-    }
-
-    pub fn pop_for_batching(&mut self) -> Option<Arc<ProvenTransaction>> {
+    pub fn pop_for_batching(
+        &mut self,
+    ) -> Option<(Arc<ProvenTransaction>, BTreeSet<TransactionId>)> {
         let transaction = self.roots.pop_first()?;
         let transaction =
             self.nodes.get_mut(&transaction).expect("Root transaction must be in graph");
-
         transaction.status = Status::Processed;
 
-        Some(Arc::clone(&transaction.data))
+        // Work around multiple mutable borrows of self.
+        let data = Arc::clone(&transaction.data);
+        let parents = transaction.parents.clone();
+        let children = transaction.children.clone();
+
+        for child in children {
+            self.try_make_root(child);
+        }
+
+        Some((data, parents))
+    }
+
+    /// Marks the given transactions as being back inqueue.
+    pub fn requeue_transactions(&mut self, transactions: BTreeSet<TransactionId>) {
+        for tx in &transactions {
+            self.nodes.get_mut(&tx).expect("Node must exist").status = Status::InQueue;
+        }
+
+        // All requeued transactions are potential roots, and current roots may have been invalidated.
+        let mut potential_roots = transactions;
+        potential_roots.extend(&self.roots);
+        self.roots.clear();
+        for tx in potential_roots {
+            self.try_make_root(tx);
+        }
+    }
+
+    pub fn removed_stale(&mut self, transactions: Vec<TransactionId>) {
+        for transaction in transactions {
+            let node = self.nodes.remove(&transaction).expect("Node must be in graph");
+            assert_eq!(node.status, Status::Processed);
+
+            // Remove node from graph. No need to update parents as they should be removed in this call as well.
+            for child in node.children {
+                // Its possible for the child to part of this same set of batches and therefore already removed.
+                if let Some(child) = self.nodes.get_mut(&child) {
+                    child.parents.remove(&transaction);
+                }
+            }
+        }
     }
 
     fn try_make_root(&mut self, tx_id: TransactionId) {

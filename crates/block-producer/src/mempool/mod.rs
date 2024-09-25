@@ -3,18 +3,22 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     fmt::Display,
+    ops::Sub,
     sync::Arc,
 };
 
+use batch_graph::BatchGraph;
 use miden_objects::{
     accounts::AccountId,
     transaction::{ProvenTransaction, TransactionId},
     Digest,
 };
+use miden_tx::utils::collections::KvMap;
 use transaction_pool::TransactionGraph;
 
 use crate::store::TransactionInputs;
 
+mod batch_graph;
 mod transaction_pool;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -65,15 +69,11 @@ pub struct Mempool {
     /// Inflight transactions.
     transactions: TransactionGraph,
 
+    /// Inflight batches.
+    batches: BatchGraph,
+
     /// The next batches ID.
     next_batch_id: BatchId,
-
-    batch_pool: BTreeMap<BatchId, InflightBatch>,
-
-    /// Batches which are ready to be included in a block.
-    ///
-    /// aka batches who's parent batches are already included in blocks.
-    batch_roots: BTreeSet<BatchId>,
 
     /// Blocks which are inflight or completed but not yet considered stale.
     block_pool: BTreeMap<BlockNumber, Vec<BatchId>>,
@@ -138,63 +138,29 @@ impl Mempool {
     ///
     /// Returns `None` if no transactions are available.
     pub fn select_batch(&mut self, count: usize) -> Option<(BatchId, Vec<Arc<ProvenTransaction>>)> {
-        if self.tx_roots.is_empty() {
-            tracing::debug!("No transactions available for requested batch");
-            return None;
+        let mut parents = BTreeSet::new();
+        let mut batch = Vec::with_capacity(count);
+
+        for _ in 0..count {
+            // Select transactions according to some strategy here. For now its just arbitrary.
+            let Some((tx, tx_parents)) = self.transactions.pop_for_batching() else {
+                break;
+            };
+            batch.push(tx);
+            parents.extend(tx_parents);
         }
 
-        // Ideally we would use a hash over transaction ID here but that would be expensive.
+        // Update the depedency graph to reflect parents at the batch level by removing
+        // all edges within this batch.
+        for tx in &batch {
+            parents.remove(&tx.id());
+        }
+
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        let mut parent_batches = BTreeSet::new();
-
-        let mut batch = Vec::with_capacity(count);
-        for _ in 0..count {
-            // Select transactions according to some strategy here. For now its just arbitrary.
-            let Some(tx) = self.tx_roots.pop_first() else {
-                break;
-            };
-            let tx = self.tx_pool.get_mut(&tx).expect("Transaction must be in pool");
-            tx.status = TransactionStatus::Batched(batch_id);
-            batch.push(Arc::clone(&tx.data));
-
-            // Work around multiple borrows of self.
-            let parents = tx.parents.clone();
-            let children = tx.children.clone();
-
-            // Check if any of the child transactions are now rootable.
-            for child in children {
-                self.try_root_transaction(child);
-            }
-
-            // Track batch dependencies.
-            for parent in parents {
-                if let Some(parent_batch) = self
-                    .tx_pool
-                    .get(&parent)
-                    .expect("Parent transaction must be in pool")
-                    .batch_id()
-                {
-                    // Exclude the current batch ID -- this would be self-referencial otherwise.
-                    if parent_batch != batch_id {
-                        parent_batches.insert(parent_batch);
-                    }
-                }
-            }
-        }
-
-        // Update local book keeping, informing parent batches of their new child.
-        let tx_indices = batch.iter().map(|tx| tx.id()).collect();
-        for parent in &parent_batches {
-            self.batch_pool
-                .get_mut(parent)
-                .expect("Parent batch must be in pool")
-                .add_child(batch_id);
-        }
-
-        let local_batch = InflightBatch::new(tx_indices, parent_batches);
-        self.batch_pool.insert(batch_id, local_batch);
+        let txs = batch.iter().map(|tx| tx.id()).collect();
+        self.batches.insert(batch_id, txs, parents);
 
         Some((batch_id, batch))
     }
@@ -203,59 +169,25 @@ impl Mempool {
     ///
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchId) {
-        // Skip non-existent batches. Its possible for this batch to have been
-        // removed as a descendent of a previously failed batch.
-        if !self.batch_pool.contains_key(&batch) {
-            tracing::debug!(%batch, "Ignoring unknwon failed batch");
+        let removed_batches = self.batches.purge_subgraph(batch);
+
+        // Its possible to receive failures for batches which were already removed
+        // as part of a prior failure. Early exit to prevent logging these no-ops.
+        if removed_batches.is_empty() {
             return;
         }
 
-        let (batches, mut transactions) = self.batch_descendents(batch);
+        let batches = removed_batches.iter().map(|(b, _)| *b).collect::<Vec<_>>();
+        let transactions = removed_batches.into_iter().flat_map(|(_, tx)| tx.into_iter()).collect();
 
-        // Drop all impacted batches and inform parent batches that they've lost these children.
-        //
-        // We could also re-attempt the batch but we don't have
-        // the information yet to make such a call. This could also be grounds for a complete
-        // shutdown instead.
-        for batch_id in &batches {
-            let batch = self.batch_pool.remove(batch_id).expect("Batch must exist in pool");
+        self.transactions.requeue_transactions(transactions);
 
-            for parent in batch.parents {
-                // Its possible for a parent to be removed as part of this set already.
-                if let Some(parent) = self.batch_pool.get_mut(&parent) {
-                    parent.remove_child(batch_id);
-                }
-            }
-        }
-
-        // Mark all transactions as back in-queue.
-        for tx in &transactions {
-            self.tx_pool.get_mut(tx).expect("Transaction must be in pool").status =
-                TransactionStatus::InQueue;
-        }
-
-        let impacted_transactions = transactions.len();
-
-        // Check all transactions as possible roots. We also need to recheck the current roots as
-        // they may now be invalidated as roots.
-        transactions.extend(self.tx_roots.clone());
-        self.tx_roots.clear();
-        for tx in transactions {
-            self.try_root_transaction(tx);
-        }
-
-        tracing::warn!(%batch, descendents=?batches, %impacted_transactions, "Batch failed, dropping all inflight descendent batches, impacted transactions are back in queue.");
+        tracing::warn!(%batch, descendents=?batches, "Batch failed, dropping all inflight descendent batches, impacted transactions are back in queue.");
     }
 
-    pub fn batch_complete(&mut self, batch_id: BatchId) {
-        let Some(batch) = self.batch_pool.get_mut(&batch_id) else {
-            tracing::warn!(%batch_id, "Ignoring unknown completed batch.");
-            return;
-        };
-
-        batch.status = BatchStatus::Proven;
-
-        self.try_root_batch(batch_id);
+    /// Marks a batch as proven if it exists.
+    pub fn batch_proved(&mut self, batch_id: BatchId) {
+        self.batches.mark_proven(batch_id);
     }
 
     /// Select at most `count` batches which are ready to be placed into the next block.
@@ -265,33 +197,20 @@ impl Mempool {
         // TODO: should return actual batch transaction data as well.
 
         let mut batches = Vec::with_capacity(count);
-        let block_number = self.next_block;
-        self.next_block.increment();
-
-        // Select batches according to some strategy. Currently this is simply arbitrary.
         for _ in 0..count {
-            let Some(batch) = self.batch_roots.pop_first() else {
+            let Some((batch_id, _)) = self.batches.pop_for_blocking() else {
                 break;
             };
-            batches.push(batch);
 
-            // Update status and check child batches for rootability.
-            let batch = self.batch_pool.get_mut(&batch).expect("Batch must be in pool");
-            batch.status = BatchStatus::Blocked;
+            batches.push(batch_id);
 
-            // Note: this does not handle batches with circular dependencies.
-            //
-            // The current model does not create them as batches are handed out sequentially.
-            // i.e. dependencies only go in one direction.
-            for child in batch.children.clone() {
-                self.try_root_batch(child);
-            }
-
-            // Unlike `select_batch` we don't need to track block depedencies. This is because
-            // block's have an inherit sequential dependency.
+            // Unlike `select_batch` we don't need to track inter-block depedencies as this relationship
+            // is inherently sequential.
         }
 
-        assert!(batches.len() <= count, "Must return at most `count` batches");
+        let block_number = self.next_block;
+        self.next_block.increment();
+        self.block_pool.insert(block_number, batches.clone());
 
         (block_number, batches)
     }
@@ -307,50 +226,18 @@ impl Mempool {
         );
 
         // Update book keeping by removing the inflight data that just became stale.
+        let stale_block = self.stale_block;
         self.stale_block.increment();
         self.next_completed_block.increment();
 
-        let Some(stale_batches) = self.block_pool.remove(&self.stale_block) else {
+        let Some(stale_batches) = self.block_pool.remove(&stale_block) else {
             // We expect no stale blocks at startup. Alternatively we could improve the stale block
             // tracing to account for this instead.
             return;
         };
 
-        // Update batch and transaction dependencies to forget about all batches and transactions in
-        // this block.
-        for batch_id in stale_batches {
-            let batch = self.batch_pool.remove(&batch_id).expect("Batch must be in pool");
-
-            for child in batch.children {
-                // Its possible for a child to already be removed as part of this set of stale
-                // batches.
-                if let Some(child) = self.batch_pool.get_mut(&child) {
-                    child.remove_parent(&batch_id);
-                }
-            }
-
-            for tx_id in batch.transactions {
-                let tx = self.tx_pool.remove(&tx_id).expect("Transaction must be in pool");
-
-                // Remove mentions from inflight state.
-                //
-                // Its possible for the state to already have been removed by another stale
-                // transaction. TODO: notes and nullifiers.
-                if let Entry::Occupied(account) = self.account_state.entry(tx.data.account_id()) {
-                    if account.get().1 == tx_id {
-                        account.remove();
-                    }
-                }
-
-                for child in tx.children {
-                    // Its possible for a child to already be removed as part of this set of stale
-                    // batches.
-                    if let Some(child) = self.tx_pool.get_mut(&child) {
-                        child.remove_parent(&tx_id);
-                    }
-                }
-            }
-        }
+        let stale_transations = self.batches.remove_stale(stale_batches);
+        self.transactions.removed_stale(stale_transations);
     }
 
     pub fn block_failed(&mut self, block: BlockNumber) {
@@ -359,40 +246,6 @@ impl Mempool {
         //
         // Given lack of information at this stage we should probably just abort the node?
         // In the future we might improve the situation with more fine-grained failure reasons.
-    }
-
-    /// Returns the batch, its descendents and all their transactions.
-    fn batch_descendents(&self, batch: BatchId) -> (BTreeSet<BatchId>, BTreeSet<TransactionId>) {
-        // Iterative implementation to prevent stack overflow and issues with multiple parents.
-        let mut to_process = vec![batch];
-        let mut descendents = BTreeSet::new();
-        let mut transactions = BTreeSet::new();
-
-        while let Some(batch) = to_process.pop() {
-            // Guard against repeat processing. This is possible because a batch can have multiple
-            // parents.
-            if descendents.insert(batch) {
-                let batch = self.batch_pool.get(&batch).expect("Batch should exist");
-
-                transactions.extend(&batch.transactions);
-                to_process.extend(&batch.children);
-            }
-        }
-
-        (descendents, transactions)
-    }
-
-    /// Add the batch as a root if all parents have been placed into blocks.
-    fn try_root_batch(&mut self, batch_id: BatchId) {
-        let batch = self.batch_pool.get_mut(&batch_id).expect("Batch must be in pool");
-        for parent in &batch.parents.clone() {
-            let parent = self.batch_pool.get(parent).expect("Parent batch must be in pool");
-
-            if parent.status != BatchStatus::Blocked {
-                return;
-            }
-        }
-        self.batch_roots.insert(batch_id);
     }
 }
 
@@ -405,78 +258,4 @@ pub enum AddTransactionError {
         input_block: BlockNumber,
         stale_limit: BlockNumber,
     },
-}
-
-struct InflightTransaction {
-    status: TransactionStatus,
-    data: Arc<ProvenTransaction>,
-    parents: BTreeSet<TransactionId>,
-    children: BTreeSet<TransactionId>,
-}
-
-impl InflightTransaction {
-    /// Creates a new in-queue transaction with no children.
-    fn new(data: ProvenTransaction, parents: BTreeSet<TransactionId>) -> Self {
-        Self {
-            data: Arc::new(data),
-            status: TransactionStatus::InQueue,
-            parents,
-            children: Default::default(),
-        }
-    }
-
-    fn add_child(&mut self, child: TransactionId) {
-        self.children.insert(child);
-    }
-
-    fn remove_parent(&mut self, parent: &TransactionId) {
-        self.parents.remove(parent);
-    }
-}
-
-struct InflightBatch {
-    status: BatchStatus,
-    transactions: Vec<TransactionId>,
-    parents: BTreeSet<BatchId>,
-    children: BTreeSet<BatchId>,
-}
-
-impl InflightBatch {
-    fn new(transactions: Vec<TransactionId>, parents: BTreeSet<BatchId>) -> Self {
-        Self {
-            status: BatchStatus::Inflight,
-            transactions,
-            parents,
-            children: Default::default(),
-        }
-    }
-
-    fn add_child(&mut self, child: BatchId) {
-        self.children.insert(child);
-    }
-
-    fn remove_child(&mut self, child: &BatchId) {
-        self.children.remove(child);
-    }
-
-    fn remove_parent(&mut self, parent: &BatchId) {
-        self.parents.remove(parent);
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TransactionStatus {
-    InQueue,
-    /// Part of an inflight batch.
-    Batched(BatchId),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum BatchStatus {
-    /// Dispatched for proving.
-    Inflight,
-    /// Proven.
-    Proven,
-    /// Part of an inflight block.
-    Blocked,
 }
