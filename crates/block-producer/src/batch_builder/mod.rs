@@ -1,11 +1,15 @@
-use std::{cmp::min, collections::BTreeSet, sync::Arc, time::Duration};
+use std::{cmp::min, collections::BTreeSet, num::NonZeroUsize, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use miden_objects::{notes::NoteId, transaction::OutputNote};
-use tokio::time;
+use tokio::{sync::Mutex, time};
 use tracing::{debug, info, instrument, Span};
 
-use crate::{block_builder::BlockBuilder, ProvenTransaction, SharedRwVec, COMPONENT};
+use crate::{
+    block_builder::BlockBuilder,
+    mempool::{BatchId, Mempool},
+    ProvenTransaction, SharedRwVec, COMPONENT,
+};
 
 #[cfg(test)]
 mod tests;
@@ -204,5 +208,90 @@ where
         info!(target: COMPONENT, num_batches, "Transaction batch added to the batch queue");
 
         Ok(())
+    }
+}
+
+pub struct BatchProducer {
+    pub batch_interval: Duration,
+    pub workers: NonZeroUsize,
+    pub mempool: Arc<Mutex<Mempool>>,
+    pub tx_per_batch: usize,
+}
+
+type BatchResult = Result<(BatchId, TransactionBatch), (BatchId, BuildBatchError)>;
+
+/// Wrapper around tokio's JoinSet that remains pending if the set is empty,
+/// instead of returning None.
+struct WorkerPool(tokio::task::JoinSet<BatchResult>);
+
+impl WorkerPool {
+    async fn join_next(&mut self) -> Result<BatchResult, tokio::task::JoinError> {
+        if self.0.is_empty() {
+            std::future::pending().await
+        } else {
+            // Cannot be None as its not empty.
+            self.0.join_next().await.unwrap()
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn spawn(&mut self, id: BatchId) {
+        self.0.spawn(async move {
+            TransactionBatch::new(todo!(), todo!())
+                .map(|batch| (id, batch))
+                .map_err(|err| (id, err))
+        });
+    }
+}
+
+impl BatchProducer {
+    pub async fn run(self) {
+        let mut interval = tokio::time::interval(self.batch_interval);
+        interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+        let mut inflight = WorkerPool(tokio::task::JoinSet::new());
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    if inflight.len() >= self.workers.get() {
+                        tracing::info!("All batch workers occupied.");
+                        continue;
+                    }
+
+                    // Transactions available?
+                    let Some((batch_id, transactions)) =
+                        self.mempool.lock().await.select_batch(self.tx_per_batch)
+                    else {
+                        tracing::info!("No transactions available for batch.");
+                        continue;
+                    };
+
+                    inflight.spawn(batch_id);
+                },
+                result = inflight.join_next() => {
+                    let mut mempool = self.mempool.lock().await;
+                    match result {
+                        Err(err) => {
+                            tracing::warn!(%err, "Batch job panic'd.")
+                            // TODO: somehow embed the batch ID into the join error, though this doesn't seem possible?
+                            // mempool.batch_failed(batch_id);
+                        },
+                        Ok(Err((batch_id, err))) => {
+                            tracing::warn!(%batch_id, %err, "Batch job failed.");
+                            mempool.batch_failed(batch_id);
+                        },
+                        Ok(Ok((batch_id, _batch))) => {
+                            mempool.batch_proved(batch_id);
+                        }
+                    }
+                }
+            }
+
+            interval.tick().await;
+        }
     }
 }
