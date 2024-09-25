@@ -36,7 +36,8 @@ impl TransactionGraph {
             panic!("Transaction already exists in pool");
         }
 
-        // This could be optimised by inlining this inside the parent loop. This would prevent the double iteration over parents, at the cost of some code duplication.
+        // This could be optimised by inlining this inside the parent loop. This would prevent the
+        // double iteration over parents, at the cost of some code duplication.
         self.try_make_root(id);
     }
 
@@ -66,7 +67,8 @@ impl TransactionGraph {
             self.nodes.get_mut(&tx).expect("Node must exist").status = Status::InQueue;
         }
 
-        // All requeued transactions are potential roots, and current roots may have been invalidated.
+        // All requeued transactions are potential roots, and current roots may have been
+        // invalidated.
         let mut potential_roots = transactions;
         potential_roots.extend(&self.roots);
         self.roots.clear();
@@ -80,9 +82,11 @@ impl TransactionGraph {
             let node = self.nodes.remove(&transaction).expect("Node must be in graph");
             assert_eq!(node.status, Status::Processed);
 
-            // Remove node from graph. No need to update parents as they should be removed in this call as well.
+            // Remove node from graph. No need to update parents as they should be removed in this
+            // call as well.
             for child in node.children {
-                // Its possible for the child to part of this same set of batches and therefore already removed.
+                // Its possible for the child to part of this same set of batches and therefore
+                // already removed.
                 if let Some(child) = self.nodes.get_mut(&child) {
                     child.parents.remove(&transaction);
                 }

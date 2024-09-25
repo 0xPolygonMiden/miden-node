@@ -4,25 +4,26 @@ use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
     responses::SubmitProvenTransactionResponse, store::api_client as store_client,
 };
-use miden_node_utils::errors::ApiError;
-use miden_node_utils::formatting::{format_input_notes, format_output_notes};
-use miden_objects::MIN_PROOF_SECURITY_LEVEL;
-use miden_objects::{transaction::ProvenTransaction, utils::serde::Deserializable};
+use miden_node_utils::{
+    errors::ApiError,
+    formatting::{format_input_notes, format_output_notes},
+};
+use miden_objects::{
+    transaction::ProvenTransaction, utils::serde::Deserializable, MIN_PROOF_SECURITY_LEVEL,
+};
 use miden_tx::TransactionVerifier;
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
 use tracing::{debug, info, instrument};
 
-use crate::mempool::AddTransactionError;
-use crate::store::Store;
 use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
-    mempool::Mempool,
+    mempool::{AddTransactionError, Mempool},
     state_view::DefaultStateView,
-    store::DefaultStore,
+    store::{DefaultStore, Store},
     txqueue::{TransactionQueue, TransactionQueueOptions},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
@@ -118,7 +119,8 @@ impl BlockProducer {
 }
 
 pub struct Server {
-    /// This outer mutex enforces that the incoming transactions won't crowd out more important mempool locks.
+    /// This outer mutex enforces that the incoming transactions won't crowd out more important
+    /// mempool locks.
     ///
     /// The inner mutex will be abstracted away once we are happy with the api.
     mempool: Mutex<Arc<Mutex<Mempool>>>,

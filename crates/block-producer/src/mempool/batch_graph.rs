@@ -53,7 +53,8 @@ impl BatchGraph {
 
         // New node might be a root.
         //
-        // This could be optimised by inlining this inside the parent loop. This would prevent the double iteration over parents, at the cost of some code duplication.
+        // This could be optimised by inlining this inside the parent loop. This would prevent the
+        // double iteration over parents, at the cost of some code duplication.
         self.try_make_root(id);
     }
 
@@ -64,7 +65,8 @@ impl BatchGraph {
         let mut to_process = vec![id];
 
         while let Some(batch_id) = to_process.pop() {
-            // Its possible for a node to already have been removed as part of this subgraph removal.
+            // Its possible for a node to already have been removed as part of this subgraph
+            // removal.
             let Some(batch) = self.nodes.remove(&batch_id) else {
                 continue;
             };
@@ -105,9 +107,11 @@ impl BatchGraph {
             let node = self.nodes.remove(&batch).expect("Node must be in graph");
             assert_eq!(node.status, Status::InBlock);
 
-            // Remove batch from graph. No need to update parents as they should be removed in this call as well.
+            // Remove batch from graph. No need to update parents as they should be removed in this
+            // call as well.
             for child in node.children {
-                // Its possible for the child to part of this same set of batches and therefore already removed.
+                // Its possible for the child to part of this same set of batches and therefore
+                // already removed.
                 if let Some(child) = self.nodes.get_mut(&child) {
                     child.parents.remove(&batch);
                 }

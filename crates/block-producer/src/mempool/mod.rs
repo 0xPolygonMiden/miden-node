@@ -207,8 +207,8 @@ impl Mempool {
 
             batches.push(batch_id);
 
-            // Unlike `select_batch` we don't need to track inter-block depedencies as this relationship
-            // is inherently sequential.
+            // Unlike `select_batch` we don't need to track inter-block depedencies as this
+            // relationship is inherently sequential.
         }
 
         let block_number = self.next_inflight_block;
