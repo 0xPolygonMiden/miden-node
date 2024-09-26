@@ -5,7 +5,7 @@ use std::{
 
 use miden_objects::transaction::{ProvenTransaction, TransactionId};
 
-use super::BatchId;
+use super::BatchJobId;
 
 #[derive(Default, Clone, Debug)]
 pub struct TransactionGraph {

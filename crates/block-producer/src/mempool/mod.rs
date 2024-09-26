@@ -22,15 +22,15 @@ mod batch_graph;
 mod transaction_graph;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BatchId(u64);
+pub struct BatchJobId(u64);
 
-impl Display for BatchId {
+impl Display for BatchJobId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl BatchId {
+impl BatchJobId {
     pub fn increment(mut self) {
         self.0 += 1;
     }
@@ -71,10 +71,10 @@ pub struct Mempool {
     batches: BatchGraph,
 
     /// The next batches ID.
-    next_batch_id: BatchId,
+    next_batch_id: BatchJobId,
 
     /// Blocks which are inflight or completed but not yet considered stale.
-    block_pool: BTreeMap<BlockNumber, Vec<BatchId>>,
+    block_pool: BTreeMap<BlockNumber, Vec<BatchJobId>>,
 
     /// The current block height of the chain.
     completed_blocks: BlockNumber,
@@ -140,7 +140,10 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    pub fn select_batch(&mut self, count: usize) -> Option<(BatchId, Vec<Arc<ProvenTransaction>>)> {
+    pub fn select_batch(
+        &mut self,
+        count: usize,
+    ) -> Option<(BatchJobId, Vec<Arc<ProvenTransaction>>)> {
         let mut parents = BTreeSet::new();
         let mut batch = Vec::with_capacity(count);
 
@@ -171,7 +174,7 @@ impl Mempool {
     /// Drops the failed batch and all of its descendents.
     ///
     /// Transactions are placed back in the queue.
-    pub fn batch_failed(&mut self, batch: BatchId) {
+    pub fn batch_failed(&mut self, batch: BatchJobId) {
         let removed_batches = self.batches.purge_subgraph(batch);
 
         // Its possible to receive failures for batches which were already removed
@@ -189,14 +192,14 @@ impl Mempool {
     }
 
     /// Marks a batch as proven if it exists.
-    pub fn batch_proved(&mut self, batch_id: BatchId) {
+    pub fn batch_proved(&mut self, batch_id: BatchJobId) {
         self.batches.mark_proven(batch_id);
     }
 
     /// Select at most `count` batches which are ready to be placed into the next block.
     ///
     /// May return an empty batch set if no batches are ready.
-    pub fn select_block(&mut self, count: usize) -> (BlockNumber, Vec<BatchId>) {
+    pub fn select_block(&mut self, count: usize) -> (BlockNumber, Vec<BatchJobId>) {
         // TODO: should return actual batch transaction data as well.
 
         let mut batches = Vec::with_capacity(count);

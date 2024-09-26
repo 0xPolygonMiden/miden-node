@@ -10,7 +10,7 @@ use tracing::{debug, info, instrument, Span};
 
 use crate::{
     block_builder::BlockBuilder,
-    mempool::{BatchId, Mempool},
+    mempool::{BatchJobId, Mempool},
     ProvenTransaction, SharedRwVec, COMPONENT,
 };
 
@@ -221,7 +221,7 @@ pub struct BatchProducer {
     pub tx_per_batch: usize,
 }
 
-type BatchResult = Result<(BatchId, TransactionBatch), (BatchId, BuildBatchError)>;
+type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
 
 /// Wrapper around tokio's JoinSet that remains pending if the set is empty,
 /// instead of returning None.
@@ -243,7 +243,7 @@ impl WorkerPool {
 
     fn spawn(
         &mut self,
-        id: BatchId,
+        id: BatchJobId,
         transactions: Vec<Arc<ProvenTransaction>>,
         note_info: NoteAuthenticationInfo,
     ) {

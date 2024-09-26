@@ -3,21 +3,21 @@ use std::collections::{BTreeMap, BTreeSet};
 use miden_objects::transaction::TransactionId;
 use miden_tx::utils::collections::KvMap;
 
-use super::BatchId;
+use super::BatchJobId;
 
 #[derive(Default, Clone)]
 pub struct BatchGraph {
-    nodes: BTreeMap<BatchId, Node>,
-    roots: BTreeSet<BatchId>,
+    nodes: BTreeMap<BatchJobId, Node>,
+    roots: BTreeSet<BatchJobId>,
 
     /// Allows for reverse lookup of transaction -> batch.
-    transactions: BTreeMap<TransactionId, BatchId>,
+    transactions: BTreeMap<TransactionId, BatchJobId>,
 }
 
 impl BatchGraph {
     pub fn insert(
         &mut self,
-        id: BatchId,
+        id: BatchJobId,
         transactions: Vec<TransactionId>,
         parents: BTreeSet<TransactionId>,
     ) {
@@ -59,7 +59,7 @@ impl BatchGraph {
     }
 
     /// Removes the batch and all of its descendents from the graph.
-    pub fn purge_subgraph(&mut self, id: BatchId) -> Vec<(BatchId, Vec<TransactionId>)> {
+    pub fn purge_subgraph(&mut self, id: BatchJobId) -> Vec<(BatchJobId, Vec<TransactionId>)> {
         let mut removed = Vec::new();
 
         let mut to_process = vec![id];
@@ -100,7 +100,7 @@ impl BatchGraph {
     /// Removes a set of batches from the graph without removing any descendents.
     ///
     /// This is intended to cull completed batches from stale blocks.
-    pub fn remove_stale(&mut self, batches: Vec<BatchId>) -> Vec<TransactionId> {
+    pub fn remove_stale(&mut self, batches: Vec<BatchJobId>) -> Vec<TransactionId> {
         let mut transactions = Vec::new();
 
         for batch in batches {
@@ -124,7 +124,7 @@ impl BatchGraph {
     }
 
     /// Mark a batch as proven if it exists.
-    pub fn mark_proven(&mut self, id: BatchId) {
+    pub fn mark_proven(&mut self, id: BatchJobId) {
         // Its possible for inflight batches to have been removed as part
         // of another batches failure.
         if let Some(node) = self.nodes.get_mut(&id) {
@@ -133,7 +133,7 @@ impl BatchGraph {
         }
     }
 
-    pub fn pop_for_blocking(&mut self) -> Option<(BatchId, Vec<TransactionId>)> {
+    pub fn pop_for_blocking(&mut self) -> Option<(BatchJobId, Vec<TransactionId>)> {
         let batch_id = self.roots.pop_first()?;
         let node = self.nodes.get_mut(&batch_id).expect("Root node must be in graph");
         node.status = Status::InBlock;
@@ -149,7 +149,7 @@ impl BatchGraph {
         Some((batch_id, transactions))
     }
 
-    fn try_make_root(&mut self, id: BatchId) {
+    fn try_make_root(&mut self, id: BatchJobId) {
         let node = self.nodes.get_mut(&id).expect("Node must be in graph");
 
         for parent in node.parents.clone() {
@@ -167,8 +167,8 @@ impl BatchGraph {
 struct Node {
     status: Status,
     transactions: Vec<TransactionId>,
-    parents: BTreeSet<BatchId>,
-    children: BTreeSet<BatchId>,
+    parents: BTreeSet<BatchJobId>,
+    children: BTreeSet<BatchJobId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
