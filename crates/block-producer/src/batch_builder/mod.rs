@@ -290,8 +290,6 @@ impl BatchProducer {
                     }
                 }
             }
-
-            interval.tick().await;
         }
     }
 }
