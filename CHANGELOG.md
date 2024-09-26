@@ -7,6 +7,7 @@
 - Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
 - [BREAKING] Changed `GetAccountDetailsResponse` field to `details` (#481).
 - Improve `--version` by adding build metadata (#495).
+- Added `GetAccountStates` endpoint (#506).
 
 ## 0.5.1 (2024-09-12)
 
