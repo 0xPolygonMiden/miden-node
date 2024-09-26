@@ -1,6 +1,9 @@
-use std::{cmp::min, collections::BTreeSet, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    cmp::min, collections::BTreeSet, num::NonZeroUsize, ops::Deref, sync::Arc, time::Duration,
+};
 
 use async_trait::async_trait;
+use miden_node_proto::domain::notes::NoteAuthenticationInfo;
 use miden_objects::{notes::NoteId, transaction::OutputNote};
 use tokio::{sync::Mutex, time};
 use tracing::{debug, info, instrument, Span};
@@ -238,9 +241,16 @@ impl WorkerPool {
         self.0.len()
     }
 
-    fn spawn(&mut self, id: BatchId) {
+    fn spawn(
+        &mut self,
+        id: BatchId,
+        transactions: Vec<Arc<ProvenTransaction>>,
+        note_info: NoteAuthenticationInfo,
+    ) {
         self.0.spawn(async move {
-            TransactionBatch::new(todo!(), todo!())
+            // TODO: batcher should take arc's.
+            let transactions = transactions.into_iter().map(|tx| tx.deref().clone()).collect();
+            TransactionBatch::new(transactions, note_info)
                 .map(|batch| (id, batch))
                 .map_err(|err| (id, err))
         });
@@ -270,7 +280,7 @@ impl BatchProducer {
                         continue;
                     };
 
-                    inflight.spawn(batch_id);
+                    inflight.spawn(batch_id, transactions, todo!());
                 },
                 result = inflight.join_next() => {
                     let mut mempool = self.mempool.lock().await;
