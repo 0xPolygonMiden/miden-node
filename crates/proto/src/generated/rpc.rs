@@ -161,13 +161,13 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountDetails"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn get_account_state(
+        pub async fn get_account_states(
             &mut self,
             request: impl tonic::IntoRequest<
-                super::super::requests::GetAccountStateRequest,
+                super::super::requests::GetAccountStatesRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetAccountStateResponse>,
+            tonic::Response<super::super::responses::GetAccountStatesResponse>,
             tonic::Status,
         > {
             self.inner
@@ -180,9 +180,9 @@ pub mod api_client {
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetAccountState");
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetAccountStates");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountState"));
+            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountStates"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_account_state_delta(
@@ -388,11 +388,11 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountDetailsResponse>,
             tonic::Status,
         >;
-        async fn get_account_state(
+        async fn get_account_states(
             &self,
-            request: tonic::Request<super::super::requests::GetAccountStateRequest>,
+            request: tonic::Request<super::super::requests::GetAccountStatesRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetAccountStateResponse>,
+            tonic::Response<super::super::responses::GetAccountStatesResponse>,
             tonic::Status,
         >;
         async fn get_account_state_delta(
@@ -670,15 +670,15 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/rpc.Api/GetAccountState" => {
+                "/rpc.Api/GetAccountStates" => {
                     #[allow(non_camel_case_types)]
-                    struct GetAccountStateSvc<T: Api>(pub Arc<T>);
+                    struct GetAccountStatesSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::GetAccountStateRequest,
-                    > for GetAccountStateSvc<T> {
-                        type Response = super::super::responses::GetAccountStateResponse;
+                        super::super::requests::GetAccountStatesRequest,
+                    > for GetAccountStatesSvc<T> {
+                        type Response = super::super::responses::GetAccountStatesResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -686,12 +686,12 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::GetAccountStateRequest,
+                                super::super::requests::GetAccountStatesRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::get_account_state(&inner, request).await
+                                <T as Api>::get_account_states(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -702,7 +702,7 @@ pub mod api_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = GetAccountStateSvc(inner);
+                        let method = GetAccountStatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

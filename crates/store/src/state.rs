@@ -4,24 +4,35 @@
 //! data is atomically written, and that reads are consistent.
 
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
+    ops::Deref,
     sync::Arc,
 };
 
 use miden_node_proto::{
     convert,
     domain::{accounts::AccountInfo, blocks::BlockInclusionProof, notes::NoteAuthenticationInfo},
-    generated::responses::GetBlockInputsResponse,
-    AccountInputRecord, NullifierWitness,
+    errors::{ConversionError, MissingFieldHelper},
+    generated::{
+        requests::{
+            AccountStateRequest as AccountStateRequestPb, StorageMapKey as StorageMapKeyPb,
+        },
+        responses::{
+            AccountStateResponse as AccountStateResponsePb, GetBlockInputsResponse,
+            StorageMapItem as StorageMapItemPb,
+        },
+    },
+    try_convert, AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
-    accounts::AccountDelta,
+    accounts::{AccountDelta, AccountHeader, AccountStorageHeader, StorageSlot},
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{
-            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
+            LeafIndex, MerklePath, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt,
+            SmtProof, ValuePath,
         },
     },
     notes::{NoteId, Nullifier},
@@ -49,6 +60,79 @@ use crate::{
 
 // STRUCTURES
 // ================================================================================================
+
+#[derive(Debug, Clone)]
+pub struct AccountStateRequest {
+    pub storage_map_keys: Vec<StorageMapKey>,
+    pub include_assets: bool,
+}
+
+impl TryFrom<AccountStateRequestPb> for AccountStateRequest {
+    type Error = ConversionError;
+
+    fn try_from(from: AccountStateRequestPb) -> Result<Self, Self::Error> {
+        Ok(Self {
+            storage_map_keys: try_convert(from.storage_map_keys)?,
+            include_assets: from.include_assets,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StorageMapKey {
+    pub slot_index: u32,
+    pub key: RpoDigest,
+}
+
+impl TryFrom<StorageMapKeyPb> for StorageMapKey {
+    type Error = ConversionError;
+
+    fn try_from(from: StorageMapKeyPb) -> Result<Self, Self::Error> {
+        Ok(Self {
+            slot_index: from.slot_index,
+            key: from
+                .key
+                .ok_or_else(|| StorageMapKeyPb::missing_field(stringify!(key)))?
+                .try_into()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AccountStateResponse {
+    pub header: AccountHeader,
+    pub account_proof: MerklePath,
+    pub storage_header: AccountStorageHeader,
+    pub map_items: Vec<StorageMapItem>,
+    pub assets: Option<Vec<Vec<u8>>>,
+}
+
+impl From<AccountStateResponse> for AccountStateResponsePb {
+    fn from(from: AccountStateResponse) -> Self {
+        Self {
+            header: Some(from.header.into()),
+            account_proof: Some((&from.account_proof).into()),
+            storage_header: from.storage_header.to_bytes(),
+            map_items: from.map_items.into_iter().map(Into::into).collect(),
+            assets: from.assets.unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StorageMapItem {
+    pub slot_index: u32,
+    pub opening: SmtProof,
+}
+
+impl From<StorageMapItem> for StorageMapItemPb {
+    fn from(value: StorageMapItem) -> Self {
+        Self {
+            slot_index: value.slot_index,
+            opening: Some(value.opening.into()),
+        }
+    }
+}
 
 /// Information needed from the store to validate and build a block
 #[derive(Debug)]
@@ -653,23 +737,99 @@ impl State {
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
     pub async fn list_nullifiers(&self) -> Result<Vec<(Nullifier, u32)>, DatabaseError> {
-        self.db.select_nullifiers().await
+        self.db.select_all_nullifiers().await
     }
 
     /// Lists all known accounts, with their ids, latest state hash, and block at which the account
     /// was last modified, intended for testing.
     pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, DatabaseError> {
-        self.db.select_accounts().await
+        self.db.select_all_accounts().await
     }
 
     /// Lists all known notes, intended for testing.
     pub async fn list_notes(&self) -> Result<Vec<NoteRecord>, DatabaseError> {
-        self.db.select_notes().await
+        self.db.select_all_notes().await
     }
 
-    /// Returns details for public (public) account.
+    /// Returns details for public (on-chain) account.
     pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await
+    }
+
+    /// Returns account states with details for public accounts.
+    pub async fn get_account_states(
+        &self,
+        requests: &HashMap<AccountId, AccountStateRequest>,
+    ) -> Result<(BlockNumber, Vec<AccountStateResponse>), DatabaseError> {
+        'reload: loop {
+            let (snapshot_block_num, proofs) = {
+                let inner_state = self.inner.read().await;
+                let mut proofs = HashMap::new();
+                for account_id in requests.keys() {
+                    let key = LeafIndex::new_max_depth(*account_id);
+                    let proof = inner_state.account_tree.open(&key);
+
+                    proofs.insert(*account_id, proof);
+                }
+
+                (Self::compute_latest_block_number(&inner_state), proofs)
+            };
+
+            let infos = self.db.select_accounts_by_ids(requests.keys().copied().collect()).await?;
+
+            // TODO: Should we return an error if one or more accounts are not found?
+
+            let mut responses = Vec::with_capacity(requests.len());
+            for info in infos {
+                // Check if the block number in account update from the DB is not newer than the
+                // latest block in in-memory structure we used for getting proofs for accounts.
+                // Otherwise, we need to reload the data and try again.
+                // This situation might happen because we release the lock for in-memory structure
+                // before the loading from DB. We do this to avoid holding the lock for too long.
+                if info.summary.block_num > snapshot_block_num {
+                    continue 'reload;
+                }
+
+                let account_id = info.summary.account_id.into();
+                let request =
+                    requests.get(&account_id).expect("Returned account not found in request map");
+                let proof =
+                    proofs.get(&account_id).expect("Returned account not found in request map");
+                let details = info.details.ok_or_else(|| {
+                    DatabaseError::AccountNotOnChain(info.summary.account_id.into())
+                })?;
+
+                let map_items = request
+                    .storage_map_keys
+                    .iter()
+                    .filter_map(|storage_key| {
+                        details.storage().slots().get(storage_key.slot_index as usize).and_then(
+                            |storage_slot| match storage_slot {
+                                StorageSlot::Value(_) => None,
+                                StorageSlot::Map(storage_map) => Some(StorageMapItem {
+                                    slot_index: storage_key.slot_index,
+                                    opening: storage_map.open(&storage_key.key),
+                                }),
+                            },
+                        )
+                    })
+                    .collect();
+
+                let response = AccountStateResponse {
+                    header: (&details).into(),
+                    account_proof: proof.path.clone(),
+                    storage_header: details.storage().get_header(),
+                    map_items,
+                    assets: request
+                        .include_assets
+                        .then(|| details.vault().assets().map(|asset| asset.to_bytes()).collect()),
+                };
+
+                responses.push(response);
+            }
+
+            return Ok((snapshot_block_num, responses));
+        }
     }
 
     /// Returns the state delta between `from_block` (exclusive) and `to_block` (inclusive) for the
@@ -703,7 +863,12 @@ impl State {
 
     /// Returns the latest block number.
     pub async fn latest_block_num(&self) -> BlockNumber {
-        (self.inner.read().await.chain_mmr.forest() + 1) as BlockNumber
+        Self::compute_latest_block_number(self.inner.read().await.deref())
+    }
+
+    /// Returns the latest block number for the given inner state.
+    fn compute_latest_block_number(inner_state: &InnerState) -> BlockNumber {
+        (inner_state.chain_mmr.forest() + 1).try_into().expect("block number overflow")
     }
 }
 
@@ -712,7 +877,7 @@ impl State {
 
 #[instrument(target = "miden-store", skip_all)]
 async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitializationError> {
-    let nullifiers = db.select_nullifiers().await?;
+    let nullifiers = db.select_all_nullifiers().await?;
     let len = nullifiers.len();
 
     let now = Instant::now();
@@ -742,7 +907,7 @@ async fn load_accounts(
     db: &mut Db,
 ) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
     let account_data: Vec<_> = db
-        .select_account_hashes()
+        .select_all_account_hashes()
         .await?
         .into_iter()
         .map(|(id, account_hash)| (id, account_hash.into()))

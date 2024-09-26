@@ -200,10 +200,15 @@ impl Db {
 
     /// Loads all the nullifiers from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_nullifiers(&self) -> Result<Vec<(Nullifier, BlockNumber)>> {
-        self.pool.get().await?.interact(sql::select_nullifiers).await.map_err(|err| {
-            DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
-        })?
+    pub async fn select_all_nullifiers(&self) -> Result<Vec<(Nullifier, BlockNumber)>> {
+        self.pool
+            .get()
+            .await?
+            .interact(sql::select_all_nullifiers)
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
+            })?
     }
 
     /// Loads the nullifiers that match the prefixes from the DB.
@@ -229,16 +234,16 @@ impl Db {
 
     /// Loads all the notes from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes(&self) -> Result<Vec<NoteRecord>> {
-        self.pool.get().await?.interact(sql::select_notes).await.map_err(|err| {
+    pub async fn select_all_notes(&self) -> Result<Vec<NoteRecord>> {
+        self.pool.get().await?.interact(sql::select_all_notes).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select notes task failed: {err}"))
         })?
     }
 
     /// Loads all the accounts from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>> {
-        self.pool.get().await?.interact(sql::select_accounts).await.map_err(|err| {
+    pub async fn select_all_accounts(&self) -> Result<Vec<AccountInfo>> {
+        self.pool.get().await?.interact(sql::select_all_accounts).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select accounts task failed: {err}"))
         })?
     }
@@ -291,11 +296,11 @@ impl Db {
 
     /// Loads all the account hashes from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_account_hashes(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
+    pub async fn select_all_account_hashes(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
         self.pool
             .get()
             .await?
-            .interact(sql::select_account_hashes)
+            .interact(sql::select_all_account_hashes)
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select account hashes task failed: {err}"))
@@ -312,6 +317,22 @@ impl Db {
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get account details task failed: {err}"))
+            })?
+    }
+
+    /// Loads public accounts details from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_accounts_by_ids(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<Vec<AccountInfo>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_accounts_by_ids(conn, &account_ids))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Get accounts details task failed: {err}"))
             })?
     }
 

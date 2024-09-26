@@ -34,10 +34,10 @@ pub struct AccountHeader {
     pub vault_root: ::core::option::Option<super::digest::Digest>,
     /// Storage root hash.
     #[prost(message, optional, tag = "3")]
-    pub storage_root: ::core::option::Option<super::digest::Digest>,
+    pub storage_commitment: ::core::option::Option<super::digest::Digest>,
     /// Code root hash.
     #[prost(message, optional, tag = "4")]
-    pub code_root: ::core::option::Option<super::digest::Digest>,
+    pub code_commitment: ::core::option::Option<super::digest::Digest>,
     /// Account nonce.
     #[prost(uint32, tag = "5")]
     pub nonce: u32,

@@ -3,14 +3,15 @@ use miden_node_proto::{
         block_producer::api_client as block_producer_client,
         requests::{
             CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
-            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+            GetAccountStateDeltaRequest, GetAccountStatesRequest, GetBlockByNumberRequest,
+            GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
+            SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             CheckNullifiersByPrefixResponse, CheckNullifiersResponse, GetAccountDetailsResponse,
-            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncNoteResponse,
-            SyncStateResponse,
+            GetAccountStateDeltaResponse, GetAccountStatesResponse, GetBlockByNumberResponse,
+            GetBlockHeaderByNumberResponse, GetNotesByIdResponse, SubmitProvenTransactionResponse,
+            SyncNoteResponse, SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -249,5 +250,23 @@ impl api_server::Api for RpcApi {
         debug!(target: COMPONENT, ?request);
 
         self.store.clone().get_account_state_delta(request).await
+    }
+
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_account_states",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_states(
+        &self,
+        request: Request<GetAccountStatesRequest>,
+    ) -> Result<Response<GetAccountStatesResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        self.store.clone().get_account_states(request).await
     }
 }

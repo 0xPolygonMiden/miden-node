@@ -10,18 +10,20 @@ use miden_node_proto::{
         note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
-            GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
-            ListNotesRequest, ListNullifiersRequest, SyncNoteRequest, SyncStateRequest,
+            GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetAccountStatesRequest,
+            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNoteAuthenticationInfoRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncNoteRequest,
+            SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
-            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNoteAuthenticationInfoResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
-            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
+            GetAccountStatesResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetNoteAuthenticationInfoResponse, GetNotesByIdResponse,
+            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
+            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncNoteResponse, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -36,11 +38,14 @@ use miden_objects::{
     utils::{Deserializable, Serializable},
     Felt, ZERO,
 };
-use tonic::{Response, Status};
+use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, types::AccountId, COMPONENT};
-
+use crate::{
+    state::{AccountStateRequest, State},
+    types::AccountId,
+    COMPONENT,
+};
 // STORE API
 // ================================================================================================
 
@@ -421,7 +426,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
+        let account_id = request.account_id.ok_or(invalid_argument("`account_id` missing"))?.id;
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
@@ -473,6 +478,44 @@ impl api_server::Api for StoreApi {
         let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
+    }
+
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_account_state",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_states(
+        &self,
+        request: Request<GetAccountStatesRequest>,
+    ) -> Result<Response<GetAccountStatesResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        let requests = request
+            .account_state_requests
+            .into_iter()
+            .map(|request| {
+                let account_id =
+                    request.account_id.ok_or(invalid_argument("`account_id` is missing"))?.id;
+
+                Ok((
+                    account_id,
+                    AccountStateRequest::try_from(request).map_err(|err| invalid_argument(&err))?,
+                ))
+            })
+            .collect::<Result<_, Status>>()?;
+
+        let (block_num, responses) =
+            self.state.get_account_states(&requests).await.map_err(internal_error)?;
+
+        Ok(Response::new(GetAccountStatesResponse {
+            block_num,
+            account_state_infos: responses.into_iter().map(Into::into).collect(),
+        }))
     }
 
     #[instrument(

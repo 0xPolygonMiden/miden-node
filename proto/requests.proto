@@ -134,7 +134,7 @@ message GetAccountStateDeltaRequest {
     fixed32 to_block_num = 3;
 }
 
-message GetAccountStateRequest {
+message GetAccountStatesRequest {
     // List of account state requests.
     repeated AccountStateRequest account_state_requests = 1;
 }

@@ -196,7 +196,7 @@ pub struct GetAccountStateDeltaResponse {
     pub delta: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetAccountStateResponse {
+pub struct GetAccountStatesResponse {
     /// Block number at which the state of the account was returned.
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
@@ -206,10 +206,10 @@ pub struct GetAccountStateResponse {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountStateResponse {
-    /// Account header consisting of account_id, vault_root, storage_root, code_root, and nonce.
+    /// Account header.
     #[prost(message, optional, tag = "1")]
     pub header: ::core::option::Option<super::account::AccountHeader>,
-    /// Authentication path from the account_root for the block header to the account.
+    /// Authentication path from the `account_root` of the block header to the account.
     #[prost(message, optional, tag = "2")]
     pub account_proof: ::core::option::Option<super::merkle::MerklePath>,
     /// / Values of all account storage slots (max 255).

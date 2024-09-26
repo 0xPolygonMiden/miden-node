@@ -174,7 +174,7 @@ message GetAccountStateDeltaResponse {
     optional bytes delta = 1;
 }
 
-message GetAccountStateResponse {
+message GetAccountStatesResponse {
     // Block number at which the state of the account was returned.
     fixed32 block_num = 1;
     // List of account state infos for the requested account keys.
@@ -182,9 +182,9 @@ message GetAccountStateResponse {
 }
 
 message AccountStateResponse {
-    // Account header consisting of account_id, vault_root, storage_root, code_root, and nonce.
+    // Account header.
     account.AccountHeader header = 1;
-    // Authentication path from the account_root for the block header to the account.
+    // Authentication path from the `account_root` of the block header to the account.
     merkle.MerklePath account_proof = 2;
     /// Values of all account storage slots (max 255).
     bytes storage_header = 3;

@@ -27,9 +27,9 @@ message AccountHeader {
     // Vault root hash.
     digest.Digest vault_root = 2;
     // Storage root hash.
-    digest.Digest storage_root = 3;
+    digest.Digest storage_commitment = 3;
     // Code root hash.
-    digest.Digest code_root = 4;
+    digest.Digest code_commitment = 4;
     // Account nonce.
     uint32 nonce = 5;
 }
