@@ -43,7 +43,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
     let account_id_3 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2));
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = BlockHeader::mock(0, None, None, &[]);
+        let block_header = BlockHeader::mock(0, None, None, &[], Default::default());
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let accounts = BTreeMap::from_iter(vec![
@@ -107,7 +107,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
         Digest::new([Felt::new(4u64), Felt::new(3u64), Felt::new(2u64), Felt::new(1u64)]);
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = BlockHeader::mock(0, None, None, &[]);
+        let block_header = BlockHeader::mock(0, None, None, &[], Default::default());
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let accounts = BTreeMap::from_iter(vec![
@@ -206,7 +206,7 @@ fn test_block_witness_multiple_batches_per_account() {
     )]);
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = BlockHeader::mock(0, None, None, &[]);
+        let block_header = BlockHeader::mock(0, None, None, &[], Default::default());
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let x_witness = AccountWitness {
@@ -623,7 +623,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
         Nullifier::from([101_u32.into(), 102_u32.into(), 103_u32.into(), 104_u32.into()]);
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = BlockHeader::mock(0, None, None, &[]);
+        let block_header = BlockHeader::mock(0, None, None, &[], Default::default());
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let accounts = batches
