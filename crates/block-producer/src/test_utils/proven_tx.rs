@@ -1,4 +1,4 @@
-use std::{ops::Range, u32};
+use std::ops::Range;
 
 use miden_air::HashFunction;
 use miden_objects::{
