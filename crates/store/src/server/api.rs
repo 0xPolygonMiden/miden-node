@@ -493,12 +493,12 @@ impl api_server::Api for StoreApi {
         debug!(target: COMPONENT, ?request);
 
         let account_ids = convert(request.account_ids);
-        let (block_num, responses) =
+        let (block_num, infos) =
             self.state.get_account_states(account_ids).await.map_err(internal_error)?;
 
         Ok(Response::new(GetAccountStatesResponse {
             block_num,
-            account_state_infos: responses.into_iter().map(Into::into).collect(),
+            account_state_infos: infos.into_iter().map(Into::into).collect(),
         }))
     }
 

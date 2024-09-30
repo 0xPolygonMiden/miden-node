@@ -3,9 +3,7 @@ package requests;
 
 import "account.proto";
 import "digest.proto";
-import "merkle.proto";
 import "note.proto";
-import "smt.proto";
 
 message ApplyBlockRequest {
     bytes block = 1;
