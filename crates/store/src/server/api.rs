@@ -41,11 +41,8 @@ use miden_objects::{
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{
-    state::{AccountStateRequest, State},
-    types::AccountId,
-    COMPONENT,
-};
+use crate::{state::State, types::AccountId, COMPONENT};
+
 // STORE API
 // ================================================================================================
 
@@ -495,22 +492,9 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let requests = request
-            .account_state_requests
-            .into_iter()
-            .map(|request| {
-                let account_id =
-                    request.account_id.ok_or(invalid_argument("`account_id` is missing"))?.id;
-
-                Ok((
-                    account_id,
-                    AccountStateRequest::try_from(request).map_err(|err| invalid_argument(&err))?,
-                ))
-            })
-            .collect::<Result<_, Status>>()?;
-
+        let account_ids = convert(request.account_ids);
         let (block_num, responses) =
-            self.state.get_account_states(&requests).await.map_err(internal_error)?;
+            self.state.get_account_states(account_ids).await.map_err(internal_error)?;
 
         Ok(Response::new(GetAccountStatesResponse {
             block_num,

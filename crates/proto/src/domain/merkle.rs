@@ -19,6 +19,12 @@ impl From<&MerklePath> for generated::merkle::MerklePath {
     }
 }
 
+impl From<MerklePath> for generated::merkle::MerklePath {
+    fn from(value: MerklePath) -> Self {
+        (&value).into()
+    }
+}
+
 impl TryFrom<&generated::merkle::MerklePath> for MerklePath {
     type Error = ConversionError;
 

@@ -2014,6 +2014,7 @@ dependencies = [
  "directories",
  "figment",
  "hex",
+ "miden-lib",
  "miden-node-block-producer",
  "miden-node-proto",
  "miden-node-store",

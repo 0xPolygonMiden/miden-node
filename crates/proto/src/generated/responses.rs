@@ -206,28 +206,25 @@ pub struct GetAccountStatesResponse {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountStateResponse {
+    /// Account ID.
+    #[prost(message, optional, tag = "1")]
+    pub account_id: ::core::option::Option<super::account::AccountId>,
+    /// Account hash.
+    #[prost(message, optional, tag = "2")]
+    pub account_hash: ::core::option::Option<super::digest::Digest>,
+    /// Authentication path from the `account_root` of the block header to the account.
+    #[prost(message, optional, tag = "3")]
+    pub account_proof: ::core::option::Option<super::merkle::MerklePath>,
+    /// / State header for public accounts.
+    #[prost(message, optional, tag = "4")]
+    pub state_header: ::core::option::Option<AccountStateHeader>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountStateHeader {
     /// Account header.
     #[prost(message, optional, tag = "1")]
     pub header: ::core::option::Option<super::account::AccountHeader>,
-    /// Authentication path from the `account_root` of the block header to the account.
-    #[prost(message, optional, tag = "2")]
-    pub account_proof: ::core::option::Option<super::merkle::MerklePath>,
     /// / Values of all account storage slots (max 255).
-    #[prost(bytes = "vec", tag = "3")]
+    #[prost(bytes = "vec", tag = "2")]
     pub storage_header: ::prost::alloc::vec::Vec<u8>,
-    /// A list of key-value pairs (and their corresponding proofs) for the requested keys.
-    #[prost(message, repeated, tag = "4")]
-    pub map_items: ::prost::alloc::vec::Vec<StorageMapItem>,
-    /// An optional list of all assets in the account.
-    #[prost(bytes = "vec", repeated, tag = "5")]
-    pub assets: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct StorageMapItem {
-    /// Index of the storage slot containing the storage map.
-    #[prost(uint32, tag = "1")]
-    pub slot_index: u32,
-    /// Opening containing key, value, and a proof attesting that the key opens to the value.
-    #[prost(message, optional, tag = "2")]
-    pub opening: ::core::option::Option<super::smt::SmtOpening>,
 }

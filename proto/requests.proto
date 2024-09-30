@@ -135,22 +135,6 @@ message GetAccountStateDeltaRequest {
 }
 
 message GetAccountStatesRequest {
-    // List of account state requests.
-    repeated AccountStateRequest account_state_requests = 1;
-}
-
-message AccountStateRequest {
-    // ID of the account for which we'd like to retrieve the state.
-    account.AccountId account_id = 1;
-    // Keys of storage maps for which we'd like to get values.
-    repeated StorageMapKey storage_map_keys = 2;
-    // Whether to include assets in the response.
-    bool include_assets = 3;
-}
-
-message StorageMapKey {
-    // Index of the storage slot containing the storage map.
-    uint32 slot_index = 1;
-    // Key for which we want to request the value.
-    digest.Digest key = 2;
+    // List of account IDs to get states.
+    repeated account.AccountId account_ids = 1;
 }

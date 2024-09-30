@@ -26,19 +26,16 @@ pub struct AccountInfo {
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct AccountHeader {
-    /// Account ID.
-    #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<AccountId>,
     /// Vault root hash.
-    #[prost(message, optional, tag = "2")]
+    #[prost(message, optional, tag = "1")]
     pub vault_root: ::core::option::Option<super::digest::Digest>,
     /// Storage root hash.
-    #[prost(message, optional, tag = "3")]
+    #[prost(message, optional, tag = "2")]
     pub storage_commitment: ::core::option::Option<super::digest::Digest>,
     /// Code root hash.
-    #[prost(message, optional, tag = "4")]
+    #[prost(message, optional, tag = "3")]
     pub code_commitment: ::core::option::Option<super::digest::Digest>,
     /// Account nonce.
-    #[prost(uint32, tag = "5")]
+    #[prost(uint32, tag = "4")]
     pub nonce: u32,
 }

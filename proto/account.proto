@@ -22,14 +22,12 @@ message AccountInfo {
 }
 
 message AccountHeader {
-    // Account ID.
-    account.AccountId account_id = 1;
     // Vault root hash.
-    digest.Digest vault_root = 2;
+    digest.Digest vault_root = 1;
     // Storage root hash.
-    digest.Digest storage_commitment = 3;
+    digest.Digest storage_commitment = 2;
     // Code root hash.
-    digest.Digest code_commitment = 4;
+    digest.Digest code_commitment = 3;
     // Account nonce.
-    uint32 nonce = 5;
+    uint32 nonce = 4;
 }

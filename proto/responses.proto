@@ -182,21 +182,19 @@ message GetAccountStatesResponse {
 }
 
 message AccountStateResponse {
-    // Account header.
-    account.AccountHeader header = 1;
+    // Account ID.
+    account.AccountId account_id = 1;
+    // Account hash.
+    digest.Digest account_hash = 2;
     // Authentication path from the `account_root` of the block header to the account.
-    merkle.MerklePath account_proof = 2;
-    /// Values of all account storage slots (max 255).
-    bytes storage_header = 3;
-    // A list of key-value pairs (and their corresponding proofs) for the requested keys.
-    repeated StorageMapItem map_items = 4;
-    // An optional list of all assets in the account.
-    repeated bytes assets = 5;
+    merkle.MerklePath account_proof = 3;
+    /// State header for public accounts.
+    optional AccountStateHeader state_header = 4;
 }
 
-message StorageMapItem {
-    // Index of the storage slot containing the storage map.
-    uint32 slot_index = 1;
-    // Opening containing key, value, and a proof attesting that the key opens to the value.
-    smt.SmtOpening opening = 2;
+message AccountStateHeader {
+    // Account header.
+    account.AccountHeader header = 1;
+    /// Values of all account storage slots (max 255).
+    bytes storage_header = 2;
 }

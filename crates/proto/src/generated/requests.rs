@@ -150,28 +150,7 @@ pub struct GetAccountStateDeltaRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountStatesRequest {
-    /// List of account state requests.
+    /// List of account IDs to get states.
     #[prost(message, repeated, tag = "1")]
-    pub account_state_requests: ::prost::alloc::vec::Vec<AccountStateRequest>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AccountStateRequest {
-    /// ID of the account for which we'd like to retrieve the state.
-    #[prost(message, optional, tag = "1")]
-    pub account_id: ::core::option::Option<super::account::AccountId>,
-    /// Keys of storage maps for which we'd like to get values.
-    #[prost(message, repeated, tag = "2")]
-    pub storage_map_keys: ::prost::alloc::vec::Vec<StorageMapKey>,
-    /// Whether to include assets in the response.
-    #[prost(bool, tag = "3")]
-    pub include_assets: bool,
-}
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct StorageMapKey {
-    /// Index of the storage slot containing the storage map.
-    #[prost(uint32, tag = "1")]
-    pub slot_index: u32,
-    /// Key for which we want to request the value.
-    #[prost(message, optional, tag = "2")]
-    pub key: ::core::option::Option<super::digest::Digest>,
+    pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
 }

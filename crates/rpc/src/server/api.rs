@@ -1,3 +1,4 @@
+use miden_lib::transaction::memory::MAX_NUM_FOREIGN_ACCOUNTS;
 use miden_node_proto::{
     generated::{
         block_producer::api_client as block_producer_client,
@@ -266,6 +267,13 @@ impl api_server::Api for RpcApi {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
+
+        if request.account_ids.len() > MAX_NUM_FOREIGN_ACCOUNTS as usize {
+            return Err(Status::invalid_argument(format!(
+                "Too many accounts requested: {}, limit: {MAX_NUM_FOREIGN_ACCOUNTS}",
+                request.account_ids.len()
+            )));
+        }
 
         self.store.clone().get_account_states(request).await
     }

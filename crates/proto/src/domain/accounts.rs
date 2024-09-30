@@ -183,7 +183,6 @@ impl From<AccountState> for AccountTransactionInputRecord {
 impl From<AccountHeader> for AccountHeaderPb {
     fn from(from: AccountHeader) -> Self {
         Self {
-            account_id: Some(from.id().into()),
             vault_root: Some(from.vault_root().into()),
             storage_commitment: Some(from.storage_commitment().into()),
             code_commitment: Some(from.code_commitment().into()),
