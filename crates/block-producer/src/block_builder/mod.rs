@@ -161,7 +161,7 @@ impl BlockProducer {
         loop {
             interval.tick().await;
 
-            let (block_number, batches) = self.mempool.lock().await.select_block(2);
+            let (block_number, batches) = self.mempool.lock().await.select_block();
             // TODO: update mempool types
             let batches = Vec::new();
 

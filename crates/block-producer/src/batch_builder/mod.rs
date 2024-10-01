@@ -274,7 +274,7 @@ impl BatchProducer {
 
                     // Transactions available?
                     let Some((batch_id, transactions)) =
-                        self.mempool.lock().await.select_batch(self.tx_per_batch)
+                        self.mempool.lock().await.select_batch()
                     else {
                         tracing::info!("No transactions available for batch.");
                         continue;

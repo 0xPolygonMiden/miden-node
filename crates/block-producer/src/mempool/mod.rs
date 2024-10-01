@@ -102,6 +102,9 @@ pub struct Mempool {
 
     /// Number of blocks before transaction input is considered stale.
     staleness: BlockNumber,
+
+    batch_transaction_limit: usize,
+    block_batch_limit: usize,
 }
 
 impl Mempool {
@@ -186,19 +189,16 @@ impl Mempool {
         Ok(self.chain_tip.0)
     }
 
-    /// Returns at most `count` transactions and a batch ID.
+    /// Returns a set of transactions for the next batch.
     ///
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    pub fn select_batch(
-        &mut self,
-        count: usize,
-    ) -> Option<(BatchJobId, Vec<Arc<ProvenTransaction>>)> {
+    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<Arc<ProvenTransaction>>)> {
         let mut parents = BTreeSet::new();
-        let mut batch = Vec::with_capacity(count);
+        let mut batch = Vec::with_capacity(self.batch_transaction_limit);
 
-        for _ in 0..count {
+        for _ in 0..self.batch_transaction_limit {
             // Select transactions according to some strategy here. For now its just arbitrary.
             let Some((tx, tx_parents)) = self.transactions.pop_for_batching() else {
                 break;
@@ -247,15 +247,19 @@ impl Mempool {
         self.batches.mark_proven(batch_id);
     }
 
-    /// Select at most `count` batches which are ready to be placed into the next block.
+    /// Select batches for the next block.
     ///
     /// May return an empty batch set if no batches are ready.
-    pub fn select_block(&mut self, count: usize) -> (BlockNumber, Vec<BatchJobId>) {
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is already a block in flight.
+    pub fn select_block(&mut self) -> (BlockNumber, Vec<BatchJobId>) {
         assert!(!self.block_in_progress, "Cannot have two blocks inflight.");
         // TODO: should return actual batch transaction data as well.
 
-        let mut batches = Vec::with_capacity(count);
-        for _ in 0..count {
+        let mut batches = Vec::with_capacity(self.block_batch_limit);
+        for _ in 0..self.block_batch_limit {
             let Some((batch_id, _)) = self.batches.pop_for_blocking() else {
                 break;
             };
@@ -275,8 +279,10 @@ impl Mempool {
 
     /// Notify the pool that the block was succesfully completed.
     ///
-    /// Panics if blocks are completed out-of-order. todo: might be a better way, but this is pretty
-    /// unrecoverable..
+    /// # Panics
+    ///
+    /// Panics if blocks are completed out-of-order or if there is no block in flight.
+    /// todo: might be a better way, but this is pretty unrecoverable..
     pub fn block_completed(&mut self, block_number: BlockNumber) {
         assert!(self.block_in_progress, "No block in progress");
         assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
@@ -295,6 +301,11 @@ impl Mempool {
         self.transactions.remove_stale(stale_transations);
     }
 
+    /// Block and all of its contents and dependents are purged from the mempool.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no block in flight or if the block number does not match the current inflight block.
     pub fn block_failed(&mut self, block_number: BlockNumber) {
         assert!(self.block_in_progress, "No block in progress");
         assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
