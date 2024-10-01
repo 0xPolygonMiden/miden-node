@@ -7,6 +7,7 @@ use std::{
     sync::Arc,
 };
 
+use account_state::AccountState;
 use batch_graph::BatchGraph;
 use miden_objects::{
     accounts::AccountId,
@@ -19,6 +20,7 @@ use transaction_graph::TransactionGraph;
 
 use crate::store::{TransactionInputs, TxInputsError};
 
+mod account_state;
 mod batch_graph;
 mod transaction_graph;
 
@@ -71,7 +73,7 @@ pub struct Mempool {
     /// The latest inflight state of each account.
     ///
     /// Accounts without inflight transactions are not stored.
-    account_state: BTreeMap<AccountId, (Digest, TransactionId)>,
+    account_state: AccountState,
 
     /// Note's consumed by inflight transactions.
     nullifiers: BTreeSet<Nullifier>,
@@ -173,8 +175,11 @@ impl Mempool {
         // Transaction is valid, update inflight state.
         // TODO: update notes and nullifiers.
         let tx_id = transaction.id();
-        self.account_state
-            .insert(transaction.account_id(), (account_update.final_state_hash(), tx_id));
+        self.account_state.insert(
+            transaction.account_id(),
+            account_update.final_state_hash(),
+            tx_id,
+        );
 
         self.transactions.insert(transaction, parents);
 
@@ -221,7 +226,7 @@ impl Mempool {
     ///
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchJobId) {
-        let removed_batches = self.batches.purge_subgraph(batch);
+        let removed_batches = self.batches.purge_subgraphs(vec![batch]);
 
         // Its possible to receive failures for batches which were already removed
         // as part of a prior failure. Early exit to prevent logging these no-ops.
@@ -295,11 +300,19 @@ impl Mempool {
         assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
         self.block_in_progress = false;
 
-        // TBD.. not quite sure what to do here yet. Presumably the caller has already retried this
-        // block so the block is just inherently broken.
+        // Drop all transactions from the block.
         //
-        // Given lack of information at this stage we should probably just abort the node?
-        // In the future we might improve the situation with more fine-grained failure reasons.
+        // Since we only allow a single inflight block there is no further impact on any blocks.
+        let batches =
+            self.block_pool.remove(&block_number).expect("Inflight block should be in pool");
+
+        let purged = self.batches.purge_subgraphs(batches);
+        let batches = purged.iter().map(|(b, _)| *b).collect::<Vec<_>>();
+        let transactions = purged.into_iter().flat_map(|(_, tx)| tx.into_iter()).collect();
+
+        let transactions = self.transactions.purge_subgraphs(transactions);
+        self.account_state.revert_transactions(transactions);
+        // TODO: revert nullifiers and notes.
     }
 
     /// The highest block height we consider stale.

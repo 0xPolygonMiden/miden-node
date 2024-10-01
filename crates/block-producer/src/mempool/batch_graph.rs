@@ -58,24 +58,29 @@ impl BatchGraph {
         self.try_make_root(id);
     }
 
-    /// Removes the batch and all of its descendents from the graph.
-    pub fn purge_subgraph(&mut self, id: BatchJobId) -> Vec<(BatchJobId, Vec<TransactionId>)> {
+    /// Removes the batches and all their descendents from the graph.
+    ///
+    /// Returns all removed batches and their transactions.
+    pub fn purge_subgraphs(
+        &mut self,
+        batches: Vec<BatchJobId>,
+    ) -> Vec<(BatchJobId, Vec<TransactionId>)> {
         let mut removed = Vec::new();
 
-        let mut to_process = vec![id];
+        let mut to_process = batches;
 
-        while let Some(batch_id) = to_process.pop() {
+        while let Some(node_id) = to_process.pop() {
             // Its possible for a node to already have been removed as part of this subgraph
             // removal.
-            let Some(batch) = self.nodes.remove(&batch_id) else {
+            let Some(node) = self.nodes.remove(&node_id) else {
                 continue;
             };
 
             // All the child batches are also removed so no need to check
             // for new roots. No new roots are possible as a result of this subgraph removal.
-            self.roots.remove(&batch_id);
+            self.roots.remove(&node_id);
 
-            for transaction in &batch.transactions {
+            for transaction in &node.transactions {
                 self.transactions.remove(transaction);
             }
 
@@ -83,15 +88,15 @@ impl BatchGraph {
             //
             // The same is not required for children of this batch as we will
             // be removing those as well.
-            for parent in &batch.parents {
+            for parent in &node.parents {
                 // Parent could already be removed as part of this subgraph removal.
                 if let Some(parent) = self.nodes.get_mut(parent) {
-                    parent.children.remove(&batch_id);
+                    parent.children.remove(&node_id);
                 }
             }
 
-            to_process.extend(batch.children);
-            removed.push((batch_id, batch.transactions));
+            to_process.extend(node.children);
+            removed.push((node_id, node.transactions));
         }
 
         removed

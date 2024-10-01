@@ -94,6 +94,43 @@ impl TransactionGraph {
         }
     }
 
+    /// Removes the transactions and all their descendents from the graph.
+    ///
+    /// Returns all transactions removed.
+    pub fn purge_subgraphs(&mut self, transactions: Vec<TransactionId>) -> BTreeSet<TransactionId> {
+        let mut removed = BTreeSet::new();
+
+        let mut to_process = transactions;
+
+        while let Some(node_id) = to_process.pop() {
+            // Its possible for a node to already have been removed as part of this subgraph
+            // removal.
+            let Some(node) = self.nodes.remove(&node_id) else {
+                continue;
+            };
+
+            // All the child batches are also removed so no need to check
+            // for new roots. No new roots are possible as a result of this subgraph removal.
+            self.roots.remove(&node_id);
+
+            // Inform parent that this child no longer exists.
+            //
+            // The same is not required for children of this batch as we will
+            // be removing those as well.
+            for parent in &node.parents {
+                // Parent could already be removed as part of this subgraph removal.
+                if let Some(parent) = self.nodes.get_mut(parent) {
+                    parent.children.remove(&node_id);
+                }
+            }
+
+            to_process.extend(node.children);
+            removed.insert(node_id);
+        }
+
+        removed
+    }
+
     fn try_make_root(&mut self, tx_id: TransactionId) {
         let tx = self.nodes.get_mut(&tx_id).expect("Transaction must be in graph");
 
