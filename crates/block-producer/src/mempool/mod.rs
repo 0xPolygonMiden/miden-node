@@ -47,6 +47,17 @@ impl Display for BlockNumber {
 }
 
 impl BlockNumber {
+    pub fn next(&self) -> Self {
+        let mut ret = *self;
+        ret.increment();
+
+        ret
+    }
+
+    pub fn prev(&self) -> Option<Self> {
+        self.checked_sub(Self(1))
+    }
+
     pub fn increment(mut self) {
         self.0 += 1;
     }
@@ -70,9 +81,6 @@ pub struct Mempool {
     /// It is possible for these to already be consumed - check nullifiers.
     notes: BTreeMap<NoteId, TransactionId>,
 
-    /// The number of the next block we hand out.
-    next_inflight_block: BlockNumber,
-
     /// Inflight transactions.
     transactions: TransactionGraph,
 
@@ -86,7 +94,9 @@ pub struct Mempool {
     block_pool: BTreeMap<BlockNumber, Vec<BatchJobId>>,
 
     /// The current block height of the chain.
-    completed_blocks: BlockNumber,
+    chain_tip: BlockNumber,
+
+    block_in_progress: bool,
 
     /// Number of blocks before transaction input is considered stale.
     staleness: BlockNumber,
@@ -168,7 +178,7 @@ impl Mempool {
 
         self.transactions.insert(transaction, parents);
 
-        Ok(self.completed_blocks.0)
+        Ok(self.chain_tip.0)
     }
 
     /// Returns at most `count` transactions and a batch ID.
@@ -236,6 +246,7 @@ impl Mempool {
     ///
     /// May return an empty batch set if no batches are ready.
     pub fn select_block(&mut self, count: usize) -> (BlockNumber, Vec<BatchJobId>) {
+        assert!(!self.block_in_progress, "Cannot have two blocks inflight.");
         // TODO: should return actual batch transaction data as well.
 
         let mut batches = Vec::with_capacity(count);
@@ -250,9 +261,9 @@ impl Mempool {
             // relationship is inherently sequential.
         }
 
-        let block_number = self.next_inflight_block;
-        self.next_inflight_block.increment();
+        let block_number = self.chain_tip.next();
         self.block_pool.insert(block_number, batches.clone());
+        self.block_in_progress = true;
 
         (block_number, batches)
     }
@@ -262,10 +273,12 @@ impl Mempool {
     /// Panics if blocks are completed out-of-order. todo: might be a better way, but this is pretty
     /// unrecoverable..
     pub fn block_completed(&mut self, block_number: BlockNumber) {
-        assert_eq!(block_number, self.completed_blocks, "Blocks must be submitted sequentially");
+        assert!(self.block_in_progress, "No block in progress");
+        assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
 
         // Update book keeping by removing the inflight data that just became stale.
-        self.completed_blocks.increment();
+        self.chain_tip.increment();
+        self.block_in_progress = false;
 
         let Some(stale_block) = self.stale_block() else {
             return;
@@ -277,7 +290,11 @@ impl Mempool {
         self.transactions.remove_stale(stale_transations);
     }
 
-    pub fn block_failed(&mut self, block: BlockNumber) {
+    pub fn block_failed(&mut self, block_number: BlockNumber) {
+        assert!(self.block_in_progress, "No block in progress");
+        assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
+        self.block_in_progress = false;
+
         // TBD.. not quite sure what to do here yet. Presumably the caller has already retried this
         // block so the block is just inherently broken.
         //
@@ -289,7 +306,7 @@ impl Mempool {
     ///
     /// Returns [None] if the blockchain is so short that all blocks are considered fresh.
     fn stale_block(&self) -> Option<BlockNumber> {
-        self.completed_blocks.checked_sub(self.staleness)
+        self.chain_tip.checked_sub(self.staleness)
     }
 }
 
