@@ -10,13 +10,14 @@ use std::{
 use batch_graph::BatchGraph;
 use miden_objects::{
     accounts::AccountId,
+    notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
     Digest,
 };
-use miden_tx::utils::collections::KvMap;
+use miden_tx::{utils::collections::KvMap, TransactionVerifierError};
 use transaction_graph::TransactionGraph;
 
-use crate::store::TransactionInputs;
+use crate::store::{TransactionInputs, TxInputsError};
 
 mod batch_graph;
 mod transaction_graph;
@@ -60,6 +61,14 @@ pub struct Mempool {
     ///
     /// Accounts without inflight transactions are not stored.
     account_state: BTreeMap<AccountId, (Digest, TransactionId)>,
+
+    /// Note's consumed by inflight transactions.
+    nullifiers: BTreeSet<Nullifier>,
+
+    /// Notes produced by inflight transactions.
+    ///
+    /// It is possible for these to already be consumed - check nullifiers.
+    notes: BTreeMap<NoteId, TransactionId>,
 
     /// The number of the next block we hand out.
     next_inflight_block: BlockNumber,
@@ -122,6 +131,33 @@ impl Mempool {
                 current: inputs.account_hash.unwrap_or_default(),
                 expected: account_update.init_state_hash(),
             });
+        }
+
+        for note in transaction.input_notes() {
+            let nullifier = note.nullifier();
+            let nullifier_state_in_store = inputs.nullifiers.get(&nullifier);
+
+            match note.header() {
+                // Unauthenticated note. Either nullifier must be unconsumed or its the output of an inflight note.
+                Some(header) => {
+                    if nullifier_state_in_store.is_some() || self.nullifiers.contains(&nullifier) {
+                        return Err(AddTransactionError::NoteAlreadyConsumed(nullifier));
+                    }
+
+                    if !self.notes.contains_key(&header.id()) {
+                        return Err(AddTransactionError::AuthenticatedNoteNotFound(nullifier));
+                    }
+                },
+                // Authenticated note. Nullifier must be present in store and uncomsumed.
+                None => {
+                    let nullifier_state = nullifier_state_in_store
+                        .ok_or_else(|| AddTransactionError::AuthenticatedNoteNotFound(nullifier))?;
+
+                    if nullifier_state.is_some() {
+                        return Err(AddTransactionError::NoteAlreadyConsumed(nullifier));
+                    }
+                },
+            }
         }
 
         // Transaction is valid, update inflight state.
@@ -257,7 +293,7 @@ impl Mempool {
     }
 }
 
-#[derive(thiserror::Error, Debug, Clone, PartialEq)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum AddTransactionError {
     #[error("Transaction's initial account state {expected} did not match the current account state {current}.")]
     InvalidAccountState { current: Digest, expected: Digest },
@@ -266,4 +302,16 @@ pub enum AddTransactionError {
         input_block: BlockNumber,
         stale_limit: BlockNumber,
     },
+    #[error("Authenticated note nullifier {0} not found.")]
+    AuthenticatedNoteNotFound(Nullifier),
+    #[error("Unauthenticated note {0} not found.")]
+    UnauthenticatedNoteNotFound(NoteId),
+    #[error("Note nullifier {0} already consumed.")]
+    NoteAlreadyConsumed(Nullifier),
+    #[error(transparent)]
+    TxInputsError(#[from] TxInputsError),
+    #[error(transparent)]
+    ProofVerificationFailed(#[from] TransactionVerifierError),
+    #[error("Failed to deserialize transaction: {0}.")]
+    DeserializationError(String),
 }

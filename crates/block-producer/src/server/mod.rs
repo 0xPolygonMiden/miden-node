@@ -1,4 +1,8 @@
-use std::{net::ToSocketAddrs, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    net::ToSocketAddrs,
+    sync::Arc,
+};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -133,6 +137,31 @@ pub struct Server {
 #[allow(clippy::blocks_in_conditions)]
 #[tonic::async_trait]
 impl api_server::Api for Server {
+    async fn submit_proven_transaction(
+        &self,
+        request: tonic::Request<SubmitProvenTransactionRequest>,
+    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
+        self.submit_proven_transaction(request.into_inner())
+            .await
+            .map(tonic::Response::new)
+            .map_err(|err| match err {
+                AddTransactionError::InvalidAccountState { .. }
+                | AddTransactionError::AuthenticatedNoteNotFound(_)
+                | AddTransactionError::UnauthenticatedNoteNotFound(_)
+                | AddTransactionError::NoteAlreadyConsumed(_)
+                | AddTransactionError::DeserializationError(_)
+                | AddTransactionError::ProofVerificationFailed(_) => {
+                    Status::invalid_argument(err.to_string())
+                },
+                // Internal errors.
+                AddTransactionError::StaleInputs { .. } | AddTransactionError::TxInputsError(_) => {
+                    Status::internal("Internal error")
+                },
+            })
+    }
+}
+
+impl Server {
     #[instrument(
         target = "miden-block-producer",
         name = "block_producer:submit_proven_transaction",
@@ -141,13 +170,12 @@ impl api_server::Api for Server {
     )]
     async fn submit_proven_transaction(
         &self,
-        request: tonic::Request<SubmitProvenTransactionRequest>,
-    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
-        let request = request.into_inner();
+        request: SubmitProvenTransactionRequest,
+    ) -> Result<SubmitProvenTransactionResponse, AddTransactionError> {
         debug!(target: COMPONENT, ?request);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
-            .map_err(|_| Status::invalid_argument("Invalid transaction"))?;
+            .map_err(|err| AddTransactionError::DeserializationError(err.to_string()))?;
 
         let tx_id = tx.id();
 
@@ -166,37 +194,42 @@ impl api_server::Api for Server {
 
         // TODO: These steps should actually change the type of the transaction.
         // TODO: How expensive is this step? Should it be spawn_blocking?
-        TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL)
-            .verify(tx.clone())
-            .map_err(|err| Status::invalid_argument(format!("{:?}", err)))?;
+        TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL).verify(tx.clone())?;
 
-        let inputs = self
-            .store
-            .get_tx_inputs(&tx)
-            .await
-            .inspect_err(|err|
-                tracing::warn!(tx_id=%tx_id.to_hex(), %err, "Transaction declined due to internal error.")
-            )
-            .map_err(|_| Status::internal("Internal error"))?;
+        let mut inputs = self.store.get_tx_inputs(&tx).await?;
 
-        let block_height = self
-            .mempool
+        let mut authenticated_notes = BTreeSet::new();
+        let mut unauthenticated_notes = BTreeMap::new();
+
+        for note in tx.input_notes() {
+            match note.header() {
+                Some(header) => {
+                    unauthenticated_notes.insert(header.id(), note.nullifier());
+                },
+                None => {
+                    authenticated_notes.insert(note.nullifier());
+                },
+            }
+        }
+
+        // Authenticated note nullifiers must be present in the store and must be unconsumed.
+        for nullifiers in &authenticated_notes {
+            let nullifier_state = inputs
+                .nullifiers
+                .remove(nullifiers)
+                .ok_or_else(|| AddTransactionError::AuthenticatedNoteNotFound(*nullifiers))?;
+
+            if nullifier_state.is_some() {
+                return Err(AddTransactionError::NoteAlreadyConsumed(*nullifiers).into());
+            }
+        }
+
+        self.mempool
             .lock()
             .await
             .lock()
             .await
             .add_transaction(tx, inputs)
-            // Log internal errors.
-            .inspect_err(|err| if let AddTransactionError::StaleInputs { .. } = err {
-                tracing::warn!(tx_id=%tx_id.to_hex(), %err, "Transaction declined due to internal error.");
-            })
-            .map_err(|err| match err {
-                AddTransactionError::InvalidAccountState { .. } => {
-                    Status::invalid_argument(format!("{:?}", err))
-                },
-                AddTransactionError::StaleInputs { .. } => Status::internal("Internal error"),
-            })?;
-
-        Ok(tonic::Response::new(SubmitProvenTransactionResponse { block_height }))
+            .map(|block_height| SubmitProvenTransactionResponse { block_height })
     }
 }
