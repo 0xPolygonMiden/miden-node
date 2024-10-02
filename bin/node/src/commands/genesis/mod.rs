@@ -81,7 +81,7 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
     let genesis_input: GenesisInput = load_config(inputs_path).map_err(|err| {
         anyhow!("Failed to load {} genesis input file: {err}", inputs_path.display())
     })?;
-    info!("Genesis input file: {} has successfully been loaded.", output_path.display());
+    info!("Genesis input file: {} has successfully been loaded.", inputs_path.display());
 
     let accounts =
         create_accounts(&genesis_input.accounts.unwrap_or_default(), parent_path, force)?;
