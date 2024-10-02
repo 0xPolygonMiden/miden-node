@@ -5,14 +5,11 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 pub use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
-use miden_lib::{
-    accounts::{faucets::create_basic_fungible_faucet, wallets::create_basic_wallet},
-    AuthScheme,
-};
+use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::config::load_config;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountStorageMode, AccountType, AuthSecretKey},
+    accounts::{Account, AccountData, AccountStorageMode, AuthSecretKey},
     assets::TokenSymbol,
     crypto::{
         dsa::rpo_falcon512::SecretKey,
@@ -128,24 +125,6 @@ fn create_accounts(
     for account in accounts {
         // build offchain account data from account inputs
         let mut account_data = match account {
-            AccountInput::BasicWallet(inputs) => {
-                info!("Creating basic wallet account...");
-                let init_seed = hex_to_bytes(&inputs.init_seed)?;
-
-                let (auth_scheme, auth_secret_key) =
-                    parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
-
-                let storage_mode: AccountStorageMode = inputs.storage_mode.as_str().try_into()?;
-
-                let (account, account_seed) = create_basic_wallet(
-                    init_seed,
-                    auth_scheme,
-                    AccountType::RegularAccountImmutableCode,
-                    storage_mode,
-                )?;
-
-                AccountData::new(account, Some(account_seed), auth_secret_key)
-            },
             AccountInput::BasicFungibleFaucet(inputs) => {
                 info!("Creating fungible faucet account...");
                 let init_seed = hex_to_bytes(&inputs.init_seed)?;
@@ -235,13 +214,6 @@ mod tests {
                 timestamp = 1672531200
 
                 [[accounts]]
-                type = "BasicWallet"
-                init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                auth_scheme = "RpoFalcon512"
-                auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                storage_mode = "private"
-
-                [[accounts]]
                 type = "BasicFungibleFaucet"
                 init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
@@ -259,27 +231,22 @@ mod tests {
             make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
 
             let a0_file_path = PathBuf::from("accounts/account0.mac");
-            let a1_file_path = PathBuf::from("accounts/account1.mac");
 
             // assert that the genesis.dat and account files exist
             assert!(genesis_dat_file_path.exists());
             assert!(a0_file_path.exists());
-            assert!(a1_file_path.exists());
 
-            // deserialize accounts and genesis_state
+            // deserialize account and genesis_state
             let a0 = AccountData::read(a0_file_path).unwrap();
-            let a1 = AccountData::read(a1_file_path).unwrap();
 
-            // assert that the accounts have the corresponding storage mode
-            assert!(!a0.account.is_public());
-            assert!(a1.account.is_public());
+            // assert that the account has the corresponding storage mode
+            assert!(a0.account.is_public());
 
             let genesis_file_contents = fs::read(genesis_dat_file_path).unwrap();
             let genesis_state = GenesisState::read_from_bytes(&genesis_file_contents).unwrap();
 
             // build supposed genesis_state
-            let supposed_genesis_state =
-                GenesisState::new(vec![a0.account, a1.account], 1, 1672531200);
+            let supposed_genesis_state = GenesisState::new(vec![a0.account], 1, 1672531200);
 
             // assert that both genesis_state(s) are eq
             assert_eq!(genesis_state, supposed_genesis_state);
