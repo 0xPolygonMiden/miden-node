@@ -493,8 +493,12 @@ impl api_server::Api for StoreApi {
         debug!(target: COMPONENT, ?request);
 
         let account_ids = convert(request.account_ids);
-        let (block_num, infos) =
-            self.state.get_account_states(account_ids).await.map_err(internal_error)?;
+        let include_headers = request.include_headers.unwrap_or_default();
+        let (block_num, infos) = self
+            .state
+            .get_account_states(account_ids, include_headers)
+            .await
+            .map_err(internal_error)?;
 
         Ok(Response::new(GetAccountStatesResponse {
             block_num,

@@ -153,4 +153,7 @@ pub struct GetAccountStatesRequest {
     /// List of account IDs to get states.
     #[prost(message, repeated, tag = "1")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
+    /// Optional flag to include header in the response. `false` by default.
+    #[prost(bool, optional, tag = "2")]
+    pub include_headers: ::core::option::Option<bool>,
 }

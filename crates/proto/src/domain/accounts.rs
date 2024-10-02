@@ -186,7 +186,7 @@ impl From<AccountHeader> for AccountHeaderPb {
             vault_root: Some(from.vault_root().into()),
             storage_commitment: Some(from.storage_commitment().into()),
             code_commitment: Some(from.code_commitment().into()),
-            nonce: from.nonce().try_into().expect("Nonce should fit in `u32`"),
+            nonce: from.nonce().into(),
         }
     }
 }

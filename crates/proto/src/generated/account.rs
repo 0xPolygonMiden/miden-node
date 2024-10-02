@@ -36,6 +36,6 @@ pub struct AccountHeader {
     #[prost(message, optional, tag = "3")]
     pub code_commitment: ::core::option::Option<super::digest::Digest>,
     /// Account nonce.
-    #[prost(uint32, tag = "4")]
-    pub nonce: u32,
+    #[prost(uint64, tag = "4")]
+    pub nonce: u64,
 }

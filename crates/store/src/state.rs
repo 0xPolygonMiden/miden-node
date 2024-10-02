@@ -5,7 +5,6 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
-    ops::Deref,
     sync::Arc,
 };
 
@@ -94,6 +93,13 @@ struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
+}
+
+impl InnerState {
+    /// Returns the latest block number.
+    fn latest_block_num(&self) -> BlockNumber {
+        (self.chain_mmr.forest() + 1).try_into().expect("block number overflow")
+    }
 }
 
 /// The rollup state
@@ -677,6 +683,7 @@ impl State {
     pub async fn get_account_states(
         &self,
         account_ids: HashSet<AccountId>,
+        include_headers: bool,
     ) -> Result<(BlockNumber, Vec<AccountStateResponse>), DatabaseError> {
         // Lock inner state for the whole operation. We need to hold this lock to prevent the
         // database, account tree and latest block number from changing during the operation,
@@ -704,15 +711,19 @@ impl State {
                     account_id: Some(account_id.into()),
                     account_hash: Some(info.summary.account_hash.into()),
                     account_proof: Some(inner_state.account_tree.open(&acc_leaf_idx).path.into()),
-                    state_header: info.details.map(|details| AccountStateHeader {
-                        header: Some(AccountHeader::from(&details).into()),
-                        storage_header: details.storage().get_header().to_bytes(),
-                    }),
+                    state_header: include_headers
+                        .then(|| {
+                            info.details.map(|details| AccountStateHeader {
+                                header: Some(AccountHeader::from(&details).into()),
+                                storage_header: details.storage().get_header().to_bytes(),
+                            })
+                        })
+                        .flatten(),
                 }
             })
             .collect();
 
-        Ok((Self::compute_latest_block_number(&inner_state), responses))
+        Ok((inner_state.latest_block_num(), responses))
     }
 
     /// Returns the state delta between `from_block` (exclusive) and `to_block` (inclusive) for the
@@ -746,12 +757,7 @@ impl State {
 
     /// Returns the latest block number.
     pub async fn latest_block_num(&self) -> BlockNumber {
-        Self::compute_latest_block_number(self.inner.read().await.deref())
-    }
-
-    /// Returns the latest block number for the given inner state.
-    fn compute_latest_block_number(inner_state: &InnerState) -> BlockNumber {
-        (inner_state.chain_mmr.forest() + 1).try_into().expect("block number overflow")
+        self.inner.read().await.latest_block_num()
     }
 }
 

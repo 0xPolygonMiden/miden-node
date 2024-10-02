@@ -215,7 +215,7 @@ pub struct AccountStateResponse {
     /// Authentication path from the `account_root` of the block header to the account.
     #[prost(message, optional, tag = "3")]
     pub account_proof: ::core::option::Option<super::merkle::MerklePath>,
-    /// / State header for public accounts.
+    /// / State header for public accounts. Filled only if `include_headers` flag is set to `true`.
     #[prost(message, optional, tag = "4")]
     pub state_header: ::core::option::Option<AccountStateHeader>,
 }
