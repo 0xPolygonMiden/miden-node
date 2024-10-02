@@ -1,4 +1,3 @@
-use miden_lib::transaction::memory::MAX_NUM_FOREIGN_ACCOUNTS;
 use miden_node_proto::{
     generated::{
         block_producer::api_client as block_producer_client,
@@ -21,7 +20,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
-    utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
+    utils::serde::Deserializable, Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
