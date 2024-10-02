@@ -1,13 +1,13 @@
 #![allow(unused)]
 
 use std::{
-    collections::{btree_map::Entry, BTreeMap, BTreeSet},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque},
     fmt::Display,
     ops::Sub,
     sync::Arc,
 };
 
-use account_state::AccountState;
+use account_state::AccountStates;
 use batch_graph::BatchGraph;
 use miden_objects::{
     accounts::AccountId,
@@ -73,7 +73,7 @@ pub struct Mempool {
     /// The latest inflight state of each account.
     ///
     /// Accounts without inflight transactions are not stored.
-    account_state: AccountState,
+    account_state: AccountStates,
 
     /// Note's consumed by inflight transactions.
     nullifiers: BTreeSet<Nullifier>,
@@ -92,13 +92,13 @@ pub struct Mempool {
     /// The next batches ID.
     next_batch_id: BatchJobId,
 
-    /// Blocks which are inflight or completed but not yet considered stale.
-    block_pool: BTreeMap<BlockNumber, Vec<BatchJobId>>,
+    /// Blocks which have been committed but are not yet considered stale.
+    committed_blocks: VecDeque<BlockImpact>,
 
     /// The current block height of the chain.
     chain_tip: BlockNumber,
 
-    block_in_progress: bool,
+    block_in_progress: Option<Vec<BatchJobId>>,
 
     /// Number of blocks before transaction input is considered stale.
     staleness: BlockNumber,
@@ -126,16 +126,11 @@ impl Mempool {
 
         let account_update = transaction.account_update();
 
-        // Inflight transactions upon which this new transaction depends due to building on their
-        // outputs.
-        let mut parents = BTreeSet::new();
-
         // Merge inflight state with inputs.
         //
         // This gives us the latest applicable state for this transaction.
         // TODO: notes and nullifiers.
-        if let Some((state, parent)) = self.account_state.get(&account_update.account_id()) {
-            parents.insert(*parent);
+        if let Some(state) = self.account_state.get(&account_update.account_id()) {
             inputs.account_hash = Some(*state);
         }
 
@@ -178,11 +173,18 @@ impl Mempool {
         // Transaction is valid, update inflight state.
         // TODO: update notes and nullifiers.
         let tx_id = transaction.id();
-        self.account_state.insert(
+        let account_parent = self.account_state.insert(
             transaction.account_id(),
             account_update.final_state_hash(),
             tx_id,
         );
+
+        // Inflight transactions upon which this new transaction depends due to building on their
+        // outputs.
+        let mut parents = BTreeSet::new();
+        if let Some(parent) = account_parent {
+            parents.insert(parent);
+        }
 
         self.transactions.insert(transaction, parents);
 
@@ -255,7 +257,7 @@ impl Mempool {
     ///
     /// Panics if there is already a block in flight.
     pub fn select_block(&mut self) -> (BlockNumber, Vec<BatchJobId>) {
-        assert!(!self.block_in_progress, "Cannot have two blocks inflight.");
+        assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
         // TODO: should return actual batch transaction data as well.
 
         let mut batches = Vec::with_capacity(self.block_batch_limit);
@@ -270,11 +272,9 @@ impl Mempool {
             // relationship is inherently sequential.
         }
 
-        let block_number = self.chain_tip.next();
-        self.block_pool.insert(block_number, batches.clone());
-        self.block_in_progress = true;
+        self.block_in_progress = Some(batches.clone());
 
-        (block_number, batches)
+        (self.chain_tip.next(), batches)
     }
 
     /// Notify the pool that the block was succesfully completed.
@@ -282,23 +282,34 @@ impl Mempool {
     /// # Panics
     ///
     /// Panics if blocks are completed out-of-order or if there is no block in flight.
-    /// todo: might be a better way, but this is pretty unrecoverable..
-    pub fn block_completed(&mut self, block_number: BlockNumber) {
-        assert!(self.block_in_progress, "No block in progress");
+    pub fn block_committed(&mut self, block_number: BlockNumber) {
         assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
 
-        // Update book keeping by removing the inflight data that just became stale.
+        // Remove committed batches and transactions from graphs.
+        let batches = self.block_in_progress.take().expect("No block in progress to commit");
+        let transactions = self.batches.remove_committed(batches);
+        let transactions = self.transactions.remove_committed(&transactions);
+
+        // Inform inflight state about committed data.
+        let impact = BlockImpact::new(&transactions);
+        for (account, tx_count) in &impact.account_transactions {
+            self.account_state.commit_transactions(account, *tx_count);
+        }
+        // TODO: notes & nullifiers
+
+        // TODO: Remove stale data.
+        // TODO: notes & nullifiers
+        self.committed_blocks.push_back(impact);
+        if self.committed_blocks.len() > self.staleness.0 as usize {
+            // SAFETY: just checked that length is non-zero.
+            let stale_block = self.committed_blocks.pop_front().unwrap();
+
+            for (account, tx_count) in &stale_block.account_transactions {
+                self.account_state.remove_committed_state(account, *tx_count);
+            }
+        }
+
         self.chain_tip.increment();
-        self.block_in_progress = false;
-
-        let Some(stale_block) = self.stale_block() else {
-            return;
-        };
-
-        let stale_batches = self.block_pool.remove(&stale_block).expect("Block should be in graph");
-
-        let stale_transations = self.batches.remove_stale(stale_batches);
-        self.transactions.remove_stale(stale_transations);
     }
 
     /// Block and all of its contents and dependents are purged from the mempool.
@@ -307,22 +318,22 @@ impl Mempool {
     ///
     /// Panics if there is no block in flight or if the block number does not match the current inflight block.
     pub fn block_failed(&mut self, block_number: BlockNumber) {
-        assert!(self.block_in_progress, "No block in progress");
         assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
-        self.block_in_progress = false;
 
-        // Drop all transactions from the block.
-        //
-        // Since we only allow a single inflight block there is no further impact on any blocks.
-        let batches =
-            self.block_pool.remove(&block_number).expect("Inflight block should be in pool");
+        let batches = self.block_in_progress.take().expect("No block in progress to be failed");
 
+        // Remove all transactions from the graphs.
         let purged = self.batches.purge_subgraphs(batches);
         let batches = purged.iter().map(|(b, _)| *b).collect::<Vec<_>>();
         let transactions = purged.into_iter().flat_map(|(_, tx)| tx.into_iter()).collect();
 
         let transactions = self.transactions.purge_subgraphs(transactions);
-        self.account_state.revert_transactions(transactions);
+
+        // Rollback state.
+        let impact = BlockImpact::new(&transactions);
+        for (account, tx_count) in impact.account_transactions {
+            self.account_state.revert_transactions(&account, tx_count);
+        }
         // TODO: revert nullifiers and notes.
     }
 
@@ -355,4 +366,22 @@ pub enum AddTransactionError {
     ProofVerificationFailed(#[from] TransactionVerifierError),
     #[error("Failed to deserialize transaction: {0}.")]
     DeserializationError(String),
+}
+
+/// Describes the impact that a set of transactions had on the state.
+struct BlockImpact {
+    /// The number of transactions that affected each account.
+    account_transactions: BTreeMap<AccountId, usize>,
+}
+
+impl BlockImpact {
+    fn new(txs: &[Arc<ProvenTransaction>]) -> Self {
+        let mut account_transactions = BTreeMap::<AccountId, usize>::new();
+
+        for tx in txs {
+            *account_transactions.entry(tx.account_id()).or_default() += 1;
+        }
+
+        Self { account_transactions }
+    }
 }

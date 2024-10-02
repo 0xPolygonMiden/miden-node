@@ -77,10 +77,13 @@ impl TransactionGraph {
         }
     }
 
-    pub fn remove_stale(&mut self, transactions: Vec<TransactionId>) {
-        for transaction in transactions {
+    pub fn remove_committed(&mut self, tx_ids: &[TransactionId]) -> Vec<Arc<ProvenTransaction>> {
+        let mut transactions = Vec::with_capacity(tx_ids.len());
+        for transaction in tx_ids {
             let node = self.nodes.remove(&transaction).expect("Node must be in graph");
             assert_eq!(node.status, Status::Processed);
+
+            transactions.push(node.data);
 
             // Remove node from graph. No need to update parents as they should be removed in this
             // call as well.
@@ -92,13 +95,18 @@ impl TransactionGraph {
                 }
             }
         }
+
+        transactions
     }
 
     /// Removes the transactions and all their descendents from the graph.
     ///
     /// Returns all transactions removed.
-    pub fn purge_subgraphs(&mut self, transactions: Vec<TransactionId>) -> BTreeSet<TransactionId> {
-        let mut removed = BTreeSet::new();
+    pub fn purge_subgraphs(
+        &mut self,
+        transactions: Vec<TransactionId>,
+    ) -> Vec<Arc<ProvenTransaction>> {
+        let mut removed = Vec::new();
 
         let mut to_process = transactions;
 
@@ -125,7 +133,7 @@ impl TransactionGraph {
             }
 
             to_process.extend(node.children);
-            removed.insert(node_id);
+            removed.push(node.data);
         }
 
         removed

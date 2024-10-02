@@ -169,7 +169,7 @@ impl BlockProducer {
             let mut mempool = self.mempool.lock().await;
 
             match result {
-                Ok(_) => mempool.block_completed(block_number),
+                Ok(_) => mempool.block_committed(block_number),
                 Err(_) => mempool.block_failed(block_number),
             }
         }

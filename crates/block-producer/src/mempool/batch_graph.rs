@@ -105,7 +105,7 @@ impl BatchGraph {
     /// Removes a set of batches from the graph without removing any descendents.
     ///
     /// This is intended to cull completed batches from stale blocks.
-    pub fn remove_stale(&mut self, batches: Vec<BatchJobId>) -> Vec<TransactionId> {
+    pub fn remove_committed(&mut self, batches: Vec<BatchJobId>) -> Vec<TransactionId> {
         let mut transactions = Vec::new();
 
         for batch in batches {
