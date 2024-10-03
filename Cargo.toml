@@ -41,7 +41,7 @@ miden-stdlib = { version = "0.10", default-features = false }
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 prost = { version = "0.13" }
 thiserror = { version = "1.0" }
-tokio = { version = "1.40" }
+tokio = { version = "1.40", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1" }
 tonic = { version = "0.12" }
 tracing = { version = "0.1" }

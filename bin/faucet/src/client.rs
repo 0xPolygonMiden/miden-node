@@ -124,16 +124,21 @@ impl FaucetClient {
         &mut self,
         executed_tx: ExecutedTransaction,
     ) -> Result<u32, FaucetError> {
-        let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
+        let (request, delta) = {
+            let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
 
-        let delta = executed_tx.account_delta().clone();
+            let delta = executed_tx.account_delta().clone();
 
-        let proven_transaction = transaction_prover.prove(executed_tx).map_err(|err| {
-            FaucetError::InternalServerError(format!("Failed to prove transaction: {}", err))
-        })?;
+            let proven_transaction = transaction_prover.prove(executed_tx).map_err(|err| {
+                FaucetError::InternalServerError(format!("Failed to prove transaction: {}", err))
+            })?;
 
-        let request = SubmitProvenTransactionRequest {
-            transaction: proven_transaction.to_bytes(),
+            (
+                SubmitProvenTransactionRequest {
+                    transaction: proven_transaction.to_bytes(),
+                },
+                delta,
+            )
         };
 
         let response = self
