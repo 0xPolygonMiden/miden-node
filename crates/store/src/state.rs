@@ -4,7 +4,7 @@
 //! data is atomically written, and that reads are consistent.
 
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::Arc,
 };
 
@@ -690,35 +690,46 @@ impl State {
         // because changing one of them would lead to inconsistent state.
         let inner_state = self.inner.read().await;
 
-        let infos = self.db.select_accounts_by_ids(account_ids.iter().copied().collect()).await?;
+        let state_headers = if !include_headers {
+            HashMap::<AccountId, AccountStateHeader>::default()
+        } else {
+            let infos =
+                self.db.select_accounts_by_ids(account_ids.iter().copied().collect()).await?;
 
-        if infos.len() != account_ids.len() {
-            return Err(DatabaseError::AccountsNotFoundInDb(
-                account_ids
-                    .difference(&infos.iter().map(|info| info.summary.account_id.into()).collect())
-                    .copied()
-                    .collect(),
-            ));
-        }
+            if account_ids.len() > infos.len() {
+                let found_ids = infos.iter().map(|info| info.summary.account_id.into()).collect();
+                return Err(DatabaseError::AccountsNotFoundInDb(
+                    account_ids.difference(&found_ids).copied().collect(),
+                ));
+            }
 
-        let responses = infos
+            infos
+                .into_iter()
+                .filter_map(|info| {
+                    info.details.map(|details| {
+                        (
+                            info.summary.account_id.into(),
+                            AccountStateHeader {
+                                header: Some(AccountHeader::from(&details).into()),
+                                storage_header: details.storage().get_header().to_bytes(),
+                            },
+                        )
+                    })
+                })
+                .collect()
+        };
+
+        let responses = account_ids
             .into_iter()
-            .map(|info| {
-                let account_id: AccountId = info.summary.account_id.into();
+            .map(|account_id| {
                 let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
+                let opening = inner_state.account_tree.open(&acc_leaf_idx);
 
                 AccountProofsResponse {
                     account_id: Some(account_id.into()),
-                    account_hash: Some(info.summary.account_hash.into()),
-                    account_proof: Some(inner_state.account_tree.open(&acc_leaf_idx).path.into()),
-                    state_header: include_headers
-                        .then(|| {
-                            info.details.map(|details| AccountStateHeader {
-                                header: Some(AccountHeader::from(&details).into()),
-                                storage_header: details.storage().get_header().to_bytes(),
-                            })
-                        })
-                        .flatten(),
+                    account_hash: Some(opening.value.into()),
+                    account_proof: Some(opening.path.into()),
+                    state_header: state_headers.get(&account_id).cloned(),
                 }
             })
             .collect();
