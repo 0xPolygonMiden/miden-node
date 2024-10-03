@@ -3,13 +3,13 @@ use miden_node_proto::{
         block_producer::api_client as block_producer_client,
         requests::{
             CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetAccountStateDeltaRequest, GetAccountStatesRequest, GetBlockByNumberRequest,
+            GetAccountProofsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
             GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
             SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             CheckNullifiersByPrefixResponse, CheckNullifiersResponse, GetAccountDetailsResponse,
-            GetAccountStateDeltaResponse, GetAccountStatesResponse, GetBlockByNumberResponse,
+            GetAccountProofsResponse, GetAccountStateDeltaResponse, GetBlockByNumberResponse,
             GetBlockHeaderByNumberResponse, GetNotesByIdResponse, SubmitProvenTransactionResponse,
             SyncNoteResponse, SyncStateResponse,
         },
@@ -259,10 +259,10 @@ impl api_server::Api for RpcApi {
         ret(level = "debug"),
         err
     )]
-    async fn get_account_states(
+    async fn get_account_proofs(
         &self,
-        request: Request<GetAccountStatesRequest>,
-    ) -> Result<Response<GetAccountStatesResponse>, Status> {
+        request: Request<GetAccountProofsRequest>,
+    ) -> Result<Response<GetAccountProofsResponse>, Status> {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
@@ -274,6 +274,6 @@ impl api_server::Api for RpcApi {
             )));
         }
 
-        self.store.clone().get_account_states(request).await
+        self.store.clone().get_account_proofs(request).await
     }
 }

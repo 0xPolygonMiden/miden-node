@@ -174,14 +174,14 @@ message GetAccountStateDeltaResponse {
     optional bytes delta = 1;
 }
 
-message GetAccountStatesResponse {
+message GetAccountProofsResponse {
     // Block number at which the state of the account was returned.
     fixed32 block_num = 1;
     // List of account state infos for the requested account keys.
-    repeated AccountStateResponse account_state_infos = 2;
+    repeated AccountProofsResponse account_state_infos = 2;
 }
 
-message AccountStateResponse {
+message AccountProofsResponse {
     // Account ID.
     account.AccountId account_id = 1;
     // Account hash.

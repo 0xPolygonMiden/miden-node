@@ -9,7 +9,7 @@ service Api {
     rpc CheckNullifiers(requests.CheckNullifiersRequest) returns (responses.CheckNullifiersResponse) {}
     rpc CheckNullifiersByPrefix(requests.CheckNullifiersByPrefixRequest) returns (responses.CheckNullifiersByPrefixResponse) {}
     rpc GetAccountDetails(requests.GetAccountDetailsRequest) returns (responses.GetAccountDetailsResponse) {}
-    rpc GetAccountStates(requests.GetAccountStatesRequest) returns (responses.GetAccountStatesResponse) {}
+    rpc GetAccountProofs(requests.GetAccountProofsRequest) returns (responses.GetAccountProofsResponse) {}
     rpc GetAccountStateDelta(requests.GetAccountStateDeltaRequest) returns (responses.GetAccountStateDeltaResponse) {}
     rpc GetBlockByNumber(requests.GetBlockByNumberRequest) returns (responses.GetBlockByNumberResponse) {}
     rpc GetBlockHeaderByNumber(requests.GetBlockHeaderByNumberRequest) returns (responses.GetBlockHeaderByNumberResponse) {}

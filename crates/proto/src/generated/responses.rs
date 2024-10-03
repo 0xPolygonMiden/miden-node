@@ -196,16 +196,16 @@ pub struct GetAccountStateDeltaResponse {
     pub delta: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetAccountStatesResponse {
+pub struct GetAccountProofsResponse {
     /// Block number at which the state of the account was returned.
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
     /// List of account state infos for the requested account keys.
     #[prost(message, repeated, tag = "2")]
-    pub account_state_infos: ::prost::alloc::vec::Vec<AccountStateResponse>,
+    pub account_state_infos: ::prost::alloc::vec::Vec<AccountProofsResponse>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AccountStateResponse {
+pub struct AccountProofsResponse {
     /// Account ID.
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,

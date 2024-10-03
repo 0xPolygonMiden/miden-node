@@ -149,7 +149,7 @@ pub struct GetAccountStateDeltaRequest {
     pub to_block_num: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetAccountStatesRequest {
+pub struct GetAccountProofsRequest {
     /// List of account IDs to get states.
     #[prost(message, repeated, tag = "1")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,

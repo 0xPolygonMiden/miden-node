@@ -10,7 +10,7 @@ use miden_node_proto::{
         note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
-            GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetAccountStatesRequest,
+            GetAccountDetailsRequest, GetAccountProofsRequest, GetAccountStateDeltaRequest,
             GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
             GetNoteAuthenticationInfoRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
             ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncNoteRequest,
@@ -18,8 +18,8 @@ use miden_node_proto::{
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
-            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
-            GetAccountStatesResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
+            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
             GetBlockInputsResponse, GetNoteAuthenticationInfoResponse, GetNotesByIdResponse,
             GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
             ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
@@ -484,10 +484,10 @@ impl api_server::Api for StoreApi {
         ret(level = "debug"),
         err
     )]
-    async fn get_account_states(
+    async fn get_account_proofs(
         &self,
-        request: Request<GetAccountStatesRequest>,
-    ) -> Result<Response<GetAccountStatesResponse>, Status> {
+        request: Request<GetAccountProofsRequest>,
+    ) -> Result<Response<GetAccountProofsResponse>, Status> {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
@@ -500,7 +500,7 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
-        Ok(Response::new(GetAccountStatesResponse {
+        Ok(Response::new(GetAccountProofsResponse {
             block_num,
             account_state_infos: infos.into_iter().map(Into::into).collect(),
         }))

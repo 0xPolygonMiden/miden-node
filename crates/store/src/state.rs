@@ -11,7 +11,7 @@ use std::{
 use miden_node_proto::{
     convert,
     domain::{accounts::AccountInfo, blocks::BlockInclusionProof, notes::NoteAuthenticationInfo},
-    generated::responses::{AccountStateHeader, AccountStateResponse, GetBlockInputsResponse},
+    generated::responses::{AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse},
     AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
@@ -684,7 +684,7 @@ impl State {
         &self,
         account_ids: HashSet<AccountId>,
         include_headers: bool,
-    ) -> Result<(BlockNumber, Vec<AccountStateResponse>), DatabaseError> {
+    ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
         // Lock inner state for the whole operation. We need to hold this lock to prevent the
         // database, account tree and latest block number from changing during the operation,
         // because changing one of them would lead to inconsistent state.
@@ -707,7 +707,7 @@ impl State {
                 let account_id: AccountId = info.summary.account_id.into();
                 let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
 
-                AccountStateResponse {
+                AccountProofsResponse {
                     account_id: Some(account_id.into()),
                     account_hash: Some(info.summary.account_hash.into()),
                     account_proof: Some(inner_state.account_tree.open(&acc_leaf_idx).path.into()),

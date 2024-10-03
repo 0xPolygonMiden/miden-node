@@ -132,7 +132,7 @@ message GetAccountStateDeltaRequest {
     fixed32 to_block_num = 3;
 }
 
-message GetAccountStatesRequest {
+message GetAccountProofsRequest {
     // List of account IDs to get states.
     repeated account.AccountId account_ids = 1;
     // Optional flag to include header in the response. `false` by default.
