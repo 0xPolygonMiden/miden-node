@@ -7,9 +7,9 @@ use miden_objects::{
     Digest,
 };
 
-use crate::store::TransactionInputs;
+use crate::{errors::AddTransactionErrorRework, store::TransactionInputs};
 
-use super::{AddTransactionError, StateDiff};
+use super::StateDiff;
 
 /// Tracks the inflight state of the mempool. This includes recently committed blocks.
 ///
@@ -35,7 +35,7 @@ impl InflightState {
         &mut self,
         tx: &ProvenTransaction,
         inputs: &TransactionInputs,
-    ) -> Result<BTreeSet<TransactionId>, AddTransactionError> {
+    ) -> Result<BTreeSet<TransactionId>, AddTransactionErrorRework> {
         // A rejected transaction must not affect the state, so we separate verification and mutation of the state.
         self.verify_transaction(tx, inputs)?;
 
@@ -46,7 +46,7 @@ impl InflightState {
         &mut self,
         tx: &ProvenTransaction,
         inputs: &TransactionInputs,
-    ) -> Result<(), AddTransactionError> {
+    ) -> Result<(), AddTransactionErrorRework> {
         // Ensure current account state is correct.
         let current = self
             .accounts
@@ -59,7 +59,7 @@ impl InflightState {
         let expected = tx.account_update().init_state_hash();
 
         if expected != current {
-            return Err(AddTransactionError::InvalidAccountState { current, expected });
+            return Err(AddTransactionErrorRework::InvalidAccountState { current, expected });
         }
 
         // Ensure nullifiers aren't already present.
@@ -69,7 +69,7 @@ impl InflightState {
         let double_spend =
             self.nullifiers.union(&input_nullifiers).copied().collect::<BTreeSet<_>>();
         if !double_spend.is_empty() {
-            return Err(AddTransactionError::NotesAlreadyConsumed(double_spend));
+            return Err(AddTransactionErrorRework::NotesAlreadyConsumed(double_spend));
         }
 
         // TODO: additional input and output note checks, depends on the transaction type changes.
