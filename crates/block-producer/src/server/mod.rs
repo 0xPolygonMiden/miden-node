@@ -25,7 +25,8 @@ use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
-    mempool::{AddTransactionError, Mempool},
+    errors::AddTransactionErrorRework,
+    mempool::Mempool,
     state_view::DefaultStateView,
     store::{DefaultStore, Store},
     txqueue::{TransactionQueue, TransactionQueueOptions},
@@ -145,18 +146,17 @@ impl api_server::Api for Server {
             .await
             .map(tonic::Response::new)
             .map_err(|err| match err {
-                AddTransactionError::InvalidAccountState { .. }
-                | AddTransactionError::AuthenticatedNoteNotFound(_)
-                | AddTransactionError::UnauthenticatedNoteNotFound(_)
-                | AddTransactionError::NotesAlreadyConsumed(_)
-                | AddTransactionError::DeserializationError(_)
-                | AddTransactionError::ProofVerificationFailed(_) => {
+                AddTransactionErrorRework::InvalidAccountState { .. }
+                | AddTransactionErrorRework::AuthenticatedNoteNotFound(_)
+                | AddTransactionErrorRework::UnauthenticatedNoteNotFound(_)
+                | AddTransactionErrorRework::NotesAlreadyConsumed(_)
+                | AddTransactionErrorRework::DeserializationError(_)
+                | AddTransactionErrorRework::ProofVerificationFailed(_) => {
                     Status::invalid_argument(err.to_string())
                 },
                 // Internal errors.
-                AddTransactionError::StaleInputs { .. } | AddTransactionError::TxInputsError(_) => {
-                    Status::internal("Internal error")
-                },
+                AddTransactionErrorRework::StaleInputs { .. }
+                | AddTransactionErrorRework::TxInputsError(_) => Status::internal("Internal error"),
             })
     }
 }
@@ -171,11 +171,11 @@ impl Server {
     async fn submit_proven_transaction(
         &self,
         request: SubmitProvenTransactionRequest,
-    ) -> Result<SubmitProvenTransactionResponse, AddTransactionError> {
+    ) -> Result<SubmitProvenTransactionResponse, AddTransactionErrorRework> {
         debug!(target: COMPONENT, ?request);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
-            .map_err(|err| AddTransactionError::DeserializationError(err.to_string()))?;
+            .map_err(|err| AddTransactionErrorRework::DeserializationError(err.to_string()))?;
 
         let tx_id = tx.id();
 
@@ -217,10 +217,12 @@ impl Server {
             let nullifier_state = inputs
                 .nullifiers
                 .remove(nullifiers)
-                .ok_or_else(|| AddTransactionError::AuthenticatedNoteNotFound(*nullifiers))?;
+                .ok_or_else(|| AddTransactionErrorRework::AuthenticatedNoteNotFound(*nullifiers))?;
 
             if nullifier_state.is_some() {
-                return Err(AddTransactionError::NotesAlreadyConsumed([*nullifiers].into()).into());
+                return Err(
+                    AddTransactionErrorRework::NotesAlreadyConsumed([*nullifiers].into()).into()
+                );
             }
         }
 

@@ -1,6 +1,3 @@
-// TODO: remove this once block-producer rework is completed.
-#![allow(unused)]
-
 use std::{cmp::min, collections::BTreeSet, num::NonZeroUsize, sync::Arc, time::Duration};
 
 use miden_objects::{

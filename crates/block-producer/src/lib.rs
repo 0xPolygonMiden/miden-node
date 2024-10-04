@@ -1,3 +1,6 @@
+// TODO: remove once block-producer rework is complete
+#![allow(unused)]
+
 use std::{sync::Arc, time::Duration};
 
 use batch_builder::batch::TransactionBatch;

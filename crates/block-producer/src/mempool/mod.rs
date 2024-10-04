@@ -7,8 +7,8 @@ use std::{
     sync::Arc,
 };
 
-use account_state::InflightState;
 use batch_graph::BatchGraph;
+use inflight_state::InflightState;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, Nullifier},
@@ -18,10 +18,13 @@ use miden_objects::{
 use miden_tx::{utils::collections::KvMap, TransactionVerifierError};
 use transaction_graph::TransactionGraph;
 
-use crate::store::{TransactionInputs, TxInputsError};
+use crate::{
+    errors::AddTransactionErrorRework,
+    store::{TransactionInputs, TxInputsError},
+};
 
-mod account_state;
 mod batch_graph;
+mod inflight_state;
 mod transaction_graph;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -113,11 +116,11 @@ impl Mempool {
         &mut self,
         transaction: ProvenTransaction,
         inputs: TransactionInputs,
-    ) -> Result<u32, AddTransactionError> {
+    ) -> Result<u32, AddTransactionErrorRework> {
         // Ensure inputs aren't stale.
         if let Some(stale_block) = self.stale_block() {
             if inputs.current_block_height <= stale_block.0 {
-                return Err(AddTransactionError::StaleInputs {
+                return Err(AddTransactionErrorRework::StaleInputs {
                     input_block: BlockNumber(inputs.current_block_height),
                     stale_limit: stale_block,
                 });
@@ -262,29 +265,6 @@ impl Mempool {
     fn stale_block(&self) -> Option<BlockNumber> {
         self.chain_tip.checked_sub(self.staleness)
     }
-}
-
-#[derive(thiserror::Error, Debug, PartialEq)]
-pub enum AddTransactionError {
-    #[error("Transaction's initial account state {expected} did not match the current account state {current}.")]
-    InvalidAccountState { current: Digest, expected: Digest },
-    #[error("Transaction input data is stale. Required data fresher than {stale_limit} but inputs are from {input_block}.")]
-    StaleInputs {
-        input_block: BlockNumber,
-        stale_limit: BlockNumber,
-    },
-    #[error("Authenticated note nullifier {0} not found.")]
-    AuthenticatedNoteNotFound(Nullifier),
-    #[error("Unauthenticated note {0} not found.")]
-    UnauthenticatedNoteNotFound(NoteId),
-    #[error("Note nullifiers already consumed: {0:?}")]
-    NotesAlreadyConsumed(BTreeSet<Nullifier>),
-    #[error(transparent)]
-    TxInputsError(#[from] TxInputsError),
-    #[error(transparent)]
-    ProofVerificationFailed(#[from] TransactionVerifierError),
-    #[error("Failed to deserialize transaction: {0}.")]
-    DeserializationError(String),
 }
 
 /// Describes the impact that a set of transactions had on the state.

@@ -1,6 +1,3 @@
-// TODO: remove this once block-producer rework is completed.
-#![allow(unused)]
-
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
