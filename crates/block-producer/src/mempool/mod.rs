@@ -94,7 +94,7 @@ pub struct Mempool {
     next_batch_id: BatchJobId,
 
     /// Blocks which have been committed but are not yet considered stale.
-    committed_blocks: VecDeque<StateDiff>,
+    committed_diffs: VecDeque<StateDiff>,
 
     /// The current block height of the chain.
     chain_tip: BlockNumber,
@@ -109,7 +109,15 @@ pub struct Mempool {
 }
 
 impl Mempool {
-    /// Complete barring todos.
+    /// Adds a transaction to the mempool.
+    ///
+    /// # Returns
+    ///
+    /// Returns the current block height.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the transaction's initial conditions don't match the current state.
     pub fn add_transaction(
         &mut self,
         transaction: ProvenTransaction,
@@ -192,7 +200,7 @@ impl Mempool {
 
     /// Select batches for the next block.
     ///
-    /// May return an empty batch set if no batches are ready.
+    /// May return an empty set if no batches are ready.
     ///
     /// # Panics
     ///
@@ -220,13 +228,13 @@ impl Mempool {
         let transactions = self.transactions.remove_committed(&transactions);
 
         // Inform inflight state about committed data.
-        let impact = StateDiff::new(&transactions);
-        self.state.commit_transactions(&impact);
+        let diff = StateDiff::new(&transactions);
+        self.state.commit_transactions(&diff);
 
-        self.committed_blocks.push_back(impact);
-        if self.committed_blocks.len() > self.staleness.0 as usize {
+        self.committed_diffs.push_back(diff);
+        if self.committed_diffs.len() > self.staleness.0 as usize {
             // SAFETY: just checked that length is non-zero.
-            let stale_block = self.committed_blocks.pop_front().unwrap();
+            let stale_block = self.committed_diffs.pop_front().unwrap();
 
             self.state.prune_committed_state(stale_block);
         }
