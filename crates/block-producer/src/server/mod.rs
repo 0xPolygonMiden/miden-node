@@ -148,7 +148,7 @@ impl api_server::Api for Server {
                 AddTransactionError::InvalidAccountState { .. }
                 | AddTransactionError::AuthenticatedNoteNotFound(_)
                 | AddTransactionError::UnauthenticatedNoteNotFound(_)
-                | AddTransactionError::NoteAlreadyConsumed(_)
+                | AddTransactionError::NotesAlreadyConsumed(_)
                 | AddTransactionError::DeserializationError(_)
                 | AddTransactionError::ProofVerificationFailed(_) => {
                     Status::invalid_argument(err.to_string())
@@ -220,7 +220,7 @@ impl Server {
                 .ok_or_else(|| AddTransactionError::AuthenticatedNoteNotFound(*nullifiers))?;
 
             if nullifier_state.is_some() {
-                return Err(AddTransactionError::NoteAlreadyConsumed(*nullifiers).into());
+                return Err(AddTransactionError::NotesAlreadyConsumed([*nullifiers].into()).into());
             }
         }
 

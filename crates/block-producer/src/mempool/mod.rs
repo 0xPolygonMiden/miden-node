@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use account_state::AccountStates;
+use account_state::InflightState;
 use batch_graph::BatchGraph;
 use miden_objects::{
     accounts::AccountId,
@@ -73,7 +73,7 @@ pub struct Mempool {
     /// The latest inflight state of each account.
     ///
     /// Accounts without inflight transactions are not stored.
-    account_state: AccountStates,
+    state: InflightState,
 
     /// Note's consumed by inflight transactions.
     nullifiers: BTreeSet<Nullifier>,
@@ -93,7 +93,7 @@ pub struct Mempool {
     next_batch_id: BatchJobId,
 
     /// Blocks which have been committed but are not yet considered stale.
-    committed_blocks: VecDeque<BlockImpact>,
+    committed_blocks: VecDeque<StateDiff>,
 
     /// The current block height of the chain.
     chain_tip: BlockNumber,
@@ -112,7 +112,7 @@ impl Mempool {
     pub fn add_transaction(
         &mut self,
         transaction: ProvenTransaction,
-        mut inputs: TransactionInputs,
+        inputs: TransactionInputs,
     ) -> Result<u32, AddTransactionError> {
         // Ensure inputs aren't stale.
         if let Some(stale_block) = self.stale_block() {
@@ -124,67 +124,8 @@ impl Mempool {
             }
         }
 
-        let account_update = transaction.account_update();
-
-        // Merge inflight state with inputs.
-        //
-        // This gives us the latest applicable state for this transaction.
-        // TODO: notes and nullifiers.
-        if let Some(state) = self.account_state.get(&account_update.account_id()) {
-            inputs.account_hash = Some(*state);
-        }
-
-        // Verify transaction input state.
-        // TODO: update notes and nullifiers.
-        if inputs.account_hash.unwrap_or_default() != account_update.init_state_hash() {
-            return Err(AddTransactionError::InvalidAccountState {
-                current: inputs.account_hash.unwrap_or_default(),
-                expected: account_update.init_state_hash(),
-            });
-        }
-
-        for note in transaction.input_notes() {
-            let nullifier = note.nullifier();
-            let nullifier_state_in_store = inputs.nullifiers.get(&nullifier);
-
-            match note.header() {
-                // Unauthenticated note. Either nullifier must be unconsumed or its the output of an inflight note.
-                Some(header) => {
-                    if nullifier_state_in_store.is_some() || self.nullifiers.contains(&nullifier) {
-                        return Err(AddTransactionError::NoteAlreadyConsumed(nullifier));
-                    }
-
-                    if !self.notes.contains_key(&header.id()) {
-                        return Err(AddTransactionError::AuthenticatedNoteNotFound(nullifier));
-                    }
-                },
-                // Authenticated note. Nullifier must be present in store and uncomsumed.
-                None => {
-                    let nullifier_state = nullifier_state_in_store
-                        .ok_or_else(|| AddTransactionError::AuthenticatedNoteNotFound(nullifier))?;
-
-                    if nullifier_state.is_some() {
-                        return Err(AddTransactionError::NoteAlreadyConsumed(nullifier));
-                    }
-                },
-            }
-        }
-
-        // Transaction is valid, update inflight state.
-        // TODO: update notes and nullifiers.
-        let tx_id = transaction.id();
-        let account_parent = self.account_state.insert(
-            transaction.account_id(),
-            account_update.final_state_hash(),
-            tx_id,
-        );
-
-        // Inflight transactions upon which this new transaction depends due to building on their
-        // outputs.
-        let mut parents = BTreeSet::new();
-        if let Some(parent) = account_parent {
-            parents.insert(parent);
-        }
+        // Add transaction to inflight state.
+        let parents = self.state.add_transaction(&transaction, &inputs)?;
 
         self.transactions.insert(transaction, parents);
 
@@ -278,22 +219,15 @@ impl Mempool {
         let transactions = self.transactions.remove_committed(&transactions);
 
         // Inform inflight state about committed data.
-        let impact = BlockImpact::new(&transactions);
-        for (account, tx_count) in &impact.account_transactions {
-            self.account_state.commit_transactions(account, *tx_count);
-        }
-        // TODO: notes & nullifiers
+        let impact = StateDiff::new(&transactions);
+        self.state.commit_transactions(&impact);
 
-        // TODO: Remove stale data.
-        // TODO: notes & nullifiers
         self.committed_blocks.push_back(impact);
         if self.committed_blocks.len() > self.staleness.0 as usize {
             // SAFETY: just checked that length is non-zero.
             let stale_block = self.committed_blocks.pop_front().unwrap();
 
-            for (account, tx_count) in &stale_block.account_transactions {
-                self.account_state.remove_committed_state(account, *tx_count);
-            }
+            self.state.remove_committed_state(stale_block);
         }
 
         self.chain_tip.increment();
@@ -317,10 +251,8 @@ impl Mempool {
         let transactions = self.transactions.purge_subgraphs(transactions);
 
         // Rollback state.
-        let impact = BlockImpact::new(&transactions);
-        for (account, tx_count) in impact.account_transactions {
-            self.account_state.revert_transactions(&account, tx_count);
-        }
+        let impact = StateDiff::new(&transactions);
+        self.state.revert_transactions(impact);
         // TODO: revert nullifiers and notes.
     }
 
@@ -345,8 +277,8 @@ pub enum AddTransactionError {
     AuthenticatedNoteNotFound(Nullifier),
     #[error("Unauthenticated note {0} not found.")]
     UnauthenticatedNoteNotFound(NoteId),
-    #[error("Note nullifier {0} already consumed.")]
-    NoteAlreadyConsumed(Nullifier),
+    #[error("Note nullifiers already consumed: {0:?}")]
+    NotesAlreadyConsumed(BTreeSet<Nullifier>),
     #[error(transparent)]
     TxInputsError(#[from] TxInputsError),
     #[error(transparent)]
@@ -356,19 +288,27 @@ pub enum AddTransactionError {
 }
 
 /// Describes the impact that a set of transactions had on the state.
-struct BlockImpact {
+///
+/// TODO: this is a terrible name.
+struct StateDiff {
     /// The number of transactions that affected each account.
     account_transactions: BTreeMap<AccountId, usize>,
+
+    /// The nullifiers that were emitted by the transactions.
+    nullifiers: BTreeSet<Nullifier>,
+    // TODO: input/output notes
 }
 
-impl BlockImpact {
+impl StateDiff {
     fn new(txs: &[Arc<ProvenTransaction>]) -> Self {
         let mut account_transactions = BTreeMap::<AccountId, usize>::new();
+        let mut nullifiers = BTreeSet::new();
 
         for tx in txs {
             *account_transactions.entry(tx.account_id()).or_default() += 1;
+            nullifiers.extend(tx.get_nullifiers());
         }
 
-        Self { account_transactions }
+        Self { account_transactions, nullifiers }
     }
 }

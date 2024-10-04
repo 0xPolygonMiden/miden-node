@@ -1,54 +1,117 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use miden_objects::{accounts::AccountId, transaction::TransactionId, Digest};
+use miden_objects::{
+    accounts::AccountId,
+    notes::Nullifier,
+    transaction::{ProvenTransaction, TransactionId},
+    Digest,
+};
 
-/// Tracks the committed and inflight account states.
+use crate::store::TransactionInputs;
+
+use super::{AddTransactionError, StateDiff};
+
+/// Tracks the inflight state of the mempool. This includes recently committed blocks.
 ///
 /// Allows appending and reverting transactions as well as marking them
 /// as part of a committed block. Committed state can also be removed once the
 /// state is considered past the stale threshold.
-///
-/// Accounts which are considered empty (no inflight or committed state) are actively
-/// pruned.
 #[derive(Default)]
-pub struct AccountStates {
+pub struct InflightState {
     /// Non-empty inflight account states.
     ///
     /// Accounts which are [AccountStatus::Empty] are immedietely pruned.
     accounts: BTreeMap<AccountId, AccountState>,
+
+    /// Nullifiers emitted by inflight transactions and recently committed blocks.
+    nullifiers: BTreeSet<Nullifier>,
 }
 
-impl AccountStates {
-    /// The current inflight account state, if any.
-    pub fn get(&self, account: &AccountId) -> Option<&Digest> {
-        self.accounts
-            .get(account)
+impl InflightState {
+    /// Appends the transaction to the inflight state.
+    ///
+    /// This operation is atomic i.e. a rejected transaction has no impact of the state.
+    pub fn add_transaction(
+        &mut self,
+        tx: &ProvenTransaction,
+        inputs: &TransactionInputs,
+    ) -> Result<BTreeSet<TransactionId>, AddTransactionError> {
+        // A rejected transaction must not affect the state, so we separate verification and mutation of the state.
+        self.verify_transaction(tx, inputs)?;
+
+        Ok(self.insert_transaction(tx))
+    }
+
+    fn verify_transaction(
+        &mut self,
+        tx: &ProvenTransaction,
+        inputs: &TransactionInputs,
+    ) -> Result<(), AddTransactionError> {
+        // Ensure current account state is correct.
+        let current = self
+            .accounts
+            .get(&tx.account_id())
             .map(|account_state| account_state.latest_state())
             .flatten()
+            .copied()
+            .or(inputs.account_hash)
+            .unwrap_or_default();
+        let expected = tx.account_update().init_state_hash();
+
+        if expected != current {
+            return Err(AddTransactionError::InvalidAccountState { current, expected });
+        }
+
+        // Ensure nullifiers aren't already present.
+        // TODO: Verifying the inputs nullifiers should be done externally already.
+        // TODO: The above should cause a change in type for inputs indicating this.
+        let input_nullifiers = tx.get_nullifiers().collect::<BTreeSet<_>>();
+        let double_spend =
+            self.nullifiers.union(&input_nullifiers).copied().collect::<BTreeSet<_>>();
+        if !double_spend.is_empty() {
+            return Err(AddTransactionError::NotesAlreadyConsumed(double_spend));
+        }
+
+        // TODO: additional input and output note checks, depends on the transaction type changes.
+
+        Ok(())
     }
 
-    /// Inserts a new transaction and its state, returning the previous inflight transaction, if any.
-    pub fn insert(
-        &mut self,
-        account: AccountId,
-        state: Digest,
-        transaction: TransactionId,
-    ) -> Option<TransactionId> {
-        self.accounts.entry(account).or_default().insert(state, transaction)
+    /// Aggregate the transaction into the state, returning the parent transactions.
+    fn insert_transaction(&mut self, tx: &ProvenTransaction) -> BTreeSet<TransactionId> {
+        let account_parent = self
+            .accounts
+            .entry(tx.account_id())
+            .or_default()
+            .insert(tx.account_update().final_state_hash(), tx.id());
+
+        self.nullifiers.extend(tx.get_nullifiers());
+
+        // TODO: input and output notes
+
+        account_parent.into_iter().collect()
     }
 
-    /// Reverts the most recent `n` inflight transactions of the given account.
+    /// Reverts the given state diff.
     ///
     /// # Panics
     ///
     /// Panics if there are less than `n` inflight transactions for the account or if the account has no committed or inflight state.
-    pub fn revert_transactions(&mut self, account: &AccountId, n: usize) {
-        let status = self.accounts.get_mut(account).expect("Account must exist").revert(n);
+    pub fn revert_transactions(&mut self, diff: StateDiff) {
+        for (account, count) in diff.account_transactions {
+            let status = self.accounts.get_mut(&account).expect("Account must exist").revert(count);
 
-        // Prune empty accounts.
-        if status.is_empty() {
-            self.accounts.remove(account);
+            // Prune empty accounts.
+            if status.is_empty() {
+                self.accounts.remove(&account);
+            }
         }
+
+        for nullifier in diff.nullifiers {
+            self.nullifiers.remove(&nullifier);
+        }
+
+        // TODO: input and output notes
     }
 
     /// Mark the oldest `n` inflight transactions as committed i.e. in a committed block.
@@ -58,21 +121,29 @@ impl AccountStates {
     /// # Panics
     ///
     /// Panics if there are less than `n` inflight transactions for the account or if the account has no committed or inflight state.
-    pub fn commit_transactions(&mut self, account: &AccountId, n: usize) {
-        self.accounts.get_mut(account).expect("Account must exist").commit(n);
+    pub fn commit_transactions(&mut self, diff: &StateDiff) {
+        for (account, count) in &diff.account_transactions {
+            self.accounts.get_mut(account).expect("Account must exist").commit(*count);
+        }
     }
 
-    /// Remove the oldest `n` committed transactions.
-    ///
-    /// # Panics
-    ///
-    /// Panics if there are less than `n` committed transactions in the account.
-    pub fn remove_committed_state(&mut self, account: &AccountId, n: usize) {
-        let status = self.accounts.get_mut(account).expect("Account must exist").remove_commited(n);
+    /// Drops the given state diff from memory.
+    pub fn remove_committed_state(&mut self, diff: StateDiff) {
+        for (account, count) in diff.account_transactions {
+            let status = self
+                .accounts
+                .get_mut(&account)
+                .expect("Account must exist")
+                .remove_commited(count);
 
-        // Prune empty accounts.
-        if status.is_empty() {
-            self.accounts.remove(account);
+            // Prune empty accounts.
+            if status.is_empty() {
+                self.accounts.remove(&account);
+            }
+        }
+
+        for nullifier in diff.nullifiers {
+            self.nullifiers.remove(&nullifier);
         }
     }
 }
