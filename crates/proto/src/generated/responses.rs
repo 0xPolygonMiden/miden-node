@@ -202,7 +202,7 @@ pub struct GetAccountProofsResponse {
     pub block_num: u32,
     /// List of account state infos for the requested account keys.
     #[prost(message, repeated, tag = "2")]
-    pub account_state_infos: ::prost::alloc::vec::Vec<AccountProofsResponse>,
+    pub account_proofs: ::prost::alloc::vec::Vec<AccountProofsResponse>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountProofsResponse {
@@ -215,7 +215,7 @@ pub struct AccountProofsResponse {
     /// Authentication path from the `account_root` of the block header to the account.
     #[prost(message, optional, tag = "3")]
     pub account_proof: ::core::option::Option<super::merkle::MerklePath>,
-    /// / State header for public accounts. Filled only if `include_headers` flag is set to `true`.
+    /// State header for public accounts. Filled only if `include_headers` flag is set to `true`.
     #[prost(message, optional, tag = "4")]
     pub state_header: ::core::option::Option<AccountStateHeader>,
 }
@@ -224,7 +224,7 @@ pub struct AccountStateHeader {
     /// Account header.
     #[prost(message, optional, tag = "1")]
     pub header: ::core::option::Option<super::account::AccountHeader>,
-    /// / Values of all account storage slots (max 255).
+    /// Values of all account storage slots (max 255).
     #[prost(bytes = "vec", tag = "2")]
     pub storage_header: ::prost::alloc::vec::Vec<u8>,
 }

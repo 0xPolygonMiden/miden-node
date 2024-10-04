@@ -254,7 +254,7 @@ impl api_server::Api for RpcApi {
 
     #[instrument(
         target = "miden-rpc",
-        name = "rpc:get_account_states",
+        name = "rpc:get_account_proofs",
         skip_all,
         ret(level = "debug"),
         err

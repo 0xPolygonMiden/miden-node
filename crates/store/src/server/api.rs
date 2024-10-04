@@ -479,7 +479,7 @@ impl api_server::Api for StoreApi {
 
     #[instrument(
         target = "miden-store",
-        name = "store:get_account_state",
+        name = "store:get_account_proofs",
         skip_all,
         ret(level = "debug"),
         err
@@ -502,7 +502,7 @@ impl api_server::Api for StoreApi {
 
         Ok(Response::new(GetAccountProofsResponse {
             block_num,
-            account_state_infos: infos.into_iter().map(Into::into).collect(),
+            account_proofs: infos.into_iter().map(Into::into).collect(),
         }))
     }
 

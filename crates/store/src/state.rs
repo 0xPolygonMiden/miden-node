@@ -4,7 +4,7 @@
 //! data is atomically written, and that reads are consistent.
 
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
 
@@ -682,7 +682,7 @@ impl State {
     /// Returns account states with details for public accounts.
     pub async fn get_account_states(
         &self,
-        account_ids: HashSet<AccountId>,
+        account_ids: Vec<AccountId>,
         include_headers: bool,
     ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
         // Lock inner state for the whole operation. We need to hold this lock to prevent the
@@ -691,15 +691,15 @@ impl State {
         let inner_state = self.inner.read().await;
 
         let state_headers = if !include_headers {
-            HashMap::<AccountId, AccountStateHeader>::default()
+            BTreeMap::<AccountId, AccountStateHeader>::default()
         } else {
-            let infos =
-                self.db.select_accounts_by_ids(account_ids.iter().copied().collect()).await?;
+            let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
 
             if account_ids.len() > infos.len() {
-                let found_ids = infos.iter().map(|info| info.summary.account_id.into()).collect();
+                let found_ids: BTreeSet<AccountId> =
+                    infos.iter().map(|info| info.summary.account_id.into()).collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
-                    account_ids.difference(&found_ids).copied().collect(),
+                    BTreeSet::from_iter(account_ids).difference(&found_ids).copied().collect(),
                 ));
             }
 
