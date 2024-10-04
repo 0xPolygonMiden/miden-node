@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque},
     fmt::Display,
@@ -8,7 +6,7 @@ use std::{
 };
 
 use batch_graph::BatchGraph;
-use inflight_state::InflightState;
+use inflight_state::{InflightState, StateDiff};
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, Nullifier},
@@ -230,7 +228,7 @@ impl Mempool {
             // SAFETY: just checked that length is non-zero.
             let stale_block = self.committed_blocks.pop_front().unwrap();
 
-            self.state.remove_committed_state(stale_block);
+            self.state.prune_committed_state(stale_block);
         }
 
         self.chain_tip.increment();
@@ -264,31 +262,5 @@ impl Mempool {
     /// Returns [None] if the blockchain is so short that all blocks are considered fresh.
     fn stale_block(&self) -> Option<BlockNumber> {
         self.chain_tip.checked_sub(self.staleness)
-    }
-}
-
-/// Describes the impact that a set of transactions had on the state.
-///
-/// TODO: this is a terrible name.
-struct StateDiff {
-    /// The number of transactions that affected each account.
-    account_transactions: BTreeMap<AccountId, usize>,
-
-    /// The nullifiers that were emitted by the transactions.
-    nullifiers: BTreeSet<Nullifier>,
-    // TODO: input/output notes
-}
-
-impl StateDiff {
-    fn new(txs: &[Arc<ProvenTransaction>]) -> Self {
-        let mut account_transactions = BTreeMap::<AccountId, usize>::new();
-        let mut nullifiers = BTreeSet::new();
-
-        for tx in txs {
-            *account_transactions.entry(tx.account_id()).or_default() += 1;
-            nullifiers.extend(tx.get_nullifiers());
-        }
-
-        Self { account_transactions, nullifiers }
     }
 }
