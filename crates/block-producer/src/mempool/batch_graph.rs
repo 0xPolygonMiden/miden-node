@@ -63,20 +63,20 @@ impl BatchGraph {
     /// Returns all removed batches and their transactions.
     pub fn purge_subgraphs(
         &mut self,
-        batches: Vec<BatchJobId>,
-    ) -> Vec<(BatchJobId, Vec<TransactionId>)> {
-        let mut removed = Vec::new();
+        batches: BTreeSet<BatchJobId>,
+    ) -> BTreeMap<BatchJobId, Vec<TransactionId>> {
+        let mut removed = BTreeMap::new();
 
         let mut to_process = batches;
 
-        while let Some(node_id) = to_process.pop() {
+        while let Some(node_id) = to_process.pop_first() {
             // Its possible for a node to already have been removed as part of this subgraph
             // removal.
             let Some(node) = self.nodes.remove(&node_id) else {
                 continue;
             };
 
-            // All the child batches are also removed so no need to check
+            // All the child batches are also removed so no need to chec
             // for new roots. No new roots are possible as a result of this subgraph removal.
             self.roots.remove(&node_id);
 
@@ -96,7 +96,7 @@ impl BatchGraph {
             }
 
             to_process.extend(node.children);
-            removed.push((node_id, node.transactions));
+            removed.insert(node_id, node.transactions);
         }
 
         removed
@@ -104,8 +104,8 @@ impl BatchGraph {
 
     /// Removes a set of batches from the graph without removing any descendents.
     ///
-    /// This is intended to cull completed batches from stale blocks.
-    pub fn remove_committed(&mut self, batches: Vec<BatchJobId>) -> Vec<TransactionId> {
+    /// This is intended to cull completed batches from stale blocs.
+    pub fn remove_committed(&mut self, batches: BTreeSet<BatchJobId>) -> Vec<TransactionId> {
         let mut transactions = Vec::new();
 
         for batch in batches {
@@ -138,20 +138,37 @@ impl BatchGraph {
         }
     }
 
-    pub fn pop_for_blocking(&mut self) -> Option<(BatchJobId, Vec<TransactionId>)> {
-        let batch_id = self.roots.pop_first()?;
-        let node = self.nodes.get_mut(&batch_id).expect("Root node must be in graph");
-        node.status = Status::InBlock;
+    /// Returns at most `count` __indepedent__ batches which are ready for inclusion in a block.
+    pub fn select_block(&mut self, count: usize) -> BTreeSet<BatchJobId> {
+        let mut batches = BTreeSet::new();
 
-        // Work around multiple mutable borrows of self.
-        let transactions = node.transactions.clone();
-        let children = node.children.clone();
+        // Track children so we can evaluate them for root afterwards.
+        let mut children = BTreeSet::new();
 
+        for batch in &self.roots {
+            let mut node = self.nodes.get_mut(batch).expect("Root node must be in graph");
+
+            // Filter out batches which have dependencies in our selection so far.
+            if batches.union(&node.parents).next().is_some() {
+                continue;
+            }
+
+            batches.insert(*batch);
+            node.status = Status::Proven;
+
+            if batches.len() == count {
+                break;
+            }
+        }
+
+        // Performing this outside the main loop has two benefits:
+        //   1. We avoid checking the same child multiple times.
+        //   2. We avoid evaluating children for selection (they're dependents).
         for child in children {
             self.try_make_root(child);
         }
 
-        Some((batch_id, transactions))
+        batches
     }
 
     fn try_make_root(&mut self, id: BatchJobId) {

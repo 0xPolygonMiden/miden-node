@@ -98,7 +98,7 @@ pub struct Mempool {
     /// The current block height of the chain.
     chain_tip: BlockNumber,
 
-    block_in_progress: Option<Vec<BatchJobId>>,
+    block_in_progress: Option<BTreeSet<BatchJobId>>,
 
     /// Number of blocks before transaction input is considered stale.
     staleness: BlockNumber,
@@ -227,7 +227,7 @@ impl Mempool {
     ///
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchJobId) {
-        let removed_batches = self.batches.purge_subgraphs(vec![batch]);
+        let removed_batches = self.batches.purge_subgraphs([batch].into());
 
         // Its possible to receive failures for batches which were already removed
         // as part of a prior failure. Early exit to prevent logging these no-ops.
@@ -255,22 +255,10 @@ impl Mempool {
     /// # Panics
     ///
     /// Panics if there is already a block in flight.
-    pub fn select_block(&mut self) -> (BlockNumber, Vec<BatchJobId>) {
+    pub fn select_block(&mut self) -> (BlockNumber, BTreeSet<BatchJobId>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
-        // TODO: should return actual batch transaction data as well.
 
-        let mut batches = Vec::with_capacity(self.block_batch_limit);
-        for _ in 0..self.block_batch_limit {
-            let Some((batch_id, _)) = self.batches.pop_for_blocking() else {
-                break;
-            };
-
-            batches.push(batch_id);
-
-            // Unlike `select_batch` we don't need to track inter-block depedencies as this
-            // relationship is inherently sequential.
-        }
-
+        let batches = self.batches.select_block(self.block_batch_limit);
         self.block_in_progress = Some(batches.clone());
 
         (self.chain_tip.next(), batches)

@@ -174,7 +174,7 @@ impl BlockProducer {
         }
     }
 
-    async fn build_and_commit_block(&self, batches: Vec<BatchJobId>) -> Result<(), ()> {
+    async fn build_and_commit_block(&self, batches: BTreeSet<BatchJobId>) -> Result<(), ()> {
         todo!("Aggregate, prove and commit block");
     }
 }
