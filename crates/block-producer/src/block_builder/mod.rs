@@ -1,3 +1,6 @@
+// TODO: remove this once block-producer rework is completed.
+#![allow(unused)]
+
 use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
@@ -14,7 +17,7 @@ use tracing::{debug, info, instrument};
 use crate::{
     batch_builder::batch::TransactionBatch,
     errors::BuildBlockError,
-    mempool::Mempool,
+    mempool::{BatchJobId, Mempool},
     store::{ApplyBlock, DefaultStore, Store},
     COMPONENT,
 };
@@ -147,10 +150,8 @@ where
 }
 
 struct BlockProducer {
-    pub store: DefaultStore,
     pub mempool: Arc<Mutex<Mempool>>,
     pub block_interval: tokio::time::Duration,
-    pub block_kernel: BlockProver,
 }
 
 impl BlockProducer {
@@ -162,10 +163,8 @@ impl BlockProducer {
             interval.tick().await;
 
             let (block_number, batches) = self.mempool.lock().await.select_block();
-            // TODO: update mempool types
-            let batches = Vec::new();
 
-            let result = self.build_and_commit_block(&batches).await;
+            let result = self.build_and_commit_block(batches).await;
             let mut mempool = self.mempool.lock().await;
 
             match result {
@@ -175,81 +174,7 @@ impl BlockProducer {
         }
     }
 
-    async fn build_and_commit_block(
-        &self,
-        batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError> {
-        info!(
-            target: COMPONENT,
-            num_batches = batches.len(),
-            batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))),
-        );
-
-        let updated_account_set: BTreeSet<AccountId> = batches
-            .iter()
-            .flat_map(TransactionBatch::updated_accounts)
-            .map(|(account_id, _)| *account_id)
-            .collect();
-
-        let output_notes: Vec<_> =
-            batches.iter().map(TransactionBatch::output_notes).cloned().collect();
-
-        let produced_nullifiers: Vec<Nullifier> =
-            batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
-
-        // Populate set of output notes from all batches
-        let output_notes_set: BTreeSet<_> = output_notes
-            .iter()
-            .flat_map(|batch| batch.iter().map(|note| note.id()))
-            .collect();
-
-        // Build a set of unauthenticated input notes for this block which do not have a matching
-        // output note produced in this block
-        let dangling_notes: BTreeSet<_> = batches
-            .iter()
-            .flat_map(TransactionBatch::input_notes)
-            .filter_map(InputNoteCommitment::header)
-            .map(NoteHeader::id)
-            .filter(|note_id| !output_notes_set.contains(note_id))
-            .collect();
-
-        // Request information needed for block building from the store
-        let block_inputs = self
-            .store
-            .get_block_inputs(
-                updated_account_set.into_iter(),
-                produced_nullifiers.iter(),
-                dangling_notes.iter(),
-            )
-            .await?;
-
-        let missing_notes: Vec<_> = dangling_notes
-            .difference(&block_inputs.found_unauthenticated_notes.note_ids())
-            .copied()
-            .collect();
-        if !missing_notes.is_empty() {
-            return Err(BuildBlockError::UnauthenticatedNotesNotFound(missing_notes));
-        }
-
-        let (block_header_witness, updated_accounts) = BlockWitness::new(block_inputs, batches)?;
-
-        let new_block_header = self.block_kernel.prove(block_header_witness)?;
-        let block_num = new_block_header.block_num();
-
-        // TODO: return an error?
-        let block =
-            Block::new(new_block_header, updated_accounts, output_notes, produced_nullifiers)
-                .expect("invalid block components");
-
-        let block_hash = block.hash();
-
-        info!(target: COMPONENT, block_num, %block_hash, "block built");
-        debug!(target: COMPONENT, ?block);
-
-        self.store.apply_block(&block).await?;
-
-        info!(target: COMPONENT, block_num, %block_hash, "block committed");
-
-        Ok(())
+    async fn build_and_commit_block(&self, batches: Vec<BatchJobId>) -> Result<(), ()> {
+        todo!("Aggregate, prove and commit block");
     }
 }

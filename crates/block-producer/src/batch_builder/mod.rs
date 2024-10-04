@@ -1,11 +1,14 @@
-use std::{
-    cmp::min, collections::BTreeSet, num::NonZeroUsize, ops::Deref, sync::Arc, time::Duration,
-};
+// TODO: remove this once block-producer rework is completed.
+#![allow(unused)]
 
-use async_trait::async_trait;
-use miden_node_proto::domain::notes::NoteAuthenticationInfo;
-use miden_objects::{notes::NoteId, transaction::OutputNote};
+use std::{cmp::min, collections::BTreeSet, num::NonZeroUsize, sync::Arc, time::Duration};
+
+use miden_objects::{
+    notes::NoteId,
+    transaction::{OutputNote, TransactionId},
+};
 use tokio::{sync::Mutex, time};
+use tonic::async_trait;
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
@@ -221,7 +224,7 @@ pub struct BatchProducer {
     pub tx_per_batch: usize,
 }
 
-type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
+type BatchResult = Result<BatchJobId, (BatchJobId, BuildBatchError)>;
 
 /// Wrapper around tokio's JoinSet that remains pending if the set is empty,
 /// instead of returning None.
@@ -241,18 +244,9 @@ impl WorkerPool {
         self.0.len()
     }
 
-    fn spawn(
-        &mut self,
-        id: BatchJobId,
-        transactions: Vec<Arc<ProvenTransaction>>,
-        note_info: NoteAuthenticationInfo,
-    ) {
+    fn spawn(&mut self, id: BatchJobId, transactions: Vec<TransactionId>) {
         self.0.spawn(async move {
-            // TODO: batcher should take arc's.
-            let transactions = transactions.into_iter().map(|tx| tx.deref().clone()).collect();
-            TransactionBatch::new(transactions, note_info)
-                .map(|batch| (id, batch))
-                .map_err(|err| (id, err))
+            todo!("Do actual work like aggregating transaction data");
         });
     }
 }
@@ -280,7 +274,7 @@ impl BatchProducer {
                         continue;
                     };
 
-                    inflight.spawn(batch_id, transactions, todo!());
+                    inflight.spawn(batch_id, transactions);
                 },
                 result = inflight.join_next() => {
                     let mut mempool = self.mempool.lock().await;
@@ -294,7 +288,7 @@ impl BatchProducer {
                             tracing::warn!(%batch_id, %err, "Batch job failed.");
                             mempool.batch_failed(batch_id);
                         },
-                        Ok(Ok((batch_id, _batch))) => {
+                        Ok(Ok(batch_id)) => {
                             mempool.batch_proved(batch_id);
                         }
                     }

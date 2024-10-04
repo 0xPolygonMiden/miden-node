@@ -196,7 +196,7 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<Arc<ProvenTransaction>>)> {
+    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<TransactionId>)> {
         let mut parents = BTreeSet::new();
         let mut batch = Vec::with_capacity(self.batch_transaction_limit);
 
@@ -212,14 +212,13 @@ impl Mempool {
         // Update the depedency graph to reflect parents at the batch level by removing
         // all edges within this batch.
         for tx in &batch {
-            parents.remove(&tx.id());
+            parents.remove(tx);
         }
 
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        let txs = batch.iter().map(|tx| tx.id()).collect();
-        self.batches.insert(batch_id, txs, parents);
+        self.batches.insert(batch_id, batch.clone(), parents);
 
         Some((batch_id, batch))
     }

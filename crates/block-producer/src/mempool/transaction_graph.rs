@@ -41,24 +41,20 @@ impl TransactionGraph {
         self.try_make_root(id);
     }
 
-    pub fn pop_for_batching(
-        &mut self,
-    ) -> Option<(Arc<ProvenTransaction>, BTreeSet<TransactionId>)> {
-        let transaction = self.roots.pop_first()?;
-        let transaction =
-            self.nodes.get_mut(&transaction).expect("Root transaction must be in graph");
-        transaction.status = Status::Processed;
+    pub fn pop_for_batching(&mut self) -> Option<(TransactionId, BTreeSet<TransactionId>)> {
+        let tx_id = self.roots.pop_first()?;
+        let node = self.nodes.get_mut(&tx_id).expect("Root transaction must be in graph");
+        node.status = Status::Processed;
 
         // Work around multiple mutable borrows of self.
-        let data = Arc::clone(&transaction.data);
-        let parents = transaction.parents.clone();
-        let children = transaction.children.clone();
+        let parents = node.parents.clone();
+        let children = node.children.clone();
 
         for child in children {
             self.try_make_root(child);
         }
 
-        Some((data, parents))
+        Some((tx_id, parents))
     }
 
     /// Marks the given transactions as being back inqueue.
