@@ -81,8 +81,7 @@ impl InflightState {
         let current = self
             .accounts
             .get(&tx.account_id())
-            .map(|account_state| account_state.latest_state())
-            .flatten()
+            .and_then(|account_state| account_state.latest_state())
             .copied()
             .or(inputs.account_hash)
             .unwrap_or_default();
@@ -147,7 +146,8 @@ impl InflightState {
 
     /// Marks the given state diff as committed.
     ///
-    /// These transactions are no longer considered inflight. Callers should take care to only commit transactions who's ancestors are all committed.
+    /// These transactions are no longer considered inflight. Callers should take care to only
+    /// commit transactions who's ancestors are all committed.
     ///
     /// # Panics
     ///
@@ -203,7 +203,8 @@ struct AccountState {
 }
 
 impl AccountState {
-    /// Inserts a new transaction and its state, returning the previous inflight transaction, if any.
+    /// Inserts a new transaction and its state, returning the previous inflight transaction, if
+    /// any.
     pub fn insert(&mut self, state: Digest, tx: TransactionId) -> Option<TransactionId> {
         let previous = self.inflight.back().map(|(_, tx)| tx).copied();
 

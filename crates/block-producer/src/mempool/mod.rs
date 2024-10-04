@@ -185,8 +185,8 @@ impl Mempool {
             return;
         }
 
-        let batches = removed_batches.iter().map(|(b, _)| *b).collect::<Vec<_>>();
-        let transactions = removed_batches.into_iter().flat_map(|(_, tx)| tx.into_iter()).collect();
+        let batches = removed_batches.keys().copied().collect::<Vec<_>>();
+        let transactions = removed_batches.into_values().flatten().collect();
 
         self.transactions.requeue_transactions(transactions);
 
@@ -246,7 +246,8 @@ impl Mempool {
     ///
     /// # Panics
     ///
-    /// Panics if there is no block in flight or if the block number does not match the current inflight block.
+    /// Panics if there is no block in flight or if the block number does not match the current
+    /// inflight block.
     pub fn block_failed(&mut self, block_number: BlockNumber) {
         assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
 
@@ -254,8 +255,8 @@ impl Mempool {
 
         // Remove all transactions from the graphs.
         let purged = self.batches.purge_subgraphs(batches);
-        let batches = purged.iter().map(|(b, _)| *b).collect::<Vec<_>>();
-        let transactions = purged.into_iter().flat_map(|(_, tx)| tx.into_iter()).collect();
+        let batches = purged.keys().collect::<Vec<_>>();
+        let transactions = purged.into_values().flatten().collect();
 
         let transactions = self.transactions.purge_subgraphs(transactions);
 

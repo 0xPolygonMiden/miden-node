@@ -217,12 +217,10 @@ impl Server {
             let nullifier_state = inputs
                 .nullifiers
                 .remove(nullifiers)
-                .ok_or_else(|| AddTransactionErrorRework::AuthenticatedNoteNotFound(*nullifiers))?;
+                .ok_or(AddTransactionErrorRework::AuthenticatedNoteNotFound(*nullifiers))?;
 
             if nullifier_state.is_some() {
-                return Err(
-                    AddTransactionErrorRework::NotesAlreadyConsumed([*nullifiers].into()).into()
-                );
+                return Err(AddTransactionErrorRework::NotesAlreadyConsumed([*nullifiers].into()));
             }
         }
 

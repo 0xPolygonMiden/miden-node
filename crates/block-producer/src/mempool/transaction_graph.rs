@@ -23,15 +23,10 @@ impl TransactionGraph {
 
         // Inform parent's of their new child.
         for parent in &parents {
-            self.nodes.get_mut(&parent).expect("Parent must be in pool").children.insert(id);
+            self.nodes.get_mut(parent).expect("Parent must be in pool").children.insert(id);
         }
 
-        let transaction = Node {
-            status: Status::InQueue,
-            data: Arc::new(transaction),
-            parents,
-            children: Default::default(),
-        };
+        let transaction = Node::new(transaction, parents);
         if self.nodes.insert(id, transaction).is_some() {
             panic!("Transaction already exists in pool");
         }
@@ -60,7 +55,7 @@ impl TransactionGraph {
     /// Marks the given transactions as being back inqueue.
     pub fn requeue_transactions(&mut self, transactions: BTreeSet<TransactionId>) {
         for tx in &transactions {
-            self.nodes.get_mut(&tx).expect("Node must exist").status = Status::InQueue;
+            self.nodes.get_mut(tx).expect("Node must exist").status = Status::InQueue;
         }
 
         // All requeued transactions are potential roots, and current roots may have been
@@ -76,7 +71,7 @@ impl TransactionGraph {
     pub fn remove_committed(&mut self, tx_ids: &[TransactionId]) -> Vec<Arc<ProvenTransaction>> {
         let mut transactions = Vec::with_capacity(tx_ids.len());
         for transaction in tx_ids {
-            let node = self.nodes.remove(&transaction).expect("Node must be in graph");
+            let node = self.nodes.remove(transaction).expect("Node must be in graph");
             assert_eq!(node.status, Status::Processed);
 
             transactions.push(node.data);
@@ -87,7 +82,7 @@ impl TransactionGraph {
                 // Its possible for the child to part of this same set of batches and therefore
                 // already removed.
                 if let Some(child) = self.nodes.get_mut(&child) {
-                    child.parents.remove(&transaction);
+                    child.parents.remove(transaction);
                 }
             }
         }
@@ -155,6 +150,17 @@ struct Node {
     data: Arc<ProvenTransaction>,
     parents: BTreeSet<TransactionId>,
     children: BTreeSet<TransactionId>,
+}
+
+impl Node {
+    fn new(tx: ProvenTransaction, parents: BTreeSet<TransactionId>) -> Self {
+        Self {
+            status: Status::InQueue,
+            data: Arc::new(tx),
+            parents,
+            children: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
