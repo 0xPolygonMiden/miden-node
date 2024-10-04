@@ -9,6 +9,7 @@
 - Improve `--version` by adding build metadata (#495).
 - [BREAKING] Introduced additional limits for note/account number (#503). 
 - [BREAKING] Removed support for basic wallets in genesis creation (#510).
+- Added `GetAccountStates` endpoint (#506).
 
 ## 0.5.1 (2024-09-12)
 

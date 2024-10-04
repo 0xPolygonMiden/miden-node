@@ -3,14 +3,15 @@ use miden_node_proto::{
         block_producer::api_client as block_producer_client,
         requests::{
             CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
-            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+            GetAccountProofsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
+            GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
+            SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             CheckNullifiersByPrefixResponse, CheckNullifiersResponse, GetAccountDetailsResponse,
-            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncNoteResponse,
-            SyncStateResponse,
+            GetAccountProofsResponse, GetAccountStateDeltaResponse, GetBlockByNumberResponse,
+            GetBlockHeaderByNumberResponse, GetNotesByIdResponse, SubmitProvenTransactionResponse,
+            SyncNoteResponse, SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -19,7 +20,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
-    utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
+    utils::serde::Deserializable, Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
@@ -249,5 +250,30 @@ impl api_server::Api for RpcApi {
         debug!(target: COMPONENT, ?request);
 
         self.store.clone().get_account_state_delta(request).await
+    }
+
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_account_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_proofs(
+        &self,
+        request: Request<GetAccountProofsRequest>,
+    ) -> Result<Response<GetAccountProofsResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        if request.account_ids.len() > MAX_NUM_FOREIGN_ACCOUNTS as usize {
+            return Err(Status::invalid_argument(format!(
+                "Too many accounts requested: {}, limit: {MAX_NUM_FOREIGN_ACCOUNTS}",
+                request.account_ids.len()
+            )));
+        }
+
+        self.store.clone().get_account_proofs(request).await
     }
 }

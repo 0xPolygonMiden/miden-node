@@ -68,6 +68,8 @@ pub enum DatabaseError {
     ApplyBlockFailedClosedChannel(RecvError),
     #[error("Account {0} not found in the database")]
     AccountNotFoundInDb(AccountId),
+    #[error("Accounts {0:?} not found in the database")]
+    AccountsNotFoundInDb(Vec<AccountId>),
     #[error("Account {0} is not on the chain")]
     AccountNotOnChain(AccountId),
     #[error("Failed to apply block because of public account final hashes mismatch (expected {expected}, \

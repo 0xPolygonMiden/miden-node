@@ -10,18 +10,20 @@ use miden_node_proto::{
         note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
-            GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
-            ListNotesRequest, ListNullifiersRequest, SyncNoteRequest, SyncStateRequest,
+            GetAccountDetailsRequest, GetAccountProofsRequest, GetAccountStateDeltaRequest,
+            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNoteAuthenticationInfoRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncNoteRequest,
+            SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
-            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
-            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNoteAuthenticationInfoResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
-            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
+            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetNoteAuthenticationInfoResponse, GetNotesByIdResponse,
+            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
+            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncNoteResponse, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -36,7 +38,7 @@ use miden_objects::{
     utils::{Deserializable, Serializable},
     Felt, ZERO,
 };
-use tonic::{Response, Status};
+use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
 use crate::{state::State, types::AccountId, COMPONENT};
@@ -421,7 +423,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
+        let account_id = request.account_id.ok_or(invalid_argument("`account_id` missing"))?.id;
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
@@ -473,6 +475,35 @@ impl api_server::Api for StoreApi {
         let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
+    }
+
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_account_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_proofs(
+        &self,
+        request: Request<GetAccountProofsRequest>,
+    ) -> Result<Response<GetAccountProofsResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        let account_ids = convert(request.account_ids);
+        let include_headers = request.include_headers.unwrap_or_default();
+        let (block_num, infos) = self
+            .state
+            .get_account_states(account_ids, include_headers)
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Response::new(GetAccountProofsResponse {
+            block_num,
+            account_proofs: infos.into_iter().map(Into::into).collect(),
+        }))
     }
 
     #[instrument(

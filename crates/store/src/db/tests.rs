@@ -133,7 +133,7 @@ fn test_sql_select_nullifiers() {
     create_block(&mut conn, block_num);
 
     // test querying empty table
-    let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
+    let nullifiers = sql::select_all_nullifiers(&mut conn).unwrap();
     assert!(nullifiers.is_empty());
 
     // test multiple entries
@@ -146,7 +146,7 @@ fn test_sql_select_nullifiers() {
         let res = sql::insert_nullifiers_for_block(&transaction, &[nullifier], block_num);
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
-        let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
+        let nullifiers = sql::select_all_nullifiers(&mut conn).unwrap();
         assert_eq!(nullifiers, state);
     }
 }
@@ -159,7 +159,7 @@ fn test_sql_select_notes() {
     create_block(&mut conn, block_num);
 
     // test querying empty table
-    let notes = sql::select_notes(&mut conn).unwrap();
+    let notes = sql::select_all_notes(&mut conn).unwrap();
     assert!(notes.is_empty());
 
     // test multiple entries
@@ -186,7 +186,7 @@ fn test_sql_select_notes() {
         let res = sql::insert_notes(&transaction, &[note]);
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
-        let notes = sql::select_notes(&mut conn).unwrap();
+        let notes = sql::select_all_notes(&mut conn).unwrap();
         assert_eq!(notes, state);
     }
 }
@@ -199,7 +199,7 @@ fn test_sql_select_notes_different_execution_hints() {
     create_block(&mut conn, block_num);
 
     // test querying empty table
-    let notes = sql::select_notes(&mut conn).unwrap();
+    let notes = sql::select_all_notes(&mut conn).unwrap();
     assert!(notes.is_empty());
 
     // test multiple entries
@@ -286,7 +286,7 @@ fn test_sql_select_accounts() {
     create_block(&mut conn, block_num);
 
     // test querying empty table
-    let accounts = sql::select_accounts(&mut conn).unwrap();
+    let accounts = sql::select_all_accounts(&mut conn).unwrap();
     assert!(accounts.is_empty());
     // test multiple entries
     let mut state = vec![];
@@ -316,7 +316,7 @@ fn test_sql_select_accounts() {
         );
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
-        let accounts = sql::select_accounts(&mut conn).unwrap();
+        let accounts = sql::select_all_accounts(&mut conn).unwrap();
         assert_eq!(accounts, state);
     }
 }
@@ -362,7 +362,7 @@ fn test_sql_public_account_details() {
     );
 
     // test querying empty table
-    let accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+    let accounts_in_db = sql::select_all_accounts(&mut conn).unwrap();
     assert!(accounts_in_db.is_empty());
 
     let transaction = conn.transaction().unwrap();
@@ -382,7 +382,7 @@ fn test_sql_public_account_details() {
 
     transaction.commit().unwrap();
 
-    let mut accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+    let mut accounts_in_db = sql::select_all_accounts(&mut conn).unwrap();
 
     assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
 
@@ -422,7 +422,7 @@ fn test_sql_public_account_details() {
 
     transaction.commit().unwrap();
 
-    let mut accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+    let mut accounts_in_db = sql::select_all_accounts(&mut conn).unwrap();
 
     assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
 
@@ -475,7 +475,7 @@ fn test_sql_public_account_details() {
 
     transaction.commit().unwrap();
 
-    let mut accounts_in_db = sql::select_accounts(&mut conn).unwrap();
+    let mut accounts_in_db = sql::select_all_accounts(&mut conn).unwrap();
 
     assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
 
@@ -532,7 +532,7 @@ fn test_sql_select_nullifiers_by_block_range() {
     sql::insert_nullifiers_for_block(&transaction, &[nullifier2], block_number2).unwrap();
     transaction.commit().unwrap();
 
-    let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
+    let nullifiers = sql::select_all_nullifiers(&mut conn).unwrap();
     assert_eq!(nullifiers, vec![(nullifier1, block_number1), (nullifier2, block_number2)]);
 
     // only the nullifiers matching the prefix are included
@@ -649,7 +649,7 @@ fn test_select_nullifiers_by_prefix() {
     sql::insert_nullifiers_for_block(&transaction, &[nullifier2], block_number2).unwrap();
     transaction.commit().unwrap();
 
-    let nullifiers = sql::select_nullifiers(&mut conn).unwrap();
+    let nullifiers = sql::select_all_nullifiers(&mut conn).unwrap();
     assert_eq!(nullifiers, vec![(nullifier1, block_number1), (nullifier2, block_number2)]);
 
     // only the nullifiers matching the prefix are included

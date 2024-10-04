@@ -39,7 +39,7 @@ use crate::{
 /// # Returns
 ///
 /// A vector with accounts, or an error.
-pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
+pub fn select_all_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
     let mut stmt = conn.prepare_cached(
         "
         SELECT
@@ -67,7 +67,7 @@ pub fn select_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
 /// # Returns
 ///
 /// The vector with the account id and corresponding hash, or an error.
-pub fn select_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, RpoDigest)>> {
+pub fn select_all_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, RpoDigest)>> {
     let mut stmt = conn
         .prepare_cached("SELECT account_id, account_hash FROM accounts ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
@@ -148,6 +148,40 @@ pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<Ac
     let row = rows.next()?.ok_or(DatabaseError::AccountNotFoundInDb(account_id))?;
 
     account_info_from_row(row)
+}
+
+/// Select the latest accounts' details filtered by IDs from the DB using the given [Connection].
+///
+/// # Returns
+///
+/// The account details vector, or an error.
+pub fn select_accounts_by_ids(
+    conn: &mut Connection,
+    account_ids: &[AccountId],
+) -> Result<Vec<AccountInfo>> {
+    let mut stmt = conn.prepare_cached(
+        "
+        SELECT
+            account_id,
+            account_hash,
+            block_num,
+            details
+        FROM
+            accounts
+        WHERE
+            account_id IN rarray(?1);
+    ",
+    )?;
+
+    let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
+    let mut rows = stmt.query(params![Rc::new(account_ids)])?;
+
+    let mut result = Vec::new();
+    while let Some(row) = rows.next()? {
+        result.push(account_info_from_row(row)?)
+    }
+
+    Ok(result)
 }
 
 /// Select account deltas by account id and block range from the DB using the given [Connection].
@@ -297,7 +331,7 @@ pub fn insert_nullifiers_for_block(
 /// # Returns
 ///
 /// A vector with nullifiers and the block height at which they were created, or an error.
-pub fn select_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, BlockNumber)>> {
+pub fn select_all_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, BlockNumber)>> {
     let mut stmt =
         conn.prepare_cached("SELECT nullifier, block_num FROM nullifiers ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
@@ -415,7 +449,7 @@ pub fn select_nullifiers_by_prefix(
 /// # Returns
 ///
 /// A vector with notes, or an error.
-pub fn select_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
+pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
     let mut stmt = conn.prepare_cached(
         "
         SELECT
