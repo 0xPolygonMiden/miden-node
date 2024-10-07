@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
@@ -9,7 +11,10 @@ use miden_objects::{
     MAX_BATCHES_PER_BLOCK, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use miden_processor::ExecutionError;
+use miden_tx::TransactionVerifierError;
 use thiserror::Error;
+
+use crate::mempool::BlockNumber;
 
 // Transaction verification errors
 // =================================================================================================
@@ -56,6 +61,29 @@ pub enum VerifyTxError {
 pub enum AddTransactionError {
     #[error("Transaction verification failed: {0}")]
     VerificationFailed(#[from] VerifyTxError),
+}
+
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum AddTransactionErrorRework {
+    #[error("Transaction's initial account state {expected} did not match the current account state {current}.")]
+    InvalidAccountState { current: Digest, expected: Digest },
+    #[error("Transaction input data is stale. Required data fresher than {stale_limit} but inputs are from {input_block}.")]
+    StaleInputs {
+        input_block: BlockNumber,
+        stale_limit: BlockNumber,
+    },
+    #[error("Authenticated note nullifier {0} not found.")]
+    AuthenticatedNoteNotFound(Nullifier),
+    #[error("Unauthenticated note {0} not found.")]
+    UnauthenticatedNoteNotFound(NoteId),
+    #[error("Note nullifiers already consumed: {0:?}")]
+    NotesAlreadyConsumed(BTreeSet<Nullifier>),
+    #[error(transparent)]
+    TxInputsError(#[from] TxInputsError),
+    #[error(transparent)]
+    ProofVerificationFailed(#[from] TransactionVerifierError),
+    #[error("Failed to deserialize transaction: {0}.")]
+    DeserializationError(String),
 }
 
 // Batch building errors

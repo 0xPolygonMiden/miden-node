@@ -1,17 +1,34 @@
-use std::{net::ToSocketAddrs, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    net::ToSocketAddrs,
+    sync::Arc,
+};
 
-use miden_node_proto::generated::{block_producer::api_server, store::api_client as store_client};
-use miden_node_utils::errors::ApiError;
-use tokio::net::TcpListener;
+use miden_node_proto::generated::{
+    block_producer::api_server, requests::SubmitProvenTransactionRequest,
+    responses::SubmitProvenTransactionResponse, store::api_client as store_client,
+};
+use miden_node_utils::{
+    errors::ApiError,
+    formatting::{format_input_notes, format_output_notes},
+};
+use miden_objects::{
+    transaction::ProvenTransaction, utils::serde::Deserializable, MIN_PROOF_SECURITY_LEVEL,
+};
+use miden_tx::TransactionVerifier;
+use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
-use tracing::info;
+use tonic::Status;
+use tracing::{debug, info, instrument};
 
 use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
+    errors::AddTransactionErrorRework,
+    mempool::Mempool,
     state_view::DefaultStateView,
-    store::DefaultStore,
+    store::{DefaultStore, Store},
     txqueue::{TransactionQueue, TransactionQueueOptions},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
@@ -103,5 +120,112 @@ impl BlockProducer {
             .serve_with_incoming(TcpListenerStream::new(self.listener))
             .await
             .map_err(ApiError::ApiServeFailed)
+    }
+}
+
+pub struct Server {
+    /// This outer mutex enforces that the incoming transactions won't crowd out more important
+    /// mempool locks.
+    ///
+    /// The inner mutex will be abstracted away once we are happy with the api.
+    mempool: Mutex<Arc<Mutex<Mempool>>>,
+
+    store: DefaultStore,
+}
+
+// FIXME: remove the allow when the upstream clippy issue is fixed:
+// https://github.com/rust-lang/rust-clippy/issues/12281
+#[allow(clippy::blocks_in_conditions)]
+#[tonic::async_trait]
+impl api_server::Api for Server {
+    async fn submit_proven_transaction(
+        &self,
+        request: tonic::Request<SubmitProvenTransactionRequest>,
+    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, Status> {
+        self.submit_proven_transaction(request.into_inner())
+            .await
+            .map(tonic::Response::new)
+            .map_err(|err| match err {
+                AddTransactionErrorRework::InvalidAccountState { .. }
+                | AddTransactionErrorRework::AuthenticatedNoteNotFound(_)
+                | AddTransactionErrorRework::UnauthenticatedNoteNotFound(_)
+                | AddTransactionErrorRework::NotesAlreadyConsumed(_)
+                | AddTransactionErrorRework::DeserializationError(_)
+                | AddTransactionErrorRework::ProofVerificationFailed(_) => {
+                    Status::invalid_argument(err.to_string())
+                },
+                // Internal errors.
+                AddTransactionErrorRework::StaleInputs { .. }
+                | AddTransactionErrorRework::TxInputsError(_) => Status::internal("Internal error"),
+            })
+    }
+}
+
+impl Server {
+    #[instrument(
+        target = "miden-block-producer",
+        name = "block_producer:submit_proven_transaction",
+        skip_all,
+        err
+    )]
+    async fn submit_proven_transaction(
+        &self,
+        request: SubmitProvenTransactionRequest,
+    ) -> Result<SubmitProvenTransactionResponse, AddTransactionErrorRework> {
+        debug!(target: COMPONENT, ?request);
+
+        let tx = ProvenTransaction::read_from_bytes(&request.transaction)
+            .map_err(|err| AddTransactionErrorRework::DeserializationError(err.to_string()))?;
+
+        let tx_id = tx.id();
+
+        info!(
+            target: COMPONENT,
+            tx_id = %tx_id.to_hex(),
+            account_id = %tx.account_id().to_hex(),
+            initial_account_hash = %tx.account_update().init_state_hash(),
+            final_account_hash = %tx.account_update().final_state_hash(),
+            input_notes = %format_input_notes(tx.input_notes()),
+            output_notes = %format_output_notes(tx.output_notes()),
+            block_ref = %tx.block_ref(),
+            "Deserialized transaction"
+        );
+        debug!(target: COMPONENT, proof = ?tx.proof());
+
+        let mut inputs = self.store.get_tx_inputs(&tx).await?;
+
+        let mut authenticated_notes = BTreeSet::new();
+        let mut unauthenticated_notes = BTreeMap::new();
+
+        for note in tx.input_notes() {
+            match note.header() {
+                Some(header) => {
+                    unauthenticated_notes.insert(header.id(), note.nullifier());
+                },
+                None => {
+                    authenticated_notes.insert(note.nullifier());
+                },
+            }
+        }
+
+        // Authenticated note nullifiers must be present in the store and must be unconsumed.
+        for nullifier in &authenticated_notes {
+            let nullifier_state = inputs
+                .nullifiers
+                .remove(nullifier)
+                .ok_or(AddTransactionErrorRework::AuthenticatedNoteNotFound(*nullifier))?;
+
+            if nullifier_state.is_some() {
+                return Err(AddTransactionErrorRework::NotesAlreadyConsumed([*nullifier].into()));
+            }
+        }
+
+        self.mempool
+            .lock()
+            .await
+            .lock()
+            .await
+            .add_transaction(tx, inputs)
+            .map(|block_height| SubmitProvenTransactionResponse { block_height })
     }
 }
