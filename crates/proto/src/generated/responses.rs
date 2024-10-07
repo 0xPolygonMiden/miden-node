@@ -195,3 +195,36 @@ pub struct GetAccountStateDeltaResponse {
     #[prost(bytes = "vec", optional, tag = "1")]
     pub delta: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAccountProofsResponse {
+    /// Block number at which the state of the account was returned.
+    #[prost(fixed32, tag = "1")]
+    pub block_num: u32,
+    /// List of account state infos for the requested account keys.
+    #[prost(message, repeated, tag = "2")]
+    pub account_proofs: ::prost::alloc::vec::Vec<AccountProofsResponse>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountProofsResponse {
+    /// Account ID.
+    #[prost(message, optional, tag = "1")]
+    pub account_id: ::core::option::Option<super::account::AccountId>,
+    /// Account hash.
+    #[prost(message, optional, tag = "2")]
+    pub account_hash: ::core::option::Option<super::digest::Digest>,
+    /// Authentication path from the `account_root` of the block header to the account.
+    #[prost(message, optional, tag = "3")]
+    pub account_proof: ::core::option::Option<super::merkle::MerklePath>,
+    /// State header for public accounts. Filled only if `include_headers` flag is set to `true`.
+    #[prost(message, optional, tag = "4")]
+    pub state_header: ::core::option::Option<AccountStateHeader>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountStateHeader {
+    /// Account header.
+    #[prost(message, optional, tag = "1")]
+    pub header: ::core::option::Option<super::account::AccountHeader>,
+    /// Values of all account storage slots (max 255).
+    #[prost(bytes = "vec", tag = "2")]
+    pub storage_header: ::prost::alloc::vec::Vec<u8>,
+}

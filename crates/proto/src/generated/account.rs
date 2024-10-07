@@ -24,3 +24,18 @@ pub struct AccountInfo {
     #[prost(bytes = "vec", optional, tag = "2")]
     pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct AccountHeader {
+    /// Vault root hash.
+    #[prost(message, optional, tag = "1")]
+    pub vault_root: ::core::option::Option<super::digest::Digest>,
+    /// Storage root hash.
+    #[prost(message, optional, tag = "2")]
+    pub storage_commitment: ::core::option::Option<super::digest::Digest>,
+    /// Code root hash.
+    #[prost(message, optional, tag = "3")]
+    pub code_commitment: ::core::option::Option<super::digest::Digest>,
+    /// Account nonce.
+    #[prost(uint64, tag = "4")]
+    pub nonce: u64,
+}

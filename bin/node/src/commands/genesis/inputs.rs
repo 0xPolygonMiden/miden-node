@@ -18,16 +18,7 @@ pub struct GenesisInput {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum AccountInput {
-    BasicWallet(BasicWalletInputs),
     BasicFungibleFaucet(BasicFungibleFaucetInputs),
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct BasicWalletInputs {
-    pub init_seed: String,
-    pub auth_scheme: AuthSchemeInput,
-    pub auth_seed: String,
-    pub storage_mode: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -54,27 +45,17 @@ impl Default for GenesisInput {
                 .duration_since(UNIX_EPOCH)
                 .expect("Current timestamp should be greater than unix epoch")
                 .as_secs() as u32,
-            accounts: Some(vec![
-                AccountInput::BasicWallet(BasicWalletInputs {
-                    init_seed: "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                        .to_string(),
-                    auth_scheme: AuthSchemeInput::RpoFalcon512,
-                    auth_seed: "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                        .to_string(),
-                    storage_mode: "private".to_string(),
-                }),
-                AccountInput::BasicFungibleFaucet(BasicFungibleFaucetInputs {
-                    init_seed: "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                        .to_string(),
-                    auth_scheme: AuthSchemeInput::RpoFalcon512,
-                    auth_seed: "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                        .to_string(),
-                    token_symbol: "POL".to_string(),
-                    decimals: 12,
-                    max_supply: 1000000,
-                    storage_mode: "public".to_string(),
-                }),
-            ]),
+            accounts: Some(vec![AccountInput::BasicFungibleFaucet(BasicFungibleFaucetInputs {
+                init_seed: "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_string(),
+                auth_scheme: AuthSchemeInput::RpoFalcon512,
+                auth_seed: "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_string(),
+                token_symbol: "POL".to_string(),
+                decimals: 12,
+                max_supply: 1000000,
+                storage_mode: "public".to_string(),
+            })]),
         }
     }
 }
