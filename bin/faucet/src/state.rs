@@ -6,9 +6,8 @@ use tokio::sync::Mutex;
 use tracing::info;
 
 use crate::{
-    client::FaucetClient, config::FaucetConfig, errors::FaucetError, static_resources, COMPONENT,
+    client::FaucetClient, config::FaucetConfig, errors::InitError, static_resources, COMPONENT,
 };
-
 // FAUCET STATE
 // ================================================================================================
 
@@ -25,7 +24,7 @@ pub struct FaucetState {
 }
 
 impl FaucetState {
-    pub async fn new(config: FaucetConfig) -> Result<Self, FaucetError> {
+    pub async fn new(config: FaucetConfig) -> Result<Self, InitError> {
         let client = FaucetClient::new(config.clone()).await?;
         let id = client.get_faucet_id();
         let client = Arc::new(Mutex::new(client));

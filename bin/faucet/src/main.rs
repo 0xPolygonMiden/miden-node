@@ -11,7 +11,6 @@ use axum::{
     Router,
 };
 use clap::{Parser, Subcommand};
-use errors::FaucetError;
 use http::HeaderValue;
 use miden_node_utils::{config::load_config, version::LongVersion};
 use state::FaucetState;
@@ -22,6 +21,7 @@ use tracing::info;
 
 use crate::{
     config::FaucetConfig,
+    errors::InitError,
     handlers::{get_index, get_metadata, get_static_file, get_tokens},
 };
 // CONSTANTS
@@ -59,16 +59,16 @@ pub enum Command {
 // =================================================================================================
 
 #[tokio::main]
-async fn main() -> Result<(), FaucetError> {
+async fn main() -> Result<(), InitError> {
     miden_node_utils::logging::setup_logging()
-        .map_err(|err| FaucetError::StartError(err.to_string()))?;
+        .map_err(|err| InitError::FaucetFailedToStart(err.to_string()))?;
 
     let cli = Cli::parse();
 
     match &cli.command {
         Command::Start { config } => {
             let config: FaucetConfig = load_config(config)
-                .map_err(|err| FaucetError::ConfigurationError(err.to_string()))?;
+                .map_err(|err| InitError::ConfigurationError(err.to_string()))?;
 
             let faucet_state = FaucetState::new(config.clone()).await?;
 
@@ -96,7 +96,7 @@ async fn main() -> Result<(), FaucetError> {
 
             let listener = TcpListener::bind((config.endpoint.host.as_str(), config.endpoint.port))
                 .await
-                .map_err(|err| FaucetError::StartError(err.to_string()))?;
+                .map_err(|err| InitError::FaucetFailedToStart(err.to_string()))?;
 
             info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
 
@@ -104,24 +104,22 @@ async fn main() -> Result<(), FaucetError> {
         },
         Command::Init { config_path } => {
             let current_dir = std::env::current_dir().map_err(|err| {
-                FaucetError::ConfigurationError(format!("failed to open current directory: {err}"))
+                InitError::ConfigurationError(format!("failed to open current directory: {err}"))
             })?;
 
             let config_file_path = current_dir.join(config_path);
             let config = FaucetConfig::default();
             let config_as_toml_string = toml::to_string(&config).map_err(|err| {
-                FaucetError::ConfigurationError(format!(
-                    "Failed to serialize default config: {err}"
-                ))
+                InitError::ConfigurationError(format!("Failed to serialize default config: {err}"))
             })?;
 
             let mut file_handle =
                 File::options().write(true).create_new(true).open(&config_file_path).map_err(
-                    |err| FaucetError::ConfigurationError(format!("Error opening the file: {err}")),
+                    |err| InitError::ConfigurationError(format!("Error opening the file: {err}")),
                 )?;
 
             file_handle.write(config_as_toml_string.as_bytes()).map_err(|err| {
-                FaucetError::ConfigurationError(format!("Error writing to file: {err}"))
+                InitError::ConfigurationError(format!("Error writing to file: {err}"))
             })?;
 
             println!("Config file successfully created at: {config_file_path:?}");

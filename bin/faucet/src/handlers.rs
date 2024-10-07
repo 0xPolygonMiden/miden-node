@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use tonic::body;
 use tracing::info;
 
-use crate::{errors::FaucetError, state::FaucetState, COMPONENT};
+use crate::{errors::ProcessError, state::FaucetState, COMPONENT};
 
 #[derive(Deserialize)]
 pub struct FaucetRequest {
@@ -44,7 +44,7 @@ pub async fn get_metadata(
 pub async fn get_tokens(
     State(state): State<FaucetState>,
     Json(req): Json<FaucetRequest>,
-) -> Result<impl IntoResponse, FaucetError> {
+) -> Result<impl IntoResponse, ProcessError> {
     info!(
         target: COMPONENT,
         account_id = %req.account_id,
@@ -55,14 +55,14 @@ pub async fn get_tokens(
 
     // Check that the amount is in the asset amount options
     if !state.config.asset_amount_options.contains(&req.asset_amount) {
-        return Err(FaucetError::BadRequest("Invalid asset amount.".to_string()));
+        return Err(ProcessError::BadRequest("Invalid asset amount".to_string()));
     }
 
     let mut client = state.client.lock().await;
 
     // Receive and hex user account id
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
-        .map_err(|err| FaucetError::BadRequest(err.to_string()))?;
+        .map_err(|err| ProcessError::BadRequest(err.to_string()))?;
 
     // Execute transaction
     info!(target: COMPONENT, "Executing mint transaction for account.");
@@ -100,24 +100,24 @@ pub async fn get_tokens(
         .header(header::CONTENT_DISPOSITION, "attachment; filename=note.mno")
         .header("Note-Id", note_id.to_string())
         .body(body::boxed(Full::from(bytes)))
-        .map_err(|err| FaucetError::InternalServerError(err.to_string()))
+        .map_err(|err| ProcessError::InternalServerError(err.to_string()))
 }
 
-pub async fn get_index(state: State<FaucetState>) -> Result<impl IntoResponse, FaucetError> {
+pub async fn get_index(state: State<FaucetState>) -> Result<impl IntoResponse, ProcessError> {
     get_static_file(state, Path("index.html".to_string())).await
 }
 
 pub async fn get_static_file(
     State(state): State<FaucetState>,
     Path(path): Path<String>,
-) -> Result<impl IntoResponse, FaucetError> {
+) -> Result<impl IntoResponse, ProcessError> {
     info!(target: COMPONENT, path, "Serving static file");
 
-    let static_file = state.static_files.get(path.as_str()).ok_or(FaucetError::NotFound(path))?;
+    let static_file = state.static_files.get(path.as_str()).ok_or(ProcessError::NotFound(path))?;
 
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, static_file.mime_type)
         .body(body::boxed(Full::from(static_file.data)))
-        .map_err(|err| FaucetError::InternalServerError(err.to_string()))
+        .map_err(|err| ProcessError::InternalServerError(err.to_string()))
 }

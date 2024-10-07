@@ -30,7 +30,10 @@ use rand::{rngs::StdRng, thread_rng, Rng};
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use tonic::transport::Channel;
 
-use crate::{config::FaucetConfig, errors::FaucetError};
+use crate::{
+    config::FaucetConfig,
+    errors::{InitError, ProcessError},
+};
 
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");
@@ -52,7 +55,7 @@ unsafe impl Send for FaucetClient {}
 unsafe impl Sync for FaucetClient {}
 
 impl FaucetClient {
-    pub async fn new(config: FaucetConfig) -> Result<Self, FaucetError> {
+    pub async fn new(config: FaucetConfig) -> Result<Self, InitError> {
         let (rpc_api, root_block_header, root_chain_mmr) =
             initialize_faucet_client(config.clone()).await?;
 
@@ -87,9 +90,9 @@ impl FaucetClient {
         target_account_id: AccountId,
         is_private_note: bool,
         asset_amount: u64,
-    ) -> Result<(ExecutedTransaction, Note), FaucetError> {
+    ) -> Result<(ExecutedTransaction, Note), ProcessError> {
         let asset = FungibleAsset::new(self.id, asset_amount)
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+            .map_err(|err| ProcessError::InternalServerError(err.to_string()))?;
 
         let note_type = if is_private_note {
             NoteType::Private
@@ -105,7 +108,7 @@ impl FaucetClient {
             Default::default(),
             &mut self.rng,
         )
-        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+        .map_err(|err| ProcessError::InternalServerError(err.to_string()))?;
 
         let transaction_args = build_transaction_arguments(&output_note, note_type, asset)?;
 
@@ -113,7 +116,7 @@ impl FaucetClient {
             .executor
             .execute_transaction(self.id, 0, &[], transaction_args)
             .map_err(|err| {
-                FaucetError::InternalServerError(format!("Failed to execute transaction: {err}"))
+                ProcessError::InternalServerError(format!("Failed to execute transaction: {err}"))
             })?;
 
         Ok((executed_tx, output_note))
@@ -123,32 +126,32 @@ impl FaucetClient {
     pub async fn prove_and_submit_transaction(
         &mut self,
         executed_tx: ExecutedTransaction,
-    ) -> Result<u32, FaucetError> {
-        let (request, delta) = {
+    ) -> Result<u32, ProcessError> {
+        let delta = executed_tx.account_delta().clone();
+
+        // Prepare request with proven transaction.
+        // This is needed to be in a separated code block in order to release reference to avoid
+        // borrow checker error.
+        let request = {
             let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
 
-            let delta = executed_tx.account_delta().clone();
-
             let proven_transaction = transaction_prover.prove(executed_tx).map_err(|err| {
-                FaucetError::InternalServerError(format!("Failed to prove transaction: {err}"))
+                ProcessError::InternalServerError(format!("Failed to prove transaction: {err}"))
             })?;
 
-            (
-                SubmitProvenTransactionRequest {
-                    transaction: proven_transaction.to_bytes(),
-                },
-                delta,
-            )
+            SubmitProvenTransactionRequest {
+                transaction: proven_transaction.to_bytes(),
+            }
         };
 
         let response = self
             .rpc_api
             .submit_proven_transaction(request)
             .await
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+            .map_err(|err| ProcessError::InternalServerError(err.to_string()))?;
 
         self.data_store.update_faucet_account(&delta).map_err(|err| {
-            FaucetError::InternalServerError(format!("Failed to update account: {err}"))
+            ProcessError::InternalServerError(format!("Failed to update account: {err}"))
         })?;
 
         Ok(response.into_inner().block_height)
@@ -186,11 +189,11 @@ impl FaucetDataStore {
     }
 
     /// Updates the stored faucet account with the provided delta.
-    fn update_faucet_account(&mut self, delta: &AccountDelta) -> Result<(), FaucetError> {
+    fn update_faucet_account(&mut self, delta: &AccountDelta) -> Result<(), ProcessError> {
         self.faucet_account
             .borrow_mut()
             .apply_delta(delta)
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))
+            .map_err(|err| ProcessError::InternalServerError(err.to_string()))
     }
 }
 
@@ -226,13 +229,13 @@ impl DataStore for FaucetDataStore {
 /// Builds a new faucet account with the provided configuration.
 ///
 /// Returns the created account, its seed, and the secret key used to sign transactions.
-fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), FaucetError> {
+fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), InitError> {
     let token_symbol = TokenSymbol::new(config.token_symbol.as_str())
-        .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
+        .map_err(|err| InitError::AccountCreationError(err.to_string()))?;
 
     let seed: [u8; 32] = [0; 32];
 
-    // Instantiate keypair and authscheme
+    // Instantiate keypair and auth scheme
     let mut rng = ChaCha20Rng::from_seed(seed);
     let secret = SecretKey::with_rng(&mut rng);
     let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
@@ -242,11 +245,11 @@ fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), Fau
         token_symbol,
         config.decimals,
         Felt::try_from(config.max_supply)
-            .map_err(|err| FaucetError::InternalServerError(err.to_string()))?,
+            .map_err(|err| InitError::AccountCreationError(err.to_string()))?,
         AccountStorageMode::Private,
         auth_scheme,
     )
-    .map_err(|err| FaucetError::AccountCreationError(err.to_string()))?;
+    .map_err(|err| InitError::AccountCreationError(err.to_string()))?;
 
     Ok((faucet_account, account_seed, secret))
 }
@@ -254,26 +257,27 @@ fn build_account(config: FaucetConfig) -> Result<(Account, Word, SecretKey), Fau
 /// Initializes the faucet client by connecting to the node and fetching the root block header.
 pub async fn initialize_faucet_client(
     config: FaucetConfig,
-) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), FaucetError> {
+) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), InitError> {
     let endpoint = tonic::transport::Endpoint::try_from(config.node_url.clone())
-        .map_err(|_| FaucetError::InternalServerError("Failed to connect to node.".to_string()))?
+        .map_err(|_| InitError::ClientInitFailed("Failed to connect to node.".to_string()))?
         .timeout(Duration::from_millis(config.timeout_ms));
 
     let mut rpc_api = ApiClient::connect(endpoint)
         .await
-        .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
+        .map_err(|err| InitError::ClientInitFailed(err.to_string()))?;
 
     let request = GetBlockHeaderByNumberRequest {
         block_num: Some(0),
         include_mmr_proof: Some(true),
     };
-    let response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
-        FaucetError::InternalServerError(format!("Failed to get block header: {err}"))
-    })?;
+    let response = rpc_api
+        .get_block_header_by_number(request)
+        .await
+        .map_err(|err| InitError::ClientInitFailed(format!("Failed to get block header: {err}")))?;
     let root_block_header = response.into_inner().block_header.unwrap();
 
     let root_block_header: BlockHeader = root_block_header.try_into().map_err(|err| {
-        FaucetError::InternalServerError(format!("Failed to parse block header: {err}"))
+        InitError::ClientInitFailed(format!("Failed to parse block header: {err}"))
     })?;
 
     let root_chain_mmr = ChainMmr::new(
@@ -292,7 +296,7 @@ fn build_transaction_arguments(
     output_note: &Note,
     note_type: NoteType,
     asset: FungibleAsset,
-) -> Result<TransactionArgs, FaucetError> {
+) -> Result<TransactionArgs, ProcessError> {
     let recipient = output_note
         .recipient()
         .digest()
@@ -315,7 +319,7 @@ fn build_transaction_arguments(
 
     let script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
         .map_err(|err| {
-            FaucetError::InternalServerError(format!("Failed to compile script: {err}"))
+            ProcessError::InternalServerError(format!("Failed to compile script: {err}"))
         })?;
 
     let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());
