@@ -8,12 +8,14 @@ use miden_objects::{
     notes::{NoteHeader, Nullifier},
     transaction::InputNoteCommitment,
 };
+use tokio::sync::Mutex;
 use tracing::{debug, info, instrument};
 
 use crate::{
     batch_builder::batch::TransactionBatch,
     errors::BuildBlockError,
-    store::{ApplyBlock, Store},
+    mempool::{BatchJobId, Mempool},
+    store::{ApplyBlock, DefaultStore, Store},
     COMPONENT,
 };
 
@@ -138,5 +140,35 @@ where
         info!(target: COMPONENT, block_num, %block_hash, "block committed");
 
         Ok(())
+    }
+}
+
+struct BlockProducer {
+    pub mempool: Arc<Mutex<Mempool>>,
+    pub block_interval: tokio::time::Duration,
+}
+
+impl BlockProducer {
+    pub async fn run(self) {
+        let mut interval = tokio::time::interval(self.block_interval);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            interval.tick().await;
+
+            let (block_number, batches) = self.mempool.lock().await.select_block();
+
+            let result = self.build_and_commit_block(batches).await;
+            let mut mempool = self.mempool.lock().await;
+
+            match result {
+                Ok(_) => mempool.block_committed(block_number),
+                Err(_) => mempool.block_failed(block_number),
+            }
+        }
+    }
+
+    async fn build_and_commit_block(&self, batches: BTreeSet<BatchJobId>) -> Result<(), ()> {
+        todo!("Aggregate, prove and commit block");
     }
 }
