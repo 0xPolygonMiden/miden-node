@@ -5,7 +5,9 @@ use static_files::Resource;
 use tokio::sync::Mutex;
 use tracing::info;
 
-use crate::{client::FaucetClient, config::FaucetConfig, errors::FaucetError, static_resources};
+use crate::{
+    client::FaucetClient, config::FaucetConfig, errors::FaucetError, static_resources, COMPONENT,
+};
 
 // FAUCET STATE
 // ================================================================================================
@@ -29,7 +31,7 @@ impl FaucetState {
         let client = Arc::new(Mutex::new(client));
         let static_files = Arc::new(static_resources::generate());
 
-        info!("Faucet initialization successful, account id: {}", id);
+        info!(target: COMPONENT, account_id = %id, "Faucet initialization successful");
 
         Ok(FaucetState { client, id, config, static_files })
     }

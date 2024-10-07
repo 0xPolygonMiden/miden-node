@@ -94,13 +94,11 @@ async fn main() -> Result<(), FaucetError> {
                 )
                 .with_state(faucet_state);
 
-            let endpoint_url = config.endpoint_url();
-
-            let listener = TcpListener::bind((config.endpoint.host, config.endpoint.port))
+            let listener = TcpListener::bind((config.endpoint.host.as_str(), config.endpoint.port))
                 .await
                 .map_err(|err| FaucetError::StartError(err.to_string()))?;
 
-            info!("Server is now running on: {}", endpoint_url);
+            info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
 
             axum::serve(listener, app).await.unwrap();
         },
@@ -126,7 +124,7 @@ async fn main() -> Result<(), FaucetError> {
                 FaucetError::ConfigurationError(format!("Error writing to file: {err}"))
             })?;
 
-            println!("Config file successfully created at: {:?}", config_file_path);
+            println!("Config file successfully created at: {config_file_path:?}");
         },
     }
 

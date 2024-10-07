@@ -113,7 +113,7 @@ impl FaucetClient {
             .executor
             .execute_transaction(self.id, 0, &[], transaction_args)
             .map_err(|err| {
-                FaucetError::InternalServerError(format!("Failed to execute transaction: {}", err))
+                FaucetError::InternalServerError(format!("Failed to execute transaction: {err}"))
             })?;
 
         Ok((executed_tx, output_note))
@@ -130,7 +130,7 @@ impl FaucetClient {
             let delta = executed_tx.account_delta().clone();
 
             let proven_transaction = transaction_prover.prove(executed_tx).map_err(|err| {
-                FaucetError::InternalServerError(format!("Failed to prove transaction: {}", err))
+                FaucetError::InternalServerError(format!("Failed to prove transaction: {err}"))
             })?;
 
             (
@@ -148,7 +148,7 @@ impl FaucetClient {
             .map_err(|err| FaucetError::InternalServerError(err.to_string()))?;
 
         self.data_store.update_faucet_account(&delta).map_err(|err| {
-            FaucetError::InternalServerError(format!("Failed to update account: {}", err))
+            FaucetError::InternalServerError(format!("Failed to update account: {err}"))
         })?;
 
         Ok(response.into_inner().block_height)
@@ -268,12 +268,12 @@ pub async fn initialize_faucet_client(
         include_mmr_proof: Some(true),
     };
     let response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
-        FaucetError::InternalServerError(format!("Failed to get block header: {}", err))
+        FaucetError::InternalServerError(format!("Failed to get block header: {err}"))
     })?;
     let root_block_header = response.into_inner().block_header.unwrap();
 
     let root_block_header: BlockHeader = root_block_header.try_into().map_err(|err| {
-        FaucetError::InternalServerError(format!("Failed to parse block header: {}", err))
+        FaucetError::InternalServerError(format!("Failed to parse block header: {err}"))
     })?;
 
     let root_chain_mmr = ChainMmr::new(
@@ -315,7 +315,7 @@ fn build_transaction_arguments(
 
     let script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
         .map_err(|err| {
-            FaucetError::InternalServerError(format!("Failed to compile script: {}", err))
+            FaucetError::InternalServerError(format!("Failed to compile script: {err}"))
         })?;
 
     let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());

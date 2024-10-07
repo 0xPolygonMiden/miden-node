@@ -46,8 +46,11 @@ pub async fn get_tokens(
     Json(req): Json<FaucetRequest>,
 ) -> Result<impl IntoResponse, FaucetError> {
     info!(
-        "Received a request with account_id: {}, is_private_note: {}, asset_amount: {}",
-        req.account_id, req.is_private_note, req.asset_amount
+        target: COMPONENT,
+        account_id = %req.account_id,
+        is_private_note = %req.is_private_note,
+        asset_amount = %req.asset_amount,
+        "Received a request",
     );
 
     // Check that the amount is in the asset amount options
@@ -55,9 +58,6 @@ pub async fn get_tokens(
         return Err(FaucetError::BadRequest("Invalid asset amount.".to_string()));
     }
 
-    // TODO: We lock the client for the whole request which leads to blocking of other requests.
-    //       We should find a way to avoid this. The simplest solution would be to create new client
-    //       for each request. If this takes too long, we should consider using a pool of clients.
     let mut client = state.client.lock().await;
 
     // Receive and hex user account id
@@ -65,7 +65,7 @@ pub async fn get_tokens(
         .map_err(|err| FaucetError::BadRequest(err.to_string()))?;
 
     // Execute transaction
-    info!("Executing mint transaction for account.");
+    info!(target: COMPONENT, "Executing mint transaction for account.");
     let (executed_tx, created_note) = client.execute_mint_transaction(
         target_account_id,
         req.is_private_note,
@@ -73,7 +73,7 @@ pub async fn get_tokens(
     )?;
 
     // Run transaction prover & send transaction to node
-    info!("Proving and submitting transaction.");
+    info!(target: COMPONENT, "Proving and submitting transaction.");
     let block_height = client.prove_and_submit_transaction(executed_tx).await?;
 
     let note_id: NoteId = created_note.id();
@@ -91,7 +91,7 @@ pub async fn get_tokens(
     }
     .to_bytes();
 
-    info!("A new note has been created: {}", note_id);
+    info!(target: COMPONENT, %note_id, "A new note has been created");
 
     // Send generated note to user
     Response::builder()
