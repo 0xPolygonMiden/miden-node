@@ -81,6 +81,8 @@ pub enum AddTransactionErrorRework {
     #[error(transparent)]
     TxInputsError(#[from] TxInputsError),
     #[error(transparent)]
+    NoteAuthenticationError(#[from] NotePathsError),
+    #[error(transparent)]
     ProofVerificationFailed(#[from] TransactionVerifierError),
     #[error("Failed to deserialize transaction: {0}.")]
     DeserializationError(String),

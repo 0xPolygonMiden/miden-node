@@ -10,7 +10,9 @@ use miden_objects::{
     Digest,
 };
 
-use crate::{errors::AddTransactionErrorRework, store::TransactionInputs};
+use crate::{
+    errors::AddTransactionErrorRework, store::TransactionInputs, transaction::VerifiedTransaction,
+};
 
 /// Tracks the inflight state of the mempool. This includes recently committed blocks.
 ///
@@ -41,13 +43,13 @@ pub struct StateDiff {
 }
 
 impl StateDiff {
-    pub fn new(txs: &[Arc<ProvenTransaction>]) -> Self {
+    pub fn new(txs: &[Arc<VerifiedTransaction>]) -> Self {
         let mut account_transactions = BTreeMap::<AccountId, usize>::new();
         let mut nullifiers = BTreeSet::new();
 
         for tx in txs {
             *account_transactions.entry(tx.account_id()).or_default() += 1;
-            nullifiers.extend(tx.get_nullifiers());
+            nullifiers.extend(tx.nullifiers());
         }
 
         Self { account_transactions, nullifiers }
@@ -60,7 +62,7 @@ impl InflightState {
     /// This operation is atomic i.e. a rejected transaction has no impact of the state.
     pub fn add_transaction(
         &mut self,
-        tx: &ProvenTransaction,
+        tx: &VerifiedTransaction,
         inputs: &TransactionInputs,
     ) -> Result<BTreeSet<TransactionId>, AddTransactionErrorRework> {
         // Separate verification and state mutation so that a rejected transaction
@@ -74,7 +76,7 @@ impl InflightState {
 
     fn verify_transaction(
         &mut self,
-        tx: &ProvenTransaction,
+        tx: &VerifiedTransaction,
         inputs: &TransactionInputs,
     ) -> Result<(), AddTransactionErrorRework> {
         // Ensure current account state is correct.
@@ -94,7 +96,7 @@ impl InflightState {
         // Ensure nullifiers aren't already present.
         // TODO: Verifying the inputs nullifiers should be done externally already.
         // TODO: The above should cause a change in type for inputs indicating this.
-        let input_nullifiers = tx.get_nullifiers().collect::<BTreeSet<_>>();
+        let input_nullifiers = tx.nullifiers().copied().collect::<BTreeSet<_>>();
         let double_spend =
             self.nullifiers.union(&input_nullifiers).copied().collect::<BTreeSet<_>>();
         if !double_spend.is_empty() {
@@ -107,14 +109,14 @@ impl InflightState {
     }
 
     /// Aggregate the transaction into the state, returning its parent transactions.
-    fn insert_transaction(&mut self, tx: &ProvenTransaction) -> BTreeSet<TransactionId> {
+    fn insert_transaction(&mut self, tx: &VerifiedTransaction) -> BTreeSet<TransactionId> {
         let account_parent = self
             .accounts
             .entry(tx.account_id())
             .or_default()
             .insert(tx.account_update().final_state_hash(), tx.id());
 
-        self.nullifiers.extend(tx.get_nullifiers());
+        self.nullifiers.extend(tx.nullifiers());
 
         // TODO: input and output notes
 

@@ -3,9 +3,10 @@ use std::{
     sync::Arc,
 };
 
-use miden_objects::transaction::{ProvenTransaction, TransactionId};
+use miden_objects::transaction::TransactionId;
 
 use super::BatchJobId;
+use crate::transaction::VerifiedTransaction;
 
 #[derive(Default, Clone, Debug)]
 pub struct TransactionGraph {
@@ -18,7 +19,7 @@ pub struct TransactionGraph {
     roots: BTreeSet<TransactionId>,
 }
 impl TransactionGraph {
-    pub fn insert(&mut self, transaction: ProvenTransaction, parents: BTreeSet<TransactionId>) {
+    pub fn insert(&mut self, transaction: VerifiedTransaction, parents: BTreeSet<TransactionId>) {
         let id = transaction.id();
 
         // Inform parent's of their new child.
@@ -68,7 +69,7 @@ impl TransactionGraph {
         }
     }
 
-    pub fn remove_committed(&mut self, tx_ids: &[TransactionId]) -> Vec<Arc<ProvenTransaction>> {
+    pub fn remove_committed(&mut self, tx_ids: &[TransactionId]) -> Vec<Arc<VerifiedTransaction>> {
         let mut transactions = Vec::with_capacity(tx_ids.len());
         for transaction in tx_ids {
             let node = self.nodes.remove(transaction).expect("Node must be in graph");
@@ -96,7 +97,7 @@ impl TransactionGraph {
     pub fn purge_subgraphs(
         &mut self,
         transactions: Vec<TransactionId>,
-    ) -> Vec<Arc<ProvenTransaction>> {
+    ) -> Vec<Arc<VerifiedTransaction>> {
         let mut removed = Vec::new();
 
         let mut to_process = transactions;
@@ -147,13 +148,13 @@ impl TransactionGraph {
 #[derive(Clone, Debug)]
 struct Node {
     status: Status,
-    data: Arc<ProvenTransaction>,
+    data: Arc<VerifiedTransaction>,
     parents: BTreeSet<TransactionId>,
     children: BTreeSet<TransactionId>,
 }
 
 impl Node {
-    fn new(tx: ProvenTransaction, parents: BTreeSet<TransactionId>) -> Self {
+    fn new(tx: VerifiedTransaction, parents: BTreeSet<TransactionId>) -> Self {
         Self {
             status: Status::InQueue,
             data: Arc::new(tx),

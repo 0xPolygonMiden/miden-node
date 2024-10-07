@@ -4,9 +4,12 @@ use std::{
     sync::Arc,
 };
 
-use miden_node_proto::generated::{
-    block_producer::api_server, requests::SubmitProvenTransactionRequest,
-    responses::SubmitProvenTransactionResponse, store::api_client as store_client,
+use miden_node_proto::{
+    domain::nullifiers,
+    generated::{
+        block_producer::api_server, requests::SubmitProvenTransactionRequest,
+        responses::SubmitProvenTransactionResponse, store::api_client as store_client,
+    },
 };
 use miden_node_utils::{
     errors::ApiError,
@@ -29,6 +32,7 @@ use crate::{
     mempool::Mempool,
     state_view::DefaultStateView,
     store::{DefaultStore, Store},
+    transaction::VerifiedTransaction,
     txqueue::{TransactionQueue, TransactionQueueOptions},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
@@ -156,6 +160,7 @@ impl api_server::Api for Server {
                 },
                 // Internal errors.
                 AddTransactionErrorRework::StaleInputs { .. }
+                | AddTransactionErrorRework::NoteAuthenticationError(..)
                 | AddTransactionErrorRework::TxInputsError(_) => Status::internal("Internal error"),
             })
     }
@@ -193,30 +198,33 @@ impl Server {
         debug!(target: COMPONENT, proof = ?tx.proof());
 
         let mut inputs = self.store.get_tx_inputs(&tx).await?;
+        let unauthenticated_notes =
+            tx.get_unauthenticated_notes().map(|note| note.id()).collect::<BTreeSet<_>>();
+        let auth = self.store.get_note_authentication_info(unauthenticated_notes.iter()).await?;
 
-        let mut authenticated_notes = BTreeSet::new();
-        let mut unauthenticated_notes = BTreeMap::new();
+        // SAFETY: We assume that the RPC component verifies the transaction proof.
+        let mut tx = VerifiedTransaction::new_unchecked(tx);
 
-        for note in tx.input_notes() {
-            match note.header() {
-                Some(header) => {
-                    unauthenticated_notes.insert(header.id(), note.nullifier());
-                },
-                None => {
-                    authenticated_notes.insert(note.nullifier());
-                },
-            }
+        // Pre-check that all nullifiers are uncomsumed in the store.
+        //
+        // This will be checked again in the mempool against inflight nullifiers, but this
+        // way we early reject transactions without locking the mempool.
+        let nullifiers_already_spent = tx
+            .nullifiers()
+            .filter_map(|nullifier| {
+                inputs.nullifiers.get(nullifier).copied().flatten().map(|_| *nullifier)
+            })
+            .collect::<BTreeSet<_>>();
+        if !nullifiers_already_spent.is_empty() {
+            return Err(AddTransactionErrorRework::NotesAlreadyConsumed(nullifiers_already_spent));
         }
 
-        // Authenticated note nullifiers must be present in the store and must be unconsumed.
-        for nullifier in &authenticated_notes {
-            let nullifier_state = inputs
-                .nullifiers
-                .remove(nullifier)
-                .ok_or(AddTransactionErrorRework::AuthenticatedNoteNotFound(*nullifier))?;
-
-            if nullifier_state.is_some() {
-                return Err(AddTransactionErrorRework::NotesAlreadyConsumed([*nullifier].into()));
+        // Upgrade unauthenticated notes for which we now have witnesses.
+        //
+        // This prevents having to re-witness them later, saving on database IO.
+        for (note_id, (block_witness, note_witness)) in auth.note_proofs() {
+            if tx.witness_note(note_id, block_witness, note_witness).is_none() {
+                tracing::warn!(note=%note_id, "Received a witness for a note that was not unauthenticated.");
             }
         }
 

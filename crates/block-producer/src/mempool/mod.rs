@@ -19,6 +19,7 @@ use transaction_graph::TransactionGraph;
 use crate::{
     errors::AddTransactionErrorRework,
     store::{TransactionInputs, TxInputsError},
+    transaction::VerifiedTransaction,
 };
 
 mod batch_graph;
@@ -120,7 +121,7 @@ impl Mempool {
     /// Returns an error if the transaction's initial conditions don't match the current state.
     pub fn add_transaction(
         &mut self,
-        transaction: ProvenTransaction,
+        transaction: VerifiedTransaction,
         inputs: TransactionInputs,
     ) -> Result<u32, AddTransactionErrorRework> {
         // Ensure inputs aren't stale.
