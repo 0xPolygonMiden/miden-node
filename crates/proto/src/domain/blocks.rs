@@ -121,3 +121,16 @@ impl TryFrom<proto::BlockInclusionProof> for BlockInclusionProof {
         Ok(result)
     }
 }
+
+// Required so that we can convert to Map<u32, BlockInclusionProof>.
+impl TryFrom<proto::BlockInclusionProof> for (u32, BlockInclusionProof) {
+    type Error = ConversionError;
+
+    fn try_from(value: proto::BlockInclusionProof) -> Result<Self, ConversionError> {
+        let block_proof = BlockInclusionProof::try_from(value)?;
+
+        let block_num = block_proof.block_header.block_num();
+
+        Ok((block_num, block_proof))
+    }
+}

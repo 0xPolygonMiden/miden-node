@@ -308,7 +308,7 @@ impl api_server::Api for StoreApi {
 
         // Massage into shape required by protobuf
         let note_proofs = note_proofs.iter().map(Into::into).collect();
-        let block_proofs = block_proofs.into_iter().map(Into::into).collect();
+        let block_proofs = block_proofs.into_values().map(Into::into).collect();
 
         Ok(Response::new(GetNoteAuthenticationInfoResponse {
             proofs: Some(NoteAuthenticationInfoProto { note_proofs, block_proofs }),
