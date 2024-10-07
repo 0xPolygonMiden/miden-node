@@ -43,7 +43,7 @@ impl ProcessError {
     fn message(&self) -> String {
         match self {
             Self::BadRequest(msg) => msg,
-            Self::InternalServerError(msg) => msg,
+            Self::InternalServerError(_) => "Error processing request",
             Self::NotFound(msg) => msg,
         }
         .to_string()
