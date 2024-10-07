@@ -8,6 +8,7 @@
 - [BREAKING] Changed `GetAccountDetailsResponse` field to `details` (#481).
 - Improve `--version` by adding build metadata (#495).
 - [BREAKING] Introduced additional limits for note/account number (#503). 
+- Migrated faucet from actix-web to axum (#511).
 
 ## 0.5.1 (2024-09-12)
 
