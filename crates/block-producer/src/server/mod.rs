@@ -192,10 +192,6 @@ impl Server {
         );
         debug!(target: COMPONENT, proof = ?tx.proof());
 
-        // TODO: These steps should actually change the type of the transaction.
-        // TODO: How expensive is this step? Should it be spawn_blocking?
-        TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL).verify(tx.clone())?;
-
         let mut inputs = self.store.get_tx_inputs(&tx).await?;
 
         let mut authenticated_notes = BTreeSet::new();
@@ -213,14 +209,14 @@ impl Server {
         }
 
         // Authenticated note nullifiers must be present in the store and must be unconsumed.
-        for nullifiers in &authenticated_notes {
+        for nullifier in &authenticated_notes {
             let nullifier_state = inputs
                 .nullifiers
-                .remove(nullifiers)
-                .ok_or(AddTransactionErrorRework::AuthenticatedNoteNotFound(*nullifiers))?;
+                .remove(nullifier)
+                .ok_or(AddTransactionErrorRework::AuthenticatedNoteNotFound(*nullifier))?;
 
             if nullifier_state.is_some() {
-                return Err(AddTransactionErrorRework::NotesAlreadyConsumed([*nullifiers].into()));
+                return Err(AddTransactionErrorRework::NotesAlreadyConsumed([*nullifier].into()));
             }
         }
 
