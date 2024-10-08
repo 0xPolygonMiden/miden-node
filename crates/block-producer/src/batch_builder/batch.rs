@@ -356,7 +356,8 @@ impl ProvenBatchBuilder {
     fn remove_ephemeral_notes(&mut self) -> BTreeSet<NoteId> {
         let mut ephemeral = BTreeSet::new();
         for note_id in self.0.output_notes.keys() {
-            // We can ignore proven and witnessed input notes. These are known to be outputs of committed blocks and therefore cannot be outputs of this batch.
+            // We can ignore proven and witnessed input notes. These are known to be outputs of
+            // committed blocks and therefore cannot be outputs of this batch.
             if self.0.input_notes.remove_unauthenticated(note_id).is_some() {
                 ephemeral.insert(*note_id);
             }

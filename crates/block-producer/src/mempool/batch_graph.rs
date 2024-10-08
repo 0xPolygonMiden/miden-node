@@ -3,9 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use miden_objects::transaction::TransactionId;
 use miden_tx::utils::collections::KvMap;
 
-use crate::batch_builder::batch::ProvenBatch;
-
 use super::BatchJobId;
+use crate::batch_builder::batch::ProvenBatch;
 
 #[derive(Default, Clone)]
 pub struct BatchGraph {
