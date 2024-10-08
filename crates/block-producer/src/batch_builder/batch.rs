@@ -72,13 +72,23 @@ pub struct ProvenBatch {
     nullifiers: BTreeSet<Nullifier>,
     output_notes: BTreeMap<NoteId, OutputNote>,
     output_notes_smt: BatchNoteTree,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ProvenBatchBuilder {
+    updated_accounts: BTreeMap<AccountId, AccountUpdate>,
+    input_notes: InputNotes,
+
+    /// Tracks the nullifiers consumed by this batch.
+    ///
+    /// This is tracked separately from input notes to allow for ephemeral notes
+    /// as these will be pruned from both input and output notes.
+    nullifiers: BTreeSet<Nullifier>,
+    output_notes: BTreeMap<NoteId, OutputNote>,
 
     /// Transactions that form part of this batch.
     transactions: Vec<TransactionId>,
 }
-
-#[derive(Debug, Clone)]
-pub struct ProvenBatchBuilder(ProvenBatch);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountUpdate {
@@ -276,6 +286,12 @@ impl TransactionBatch {
     }
 }
 
+impl ProvenBatch {
+    pub fn builder() -> ProvenBatchBuilder {
+        ProvenBatchBuilder::default()
+    }
+}
+
 impl ProvenBatchBuilder {
     pub fn push_transaction(
         &mut self,
@@ -294,22 +310,37 @@ impl ProvenBatchBuilder {
 
         self.check_limits()?;
 
-        self.0.id = BatchId::compute(self.0.transactions.iter().copied());
+        let Self {
+            updated_accounts,
+            input_notes,
+            nullifiers,
+            output_notes,
+            transactions,
+        } = self;
+
+        let id = BatchId::compute(transactions.into_iter());
 
         // Build the output notes SMT.
-        self.0.output_notes_smt = BatchNoteTree::with_contiguous_leaves(
-            self.0.output_notes.iter().map(|(id, note)| (*id, note.metadata())),
+        let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
+            output_notes.iter().map(|(id, note)| (*id, note.metadata())),
         )
         .expect("Duplicate output notes aren't possible by construction");
 
-        Ok(self.0)
+        Ok(ProvenBatch {
+            id,
+            updated_accounts,
+            input_notes,
+            nullifiers,
+            output_notes,
+            output_notes_smt,
+        })
     }
 
     fn update_account(&mut self, tx: &VerifiedTransaction) -> Result<(), BuildBatchErrorRework> {
         let tx_id = tx.id();
         let account_update = tx.account_update();
 
-        match self.0.updated_accounts.entry(account_update.account_id()) {
+        match self.updated_accounts.entry(account_update.account_id()) {
             Entry::Vacant(vacant) => {
                 vacant.insert(AccountUpdate::new(tx_id, account_update));
                 Ok(())
@@ -326,13 +357,12 @@ impl ProvenBatchBuilder {
 
     fn merge_input_notes(&mut self, tx: &VerifiedTransaction) -> Result<(), BuildBatchErrorRework> {
         for nullifier in tx.nullifiers().copied() {
-            if !self.0.nullifiers.insert(nullifier) {
+            if !self.nullifiers.insert(nullifier) {
                 return Err(BuildBatchErrorRework::DuplicateNullifier(nullifier));
             }
         }
 
-        self.0
-            .input_notes
+        self.input_notes
             .merge(tx.input_notes().clone())
             .map_err(|error| BuildBatchErrorRework::InputNotesError { tx_id: tx.id(), error })
     }
@@ -342,7 +372,7 @@ impl ProvenBatchBuilder {
         tx: &VerifiedTransaction,
     ) -> Result<(), BuildBatchErrorRework> {
         for (id, note) in tx.output_notes().clone() {
-            if self.0.output_notes.insert(id, note).is_some() {
+            if self.output_notes.insert(id, note).is_some() {
                 return Err(BuildBatchErrorRework::DuplicateOutputNote(id));
             }
         }
@@ -357,15 +387,15 @@ impl ProvenBatchBuilder {
     /// Their nullifiers are retained.
     fn remove_ephemeral_notes(&mut self) -> BTreeSet<NoteId> {
         let mut ephemeral = BTreeSet::new();
-        for note_id in self.0.output_notes.keys() {
+        for note_id in self.output_notes.keys() {
             // We can ignore proven and witnessed input notes. These are known to be outputs of
             // committed blocks and therefore cannot be outputs of this batch.
-            if self.0.input_notes.remove_unauthenticated(note_id).is_some() {
+            if self.input_notes.remove_unauthenticated(note_id).is_some() {
                 ephemeral.insert(*note_id);
             }
         }
         for note in &ephemeral {
-            self.0.output_notes.remove(note);
+            self.output_notes.remove(note);
         }
         ephemeral
     }
@@ -377,34 +407,21 @@ impl ProvenBatchBuilder {
     fn check_limits(&self) -> Result<(), BuildBatchErrorRework> {
         BuildBatchErrorRework::check_limit(
             "account update",
-            self.0.updated_accounts.len(),
+            self.updated_accounts.len(),
             MAX_ACCOUNTS_PER_BATCH,
         )?;
         BuildBatchErrorRework::check_limit(
             "input notes",
-            self.0.input_notes.len(),
+            self.input_notes.len(),
             MAX_INPUT_NOTES_PER_BATCH,
         )?;
         BuildBatchErrorRework::check_limit(
             "output notes",
-            self.0.output_notes.len(),
+            self.output_notes.len(),
             MAX_OUTPUT_NOTES_PER_BATCH,
         )?;
 
         Ok(())
-    }
-}
-
-impl Default for ProvenBatchBuilder {
-    fn default() -> Self {
-        Self(ProvenBatch {
-            id: Default::default(),
-            updated_accounts: Default::default(),
-            input_notes: Default::default(),
-            nullifiers: Default::default(),
-            output_notes: Default::default(),
-            transactions: Default::default(),
-        })
     }
 }
 
