@@ -28,7 +28,6 @@ pub struct BatchId(Blake3Digest<32>);
 impl BatchId {
     pub fn compute(tx_ids: impl Iterator<Item = TransactionId>) -> Self {
         let upper_bound = tx_ids.size_hint().1.unwrap_or_default();
-        // TODO: This seems dangerous?
         let mut buf = Vec::with_capacity(32 * upper_bound);
         for id in tx_ids {
             buf.extend_from_slice(&id.as_bytes());
