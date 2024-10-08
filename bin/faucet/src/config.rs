@@ -25,12 +25,6 @@ pub struct FaucetConfig {
     pub max_supply: u64,
 }
 
-impl FaucetConfig {
-    pub fn endpoint_url(&self) -> String {
-        self.endpoint.to_string()
-    }
-}
-
 impl Display for FaucetConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(

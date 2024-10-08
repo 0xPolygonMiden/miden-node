@@ -6,22 +6,24 @@ mod state;
 
 use std::{fs::File, io::Write, path::PathBuf};
 
-use actix_cors::Cors;
-use actix_web::{
-    middleware::{DefaultHeaders, Logger},
-    web, App, HttpServer,
+use axum::{
+    routing::{get, post},
+    Router,
 };
 use clap::{Parser, Subcommand};
-use errors::FaucetError;
+use http::HeaderValue;
 use miden_node_utils::{config::load_config, version::LongVersion};
 use state::FaucetState;
+use tokio::net::TcpListener;
+use tower::ServiceBuilder;
+use tower_http::{cors::CorsLayer, set_header::SetResponseHeaderLayer, trace::TraceLayer};
 use tracing::info;
 
 use crate::{
     config::FaucetConfig,
-    handlers::{get_metadata, get_tokens},
+    errors::InitError,
+    handlers::{get_index, get_metadata, get_static_file, get_tokens},
 };
-
 // CONSTANTS
 // =================================================================================================
 
@@ -56,69 +58,71 @@ pub enum Command {
 // MAIN
 // =================================================================================================
 
-#[actix_web::main]
-async fn main() -> Result<(), FaucetError> {
+#[tokio::main]
+async fn main() -> Result<(), InitError> {
     miden_node_utils::logging::setup_logging()
-        .map_err(|err| FaucetError::StartError(err.to_string()))?;
+        .map_err(|err| InitError::FaucetFailedToStart(err.to_string()))?;
 
     let cli = Cli::parse();
 
     match &cli.command {
         Command::Start { config } => {
             let config: FaucetConfig = load_config(config)
-                .map_err(|err| FaucetError::ConfigurationError(err.to_string()))?;
+                .map_err(|err| InitError::ConfigurationError(err.to_string()))?;
 
             let faucet_state = FaucetState::new(config.clone()).await?;
 
             info!(target: COMPONENT, %config, "Initializing server");
 
-            info!("Server is now running on: {}", config.endpoint_url());
+            let app = Router::new()
+                .route("/", get(get_index))
+                .route("/get_metadata", get(get_metadata))
+                .route("/get_tokens", post(get_tokens))
+                .route("/*path", get(get_static_file))
+                .layer(
+                    ServiceBuilder::new()
+                        .layer(TraceLayer::new_for_http())
+                        .layer(SetResponseHeaderLayer::if_not_present(
+                            http::header::CACHE_CONTROL,
+                            HeaderValue::from_static("no-cache"),
+                        ))
+                        .layer(
+                            CorsLayer::new()
+                                .allow_origin(tower_http::cors::Any)
+                                .allow_methods(tower_http::cors::Any),
+                        ),
+                )
+                .with_state(faucet_state);
 
-            HttpServer::new(move || {
-                let cors = Cors::default().allow_any_origin().allow_any_method();
-                App::new()
-                    .app_data(web::Data::new(faucet_state.clone()))
-                    .wrap(cors)
-                    .wrap(Logger::default())
-                    .wrap(DefaultHeaders::new().add(("Cache-Control", "no-cache")))
-                    .service(get_metadata)
-                    .service(get_tokens)
-                    .service(actix_web_static_files::ResourceFiles::new(
-                        "/",
-                        static_resources::generate(),
-                    ))
-            })
-            .bind((config.endpoint.host, config.endpoint.port))
-            .map_err(|err| FaucetError::StartError(err.to_string()))?
-            .run()
-            .await
-            .map_err(|err| FaucetError::StartError(err.to_string()))?;
+            let listener = TcpListener::bind((config.endpoint.host.as_str(), config.endpoint.port))
+                .await
+                .map_err(|err| InitError::FaucetFailedToStart(err.to_string()))?;
+
+            info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
+
+            axum::serve(listener, app).await.unwrap();
         },
         Command::Init { config_path } => {
             let current_dir = std::env::current_dir().map_err(|err| {
-                FaucetError::ConfigurationError(format!("failed to open current directory: {err}"))
+                InitError::ConfigurationError(format!("failed to open current directory: {err}"))
             })?;
 
-            let mut config_file_path = current_dir.clone();
-            config_file_path.push(config_path);
-
+            let config_file_path = current_dir.join(config_path);
             let config = FaucetConfig::default();
             let config_as_toml_string = toml::to_string(&config).map_err(|err| {
-                FaucetError::ConfigurationError(format!(
-                    "Failed to serialize default config: {err}"
-                ))
+                InitError::ConfigurationError(format!("Failed to serialize default config: {err}"))
             })?;
 
             let mut file_handle =
                 File::options().write(true).create_new(true).open(&config_file_path).map_err(
-                    |err| FaucetError::ConfigurationError(format!("Error opening the file: {err}")),
+                    |err| InitError::ConfigurationError(format!("Error opening the file: {err}")),
                 )?;
 
             file_handle.write(config_as_toml_string.as_bytes()).map_err(|err| {
-                FaucetError::ConfigurationError(format!("Error writing to file: {err}"))
+                InitError::ConfigurationError(format!("Error writing to file: {err}"))
             })?;
 
-            println!("Config file successfully created at: {:?}", config_file_path);
+            println!("Config file successfully created at: {config_file_path:?}");
         },
     }
 
