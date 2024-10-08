@@ -1,6 +1,7 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     mem,
+    sync::Arc,
 };
 
 use miden_node_proto::domain::notes::NoteAuthenticationInfo;
@@ -9,15 +10,19 @@ use miden_objects::{
     batches::BatchNoteTree,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteHeader, NoteId, Nullifier},
-    transaction::{InputNoteCommitment, OutputNote, TransactionId},
+    transaction::{InputNoteCommitment, OutputNote, TransactionId, TxAccountUpdate},
     AccountDeltaError, Digest, MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH,
     MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use tracing::instrument;
 
-use crate::{errors::BuildBatchError, ProvenTransaction};
+use crate::{
+    errors::{BuildBatchError, BuildBatchErrorRework},
+    transaction::{InputNotes, VerifiedTransaction},
+    ProvenTransaction,
+};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub struct BatchId(Blake3Digest<32>);
 
 impl BatchId {
@@ -51,6 +56,28 @@ pub struct TransactionBatch {
     output_notes: Vec<OutputNote>,
 }
 
+/// A batch of transactions that share a common proof.
+///
+/// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProvenBatch {
+    id: BatchId,
+    updated_accounts: BTreeMap<AccountId, AccountUpdate>,
+    input_notes: InputNotes,
+    /// Tracks the nullifiers consumed by this batch.
+    ///
+    /// This is tracked separately from input notes to allow for ephemeral notes
+    /// as these will be pruned from both input and output notes.
+    nullifiers: BTreeSet<Nullifier>,
+    output_notes: BTreeMap<NoteId, OutputNote>,
+
+    /// Transactions that form part of this batch.
+    transactions: Vec<TransactionId>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProvenBatchBuilder(ProvenBatch);
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountUpdate {
     pub init_state: Digest,
@@ -60,25 +87,29 @@ pub struct AccountUpdate {
 }
 
 impl AccountUpdate {
-    fn new(tx: &ProvenTransaction) -> Self {
+    fn new(tx_id: TransactionId, update: &TxAccountUpdate) -> Self {
         Self {
-            init_state: tx.account_update().init_state_hash(),
-            final_state: tx.account_update().final_state_hash(),
-            transactions: vec![tx.id()],
-            details: tx.account_update().details().clone(),
+            init_state: update.init_state_hash(),
+            final_state: update.final_state_hash(),
+            transactions: vec![tx_id],
+            details: update.details().clone(),
         }
     }
 
     /// Merges the transaction's update into this account update.
-    fn merge_tx(&mut self, tx: &ProvenTransaction) -> Result<(), AccountDeltaError> {
+    fn merge_tx(
+        &mut self,
+        tx_id: TransactionId,
+        update: &TxAccountUpdate,
+    ) -> Result<(), AccountDeltaError> {
         assert!(
-            self.final_state == tx.account_update().init_state_hash(),
+            self.final_state == update.init_state_hash(),
             "Transacion's initial state does not match current account state"
         );
 
-        self.final_state = tx.account_update().final_state_hash();
-        self.transactions.push(tx.id());
-        self.details = self.details.clone().merge(tx.account_update().details().clone())?;
+        self.final_state = update.final_state_hash();
+        self.transactions.push(tx_id);
+        self.details = self.details.clone().merge(update.details().clone())?;
 
         Ok(())
     }
@@ -115,15 +146,16 @@ impl TransactionBatch {
             // Merge account updates so that state transitions A->B->C become A->C.
             match updated_accounts.entry(tx.account_id()) {
                 Entry::Vacant(vacant) => {
-                    vacant.insert(AccountUpdate::new(tx));
+                    vacant.insert(AccountUpdate::new(tx.id(), tx.account_update()));
                 },
-                Entry::Occupied(occupied) => occupied.into_mut().merge_tx(tx).map_err(|error| {
-                    BuildBatchError::AccountUpdateError {
+                Entry::Occupied(occupied) => occupied
+                    .into_mut()
+                    .merge_tx(tx.id(), tx.account_update())
+                    .map_err(|error| BuildBatchError::AccountUpdateError {
                         account_id: tx.account_id(),
                         error,
                         txs: txs.clone(),
-                    }
-                })?,
+                    })?,
             };
 
             // Check unauthenticated input notes for duplicates:
@@ -240,9 +272,136 @@ impl TransactionBatch {
     pub fn output_notes(&self) -> &Vec<OutputNote> {
         &self.output_notes
     }
+}
 
+impl ProvenBatchBuilder {
+    pub fn push_transaction(
+        &mut self,
+        tx: VerifiedTransaction,
+    ) -> Result<(), BuildBatchErrorRework> {
+        self.update_account(&tx)?;
+        self.merge_input_notes(&tx)?;
+        self.merge_output_notes(&tx)?;
 
+        Ok(())
+    }
+
+    pub fn build(mut self) -> Result<ProvenBatch, BuildBatchErrorRework> {
+        // Remove ephemeral notes prior to asserting batch constraints.
+        let ephemeral = self.remove_ephemeral_notes();
+
+        self.check_limits()?;
+
+        self.0.id = BatchId::compute(self.0.transactions.iter().copied());
+
+        // Build the output notes SMT.
+        let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
+            self.0.output_notes.iter().map(|(id, note)| (*id, note.metadata())),
+        )
+        .expect("Duplicate output notes aren't possible by construction");
+
+        Ok(self.0)
+    }
+
+    fn update_account(&mut self, tx: &VerifiedTransaction) -> Result<(), BuildBatchErrorRework> {
+        let tx_id = tx.id();
+        let account_update = tx.account_update();
+
+        match self.0.updated_accounts.entry(account_update.account_id()) {
+            Entry::Vacant(vacant) => {
+                vacant.insert(AccountUpdate::new(tx_id, account_update));
+                Ok(())
+            },
+            Entry::Occupied(occupied) => occupied
+                .into_mut()
+                .merge_tx(tx_id, account_update)
+                .map_err(|error| BuildBatchErrorRework::AccountUpdateError {
+                    account_id: account_update.account_id(),
+                    error,
+                }),
         }
+    }
+
+    fn merge_input_notes(&mut self, tx: &VerifiedTransaction) -> Result<(), BuildBatchErrorRework> {
+        for nullifier in tx.nullifiers().copied() {
+            if !self.0.nullifiers.insert(nullifier) {
+                return Err(BuildBatchErrorRework::DuplicateNullifier(nullifier));
+            }
+        }
+
+        self.0
+            .input_notes
+            .merge(tx.input_notes().clone())
+            .map_err(|error| BuildBatchErrorRework::InputNotesError { tx_id: tx.id(), error })
+    }
+
+    fn merge_output_notes(
+        &mut self,
+        tx: &VerifiedTransaction,
+    ) -> Result<(), BuildBatchErrorRework> {
+        for (id, note) in tx.output_notes().clone() {
+            if self.0.output_notes.insert(id, note).is_some() {
+                return Err(BuildBatchErrorRework::DuplicateOutputNote(id));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Removes all ephemeral notes within the batch.
+    ///
+    /// These are notes which are both produced and consumed within this batch.
+    ///
+    /// Their nullifiers are retained.
+    fn remove_ephemeral_notes(&mut self) -> BTreeSet<NoteId> {
+        let mut ephemeral = BTreeSet::new();
+        for note_id in self.0.output_notes.keys() {
+            // We can ignore proven and witnessed input notes. These are known to be outputs of committed blocks and therefore cannot be outputs of this batch.
+            if self.0.input_notes.remove_unauthenticated(note_id).is_some() {
+                ephemeral.insert(*note_id);
+            }
+        }
+        for note in &ephemeral {
+            self.0.output_notes.remove(note);
+        }
+        ephemeral
+    }
+
+    /// Returns an error if any of the batch length limits are violated.
+    ///
+    /// More specifically, it checks that the number of account updates, input and
+    /// output notes fall within the batch limits.
+    fn check_limits(&self) -> Result<(), BuildBatchErrorRework> {
+        BuildBatchErrorRework::check_limit(
+            "account update",
+            self.0.updated_accounts.len(),
+            MAX_ACCOUNTS_PER_BATCH,
+        )?;
+        BuildBatchErrorRework::check_limit(
+            "input notes",
+            self.0.input_notes.len(),
+            MAX_INPUT_NOTES_PER_BATCH,
+        )?;
+        BuildBatchErrorRework::check_limit(
+            "output notes",
+            self.0.output_notes.len(),
+            MAX_OUTPUT_NOTES_PER_BATCH,
+        )?;
+
+        Ok(())
+    }
+}
+
+impl Default for ProvenBatchBuilder {
+    fn default() -> Self {
+        Self(ProvenBatch {
+            id: Default::default(),
+            updated_accounts: Default::default(),
+            input_notes: Default::default(),
+            nullifiers: Default::default(),
+            output_notes: Default::default(),
+            transactions: Default::default(),
+        })
     }
 }
 

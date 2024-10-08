@@ -14,7 +14,7 @@ use miden_processor::ExecutionError;
 use miden_tx::TransactionVerifierError;
 use thiserror::Error;
 
-use crate::mempool::BlockNumber;
+use crate::{mempool::BlockNumber, transaction::ProvenNote};
 
 // Transaction verification errors
 // =================================================================================================
@@ -165,6 +165,45 @@ impl BuildBatchError {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum BuildBatchErrorRework {
+    #[error("Error applying delta to account {account_id}: {error}")]
+    AccountUpdateError {
+        account_id: AccountId,
+        error: AccountDeltaError,
+    },
+
+    #[error("Failed to merge input notes: {error}")]
+    InputNotesError {
+        tx_id: TransactionId,
+        error: InputNotesError,
+    },
+
+    #[error("Duplicate nullifier in batch: {0}")]
+    DuplicateNullifier(Nullifier),
+
+    #[error("Duplicate output note: {0}")]
+    DuplicateOutputNote(NoteId),
+
+    #[error("Exceeded {kind} limit. Got {actual}, limit is {limit}")]
+    LimitExceeded {
+        kind: &'static str,
+        actual: usize,
+        limit: usize,
+    },
+}
+
+impl BuildBatchErrorRework {
+    /// Returns a [Self::LimitExceeded] error if `actual` exceeds the `limit`.
+    pub fn check_limit(kind: &'static str, actual: usize, limit: usize) -> Result<(), Self> {
+        if actual > limit {
+            Err(Self::LimitExceeded { kind, actual, limit })
+        } else {
+            Ok(())
+        }
+    }
+}
+
 // Block prover errors
 // =================================================================================================
 
@@ -192,7 +231,7 @@ pub enum BlockInputsError {
     GrpcClientError(String),
 }
 
-// Note paths errors
+// Note errors
 // =================================================================================================
 
 #[allow(clippy::enum_variant_names)]
@@ -202,6 +241,14 @@ pub enum NotePathsError {
     ConversionError(#[from] ConversionError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
+}
+
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum InputNotesError {
+    #[error("Duplicate proven note: {0}")]
+    DuplicateProvenNote(Nullifier),
+    #[error("Duplicate unauthenticated note: {0}")]
+    DuplicateUnauthenticatedNote(NoteId),
 }
 
 // Block applying errors

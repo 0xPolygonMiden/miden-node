@@ -85,7 +85,7 @@ impl TryFrom<proto::BlockHeader> for BlockHeader {
 }
 
 /// Data required to verify a block's inclusion proof.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockInclusionProof {
     pub block_header: BlockHeader,
     pub mmr_path: MerklePath,

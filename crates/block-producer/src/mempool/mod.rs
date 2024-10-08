@@ -17,6 +17,7 @@ use miden_tx::{utils::collections::KvMap, TransactionVerifierError};
 use transaction_graph::TransactionGraph;
 
 use crate::{
+    batch_builder::batch::ProvenBatch,
     errors::AddTransactionErrorRework,
     store::{TransactionInputs, TxInputsError},
     transaction::VerifiedTransaction,
@@ -147,9 +148,10 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<TransactionId>)> {
+    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<Arc<VerifiedTransaction>>)> {
         let mut parents = BTreeSet::new();
         let mut batch = Vec::with_capacity(self.batch_transaction_limit);
+        let mut tx_ids = Vec::with_capacity(self.batch_transaction_limit);
 
         for _ in 0..self.batch_transaction_limit {
             // Select transactions according to some strategy here. For now its just arbitrary.
@@ -163,13 +165,13 @@ impl Mempool {
         // Update the depedency graph to reflect parents at the batch level by removing
         // all edges within this batch.
         for tx in &batch {
-            parents.remove(tx);
+            parents.remove(&tx.id());
         }
 
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        self.batches.insert(batch_id, batch.clone(), parents);
+        self.batches.insert(batch_id, tx_ids, parents);
 
         Some((batch_id, batch))
     }
@@ -195,8 +197,8 @@ impl Mempool {
     }
 
     /// Marks a batch as proven if it exists.
-    pub fn batch_proved(&mut self, batch_id: BatchJobId) {
-        self.batches.mark_proven(batch_id);
+    pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: ProvenBatch) {
+        self.batches.mark_proven(batch_id, batch);
     }
 
     /// Select batches for the next block.

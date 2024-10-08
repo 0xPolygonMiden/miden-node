@@ -7,9 +7,14 @@ use miden_node_proto::domain::blocks::BlockInclusionProof;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteHeader, NoteId, NoteInclusionProof, Nullifier},
-    transaction::{OutputNotes, ProvenTransaction, TransactionId, TxAccountUpdate},
+    transaction::{
+        InputNoteCommitment, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
+        TxAccountUpdate,
+    },
     Digest,
 };
+
+use crate::errors::InputNotesError;
 
 /// A transaction whose proof __has__ been validated.
 #[derive(Debug, Clone)]
@@ -17,7 +22,7 @@ pub struct VerifiedTransaction {
     id: TransactionId,
     account_update: TxAccountUpdate,
     input_notes: InputNotes,
-    output_notes: OutputNotes,
+    output_notes: BTreeMap<NoteId, OutputNote>,
     block_ref: Digest,
     expiration_block_num: u32,
     proof: ExecutionProof,
@@ -29,11 +34,13 @@ impl VerifiedTransaction {
     /// The caller is responsible for ensuring the validity of the proof prior to calling
     /// this method.
     pub fn new_unchecked(tx: ProvenTransaction) -> Self {
+        let output_notes =
+            tx.output_notes().iter().cloned().map(|note| (note.id(), note)).collect();
         VerifiedTransaction {
             id: tx.id(),
             account_update: tx.account_update().clone(),
             input_notes: tx.input_notes().clone().into(),
-            output_notes: tx.output_notes().clone(),
+            output_notes,
             block_ref: tx.block_ref(),
             expiration_block_num: tx.expiration_block_num(),
             proof: tx.proof().clone(),
@@ -64,6 +71,14 @@ impl VerifiedTransaction {
         self.id
     }
 
+    pub fn input_notes(&self) -> &InputNotes {
+        &self.input_notes
+    }
+
+    pub fn output_notes(&self) -> &BTreeMap<NoteId, OutputNote> {
+        &self.output_notes
+    }
+
     pub fn witness_note(
         &mut self,
         note_id: NoteId,
@@ -85,12 +100,50 @@ impl VerifiedTransaction {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct InputNotes {
     unauthenticated: BTreeMap<NoteId, UnauthenticatedNote>,
     witnessed: BTreeMap<NoteId, WitnessedNote>,
     proven: BTreeSet<ProvenNote>,
-    commitment: Digest,
+}
+
+impl InputNotes {
+    /// Merges `other` into `self`.
+    ///
+    /// # Errors
+    ///
+    /// Errors if there are duplicate input notes.
+    ///
+    /// Note that this action is __not atomic__.
+    pub fn merge(&mut self, other: Self) -> Result<(), InputNotesError> {
+        for (id, note) in other.unauthenticated {
+            if self.unauthenticated.insert(id, note).is_some() || self.witnessed.contains_key(&id) {
+                return Err(InputNotesError::DuplicateUnauthenticatedNote(id));
+            }
+        }
+
+        for (id, note) in other.witnessed {
+            if self.witnessed.insert(id, note).is_some() || self.unauthenticated.contains_key(&id) {
+                return Err(InputNotesError::DuplicateUnauthenticatedNote(id));
+            }
+        }
+
+        for note in other.proven {
+            if !self.proven.insert(note.clone()) {
+                return Err(InputNotesError::DuplicateProvenNote(note.0));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn remove_unauthenticated(&mut self, id: &NoteId) -> Option<UnauthenticatedNote> {
+        self.unauthenticated.remove(id)
+    }
+
+    pub fn len(&self) -> usize {
+        self.unauthenticated.len() + self.witnessed.len() + self.proven.len()
+    }
 }
 
 impl From<miden_objects::transaction::InputNotes<miden_objects::transaction::InputNoteCommitment>>
@@ -101,7 +154,6 @@ impl From<miden_objects::transaction::InputNotes<miden_objects::transaction::Inp
             miden_objects::transaction::InputNoteCommitment,
         >,
     ) -> Self {
-        let commitment = value.commitment();
         let mut unauthenticated = BTreeMap::new();
         let mut proven = BTreeSet::new();
 
@@ -122,7 +174,6 @@ impl From<miden_objects::transaction::InputNotes<miden_objects::transaction::Inp
             unauthenticated,
             proven,
             witnessed: Default::default(),
-            commitment,
         }
     }
 }
@@ -130,13 +181,13 @@ impl From<miden_objects::transaction::InputNotes<miden_objects::transaction::Inp
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct ProvenNote(Nullifier);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnauthenticatedNote {
     nullifier: Nullifier,
     header: NoteHeader,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WitnessedNote {
     nullifier: Nullifier,
     header: NoteHeader,

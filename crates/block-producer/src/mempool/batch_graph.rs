@@ -3,6 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use miden_objects::transaction::TransactionId;
 use miden_tx::utils::collections::KvMap;
 
+use crate::batch_builder::batch::ProvenBatch;
+
 use super::BatchJobId;
 
 #[derive(Default, Clone)]
@@ -129,11 +131,11 @@ impl BatchGraph {
     }
 
     /// Mark a batch as proven if it exists.
-    pub fn mark_proven(&mut self, id: BatchJobId) {
+    pub fn mark_proven(&mut self, id: BatchJobId, batch: ProvenBatch) {
         // Its possible for inflight batches to have been removed as part
         // of another batches failure.
         if let Some(node) = self.nodes.get_mut(&id) {
-            node.status = Status::Proven;
+            node.status = Status::Proven(batch);
             self.try_make_root(id);
         }
     }
@@ -154,7 +156,7 @@ impl BatchGraph {
             }
 
             batches.insert(*batch);
-            node.status = Status::Proven;
+            node.status = Status::InBlock;
 
             if batches.len() == count {
                 break;
@@ -193,9 +195,9 @@ struct Node {
     children: BTreeSet<BatchJobId>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Status {
     InFlight,
-    Proven,
+    Proven(ProvenBatch),
     InBlock,
 }

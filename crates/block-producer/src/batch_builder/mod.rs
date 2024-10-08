@@ -1,16 +1,27 @@
-use std::{cmp::min, collections::BTreeSet, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    cmp::min,
+    collections::{BTreeMap, BTreeSet},
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
+};
 
+use batch::{ProvenBatch, ProvenBatchBuilder};
 use miden_objects::{
+    accounts::AccountId,
     notes::NoteId,
     transaction::{OutputNote, TransactionId},
+    Digest,
 };
-use tokio::{sync::Mutex, time};
+use tokio::{sync::Mutex, task::JoinSet, time};
 use tonic::async_trait;
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
     block_builder::BlockBuilder,
+    errors::BuildBatchErrorRework,
     mempool::{BatchJobId, Mempool},
+    transaction::VerifiedTransaction,
     ProvenTransaction, SharedRwVec, COMPONENT,
 };
 
@@ -200,7 +211,7 @@ where
         let batch = TransactionBatch::new(txs, found_unauthenticated_notes)?;
 
         info!(target: COMPONENT, "Transaction batch built");
-        Span::current().record("batch_id", format_blake3_digest(batch.id()));
+        Span::current().record("batch_id", format_blake3_digest(*batch.id().inner()));
 
         let num_batches = {
             let mut write_guard = self.ready_batches.write().await;
@@ -219,31 +230,61 @@ pub struct BatchProducer {
     pub workers: NonZeroUsize,
     pub mempool: Arc<Mutex<Mempool>>,
     pub tx_per_batch: usize,
+    pub simulated_proof_time: Duration,
 }
 
-type BatchResult = Result<BatchJobId, (BatchJobId, BuildBatchError)>;
+type BatchResult = Result<(BatchJobId, ProvenBatch), (BatchJobId, BuildBatchErrorRework)>;
 
 /// Wrapper around tokio's JoinSet that remains pending if the set is empty,
 /// instead of returning None.
-struct WorkerPool(tokio::task::JoinSet<BatchResult>);
+struct WorkerPool {
+    in_progress: JoinSet<BatchResult>,
+    simulated_proof_time: Duration,
+}
 
 impl WorkerPool {
+    fn new(simulated_proof_time: Duration) -> Self {
+        Self {
+            simulated_proof_time,
+            in_progress: JoinSet::new(),
+        }
+    }
+
     async fn join_next(&mut self) -> Result<BatchResult, tokio::task::JoinError> {
-        if self.0.is_empty() {
+        if self.in_progress.is_empty() {
             std::future::pending().await
         } else {
             // Cannot be None as its not empty.
-            self.0.join_next().await.unwrap()
+            self.in_progress.join_next().await.unwrap()
         }
     }
 
     fn len(&self) -> usize {
-        self.0.len()
+        self.in_progress.len()
     }
 
-    fn spawn(&mut self, id: BatchJobId, transactions: Vec<TransactionId>) {
-        self.0.spawn(async move {
-            todo!("Do actual work like aggregating transaction data");
+    fn spawn(&mut self, id: BatchJobId, transactions: Vec<Arc<VerifiedTransaction>>) {
+        self.in_progress.spawn({
+            let simulated_proof_time = self.simulated_proof_time;
+            async move {
+                tracing::debug!("Begin proving batch.");
+                let mut builder = ProvenBatchBuilder::default();
+
+                for tx in transactions {
+                    builder.push_transaction(VerifiedTransaction::clone(&tx)).inspect(
+                        |_| tracing::trace!(batch=%id, tx=%tx.id(), "Transaction added to batch."),
+                    )
+                    .inspect_err(|err| tracing::warn!(batch=%id, tx=%tx.id(), %err, "Failed to add transaction to batch."))
+                    .map_err(|err| (id, err))?;
+                }
+
+                let batch = builder.build().map_err(|err| (id, err))?;
+
+                tokio::time::sleep(simulated_proof_time).await;
+                tracing::debug!("Batch proof completed.");
+
+                Ok((id, batch))
+            }
         });
     }
 }
@@ -253,7 +294,7 @@ impl BatchProducer {
         let mut interval = tokio::time::interval(self.batch_interval);
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
-        let mut inflight = WorkerPool(tokio::task::JoinSet::new());
+        let mut inflight = WorkerPool::new(self.simulated_proof_time);
 
         loop {
             tokio::select! {
@@ -285,8 +326,8 @@ impl BatchProducer {
                             tracing::warn!(%batch_id, %err, "Batch job failed.");
                             mempool.batch_failed(batch_id);
                         },
-                        Ok(Ok(batch_id)) => {
-                            mempool.batch_proved(batch_id);
+                        Ok(Ok((batch_id, batch))) => {
+                            mempool.batch_proved(batch_id, batch);
                         }
                     }
                 }
