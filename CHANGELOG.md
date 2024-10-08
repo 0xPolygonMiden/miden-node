@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.6.0 (TBD)
+
+- [BREAKING] Added `kernel_root` to block header's protobuf message definitions (#496).
+- [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#489).
+- Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
+- [BREAKING] Changed `GetAccountDetailsResponse` field to `details` (#481).
+- Improve `--version` by adding build metadata (#495).
+- [BREAKING] Introduced additional limits for note/account number (#503). 
+- [BREAKING] Removed support for basic wallets in genesis creation (#510).
+- Added `GetAccountProofs` endpoint (#506).
+- Migrated faucet from actix-web to axum (#511).
+
 ## 0.5.1 (2024-09-12)
 
 ### Enhancements

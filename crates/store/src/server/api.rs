@@ -7,21 +7,23 @@ use miden_node_proto::{
     generated::{
         self,
         account::AccountSummary,
-        note::{NoteAuthenticationInfo as NoteAuthenticationInfoProto, NoteSyncRecord},
+        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
-            GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
-            ListNotesRequest, ListNullifiersRequest, SyncNoteRequest, SyncStateRequest,
+            GetAccountDetailsRequest, GetAccountProofsRequest, GetAccountStateDeltaRequest,
+            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNoteAuthenticationInfoRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncNoteRequest,
+            SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
-            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
-            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNoteAuthenticationInfoResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
-            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
+            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetNoteAuthenticationInfoResponse, GetNotesByIdResponse,
+            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
+            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncNoteResponse, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -36,7 +38,7 @@ use miden_objects::{
     utils::{Deserializable, Serializable},
     Felt, ZERO,
 };
-use tonic::{Response, Status};
+use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
 use crate::{state::State, types::AccountId, COMPONENT};
@@ -190,16 +192,7 @@ impl api_server::Api for StoreApi {
             })
             .collect();
 
-        let notes = state
-            .notes
-            .into_iter()
-            .map(|note| NoteSyncRecord {
-                note_index: note.note_index.to_absolute_index(),
-                note_id: Some(note.note_id.into()),
-                metadata: Some(note.metadata.into()),
-                merkle_path: Some(Into::into(&note.merkle_path)),
-            })
-            .collect();
+        let notes = state.notes.into_iter().map(Into::into).collect();
 
         let nullifiers = state
             .nullifiers
@@ -211,7 +204,7 @@ impl api_server::Api for StoreApi {
             .collect();
 
         Ok(Response::new(SyncStateResponse {
-            chain_tip: state.chain_tip,
+            chain_tip: self.state.latest_block_num().await,
             block_header: Some(state.block_header.into()),
             mmr_delta: Some(delta.into()),
             accounts,
@@ -241,19 +234,10 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
-        let notes = state
-            .notes
-            .into_iter()
-            .map(|note| NoteSyncRecord {
-                note_index: note.note_index.to_absolute_index(),
-                note_id: Some(note.note_id.into()),
-                metadata: Some(note.metadata.into()),
-                merkle_path: Some((&note.merkle_path).into()),
-            })
-            .collect();
+        let notes = state.notes.into_iter().map(Into::into).collect();
 
         Ok(Response::new(SyncNoteResponse {
-            chain_tip: state.chain_tip,
+            chain_tip: self.state.latest_block_num().await,
             block_header: Some(state.block_header.into()),
             mmr_path: Some((&mmr_proof.merkle_path).into()),
             notes,
@@ -331,7 +315,7 @@ impl api_server::Api for StoreApi {
         }))
     }
 
-    /// Returns details for public (on-chain) account by id.
+    /// Returns details for public (public) account by id.
     #[instrument(
         target = "miden-store",
         name = "store:get_account_details",
@@ -353,7 +337,7 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)?;
 
         Ok(Response::new(GetAccountDetailsResponse {
-            account: Some((&account_info).into()),
+            details: Some((&account_info).into()),
         }))
     }
 
@@ -439,7 +423,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
+        let account_id = request.account_id.ok_or(invalid_argument("`account_id` missing"))?.id;
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
@@ -491,6 +475,35 @@ impl api_server::Api for StoreApi {
         let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
+    }
+
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_account_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_proofs(
+        &self,
+        request: Request<GetAccountProofsRequest>,
+    ) -> Result<Response<GetAccountProofsResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        let account_ids = convert(request.account_ids);
+        let include_headers = request.include_headers.unwrap_or_default();
+        let (block_num, infos) = self
+            .state
+            .get_account_states(account_ids, include_headers)
+            .await
+            .map_err(internal_error)?;
+
+        Ok(Response::new(GetAccountProofsResponse {
+            block_num,
+            account_proofs: infos.into_iter().map(Into::into).collect(),
+        }))
     }
 
     #[instrument(
@@ -620,7 +633,7 @@ fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<N
 fn validate_notes(notes: &[generated::digest::Digest]) -> Result<Vec<NoteId>, Status> {
     notes
         .iter()
-        .map(|digest| Ok(RpoDigest::try_from(digest.clone())?.into()))
+        .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }

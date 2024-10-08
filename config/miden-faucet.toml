@@ -1,5 +1,4 @@
 endpoint = { host = "localhost",  port = 8080 }
-database_filepath = "store.sqlite3"
 node_url = "http://localhost:57291"
 timeout_ms = 10000
 

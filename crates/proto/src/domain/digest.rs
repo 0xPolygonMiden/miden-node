@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use hex::{FromHex, ToHex};
 use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
 
-use crate::{errors::ConversionError, generated::digest};
+use crate::{errors::ConversionError, generated::digest as proto};
 
 // CONSTANTS
 // ================================================================================================
@@ -13,19 +13,19 @@ pub const DIGEST_DATA_SIZE: usize = 32;
 // FORMATTING
 // ================================================================================================
 
-impl Display for digest::Digest {
+impl Display for proto::Digest {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.encode_hex::<String>())
     }
 }
 
-impl Debug for digest::Digest {
+impl Debug for proto::Digest {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl ToHex for &digest::Digest {
+impl ToHex for &proto::Digest {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
         (*self).encode_hex()
     }
@@ -35,7 +35,7 @@ impl ToHex for &digest::Digest {
     }
 }
 
-impl ToHex for digest::Digest {
+impl ToHex for proto::Digest {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
         let mut data: Vec<char> = Vec::with_capacity(DIGEST_DATA_SIZE);
         data.extend(format!("{:016x}", self.d0).chars());
@@ -55,7 +55,7 @@ impl ToHex for digest::Digest {
     }
 }
 
-impl FromHex for digest::Digest {
+impl FromHex for proto::Digest {
     type Error = ConversionError;
 
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
@@ -74,7 +74,7 @@ impl FromHex for digest::Digest {
                 let d2 = u64::from_be_bytes(data[16..24].try_into().unwrap());
                 let d3 = u64::from_be_bytes(data[24..32].try_into().unwrap());
 
-                Ok(digest::Digest { d0, d1, d2, d3 })
+                Ok(proto::Digest { d0, d1, d2, d3 })
             },
         }
     }
@@ -83,7 +83,7 @@ impl FromHex for digest::Digest {
 // INTO
 // ================================================================================================
 
-impl From<[u64; 4]> for digest::Digest {
+impl From<[u64; 4]> for proto::Digest {
     fn from(value: [u64; 4]) -> Self {
         Self {
             d0: value[0],
@@ -94,13 +94,13 @@ impl From<[u64; 4]> for digest::Digest {
     }
 }
 
-impl From<&[u64; 4]> for digest::Digest {
+impl From<&[u64; 4]> for proto::Digest {
     fn from(value: &[u64; 4]) -> Self {
         (*value).into()
     }
 }
 
-impl From<[Felt; 4]> for digest::Digest {
+impl From<[Felt; 4]> for proto::Digest {
     fn from(value: [Felt; 4]) -> Self {
         Self {
             d0: value[0].as_int(),
@@ -111,13 +111,13 @@ impl From<[Felt; 4]> for digest::Digest {
     }
 }
 
-impl From<&[Felt; 4]> for digest::Digest {
+impl From<&[Felt; 4]> for proto::Digest {
     fn from(value: &[Felt; 4]) -> Self {
         (*value).into()
     }
 }
 
-impl From<Digest> for digest::Digest {
+impl From<Digest> for proto::Digest {
     fn from(value: Digest) -> Self {
         Self {
             d0: value[0].as_int(),
@@ -128,19 +128,19 @@ impl From<Digest> for digest::Digest {
     }
 }
 
-impl From<&Digest> for digest::Digest {
+impl From<&Digest> for proto::Digest {
     fn from(value: &Digest) -> Self {
         (*value).into()
     }
 }
 
-impl From<&NoteId> for digest::Digest {
+impl From<&NoteId> for proto::Digest {
     fn from(value: &NoteId) -> Self {
         (*value).inner().into()
     }
 }
 
-impl From<NoteId> for digest::Digest {
+impl From<NoteId> for proto::Digest {
     fn from(value: NoteId) -> Self {
         value.inner().into()
     }
@@ -149,16 +149,16 @@ impl From<NoteId> for digest::Digest {
 // FROM DIGEST
 // ================================================================================================
 
-impl From<digest::Digest> for [u64; 4] {
-    fn from(value: digest::Digest) -> Self {
+impl From<proto::Digest> for [u64; 4] {
+    fn from(value: proto::Digest) -> Self {
         [value.d0, value.d1, value.d2, value.d3]
     }
 }
 
-impl TryFrom<digest::Digest> for [Felt; 4] {
+impl TryFrom<proto::Digest> for [Felt; 4] {
     type Error = ConversionError;
 
-    fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
+    fn try_from(value: proto::Digest) -> Result<Self, Self::Error> {
         if ![value.d0, value.d1, value.d2, value.d3]
             .iter()
             .all(|v| *v < <Felt as StarkField>::MODULUS)
@@ -175,27 +175,27 @@ impl TryFrom<digest::Digest> for [Felt; 4] {
     }
 }
 
-impl TryFrom<digest::Digest> for Digest {
+impl TryFrom<proto::Digest> for Digest {
     type Error = ConversionError;
 
-    fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
+    fn try_from(value: proto::Digest) -> Result<Self, Self::Error> {
         Ok(Self::new(value.try_into()?))
     }
 }
 
-impl TryFrom<&digest::Digest> for [Felt; 4] {
+impl TryFrom<&proto::Digest> for [Felt; 4] {
     type Error = ConversionError;
 
-    fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
-        value.clone().try_into()
+    fn try_from(value: &proto::Digest) -> Result<Self, Self::Error> {
+        (*value).try_into()
     }
 }
 
-impl TryFrom<&digest::Digest> for Digest {
+impl TryFrom<&proto::Digest> for Digest {
     type Error = ConversionError;
 
-    fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
-        value.clone().try_into()
+    fn try_from(value: &proto::Digest) -> Result<Self, Self::Error> {
+        (*value).try_into()
     }
 }
 

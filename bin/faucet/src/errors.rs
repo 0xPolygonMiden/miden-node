@@ -1,47 +1,62 @@
-use actix_web::{
-    error,
-    http::{header::ContentType, StatusCode},
-    HttpResponse,
+use axum::{
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
 };
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum FaucetError {
+pub enum InitError {
     #[error("Failed to start faucet: {0}")]
-    StartError(String),
+    FaucetFailedToStart(String),
 
-    #[error("Client has submitted a bad request: {0}")]
-    BadRequest(String),
+    #[error("Failed to initialize client: {0}")]
+    ClientInitFailed(String),
 
     #[error("Failed to configure faucet: {0}")]
     ConfigurationError(String),
-
-    #[error("Server has encountered an internal error: {0}")]
-    InternalServerError(String),
 
     #[error("Failed to create Miden account: {0}")]
     AccountCreationError(String),
 }
 
-impl error::ResponseError for FaucetError {
-    fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
-        let message = match self {
-            FaucetError::StartError(msg) => msg.to_string(),
-            FaucetError::BadRequest(msg) => msg.to_string(),
-            FaucetError::ConfigurationError(msg) => msg.to_string(),
-            FaucetError::InternalServerError(msg) => msg.to_string(),
-            FaucetError::AccountCreationError(msg) => msg.to_string(),
-        };
+#[derive(Debug, Error)]
+pub enum ProcessError {
+    #[error("Client has submitted a bad request: {0}")]
+    BadRequest(String),
 
-        HttpResponse::build(self.status_code())
-            .insert_header(ContentType::html())
-            .body(message.to_owned())
+    #[error("Server has encountered an internal error: {0}")]
+    InternalServerError(String),
+
+    #[error("Page not found: {0}")]
+    NotFound(String),
+}
+
+impl ProcessError {
+    fn status_code(&self) -> StatusCode {
+        match *self {
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::NotFound(_) => StatusCode::NOT_FOUND,
+            Self::InternalServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
     }
 
-    fn status_code(&self) -> actix_web::http::StatusCode {
-        match *self {
-            FaucetError::BadRequest(_) => StatusCode::BAD_REQUEST,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
+    fn message(&self) -> String {
+        match self {
+            Self::BadRequest(msg) => msg,
+            Self::InternalServerError(_) => "Error processing request",
+            Self::NotFound(msg) => msg,
         }
+        .to_string()
+    }
+}
+
+impl IntoResponse for ProcessError {
+    fn into_response(self) -> Response {
+        (
+            self.status_code(),
+            [(header::CONTENT_TYPE, mime::TEXT_HTML_UTF_8.as_ref())],
+            self.message(),
+        )
+            .into_response()
     }
 }

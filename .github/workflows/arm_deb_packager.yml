@@ -4,12 +4,20 @@ on:
   workflow_dispatch:
   release:
     types: [released, prereleased]
+  push:
+    branches:
+      - next
 
 jobs:
-  build:
+  build_package:
     permissions:
       id-token: write
       contents: write
+    outputs:
+      target: ${{ steps.build_type_vars_setup.outputs.target }}
+      tag: ${{ steps.build_type_vars_setup.outputs.tag }}
+      account_id: ${{ steps.build_type_vars_setup.outputs.account_id }}
+      instance_id: ${{ steps.build_type_vars_setup.outputs.instance_id }}
     runs-on:
       labels: ubuntu22-arm-4core
     steps:
@@ -17,13 +25,23 @@ jobs:
         uses: actions/checkout@main
         with:
           fetch-depth: 0
-      ##### TAG Variable #####
+
       - name: Adding TAG to ENV
-        run: echo "GIT_TAG=`echo $(git describe --tags --abbrev=0)`" >> $GITHUB_ENV
+        run: |
+          if [[ ${{ github.event_name }} == "release" || ${{ github.event_name }} == "prereleased" ]]; then
+            echo "GIT_TAG=`echo $(git describe --tags --abbrev=0)`" >> $GITHUB_ENV
+          else
+            echo "GIT_TAG=next" >> $GITHUB_ENV
+          fi
+
       - name: adding version
         run: |
-          NUMERIC_VERSION=$( echo ${{ env.GIT_TAG }} | sed 's/[^0-9.]//g' )
-          echo "VERSION=$NUMERIC_VERSION" >> $GITHUB_ENV
+          if [[ ${{ github.event_name }} == "release" || ${{ github.event_name }} == "prereleased" ]]; then
+            NUMERIC_VERSION=$( echo ${{ env.GIT_TAG }} | sed 's/[^0-9.]//g' )
+            echo "VERSION=$NUMERIC_VERSION" >> $GITHUB_ENV
+          else
+            echo "VERSION=0.1" >> $GITHUB_ENV
+          fi
 
       - name: cleaning repo
         run: cargo clean
@@ -124,7 +142,7 @@ jobs:
         env:
           ARCH: arm64
 
-      - name: release miden-node Packages
+      - name: release miden-node Packages for testnet
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.GIT_TAG }}
@@ -134,3 +152,44 @@ jobs:
             packaging/deb/miden-node**.deb.checksum
             packaging/deb/miden-faucet**.deb
             packaging/deb/miden-faucet**.deb.checksum
+        if: ${{ github.event_name == 'release' || github.event_name == 'prereleased' }}
+
+      - name: release miden-node Packages for devnet
+        uses: actions/upload-artifact@v3
+        with:
+          name: devnet_package
+          path: |
+            packaging/deb/miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb
+            packaging/deb/miden-node-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb.checksum
+            packaging/deb/miden-faucet-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb
+            packaging/deb/miden-faucet-${{ env.GIT_TAG }}-${{ env.ARCH }}.deb.checksum
+        env:
+          ARCH: arm64
+        if: ${{ github.event_name == 'push' }}
+
+      - name: Determine build type
+        id: build_type_vars_setup
+        run: |
+          if [[ ${{ github.event_name }} == "release" || ${{ github.event_name }} == "prereleased" ]]; then
+            echo "target=testnet" >> $GITHUB_OUTPUT
+            echo "tag=${{ env.GIT_TAG }}" >> $GITHUB_OUTPUT
+            echo "account_id=MIDEN_DEV_ACCOUNT_ID" >> $GITHUB_OUTPUT
+            echo "instance_id=TESTNET_INSTANCE_TF" >> $GITHUB_OUTPUT
+          else
+            echo "target=devnet" >> $GITHUB_OUTPUT
+            echo "tag=next" >> $GITHUB_OUTPUT
+            echo "account_id=MIDEN_DEV_ACCOUNT_ID" >> $GITHUB_OUTPUT
+            echo "instance_id=DEVNET_INSTANCE_TF" >> $GITHUB_OUTPUT
+          fi
+      
+
+  deploy:
+    name: Deploy to ${{ needs.build_package.outputs.target }}
+    needs: build_package
+    uses: ./.github/workflows/deploy_package.yml
+    with:
+      target: ${{ needs.build_package.outputs.target }}
+      tag: ${{ needs.build_package.outputs.tag }}
+      account_id: ${{ needs.build_package.outputs.account_id }}
+      instance_id: ${{ needs.build_package.outputs.instance_id }}
+    secrets: inherit
