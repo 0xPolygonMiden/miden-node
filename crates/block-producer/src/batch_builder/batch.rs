@@ -17,7 +17,24 @@ use tracing::instrument;
 
 use crate::{errors::BuildBatchError, ProvenTransaction};
 
-pub type BatchId = Blake3Digest<32>;
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct BatchId(Blake3Digest<32>);
+
+impl BatchId {
+    pub fn compute(tx_ids: impl Iterator<Item = TransactionId>) -> Self {
+        let upper_bound = tx_ids.size_hint().1.unwrap_or_default();
+        // TODO: This seems dangerous?
+        let mut buf = Vec::with_capacity(32 * upper_bound);
+        for id in tx_ids {
+            buf.extend_from_slice(&id.as_bytes());
+        }
+        Self(Blake3_256::hash(&buf))
+    }
+
+    pub fn inner(&self) -> &Blake3Digest<32> {
+        &self.0
+    }
+}
 
 // TRANSACTION BATCH
 // ================================================================================================
@@ -88,7 +105,7 @@ impl TransactionBatch {
         txs: Vec<ProvenTransaction>,
         found_unauthenticated_notes: NoteAuthenticationInfo,
     ) -> Result<Self, BuildBatchError> {
-        let id = Self::compute_id(&txs);
+        let id = BatchId::compute(txs.iter().map(ProvenTransaction::id));
 
         // Populate batch output notes and updated accounts.
         let mut output_notes = OutputNoteTracker::new(&txs)?;
@@ -224,15 +241,8 @@ impl TransactionBatch {
         &self.output_notes
     }
 
-    // HELPER FUNCTIONS
-    // --------------------------------------------------------------------------------------------
 
-    fn compute_id(txs: &[ProvenTransaction]) -> BatchId {
-        let mut buf = Vec::with_capacity(32 * txs.len());
-        for tx in txs {
-            buf.extend_from_slice(&tx.id().as_bytes());
         }
-        Blake3_256::hash(&buf)
     }
 }
 

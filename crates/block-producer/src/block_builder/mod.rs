@@ -74,7 +74,7 @@ where
         info!(
             target: COMPONENT,
             num_batches = batches.len(),
-            batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))),
+            batches = %format_array(batches.iter().map(|batch| format_blake3_digest(*batch.id().inner()))),
         );
 
         let updated_account_set: BTreeSet<AccountId> = batches
