@@ -64,12 +64,14 @@ pub struct ProvenBatch {
     id: BatchId,
     updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     input_notes: InputNotes,
+
     /// Tracks the nullifiers consumed by this batch.
     ///
     /// This is tracked separately from input notes to allow for ephemeral notes
     /// as these will be pruned from both input and output notes.
     nullifiers: BTreeSet<Nullifier>,
     output_notes: BTreeMap<NoteId, OutputNote>,
+    output_notes_smt: BatchNoteTree,
 
     /// Transactions that form part of this batch.
     transactions: Vec<TransactionId>,
@@ -295,7 +297,7 @@ impl ProvenBatchBuilder {
         self.0.id = BatchId::compute(self.0.transactions.iter().copied());
 
         // Build the output notes SMT.
-        let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
+        self.0.output_notes_smt = BatchNoteTree::with_contiguous_leaves(
             self.0.output_notes.iter().map(|(id, note)| (*id, note.metadata())),
         )
         .expect("Duplicate output notes aren't possible by construction");
