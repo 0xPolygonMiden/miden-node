@@ -123,8 +123,8 @@ pub enum BuildBatchError {
     #[error("Failed to get note paths: {0}")]
     NotePathsError(NotePathsError, Vec<ProvenTransaction>),
 
-    #[error("Duplicated unauthenticated transaction input note ID in the batch: {0}")]
-    DuplicateUnauthenticatedNote(NoteId, Vec<ProvenTransaction>),
+    #[error("Duplicate nullifier consumed: {0:?}")]
+    DuplicateNullifiers(BTreeSet<Nullifier>, Vec<ProvenTransaction>),
 
     #[error("Duplicated transaction output note ID in the batch: {0}")]
     DuplicateOutputNote(NoteId, Vec<ProvenTransaction>),
@@ -156,7 +156,7 @@ impl BuildBatchError {
             BuildBatchError::TooManyAccountsInBatch(txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
             BuildBatchError::NotePathsError(_, txs) => txs,
-            BuildBatchError::DuplicateUnauthenticatedNote(_, txs) => txs,
+            BuildBatchError::DuplicateNullifiers(_, txs) => txs,
             BuildBatchError::DuplicateOutputNote(_, txs) => txs,
             BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
             BuildBatchError::NoteHashesMismatch { txs, .. } => txs,
@@ -173,14 +173,8 @@ pub enum BuildBatchErrorRework {
         error: AccountDeltaError,
     },
 
-    #[error("Failed to merge input notes: {error}")]
-    InputNotesError {
-        tx_id: TransactionId,
-        error: InputNotesError,
-    },
-
-    #[error("Duplicate nullifier in batch: {0}")]
-    DuplicateNullifier(Nullifier),
+    #[error("Duplicate nullifier in batch: {0:?}")]
+    DuplicateNullifiers(BTreeSet<Nullifier>),
 
     #[error("Duplicate output note: {0}")]
     DuplicateOutputNote(NoteId),
@@ -196,6 +190,29 @@ pub enum BuildBatchErrorRework {
 }
 
 impl BuildBatchErrorRework {
+    pub fn into_old(self, txs: Vec<ProvenTransaction>) -> BuildBatchError {
+        match self {
+            BuildBatchErrorRework::AccountUpdateError { account_id, error } => {
+                BuildBatchError::AccountUpdateError { account_id, error, txs }
+            },
+            BuildBatchErrorRework::DuplicateNullifiers(nullifier) => {
+                BuildBatchError::DuplicateNullifiers(nullifier, txs)
+            },
+            BuildBatchErrorRework::DuplicateOutputNote(note) => {
+                BuildBatchError::DuplicateOutputNote(note, txs)
+            },
+            BuildBatchErrorRework::AccountLimitExceeded { actual, limit: _ } => {
+                BuildBatchError::TooManyAccountsInBatch(txs)
+            },
+            BuildBatchErrorRework::InputeNoteLimitExceeded { actual, limit } => {
+                BuildBatchError::TooManyInputNotes(actual, txs)
+            },
+            BuildBatchErrorRework::OutputNoteLimitExceeded { actual, limit } => {
+                BuildBatchError::TooManyNotesCreated(actual, txs)
+            },
+        }
+    }
+
     pub fn check_account_limit(actual: usize, limit: usize) -> Result<(), Self> {
         if actual > limit {
             Err(Self::AccountLimitExceeded { actual, limit })

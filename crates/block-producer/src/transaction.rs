@@ -6,9 +6,9 @@ use miden_air::ExecutionProof;
 use miden_node_proto::domain::blocks::BlockInclusionProof;
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteHeader, NoteId, NoteInclusionProof, Nullifier},
+    notes::{Note, NoteHeader, NoteId, NoteInclusionProof, Nullifier},
     transaction::{
-        InputNoteCommitment, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
+        InputNote, InputNoteCommitment, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
         TxAccountUpdate,
     },
     Digest,
@@ -79,24 +79,16 @@ impl VerifiedTransaction {
         &self.output_notes
     }
 
+    /// Returns true if the witness was applied.
+    ///
+    /// Returns false if no such unauthenticated note was found.
     pub fn witness_note(
         &mut self,
         note_id: NoteId,
         block_proof: BlockInclusionProof,
         note_proof: NoteInclusionProof,
-    ) -> Option<UnauthenticatedNote> {
-        let note = self.input_notes.unauthenticated.remove(&note_id)?;
-
-        self.input_notes.witnessed.insert(
-            note_id,
-            WitnessedNote {
-                nullifier: note.nullifier,
-                header: note.header,
-                witness: (block_proof, note_proof),
-            },
-        );
-
-        Some(note)
+    ) -> bool {
+        self.input_notes.witness_note(note_id, block_proof, note_proof)
     }
 }
 
@@ -105,6 +97,8 @@ pub struct InputNotes {
     unauthenticated: BTreeMap<NoteId, UnauthenticatedNote>,
     witnessed: BTreeMap<NoteId, WitnessedNote>,
     proven: BTreeSet<ProvenNote>,
+    /// Nullifiers of all the input notes in this set.
+    nullifiers: BTreeSet<Nullifier>,
 }
 
 impl InputNotes {
@@ -112,29 +106,40 @@ impl InputNotes {
     ///
     /// # Errors
     ///
-    /// Errors if there are duplicate input notes.
+    /// Errors if the other set contains a duplicate nullifier.
     ///
     /// Note that this action is __not atomic__.
-    pub fn merge(&mut self, other: Self) -> Result<(), InputNotesError> {
-        for (id, note) in other.unauthenticated {
-            if self.unauthenticated.insert(id, note).is_some() || self.witnessed.contains_key(&id) {
-                return Err(InputNotesError::DuplicateUnauthenticatedNote(id));
-            }
+    pub fn merge(&mut self, other: Self) -> Result<(), BTreeSet<Nullifier>> {
+        let duplicates = self
+            .nullifiers
+            .intersection(&other.nullifiers)
+            .copied()
+            .collect::<BTreeSet<_>>();
+        if !duplicates.is_empty() {
+            return Err(duplicates);
         }
 
-        for (id, note) in other.witnessed {
-            if self.witnessed.insert(id, note).is_some() || self.unauthenticated.contains_key(&id) {
-                return Err(InputNotesError::DuplicateUnauthenticatedNote(id));
-            }
-        }
-
-        for note in other.proven {
-            if !self.proven.insert(note.clone()) {
-                return Err(InputNotesError::DuplicateProvenNote(note.0));
-            }
-        }
+        self.nullifiers.extend(other.nullifiers);
+        self.unauthenticated.extend(other.unauthenticated);
+        self.witnessed.extend(other.witnessed);
+        self.proven.extend(other.proven);
 
         Ok(())
+    }
+
+    pub fn witness_note(
+        &mut self,
+        note_id: NoteId,
+        block_proof: BlockInclusionProof,
+        note_proof: NoteInclusionProof,
+    ) -> bool {
+        let Some(note) = self.unauthenticated.remove(&note_id) else {
+            return false;
+        };
+
+        self.witnessed.insert(note_id, note.witness_note(block_proof, note_proof));
+
+        true
     }
 
     pub fn remove_unauthenticated(&mut self, id: &NoteId) -> Option<UnauthenticatedNote> {
@@ -143,6 +148,14 @@ impl InputNotes {
 
     pub fn len(&self) -> usize {
         self.unauthenticated.len() + self.witnessed.len() + self.proven.len()
+    }
+
+    pub fn into_input_note_commitments(self) -> impl Iterator<Item = InputNoteCommitment> {
+        let unauthenticated = self.unauthenticated.into_values().map(|note| note.commitment);
+        let witnessed = self.witnessed.into_values().map(|note| note.commitment);
+        let proven = self.proven.into_iter().map(|note| note.0.into());
+
+        unauthenticated.chain(witnessed).chain(proven)
     }
 }
 
@@ -156,13 +169,18 @@ impl From<miden_objects::transaction::InputNotes<miden_objects::transaction::Inp
     ) -> Self {
         let mut unauthenticated = BTreeMap::new();
         let mut proven = BTreeSet::new();
+        let mut nullifiers = BTreeSet::new();
 
         for note in value {
             let nullifier = note.nullifier();
+            nullifiers.insert(nullifier);
 
             match note.header().cloned() {
                 Some(header) => {
-                    unauthenticated.insert(header.id(), UnauthenticatedNote { nullifier, header });
+                    unauthenticated.insert(
+                        header.id(),
+                        UnauthenticatedNote { nullifier, header, commitment: note },
+                    );
                 },
                 None => {
                     proven.insert(ProvenNote(nullifier));
@@ -173,6 +191,7 @@ impl From<miden_objects::transaction::InputNotes<miden_objects::transaction::Inp
         Self {
             unauthenticated,
             proven,
+            nullifiers,
             witnessed: Default::default(),
         }
     }
@@ -185,6 +204,9 @@ pub struct ProvenNote(Nullifier);
 pub struct UnauthenticatedNote {
     nullifier: Nullifier,
     header: NoteHeader,
+    /// Kept purely to facilitate conversions since we cannot create this
+    /// ourselves. This is completely redundant with what we have already.
+    commitment: InputNoteCommitment,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -192,6 +214,9 @@ pub struct WitnessedNote {
     nullifier: Nullifier,
     header: NoteHeader,
     witness: (BlockInclusionProof, NoteInclusionProof),
+    /// Kept purely to facilitate conversions since we cannot create this
+    /// ourselves. This is completely redundant with what we have already.
+    commitment: InputNoteCommitment,
 }
 
 impl UnauthenticatedNote {
@@ -200,11 +225,13 @@ impl UnauthenticatedNote {
         block_inclusion: BlockInclusionProof,
         note_inclusion: NoteInclusionProof,
     ) -> WitnessedNote {
-        let Self { nullifier, header } = self;
+        let Self { nullifier, header, commitment } = self;
 
         WitnessedNote {
             nullifier,
             header,
+            // Drop the header.
+            commitment: commitment.nullifier().into(),
             witness: (block_inclusion, note_inclusion),
         }
     }

@@ -223,7 +223,7 @@ impl Server {
         //
         // This prevents having to re-witness them later, saving on database IO.
         for (note_id, (block_witness, note_witness)) in auth.note_proofs() {
-            if tx.witness_note(note_id, block_witness, note_witness).is_none() {
+            if !tx.witness_note(note_id, block_witness, note_witness) {
                 tracing::warn!(note=%note_id, "Received a witness for a note that was not unauthenticated.");
             }
         }
