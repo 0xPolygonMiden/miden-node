@@ -404,18 +404,15 @@ impl ProvenBatchBuilder {
     /// More specifically, it checks that the number of account updates, input and
     /// output notes fall within the batch limits.
     fn check_limits(&self) -> Result<(), BuildBatchErrorRework> {
-        BuildBatchErrorRework::check_limit(
-            "account update",
+        BuildBatchErrorRework::check_account_limit(
             self.updated_accounts.len(),
             MAX_ACCOUNTS_PER_BATCH,
         )?;
-        BuildBatchErrorRework::check_limit(
-            "input notes",
+        BuildBatchErrorRework::check_input_note_limit(
             self.input_notes.len(),
             MAX_INPUT_NOTES_PER_BATCH,
         )?;
-        BuildBatchErrorRework::check_limit(
-            "output notes",
+        BuildBatchErrorRework::check_output_note_limit(
             self.output_notes.len(),
             MAX_OUTPUT_NOTES_PER_BATCH,
         )?;

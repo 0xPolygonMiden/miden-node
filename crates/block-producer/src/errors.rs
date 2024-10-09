@@ -185,19 +185,36 @@ pub enum BuildBatchErrorRework {
     #[error("Duplicate output note: {0}")]
     DuplicateOutputNote(NoteId),
 
-    #[error("Exceeded {kind} limit. Got {actual}, limit is {limit}")]
-    LimitExceeded {
-        kind: &'static str,
-        actual: usize,
-        limit: usize,
-    },
+    #[error("Exceeded account update limit. Got {actual}, limit is {limit}")]
+    AccountLimitExceeded { actual: usize, limit: usize },
+
+    #[error("Exceeded input note limit. Got {actual}, limit is {limit}")]
+    InputeNoteLimitExceeded { actual: usize, limit: usize },
+
+    #[error("Exceeded output note limit. Got {actual}, limit is {limit}")]
+    OutputNoteLimitExceeded { actual: usize, limit: usize },
 }
 
 impl BuildBatchErrorRework {
-    /// Returns a [Self::LimitExceeded] error if `actual` exceeds the `limit`.
-    pub fn check_limit(kind: &'static str, actual: usize, limit: usize) -> Result<(), Self> {
+    pub fn check_account_limit(actual: usize, limit: usize) -> Result<(), Self> {
         if actual > limit {
-            Err(Self::LimitExceeded { kind, actual, limit })
+            Err(Self::AccountLimitExceeded { actual, limit })
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn check_input_note_limit(actual: usize, limit: usize) -> Result<(), Self> {
+        if actual > limit {
+            Err(Self::InputeNoteLimitExceeded { actual, limit })
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn check_output_note_limit(actual: usize, limit: usize) -> Result<(), Self> {
+        if actual > limit {
+            Err(Self::OutputNoteLimitExceeded { actual, limit })
         } else {
             Ok(())
         }
