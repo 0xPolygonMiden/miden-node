@@ -47,12 +47,8 @@ impl VerifiedTransaction {
         }
     }
 
-    pub fn nullifiers(&self) -> impl Iterator<Item = &Nullifier> {
-        let unauthenticated = self.input_notes.unauthenticated.values().map(|note| &note.nullifier);
-        let witnessed = self.input_notes.witnessed.values().map(|note| &note.nullifier);
-        let proven = self.input_notes.proven.iter().map(|note| &note.0);
-
-        unauthenticated.chain(witnessed).chain(proven)
+    pub fn nullifiers(&self) -> &BTreeSet<Nullifier> {
+        &self.input_notes().nullifiers
     }
 
     pub fn unauthenticated_notes(&self) -> impl Iterator<Item = &NoteId> {

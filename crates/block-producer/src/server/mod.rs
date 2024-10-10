@@ -211,6 +211,7 @@ impl Server {
         // way we early reject transactions without locking the mempool.
         let nullifiers_already_spent = tx
             .nullifiers()
+            .iter()
             .filter_map(|nullifier| {
                 inputs.nullifiers.get(nullifier).copied().flatten().map(|_| *nullifier)
             })

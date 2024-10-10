@@ -108,8 +108,7 @@ impl InflightState {
         }
 
         // Ensure nullifiers aren't already present.
-        let tx_nullifiers = tx.nullifiers().copied().collect::<BTreeSet<_>>();
-        let double_spend = self.nullifiers.union(&tx_nullifiers).copied().collect::<BTreeSet<_>>();
+        let double_spend = self.nullifiers.union(tx.nullifiers()).copied().collect::<BTreeSet<_>>();
         if !double_spend.is_empty() {
             return Err(AddTransactionErrorRework::NotesAlreadyConsumed(double_spend));
         }
