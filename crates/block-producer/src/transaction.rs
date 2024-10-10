@@ -104,7 +104,7 @@ impl InputNotes {
     ///
     /// Errors if the other set contains a duplicate nullifier.
     ///
-    /// Note that this action is __not atomic__.
+    /// Note that this action is __atomic__.
     pub fn merge(&mut self, other: Self) -> Result<(), BTreeSet<Nullifier>> {
         let duplicates = self
             .nullifiers
