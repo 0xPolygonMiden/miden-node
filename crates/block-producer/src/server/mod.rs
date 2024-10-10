@@ -200,7 +200,6 @@ impl Server {
         let mut inputs = self.store.get_tx_inputs(&tx).await?;
         let unauthenticated_notes =
             tx.get_unauthenticated_notes().map(|note| note.id()).collect::<BTreeSet<_>>();
-        let auth = self.store.get_note_authentication_info(unauthenticated_notes.iter()).await?;
 
         // SAFETY: We assume that the RPC component verifies the transaction proof.
         let mut tx = VerifiedTransaction::new_unchecked(tx);
@@ -223,6 +222,7 @@ impl Server {
         // Upgrade unauthenticated notes for which we now have witnesses.
         //
         // This prevents having to re-witness them later, saving on database IO.
+        let auth = self.store.get_note_authentication_info(unauthenticated_notes.iter()).await?;
         for (note_id, (block_witness, note_witness)) in auth.note_proofs() {
             if !tx.witness_note(note_id, block_witness, note_witness) {
                 tracing::warn!(note=%note_id, "Received a witness for a note that was not unauthenticated.");
