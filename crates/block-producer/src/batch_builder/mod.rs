@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use batch::{ProvenBatch, ProvenBatchBuilder};
+use batch::TransactionBatchBuilder;
 use miden_objects::{
     accounts::AccountId,
     notes::NoteId,
@@ -233,7 +233,7 @@ pub struct BatchProducer {
     pub simulated_proof_time: Duration,
 }
 
-type BatchResult = Result<(BatchJobId, ProvenBatch), (BatchJobId, BuildBatchErrorRework)>;
+type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchErrorRework)>;
 
 /// Wrapper around tokio's JoinSet that remains pending if the set is empty,
 /// instead of returning None.
@@ -268,7 +268,7 @@ impl WorkerPool {
             let simulated_proof_time = self.simulated_proof_time;
             async move {
                 tracing::debug!("Begin proving batch.");
-                let mut builder = ProvenBatchBuilder::default();
+                let mut builder = TransactionBatchBuilder::default();
 
                 for tx in transactions {
                     builder.push_transaction(VerifiedTransaction::clone(&tx)).inspect(

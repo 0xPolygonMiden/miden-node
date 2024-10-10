@@ -17,7 +17,7 @@ use miden_tx::{utils::collections::KvMap, TransactionVerifierError};
 use transaction_graph::TransactionGraph;
 
 use crate::{
-    batch_builder::batch::ProvenBatch,
+    batch_builder::batch::TransactionBatch,
     errors::AddTransactionErrorRework,
     store::{TransactionInputs, TxInputsError},
     transaction::VerifiedTransaction,
@@ -197,7 +197,7 @@ impl Mempool {
     }
 
     /// Marks a batch as proven if it exists.
-    pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: ProvenBatch) {
+    pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
         self.batches.mark_proven(batch_id, batch);
     }
 
@@ -208,11 +208,11 @@ impl Mempool {
     /// # Panics
     ///
     /// Panics if there is already a block in flight.
-    pub fn select_block(&mut self) -> (BlockNumber, BTreeSet<BatchJobId>) {
+    pub fn select_block(&mut self) -> (BlockNumber, BTreeMap<BatchJobId, TransactionBatch>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
         let batches = self.batches.select_block(self.block_batch_limit);
-        self.block_in_progress = Some(batches.clone());
+        self.block_in_progress = Some(batches.keys().cloned().collect());
 
         (self.chain_tip.next(), batches)
     }

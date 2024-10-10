@@ -4,7 +4,7 @@ use miden_objects::transaction::TransactionId;
 use miden_tx::utils::collections::KvMap;
 
 use super::BatchJobId;
-use crate::batch_builder::batch::ProvenBatch;
+use crate::batch_builder::batch::TransactionBatch;
 
 #[derive(Default, Clone)]
 pub struct BatchGraph {
@@ -130,7 +130,7 @@ impl BatchGraph {
     }
 
     /// Mark a batch as proven if it exists.
-    pub fn mark_proven(&mut self, id: BatchJobId, batch: ProvenBatch) {
+    pub fn mark_proven(&mut self, id: BatchJobId, batch: TransactionBatch) {
         // Its possible for inflight batches to have been removed as part
         // of another batches failure.
         if let Some(node) = self.nodes.get_mut(&id) {
@@ -140,21 +140,25 @@ impl BatchGraph {
     }
 
     /// Returns at most `count` __indepedent__ batches which are ready for inclusion in a block.
-    pub fn select_block(&mut self, count: usize) -> BTreeSet<BatchJobId> {
-        let mut batches = BTreeSet::new();
+    pub fn select_block(&mut self, count: usize) -> BTreeMap<BatchJobId, TransactionBatch> {
+        let mut batches = BTreeMap::new();
 
         // Track children so we can evaluate them for root afterwards.
         let mut children = BTreeSet::new();
 
-        for batch in &self.roots {
-            let mut node = self.nodes.get_mut(batch).expect("Root node must be in graph");
+        for batch_id in &self.roots {
+            let mut node = self.nodes.get_mut(batch_id).expect("Root node must be in graph");
 
             // Filter out batches which have dependencies in our selection so far.
-            if batches.union(&node.parents).next().is_some() {
+            if node.parents.iter().any(|parent| batches.contains_key(parent)) {
                 continue;
             }
 
-            batches.insert(*batch);
+            let Status::Proven(batch) = node.status.clone() else {
+                unreachable!("Root batch must be in proven state.");
+            };
+
+            batches.insert(*batch_id, batch);
             node.status = Status::InBlock;
 
             if batches.len() == count {
@@ -197,6 +201,6 @@ struct Node {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Status {
     InFlight,
-    Proven(ProvenBatch),
+    Proven(TransactionBatch),
     InBlock,
 }

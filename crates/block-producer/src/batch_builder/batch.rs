@@ -55,20 +55,8 @@ pub struct TransactionBatch {
     output_notes: Vec<OutputNote>,
 }
 
-/// A batch of transactions that share a common proof.
-///
-/// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProvenBatch {
-    id: BatchId,
-    updated_accounts: BTreeMap<AccountId, AccountUpdate>,
-    input_notes: InputNotes,
-    output_notes: BTreeMap<NoteId, OutputNote>,
-    output_notes_smt: BatchNoteTree,
-}
-
 #[derive(Debug, Clone, Default)]
-pub struct ProvenBatchBuilder {
+pub struct TransactionBatchBuilder {
     updated_accounts: BTreeMap<AccountId, AccountUpdate>,
     input_notes: InputNotes,
     output_notes: BTreeMap<NoteId, OutputNote>,
@@ -135,9 +123,9 @@ impl TransactionBatch {
         txs: Vec<ProvenTransaction>,
         found_unauthenticated_notes: NoteAuthenticationInfo,
     ) -> Result<Self, BuildBatchError> {
-        let mut batch = ProvenBatchBuilder::default();
+        let mut batch = TransactionBatchBuilder::default();
 
-        for tx in txs.iter().cloned() {
+        for (idx, tx) in txs.iter().cloned().enumerate() {
             let tx = VerifiedTransaction::new_unchecked(tx);
 
             if let Err(err) = batch.push_transaction(tx) {
@@ -146,26 +134,8 @@ impl TransactionBatch {
         }
 
         batch.witness_notes(found_unauthenticated_notes);
-        let batch = batch.build().map_err(|err| err.into_old(txs))?;
 
-        let ProvenBatch {
-            id,
-            updated_accounts,
-            input_notes,
-            output_notes,
-            output_notes_smt,
-        } = batch;
-
-        let output_notes = output_notes.into_values().collect();
-        let input_notes = input_notes.into_input_note_commitments().collect();
-
-        Ok(Self {
-            id,
-            updated_accounts,
-            input_notes,
-            output_notes_smt,
-            output_notes,
-        })
+        batch.build().map_err(|err| err.into_old(txs))
     }
 
     // PUBLIC ACCESSORS
@@ -212,15 +182,13 @@ impl TransactionBatch {
     pub fn output_notes(&self) -> &Vec<OutputNote> {
         &self.output_notes
     }
-}
 
-impl ProvenBatch {
-    pub fn builder() -> ProvenBatchBuilder {
-        ProvenBatchBuilder::default()
+    pub fn builder() -> TransactionBatchBuilder {
+        TransactionBatchBuilder::default()
     }
 }
 
-impl ProvenBatchBuilder {
+impl TransactionBatchBuilder {
     pub fn push_transaction(
         &mut self,
         tx: VerifiedTransaction,
@@ -240,10 +208,9 @@ impl ProvenBatchBuilder {
         }
     }
 
-    pub fn build(mut self) -> Result<ProvenBatch, BuildBatchErrorRework> {
+    pub fn build(mut self) -> Result<TransactionBatch, BuildBatchErrorRework> {
         // Remove ephemeral notes prior to asserting batch constraints.
         let ephemeral = self.remove_ephemeral_notes();
-
         self.check_limits()?;
 
         let Self {
@@ -256,12 +223,15 @@ impl ProvenBatchBuilder {
         let id = BatchId::compute(transactions.into_iter());
 
         // Build the output notes SMT.
+        let output_notes = output_notes.into_values().collect::<Vec<_>>();
         let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
-            output_notes.iter().map(|(id, note)| (*id, note.metadata())),
+            output_notes.iter().map(|note| (note.id(), note.metadata())),
         )
         .expect("Duplicate output notes aren't possible by construction");
 
-        Ok(ProvenBatch {
+        let input_notes = input_notes.into_input_note_commitments().collect();
+
+        Ok(TransactionBatch {
             id,
             updated_accounts,
             input_notes,
