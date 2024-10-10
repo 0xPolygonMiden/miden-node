@@ -72,9 +72,9 @@ pub enum AddTransactionErrorRework {
         input_block: BlockNumber,
         stale_limit: BlockNumber,
     },
-    #[error("Authenticated note nullifier {0} not found.")]
+    #[error("Authenticated note nullifier {0} not found")]
     AuthenticatedNoteNotFound(Nullifier),
-    #[error("Unauthenticated note {0} not found.")]
+    #[error("Unauthenticated note {0} not found")]
     UnauthenticatedNoteNotFound(NoteId),
     #[error("Note nullifiers already consumed: {0:?}")]
     NotesAlreadyConsumed(BTreeSet<Nullifier>),
@@ -86,6 +86,8 @@ pub enum AddTransactionErrorRework {
     ProofVerificationFailed(#[from] TransactionVerifierError),
     #[error("Failed to deserialize transaction: {0}.")]
     DeserializationError(String),
+    #[error("Output notes already exist: {0:?}")]
+    DuplicateOutputNotes(BTreeSet<NoteId>),
 }
 
 // Batch building errors

@@ -127,6 +127,10 @@ impl InputNotes {
         Ok(())
     }
 
+    pub fn unauthenticated_notes(&self) -> impl Iterator<Item = &NoteId> {
+        self.unauthenticated.keys()
+    }
+
     pub fn witness_note(
         &mut self,
         note_id: NoteId,

@@ -155,10 +155,10 @@ impl api_server::Api for Server {
                 | AddTransactionErrorRework::UnauthenticatedNoteNotFound(_)
                 | AddTransactionErrorRework::NotesAlreadyConsumed(_)
                 | AddTransactionErrorRework::DeserializationError(_)
+                | AddTransactionErrorRework::DuplicateOutputNotes(_)
                 | AddTransactionErrorRework::ProofVerificationFailed(_) => {
                     Status::invalid_argument(err.to_string())
                 },
-                // Internal errors.
                 AddTransactionErrorRework::StaleInputs { .. }
                 | AddTransactionErrorRework::NoteAuthenticationError(..)
                 | AddTransactionErrorRework::TxInputsError(_) => Status::internal("Internal error"),

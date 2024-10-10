@@ -136,7 +136,7 @@ impl Mempool {
         }
 
         // Add transaction to inflight state.
-        let parents = self.state.add_transaction(&transaction, &inputs)?;
+        let parents = self.state.add_transaction(&transaction, inputs.account_hash)?;
 
         self.transactions.insert(transaction, parents);
 
