@@ -18,6 +18,7 @@ tracing-forest = ["miden-node-utils/tracing-forest"]
 async-trait = { version = "0.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.13" }
+miden-air = { workspace = true }
 miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }

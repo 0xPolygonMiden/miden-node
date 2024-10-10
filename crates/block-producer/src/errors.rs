@@ -14,7 +14,7 @@ use miden_processor::ExecutionError;
 use miden_tx::TransactionVerifierError;
 use thiserror::Error;
 
-use crate::mempool::BlockNumber;
+use crate::{mempool::BlockNumber, transaction::ProvenNote};
 
 // Transaction verification errors
 // =================================================================================================
@@ -72,18 +72,22 @@ pub enum AddTransactionErrorRework {
         input_block: BlockNumber,
         stale_limit: BlockNumber,
     },
-    #[error("Authenticated note nullifier {0} not found.")]
+    #[error("Authenticated note nullifier {0} not found")]
     AuthenticatedNoteNotFound(Nullifier),
-    #[error("Unauthenticated note {0} not found.")]
+    #[error("Unauthenticated note {0} not found")]
     UnauthenticatedNoteNotFound(NoteId),
     #[error("Note nullifiers already consumed: {0:?}")]
     NotesAlreadyConsumed(BTreeSet<Nullifier>),
     #[error(transparent)]
     TxInputsError(#[from] TxInputsError),
     #[error(transparent)]
+    NoteAuthenticationError(#[from] NotePathsError),
+    #[error(transparent)]
     ProofVerificationFailed(#[from] TransactionVerifierError),
     #[error("Failed to deserialize transaction: {0}.")]
     DeserializationError(String),
+    #[error("Output notes already exist: {0:?}")]
+    DuplicateOutputNotes(BTreeSet<NoteId>),
 }
 
 // Batch building errors
@@ -121,8 +125,8 @@ pub enum BuildBatchError {
     #[error("Failed to get note paths: {0}")]
     NotePathsError(NotePathsError, Vec<ProvenTransaction>),
 
-    #[error("Duplicated unauthenticated transaction input note ID in the batch: {0}")]
-    DuplicateUnauthenticatedNote(NoteId, Vec<ProvenTransaction>),
+    #[error("Duplicate nullifier consumed: {0:?}")]
+    DuplicateNullifiers(BTreeSet<Nullifier>, Vec<ProvenTransaction>),
 
     #[error("Duplicated transaction output note ID in the batch: {0}")]
     DuplicateOutputNote(NoteId, Vec<ProvenTransaction>),
@@ -154,11 +158,84 @@ impl BuildBatchError {
             BuildBatchError::TooManyAccountsInBatch(txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
             BuildBatchError::NotePathsError(_, txs) => txs,
-            BuildBatchError::DuplicateUnauthenticatedNote(_, txs) => txs,
+            BuildBatchError::DuplicateNullifiers(_, txs) => txs,
             BuildBatchError::DuplicateOutputNote(_, txs) => txs,
             BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
             BuildBatchError::NoteHashesMismatch { txs, .. } => txs,
             BuildBatchError::AccountUpdateError { txs, .. } => txs,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum BuildBatchErrorRework {
+    #[error("Error applying delta to account {account_id}: {error}")]
+    AccountUpdateError {
+        account_id: AccountId,
+        error: AccountDeltaError,
+    },
+
+    #[error("Duplicate nullifier in batch: {0:?}")]
+    DuplicateNullifiers(BTreeSet<Nullifier>),
+
+    #[error("Duplicate output note: {0}")]
+    DuplicateOutputNote(NoteId),
+
+    #[error("Exceeded account update limit. Got {actual}, limit is {limit}")]
+    AccountLimitExceeded { actual: usize, limit: usize },
+
+    #[error("Exceeded input note limit. Got {actual}, limit is {limit}")]
+    InputeNoteLimitExceeded { actual: usize, limit: usize },
+
+    #[error("Exceeded output note limit. Got {actual}, limit is {limit}")]
+    OutputNoteLimitExceeded { actual: usize, limit: usize },
+}
+
+impl BuildBatchErrorRework {
+    pub fn into_old(self, txs: Vec<ProvenTransaction>) -> BuildBatchError {
+        match self {
+            BuildBatchErrorRework::AccountUpdateError { account_id, error } => {
+                BuildBatchError::AccountUpdateError { account_id, error, txs }
+            },
+            BuildBatchErrorRework::DuplicateNullifiers(nullifier) => {
+                BuildBatchError::DuplicateNullifiers(nullifier, txs)
+            },
+            BuildBatchErrorRework::DuplicateOutputNote(note) => {
+                BuildBatchError::DuplicateOutputNote(note, txs)
+            },
+            BuildBatchErrorRework::AccountLimitExceeded { actual, limit: _ } => {
+                BuildBatchError::TooManyAccountsInBatch(txs)
+            },
+            BuildBatchErrorRework::InputeNoteLimitExceeded { actual, limit } => {
+                BuildBatchError::TooManyInputNotes(actual, txs)
+            },
+            BuildBatchErrorRework::OutputNoteLimitExceeded { actual, limit } => {
+                BuildBatchError::TooManyNotesCreated(actual, txs)
+            },
+        }
+    }
+
+    pub fn check_account_limit(actual: usize, limit: usize) -> Result<(), Self> {
+        if actual > limit {
+            Err(Self::AccountLimitExceeded { actual, limit })
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn check_input_note_limit(actual: usize, limit: usize) -> Result<(), Self> {
+        if actual > limit {
+            Err(Self::InputeNoteLimitExceeded { actual, limit })
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn check_output_note_limit(actual: usize, limit: usize) -> Result<(), Self> {
+        if actual > limit {
+            Err(Self::OutputNoteLimitExceeded { actual, limit })
+        } else {
+            Ok(())
         }
     }
 }
@@ -190,7 +267,7 @@ pub enum BlockInputsError {
     GrpcClientError(String),
 }
 
-// Note paths errors
+// Note errors
 // =================================================================================================
 
 #[allow(clippy::enum_variant_names)]
@@ -200,6 +277,14 @@ pub enum NotePathsError {
     ConversionError(#[from] ConversionError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
+}
+
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum InputNotesError {
+    #[error("Duplicate proven note: {0}")]
+    DuplicateProvenNote(Nullifier),
+    #[error("Duplicate unauthenticated note: {0}")]
+    DuplicateUnauthenticatedNote(NoteId),
 }
 
 // Block applying errors

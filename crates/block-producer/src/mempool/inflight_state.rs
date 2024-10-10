@@ -5,12 +5,14 @@ use std::{
 
 use miden_objects::{
     accounts::AccountId,
-    notes::Nullifier,
-    transaction::{ProvenTransaction, TransactionId},
+    notes::{NoteId, Nullifier},
+    transaction::{OutputNotes, ProvenTransaction, TransactionId},
     Digest,
 };
 
-use crate::{errors::AddTransactionErrorRework, store::TransactionInputs};
+use crate::{
+    errors::AddTransactionErrorRework, store::TransactionInputs, transaction::VerifiedTransaction,
+};
 
 /// Tracks the inflight state of the mempool. This includes recently committed blocks.
 ///
@@ -24,8 +26,14 @@ pub struct InflightState {
     /// Accounts which are [AccountStatus::Empty] are immedietely pruned.
     accounts: BTreeMap<AccountId, AccountState>,
 
-    /// Nullifiers emitted by inflight transactions and recently committed blocks.
+    /// Nullifiers consumed by the input notes of inflight transactions.
     nullifiers: BTreeSet<Nullifier>,
+
+    /// Notes created by inflight transactions.
+    ///
+    /// Some of these may already be consumed - check the nullifiers.
+    // TODO: Should these also get pruned asap?
+    output_notes: BTreeMap<NoteId, TransactionId>,
 }
 
 /// Describes the impact that a set of transactions had on the state.
@@ -35,22 +43,30 @@ pub struct StateDiff {
     /// The number of transactions that affected each account.
     account_transactions: BTreeMap<AccountId, usize>,
 
-    /// The nullifiers that were emitted by the transactions.
+    /// The nullifiers consumed by the transactions.
     nullifiers: BTreeSet<Nullifier>,
-    // TODO: input/output notes
+
+    /// The notes produced by the transactions.
+    output_notes: BTreeSet<NoteId>,
 }
 
 impl StateDiff {
-    pub fn new(txs: &[Arc<ProvenTransaction>]) -> Self {
+    pub fn new(txs: &[Arc<VerifiedTransaction>]) -> Self {
         let mut account_transactions = BTreeMap::<AccountId, usize>::new();
         let mut nullifiers = BTreeSet::new();
+        let mut output_notes = BTreeSet::new();
 
         for tx in txs {
             *account_transactions.entry(tx.account_id()).or_default() += 1;
-            nullifiers.extend(tx.get_nullifiers());
+            nullifiers.extend(tx.nullifiers());
+            output_notes.extend(tx.output_notes().keys());
         }
 
-        Self { account_transactions, nullifiers }
+        Self {
+            account_transactions,
+            nullifiers,
+            output_notes,
+        }
     }
 }
 
@@ -60,12 +76,12 @@ impl InflightState {
     /// This operation is atomic i.e. a rejected transaction has no impact of the state.
     pub fn add_transaction(
         &mut self,
-        tx: &ProvenTransaction,
-        inputs: &TransactionInputs,
+        tx: &VerifiedTransaction,
+        input_account_hash: Option<Digest>,
     ) -> Result<BTreeSet<TransactionId>, AddTransactionErrorRework> {
         // Separate verification and state mutation so that a rejected transaction
         // does not impact the state (atomicity).
-        self.verify_transaction(tx, inputs)?;
+        self.verify_transaction(tx, input_account_hash)?;
 
         let parents = self.insert_transaction(tx);
 
@@ -74,8 +90,8 @@ impl InflightState {
 
     fn verify_transaction(
         &mut self,
-        tx: &ProvenTransaction,
-        inputs: &TransactionInputs,
+        tx: &VerifiedTransaction,
+        input_account_hash: Option<Digest>,
     ) -> Result<(), AddTransactionErrorRework> {
         // Ensure current account state is correct.
         let current = self
@@ -83,7 +99,7 @@ impl InflightState {
             .get(&tx.account_id())
             .and_then(|account_state| account_state.latest_state())
             .copied()
-            .or(inputs.account_hash)
+            .or(input_account_hash)
             .unwrap_or_default();
         let expected = tx.account_update().init_state_hash();
 
@@ -92,33 +108,43 @@ impl InflightState {
         }
 
         // Ensure nullifiers aren't already present.
-        // TODO: Verifying the inputs nullifiers should be done externally already.
-        // TODO: The above should cause a change in type for inputs indicating this.
-        let input_nullifiers = tx.get_nullifiers().collect::<BTreeSet<_>>();
-        let double_spend =
-            self.nullifiers.union(&input_nullifiers).copied().collect::<BTreeSet<_>>();
+        let double_spend = self.nullifiers.union(tx.nullifiers()).copied().collect::<BTreeSet<_>>();
         if !double_spend.is_empty() {
             return Err(AddTransactionErrorRework::NotesAlreadyConsumed(double_spend));
         }
 
-        // TODO: additional input and output note checks, depends on the transaction type changes.
+        // Ensure output notes aren't already present.
+        let duplicates = tx
+            .output_notes()
+            .keys()
+            .filter(|note| self.output_notes.contains_key(note))
+            .copied()
+            .collect::<BTreeSet<_>>();
+        if !duplicates.is_empty() {
+            return Err(AddTransactionErrorRework::DuplicateOutputNotes(duplicates));
+        }
 
         Ok(())
     }
 
     /// Aggregate the transaction into the state, returning its parent transactions.
-    fn insert_transaction(&mut self, tx: &ProvenTransaction) -> BTreeSet<TransactionId> {
+    fn insert_transaction(&mut self, tx: &VerifiedTransaction) -> BTreeSet<TransactionId> {
         let account_parent = self
             .accounts
             .entry(tx.account_id())
             .or_default()
             .insert(tx.account_update().final_state_hash(), tx.id());
 
-        self.nullifiers.extend(tx.get_nullifiers());
+        self.nullifiers.extend(tx.nullifiers());
+        self.output_notes.extend(tx.output_notes().keys().map(|id| (*id, tx.id())));
 
-        // TODO: input and output notes
+        let note_parents = tx
+            .input_notes()
+            .unauthenticated_notes()
+            .filter_map(|id| self.output_notes.get(id))
+            .copied();
 
-        account_parent.into_iter().collect()
+        account_parent.into_iter().chain(note_parents).collect()
     }
 
     /// Reverts the given state diff.
@@ -141,7 +167,9 @@ impl InflightState {
             assert!(self.nullifiers.remove(&nullifier), "Nullifier must exist");
         }
 
-        // TODO: input and output notes
+        for note in diff.output_notes {
+            assert!(self.output_notes.remove(&note).is_some(), "Output note must exist");
+        }
     }
 
     /// Marks the given state diff as committed.

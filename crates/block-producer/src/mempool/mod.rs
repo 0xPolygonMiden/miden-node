@@ -17,8 +17,10 @@ use miden_tx::{utils::collections::KvMap, TransactionVerifierError};
 use transaction_graph::TransactionGraph;
 
 use crate::{
+    batch_builder::batch::TransactionBatch,
     errors::AddTransactionErrorRework,
     store::{TransactionInputs, TxInputsError},
+    transaction::VerifiedTransaction,
 };
 
 mod batch_graph;
@@ -120,7 +122,7 @@ impl Mempool {
     /// Returns an error if the transaction's initial conditions don't match the current state.
     pub fn add_transaction(
         &mut self,
-        transaction: ProvenTransaction,
+        transaction: VerifiedTransaction,
         inputs: TransactionInputs,
     ) -> Result<u32, AddTransactionErrorRework> {
         // Ensure inputs aren't stale.
@@ -134,7 +136,7 @@ impl Mempool {
         }
 
         // Add transaction to inflight state.
-        let parents = self.state.add_transaction(&transaction, &inputs)?;
+        let parents = self.state.add_transaction(&transaction, inputs.account_hash)?;
 
         self.transactions.insert(transaction, parents);
 
@@ -146,9 +148,10 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<TransactionId>)> {
+    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<Arc<VerifiedTransaction>>)> {
         let mut parents = BTreeSet::new();
         let mut batch = Vec::with_capacity(self.batch_transaction_limit);
+        let mut tx_ids = Vec::with_capacity(self.batch_transaction_limit);
 
         for _ in 0..self.batch_transaction_limit {
             // Select transactions according to some strategy here. For now its just arbitrary.
@@ -162,13 +165,13 @@ impl Mempool {
         // Update the depedency graph to reflect parents at the batch level by removing
         // all edges within this batch.
         for tx in &batch {
-            parents.remove(tx);
+            parents.remove(&tx.id());
         }
 
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        self.batches.insert(batch_id, batch.clone(), parents);
+        self.batches.insert(batch_id, tx_ids, parents);
 
         Some((batch_id, batch))
     }
@@ -194,8 +197,8 @@ impl Mempool {
     }
 
     /// Marks a batch as proven if it exists.
-    pub fn batch_proved(&mut self, batch_id: BatchJobId) {
-        self.batches.mark_proven(batch_id);
+    pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
+        self.batches.mark_proven(batch_id, batch);
     }
 
     /// Select batches for the next block.
@@ -205,11 +208,11 @@ impl Mempool {
     /// # Panics
     ///
     /// Panics if there is already a block in flight.
-    pub fn select_block(&mut self) -> (BlockNumber, BTreeSet<BatchJobId>) {
+    pub fn select_block(&mut self) -> (BlockNumber, BTreeMap<BatchJobId, TransactionBatch>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
         let batches = self.batches.select_block(self.block_batch_limit);
-        self.block_in_progress = Some(batches.clone());
+        self.block_in_progress = Some(batches.keys().cloned().collect());
 
         (self.chain_tip.next(), batches)
     }
