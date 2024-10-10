@@ -6,7 +6,7 @@ use miden_objects::{
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
     notes::Nullifier,
     transaction::TransactionId,
-    vm::{AdviceInputs, StackInputs},
+    vm::AdviceInputs,
     BlockHeader, Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
@@ -133,13 +133,127 @@ impl BlockWitness {
     }
 
     /// Converts [`BlockWitness`] into inputs to the block kernel program
-    pub(super) fn into_program_inputs(
-        self,
-    ) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
-        let stack_inputs = self.build_stack_inputs();
-        let advice_inputs = self.build_advice_inputs()?;
+    pub(super) fn into_program_inputs(self) -> Result<AdviceInputs, BlockProverError> {
+        let advice_stack = {
+            let mut advice_stack = Vec::new();
 
-        Ok((advice_inputs, stack_inputs))
+            // add account stack inputs to the advice stack
+            {
+                let mut account_data = Vec::new();
+                let mut num_accounts_updated: u64 = 0;
+                for (idx, (account_id, account_update)) in self.updated_accounts.iter().enumerate()
+                {
+                    account_data.extend(account_update.final_state_hash);
+                    account_data.push((*account_id).into());
+
+                    let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
+                    num_accounts_updated = idx + 1;
+                }
+
+                // append number of accounts updated
+                advice_stack.push(num_accounts_updated.try_into().expect(
+                    "updated accounts number is greater than or equal to the field modulus",
+                ));
+
+                // append initial account root
+                advice_stack.extend(self.prev_header.account_root());
+
+                // append the updated accounts data
+                advice_stack.extend(account_data);
+            }
+
+            // add notes stack inputs to the advice stack
+            {
+                // append the number of updated notes
+                advice_stack
+                    .push(Felt::try_from(self.batch_created_notes_roots.len() as u64).expect(
+                        "notes roots number is greater than or equal to the field modulus",
+                    ));
+
+                // append the empty root
+                let empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
+                advice_stack.extend(*empty_root);
+
+                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter()
+                {
+                    advice_stack.extend(batch_created_notes_root.iter());
+
+                    let batch_index = Felt::try_from(*batch_index as u64)
+                        .expect("batch index is greater than or equal to the field modulus");
+                    advice_stack.push(batch_index);
+                }
+            }
+
+            // Nullifiers stack inputs
+            {
+                let num_produced_nullifiers: Felt = (self.produced_nullifiers.len() as u64)
+                    .try_into()
+                    .expect("nullifiers number is greater than or equal to the field modulus");
+
+                // append number of nullifiers
+                advice_stack.push(num_produced_nullifiers);
+
+                // append initial nullifier root
+                advice_stack.extend(self.prev_header.nullifier_root());
+
+                // append nullifier value (`[block_num, 0, 0, 0]`)
+                let block_num = self.prev_header.block_num() + 1;
+                advice_stack.extend([block_num.into(), ZERO, ZERO, ZERO]);
+
+                for nullifier in self.produced_nullifiers.keys() {
+                    advice_stack.extend(nullifier.inner());
+                }
+            }
+
+            // Chain MMR stack inputs
+            {
+                advice_stack.extend(self.prev_header.hash());
+                advice_stack.extend(self.chain_peaks.hash_peaks());
+            }
+
+            advice_stack
+        };
+
+        let merkle_store = {
+            let mut merkle_store = MerkleStore::default();
+
+            // add accounts merkle paths
+            merkle_store
+                .add_merkle_paths(self.updated_accounts.into_iter().map(
+                    |(account_id, AccountUpdateWitness { initial_state_hash, proof, .. })| {
+                        (u64::from(account_id), initial_state_hash, proof)
+                    },
+                ))
+                .map_err(BlockProverError::InvalidMerklePaths)?;
+
+            // add nullifiers merkle paths
+            merkle_store
+                .add_merkle_paths(self.produced_nullifiers.iter().map(|(nullifier, proof)| {
+                    // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
+                    (
+                        u64::from(nullifier.most_significant_felt()),
+                        Digest::default(),
+                        proof.path().clone(),
+                    )
+                }))
+                .map_err(BlockProverError::InvalidMerklePaths)?;
+
+            merkle_store
+        };
+
+        let advice_map: Vec<_> = self
+            .produced_nullifiers
+            .values()
+            .map(|proof| (proof.leaf().hash(), proof.leaf().to_elements()))
+            .chain(std::iter::once(mmr_peaks_advice_map_key_value(&self.chain_peaks)))
+            .collect();
+
+        let advice_inputs = AdviceInputs::default()
+            .with_merkle_store(merkle_store)
+            .with_map(advice_map)
+            .with_stack(advice_stack);
+
+        Ok(advice_inputs)
     }
 
     /// Returns an iterator over all transactions which affected accounts in the block with
@@ -176,124 +290,6 @@ impl BlockWitness {
 
             Err(BuildBlockError::InconsistentNullifiers(differing_nullifiers))
         }
-    }
-
-    /// Builds the stack inputs to the block kernel
-    fn build_stack_inputs(&self) -> StackInputs {
-        // Note: `StackInputs::new()` reverses the input vector, so we need to construct the stack
-        // from the bottom to the top
-        let mut stack_inputs = Vec::new();
-
-        // Chain MMR stack inputs
-        {
-            stack_inputs.extend(self.prev_header.hash());
-            stack_inputs.extend(self.chain_peaks.hash_peaks());
-        }
-
-        // Nullifiers stack inputs
-        {
-            let num_produced_nullifiers: Felt = (self.produced_nullifiers.len() as u64)
-                .try_into()
-                .expect("nullifiers number is greater than or equal to the field modulus");
-
-            for nullifier in self.produced_nullifiers.keys() {
-                stack_inputs.extend(nullifier.inner());
-            }
-
-            // append nullifier value (`[block_num, 0, 0, 0]`)
-            let block_num = self.prev_header.block_num() + 1;
-            stack_inputs.extend([block_num.into(), ZERO, ZERO, ZERO]);
-
-            // append initial nullifier root
-            stack_inputs.extend(self.prev_header.nullifier_root());
-
-            // append number of nullifiers
-            stack_inputs.push(num_produced_nullifiers);
-        }
-
-        // Notes stack inputs
-        {
-            for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter() {
-                stack_inputs.extend(batch_created_notes_root.iter());
-
-                let batch_index = Felt::try_from(*batch_index as u64)
-                    .expect("batch index is greater than or equal to the field modulus");
-                stack_inputs.push(batch_index);
-            }
-
-            let empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
-            stack_inputs.extend(*empty_root);
-            stack_inputs.push(
-                Felt::try_from(self.batch_created_notes_roots.len() as u64)
-                    .expect("notes roots number is greater than or equal to the field modulus"),
-            );
-        }
-
-        // Account stack inputs
-        let mut num_accounts_updated: u64 = 0;
-        for (idx, (account_id, account_update)) in self.updated_accounts.iter().enumerate() {
-            stack_inputs.push((*account_id).into());
-            stack_inputs.extend(account_update.final_state_hash);
-
-            let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
-            num_accounts_updated = idx + 1;
-        }
-
-        // append initial account root
-        stack_inputs.extend(self.prev_header.account_root());
-
-        // append number of accounts updated
-        stack_inputs.push(
-            num_accounts_updated
-                .try_into()
-                .expect("updated accounts number is greater than or equal to the field modulus"),
-        );
-
-        // TODO: We need provide produced nullifier different way, because such big stack inputs
-        //       will cause problem in recursive proofs
-        StackInputs::new(stack_inputs).expect("Stack inputs count extends max limit")
-    }
-
-    /// Builds the advice inputs to the block kernel
-    fn build_advice_inputs(self) -> Result<AdviceInputs, BlockProverError> {
-        let merkle_store = {
-            let mut merkle_store = MerkleStore::default();
-
-            // add accounts merkle paths
-            merkle_store
-                .add_merkle_paths(self.updated_accounts.into_iter().map(
-                    |(account_id, AccountUpdateWitness { initial_state_hash, proof, .. })| {
-                        (u64::from(account_id), initial_state_hash, proof)
-                    },
-                ))
-                .map_err(BlockProverError::InvalidMerklePaths)?;
-
-            // add nullifiers merkle paths
-            merkle_store
-                .add_merkle_paths(self.produced_nullifiers.iter().map(|(nullifier, proof)| {
-                    // Note: the initial value for all nullifiers in the tree is `[0, 0, 0, 0]`
-                    (
-                        u64::from(nullifier.most_significant_felt()),
-                        Digest::default(),
-                        proof.path().clone(),
-                    )
-                }))
-                .map_err(BlockProverError::InvalidMerklePaths)?;
-
-            merkle_store
-        };
-
-        let advice_map: Vec<_> = self
-            .produced_nullifiers
-            .values()
-            .map(|proof| (proof.leaf().hash(), proof.leaf().to_elements()))
-            .chain(std::iter::once(mmr_peaks_advice_map_key_value(&self.chain_peaks)))
-            .collect();
-
-        let advice_inputs =
-            AdviceInputs::default().with_merkle_store(merkle_store).with_map(advice_map);
-
-        Ok(advice_inputs)
     }
 }
 
