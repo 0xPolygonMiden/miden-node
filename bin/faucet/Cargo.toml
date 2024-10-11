@@ -17,7 +17,8 @@ repository.workspace = true
 testing = ["miden-objects/testing", "miden-lib/testing"]
 
 [dependencies]
-axum = { version = "0.7", features = ["tokio"] }
+anyhow = "1.0"
+axum = { version = "0.7", features = ["tokio", "macros"] }
 clap = { version = "4.5", features = ["derive", "string"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 http = "1.1"
@@ -33,7 +34,7 @@ rand_chacha = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 static-files = "0.2"
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
 toml = { version = "0.8" }
 tonic = { workspace = true }
 tower = "0.5"
