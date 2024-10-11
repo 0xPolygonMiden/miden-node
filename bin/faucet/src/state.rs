@@ -5,9 +5,8 @@ use static_files::Resource;
 use tokio::sync::Mutex;
 use tracing::info;
 
-use crate::{
-    client::FaucetClient, config::FaucetConfig, errors::InitError, static_resources, COMPONENT,
-};
+use crate::{client::FaucetClient, config::FaucetConfig, static_resources, COMPONENT};
+
 // FAUCET STATE
 // ================================================================================================
 
@@ -24,8 +23,8 @@ pub struct FaucetState {
 }
 
 impl FaucetState {
-    pub async fn new(config: FaucetConfig) -> Result<Self, InitError> {
-        let client = FaucetClient::new(config.clone()).await?;
+    pub async fn new(config: FaucetConfig) -> anyhow::Result<Self> {
+        let client = FaucetClient::new(&config).await?;
         let id = client.get_faucet_id();
         let client = Arc::new(Mutex::new(client));
         let static_files = Arc::new(static_resources::generate());

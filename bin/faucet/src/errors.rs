@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
@@ -5,22 +7,7 @@ use axum::{
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum InitError {
-    #[error("Failed to start faucet: {0}")]
-    FaucetFailedToStart(String),
-
-    #[error("Failed to initialize client: {0}")]
-    ClientInitFailed(String),
-
-    #[error("Failed to configure faucet: {0}")]
-    ConfigurationError(String),
-
-    #[error("Failed to create Miden account: {0}")]
-    AccountCreationError(String),
-}
-
-#[derive(Debug, Error)]
-pub enum ProcessError {
+pub enum HandlerError {
     #[error("Client has submitted a bad request: {0}")]
     BadRequest(String),
 
@@ -31,7 +18,7 @@ pub enum ProcessError {
     NotFound(String),
 }
 
-impl ProcessError {
+impl HandlerError {
     fn status_code(&self) -> StatusCode {
         match *self {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
@@ -50,7 +37,7 @@ impl ProcessError {
     }
 }
 
-impl IntoResponse for ProcessError {
+impl IntoResponse for HandlerError {
     fn into_response(self) -> Response {
         (
             self.status_code(),
@@ -58,5 +45,21 @@ impl IntoResponse for ProcessError {
             self.message(),
         )
             .into_response()
+    }
+}
+
+pub trait ErrorHelper<T, E: std::error::Error> {
+    fn or_fail(self, message: impl Display) -> Result<T, E>;
+}
+
+impl<T, E: std::error::Error> ErrorHelper<T, HandlerError> for Result<T, E> {
+    fn or_fail(self, message: impl Display) -> Result<T, HandlerError> {
+        self.map_err(|err| HandlerError::InternalServerError(format!("{message}: {err}")))
+    }
+}
+
+impl<T> ErrorHelper<T, HandlerError> for Option<T> {
+    fn or_fail(self, message: impl Display) -> Result<T, HandlerError> {
+        self.ok_or_else(|| HandlerError::InternalServerError(message.to_string()))
     }
 }
