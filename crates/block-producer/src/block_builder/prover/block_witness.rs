@@ -6,7 +6,7 @@ use miden_objects::{
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
     notes::Nullifier,
     transaction::TransactionId,
-    vm::AdviceInputs,
+    vm::{AdviceInputs, StackInputs},
     BlockHeader, Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
@@ -133,7 +133,52 @@ impl BlockWitness {
     }
 
     /// Converts [`BlockWitness`] into inputs to the block kernel program
-    pub(super) fn into_program_inputs(self) -> Result<AdviceInputs, BlockProverError> {
+    pub(super) fn into_program_inputs(
+        self,
+    ) -> Result<(AdviceInputs, StackInputs), BlockProverError> {
+        let advice_inputs = self.build_advice_inputs()?;
+
+        Ok((advice_inputs, StackInputs::default()))
+    }
+
+    /// Returns an iterator over all transactions which affected accounts in the block with
+    /// corresponding account IDs.
+    pub(super) fn transactions(&self) -> impl Iterator<Item = (TransactionId, AccountId)> + '_ {
+        self.updated_accounts.iter().flat_map(|(account_id, update)| {
+            update.transactions.iter().map(move |tx_id| (*tx_id, *account_id))
+        })
+    }
+
+    // HELPERS
+    // ---------------------------------------------------------------------------------------------
+
+    /// Validates that the nullifiers returned from the store are the same the produced nullifiers
+    /// in the batches. Note that validation that the value of the nullifiers is `0` will be
+    /// done in MASM.
+    fn validate_nullifiers(
+        block_inputs: &BlockInputs,
+        batches: &[TransactionBatch],
+    ) -> Result<(), BuildBlockError> {
+        let produced_nullifiers_from_store: BTreeSet<Nullifier> =
+            block_inputs.nullifiers.keys().copied().collect();
+
+        let produced_nullifiers_from_batches: BTreeSet<Nullifier> =
+            batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+
+        if produced_nullifiers_from_store == produced_nullifiers_from_batches {
+            Ok(())
+        } else {
+            let differing_nullifiers: Vec<Nullifier> = produced_nullifiers_from_store
+                .symmetric_difference(&produced_nullifiers_from_batches)
+                .copied()
+                .collect();
+
+            Err(BuildBlockError::InconsistentNullifiers(differing_nullifiers))
+        }
+    }
+
+    /// Builds the advice inputs to the block kernel
+    fn build_advice_inputs(self) -> Result<AdviceInputs, BlockProverError> {
         let advice_stack = {
             let mut advice_stack = Vec::new();
 
@@ -254,42 +299,6 @@ impl BlockWitness {
             .with_stack(advice_stack);
 
         Ok(advice_inputs)
-    }
-
-    /// Returns an iterator over all transactions which affected accounts in the block with
-    /// corresponding account IDs.
-    pub(super) fn transactions(&self) -> impl Iterator<Item = (TransactionId, AccountId)> + '_ {
-        self.updated_accounts.iter().flat_map(|(account_id, update)| {
-            update.transactions.iter().map(move |tx_id| (*tx_id, *account_id))
-        })
-    }
-
-    // HELPERS
-    // ---------------------------------------------------------------------------------------------
-
-    /// Validates that the nullifiers returned from the store are the same the produced nullifiers
-    /// in the batches. Note that validation that the value of the nullifiers is `0` will be
-    /// done in MASM.
-    fn validate_nullifiers(
-        block_inputs: &BlockInputs,
-        batches: &[TransactionBatch],
-    ) -> Result<(), BuildBlockError> {
-        let produced_nullifiers_from_store: BTreeSet<Nullifier> =
-            block_inputs.nullifiers.keys().copied().collect();
-
-        let produced_nullifiers_from_batches: BTreeSet<Nullifier> =
-            batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
-
-        if produced_nullifiers_from_store == produced_nullifiers_from_batches {
-            Ok(())
-        } else {
-            let differing_nullifiers: Vec<Nullifier> = produced_nullifiers_from_store
-                .symmetric_difference(&produced_nullifiers_from_batches)
-                .copied()
-                .collect();
-
-            Err(BuildBlockError::InconsistentNullifiers(differing_nullifiers))
-        }
     }
 }
 

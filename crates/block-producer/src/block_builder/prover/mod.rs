@@ -2,9 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{assembly::Assembler, block::compute_tx_hash, BlockHeader, Digest};
-use miden_processor::{
-    execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program, StackInputs,
-};
+use miden_processor::{execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
 
 use self::block_witness::BlockWitness;
@@ -85,7 +83,7 @@ impl BlockProver {
         &self,
         witness: BlockWitness,
     ) -> Result<(Digest, Digest, Digest, Digest), BlockProverError> {
-        let advice_inputs = witness.into_program_inputs()?;
+        let (advice_inputs, stack_inputs) = witness.into_program_inputs()?;
         let host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
 
@@ -96,7 +94,7 @@ impl BlockProver {
         };
 
         let execution_output =
-            execute(&self.kernel, StackInputs::default(), host, ExecutionOptions::default())
+            execute(&self.kernel, stack_inputs, host, ExecutionOptions::default())
                 .map_err(BlockProverError::ProgramExecutionFailed)?;
 
         let new_account_root = execution_output
