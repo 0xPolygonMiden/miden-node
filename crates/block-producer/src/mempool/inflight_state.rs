@@ -33,13 +33,10 @@ pub struct InflightState {
     /// Notes created by inflight transactions.
     ///
     /// Some of these may already be consumed - check the nullifiers.
-    // TODO: Should these also get pruned asap?
     output_notes: BTreeMap<NoteId, TransactionId>,
 }
 
-/// Describes the impact that a set of transactions had on the state.
-///
-/// TODO: this is a terrible name.
+/// The aggregated impact of a set of sequential transactions on the [InflightState].
 pub struct StateDiff {
     /// The number of transactions that affected each account.
     account_transactions: BTreeMap<AccountId, usize>,
@@ -176,7 +173,8 @@ impl InflightState {
     ///
     /// Panics if any part of the diff isn't present in the state. Callers should take
     /// care to only revert transaction sets who's ancestors are all either committed or reverted.
-    pub fn revert_transactions(&mut self, diff: StateDiff) {
+    pub fn revert_transactions(&mut self, txs: &[ProvenTransaction]) {
+        let diff = StateDiff::new(txs);
         for (account, count) in diff.account_transactions {
             let status = self.accounts.get_mut(&account).expect("Account must exist").revert(count);
 
@@ -230,6 +228,10 @@ impl InflightState {
 
         for nullifier in diff.nullifiers {
             self.nullifiers.remove(&nullifier);
+        }
+
+        for output_note in diff.output_notes {
+            self.output_notes.remove(&output_note);
         }
     }
 }
@@ -337,6 +339,9 @@ impl AccountState {
         self.emptyness()
     }
 
+    /// This is essentially `is_empty` with the additional benefit that
+    /// [AccountStatus] is marked as `#[must_use]`, forcing callers to
+    /// handle empty accounts (which should be pruned).
     fn emptyness(&self) -> AccountStatus {
         if self.inflight.is_empty() && self.committed_count == 0 {
             AccountStatus::Empty

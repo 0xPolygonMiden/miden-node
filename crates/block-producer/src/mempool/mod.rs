@@ -77,14 +77,6 @@ pub struct Mempool {
     /// Accounts without inflight transactions are not stored.
     state: InflightState,
 
-    /// Note's consumed by inflight transactions.
-    nullifiers: BTreeSet<Nullifier>,
-
-    /// Notes produced by inflight transactions.
-    ///
-    /// It is possible for these to already be consumed - check nullifiers.
-    notes: BTreeMap<NoteId, TransactionId>,
-
     /// Inflight transactions.
     transactions: TransactionGraph,
 
@@ -263,9 +255,7 @@ impl Mempool {
         let transactions = self.transactions.purge_subgraphs(transactions);
 
         // Rollback state.
-        let impact = StateDiff::new(&transactions);
-        self.state.revert_transactions(impact);
-        // TODO: revert nullifiers and notes.
+        self.state.revert_transactions(&transactions);
     }
 
     /// The highest block height we consider stale.
