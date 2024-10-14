@@ -149,18 +149,16 @@ where
     }
 }
 
-struct BlockProducer {
+struct BlockProducer<BB> {
     pub mempool: Arc<Mutex<Mempool>>,
     pub block_interval: tokio::time::Duration,
-    pub store: Arc<DefaultStore>,
+    pub block_builder: BB,
 }
 
-impl BlockProducer {
+impl<BB: BlockBuilder> BlockProducer<BB> {
     pub async fn run(self) {
         let mut interval = tokio::time::interval(self.block_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-
-        let block_builder = DefaultBlockBuilder::new(self.store.clone(), self.store);
 
         loop {
             interval.tick().await;
@@ -168,7 +166,7 @@ impl BlockProducer {
             let (block_number, batches) = self.mempool.lock().await.select_block();
             let batches = batches.into_values().collect::<Vec<_>>();
 
-            let result = block_builder.build_block(&batches).await;
+            let result = self.block_builder.build_block(&batches).await;
             let mut mempool = self.mempool.lock().await;
 
             match result {
