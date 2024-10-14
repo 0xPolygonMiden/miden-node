@@ -6,7 +6,7 @@ use std::{
 };
 
 use batch_graph::BatchGraph;
-use inflight_state::{InflightState, StateDiff};
+use inflight_state::{InflightState, StateDelta};
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, Nullifier},
@@ -87,7 +87,7 @@ pub struct Mempool {
     next_batch_id: BatchJobId,
 
     /// Blocks which have been committed but are not yet considered stale.
-    committed_diffs: VecDeque<StateDiff>,
+    committed_diffs: VecDeque<StateDelta>,
 
     /// The current block height of the chain.
     chain_tip: BlockNumber,
@@ -222,7 +222,7 @@ impl Mempool {
         let transactions = self.transactions.remove_committed(&transactions);
 
         // Inform inflight state about committed data.
-        let diff = StateDiff::new(&transactions);
+        let diff = StateDelta::new(&transactions);
         self.state.commit_transactions(&diff);
 
         self.committed_diffs.push_back(diff);
