@@ -11,10 +11,12 @@ use crate::{config::RpcConfig, COMPONENT};
 
 mod api;
 
-/// Represents an initialized rpc component where the RPC connection is open,
-/// but not yet actively responding to requests. Separating the connection binding
-/// from the server spawning allows the caller to connect other components to the
-/// store without resorting to sleeps or other mechanisms to spawn dependent components.
+/// Represents an initialized rpc component where the RPC connection is open, but not yet actively
+/// responding to requests.
+///
+/// Separating the connection binding from the server spawning allows the caller to connect other
+/// components to the store without resorting to sleeps or other mechanisms to spawn dependent
+/// components.
 pub struct Rpc {
     api_service: api_server::ApiServer<RpcApi>,
     listener: TcpListener,

@@ -5,8 +5,8 @@ use miden_objects::{
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
-    AccountDeltaError, Digest, TransactionInputError, BLOCK_NOTES_BATCH_TREE_DEPTH,
-    MAX_NOTES_PER_BATCH,
+    AccountDeltaError, Digest, TransactionInputError, MAX_ACCOUNTS_PER_BATCH,
+    MAX_BATCHES_PER_BLOCK, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -68,8 +68,24 @@ pub enum AddTransactionError {
 /// queue can re-queue them.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum BuildBatchError {
-    #[error("Too many notes in the batch. Got: {0}, max: {}", MAX_NOTES_PER_BATCH)]
+    #[error(
+        "Too many input notes in the batch. Got: {0}, limit: {}",
+        MAX_INPUT_NOTES_PER_BATCH
+    )]
+    TooManyInputNotes(usize, Vec<ProvenTransaction>),
+
+    #[error(
+        "Too many notes created in the batch. Got: {0}, limit: {}",
+        MAX_OUTPUT_NOTES_PER_BATCH
+    )]
     TooManyNotesCreated(usize, Vec<ProvenTransaction>),
+
+    #[error(
+        "Too many account updates in the batch. Got: {}, limit: {}",
+        .0.len(),
+        MAX_ACCOUNTS_PER_BATCH
+    )]
+    TooManyAccountsInBatch(Vec<ProvenTransaction>),
 
     #[error("Failed to create notes SMT: {0}")]
     NotesSmtError(MerkleError, Vec<ProvenTransaction>),
@@ -105,7 +121,9 @@ pub enum BuildBatchError {
 impl BuildBatchError {
     pub fn into_transactions(self) -> Vec<ProvenTransaction> {
         match self {
+            BuildBatchError::TooManyInputNotes(_, txs) => txs,
             BuildBatchError::TooManyNotesCreated(_, txs) => txs,
+            BuildBatchError::TooManyAccountsInBatch(txs) => txs,
             BuildBatchError::NotesSmtError(_, txs) => txs,
             BuildBatchError::NotePathsError(_, txs) => txs,
             BuildBatchError::DuplicateUnauthenticatedNote(_, txs) => txs,
@@ -186,7 +204,7 @@ pub enum BuildBlockError {
     InconsistentNullifiers(Vec<Nullifier>),
     #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
-    #[error("too many batches in block. Got: {0}, max: 2^{}", BLOCK_NOTES_BATCH_TREE_DEPTH)]
+    #[error("too many batches in block. Got: {0}, max: {MAX_BATCHES_PER_BLOCK}")]
     TooManyBatchesInBlock(usize),
     #[error("Failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {

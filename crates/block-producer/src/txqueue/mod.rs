@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use miden_objects::MAX_NOTES_PER_BATCH;
+use miden_objects::MAX_OUTPUT_NOTES_PER_BATCH;
 use tokio::{sync::RwLock, time};
 use tracing::{debug, info, info_span, instrument, Instrument};
 
@@ -99,17 +99,19 @@ where
 
         while !txs.is_empty() {
             let mut batch = Vec::with_capacity(self.options.batch_size);
-            let mut notes_in_batch = 0;
+            let mut output_notes_in_batch = 0;
 
             while let Some(tx) = txs.pop() {
-                notes_in_batch += tx.output_notes().num_notes();
+                output_notes_in_batch += tx.output_notes().num_notes();
 
                 debug_assert!(
-                    tx.output_notes().num_notes() <= MAX_NOTES_PER_BATCH,
+                    tx.output_notes().num_notes() <= MAX_OUTPUT_NOTES_PER_BATCH,
                     "Sanity check, the number of output notes of a single transaction must never be larger than the batch maximum",
                 );
 
-                if notes_in_batch > MAX_NOTES_PER_BATCH || batch.len() == self.options.batch_size {
+                if output_notes_in_batch > MAX_OUTPUT_NOTES_PER_BATCH
+                    || batch.len() == self.options.batch_size
+                {
                     // Batch would be too big in number of notes or transactions. Push the tx back
                     // to the list of available transactions and forward the current batch.
                     txs.push(tx);
