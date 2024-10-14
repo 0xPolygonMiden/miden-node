@@ -6,12 +6,13 @@ use std::{
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, Nullifier},
-    transaction::{OutputNotes, ProvenTransaction, TransactionId},
+    transaction::{OutputNote, OutputNotes, ProvenTransaction, TransactionId},
     Digest,
 };
 
 use crate::{
-    errors::AddTransactionErrorRework, store::TransactionInputs, transaction::VerifiedTransaction,
+    errors::{AddTransactionError, VerifyTxError},
+    store::TransactionInputs,
 };
 
 /// Tracks the inflight state of the mempool. This includes recently committed blocks.
@@ -51,15 +52,15 @@ pub struct StateDiff {
 }
 
 impl StateDiff {
-    pub fn new(txs: &[Arc<VerifiedTransaction>]) -> Self {
+    pub fn new(txs: &[ProvenTransaction]) -> Self {
         let mut account_transactions = BTreeMap::<AccountId, usize>::new();
         let mut nullifiers = BTreeSet::new();
         let mut output_notes = BTreeSet::new();
 
         for tx in txs {
             *account_transactions.entry(tx.account_id()).or_default() += 1;
-            nullifiers.extend(tx.nullifiers());
-            output_notes.extend(tx.output_notes().keys());
+            nullifiers.extend(tx.get_nullifiers());
+            output_notes.extend(tx.output_notes().iter().map(|note| note.id()));
         }
 
         Self {
@@ -76,9 +77,9 @@ impl InflightState {
     /// This operation is atomic i.e. a rejected transaction has no impact of the state.
     pub fn add_transaction(
         &mut self,
-        tx: &VerifiedTransaction,
+        tx: &ProvenTransaction,
         input_account_hash: Option<Digest>,
-    ) -> Result<BTreeSet<TransactionId>, AddTransactionErrorRework> {
+    ) -> Result<BTreeSet<TransactionId>, AddTransactionError> {
         // Separate verification and state mutation so that a rejected transaction
         // does not impact the state (atomicity).
         self.verify_transaction(tx, input_account_hash)?;
@@ -90,58 +91,80 @@ impl InflightState {
 
     fn verify_transaction(
         &mut self,
-        tx: &VerifiedTransaction,
+        tx: &ProvenTransaction,
         input_account_hash: Option<Digest>,
-    ) -> Result<(), AddTransactionErrorRework> {
+    ) -> Result<(), VerifyTxError> {
         // Ensure current account state is correct.
         let current = self
             .accounts
             .get(&tx.account_id())
             .and_then(|account_state| account_state.latest_state())
             .copied()
-            .or(input_account_hash)
-            .unwrap_or_default();
+            .or(input_account_hash);
         let expected = tx.account_update().init_state_hash();
 
-        if expected != current {
-            return Err(AddTransactionErrorRework::InvalidAccountState { current, expected });
+        if expected != current.unwrap_or_default() {
+            return Err(VerifyTxError::IncorrectAccountInitialHash {
+                tx_initial_account_hash: expected,
+                current_account_hash: current,
+            });
         }
 
         // Ensure nullifiers aren't already present.
-        let double_spend = self.nullifiers.union(tx.nullifiers()).copied().collect::<BTreeSet<_>>();
+        let double_spend = tx
+            .get_nullifiers()
+            .filter(|nullifier| self.nullifiers.contains(nullifier))
+            .collect::<Vec<_>>();
         if !double_spend.is_empty() {
-            return Err(AddTransactionErrorRework::NotesAlreadyConsumed(double_spend));
+            return Err(VerifyTxError::InputNotesAlreadyConsumed(double_spend));
         }
 
         // Ensure output notes aren't already present.
         let duplicates = tx
             .output_notes()
-            .keys()
+            .iter()
+            .map(OutputNote::id)
             .filter(|note| self.output_notes.contains_key(note))
-            .copied()
-            .collect::<BTreeSet<_>>();
+            .collect::<Vec<_>>();
         if !duplicates.is_empty() {
-            return Err(AddTransactionErrorRework::DuplicateOutputNotes(duplicates));
+            return Err(VerifyTxError::OutputNotesAlreadyExist(duplicates));
+        }
+
+        // Ensure that all unauthenticated notes have an inflight output note to consume.
+        //
+        // We don't need to worry about double spending them since we already checked for
+        // that using the nullifiers.
+        let missing = tx
+            .get_unauthenticated_notes()
+            .map(|note| note.id())
+            .filter(|note_id| self.output_notes.contains_key(note_id))
+            .collect::<Vec<_>>();
+        if !missing.is_empty() {
+            return Err(VerifyTxError::UnauthenticatedNotesNotFound(missing));
         }
 
         Ok(())
     }
 
     /// Aggregate the transaction into the state, returning its parent transactions.
-    fn insert_transaction(&mut self, tx: &VerifiedTransaction) -> BTreeSet<TransactionId> {
+    fn insert_transaction(&mut self, tx: &ProvenTransaction) -> BTreeSet<TransactionId> {
         let account_parent = self
             .accounts
             .entry(tx.account_id())
             .or_default()
             .insert(tx.account_update().final_state_hash(), tx.id());
 
-        self.nullifiers.extend(tx.nullifiers());
-        self.output_notes.extend(tx.output_notes().keys().map(|id| (*id, tx.id())));
+        self.nullifiers.extend(tx.get_nullifiers());
+        self.output_notes
+            .extend(tx.output_notes().iter().map(|note| (note.id(), tx.id())));
 
+        // Authenticated input notes (provably) consume notes that are already committed
+        // on chain. They therefore cannot form part of the inflight dependency chain.
+        //
+        // i.e. we only care about unauthenticated notes here.
         let note_parents = tx
-            .input_notes()
-            .unauthenticated_notes()
-            .filter_map(|id| self.output_notes.get(id))
+            .get_unauthenticated_notes()
+            .filter_map(|note| self.output_notes.get(&note.id()))
             .copied();
 
         account_parent.into_iter().chain(note_parents).collect()

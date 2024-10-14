@@ -1,7 +1,6 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     mem,
-    sync::Arc,
 };
 
 use miden_node_proto::domain::notes::NoteAuthenticationInfo;
@@ -10,40 +9,21 @@ use miden_objects::{
     batches::BatchNoteTree,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteHeader, NoteId, Nullifier},
-    transaction::{InputNoteCommitment, OutputNote, TransactionId, TxAccountUpdate},
+    transaction::{InputNoteCommitment, OutputNote, TransactionId},
     AccountDeltaError, Digest, MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH,
     MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use tracing::instrument;
 
-use crate::{
-    errors::{BuildBatchError, BuildBatchErrorRework},
-    transaction::{InputNotes, VerifiedTransaction},
-    ProvenTransaction,
-};
+use crate::{errors::BuildBatchError, ProvenTransaction};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
-pub struct BatchId(Blake3Digest<32>);
-
-impl BatchId {
-    pub fn compute(tx_ids: impl Iterator<Item = TransactionId>) -> Self {
-        let upper_bound = tx_ids.size_hint().1.unwrap_or_default();
-        let mut buf = Vec::with_capacity(32 * upper_bound);
-        for id in tx_ids {
-            buf.extend_from_slice(&id.as_bytes());
-        }
-        Self(Blake3_256::hash(&buf))
-    }
-
-    pub fn inner(&self) -> &Blake3Digest<32> {
-        &self.0
-    }
-}
+pub type BatchId = Blake3Digest<32>;
 
 // TRANSACTION BATCH
 // ================================================================================================
 
-/// A batch of transactions that share a common proof.
+/// A batch of transactions that share a common proof. For any given account, at most 1 transaction
+/// in the batch must be addressing that account (issue: #186).
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,18 +35,6 @@ pub struct TransactionBatch {
     output_notes: Vec<OutputNote>,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct TransactionBatchBuilder {
-    updated_accounts: BTreeMap<AccountId, AccountUpdate>,
-    input_notes: InputNotes,
-    output_notes: BTreeMap<NoteId, OutputNote>,
-
-    /// Transactions that form part of this batch.
-    transactions: Vec<TransactionId>,
-
-    limits: BatchLimits,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountUpdate {
     pub init_state: Digest,
@@ -75,47 +43,26 @@ pub struct AccountUpdate {
     pub details: AccountUpdateDetails,
 }
 
-#[derive(Debug, Clone)]
-struct BatchLimits {
-    input_notes: usize,
-    output_notes: usize,
-    account_updates: usize,
-}
-
-impl Default for BatchLimits {
-    fn default() -> Self {
-        Self {
-            input_notes: MAX_INPUT_NOTES_PER_BATCH,
-            output_notes: MAX_OUTPUT_NOTES_PER_BATCH,
-            account_updates: MAX_ACCOUNTS_PER_BATCH,
-        }
-    }
-}
-
 impl AccountUpdate {
-    fn new(tx_id: TransactionId, update: &TxAccountUpdate) -> Self {
+    fn new(tx: &ProvenTransaction) -> Self {
         Self {
-            init_state: update.init_state_hash(),
-            final_state: update.final_state_hash(),
-            transactions: vec![tx_id],
-            details: update.details().clone(),
+            init_state: tx.account_update().init_state_hash(),
+            final_state: tx.account_update().final_state_hash(),
+            transactions: vec![tx.id()],
+            details: tx.account_update().details().clone(),
         }
     }
 
     /// Merges the transaction's update into this account update.
-    fn merge_tx(
-        &mut self,
-        tx_id: TransactionId,
-        update: &TxAccountUpdate,
-    ) -> Result<(), AccountDeltaError> {
+    fn merge_tx(&mut self, tx: &ProvenTransaction) -> Result<(), AccountDeltaError> {
         assert!(
-            self.final_state == update.init_state_hash(),
+            self.final_state == tx.account_update().init_state_hash(),
             "Transacion's initial state does not match current account state"
         );
 
-        self.final_state = update.final_state_hash();
-        self.transactions.push(tx_id);
-        self.details = self.details.clone().merge(update.details().clone())?;
+        self.final_state = tx.account_update().final_state_hash();
+        self.transactions.push(tx.id());
+        self.details = self.details.clone().merge(tx.account_update().details().clone())?;
 
         Ok(())
     }
@@ -142,19 +89,95 @@ impl TransactionBatch {
         txs: Vec<ProvenTransaction>,
         found_unauthenticated_notes: NoteAuthenticationInfo,
     ) -> Result<Self, BuildBatchError> {
-        let mut batch = TransactionBatchBuilder::default();
+        let id = Self::compute_id(&txs);
 
-        for (idx, tx) in txs.iter().cloned().enumerate() {
-            let tx = VerifiedTransaction::new_unchecked(tx);
+        // Populate batch output notes and updated accounts.
+        let mut output_notes = OutputNoteTracker::new(&txs)?;
+        let mut updated_accounts = BTreeMap::<AccountId, AccountUpdate>::new();
+        let mut unauthenticated_input_notes = BTreeSet::new();
+        for tx in &txs {
+            // Merge account updates so that state transitions A->B->C become A->C.
+            match updated_accounts.entry(tx.account_id()) {
+                Entry::Vacant(vacant) => {
+                    vacant.insert(AccountUpdate::new(tx));
+                },
+                Entry::Occupied(occupied) => occupied.into_mut().merge_tx(tx).map_err(|error| {
+                    BuildBatchError::AccountUpdateError {
+                        account_id: tx.account_id(),
+                        error,
+                        txs: txs.clone(),
+                    }
+                })?,
+            };
 
-            if let Err(err) = batch.push_transaction(tx) {
-                return Err(err.into_old(txs));
+            // Check unauthenticated input notes for duplicates:
+            for note in tx.get_unauthenticated_notes() {
+                let id = note.id();
+                if !unauthenticated_input_notes.insert(id) {
+                    return Err(BuildBatchError::DuplicateUnauthenticatedNote(id, txs.clone()));
+                }
             }
         }
 
-        batch.witness_notes(found_unauthenticated_notes);
+        if updated_accounts.len() > MAX_ACCOUNTS_PER_BATCH {
+            return Err(BuildBatchError::TooManyAccountsInBatch(txs));
+        }
 
-        batch.build().map_err(|err| err.into_old(txs))
+        // Populate batch produced nullifiers and match output notes with corresponding
+        // unauthenticated input notes in the same batch, which are removed from the unauthenticated
+        // input notes set.
+        //
+        // One thing to note:
+        // This still allows transaction `A` to consume an unauthenticated note `x` and output note
+        // `y` and for transaction `B` to consume an unauthenticated note `y` and output
+        // note `x` (i.e., have a circular dependency between transactions), but this is not
+        // a problem.
+        let mut input_notes = vec![];
+        for input_note in txs.iter().flat_map(|tx| tx.input_notes().iter()) {
+            // Header is presented only for unauthenticated input notes.
+            let input_note = match input_note.header() {
+                Some(input_note_header) => {
+                    if output_notes.remove_note(input_note_header, &txs)? {
+                        continue;
+                    }
+
+                    // If an unauthenticated note was found in the store, transform it to an
+                    // authenticated one (i.e. erase additional note details
+                    // except the nullifier)
+                    if found_unauthenticated_notes.contains_note(&input_note_header.id()) {
+                        InputNoteCommitment::from(input_note.nullifier())
+                    } else {
+                        input_note.clone()
+                    }
+                },
+                None => input_note.clone(),
+            };
+            input_notes.push(input_note)
+        }
+
+        if input_notes.len() > MAX_INPUT_NOTES_PER_BATCH {
+            return Err(BuildBatchError::TooManyInputNotes(input_notes.len(), txs));
+        }
+
+        let output_notes = output_notes.into_notes();
+
+        if output_notes.len() > MAX_OUTPUT_NOTES_PER_BATCH {
+            return Err(BuildBatchError::TooManyNotesCreated(output_notes.len(), txs));
+        }
+
+        // Build the output notes SMT.
+        let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
+            output_notes.iter().map(|note| (note.id(), note.metadata())),
+        )
+        .expect("Unreachable: fails only if the output note list contains duplicates");
+
+        Ok(Self {
+            id,
+            updated_accounts,
+            input_notes,
+            output_notes_smt,
+            output_notes,
+        })
     }
 
     // PUBLIC ACCESSORS
@@ -202,146 +225,68 @@ impl TransactionBatch {
         &self.output_notes
     }
 
-    pub fn builder() -> TransactionBatchBuilder {
-        TransactionBatchBuilder::default()
+    // HELPER FUNCTIONS
+    // --------------------------------------------------------------------------------------------
+
+    fn compute_id(txs: &[ProvenTransaction]) -> BatchId {
+        let mut buf = Vec::with_capacity(32 * txs.len());
+        for tx in txs {
+            buf.extend_from_slice(&tx.id().as_bytes());
+        }
+        Blake3_256::hash(&buf)
     }
 }
 
-impl TransactionBatchBuilder {
-    #[cfg(test)]
-    fn with_limits(limits: BatchLimits) -> Self {
-        Self { limits, ..Default::default() }
+#[derive(Debug)]
+struct OutputNoteTracker {
+    output_notes: Vec<Option<OutputNote>>,
+    output_note_index: BTreeMap<NoteId, usize>,
+}
+
+impl OutputNoteTracker {
+    fn new(txs: &[ProvenTransaction]) -> Result<Self, BuildBatchError> {
+        let mut output_notes = vec![];
+        let mut output_note_index = BTreeMap::new();
+        for tx in txs {
+            for note in tx.output_notes().iter() {
+                if output_note_index.insert(note.id(), output_notes.len()).is_some() {
+                    return Err(BuildBatchError::DuplicateOutputNote(note.id(), txs.to_vec()));
+                }
+                output_notes.push(Some(note.clone()));
+            }
+        }
+
+        Ok(Self { output_notes, output_note_index })
     }
 
-    pub fn push_transaction(
+    pub fn remove_note(
         &mut self,
-        tx: VerifiedTransaction,
-    ) -> Result<(), BuildBatchErrorRework> {
-        self.update_account(&tx)?;
-        self.merge_input_notes(&tx)?;
-        self.merge_output_notes(&tx)?;
+        input_note_header: &NoteHeader,
+        txs: &[ProvenTransaction],
+    ) -> Result<bool, BuildBatchError> {
+        let id = input_note_header.id();
+        if let Some(note_index) = self.output_note_index.remove(&id) {
+            if let Some(output_note) = mem::take(&mut self.output_notes[note_index]) {
+                let input_hash = input_note_header.hash();
+                let output_hash = output_note.hash();
+                if output_hash != input_hash {
+                    return Err(BuildBatchError::NoteHashesMismatch {
+                        id,
+                        input_hash,
+                        output_hash,
+                        txs: txs.to_vec(),
+                    });
+                }
 
-        Ok(())
-    }
-
-    pub fn witness_notes(&mut self, witnesses: NoteAuthenticationInfo) {
-        for (note_id, (block_witness, note_witness)) in witnesses.note_proofs() {
-            if !self.input_notes.witness_note(note_id, block_witness, note_witness) {
-                tracing::warn!(note=%note_id, "Received a witness for a note that was not unauthenticated.");
-            }
-        }
-    }
-
-    pub fn build(mut self) -> Result<TransactionBatch, BuildBatchErrorRework> {
-        // Remove ephemeral notes prior to asserting batch constraints.
-        let ephemeral = self.remove_ephemeral_notes();
-        self.check_limits()?;
-
-        let Self {
-            updated_accounts,
-            input_notes,
-            output_notes,
-            transactions,
-            limits: _,
-        } = self;
-
-        let id = BatchId::compute(transactions.into_iter());
-
-        // Build the output notes SMT.
-        let output_notes = output_notes.into_values().collect::<Vec<_>>();
-        let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
-            output_notes.iter().map(|note| (note.id(), note.metadata())),
-        )
-        .expect("Duplicate output notes aren't possible by construction");
-
-        let input_notes = input_notes.into_input_note_commitments().collect();
-
-        Ok(TransactionBatch {
-            id,
-            updated_accounts,
-            input_notes,
-            output_notes,
-            output_notes_smt,
-        })
-    }
-
-    fn update_account(&mut self, tx: &VerifiedTransaction) -> Result<(), BuildBatchErrorRework> {
-        let tx_id = tx.id();
-        let account_update = tx.account_update();
-
-        match self.updated_accounts.entry(account_update.account_id()) {
-            Entry::Vacant(vacant) => {
-                vacant.insert(AccountUpdate::new(tx_id, account_update));
-                Ok(())
-            },
-            Entry::Occupied(occupied) => occupied
-                .into_mut()
-                .merge_tx(tx_id, account_update)
-                .map_err(|error| BuildBatchErrorRework::AccountUpdateError {
-                    account_id: account_update.account_id(),
-                    error,
-                }),
-        }
-    }
-
-    fn merge_input_notes(&mut self, tx: &VerifiedTransaction) -> Result<(), BuildBatchErrorRework> {
-        self.input_notes
-            .merge(tx.input_notes().clone())
-            .map_err(BuildBatchErrorRework::DuplicateNullifiers)
-    }
-
-    fn merge_output_notes(
-        &mut self,
-        tx: &VerifiedTransaction,
-    ) -> Result<(), BuildBatchErrorRework> {
-        for (id, note) in tx.output_notes().clone() {
-            if self.output_notes.insert(id, note).is_some() {
-                return Err(BuildBatchErrorRework::DuplicateOutputNote(id));
+                return Ok(true);
             }
         }
 
-        Ok(())
+        Ok(false)
     }
 
-    /// Removes all ephemeral notes within the batch.
-    ///
-    /// These are notes which are both produced and consumed within this batch.
-    ///
-    /// Their nullifiers are retained.
-    fn remove_ephemeral_notes(&mut self) -> BTreeSet<NoteId> {
-        let mut ephemeral = BTreeSet::new();
-        for note_id in self.output_notes.keys() {
-            // We can ignore proven and witnessed input notes. These are known to be outputs of
-            // committed blocks and therefore cannot be outputs of this batch.
-            if self.input_notes.remove_unauthenticated(note_id).is_some() {
-                ephemeral.insert(*note_id);
-            }
-        }
-        for note in &ephemeral {
-            self.output_notes.remove(note);
-        }
-        ephemeral
-    }
-
-    /// Returns an error if any of the batch length limits are violated.
-    ///
-    /// More specifically, it checks that the number of account updates, input and
-    /// output notes fall within the batch limits.
-    fn check_limits(&self) -> Result<(), BuildBatchErrorRework> {
-        BuildBatchErrorRework::check_account_limit(
-            self.updated_accounts.len(),
-            self.limits.account_updates,
-        )?;
-        BuildBatchErrorRework::check_input_note_limit(
-            self.input_notes.len(),
-            self.limits.input_notes,
-        )?;
-        BuildBatchErrorRework::check_output_note_limit(
-            self.output_notes.len(),
-            self.limits.output_notes,
-        )?;
-
-        Ok(())
+    pub fn into_notes(self) -> Vec<OutputNote> {
+        self.output_notes.into_iter().flatten().collect()
     }
 }
 
@@ -350,253 +295,153 @@ impl TransactionBatchBuilder {
 
 #[cfg(test)]
 mod tests {
-    use miden_node_proto::domain::blocks::BlockInclusionProof;
-    use miden_objects::{
-        notes::NoteInclusionProof,
-        transaction::{InputNote, ProvenTransactionBuilder, ToInputNoteCommitments},
-        BlockHeader,
-    };
+    use miden_objects::notes::NoteInclusionProof;
     use miden_processor::crypto::MerklePath;
 
     use super::*;
     use crate::test_utils::{
         mock_proven_tx,
         note::{mock_note, mock_output_note, mock_unauthenticated_note_commitment},
-        MockPrivateAccount, MockProvenTxBuilder,
     };
 
     #[test]
-    fn account_updates_are_merged() {
-        // Create a private account with 3 random states.
-        let MockPrivateAccount { id, states } = MockPrivateAccount::<3>::from(10);
+    fn test_output_note_tracker_duplicate_output_notes() {
+        let mut txs = mock_proven_txs();
 
-        let tx0 = MockProvenTxBuilder::with_account(id, states[0], states[1]).build();
-        let tx1 = MockProvenTxBuilder::with_account(id, states[1], states[2]).build();
+        let result = OutputNoteTracker::new(&txs);
+        assert!(
+            result.is_ok(),
+            "Creation of output note tracker was not expected to fail: {result:?}"
+        );
 
-        let mut expected = AccountUpdate::new(tx0.id(), tx0.account_update());
-        expected.merge_tx(tx1.id(), tx1.account_update()).unwrap();
+        let duplicate_output_note = txs[1].output_notes().get_note(1).clone();
 
-        let tx0 = VerifiedTransaction::new_unchecked(tx0);
-        let tx1 = VerifiedTransaction::new_unchecked(tx1);
+        txs.push(mock_proven_tx(
+            3,
+            vec![],
+            vec![duplicate_output_note.clone(), mock_output_note(8), mock_output_note(4)],
+        ));
 
-        let mut uut = TransactionBatch::builder();
-        uut.push_transaction(tx0).unwrap();
-        uut.push_transaction(tx1).unwrap();
-        let batch = uut.build().unwrap();
-
-        let expected = [(id, expected)].into();
-
-        assert_eq!(batch.updated_accounts, expected);
-    }
-
-    #[test]
-    fn notes_are_propagated() {
-        let input_notes = vec![mock_note(1), mock_note(2), mock_note(3)];
-        let output_notes = vec![mock_output_note(4), mock_output_note(5), mock_output_note(6)];
-
-        let tx0 = mock_proven_tx(0x12, input_notes[..2].to_vec(), output_notes[..1].to_vec());
-        let tx1 = mock_proven_tx(0xAB, input_notes[2..].to_vec(), output_notes[1..].to_vec());
-
-        let tx0 = VerifiedTransaction::new_unchecked(tx0);
-        let tx1 = VerifiedTransaction::new_unchecked(tx1);
-
-        let mut uut = TransactionBatch::builder();
-        uut.push_transaction(tx0).unwrap();
-        uut.push_transaction(tx1).unwrap();
-
-        let batch = uut.build().unwrap();
-
-        let expected: BTreeMap<_, _> = input_notes
-            .into_iter()
-            .map(InputNote::unauthenticated)
-            .map(|note| (note.nullifier(), note.into()))
-            .collect();
-        let batch_input_notes: BTreeMap<_, _> =
-            batch.input_notes.into_iter().map(|note| (note.nullifier(), note)).collect();
-        assert_eq!(batch_input_notes, expected);
-
-        let expected: BTreeMap<_, _> =
-            output_notes.into_iter().map(|note| (note.id(), note)).collect();
-        let batch_output_notes: BTreeMap<_, _> =
-            batch.output_notes.into_iter().map(|note| (note.id(), note)).collect();
-        assert_eq!(batch_output_notes, expected);
-    }
-
-    #[test]
-    fn duplicate_output_notes_are_rejected() {
-        let output_note = mock_output_note(123);
-
-        let tx0 = mock_proven_tx(0x12, vec![], vec![output_note.clone()]);
-        let tx1 = mock_proven_tx(0xAB, vec![], vec![output_note.clone()]);
-
-        let tx0 = VerifiedTransaction::new_unchecked(tx0);
-        let tx1 = VerifiedTransaction::new_unchecked(tx1);
-
-        let mut uut = TransactionBatch::builder();
-        uut.push_transaction(tx0).unwrap();
-
-        let err = uut.push_transaction(tx1).unwrap_err();
-        let expected = BuildBatchErrorRework::DuplicateOutputNote(output_note.id());
-
-        assert_eq!(err, expected);
-    }
-
-    #[test]
-    fn duplicate_nullifiers_are_rejected() {
-        let input_note = mock_note(222);
-
-        let tx0 = mock_proven_tx(0x12, vec![input_note.clone()], vec![]);
-        let tx1 = mock_proven_tx(0xAB, vec![input_note.clone()], vec![]);
-
-        let tx0 = VerifiedTransaction::new_unchecked(tx0);
-        let tx1 = VerifiedTransaction::new_unchecked(tx1);
-
-        let mut uut = TransactionBatch::builder();
-        uut.push_transaction(tx0).unwrap();
-
-        let err = uut.push_transaction(tx1).unwrap_err();
-        let expected = BuildBatchErrorRework::DuplicateNullifiers([input_note.nullifier()].into());
-
-        assert_eq!(err, expected);
-    }
-
-    #[test]
-    fn ephemeral_notes_are_removed() {
-        let output_note = mock_output_note(123);
-        let input_note = mock_note(123);
-        let input_note_nullifier = input_note.nullifier();
-        assert_eq!(input_note.id(), output_note.id(), "Same seed should give the same note.");
-
-        let tx0 = mock_proven_tx(0x12, vec![input_note], vec![]);
-        let tx1 = mock_proven_tx(0xAB, vec![], vec![output_note]);
-
-        let tx0 = VerifiedTransaction::new_unchecked(tx0);
-        let tx1 = VerifiedTransaction::new_unchecked(tx1);
-
-        let mut uut = TransactionBatchBuilder::default();
-        uut.push_transaction(tx0).unwrap();
-        uut.push_transaction(tx1).unwrap();
-
-        let batch = uut.build().unwrap();
-
-        assert!(batch.input_notes().is_empty());
-        assert!(batch.output_notes().is_empty());
-
-        let empty_smt = BatchNoteTree::with_contiguous_leaves([]).unwrap();
-        assert_eq!(batch.output_notes_smt, empty_smt);
-    }
-
-    #[test]
-    fn witnessed_notes_are_upgraded_to_authenticated() {
-        let unauthenticated_input_note = mock_note(123);
-        let input_note_nullifier = unauthenticated_input_note.nullifier();
-
-        // Create a witness for the input note. Most of the data is random
-        // but it suffices since the batch producer assumes its correct.
-        // This may change in the future once we have a batch proof kernel.
-        const BLOCK_NUM: u32 = 0xABC;
-        let note_proofs = [(
-            unauthenticated_input_note.id(),
-            NoteInclusionProof::new(BLOCK_NUM, 0, MerklePath::default()).unwrap(),
-        )]
-        .into();
-        let block_proofs = [(
-            BLOCK_NUM,
-            BlockInclusionProof {
-                block_header: BlockHeader::new(
-                    0,
-                    [1u32, 0, 0, 0].into(),
-                    BLOCK_NUM,
-                    [2u32, 0, 0, 0].into(),
-                    [3u32, 0, 0, 0].into(),
-                    [4u32, 0, 0, 0].into(),
-                    [5u32, 0, 0, 0].into(),
-                    [6u32, 0, 0, 0].into(),
-                    [7u32, 0, 0, 0].into(),
-                    [8u32, 0, 0, 0].into(),
-                    123,
-                ),
-                mmr_path: Default::default(),
-                chain_length: BLOCK_NUM + 10,
+        match OutputNoteTracker::new(&txs) {
+            Err(BuildBatchError::DuplicateOutputNote(note_id, _)) => {
+                assert_eq!(note_id, duplicate_output_note.id())
             },
-        )]
-        .into();
-
-        let tx0 = mock_proven_tx(0x12, vec![unauthenticated_input_note], vec![]);
-
-        let note_witness = NoteAuthenticationInfo { note_proofs, block_proofs };
-        let batch = TransactionBatch::new(vec![tx0], note_witness).unwrap();
-
-        // Authenticated notes only have a nullifier.
-        let expected = vec![InputNoteCommitment::from(input_note_nullifier)];
-
-        assert_eq!(batch.input_notes, expected);
+            res => panic!("Unexpected result: {res:?}"),
+        }
     }
 
     #[test]
-    fn input_note_limit_is_respected() {
-        let limit = 1;
-        let limits = BatchLimits { input_notes: limit, ..Default::default() };
+    fn test_output_note_tracker_remove_in_place_consumed_note() {
+        let txs = mock_proven_txs();
+        let mut tracker = OutputNoteTracker::new(&txs).unwrap();
 
-        let input_notes = vec![mock_note(123), mock_note(45)];
-        let actual = input_notes.len();
+        let note_to_remove = mock_note(4);
 
-        let tx0 = mock_proven_tx(0x12, input_notes, vec![]);
-        let tx0 = VerifiedTransaction::new_unchecked(tx0);
+        assert!(tracker.remove_note(note_to_remove.header(), &txs).unwrap());
+        assert!(!tracker.remove_note(note_to_remove.header(), &txs).unwrap());
 
-        let mut uut = TransactionBatchBuilder::with_limits(limits);
-        uut.push_transaction(tx0).unwrap();
-
-        let err = uut.build().unwrap_err();
-        let expected = BuildBatchErrorRework::InputeNoteLimitExceeded { actual, limit };
-
-        assert_eq!(err, expected);
+        // Check that output notes are in the expected order and consumed note was removed
+        assert_eq!(
+            tracker.into_notes(),
+            vec![
+                mock_output_note(2),
+                mock_output_note(3),
+                mock_output_note(6),
+                mock_output_note(7),
+                mock_output_note(8),
+            ]
+        );
     }
 
     #[test]
-    fn output_note_limit_is_respected() {
-        let limit = 1;
-        let limits = BatchLimits {
-            output_notes: limit,
-            ..Default::default()
+    fn test_duplicate_unauthenticated_notes() {
+        let mut txs = mock_proven_txs();
+        let duplicate_note = mock_note(5);
+        txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
+        match TransactionBatch::new(txs, Default::default()) {
+            Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id, _)) => {
+                assert_eq!(note_id, duplicate_note.id())
+            },
+            res => panic!("Unexpected result: {res:?}"),
+        }
+    }
+
+    #[test]
+    fn test_consume_notes_in_place() {
+        let mut txs = mock_proven_txs();
+        let note_to_consume = mock_note(3);
+        txs.push(mock_proven_tx(
+            3,
+            vec![mock_note(11), note_to_consume, mock_note(13)],
+            vec![mock_output_note(9), mock_output_note(10)],
+        ));
+
+        let batch = TransactionBatch::new(txs, Default::default()).unwrap();
+
+        // One of the unauthenticated notes must be removed from the batch due to the consumption
+        // of the corresponding output note
+        let expected_input_notes = vec![
+            mock_unauthenticated_note_commitment(1),
+            mock_unauthenticated_note_commitment(5),
+            mock_unauthenticated_note_commitment(11),
+            mock_unauthenticated_note_commitment(13),
+        ];
+        assert_eq!(batch.input_notes, expected_input_notes);
+
+        // One of the output notes must be removed from the batch due to the consumption
+        // by the corresponding unauthenticated note
+        let expected_output_notes = vec![
+            mock_output_note(2),
+            mock_output_note(4),
+            mock_output_note(6),
+            mock_output_note(7),
+            mock_output_note(8),
+            mock_output_note(9),
+            mock_output_note(10),
+        ];
+        assert_eq!(batch.output_notes.len(), expected_output_notes.len());
+        assert_eq!(batch.output_notes, expected_output_notes);
+
+        // Ensure all nullifiers match the corresponding input notes' nullifiers
+        let expected_nullifiers: Vec<_> =
+            batch.input_notes().iter().map(InputNoteCommitment::nullifier).collect();
+        let actual_nullifiers: Vec<_> = batch.produced_nullifiers().collect();
+        assert_eq!(actual_nullifiers, expected_nullifiers);
+    }
+
+    #[test]
+    fn test_convert_unauthenticated_note_to_authenticated() {
+        let txs = mock_proven_txs();
+        let found_unauthenticated_notes = BTreeMap::from_iter([(
+            mock_note(5).id(),
+            NoteInclusionProof::new(0, 0, MerklePath::default()).unwrap(),
+        )]);
+        let found_unauthenticated_notes = NoteAuthenticationInfo {
+            note_proofs: found_unauthenticated_notes,
+            block_proofs: Default::default(),
         };
+        let batch = TransactionBatch::new(txs, found_unauthenticated_notes).unwrap();
 
-        let output_notes = vec![mock_output_note(123), mock_output_note(45)];
-        let actual = output_notes.len();
-
-        let tx0 = mock_proven_tx(0x12, vec![], output_notes);
-        let tx0 = VerifiedTransaction::new_unchecked(tx0);
-
-        let mut uut = TransactionBatchBuilder::with_limits(limits);
-        uut.push_transaction(tx0).unwrap();
-
-        let err = uut.build().unwrap_err();
-        let expected = BuildBatchErrorRework::OutputNoteLimitExceeded { actual, limit };
-
-        assert_eq!(err, expected);
+        let expected_input_notes =
+            vec![mock_unauthenticated_note_commitment(1), mock_note(5).nullifier().into()];
+        assert_eq!(batch.input_notes, expected_input_notes);
     }
 
-    #[test]
-    fn account_update_limit_is_respected() {
-        let limit = 1;
-        let limits = BatchLimits {
-            account_updates: limit,
-            ..Default::default()
-        };
+    // UTILITIES
+    // =============================================================================================
 
-        let tx0 = mock_proven_tx(0x12, vec![], vec![]);
-        let tx0 = VerifiedTransaction::new_unchecked(tx0);
-
-        let tx1 = mock_proven_tx(0xAB, vec![], vec![]);
-        let tx1 = VerifiedTransaction::new_unchecked(tx1);
-
-        let mut uut = TransactionBatchBuilder::with_limits(limits.clone());
-        uut.push_transaction(tx0).unwrap();
-        uut.push_transaction(tx1).unwrap();
-
-        let err = uut.build().unwrap_err();
-        let expected = BuildBatchErrorRework::AccountLimitExceeded { actual: 2, limit };
-
-        assert_eq!(err, expected);
+    fn mock_proven_txs() -> Vec<ProvenTransaction> {
+        vec![
+            mock_proven_tx(
+                1,
+                vec![mock_note(1)],
+                vec![mock_output_note(2), mock_output_note(3), mock_output_note(4)],
+            ),
+            mock_proven_tx(
+                2,
+                vec![mock_note(5)],
+                vec![mock_output_note(6), mock_output_note(7), mock_output_note(8)],
+            ),
+        ]
     }
 }

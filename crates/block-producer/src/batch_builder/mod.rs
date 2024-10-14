@@ -6,7 +6,6 @@ use std::{
     time::Duration,
 };
 
-use batch::TransactionBatchBuilder;
 use miden_objects::{
     accounts::AccountId,
     notes::NoteId,
@@ -19,9 +18,7 @@ use tracing::{debug, info, instrument, Span};
 
 use crate::{
     block_builder::BlockBuilder,
-    errors::BuildBatchErrorRework,
     mempool::{BatchJobId, Mempool},
-    transaction::VerifiedTransaction,
     ProvenTransaction, SharedRwVec, COMPONENT,
 };
 
@@ -211,7 +208,7 @@ where
         let batch = TransactionBatch::new(txs, found_unauthenticated_notes)?;
 
         info!(target: COMPONENT, "Transaction batch built");
-        Span::current().record("batch_id", format_blake3_digest(*batch.id().inner()));
+        Span::current().record("batch_id", format_blake3_digest(batch.id()));
 
         let num_batches = {
             let mut write_guard = self.ready_batches.write().await;
@@ -233,7 +230,7 @@ pub struct BatchProducer {
     pub simulated_proof_time: Duration,
 }
 
-type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchErrorRework)>;
+type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
 
 /// Wrapper around tokio's JoinSet that remains pending if the set is empty,
 /// instead of returning None.
@@ -263,22 +260,14 @@ impl WorkerPool {
         self.in_progress.len()
     }
 
-    fn spawn(&mut self, id: BatchJobId, transactions: Vec<Arc<VerifiedTransaction>>) {
+    fn spawn(&mut self, id: BatchJobId, transactions: Vec<ProvenTransaction>) {
         self.in_progress.spawn({
             let simulated_proof_time = self.simulated_proof_time;
             async move {
                 tracing::debug!("Begin proving batch.");
-                let mut builder = TransactionBatchBuilder::default();
 
-                for tx in transactions {
-                    builder.push_transaction(VerifiedTransaction::clone(&tx)).inspect(
-                        |_| tracing::trace!(batch=%id, tx=%tx.id(), "Transaction added to batch."),
-                    )
-                    .inspect_err(|err| tracing::warn!(batch=%id, tx=%tx.id(), %err, "Failed to add transaction to batch."))
+                let batch = TransactionBatch::new(transactions, Default::default())
                     .map_err(|err| (id, err))?;
-                }
-
-                let batch = builder.build().map_err(|err| (id, err))?;
 
                 tokio::time::sleep(simulated_proof_time).await;
                 tracing::debug!("Batch proof completed.");

@@ -28,11 +28,10 @@ use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
-    errors::AddTransactionErrorRework,
+    errors::{AddTransactionError, VerifyTxError},
     mempool::Mempool,
     state_view::DefaultStateView,
     store::{DefaultStore, Store},
-    transaction::VerifiedTransaction,
     txqueue::{TransactionQueue, TransactionQueueOptions},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
@@ -149,20 +148,8 @@ impl api_server::Api for Server {
         self.submit_proven_transaction(request.into_inner())
             .await
             .map(tonic::Response::new)
-            .map_err(|err| match err {
-                AddTransactionErrorRework::InvalidAccountState { .. }
-                | AddTransactionErrorRework::AuthenticatedNoteNotFound(_)
-                | AddTransactionErrorRework::UnauthenticatedNoteNotFound(_)
-                | AddTransactionErrorRework::NotesAlreadyConsumed(_)
-                | AddTransactionErrorRework::DeserializationError(_)
-                | AddTransactionErrorRework::DuplicateOutputNotes(_)
-                | AddTransactionErrorRework::ProofVerificationFailed(_) => {
-                    Status::invalid_argument(err.to_string())
-                },
-                AddTransactionErrorRework::StaleInputs { .. }
-                | AddTransactionErrorRework::NoteAuthenticationError(..)
-                | AddTransactionErrorRework::TxInputsError(_) => Status::internal("Internal error"),
-            })
+            // This Status::from mapping takes care of hiding internal errors.
+            .map_err(Into::into)
     }
 }
 
@@ -176,11 +163,11 @@ impl Server {
     async fn submit_proven_transaction(
         &self,
         request: SubmitProvenTransactionRequest,
-    ) -> Result<SubmitProvenTransactionResponse, AddTransactionErrorRework> {
+    ) -> Result<SubmitProvenTransactionResponse, AddTransactionError> {
         debug!(target: COMPONENT, ?request);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
-            .map_err(|err| AddTransactionErrorRework::DeserializationError(err.to_string()))?;
+            .map_err(|err| AddTransactionError::DeserializationError(err.to_string()))?;
 
         let tx_id = tx.id();
 
@@ -197,36 +184,18 @@ impl Server {
         );
         debug!(target: COMPONENT, proof = ?tx.proof());
 
-        let mut inputs = self.store.get_tx_inputs(&tx).await?;
-        let unauthenticated_notes =
-            tx.get_unauthenticated_notes().map(|note| note.id()).collect::<BTreeSet<_>>();
-
-        // SAFETY: We assume that the RPC component verifies the transaction proof.
-        let mut tx = VerifiedTransaction::new_unchecked(tx);
+        let mut inputs = self.store.get_tx_inputs(&tx).await.map_err(VerifyTxError::from)?;
 
         // Pre-check that all nullifiers are uncomsumed in the store.
         //
         // This will be checked again in the mempool against inflight nullifiers, but this
         // way we early reject transactions without locking the mempool.
         let nullifiers_already_spent = tx
-            .nullifiers()
-            .iter()
-            .filter_map(|nullifier| {
-                inputs.nullifiers.get(nullifier).copied().flatten().map(|_| *nullifier)
-            })
-            .collect::<BTreeSet<_>>();
+            .get_nullifiers()
+            .filter(|nullifier| inputs.nullifiers.get(nullifier).cloned().flatten().is_some())
+            .collect::<Vec<_>>();
         if !nullifiers_already_spent.is_empty() {
-            return Err(AddTransactionErrorRework::NotesAlreadyConsumed(nullifiers_already_spent));
-        }
-
-        // Upgrade unauthenticated notes for which we now have witnesses.
-        //
-        // This prevents having to re-witness them later, saving on database IO.
-        let auth = self.store.get_note_authentication_info(unauthenticated_notes.iter()).await?;
-        for (note_id, (block_witness, note_witness)) in auth.note_proofs() {
-            if !tx.witness_note(note_id, block_witness, note_witness) {
-                tracing::warn!(note=%note_id, "Received a witness for a note that was not unauthenticated.");
-            }
+            return Err(VerifyTxError::InputNotesAlreadyConsumed(nullifiers_already_spent).into());
         }
 
         self.mempool

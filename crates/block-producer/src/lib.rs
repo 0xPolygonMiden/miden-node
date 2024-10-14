@@ -16,7 +16,6 @@ mod errors;
 mod mempool;
 mod state_view;
 mod store;
-mod transaction;
 mod txqueue;
 
 pub mod block;

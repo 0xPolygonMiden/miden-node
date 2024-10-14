@@ -18,9 +18,8 @@ use transaction_graph::TransactionGraph;
 
 use crate::{
     batch_builder::batch::TransactionBatch,
-    errors::AddTransactionErrorRework,
+    errors::AddTransactionError,
     store::{TransactionInputs, TxInputsError},
-    transaction::VerifiedTransaction,
 };
 
 mod batch_graph;
@@ -122,13 +121,13 @@ impl Mempool {
     /// Returns an error if the transaction's initial conditions don't match the current state.
     pub fn add_transaction(
         &mut self,
-        transaction: VerifiedTransaction,
+        transaction: ProvenTransaction,
         inputs: TransactionInputs,
-    ) -> Result<u32, AddTransactionErrorRework> {
+    ) -> Result<u32, AddTransactionError> {
         // Ensure inputs aren't stale.
         if let Some(stale_block) = self.stale_block() {
             if inputs.current_block_height <= stale_block.0 {
-                return Err(AddTransactionErrorRework::StaleInputs {
+                return Err(AddTransactionError::StaleInputs {
                     input_block: BlockNumber(inputs.current_block_height),
                     stale_limit: stale_block,
                 });
@@ -148,7 +147,7 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<Arc<VerifiedTransaction>>)> {
+    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<ProvenTransaction>)> {
         let mut parents = BTreeSet::new();
         let mut batch = Vec::with_capacity(self.batch_transaction_limit);
         let mut tx_ids = Vec::with_capacity(self.batch_transaction_limit);
