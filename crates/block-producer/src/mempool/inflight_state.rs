@@ -285,13 +285,12 @@ mod tests {
     use miden_air::Felt;
     use miden_objects::{accounts::AccountType, testing::account_id::AccountIdBuilder};
 
+    use super::*;
     use crate::test_utils::{
         mock_account_id, mock_proven_tx,
         note::{mock_note, mock_output_note},
         MockPrivateAccount, MockProvenTxBuilder,
     };
-
-    use super::*;
 
     #[test]
     fn rejects_duplicate_nullifiers() {
@@ -300,13 +299,13 @@ mod tests {
 
         let note_seed = 123;
         // We need to make the note available first, in order for it to be consumed at all.
-        let tx0 = MockProvenTxBuilder::with_account(account, states[0].clone(), states[1].clone())
+        let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1])
             .output_notes(vec![mock_output_note(note_seed)])
             .build();
-        let tx1 = MockProvenTxBuilder::with_account(account, states[1].clone(), states[2].clone())
+        let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2])
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
-        let tx2 = MockProvenTxBuilder::with_account(account, states[2].clone(), states[3].clone())
+        let tx2 = MockProvenTxBuilder::with_account(account, states[2], states[3])
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
@@ -330,10 +329,10 @@ mod tests {
         let states = (1u8..=3).map(|x| Digest::from([x, 0, 0, 0])).collect::<Vec<_>>();
 
         let note = mock_output_note(123);
-        let tx0 = MockProvenTxBuilder::with_account(account, states[0].clone(), states[1].clone())
+        let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1])
             .output_notes(vec![note.clone()])
             .build();
-        let tx1 = MockProvenTxBuilder::with_account(account, states[1].clone(), states[2].clone())
+        let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2])
             .output_notes(vec![note.clone()])
             .build();
 
@@ -351,17 +350,16 @@ mod tests {
         let account = mock_account_id(1);
         let states = (1u8..=3).map(|x| Digest::from([x, 0, 0, 0])).collect::<Vec<_>>();
 
-        let tx = MockProvenTxBuilder::with_account(account, states[0].clone(), states[1].clone())
-            .build();
+        let tx = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
 
         let mut uut = InflightState::default();
-        let err = uut.add_transaction(&tx, states[2].clone().into()).unwrap_err();
+        let err = uut.add_transaction(&tx, states[2].into()).unwrap_err();
 
         assert_eq!(
             err,
             VerifyTxError::IncorrectAccountInitialHash {
-                tx_initial_account_hash: states[0].clone(),
-                current_account_hash: states[2].clone().into()
+                tx_initial_account_hash: states[0],
+                current_account_hash: states[2].into()
             }
         );
     }
@@ -371,10 +369,8 @@ mod tests {
         let account = mock_account_id(1);
         let states = (1u8..=3).map(|x| Digest::from([x, 0, 0, 0])).collect::<Vec<_>>();
 
-        let tx0 = MockProvenTxBuilder::with_account(account, states[0].clone(), states[1].clone())
-            .build();
-        let tx1 = MockProvenTxBuilder::with_account(account, states[1].clone(), states[2].clone())
-            .build();
+        let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
+        let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2]).build();
 
         let mut uut = InflightState::default();
         uut.add_transaction(&tx0, states[0].into()).unwrap();
@@ -401,10 +397,8 @@ mod tests {
         let account = mock_account_id(1);
         let states = (1u8..=3).map(|x| Digest::from([x, 0, 0, 0])).collect::<Vec<_>>();
 
-        let tx0 = MockProvenTxBuilder::with_account(account, states[0].clone(), states[1].clone())
-            .build();
-        let tx1 = MockProvenTxBuilder::with_account(account, states[1].clone(), states[2].clone())
-            .build();
+        let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
+        let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2]).build();
 
         let mut uut = InflightState::default();
         uut.add_transaction(&tx0, tx0.account_update().init_state_hash().into())
@@ -412,7 +406,7 @@ mod tests {
 
         // Feed in an old state via input. This should be ignored, and the previous tx's final
         // state should be used.
-        uut.add_transaction(&tx1, states[0].clone().into()).unwrap();
+        uut.add_transaction(&tx1, states[0].into()).unwrap();
     }
 
     #[test]
@@ -422,18 +416,13 @@ mod tests {
         let note_seed = 123;
 
         // Parent via account state.
-        let tx0 = MockProvenTxBuilder::with_account(account, states[0].clone(), states[1].clone())
-            .build();
+        let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
         // Parent via output note.
-        let tx1 = MockProvenTxBuilder::with_account(
-            mock_account_id(2),
-            states[0].clone(),
-            states[1].clone(),
-        )
-        .output_notes(vec![mock_output_note(note_seed)])
-        .build();
+        let tx1 = MockProvenTxBuilder::with_account(mock_account_id(2), states[0], states[1])
+            .output_notes(vec![mock_output_note(note_seed)])
+            .build();
 
-        let tx = MockProvenTxBuilder::with_account(account, states[1].clone(), states[2].clone())
+        let tx = MockProvenTxBuilder::with_account(account, states[1], states[2])
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
@@ -456,18 +445,13 @@ mod tests {
         let note_seed = 123;
 
         // Parent via account state.
-        let tx0 = MockProvenTxBuilder::with_account(account, states[0].clone(), states[1].clone())
-            .build();
+        let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
         // Parent via output note.
-        let tx1 = MockProvenTxBuilder::with_account(
-            mock_account_id(2),
-            states[0].clone(),
-            states[1].clone(),
-        )
-        .output_notes(vec![mock_output_note(note_seed)])
-        .build();
+        let tx1 = MockProvenTxBuilder::with_account(mock_account_id(2), states[0], states[1])
+            .output_notes(vec![mock_output_note(note_seed)])
+            .build();
 
-        let tx = MockProvenTxBuilder::with_account(account, states[1].clone(), states[2].clone())
+        let tx = MockProvenTxBuilder::with_account(account, states[1], states[2])
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
@@ -514,7 +498,9 @@ mod tests {
             for (idx, tx) in txs.iter().enumerate() {
                 reverted
                     .add_transaction(tx, tx.account_update().init_state_hash().into())
-                    .expect(&format!("Inserting tx #{idx} in iteration {i} should succeed"));
+                    .unwrap_or_else(|err| {
+                        panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
+                    });
             }
             reverted.revert_transactions(&txs[txs.len() - i..]);
 
@@ -522,7 +508,9 @@ mod tests {
             for (idx, tx) in txs.iter().rev().skip(i).rev().enumerate() {
                 inserted
                     .add_transaction(tx, tx.account_update().init_state_hash().into())
-                    .expect(&format!("Inserting tx #{idx} in iteration {i} should succeed"));
+                    .unwrap_or_else(|err| {
+                        panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
+                    });
             }
 
             assert_eq!(reverted, inserted, "Iteration {i}");
@@ -536,8 +524,8 @@ mod tests {
         let states = (1u8..=5).map(|x| Digest::from([x, 0, 0, 0])).collect::<Vec<_>>();
 
         // Skipping initial txs means that output notes required for subsequent unauthenticated
-        // input notes wont' always be present. To work around this, we instead only use authenticated
-        // input notes.
+        // input notes wont' always be present. To work around this, we instead only use
+        // authenticated input notes.
         let txs = vec![
             MockProvenTxBuilder::with_account(mock_account_id(1), states[0], states[1]),
             MockProvenTxBuilder::with_account(mock_account_id(1), states[1], states[2])
@@ -560,7 +548,9 @@ mod tests {
             for (idx, tx) in txs.iter().enumerate() {
                 committed
                     .add_transaction(tx, tx.account_update().init_state_hash().into())
-                    .expect(&format!("Inserting tx #{idx} in iteration {i} should succeed"));
+                    .unwrap_or_else(|err| {
+                        panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
+                    });
             }
             let delta = StateDelta::new(&txs[..i]);
             committed.commit_transactions(&delta);
@@ -569,8 +559,10 @@ mod tests {
             let mut inserted = InflightState::default();
             for (idx, tx) in txs.iter().skip(i).enumerate() {
                 inserted
-                    .add_transaction(&tx, tx.account_update().init_state_hash().into())
-                    .expect(&format!("Inserting tx #{idx} in iteration {i} should succeed"));
+                    .add_transaction(tx, tx.account_update().init_state_hash().into())
+                    .unwrap_or_else(|err| {
+                        panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
+                    });
             }
 
             assert_eq!(committed, inserted, "Iteration {i}");
