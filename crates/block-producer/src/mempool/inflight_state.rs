@@ -17,6 +17,8 @@ use crate::{
 
 mod account_state;
 
+use account_state::InflightAccountState;
+
 /// Tracks the inflight state of the mempool. This includes recently committed blocks.
 ///
 /// Allows appending and reverting transactions as well as marking them
@@ -27,7 +29,7 @@ pub struct InflightState {
     /// Account states from inflight transactions.
     ///
     /// Accounts which are [AccountStatus::Empty] are immedietely pruned.
-    accounts: BTreeMap<AccountId, AccountState>,
+    accounts: BTreeMap<AccountId, InflightAccountState>,
 
     /// Nullifiers produced by the input notes of inflight transactions.
     nullifiers: BTreeSet<Nullifier>,
@@ -97,7 +99,7 @@ impl InflightState {
         let current = self
             .accounts
             .get(&tx.account_id())
-            .and_then(|account_state| account_state.latest_state())
+            .and_then(|account_state| account_state.current_state())
             .copied()
             .or(input_account_hash);
         let expected = tx.account_update().init_state_hash();
@@ -245,123 +247,6 @@ impl InflightState {
     }
 }
 
-/// Tracks the state of a single account.
-#[derive(Default, Debug, PartialEq)]
-struct AccountState {
-    /// State progression of this account over all uncommitted inflight transactions.
-    ///
-    /// Ordering is chronological from front (oldest) to back (newest).
-    inflight: VecDeque<(Digest, TransactionId)>,
-
-    /// The latest state that has been committed.
-    committed: CommittedState,
-}
-
-impl AccountState {
-    /// Inserts a new transaction and its state, returning the previous inflight transaction, if
-    /// any.
-    pub fn insert(&mut self, state: Digest, tx: TransactionId) -> Option<TransactionId> {
-        let previous = self.inflight.back().map(|(_, tx)| tx).copied();
-
-        self.inflight.push_back((state, tx));
-
-        previous
-    }
-
-    /// The latest state of this account.
-    pub fn latest_state(&self) -> Option<&Digest> {
-        self.inflight.back().map(|(state, _)| state).or(self.committed.state())
-    }
-
-    /// Reverts the most recent `n` inflight transactions.
-    ///
-    /// # Returns
-    ///
-    /// Returns the emptyness state of the account.
-    ///
-    /// # Panics
-    ///
-    /// Panics if there are less than `n` inflight transactions.
-    pub fn revert(&mut self, n: usize) -> AccountStatus {
-        let length = self.inflight.len();
-        assert!(
-            length >= n, "Attempted to revert {n} transactions which is more than the {length} which are inflight.",
-        );
-
-        self.inflight.drain(length - n..);
-
-        self.emptyness()
-    }
-
-    /// Commits the first `n` inflight transactions.
-    ///
-    /// # Panics
-    ///
-    /// Panics if there are less than `n` inflight transactions.
-    pub fn commit(&mut self, n: usize) {
-        if n == 0 {
-            return;
-        }
-
-        let length = self.inflight.len();
-        assert!(
-            length >= n, "Attempted to revert {n} transactions which is more than the {length} which are inflight.",
-        );
-
-        let committed_state = self
-            .inflight
-            .drain(..n)
-            .last()
-            .map(|(state, _)| state)
-            .expect("Must be Some as n > 0");
-        self.committed.commit(committed_state, n);
-    }
-
-    /// Removes `n` committed transactions.
-    ///
-    /// # Returns
-    ///
-    /// Returns the emptyness state of the account.
-    ///
-    /// # Panics
-    ///
-    /// Panics if there are less than `n` committed transactions.
-    pub fn prune_commited(&mut self, n: usize) -> AccountStatus {
-        self.committed.prune(n);
-
-        self.emptyness()
-    }
-
-    /// This is essentially `is_empty` with the additional benefit that
-    /// [AccountStatus] is marked as `#[must_use]`, forcing callers to
-    /// handle empty accounts (which should be pruned).
-    fn emptyness(&self) -> AccountStatus {
-        if self.inflight.is_empty() && self.committed.is_empty() {
-            AccountStatus::Empty
-        } else {
-            AccountStatus::NonEmpty
-        }
-    }
-}
-
-/// Describes the emptyness of an [AccountState].
-///
-/// Is marked as #[must_use] so that callers handle prune empty accounts.
-#[must_use]
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum AccountStatus {
-    /// [AccountState] contains no state and should be pruned.
-    Empty,
-    /// [AccountState] contains state and should be kept.
-    NonEmpty,
-}
-
-impl AccountStatus {
-    fn is_empty(&self) -> bool {
-        *self == Self::Empty
-    }
-}
-
 /// Describes the state of an inflight output note.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OutputNoteState {
@@ -391,56 +276,6 @@ impl OutputNoteState {
             Some(tx)
         } else {
             None
-        }
-    }
-}
-
-#[derive(Default, Debug, Clone, PartialEq)]
-enum CommittedState {
-    #[default]
-    Empty,
-    Committed {
-        /// The latest committed state.
-        value: Digest,
-        /// The number of committed states that have not been pruned.
-        count: usize,
-    },
-}
-
-impl CommittedState {
-    fn is_empty(&self) -> bool {
-        matches!(self, Self::Empty)
-    }
-
-    fn commit(&mut self, value: Digest, count: usize) {
-        *self = Self::Committed { value, count: self.count() + count };
-    }
-
-    fn count(&self) -> usize {
-        match self {
-            CommittedState::Empty => 0,
-            CommittedState::Committed { count, .. } => *count,
-        }
-    }
-
-    fn state(&self) -> Option<&Digest> {
-        match self {
-            CommittedState::Empty => None,
-            CommittedState::Committed { value, .. } => Some(value),
-        }
-    }
-
-    fn prune(&mut self, count: usize) {
-        let Self::Committed { value, count: current_count } = self else {
-            panic!("Attempted to prune states while empty");
-        };
-
-        *current_count = current_count
-            .checked_sub(count)
-            .expect("Prune count cannot be larger than the number of committed states");
-
-        if *current_count == 0 {
-            *self = Self::Empty;
         }
     }
 }
