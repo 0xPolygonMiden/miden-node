@@ -1978,6 +1978,7 @@ dependencies = [
  "miden-processor",
  "miden-stdlib",
  "miden-tx",
+ "rand",
  "rand_chacha",
  "serde",
  "thiserror",

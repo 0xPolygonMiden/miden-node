@@ -23,19 +23,22 @@ pub struct InflightAccountState {
     /// Ordering is chronological from front (oldest) to back (newest).
     states: VecDeque<(Digest, TransactionId)>,
 
-    /// The number of states that have been committed.
+    /// The number of inflight states that have been committed.
     ///
-    /// This effectively acts as a pivot point for `self.states`, splitting it into two segments.
+    /// This acts as a pivot index for `self.states`, splitting it into two segments.
     /// The first contains committed states and the second those that are uncommitted.
     committed: usize,
 }
 
 impl InflightAccountState {
-    /// Inserts a new state update, returning the parent transaction ID if its uncommitted.
+    /// Appends the new state, returning the previous state's transaction ID __IFF__ it is
+    /// uncommitted.
     pub fn insert(&mut self, state: Digest, tx: TransactionId) -> Option<TransactionId> {
         let mut parent = self.states.back().map(|(_, tx)| tx).copied();
 
-        // The parent is only valid if its uncommitted.
+        // Only return uncommitted parent ID.
+        //
+        // Since this is the latest state's ID, we need at least one uncommitted state.
         if self.uncommitted_count() == 0 {
             parent.take();
         }
@@ -138,5 +141,178 @@ pub enum AccountStatus {
 impl AccountStatus {
     pub fn is_empty(&self) -> bool {
         *self == Self::Empty
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{random_digest, random_tx_id};
+
+    #[test]
+    fn current_state_is_the_most_recently_inserted() {
+        let mut uut = InflightAccountState::default();
+        uut.insert(random_digest(), random_tx_id());
+        uut.insert(random_digest(), random_tx_id());
+        uut.insert(random_digest(), random_tx_id());
+
+        let expected = random_digest();
+        uut.insert(expected, random_tx_id());
+
+        assert_eq!(uut.current_state(), Some(&expected));
+    }
+
+    #[test]
+    fn parent_is_the_most_recently_inserted() {
+        let mut uut = InflightAccountState::default();
+        uut.insert(random_digest(), random_tx_id());
+        uut.insert(random_digest(), random_tx_id());
+        uut.insert(random_digest(), random_tx_id());
+
+        let expected = random_tx_id();
+        uut.insert(random_digest(), expected);
+
+        let parent = uut.insert(random_digest(), random_tx_id());
+
+        assert_eq!(parent, Some(expected));
+    }
+
+    #[test]
+    fn empty_account_has_no_parent() {
+        let mut uut = InflightAccountState::default();
+        let parent = uut.insert(random_digest(), random_tx_id());
+
+        assert!(parent.is_none());
+    }
+
+    #[test]
+    fn fully_committed_account_has_no_parent() {
+        let mut uut = InflightAccountState::default();
+        uut.insert(random_digest(), random_tx_id());
+        uut.commit(1);
+        let parent = uut.insert(random_digest(), random_tx_id());
+
+        assert!(parent.is_none());
+    }
+
+    #[test]
+    fn uncommitted_account_has_a_parent() {
+        let expected_parent = random_tx_id();
+
+        let mut uut = InflightAccountState::default();
+        uut.insert(random_digest(), expected_parent);
+
+        let parent = uut.insert(random_digest(), random_tx_id());
+
+        assert_eq!(parent, Some(expected_parent));
+    }
+
+    #[test]
+    fn partially_committed_account_has_a_parent() {
+        let expected_parent = random_tx_id();
+
+        let mut uut = InflightAccountState::default();
+        uut.insert(random_digest(), random_tx_id());
+        uut.insert(random_digest(), expected_parent);
+        uut.commit(1);
+
+        let parent = uut.insert(random_digest(), random_tx_id());
+
+        assert_eq!(parent, Some(expected_parent));
+    }
+
+    #[test]
+    fn reverted_txs_are_nonextant() {
+        const N: usize = 5;
+        const REVERT: usize = 2;
+
+        let states = (0..N).map(|_| (random_digest(), random_tx_id())).collect::<Vec<_>>();
+
+        let mut uut = InflightAccountState::default();
+        for (state, tx) in &states {
+            uut.insert(*state, *tx);
+        }
+        uut.revert(REVERT);
+
+        let mut expected = InflightAccountState::default();
+        for (state, tx) in states.iter().rev().skip(REVERT).rev() {
+            expected.insert(*state, *tx);
+        }
+
+        assert_eq!(uut, expected);
+    }
+
+    #[test]
+    fn pruned_txs_are_nonextant() {
+        const N: usize = 5;
+        const PRUNE: usize = 2;
+
+        let states = (0..N).map(|_| (random_digest(), random_tx_id())).collect::<Vec<_>>();
+
+        let mut uut = InflightAccountState::default();
+        for (state, tx) in &states {
+            uut.insert(*state, *tx);
+        }
+        uut.commit(PRUNE);
+        uut.prune_commited(PRUNE);
+
+        let mut expected = InflightAccountState::default();
+        for (state, tx) in states.iter().skip(PRUNE) {
+            expected.insert(*state, *tx);
+        }
+
+        assert_eq!(uut, expected);
+    }
+
+    #[test]
+    fn is_empty_after_full_commit_and_prune() {
+        const N: usize = 5;
+        let mut uut = InflightAccountState::default();
+        for _ in 0..N {
+            uut.insert(random_digest(), random_tx_id());
+        }
+
+        uut.commit(N);
+        uut.prune_commited(N);
+
+        assert_eq!(uut, Default::default());
+    }
+
+    #[test]
+    fn is_empty_after_full_revert() {
+        const N: usize = 5;
+        let mut uut = InflightAccountState::default();
+        for _ in 0..N {
+            uut.insert(random_digest(), random_tx_id());
+        }
+
+        uut.revert(N);
+
+        assert_eq!(uut, Default::default());
+    }
+
+    #[test]
+    #[should_panic]
+    fn revert_panics_on_out_of_bounds() {
+        const N: usize = 5;
+        let mut uut = InflightAccountState::default();
+        for _ in 0..N {
+            uut.insert(random_digest(), random_tx_id());
+        }
+
+        uut.commit(1);
+        uut.revert(N);
+    }
+
+    #[test]
+    #[should_panic]
+    fn commit_panics_on_out_of_bounds() {
+        const N: usize = 5;
+        let mut uut = InflightAccountState::default();
+        for _ in 0..N {
+            uut.insert(random_digest(), random_tx_id());
+        }
+
+        uut.commit(N + 1);
     }
 }

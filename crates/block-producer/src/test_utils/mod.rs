@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use miden_objects::{accounts::AccountId, Digest};
-use tokio::sync::RwLock;
+use miden_objects::{accounts::AccountId, transaction::TransactionId, Digest};
 
 mod proven_tx;
 
@@ -20,3 +19,14 @@ pub mod block;
 pub mod batch;
 
 pub mod note;
+
+/// Generates a [`TransactionId`] from random u32s.
+pub fn random_tx_id() -> TransactionId {
+    TransactionId::from(random_digest())
+}
+
+/// Generates a [`Digest`] from random u32s.
+pub fn random_digest() -> Digest {
+    let felts: [u32; 4] = rand::random();
+    Digest::from(felts)
+}
