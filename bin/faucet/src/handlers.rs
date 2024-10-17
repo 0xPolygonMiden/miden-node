@@ -1,5 +1,4 @@
 use axum::{
-    debug_handler,
     extract::{Path, State},
     http::{Response, StatusCode},
     response::IntoResponse,
@@ -14,7 +13,7 @@ use miden_objects::{
 };
 use serde::{Deserialize, Serialize};
 use tonic::body;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::{
     errors::{ErrorHelper, HandlerError},
@@ -46,7 +45,6 @@ pub async fn get_metadata(
     (StatusCode::OK, Json(response))
 }
 
-#[debug_handler]
 pub async fn get_tokens(
     State(state): State<FaucetState>,
     Json(req): Json<FaucetRequest>,
@@ -70,26 +68,65 @@ pub async fn get_tokens(
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
         .map_err(|err| HandlerError::BadRequest(err.to_string()))?;
 
-    // Execute transaction
-    info!(target: COMPONENT, "Executing mint transaction for account.");
-    let (executed_tx, created_note) = client.execute_mint_transaction(
-        target_account_id,
-        req.is_private_note,
-        req.asset_amount,
-    )?;
+    let mut faucet_account = client.data_store().faucet_account();
+    let (created_note, block_height) = loop {
+        // Execute transaction
+        info!(target: COMPONENT, "Executing mint transaction for account.");
+        let (executed_tx, created_note) = client.execute_mint_transaction(
+            target_account_id,
+            req.is_private_note,
+            req.asset_amount,
+        )?;
 
-    let mut updated_faucet_account = client.data_store().faucet_account();
-    updated_faucet_account
-        .apply_delta(executed_tx.account_delta())
-        .or_fail("Failed to apply faucet account delta")?;
+        let prev_hash = faucet_account.hash();
 
-    client.data_store().save_next_faucet_state(&updated_faucet_account).await?;
+        faucet_account
+            .apply_delta(executed_tx.account_delta())
+            .or_fail("Failed to apply faucet account delta")?;
 
-    // Run transaction prover & send transaction to node
-    info!(target: COMPONENT, "Proving and submitting transaction.");
-    let block_height = client.prove_and_submit_transaction(executed_tx).await?;
+        let new_hash = faucet_account.hash();
 
-    client.data_store_mut().update_faucet_state(updated_faucet_account).await?;
+        // Run transaction prover & send transaction to node
+        info!(target: COMPONENT, "Proving and submitting transaction.");
+        match client.prove_and_submit_transaction(executed_tx.clone()).await {
+            Ok(block_height) => {
+                break (created_note, block_height);
+            },
+            Err(err) => {
+                error!(
+                    target: COMPONENT,
+                    %err,
+                    "Failed to prove and submit transaction",
+                );
+
+                info!(target: COMPONENT, "Trying to request account state from the node...");
+                let (got_faucet_account, block_num) = client.request_account_state().await?;
+                let got_new_hash = got_faucet_account.hash();
+                info!(
+                    target: COMPONENT,
+                    %prev_hash,
+                    %new_hash,
+                    %got_new_hash,
+                    "Received new account state from the node.",
+                );
+                // If the hash hasn't changed, then the account's state we had is correct,
+                // and we should not try to execute the transaction again. We can just return error
+                // to the caller.
+                if new_hash == prev_hash {
+                    return Err(err);
+                }
+                // If the new hash from the node is the same, as we expected to have, then
+                // transaction was successfully executed despite the error. Don't need to retry.
+                if new_hash == got_new_hash {
+                    break (created_note, block_num);
+                }
+
+                faucet_account = got_faucet_account;
+            },
+        }
+    };
+
+    client.data_store().update_faucet_state(faucet_account).await?;
 
     let note_id: NoteId = created_note.id();
     let note_details =

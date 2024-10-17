@@ -12,9 +12,6 @@ use serde::{Deserialize, Serialize};
 /// Default path to the secret key file
 const DEFAULT_SECRET_KEY_PATH: &str = "faucet-secret.key";
 
-/// Default path to the storage directory
-const DEFAULT_STORAGE_PATH: &str = "faucet-storage";
-
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FaucetConfig {
@@ -34,8 +31,6 @@ pub struct FaucetConfig {
     pub max_supply: u64,
     /// Path to the key store file
     pub secret_key_path: PathBuf,
-    /// Path to the storage directory
-    pub storage_path: PathBuf,
 }
 
 impl Display for FaucetConfig {
@@ -58,7 +53,6 @@ impl Default for FaucetConfig {
             decimals: 8,
             max_supply: 1000000,
             secret_key_path: DEFAULT_SECRET_KEY_PATH.into(),
-            storage_path: DEFAULT_STORAGE_PATH.into(),
         }
     }
 }

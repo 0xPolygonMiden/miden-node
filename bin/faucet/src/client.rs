@@ -12,7 +12,7 @@ use miden_lib::{
 };
 use miden_node_proto::generated::{
     requests::{
-        GetAccountProofsRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,
+        GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,
     },
     rpc::api_client::ApiClient,
 };
@@ -21,7 +21,6 @@ use miden_objects::{
     assets::{FungibleAsset, TokenSymbol},
     crypto::{
         dsa::rpo_falcon512::SecretKey,
-        hash::rpo::RpoDigest,
         merkle::{MmrPeaks, PartialMmr},
         rand::RpoRandomCoin,
     },
@@ -42,7 +41,7 @@ use tonic::transport::Channel;
 use crate::{
     config::FaucetConfig,
     errors::{ErrorHelper, HandlerError},
-    store::{resolve_faucet_state, FaucetDataStore},
+    store::FaucetDataStore,
 };
 
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
@@ -66,42 +65,16 @@ unsafe impl Send for FaucetClient {}
 impl FaucetClient {
     /// Creates a new faucet client.
     pub async fn new(config: &FaucetConfig) -> anyhow::Result<Self> {
-        let (mut rpc_api, root_block_header, root_chain_mmr) =
-            initialize_faucet_client(config).await?;
+        let (rpc_api, root_block_header, root_chain_mmr) = initialize_faucet_client(config).await?;
         let init_seed: [u8; 32] = [0; 32];
         let (auth_scheme, authenticator) = init_authenticator(init_seed, &config.secret_key_path)
             .context("Failed to initialize authentication scheme")?;
 
-        let (mut faucet_account, account_seed) = build_account(config, init_seed, auth_scheme)?;
+        let (faucet_account, account_seed) = build_account(config, init_seed, auth_scheme)?;
         let id = faucet_account.id();
 
-        let faucet_actual_hash: RpoDigest = rpc_api
-            .get_account_proofs(GetAccountProofsRequest {
-                account_ids: vec![id.into()],
-                include_headers: None,
-            })
-            .await
-            .context("Failed to get faucet account proof")?
-            .into_inner()
-            .account_proofs
-            .first()
-            .context("No account proofs returned by RPC")?
-            .account_hash
-            .context("Account hash field is empty")?
-            .try_into()
-            .context("Failed to convert hash from protobuf to `RpoDigest`")?;
-
-        if faucet_account.hash() != faucet_actual_hash {
-            faucet_account = resolve_faucet_state(&config.storage_path, faucet_actual_hash)
-                .await
-                .context("Failed to restore faucet state from files")?;
-        }
-
-        let faucet_account = Arc::new(RwLock::new(faucet_account));
-
         let data_store = FaucetDataStore::new(
-            config.storage_path.clone(),
-            Arc::clone(&faucet_account),
+            Arc::new(RwLock::new(faucet_account)),
             account_seed,
             root_block_header,
             root_chain_mmr,
@@ -182,14 +155,35 @@ impl FaucetClient {
         Ok(response.into_inner().block_height)
     }
 
+    /// Requests faucet account state from the node.
+    ///
+    /// The account is expected to be public, otherwise, the error is returned.
+    pub async fn request_account_state(&mut self) -> Result<(Account, u32), HandlerError> {
+        let account_info = self
+            .rpc_api
+            .get_account_details(GetAccountDetailsRequest { account_id: Some(self.id.into()) })
+            .await
+            .or_fail("Failed to get faucet account state")?
+            .into_inner()
+            .details
+            .or_fail("Account info field is empty")?;
+
+        let faucet_account_state_bytes =
+            account_info.details.or_fail("Account details field is empty")?;
+        let faucet_account =
+            Account::read_from_bytes(&faucet_account_state_bytes).map_err(|err| {
+                HandlerError::InternalServerError(format!(
+                    "Failed to deserialize faucet account: {err}"
+                ))
+            })?;
+        let block_num = account_info.summary.or_fail("Account summary field is empty")?.block_num;
+
+        Ok((faucet_account, block_num))
+    }
+
     /// Returns a reference to the data store.
     pub fn data_store(&self) -> &FaucetDataStore {
         &self.data_store
-    }
-
-    /// Returns a mutable reference to the data store.
-    pub fn data_store_mut(&mut self) -> &mut FaucetDataStore {
-        &mut self.data_store
     }
 
     /// Returns the id of the faucet account.
@@ -251,7 +245,7 @@ fn build_account(
         config.decimals,
         Felt::try_from(config.max_supply)
             .map_err(|err| anyhow!("Error converting max supply to Felt: {err}"))?,
-        AccountStorageMode::Private,
+        AccountStorageMode::Public,
         auth_scheme,
     )
     .context("Failed to create basic fungible faucet account")?;
