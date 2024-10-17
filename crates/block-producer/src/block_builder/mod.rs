@@ -1,4 +1,7 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
@@ -8,12 +11,14 @@ use miden_objects::{
     notes::{NoteHeader, Nullifier},
     transaction::InputNoteCommitment,
 };
+use tokio::sync::Mutex;
 use tracing::{debug, info, instrument};
 
 use crate::{
     batch_builder::batch::TransactionBatch,
     errors::BuildBlockError,
-    store::{ApplyBlock, Store},
+    mempool::{BatchJobId, Mempool},
+    store::{ApplyBlock, DefaultStore, Store},
     COMPONENT,
 };
 
@@ -141,5 +146,33 @@ where
         info!(target: COMPONENT, block_num, %block_hash, "block committed");
 
         Ok(())
+    }
+}
+
+struct BlockProducer<BB> {
+    pub mempool: Arc<Mutex<Mempool>>,
+    pub block_interval: tokio::time::Duration,
+    pub block_builder: BB,
+}
+
+impl<BB: BlockBuilder> BlockProducer<BB> {
+    pub async fn run(self) {
+        let mut interval = tokio::time::interval(self.block_interval);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            interval.tick().await;
+
+            let (block_number, batches) = self.mempool.lock().await.select_block();
+            let batches = batches.into_values().collect::<Vec<_>>();
+
+            let result = self.block_builder.build_block(&batches).await;
+            let mut mempool = self.mempool.lock().await;
+
+            match result {
+                Ok(_) => mempool.block_committed(block_number),
+                Err(_) => mempool.block_failed(block_number),
+            }
+        }
     }
 }

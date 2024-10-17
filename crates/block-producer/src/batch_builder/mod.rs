@@ -1,11 +1,26 @@
-use std::{cmp::min, collections::BTreeSet, sync::Arc, time::Duration};
+use std::{
+    cmp::min,
+    collections::{BTreeMap, BTreeSet},
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
+};
 
-use async_trait::async_trait;
-use miden_objects::{notes::NoteId, transaction::OutputNote};
-use tokio::time;
+use miden_objects::{
+    accounts::AccountId,
+    notes::NoteId,
+    transaction::{OutputNote, TransactionId},
+    Digest,
+};
+use tokio::{sync::Mutex, task::JoinSet, time};
+use tonic::async_trait;
 use tracing::{debug, info, instrument, Span};
 
-use crate::{block_builder::BlockBuilder, ProvenTransaction, SharedRwVec, COMPONENT};
+use crate::{
+    block_builder::BlockBuilder,
+    mempool::{BatchJobId, Mempool},
+    ProvenTransaction, SharedRwVec, COMPONENT,
+};
 
 #[cfg(test)]
 mod tests;
@@ -204,5 +219,108 @@ where
         info!(target: COMPONENT, num_batches, "Transaction batch added to the batch queue");
 
         Ok(())
+    }
+}
+
+pub struct BatchProducer {
+    pub batch_interval: Duration,
+    pub workers: NonZeroUsize,
+    pub mempool: Arc<Mutex<Mempool>>,
+    pub tx_per_batch: usize,
+    pub simulated_proof_time: Duration,
+}
+
+type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
+
+/// Wrapper around tokio's JoinSet that remains pending if the set is empty,
+/// instead of returning None.
+struct WorkerPool {
+    in_progress: JoinSet<BatchResult>,
+    simulated_proof_time: Duration,
+}
+
+impl WorkerPool {
+    fn new(simulated_proof_time: Duration) -> Self {
+        Self {
+            simulated_proof_time,
+            in_progress: JoinSet::new(),
+        }
+    }
+
+    async fn join_next(&mut self) -> Result<BatchResult, tokio::task::JoinError> {
+        if self.in_progress.is_empty() {
+            std::future::pending().await
+        } else {
+            // Cannot be None as its not empty.
+            self.in_progress.join_next().await.unwrap()
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.in_progress.len()
+    }
+
+    fn spawn(&mut self, id: BatchJobId, transactions: Vec<ProvenTransaction>) {
+        self.in_progress.spawn({
+            let simulated_proof_time = self.simulated_proof_time;
+            async move {
+                tracing::debug!("Begin proving batch.");
+
+                let batch = TransactionBatch::new(transactions, Default::default())
+                    .map_err(|err| (id, err))?;
+
+                tokio::time::sleep(simulated_proof_time).await;
+                tracing::debug!("Batch proof completed.");
+
+                Ok((id, batch))
+            }
+        });
+    }
+}
+
+impl BatchProducer {
+    pub async fn run(self) {
+        let mut interval = tokio::time::interval(self.batch_interval);
+        interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+        let mut inflight = WorkerPool::new(self.simulated_proof_time);
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    if inflight.len() >= self.workers.get() {
+                        tracing::info!("All batch workers occupied.");
+                        continue;
+                    }
+
+                    // Transactions available?
+                    let Some((batch_id, transactions)) =
+                        self.mempool.lock().await.select_batch()
+                    else {
+                        tracing::info!("No transactions available for batch.");
+                        continue;
+                    };
+
+                    inflight.spawn(batch_id, transactions);
+                },
+                result = inflight.join_next() => {
+                    let mut mempool = self.mempool.lock().await;
+                    match result {
+                        Err(err) => {
+                            tracing::warn!(%err, "Batch job panic'd.")
+                            // TODO: somehow embed the batch ID into the join error, though this doesn't seem possible?
+                            // mempool.batch_failed(batch_id);
+                        },
+                        Ok(Err((batch_id, err))) => {
+                            tracing::warn!(%batch_id, %err, "Batch job failed.");
+                            mempool.batch_failed(batch_id);
+                        },
+                        Ok(Ok((batch_id, batch))) => {
+                            mempool.batch_proved(batch_id, batch);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
