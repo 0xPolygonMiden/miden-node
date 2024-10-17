@@ -78,7 +78,7 @@ pub struct Mempool {
     state: InflightState,
 
     /// Inflight transactions.
-    transactions: TransactionGraph,
+    transactions: TransactionGraph<ProvenTransaction>,
 
     /// Inflight batches.
     batches: BatchGraph,
@@ -129,7 +129,7 @@ impl Mempool {
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction, inputs.account_hash)?;
 
-        self.transactions.insert(transaction, parents);
+        self.transactions.insert(transaction.id(), transaction, parents);
 
         Ok(self.chain_tip.0)
     }
@@ -146,7 +146,7 @@ impl Mempool {
 
         for _ in 0..self.batch_transaction_limit {
             // Select transactions according to some strategy here. For now its just arbitrary.
-            let Some((tx, tx_parents)) = self.transactions.pop_for_batching() else {
+            let Some((tx, tx_parents)) = self.transactions.pop_for_processing() else {
                 break;
             };
             batch.push(tx);
@@ -219,7 +219,7 @@ impl Mempool {
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
         let transactions = self.batches.remove_committed(batches);
-        let transactions = self.transactions.remove_committed(&transactions);
+        let transactions = self.transactions.prune_processed(&transactions);
 
         // Inform inflight state about committed data.
         let diff = StateDelta::new(&transactions);
