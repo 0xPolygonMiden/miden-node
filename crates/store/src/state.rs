@@ -461,13 +461,12 @@ impl State {
             .map(|header| (header.block_num(), header))
             .collect::<BTreeMap<BlockNumber, _>>();
 
-        let mut block_proofs = BTreeMap::new();
+        let mut block_proofs = Vec::with_capacity(merkle_paths.len());
         for (block_num, mmr_path) in merkle_paths {
             let block_header =
                 *headers.get(&block_num).ok_or(DatabaseError::BlockNotFoundInDb(block_num))?;
 
-            block_proofs
-                .insert(block_num, BlockInclusionProof { block_header, mmr_path, chain_length });
+            block_proofs.push(BlockInclusionProof { block_header, mmr_path, chain_length });
         }
 
         Ok(NoteAuthenticationInfo { block_proofs, note_proofs })

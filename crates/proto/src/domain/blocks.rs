@@ -85,7 +85,7 @@ impl TryFrom<proto::BlockHeader> for BlockHeader {
 }
 
 /// Data required to verify a block's inclusion proof.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct BlockInclusionProof {
     pub block_header: BlockHeader,
     pub mmr_path: MerklePath,
@@ -119,18 +119,5 @@ impl TryFrom<proto::BlockInclusionProof> for BlockInclusionProof {
         };
 
         Ok(result)
-    }
-}
-
-// Required so that we can convert to Map<u32, BlockInclusionProof>.
-impl TryFrom<proto::BlockInclusionProof> for (u32, BlockInclusionProof) {
-    type Error = ConversionError;
-
-    fn try_from(value: proto::BlockInclusionProof) -> Result<Self, ConversionError> {
-        let block_proof = BlockInclusionProof::try_from(value)?;
-
-        let block_num = block_proof.block_header.block_num();
-
-        Ok((block_num, block_proof))
     }
 }

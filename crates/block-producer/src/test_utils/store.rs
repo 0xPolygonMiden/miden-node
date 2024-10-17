@@ -340,7 +340,7 @@ impl Store for MockStoreSuccess {
                 let mmr_path =
                     locked_chain_mmr.open(block_num as usize, mmr_forest).unwrap().merkle_path;
 
-                (block_num, BlockInclusionProof { block_header, mmr_path, chain_length })
+                BlockInclusionProof { block_header, mmr_path, chain_length }
             })
             .collect();
 
@@ -381,7 +381,7 @@ impl Store for MockStoreSuccess {
                     .unwrap()
                     .merkle_path;
 
-                (block_num, BlockInclusionProof { block_header, mmr_path, chain_length })
+                BlockInclusionProof { block_header, mmr_path, chain_length }
             })
             .collect();
 

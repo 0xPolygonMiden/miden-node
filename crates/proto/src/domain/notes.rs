@@ -93,7 +93,7 @@ impl TryFrom<&NoteInclusionInBlockProofPb> for (NoteId, NoteInclusionProof) {
 
 #[derive(Clone, Default, Debug)]
 pub struct NoteAuthenticationInfo {
-    pub block_proofs: BTreeMap<u32, BlockInclusionProof>,
+    pub block_proofs: Vec<BlockInclusionProof>,
     pub note_proofs: BTreeMap<NoteId, NoteInclusionProof>,
 }
 
@@ -105,28 +105,13 @@ impl NoteAuthenticationInfo {
     pub fn note_ids(&self) -> BTreeSet<NoteId> {
         self.note_proofs.keys().copied().collect()
     }
-
-    pub fn note_proofs(&self) -> BTreeMap<NoteId, (BlockInclusionProof, NoteInclusionProof)> {
-        let mut proofs = BTreeMap::new();
-        for (note, note_proof) in &self.note_proofs {
-            let block_proof = self
-                .block_proofs
-                .get(&note_proof.location().block_num())
-                // TODO: What do we want to do here?
-                .expect("Block proof must be present for each note").clone();
-
-            proofs.insert(*note, (block_proof, note_proof.clone()));
-        }
-
-        proofs
-    }
 }
 
 impl From<NoteAuthenticationInfo> for NoteAuthenticationInfoProto {
     fn from(value: NoteAuthenticationInfo) -> Self {
         Self {
             note_proofs: convert(&value.note_proofs),
-            block_proofs: convert(value.block_proofs.into_values()),
+            block_proofs: convert(value.block_proofs),
         }
     }
 }
