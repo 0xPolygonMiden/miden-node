@@ -68,8 +68,9 @@ pub async fn get_tokens(
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
         .map_err(|err| HandlerError::BadRequest(err.to_string()))?;
 
-    let mut faucet_account = client.data_store().faucet_account();
     let (created_note, block_height) = loop {
+        let mut faucet_account = client.data_store().faucet_account();
+
         // Execute transaction
         info!(target: COMPONENT, "Executing mint transaction for account.");
         let (executed_tx, created_note) = client.execute_mint_transaction(
@@ -107,7 +108,7 @@ pub async fn get_tokens(
                     %prev_hash,
                     %new_hash,
                     %got_new_hash,
-                    "Received new account state from the node.",
+                    "Received new account state from the node",
                 );
                 // If the hash hasn't changed, then the account's state we had is correct,
                 // and we should not try to execute the transaction again. We can just return error
@@ -121,12 +122,10 @@ pub async fn get_tokens(
                     break (created_note, block_num);
                 }
 
-                faucet_account = got_faucet_account;
+                client.data_store().update_faucet_state(got_faucet_account).await?;
             },
         }
     };
-
-    client.data_store().update_faucet_state(faucet_account).await?;
 
     let note_id: NoteId = created_note.id();
     let note_details =
