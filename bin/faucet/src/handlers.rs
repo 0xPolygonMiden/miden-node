@@ -113,7 +113,7 @@ pub async fn get_tokens(
                 // and we should not try to execute the transaction again. We can just return error
                 // to the caller.
                 if new_hash == prev_hash {
-                    return Err(err);
+                    return Err(err.into());
                 }
                 // If the new hash from the node is the same, as we expected to have, then
                 // transaction was successfully executed despite the error. Don't need to retry.

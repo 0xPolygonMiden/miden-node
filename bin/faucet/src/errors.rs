@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use axum::{
     http::{header, StatusCode},
@@ -6,8 +6,21 @@ use axum::{
 };
 use thiserror::Error;
 
+/// Wrapper for implementing `Error` trait for errors, which do not implement it, like
+/// [miden_objects::crypto::utils::DeserializationError] and other error types from `miden-base`.
+#[derive(Debug, Error)]
+#[error("{0}")]
+pub struct ImplError<E: Display + Debug>(pub E);
+
+#[derive(Debug, Error)]
+#[error("Client error: {0:#}")]
+pub struct ClientError(#[from] anyhow::Error);
+
 #[derive(Debug, Error)]
 pub enum HandlerError {
+    #[error("Node client error: {0}")]
+    ClientError(#[from] ClientError),
+
     #[error("Client has submitted a bad request: {0}")]
     BadRequest(String),
 
@@ -23,14 +36,16 @@ impl HandlerError {
         match *self {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
-            Self::InternalServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::ClientError(_) | Self::InternalServerError(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            },
         }
     }
 
     fn message(&self) -> String {
         match self {
             Self::BadRequest(msg) => msg,
-            Self::InternalServerError(_) => "Error processing request",
+            Self::ClientError(_) | Self::InternalServerError(_) => "Error processing request",
             Self::NotFound(msg) => msg,
         }
         .to_string()
@@ -55,11 +70,5 @@ pub trait ErrorHelper<T, E: std::error::Error> {
 impl<T, E: std::error::Error> ErrorHelper<T, HandlerError> for Result<T, E> {
     fn or_fail(self, message: impl Display) -> Result<T, HandlerError> {
         self.map_err(|err| HandlerError::InternalServerError(format!("{message}: {err}")))
-    }
-}
-
-impl<T> ErrorHelper<T, HandlerError> for Option<T> {
-    fn or_fail(self, message: impl Display) -> Result<T, HandlerError> {
-        self.ok_or_else(|| HandlerError::InternalServerError(message.to_string()))
     }
 }

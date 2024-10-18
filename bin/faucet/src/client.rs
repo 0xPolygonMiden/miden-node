@@ -40,7 +40,7 @@ use tonic::transport::Channel;
 
 use crate::{
     config::FaucetConfig,
-    errors::{ErrorHelper, HandlerError},
+    errors::{ClientError, ImplError},
     store::FaucetDataStore,
 };
 
@@ -64,7 +64,7 @@ unsafe impl Send for FaucetClient {}
 
 impl FaucetClient {
     /// Creates a new faucet client.
-    pub async fn new(config: &FaucetConfig) -> anyhow::Result<Self> {
+    pub async fn new(config: &FaucetConfig) -> Result<Self, ClientError> {
         let (rpc_api, root_block_header, root_chain_mmr) = initialize_faucet_client(config).await?;
         let init_seed: [u8; 32] = [0; 32];
         let (auth_scheme, authenticator) = init_authenticator(init_seed, &config.secret_key_path)
@@ -97,9 +97,9 @@ impl FaucetClient {
         target_account_id: AccountId,
         is_private_note: bool,
         asset_amount: u64,
-    ) -> Result<(ExecutedTransaction, Note), HandlerError> {
+    ) -> Result<(ExecutedTransaction, Note), ClientError> {
         let asset =
-            FungibleAsset::new(self.id, asset_amount).or_fail("Failed to create fungible asset")?;
+            FungibleAsset::new(self.id, asset_amount).context("Failed to create fungible asset")?;
 
         let note_type = if is_private_note {
             NoteType::Private
@@ -115,14 +115,14 @@ impl FaucetClient {
             Default::default(),
             &mut self.rng,
         )
-        .or_fail("Failed to create P2ID note")?;
+        .context("Failed to create P2ID note")?;
 
         let transaction_args = build_transaction_arguments(&output_note, note_type, asset)?;
 
         let executed_tx = self
             .executor
             .execute_transaction(self.id, 0, &[], transaction_args)
-            .or_fail("Failed to execute transaction")?;
+            .context("Failed to execute transaction")?;
 
         Ok((executed_tx, output_note))
     }
@@ -131,7 +131,7 @@ impl FaucetClient {
     pub async fn prove_and_submit_transaction(
         &mut self,
         executed_tx: ExecutedTransaction,
-    ) -> Result<u32, HandlerError> {
+    ) -> Result<u32, ClientError> {
         // Prepare request with proven transaction.
         // This is needed to be in a separated code block in order to release reference to avoid
         // borrow checker error.
@@ -139,7 +139,7 @@ impl FaucetClient {
             let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
 
             let proven_transaction =
-                transaction_prover.prove(executed_tx).or_fail("Failed to prove transaction")?;
+                transaction_prover.prove(executed_tx).context("Failed to prove transaction")?;
 
             SubmitProvenTransactionRequest {
                 transaction: proven_transaction.to_bytes(),
@@ -150,7 +150,7 @@ impl FaucetClient {
             .rpc_api
             .submit_proven_transaction(request)
             .await
-            .or_fail("Failed to submit proven transaction")?;
+            .context("Failed to submit proven transaction")?;
 
         Ok(response.into_inner().block_height)
     }
@@ -158,25 +158,22 @@ impl FaucetClient {
     /// Requests faucet account state from the node.
     ///
     /// The account is expected to be public, otherwise, the error is returned.
-    pub async fn request_account_state(&mut self) -> Result<(Account, u32), HandlerError> {
+    pub async fn request_account_state(&mut self) -> Result<(Account, u32), ClientError> {
         let account_info = self
             .rpc_api
             .get_account_details(GetAccountDetailsRequest { account_id: Some(self.id.into()) })
             .await
-            .or_fail("Failed to get faucet account state")?
+            .context("Failed to get faucet account state")?
             .into_inner()
             .details
-            .or_fail("Account info field is empty")?;
+            .context("Account info field is empty")?;
 
         let faucet_account_state_bytes =
-            account_info.details.or_fail("Account details field is empty")?;
-        let faucet_account =
-            Account::read_from_bytes(&faucet_account_state_bytes).map_err(|err| {
-                HandlerError::InternalServerError(format!(
-                    "Failed to deserialize faucet account: {err}"
-                ))
-            })?;
-        let block_num = account_info.summary.or_fail("Account summary field is empty")?.block_num;
+            account_info.details.context("Account details field is empty")?;
+        let faucet_account = Account::read_from_bytes(&faucet_account_state_bytes)
+            .map_err(ImplError)
+            .context("Failed to deserialize faucet account")?;
+        let block_num = account_info.summary.context("Account summary field is empty")?.block_num;
 
         Ok((faucet_account, block_num))
     }
@@ -202,13 +199,14 @@ impl FaucetClient {
 fn init_authenticator(
     init_seed: [u8; 32],
     secret_key_path: impl AsRef<Path>,
-) -> anyhow::Result<(AuthScheme, BasicAuthenticator<StdRng>)> {
+) -> Result<(AuthScheme, BasicAuthenticator<StdRng>), ClientError> {
     // Load secret key from file or generate new one
     let secret = if secret_key_path.as_ref().exists() {
         SecretKey::read_from_bytes(
             &std::fs::read(secret_key_path).context("Failed to read secret key from file")?,
         )
-        .map_err(|err| anyhow!("Failed to deserialize secret key: {err}"))?
+        .map_err(ImplError)
+        .context("Failed to deserialize secret key")?
     } else {
         let mut rng = ChaCha20Rng::from_seed(init_seed);
         let secret = SecretKey::with_rng(&mut rng);
@@ -235,7 +233,7 @@ fn build_account(
     config: &FaucetConfig,
     init_seed: [u8; 32],
     auth_scheme: AuthScheme,
-) -> anyhow::Result<(Account, Word)> {
+) -> Result<(Account, Word), ClientError> {
     let token_symbol = TokenSymbol::new(config.token_symbol.as_str())
         .context("Failed to parse token symbol from configuration file")?;
 
@@ -256,7 +254,7 @@ fn build_account(
 /// Initializes the faucet client by connecting to the node and fetching the root block header.
 pub async fn initialize_faucet_client(
     config: &FaucetConfig,
-) -> anyhow::Result<(ApiClient<Channel>, BlockHeader, ChainMmr)> {
+) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), ClientError> {
     let endpoint = tonic::transport::Endpoint::try_from(config.node_url.clone())
         .context("Failed to parse node URL from configuration file")?
         .timeout(Duration::from_millis(config.timeout_ms));
@@ -295,7 +293,7 @@ fn build_transaction_arguments(
     output_note: &Note,
     note_type: NoteType,
     asset: FungibleAsset,
-) -> Result<TransactionArgs, HandlerError> {
+) -> Result<TransactionArgs, ClientError> {
     let recipient = output_note
         .recipient()
         .digest()
@@ -317,7 +315,7 @@ fn build_transaction_arguments(
         .replace("{execution_hint}", &Felt::new(execution_hint).to_string());
 
     let script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
-        .or_fail("Failed to compile script")?;
+        .context("Failed to compile script")?;
 
     let mut transaction_args = TransactionArgs::new(Some(script), None, AdviceMap::new());
     transaction_args.extend_expected_output_notes(vec![output_note.clone()]);
