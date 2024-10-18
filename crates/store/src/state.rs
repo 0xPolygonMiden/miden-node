@@ -679,8 +679,8 @@ impl State {
         self.db.select_account(id).await
     }
 
-    /// Returns account states with details for public accounts.
-    pub async fn get_account_states(
+    /// Returns account proofs with optional account and storage headers.
+    pub async fn get_account_proofs(
         &self,
         account_ids: Vec<AccountId>,
         include_headers: bool,
