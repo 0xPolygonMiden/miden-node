@@ -71,6 +71,9 @@ impl BlockNumber {
     }
 }
 
+// MEMPOOL
+// ================================================================================================
+
 pub struct Mempool {
     /// The latest inflight state of each account.
     ///
@@ -153,8 +156,8 @@ impl Mempool {
             parents.extend(tx_parents);
         }
 
-        // Update the depedency graph to reflect parents at the batch level by removing
-        // all edges within this batch.
+        // Update the dependency graph to reflect parents at the batch level by removing all edges
+        // within this batch.
         for tx in &batch {
             parents.remove(&tx.id());
         }
@@ -167,7 +170,7 @@ impl Mempool {
         Some((batch_id, batch))
     }
 
-    /// Drops the failed batch and all of its descendents.
+    /// Drops the failed batch and all of its descendants.
     ///
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchJobId) {
@@ -208,7 +211,7 @@ impl Mempool {
         (self.chain_tip.next(), batches)
     }
 
-    /// Notify the pool that the block was succesfully completed.
+    /// Notify the pool that the block was successfully completed.
     ///
     /// # Panics
     ///

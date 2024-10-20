@@ -15,6 +15,9 @@ use crate::{
     store::TransactionInputs,
 };
 
+// IN-FLIGHT ACCOUNT STATE
+// ================================================================================================
+
 /// Tracks the inflight state of an account.
 #[derive(Default, Debug, PartialEq)]
 pub struct InflightAccountState {
@@ -25,8 +28,8 @@ pub struct InflightAccountState {
 
     /// The number of inflight states that have been committed.
     ///
-    /// This acts as a pivot index for `self.states`, splitting it into two segments.
-    /// The first contains committed states and the second those that are uncommitted.
+    /// This acts as a pivot index for `self.states`, splitting it into two segments. The first
+    /// contains committed states and the second those that are uncommitted.
     committed: usize,
 }
 
@@ -57,7 +60,7 @@ impl InflightAccountState {
     ///
     /// # Returns
     ///
-    /// Returns the emptyness state of the account.
+    /// Returns the emptiness state of the account.
     ///
     /// # Panics
     ///
@@ -70,7 +73,7 @@ impl InflightAccountState {
 
         self.states.drain(self.states.len() - n..);
 
-        self.emptyness()
+        self.emptiness()
     }
 
     /// Commits the next `n` uncommitted inflight transactions.
@@ -91,12 +94,12 @@ impl InflightAccountState {
     ///
     /// # Returns
     ///
-    /// Returns the emptyness state of the account.
+    /// Returns the emptiness state of the account.
     ///
     /// # Panics
     ///
     /// Panics if there are less than `n` committed transactions.
-    pub fn prune_commited(&mut self, n: usize) -> AccountStatus {
+    pub fn prune_committed(&mut self, n: usize) -> AccountStatus {
         assert!(
             self.committed >= n,
             "Attempted to prune {n} transactions, which is more than the {} which are committed",
@@ -106,13 +109,12 @@ impl InflightAccountState {
         self.committed -= n;
         self.states.drain(..n);
 
-        self.emptyness()
+        self.emptiness()
     }
 
-    /// This is essentially `is_empty` with the additional benefit that
-    /// [AccountStatus] is marked as `#[must_use]`, forcing callers to
-    /// handle empty accounts (which should be pruned).
-    fn emptyness(&self) -> AccountStatus {
+    /// This is essentially `is_empty` with the additional benefit that [AccountStatus] is marked
+    /// as `#[must_use]`, forcing callers to handle empty accounts (which should be pruned).
+    fn emptiness(&self) -> AccountStatus {
         if self.states.is_empty() {
             AccountStatus::Empty
         } else {
@@ -126,7 +128,7 @@ impl InflightAccountState {
     }
 }
 
-/// Describes the emptyness of an [AccountState].
+/// Describes the emptiness of an [AccountState].
 ///
 /// Is marked as #[must_use] so that callers handle prune empty accounts.
 #[must_use]
@@ -143,6 +145,9 @@ impl AccountStatus {
         *self == Self::Empty
     }
 }
+
+// TESTS
+// ================================================================================================
 
 #[cfg(test)]
 mod tests {
@@ -262,7 +267,7 @@ mod tests {
             uut.insert(*state, *tx);
         }
         uut.commit(PRUNE);
-        uut.prune_commited(PRUNE);
+        uut.prune_committed(PRUNE);
 
         let mut expected = InflightAccountState::default();
         for (state, tx) in states.iter().skip(PRUNE) {
@@ -282,7 +287,7 @@ mod tests {
         }
 
         uut.commit(N);
-        uut.prune_commited(N);
+        uut.prune_committed(N);
 
         assert_eq!(uut, Default::default());
     }

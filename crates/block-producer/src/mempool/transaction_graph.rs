@@ -5,6 +5,9 @@ use std::{
 
 use miden_objects::transaction::{ProvenTransaction, TransactionId};
 
+// TRANSACTION GRAPH
+// ================================================================================================
+
 /// Tracks the dependency graph and status of transactions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransactionGraph<T> {
@@ -45,7 +48,7 @@ impl<T: Clone> TransactionGraph<T> {
             panic!("Transaction already exists in pool");
         }
 
-        // This could be optimised by inlining this inside the parent loop. This would prevent the
+        // This could be optimized by inlining this inside the parent loop. This would prevent the
         // double iteration over parents, at the cost of some code duplication.
         self.try_make_root(id);
     }
@@ -87,13 +90,13 @@ impl<T: Clone> TransactionGraph<T> {
         (tx, parents)
     }
 
-    /// Marks the given transactions as being back inqueue.
+    /// Marks the given transactions as being back in queue.
     ///
     /// # Panics
     ///
     /// Panics if any of the transactions are
-    ///   - not part of the graph
-    ///   - are already inqueue aka not processed
+    /// - not part of the graph
+    /// - are already in queue aka not processed
     pub fn requeue_transactions(&mut self, transactions: BTreeSet<TransactionId>) {
         for tx in &transactions {
             self.nodes.get_mut(tx).expect("Node must exist").mark_as_inqueue();
@@ -114,7 +117,7 @@ impl<T: Clone> TransactionGraph<T> {
     ///
     /// Panics if any of the given transactions are:
     ///   - not part of the graph
-    ///   - are inqueue aka not processed
+    ///   - are in queue aka not processed
     pub fn prune_processed(&mut self, tx_ids: &[TransactionId]) -> Vec<T> {
         let mut transactions = Vec::with_capacity(tx_ids.len());
         for transaction in tx_ids {
@@ -137,7 +140,7 @@ impl<T: Clone> TransactionGraph<T> {
         transactions
     }
 
-    /// Removes the transactions and all their descendents from the graph.
+    /// Removes the transactions and all their descendants from the graph.
     ///
     /// Returns all transactions removed.
     pub fn purge_subgraphs(&mut self, transactions: Vec<TransactionId>) -> Vec<T> {
@@ -254,6 +257,9 @@ enum Status {
     InQueue,
     Processed,
 }
+
+// TESTS
+// ================================================================================================
 
 #[cfg(test)]
 mod tests {

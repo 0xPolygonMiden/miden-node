@@ -6,6 +6,9 @@ use miden_tx::utils::collections::KvMap;
 use super::BatchJobId;
 use crate::batch_builder::batch::TransactionBatch;
 
+// BATCH GRAPH
+// ================================================================================================
+
 #[derive(Default, Clone)]
 pub struct BatchGraph {
     nodes: BTreeMap<BatchJobId, Node>,
@@ -54,12 +57,12 @@ impl BatchGraph {
 
         // New node might be a root.
         //
-        // This could be optimised by inlining this inside the parent loop. This would prevent the
+        // This could be optimized by inlining this inside the parent loop. This would prevent the
         // double iteration over parents, at the cost of some code duplication.
         self.try_make_root(id);
     }
 
-    /// Removes the batches and all their descendents from the graph.
+    /// Removes the batches and all their descendants from the graph.
     ///
     /// Returns all removed batches and their transactions.
     pub fn purge_subgraphs(
@@ -77,8 +80,8 @@ impl BatchGraph {
                 continue;
             };
 
-            // All the child batches are also removed so no need to chec
-            // for new roots. No new roots are possible as a result of this subgraph removal.
+            // All the child batches are also removed so no need to check for new roots. No new
+            // roots are possible as a result of this subgraph removal.
             self.roots.remove(&node_id);
 
             for transaction in &node.transactions {
@@ -87,8 +90,8 @@ impl BatchGraph {
 
             // Inform parent that this child no longer exists.
             //
-            // The same is not required for children of this batch as we will
-            // be removing those as well.
+            // The same is not required for children of this batch as we will be removing those as
+            // well.
             for parent in &node.parents {
                 // Parent could already be removed as part of this subgraph removal.
                 if let Some(parent) = self.nodes.get_mut(parent) {
@@ -103,7 +106,7 @@ impl BatchGraph {
         removed
     }
 
-    /// Removes a set of batches from the graph without removing any descendents.
+    /// Removes a set of batches from the graph without removing any descendants.
     ///
     /// This is intended to cull completed batches from stale blocs.
     pub fn remove_committed(&mut self, batches: BTreeSet<BatchJobId>) -> Vec<TransactionId> {
@@ -131,8 +134,8 @@ impl BatchGraph {
 
     /// Mark a batch as proven if it exists.
     pub fn mark_proven(&mut self, id: BatchJobId, batch: TransactionBatch) {
-        // Its possible for inflight batches to have been removed as part
-        // of another batches failure.
+        // Its possible for inflight batches to have been removed as part of another batches
+        // failure.
         if let Some(node) = self.nodes.get_mut(&id) {
             node.status = Status::Proven(batch);
             self.try_make_root(id);

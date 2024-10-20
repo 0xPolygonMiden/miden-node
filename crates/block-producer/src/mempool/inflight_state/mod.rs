@@ -19,16 +19,19 @@ mod account_state;
 
 use account_state::InflightAccountState;
 
+// IN-FLIGHT STATE
+// ================================================================================================
+
 /// Tracks the inflight state of the mempool. This includes recently committed blocks.
 ///
-/// Allows appending and reverting transactions as well as marking them
-/// as part of a committed block. Committed state can also be pruned once the
-/// state is considered past the stale threshold.
+/// Allows appending and reverting transactions as well as marking them as part of a committed
+/// block. Committed state can also be pruned once the state is considered past the stale
+/// threshold.
 #[derive(Default, Debug, PartialEq)]
 pub struct InflightState {
     /// Account states from inflight transactions.
     ///
-    /// Accounts which are [AccountStatus::Empty] are immedietely pruned.
+    /// Accounts which are [AccountStatus::Empty] are immediately pruned.
     accounts: BTreeMap<AccountId, InflightAccountState>,
 
     /// Nullifiers produced by the input notes of inflight transactions.
@@ -229,7 +232,7 @@ impl InflightState {
                 .accounts
                 .get_mut(&account)
                 .expect("Account must exist")
-                .prune_commited(count);
+                .prune_committed(count);
 
             // Prune empty accounts.
             if status.is_empty() {
@@ -250,12 +253,10 @@ impl InflightState {
 /// Describes the state of an inflight output note.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OutputNoteState {
-    /// Output note is part of a committed block, and its
-    /// source transaction should no longer be considered
-    /// for dependency tracking.
+    /// Output note is part of a committed block, and its source transaction should no longer be
+    /// considered for dependency tracking.
     Committed,
-    /// Output note is still inflight and should be considered
-    /// for dependency tracking.
+    /// Output note is still inflight and should be considered for dependency tracking.
     Inflight(TransactionId),
 }
 
@@ -279,6 +280,9 @@ impl OutputNoteState {
         }
     }
 }
+
+// TESTS
+// ================================================================================================
 
 #[cfg(test)]
 mod tests {
