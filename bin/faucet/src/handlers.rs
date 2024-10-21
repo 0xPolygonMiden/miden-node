@@ -1,3 +1,4 @@
+use anyhow::Context;
 use axum::{
     extract::{Path, State},
     http::{Response, StatusCode},
@@ -15,11 +16,7 @@ use serde::{Deserialize, Serialize};
 use tonic::body;
 use tracing::{error, info};
 
-use crate::{
-    errors::{ErrorHelper, HandlerError},
-    state::FaucetState,
-    COMPONENT,
-};
+use crate::{errors::HandlerError, state::FaucetState, COMPONENT};
 
 #[derive(Deserialize)]
 pub struct FaucetRequest {
@@ -83,7 +80,7 @@ pub async fn get_tokens(
 
         faucet_account
             .apply_delta(executed_tx.account_delta())
-            .or_fail("Failed to apply faucet account delta")?;
+            .context("Failed to apply faucet account delta")?;
 
         let new_hash = faucet_account.hash();
 
@@ -99,6 +96,9 @@ pub async fn get_tokens(
                     %err,
                     "Failed to prove and submit transaction",
                 );
+
+                // TODO: Improve error statuses returned from the `SubmitProvenTransaction` endpoint
+                //       of block producer. Check received error status here.
 
                 info!(target: COMPONENT, "Requesting account state from the node...");
                 let (got_faucet_account, block_num) = client.request_account_state().await?;
@@ -132,7 +132,7 @@ pub async fn get_tokens(
         NoteDetails::new(created_note.assets().clone(), created_note.recipient().clone());
 
     let note_tag = NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)
-        .or_fail("failed to build note tag for local execution")?;
+        .context("failed to build note tag for local execution")?;
 
     // Serialize note into bytes
     let bytes = NoteFile::NoteDetails {
@@ -151,7 +151,8 @@ pub async fn get_tokens(
         .header(header::CONTENT_DISPOSITION, "attachment; filename=note.mno")
         .header("Note-Id", note_id.to_string())
         .body(body::boxed(Full::from(bytes)))
-        .or_fail("Failed to build response")
+        .context("Failed to build response")
+        .map_err(Into::into)
 }
 
 pub async fn get_index(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
@@ -170,5 +171,6 @@ pub async fn get_static_file(
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, static_file.mime_type)
         .body(body::boxed(Full::from(static_file.data)))
-        .or_fail("Failed to build response")
+        .context("Failed to build response")
+        .map_err(Into::into)
 }

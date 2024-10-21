@@ -62,8 +62,7 @@ impl DataStore for FaucetDataStore {
             return Err(DataStoreError::AccountNotFound(account_id));
         }
 
-        let empty_input_notes =
-            InputNotes::new(Vec::new()).map_err(DataStoreError::InvalidTransactionInput)?;
+        let empty_input_notes = InputNotes::new(vec![]).expect("Empty notes must succeed");
 
         TransactionInputs::new(
             account.clone(),

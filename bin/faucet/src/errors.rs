@@ -21,11 +21,11 @@ pub enum HandlerError {
     #[error("Node client error: {0}")]
     ClientError(#[from] ClientError),
 
+    #[error("Server has encountered an internal error: {0:#}")]
+    Internal(#[from] anyhow::Error),
+
     #[error("Client has submitted a bad request: {0}")]
     BadRequest(String),
-
-    #[error("Server has encountered an internal error: {0}")]
-    InternalServerError(String),
 
     #[error("Page not found: {0}")]
     NotFound(String),
@@ -36,16 +36,14 @@ impl HandlerError {
         match *self {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
-            Self::ClientError(_) | Self::InternalServerError(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            },
+            Self::ClientError(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
     fn message(&self) -> String {
         match self {
             Self::BadRequest(msg) => msg,
-            Self::ClientError(_) | Self::InternalServerError(_) => "Error processing request",
+            Self::ClientError(_) | Self::Internal(_) => "Error processing request",
             Self::NotFound(msg) => msg,
         }
         .to_string()
@@ -60,15 +58,5 @@ impl IntoResponse for HandlerError {
             self.message(),
         )
             .into_response()
-    }
-}
-
-pub trait ErrorHelper<T, E: std::error::Error> {
-    fn or_fail(self, message: impl Display) -> Result<T, E>;
-}
-
-impl<T, E: std::error::Error> ErrorHelper<T, HandlerError> for Result<T, E> {
-    fn or_fail(self, message: impl Display) -> Result<T, HandlerError> {
-        self.map_err(|err| HandlerError::InternalServerError(format!("{message}: {err}")))
     }
 }
