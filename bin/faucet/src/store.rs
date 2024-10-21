@@ -13,6 +13,7 @@ use crate::errors::HandlerError;
 #[derive(Clone)]
 pub struct FaucetDataStore {
     faucet_account: Arc<RwLock<Account>>,
+    /// Seed used for faucet account creation.
     seed: Word,
     block_header: BlockHeader,
     chain_mmr: ChainMmr,
