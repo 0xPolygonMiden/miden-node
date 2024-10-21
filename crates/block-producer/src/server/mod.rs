@@ -32,6 +32,7 @@ use crate::{
     mempool::Mempool,
     state_view::DefaultStateView,
     store::{DefaultStore, Store},
+    transaction::VerifiedTransaction,
     txqueue::{TransactionQueue, TransactionQueueOptions},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
@@ -184,26 +185,17 @@ impl Server {
         );
         debug!(target: COMPONENT, proof = ?tx.proof());
 
-        let mut inputs = self.store.get_tx_inputs(&tx).await.map_err(VerifyTxError::from)?;
+        let inputs = self.store.get_tx_inputs(&tx).await.map_err(VerifyTxError::from)?;
 
-        // Pre-check that all nullifiers are uncomsumed in the store.
-        //
-        // This will be checked again in the mempool against inflight nullifiers, but this
-        // way we early reject transactions without locking the mempool.
-        let nullifiers_already_spent = tx
-            .get_nullifiers()
-            .filter(|nullifier| inputs.nullifiers.get(nullifier).cloned().flatten().is_some())
-            .collect::<Vec<_>>();
-        if !nullifiers_already_spent.is_empty() {
-            return Err(VerifyTxError::InputNotesAlreadyConsumed(nullifiers_already_spent).into());
-        }
+        // SAFETY: we assume that the rpc component has verified the transaction proof already.
+        let tx = VerifiedTransaction::new_unchecked(tx).validate_inputs(inputs)?;
 
         self.mempool
             .lock()
             .await
             .lock()
             .await
-            .add_transaction(tx, inputs)
+            .add_transaction(tx)
             .map(|block_height| SubmitProvenTransactionResponse { block_height })
     }
 }

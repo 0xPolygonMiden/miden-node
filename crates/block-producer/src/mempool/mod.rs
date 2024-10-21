@@ -18,8 +18,9 @@ use transaction_graph::TransactionGraph;
 
 use crate::{
     batch_builder::batch::TransactionBatch,
-    errors::AddTransactionError,
+    errors::{AddTransactionError, VerifyTxError},
     store::{TransactionInputs, TxInputsError},
+    transaction::AuthenticatedTransaction,
 };
 
 mod batch_graph;
@@ -81,7 +82,7 @@ pub struct Mempool {
     state: InflightState,
 
     /// Inflight transactions.
-    transactions: TransactionGraph<ProvenTransaction>,
+    transactions: TransactionGraph<AuthenticatedTransaction>,
 
     /// Inflight batches.
     batches: BatchGraph,
@@ -116,21 +117,20 @@ impl Mempool {
     /// Returns an error if the transaction's initial conditions don't match the current state.
     pub fn add_transaction(
         &mut self,
-        transaction: ProvenTransaction,
-        inputs: TransactionInputs,
+        transaction: AuthenticatedTransaction,
     ) -> Result<u32, AddTransactionError> {
         // Ensure inputs aren't stale.
         if let Some(stale_block) = self.stale_block() {
-            if inputs.current_block_height <= stale_block.0 {
+            if transaction.authentication_height() <= stale_block.0 {
                 return Err(AddTransactionError::StaleInputs {
-                    input_block: BlockNumber(inputs.current_block_height),
+                    input_block: BlockNumber(transaction.authentication_height()),
                     stale_limit: stale_block,
                 });
             }
         }
 
         // Add transaction to inflight state.
-        let parents = self.state.add_transaction(&transaction, inputs.account_hash)?;
+        let parents = self.state.add_transaction(&transaction)?;
 
         self.transactions.insert(transaction.id(), transaction, parents);
 
@@ -142,7 +142,7 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<ProvenTransaction>)> {
+    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<AuthenticatedTransaction>)> {
         let mut parents = BTreeSet::new();
         let mut batch = Vec::with_capacity(self.batch_transaction_limit);
         let mut tx_ids = Vec::with_capacity(self.batch_transaction_limit);

@@ -13,6 +13,7 @@ use miden_objects::{
 use crate::{
     errors::{AddTransactionError, VerifyTxError},
     store::TransactionInputs,
+    transaction::AuthenticatedTransaction,
 };
 
 mod account_state;
@@ -56,15 +57,15 @@ pub struct StateDelta {
 }
 
 impl StateDelta {
-    pub fn new(txs: &[ProvenTransaction]) -> Self {
+    pub fn new(txs: &[AuthenticatedTransaction]) -> Self {
         let mut account_transactions = BTreeMap::<AccountId, usize>::new();
         let mut nullifiers = BTreeSet::new();
         let mut output_notes = BTreeSet::new();
 
         for tx in txs {
             *account_transactions.entry(tx.account_id()).or_default() += 1;
-            nullifiers.extend(tx.get_nullifiers());
-            output_notes.extend(tx.output_notes().iter().map(|note| note.id()));
+            nullifiers.extend(tx.nullifiers());
+            output_notes.extend(tx.output_notes());
         }
 
         Self {
@@ -81,30 +82,25 @@ impl InflightState {
     /// This operation is atomic i.e. a rejected transaction has no impact of the state.
     pub fn add_transaction(
         &mut self,
-        tx: &ProvenTransaction,
-        input_account_hash: Option<Digest>,
+        tx: &AuthenticatedTransaction,
     ) -> Result<BTreeSet<TransactionId>, VerifyTxError> {
         // Separate verification and state mutation so that a rejected transaction
         // does not impact the state (atomicity).
-        self.verify_transaction(tx, input_account_hash)?;
+        self.verify_transaction(tx)?;
 
         let parents = self.insert_transaction(tx);
 
         Ok(parents)
     }
 
-    fn verify_transaction(
-        &self,
-        tx: &ProvenTransaction,
-        input_account_hash: Option<Digest>,
-    ) -> Result<(), VerifyTxError> {
+    fn verify_transaction(&self, tx: &AuthenticatedTransaction) -> Result<(), VerifyTxError> {
         // Ensure current account state is correct.
         let current = self
             .accounts
             .get(&tx.account_id())
             .and_then(|account_state| account_state.current_state())
             .copied()
-            .or(input_account_hash);
+            .or(tx.store_account_state());
         let expected = tx.account_update().init_state_hash();
 
         if expected != current.unwrap_or_default() {
@@ -116,7 +112,7 @@ impl InflightState {
 
         // Ensure nullifiers aren't already present.
         let double_spend = tx
-            .get_nullifiers()
+            .nullifiers()
             .filter(|nullifier| self.nullifiers.contains(nullifier))
             .collect::<Vec<_>>();
         if !double_spend.is_empty() {
@@ -126,8 +122,6 @@ impl InflightState {
         // Ensure output notes aren't already present.
         let duplicates = tx
             .output_notes()
-            .iter()
-            .map(OutputNote::id)
             .filter(|note| self.output_notes.contains_key(note))
             .collect::<Vec<_>>();
         if !duplicates.is_empty() {
@@ -139,8 +133,7 @@ impl InflightState {
         // We don't need to worry about double spending them since we already checked for
         // that using the nullifiers.
         let missing = tx
-            .get_unauthenticated_notes()
-            .map(|note| note.id())
+            .unauthenticated_notes()
             .filter(|note_id| !self.output_notes.contains_key(note_id))
             .collect::<Vec<_>>();
         if !missing.is_empty() {
@@ -151,25 +144,24 @@ impl InflightState {
     }
 
     /// Aggregate the transaction into the state, returning its parent transactions.
-    fn insert_transaction(&mut self, tx: &ProvenTransaction) -> BTreeSet<TransactionId> {
+    fn insert_transaction(&mut self, tx: &AuthenticatedTransaction) -> BTreeSet<TransactionId> {
         let account_parent = self
             .accounts
             .entry(tx.account_id())
             .or_default()
             .insert(tx.account_update().final_state_hash(), tx.id());
 
-        self.nullifiers.extend(tx.get_nullifiers());
-        self.output_notes.extend(
-            tx.output_notes().iter().map(|note| (note.id(), OutputNoteState::new(tx.id()))),
-        );
+        self.nullifiers.extend(tx.nullifiers());
+        self.output_notes
+            .extend(tx.output_notes().map(|note_id| (note_id, OutputNoteState::new(tx.id()))));
 
         // Authenticated input notes (provably) consume notes that are already committed
         // on chain. They therefore cannot form part of the inflight dependency chain.
         //
         // Additionally, we only care about parents which have not been committed yet.
         let note_parents = tx
-            .get_unauthenticated_notes()
-            .filter_map(|note| self.output_notes.get(&note.id()))
+            .unauthenticated_notes()
+            .filter_map(|note_id| self.output_notes.get(&note_id))
             .filter_map(|note| note.transaction())
             .copied();
 
@@ -182,7 +174,7 @@ impl InflightState {
     ///
     /// Panics if any part of the diff isn't present in the state. Callers should take
     /// care to only revert transaction sets who's ancestors are all either committed or reverted.
-    pub fn revert_transactions(&mut self, txs: &[ProvenTransaction]) {
+    pub fn revert_transactions(&mut self, txs: &[AuthenticatedTransaction]) {
         let diff = StateDelta::new(txs);
         for (account, count) in diff.account_transactions {
             let status = self.accounts.get_mut(&account).expect("Account must exist").revert(count);
@@ -314,12 +306,10 @@ mod tests {
             .build();
 
         let mut uut = InflightState::default();
-        uut.add_transaction(&tx0, tx0.account_update().init_state_hash().into())
-            .unwrap();
-        uut.add_transaction(&tx1, tx1.account_update().init_state_hash().into())
-            .unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1)).unwrap();
 
-        let err = uut.add_transaction(&tx2, None).unwrap_err();
+        let err = uut.add_transaction(&AuthenticatedTransaction::from_inner(tx2)).unwrap_err();
 
         assert_eq!(
             err,
@@ -341,10 +331,9 @@ mod tests {
             .build();
 
         let mut uut = InflightState::default();
-        uut.add_transaction(&tx0, tx0.account_update().init_state_hash().into())
-            .unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
 
-        let err = uut.add_transaction(&tx1, None).unwrap_err();
+        let err = uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1)).unwrap_err();
 
         assert_eq!(err, VerifyTxError::OutputNotesAlreadyExist(vec![note.id()]));
     }
@@ -357,7 +346,9 @@ mod tests {
         let tx = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
 
         let mut uut = InflightState::default();
-        let err = uut.add_transaction(&tx, states[2].into()).unwrap_err();
+        let err = uut
+            .add_transaction(&AuthenticatedTransaction::from_inner(tx).with_store_state(states[2]))
+            .unwrap_err();
 
         assert_eq!(
             err,
@@ -377,8 +368,9 @@ mod tests {
         let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2]).build();
 
         let mut uut = InflightState::default();
-        uut.add_transaction(&tx0, states[0].into()).unwrap();
-        uut.add_transaction(&tx1, None).unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1).with_empty_store_state())
+            .unwrap();
     }
 
     #[test]
@@ -393,7 +385,8 @@ mod tests {
         .build();
 
         let mut uut = InflightState::default();
-        uut.add_transaction(&tx, None).unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx).with_empty_store_state())
+            .unwrap();
     }
 
     #[test]
@@ -405,12 +398,12 @@ mod tests {
         let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2]).build();
 
         let mut uut = InflightState::default();
-        uut.add_transaction(&tx0, tx0.account_update().init_state_hash().into())
-            .unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
 
         // Feed in an old state via input. This should be ignored, and the previous tx's final
         // state should be used.
-        uut.add_transaction(&tx1, states[0].into()).unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1).with_store_state(states[0]))
+            .unwrap();
     }
 
     #[test]
@@ -431,12 +424,12 @@ mod tests {
             .build();
 
         let mut uut = InflightState::default();
-        uut.add_transaction(&tx0, tx0.account_update().init_state_hash().into())
-            .unwrap();
-        uut.add_transaction(&tx1, tx1.account_update().init_state_hash().into())
-            .unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0.clone())).unwrap();
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1.clone())).unwrap();
 
-        let parents = uut.add_transaction(&tx, None).unwrap();
+        let parents = uut
+            .add_transaction(&AuthenticatedTransaction::from_inner(tx).with_empty_store_state())
+            .unwrap();
         let expected = BTreeSet::from([tx0.id(), tx1.id()]);
 
         assert_eq!(parents, expected);
@@ -450,26 +443,28 @@ mod tests {
 
         // Parent via account state.
         let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
+        let tx0 = AuthenticatedTransaction::from_inner(tx0);
         // Parent via output note.
         let tx1 = MockProvenTxBuilder::with_account(mock_account_id(2), states[0], states[1])
             .output_notes(vec![mock_output_note(note_seed)])
             .build();
+        let tx1 = AuthenticatedTransaction::from_inner(tx1);
 
         let tx = MockProvenTxBuilder::with_account(account, states[1], states[2])
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
         let mut uut = InflightState::default();
-        uut.add_transaction(&tx0, tx0.account_update().init_state_hash().into())
-            .unwrap();
-        uut.add_transaction(&tx1, tx1.account_update().init_state_hash().into())
-            .unwrap();
+        uut.add_transaction(&tx0.clone()).unwrap();
+        uut.add_transaction(&tx1.clone()).unwrap();
 
         // Commit the parents, which should remove them from dependency tracking.
         let delta = StateDelta::new(&[tx0, tx1]);
         uut.commit_transactions(&delta);
 
-        let parents = uut.add_transaction(&tx, None).unwrap();
+        let parents = uut
+            .add_transaction(&AuthenticatedTransaction::from_inner(tx).with_empty_store_state())
+            .unwrap();
 
         assert!(parents.is_empty());
     }
@@ -493,28 +488,28 @@ mod tests {
                 .output_notes(vec![mock_output_note(45)]),
         ];
 
-        let txs = txs.into_iter().map(MockProvenTxBuilder::build).collect::<Vec<_>>();
+        let txs = txs
+            .into_iter()
+            .map(MockProvenTxBuilder::build)
+            .map(AuthenticatedTransaction::from_inner)
+            .collect::<Vec<_>>();
 
         for i in 0..states.len() {
             // Insert all txs and then revert the last `i` of them.
             // This should match only inserting the first `N-i` of them.
             let mut reverted = InflightState::default();
             for (idx, tx) in txs.iter().enumerate() {
-                reverted
-                    .add_transaction(tx, tx.account_update().init_state_hash().into())
-                    .unwrap_or_else(|err| {
-                        panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
-                    });
+                reverted.add_transaction(tx).unwrap_or_else(|err| {
+                    panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
+                });
             }
             reverted.revert_transactions(&txs[txs.len() - i..]);
 
             let mut inserted = InflightState::default();
             for (idx, tx) in txs.iter().rev().skip(i).rev().enumerate() {
-                inserted
-                    .add_transaction(tx, tx.account_update().init_state_hash().into())
-                    .unwrap_or_else(|err| {
-                        panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
-                    });
+                inserted.add_transaction(tx).unwrap_or_else(|err| {
+                    panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
+                });
             }
 
             assert_eq!(reverted, inserted, "Iteration {i}");
@@ -542,7 +537,11 @@ mod tests {
                 .output_notes(vec![mock_output_note(45)]),
         ];
 
-        let txs = txs.into_iter().map(MockProvenTxBuilder::build).collect::<Vec<_>>();
+        let txs = txs
+            .into_iter()
+            .map(MockProvenTxBuilder::build)
+            .map(AuthenticatedTransaction::from_inner)
+            .collect::<Vec<_>>();
 
         for i in 0..states.len() {
             // Insert all txs and then commit and prune the first `i` of them.
@@ -550,11 +549,9 @@ mod tests {
             // This should match only inserting the final `N-i` transactions.
             let mut committed = InflightState::default();
             for (idx, tx) in txs.iter().enumerate() {
-                committed
-                    .add_transaction(tx, tx.account_update().init_state_hash().into())
-                    .unwrap_or_else(|err| {
-                        panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
-                    });
+                committed.add_transaction(tx).unwrap_or_else(|err| {
+                    panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
+                });
             }
             let delta = StateDelta::new(&txs[..i]);
             committed.commit_transactions(&delta);
@@ -562,11 +559,9 @@ mod tests {
 
             let mut inserted = InflightState::default();
             for (idx, tx) in txs.iter().skip(i).enumerate() {
-                inserted
-                    .add_transaction(tx, tx.account_update().init_state_hash().into())
-                    .unwrap_or_else(|err| {
-                        panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
-                    });
+                inserted.add_transaction(tx).unwrap_or_else(|err| {
+                    panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
+                });
             }
 
             assert_eq!(committed, inserted, "Iteration {i}");

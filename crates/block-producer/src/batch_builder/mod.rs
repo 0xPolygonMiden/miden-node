@@ -19,6 +19,7 @@ use tracing::{debug, info, instrument, Span};
 use crate::{
     block_builder::BlockBuilder,
     mempool::{BatchJobId, Mempool},
+    transaction::AuthenticatedTransaction,
     ProvenTransaction, SharedRwVec, COMPONENT,
 };
 
@@ -260,11 +261,14 @@ impl WorkerPool {
         self.in_progress.len()
     }
 
-    fn spawn(&mut self, id: BatchJobId, transactions: Vec<ProvenTransaction>) {
+    fn spawn(&mut self, id: BatchJobId, transactions: Vec<AuthenticatedTransaction>) {
         self.in_progress.spawn({
             let simulated_proof_time = self.simulated_proof_time;
             async move {
                 tracing::debug!("Begin proving batch.");
+
+                let transactions =
+                    transactions.into_iter().map(AuthenticatedTransaction::into_raw).collect();
 
                 let batch = TransactionBatch::new(transactions, Default::default())
                     .map_err(|err| (id, err))?;
