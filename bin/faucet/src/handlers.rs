@@ -100,7 +100,7 @@ pub async fn get_tokens(
                     "Failed to prove and submit transaction",
                 );
 
-                info!(target: COMPONENT, "Trying to request account state from the node...");
+                info!(target: COMPONENT, "Requesting account state from the node...");
                 let (got_faucet_account, block_num) = client.request_account_state().await?;
                 let got_new_hash = got_faucet_account.hash();
                 info!(
