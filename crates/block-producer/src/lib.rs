@@ -1,3 +1,6 @@
+// TODO: remove once block-producer rework is complete
+#![allow(unused)]
+
 use std::{sync::Arc, time::Duration};
 
 use batch_builder::batch::TransactionBatch;
@@ -10,8 +13,10 @@ pub mod test_utils;
 mod batch_builder;
 mod block_builder;
 mod errors;
+mod mempool;
 mod state_view;
 mod store;
+mod transaction;
 mod txqueue;
 
 pub mod block;

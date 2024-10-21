@@ -11,6 +11,8 @@ use miden_objects::{
 use miden_processor::ExecutionError;
 use thiserror::Error;
 
+use crate::mempool::BlockNumber;
+
 // Transaction verification errors
 // =================================================================================================
 
@@ -26,6 +28,9 @@ pub enum VerifyTxError {
         "Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions: {0:?}"
     )]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
+
+    #[error("Output note IDs already used: {0:?}")]
+    OutputNotesAlreadyExist(Vec<NoteId>),
 
     /// The account's initial hash did not match the current account's hash
     #[error("Incorrect account's initial hash ({tx_initial_account_hash}, current: {})", format_opt(.current_account_hash.as_ref()))]
@@ -56,6 +61,34 @@ pub enum VerifyTxError {
 pub enum AddTransactionError {
     #[error("Transaction verification failed: {0}")]
     VerificationFailed(#[from] VerifyTxError),
+
+    #[error("Transaction input data is stale. Required data fresher than {stale_limit} but inputs are from {input_block}.")]
+    StaleInputs {
+        input_block: BlockNumber,
+        stale_limit: BlockNumber,
+    },
+
+    #[error("Deserialization failed: {0}")]
+    DeserializationError(String),
+}
+
+impl From<AddTransactionError> for tonic::Status {
+    fn from(value: AddTransactionError) -> Self {
+        use AddTransactionError::*;
+        match value {
+            VerificationFailed(VerifyTxError::InputNotesAlreadyConsumed(_))
+            | VerificationFailed(VerifyTxError::UnauthenticatedNotesNotFound(_))
+            | VerificationFailed(VerifyTxError::OutputNotesAlreadyExist(_))
+            | VerificationFailed(VerifyTxError::IncorrectAccountInitialHash { .. })
+            | VerificationFailed(VerifyTxError::InvalidTransactionProof(_))
+            | DeserializationError(_) => Self::invalid_argument(value.to_string()),
+
+            // Internal errors which should not be communicated to the user.
+            VerificationFailed(VerifyTxError::TransactionInputError(_))
+            | VerificationFailed(VerifyTxError::StoreConnectionFailed(_))
+            | StaleInputs { .. } => Self::internal("Internal error"),
+        }
+    }
 }
 
 // Batch building errors

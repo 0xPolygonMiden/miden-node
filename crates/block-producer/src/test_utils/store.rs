@@ -12,6 +12,7 @@ use miden_objects::{
     notes::{NoteId, NoteInclusionProof, Nullifier},
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
+use tokio::sync::RwLock;
 
 use super::*;
 use crate::{
