@@ -70,7 +70,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_block_header_by_number(
         &self,
-        request: tonic::Request<GetBlockHeaderByNumberRequest>,
+        request: Request<GetBlockHeaderByNumberRequest>,
     ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
         info!(target: COMPONENT, ?request);
         let request = request.into_inner();
@@ -102,7 +102,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn check_nullifiers(
         &self,
-        request: tonic::Request<CheckNullifiersRequest>,
+        request: Request<CheckNullifiersRequest>,
     ) -> Result<Response<CheckNullifiersResponse>, Status> {
         // Validate the nullifiers and convert them to Digest values. Stop on first error.
         let request = request.into_inner();
@@ -126,7 +126,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn check_nullifiers_by_prefix(
         &self,
-        request: tonic::Request<CheckNullifiersByPrefixRequest>,
+        request: Request<CheckNullifiersByPrefixRequest>,
     ) -> Result<Response<CheckNullifiersByPrefixResponse>, Status> {
         let request = request.into_inner();
 
@@ -137,8 +137,7 @@ impl api_server::Api for StoreApi {
         let nullifiers = self
             .state
             .check_nullifiers_by_prefix(request.prefix_len, request.nullifiers)
-            .await
-            .map_err(internal_error)?
+            .await?
             .into_iter()
             .map(|nullifier_info| NullifierUpdate {
                 nullifier: Some(nullifier_info.nullifier.into()),
@@ -160,7 +159,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn sync_state(
         &self,
-        request: tonic::Request<SyncStateRequest>,
+        request: Request<SyncStateRequest>,
     ) -> Result<Response<SyncStateResponse>, Status> {
         let request = request.into_inner();
 
@@ -224,7 +223,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn sync_notes(
         &self,
-        request: tonic::Request<SyncNoteRequest>,
+        request: Request<SyncNoteRequest>,
     ) -> Result<Response<SyncNoteResponse>, Status> {
         let request = request.into_inner();
 
@@ -256,7 +255,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_notes_by_id(
         &self,
-        request: tonic::Request<GetNotesByIdRequest>,
+        request: Request<GetNotesByIdRequest>,
     ) -> Result<Response<GetNotesByIdResponse>, Status> {
         info!(target: COMPONENT, ?request);
 
@@ -270,8 +269,7 @@ impl api_server::Api for StoreApi {
         let notes = self
             .state
             .get_notes_by_id(note_ids)
-            .await
-            .map_err(internal_error)?
+            .await?
             .into_iter()
             .map(Into::into)
             .collect();
@@ -289,7 +287,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_note_authentication_info(
         &self,
-        request: tonic::Request<GetNoteAuthenticationInfoRequest>,
+        request: Request<GetNoteAuthenticationInfoRequest>,
     ) -> Result<Response<GetNoteAuthenticationInfoResponse>, Status> {
         info!(target: COMPONENT, ?request);
 
@@ -325,7 +323,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_account_details(
         &self,
-        request: tonic::Request<GetAccountDetailsRequest>,
+        request: Request<GetAccountDetailsRequest>,
     ) -> Result<Response<GetAccountDetailsResponse>, Status> {
         let request = request.into_inner();
         let account_info = self
@@ -333,8 +331,7 @@ impl api_server::Api for StoreApi {
             .get_account_details(
                 request.account_id.ok_or(invalid_argument("Account missing id"))?.into(),
             )
-            .await
-            .map_err(internal_error)?;
+            .await?;
 
         Ok(Response::new(GetAccountDetailsResponse {
             details: Some((&account_info).into()),
@@ -354,8 +351,8 @@ impl api_server::Api for StoreApi {
     )]
     async fn apply_block(
         &self,
-        request: tonic::Request<ApplyBlockRequest>,
-    ) -> Result<tonic::Response<ApplyBlockResponse>, tonic::Status> {
+        request: Request<ApplyBlockRequest>,
+    ) -> Result<Response<ApplyBlockResponse>, Status> {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
@@ -391,7 +388,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_block_inputs(
         &self,
-        request: tonic::Request<GetBlockInputsRequest>,
+        request: Request<GetBlockInputsRequest>,
     ) -> Result<Response<GetBlockInputsResponse>, Status> {
         let request = request.into_inner();
 
@@ -417,7 +414,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_transaction_inputs(
         &self,
-        request: tonic::Request<GetTransactionInputsRequest>,
+        request: Request<GetTransactionInputsRequest>,
     ) -> Result<Response<GetTransactionInputsResponse>, Status> {
         let request = request.into_inner();
 
@@ -430,8 +427,7 @@ impl api_server::Api for StoreApi {
         let tx_inputs = self
             .state
             .get_transaction_inputs(account_id, &nullifiers, unauthenticated_notes)
-            .await
-            .map_err(internal_error)?;
+            .await?;
 
         let block_height = self.state.latest_block_num().await;
 
@@ -466,13 +462,13 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_block_by_number(
         &self,
-        request: tonic::Request<GetBlockByNumberRequest>,
+        request: Request<GetBlockByNumberRequest>,
     ) -> Result<Response<GetBlockByNumberResponse>, Status> {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
 
-        let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
+        let block = self.state.load_block(request.block_num).await?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
     }
@@ -494,11 +490,8 @@ impl api_server::Api for StoreApi {
 
         let account_ids = convert(request.account_ids);
         let include_headers = request.include_headers.unwrap_or_default();
-        let (block_num, infos) = self
-            .state
-            .get_account_states(account_ids, include_headers)
-            .await
-            .map_err(internal_error)?;
+        let (block_num, infos) =
+            self.state.get_account_proofs(account_ids, include_headers).await?;
 
         Ok(Response::new(GetAccountProofsResponse {
             block_num,
@@ -515,7 +508,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_account_state_delta(
         &self,
-        request: tonic::Request<GetAccountStateDeltaRequest>,
+        request: Request<GetAccountStateDeltaRequest>,
     ) -> Result<Response<GetAccountStateDeltaResponse>, Status> {
         let request = request.into_inner();
 
@@ -528,8 +521,7 @@ impl api_server::Api for StoreApi {
                 request.from_block_num,
                 request.to_block_num,
             )
-            .await
-            .map_err(internal_error)?;
+            .await?;
 
         Ok(Response::new(GetAccountStateDeltaResponse { delta: Some(delta.to_bytes()) }))
     }
@@ -547,9 +539,9 @@ impl api_server::Api for StoreApi {
     )]
     async fn list_nullifiers(
         &self,
-        _request: tonic::Request<ListNullifiersRequest>,
+        _request: Request<ListNullifiersRequest>,
     ) -> Result<Response<ListNullifiersResponse>, Status> {
-        let raw_nullifiers = self.state.list_nullifiers().await.map_err(internal_error)?;
+        let raw_nullifiers = self.state.list_nullifiers().await?;
         let nullifiers = raw_nullifiers
             .into_iter()
             .map(|(key, block_num)| SmtLeafEntry {
@@ -570,16 +562,9 @@ impl api_server::Api for StoreApi {
     )]
     async fn list_notes(
         &self,
-        _request: tonic::Request<ListNotesRequest>,
+        _request: Request<ListNotesRequest>,
     ) -> Result<Response<ListNotesResponse>, Status> {
-        let notes = self
-            .state
-            .list_notes()
-            .await
-            .map_err(internal_error)?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        let notes = self.state.list_notes().await?.into_iter().map(Into::into).collect();
         Ok(Response::new(ListNotesResponse { notes }))
     }
 
@@ -593,16 +578,9 @@ impl api_server::Api for StoreApi {
     )]
     async fn list_accounts(
         &self,
-        _request: tonic::Request<ListAccountsRequest>,
+        _request: Request<ListAccountsRequest>,
     ) -> Result<Response<ListAccountsResponse>, Status> {
-        let accounts = self
-            .state
-            .list_accounts()
-            .await
-            .map_err(internal_error)?
-            .iter()
-            .map(Into::into)
-            .collect();
+        let accounts = self.state.list_accounts().await?.iter().map(Into::into).collect();
         Ok(Response::new(ListAccountsResponse { accounts }))
     }
 }
@@ -610,13 +588,14 @@ impl api_server::Api for StoreApi {
 // UTILITIES
 // ================================================================================================
 
-/// Formats an error
-fn internal_error<E: core::fmt::Debug>(err: E) -> Status {
-    Status::internal(format!("{:?}", err))
+/// Formats an "Internal error" error
+fn internal_error<E: core::fmt::Display>(err: E) -> Status {
+    Status::internal(err.to_string())
 }
 
-fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
-    Status::invalid_argument(format!("{:?}", err))
+/// Formats an "Invalid argument" error
+fn invalid_argument<E: core::fmt::Display>(err: E) -> Status {
+    Status::invalid_argument(err.to_string())
 }
 
 #[instrument(target = "miden-store", skip_all, err)]
