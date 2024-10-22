@@ -485,6 +485,11 @@ impl api_server::Api for StoreApi {
         request: Request<GetAccountProofsRequest>,
     ) -> Result<Response<GetAccountProofsResponse>, Status> {
         let request = request.into_inner();
+        if request.account_ids.len() != request.code_commitments.len() {
+            return Err(Status::invalid_argument(
+                "Amount of code commitments should be the same as the requested Account IDs",
+            ));
+        }
 
         debug!(target: COMPONENT, ?request);
 
@@ -494,12 +499,6 @@ impl api_server::Api for StoreApi {
             .map_err(|err| {
             Status::invalid_argument(format!("Invalid code commitment: {}", err))
         })?;
-
-        if account_ids.len() != request_code_commitments.len() {
-            return Err(Status::invalid_argument(
-                "Amount of code commitments should be the same as the requested Account IDs",
-            ));
-        }
 
         let (block_num, infos) = self
             .state
