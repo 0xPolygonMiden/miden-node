@@ -1,4 +1,7 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
@@ -146,12 +149,13 @@ where
     }
 }
 
-struct BlockProducer {
+struct BlockProducer<BB> {
     pub mempool: Arc<Mutex<Mempool>>,
     pub block_interval: tokio::time::Duration,
+    pub block_builder: BB,
 }
 
-impl BlockProducer {
+impl<BB: BlockBuilder> BlockProducer<BB> {
     pub async fn run(self) {
         let mut interval = tokio::time::interval(self.block_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -160,8 +164,9 @@ impl BlockProducer {
             interval.tick().await;
 
             let (block_number, batches) = self.mempool.lock().await.select_block();
+            let batches = batches.into_values().collect::<Vec<_>>();
 
-            let result = self.build_and_commit_block(batches).await;
+            let result = self.block_builder.build_block(&batches).await;
             let mut mempool = self.mempool.lock().await;
 
             match result {
@@ -169,9 +174,5 @@ impl BlockProducer {
                 Err(_) => mempool.block_failed(block_number),
             }
         }
-    }
-
-    async fn build_and_commit_block(&self, batches: BTreeSet<BatchJobId>) -> Result<(), ()> {
-        todo!("Aggregate, prove and commit block");
     }
 }

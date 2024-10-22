@@ -6,7 +6,7 @@ use std::{
 };
 
 use batch_graph::BatchGraph;
-use inflight_state::{InflightState, StateDiff};
+use inflight_state::InflightState;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, Nullifier},
@@ -17,7 +17,9 @@ use miden_tx::{utils::collections::KvMap, TransactionVerifierError};
 use transaction_graph::TransactionGraph;
 
 use crate::{
-    errors::AddTransactionErrorRework,
+    batch_builder::batch::TransactionBatch,
+    domain::transaction::AuthenticatedTransaction,
+    errors::{AddTransactionError, VerifyTxError},
     store::{TransactionInputs, TxInputsError},
 };
 
@@ -40,7 +42,7 @@ impl BatchJobId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockNumber(u32);
 
 impl Display for BlockNumber {
@@ -50,6 +52,10 @@ impl Display for BlockNumber {
 }
 
 impl BlockNumber {
+    pub fn new(x: u32) -> Self {
+        Self(x)
+    }
+
     pub fn next(&self) -> Self {
         let mut ret = *self;
         ret.increment();
@@ -61,7 +67,7 @@ impl BlockNumber {
         self.checked_sub(Self(1))
     }
 
-    pub fn increment(mut self) {
+    pub fn increment(&mut self) {
         self.0 += 1;
     }
 
@@ -70,22 +76,17 @@ impl BlockNumber {
     }
 }
 
+// MEMPOOL
+// ================================================================================================
+
 pub struct Mempool {
     /// The latest inflight state of each account.
     ///
     /// Accounts without inflight transactions are not stored.
     state: InflightState,
 
-    /// Note's consumed by inflight transactions.
-    nullifiers: BTreeSet<Nullifier>,
-
-    /// Notes produced by inflight transactions.
-    ///
-    /// It is possible for these to already be consumed - check nullifiers.
-    notes: BTreeMap<NoteId, TransactionId>,
-
     /// Inflight transactions.
-    transactions: TransactionGraph,
+    transactions: TransactionGraph<AuthenticatedTransaction>,
 
     /// Inflight batches.
     batches: BatchGraph,
@@ -93,16 +94,10 @@ pub struct Mempool {
     /// The next batches ID.
     next_batch_id: BatchJobId,
 
-    /// Blocks which have been committed but are not yet considered stale.
-    committed_diffs: VecDeque<StateDiff>,
-
     /// The current block height of the chain.
     chain_tip: BlockNumber,
 
     block_in_progress: Option<BTreeSet<BatchJobId>>,
-
-    /// Number of blocks before transaction input is considered stale.
-    staleness: BlockNumber,
 
     batch_transaction_limit: usize,
     block_batch_limit: usize,
@@ -120,23 +115,12 @@ impl Mempool {
     /// Returns an error if the transaction's initial conditions don't match the current state.
     pub fn add_transaction(
         &mut self,
-        transaction: ProvenTransaction,
-        inputs: TransactionInputs,
-    ) -> Result<u32, AddTransactionErrorRework> {
-        // Ensure inputs aren't stale.
-        if let Some(stale_block) = self.stale_block() {
-            if inputs.current_block_height <= stale_block.0 {
-                return Err(AddTransactionErrorRework::StaleInputs {
-                    input_block: BlockNumber(inputs.current_block_height),
-                    stale_limit: stale_block,
-                });
-            }
-        }
-
+        transaction: AuthenticatedTransaction,
+    ) -> Result<u32, AddTransactionError> {
         // Add transaction to inflight state.
-        let parents = self.state.add_transaction(&transaction, &inputs)?;
+        let parents = self.state.add_transaction(&transaction)?;
 
-        self.transactions.insert(transaction, parents);
+        self.transactions.insert(transaction.id(), transaction, parents);
 
         Ok(self.chain_tip.0)
     }
@@ -146,34 +130,35 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<TransactionId>)> {
+    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<AuthenticatedTransaction>)> {
         let mut parents = BTreeSet::new();
         let mut batch = Vec::with_capacity(self.batch_transaction_limit);
+        let mut tx_ids = Vec::with_capacity(self.batch_transaction_limit);
 
         for _ in 0..self.batch_transaction_limit {
             // Select transactions according to some strategy here. For now its just arbitrary.
-            let Some((tx, tx_parents)) = self.transactions.pop_for_batching() else {
+            let Some((tx, tx_parents)) = self.transactions.pop_for_processing() else {
                 break;
             };
             batch.push(tx);
             parents.extend(tx_parents);
         }
 
-        // Update the depedency graph to reflect parents at the batch level by removing
-        // all edges within this batch.
+        // Update the dependency graph to reflect parents at the batch level by removing all edges
+        // within this batch.
         for tx in &batch {
-            parents.remove(tx);
+            parents.remove(&tx.id());
         }
 
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        self.batches.insert(batch_id, batch.clone(), parents);
+        self.batches.insert(batch_id, tx_ids, parents);
 
         Some((batch_id, batch))
     }
 
-    /// Drops the failed batch and all of its descendents.
+    /// Drops the failed batch and all of its descendants.
     ///
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchJobId) {
@@ -194,8 +179,8 @@ impl Mempool {
     }
 
     /// Marks a batch as proven if it exists.
-    pub fn batch_proved(&mut self, batch_id: BatchJobId) {
-        self.batches.mark_proven(batch_id);
+    pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
+        self.batches.mark_proven(batch_id, batch);
     }
 
     /// Select batches for the next block.
@@ -205,16 +190,16 @@ impl Mempool {
     /// # Panics
     ///
     /// Panics if there is already a block in flight.
-    pub fn select_block(&mut self) -> (BlockNumber, BTreeSet<BatchJobId>) {
+    pub fn select_block(&mut self) -> (BlockNumber, BTreeMap<BatchJobId, TransactionBatch>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
         let batches = self.batches.select_block(self.block_batch_limit);
-        self.block_in_progress = Some(batches.clone());
+        self.block_in_progress = Some(batches.keys().cloned().collect());
 
         (self.chain_tip.next(), batches)
     }
 
-    /// Notify the pool that the block was succesfully completed.
+    /// Notify the pool that the block was successfully completed.
     ///
     /// # Panics
     ///
@@ -225,19 +210,10 @@ impl Mempool {
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
         let transactions = self.batches.remove_committed(batches);
-        let transactions = self.transactions.remove_committed(&transactions);
+        let transactions = self.transactions.prune_processed(&transactions);
 
         // Inform inflight state about committed data.
-        let diff = StateDiff::new(&transactions);
-        self.state.commit_transactions(&diff);
-
-        self.committed_diffs.push_back(diff);
-        if self.committed_diffs.len() > self.staleness.0 as usize {
-            // SAFETY: just checked that length is non-zero.
-            let stale_block = self.committed_diffs.pop_front().unwrap();
-
-            self.state.prune_committed_state(stale_block);
-        }
+        self.state.commit_block(&transactions);
 
         self.chain_tip.increment();
     }
@@ -261,15 +237,6 @@ impl Mempool {
         let transactions = self.transactions.purge_subgraphs(transactions);
 
         // Rollback state.
-        let impact = StateDiff::new(&transactions);
-        self.state.revert_transactions(impact);
-        // TODO: revert nullifiers and notes.
-    }
-
-    /// The highest block height we consider stale.
-    ///
-    /// Returns [None] if the blockchain is so short that all blocks are considered fresh.
-    fn stale_block(&self) -> Option<BlockNumber> {
-        self.chain_tip.checked_sub(self.staleness)
+        self.state.revert_transactions(&transactions);
     }
 }

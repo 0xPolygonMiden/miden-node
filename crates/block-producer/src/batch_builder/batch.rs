@@ -22,7 +22,8 @@ pub type BatchId = Blake3Digest<32>;
 // TRANSACTION BATCH
 // ================================================================================================
 
-/// A batch of transactions that share a common proof.
+/// A batch of transactions that share a common proof. For any given account, at most 1 transaction
+/// in the batch must be addressing that account (issue: #186).
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
 #[derive(Debug, Clone, PartialEq, Eq)]

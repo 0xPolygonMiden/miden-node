@@ -4,6 +4,10 @@ use miden_objects::transaction::TransactionId;
 use miden_tx::utils::collections::KvMap;
 
 use super::BatchJobId;
+use crate::batch_builder::batch::TransactionBatch;
+
+// BATCH GRAPH
+// ================================================================================================
 
 #[derive(Default, Clone)]
 pub struct BatchGraph {
@@ -44,7 +48,7 @@ impl BatchGraph {
 
         // Insert the new node into the graph.
         let batch = Node {
-            status: Status::InFlight,
+            status: Status::Queued,
             transactions,
             parents,
             children: Default::default(),
@@ -53,12 +57,12 @@ impl BatchGraph {
 
         // New node might be a root.
         //
-        // This could be optimised by inlining this inside the parent loop. This would prevent the
+        // This could be optimized by inlining this inside the parent loop. This would prevent the
         // double iteration over parents, at the cost of some code duplication.
         self.try_make_root(id);
     }
 
-    /// Removes the batches and all their descendents from the graph.
+    /// Removes the batches and all their descendants from the graph.
     ///
     /// Returns all removed batches and their transactions.
     pub fn purge_subgraphs(
@@ -76,8 +80,8 @@ impl BatchGraph {
                 continue;
             };
 
-            // All the child batches are also removed so no need to chec
-            // for new roots. No new roots are possible as a result of this subgraph removal.
+            // All the child batches are also removed so no need to check for new roots. No new
+            // roots are possible as a result of this subgraph removal.
             self.roots.remove(&node_id);
 
             for transaction in &node.transactions {
@@ -86,8 +90,8 @@ impl BatchGraph {
 
             // Inform parent that this child no longer exists.
             //
-            // The same is not required for children of this batch as we will
-            // be removing those as well.
+            // The same is not required for children of this batch as we will be removing those as
+            // well.
             for parent in &node.parents {
                 // Parent could already be removed as part of this subgraph removal.
                 if let Some(parent) = self.nodes.get_mut(parent) {
@@ -102,7 +106,7 @@ impl BatchGraph {
         removed
     }
 
-    /// Removes a set of batches from the graph without removing any descendents.
+    /// Removes a set of batches from the graph without removing any descendants.
     ///
     /// This is intended to cull completed batches from stale blocs.
     pub fn remove_committed(&mut self, batches: BTreeSet<BatchJobId>) -> Vec<TransactionId> {
@@ -110,7 +114,7 @@ impl BatchGraph {
 
         for batch in batches {
             let node = self.nodes.remove(&batch).expect("Node must be in graph");
-            assert_eq!(node.status, Status::InBlock);
+            assert_eq!(node.status, Status::Processed);
 
             // Remove batch from graph. No need to update parents as they should be removed in this
             // call as well.
@@ -129,32 +133,37 @@ impl BatchGraph {
     }
 
     /// Mark a batch as proven if it exists.
-    pub fn mark_proven(&mut self, id: BatchJobId) {
-        // Its possible for inflight batches to have been removed as part
-        // of another batches failure.
+    pub fn mark_proven(&mut self, id: BatchJobId, batch: TransactionBatch) {
+        // Its possible for inflight batches to have been removed as part of another batches
+        // failure.
         if let Some(node) = self.nodes.get_mut(&id) {
-            node.status = Status::Proven;
+            assert!(node.status == Status::Queued);
+            node.status = Status::Proven(batch);
             self.try_make_root(id);
         }
     }
 
     /// Returns at most `count` __indepedent__ batches which are ready for inclusion in a block.
-    pub fn select_block(&mut self, count: usize) -> BTreeSet<BatchJobId> {
-        let mut batches = BTreeSet::new();
+    pub fn select_block(&mut self, count: usize) -> BTreeMap<BatchJobId, TransactionBatch> {
+        let mut batches = BTreeMap::new();
 
         // Track children so we can evaluate them for root afterwards.
         let mut children = BTreeSet::new();
 
-        for batch in &self.roots {
-            let mut node = self.nodes.get_mut(batch).expect("Root node must be in graph");
+        for batch_id in &self.roots {
+            let mut node = self.nodes.get_mut(batch_id).expect("Root node must be in graph");
 
             // Filter out batches which have dependencies in our selection so far.
-            if batches.union(&node.parents).next().is_some() {
+            if node.parents.iter().any(|parent| batches.contains_key(parent)) {
                 continue;
             }
 
-            batches.insert(*batch);
-            node.status = Status::Proven;
+            let Status::Proven(batch) = node.status.clone() else {
+                unreachable!("Root batch must be in proven state.");
+            };
+
+            batches.insert(*batch_id, batch);
+            node.status = Status::Processed;
 
             if batches.len() == count {
                 break;
@@ -177,7 +186,7 @@ impl BatchGraph {
         for parent in node.parents.clone() {
             let parent = self.nodes.get(&parent).expect("Parent must be in pool");
 
-            if parent.status != Status::InBlock {
+            if parent.status != Status::Processed {
                 return;
             }
         }
@@ -193,9 +202,13 @@ struct Node {
     children: BTreeSet<BatchJobId>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Status {
-    InFlight,
-    Proven,
-    InBlock,
+    /// The batch is a busy being proven.
+    Queued,
+    /// The batch is proven. It may be placed in a block
+    /// __IFF__ all of its parents are already in a block.
+    Proven(TransactionBatch),
+    /// Batch is part of a block.
+    Processed,
 }

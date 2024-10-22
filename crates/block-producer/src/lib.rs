@@ -12,6 +12,7 @@ pub mod test_utils;
 
 mod batch_builder;
 mod block_builder;
+mod domain;
 mod errors;
 mod mempool;
 mod state_view;

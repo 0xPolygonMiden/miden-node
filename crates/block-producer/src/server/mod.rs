@@ -4,9 +4,12 @@ use std::{
     sync::Arc,
 };
 
-use miden_node_proto::generated::{
-    block_producer::api_server, requests::SubmitProvenTransactionRequest,
-    responses::SubmitProvenTransactionResponse, store::api_client as store_client,
+use miden_node_proto::{
+    domain::nullifiers,
+    generated::{
+        block_producer::api_server, requests::SubmitProvenTransactionRequest,
+        responses::SubmitProvenTransactionResponse, store::api_client as store_client,
+    },
 };
 use miden_node_utils::{
     errors::ApiError,
@@ -25,7 +28,8 @@ use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
-    errors::AddTransactionErrorRework,
+    domain::transaction::AuthenticatedTransaction,
+    errors::{AddTransactionError, VerifyTxError},
     mempool::Mempool,
     state_view::DefaultStateView,
     store::{DefaultStore, Store},
@@ -145,19 +149,8 @@ impl api_server::Api for Server {
         self.submit_proven_transaction(request.into_inner())
             .await
             .map(tonic::Response::new)
-            .map_err(|err| match err {
-                AddTransactionErrorRework::InvalidAccountState { .. }
-                | AddTransactionErrorRework::AuthenticatedNoteNotFound(_)
-                | AddTransactionErrorRework::UnauthenticatedNoteNotFound(_)
-                | AddTransactionErrorRework::NotesAlreadyConsumed(_)
-                | AddTransactionErrorRework::DeserializationError(_)
-                | AddTransactionErrorRework::ProofVerificationFailed(_) => {
-                    Status::invalid_argument(err.to_string())
-                },
-                // Internal errors.
-                AddTransactionErrorRework::StaleInputs { .. }
-                | AddTransactionErrorRework::TxInputsError(_) => Status::internal("Internal error"),
-            })
+            // This Status::from mapping takes care of hiding internal errors.
+            .map_err(Into::into)
     }
 }
 
@@ -171,11 +164,11 @@ impl Server {
     async fn submit_proven_transaction(
         &self,
         request: SubmitProvenTransactionRequest,
-    ) -> Result<SubmitProvenTransactionResponse, AddTransactionErrorRework> {
+    ) -> Result<SubmitProvenTransactionResponse, AddTransactionError> {
         debug!(target: COMPONENT, ?request);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
-            .map_err(|err| AddTransactionErrorRework::DeserializationError(err.to_string()))?;
+            .map_err(|err| AddTransactionError::DeserializationError(err.to_string()))?;
 
         let tx_id = tx.id();
 
@@ -192,40 +185,17 @@ impl Server {
         );
         debug!(target: COMPONENT, proof = ?tx.proof());
 
-        let mut inputs = self.store.get_tx_inputs(&tx).await?;
+        let inputs = self.store.get_tx_inputs(&tx).await.map_err(VerifyTxError::from)?;
 
-        let mut authenticated_notes = BTreeSet::new();
-        let mut unauthenticated_notes = BTreeMap::new();
-
-        for note in tx.input_notes() {
-            match note.header() {
-                Some(header) => {
-                    unauthenticated_notes.insert(header.id(), note.nullifier());
-                },
-                None => {
-                    authenticated_notes.insert(note.nullifier());
-                },
-            }
-        }
-
-        // Authenticated note nullifiers must be present in the store and must be unconsumed.
-        for nullifier in &authenticated_notes {
-            let nullifier_state = inputs
-                .nullifiers
-                .remove(nullifier)
-                .ok_or(AddTransactionErrorRework::AuthenticatedNoteNotFound(*nullifier))?;
-
-            if nullifier_state.is_some() {
-                return Err(AddTransactionErrorRework::NotesAlreadyConsumed([*nullifier].into()));
-            }
-        }
+        // SAFETY: we assume that the rpc component has verified the transaction proof already.
+        let tx = AuthenticatedTransaction::new(tx, inputs)?;
 
         self.mempool
             .lock()
             .await
             .lock()
             .await
-            .add_transaction(tx, inputs)
+            .add_transaction(tx)
             .map(|block_height| SubmitProvenTransactionResponse { block_height })
     }
 }

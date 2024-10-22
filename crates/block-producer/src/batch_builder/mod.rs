@@ -1,15 +1,24 @@
-use std::{cmp::min, collections::BTreeSet, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    cmp::min,
+    collections::{BTreeMap, BTreeSet},
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
+};
 
 use miden_objects::{
+    accounts::AccountId,
     notes::NoteId,
     transaction::{OutputNote, TransactionId},
+    Digest,
 };
-use tokio::{sync::Mutex, time};
+use tokio::{sync::Mutex, task::JoinSet, time};
 use tonic::async_trait;
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
     block_builder::BlockBuilder,
+    domain::transaction::AuthenticatedTransaction,
     mempool::{BatchJobId, Mempool},
     ProvenTransaction, SharedRwVec, COMPONENT,
 };
@@ -219,41 +228,74 @@ pub struct BatchProducer {
     pub workers: NonZeroUsize,
     pub mempool: Arc<Mutex<Mempool>>,
     pub tx_per_batch: usize,
+    pub simulated_proof_time: Duration,
 }
 
-type BatchResult = Result<BatchJobId, (BatchJobId, BuildBatchError)>;
+type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
 
 /// Wrapper around tokio's JoinSet that remains pending if the set is empty,
 /// instead of returning None.
-struct WorkerPool(tokio::task::JoinSet<BatchResult>);
+struct WorkerPool {
+    in_progress: JoinSet<BatchResult>,
+    simulated_proof_time: Duration,
+}
 
 impl WorkerPool {
+    fn new(simulated_proof_time: Duration) -> Self {
+        Self {
+            simulated_proof_time,
+            in_progress: JoinSet::new(),
+        }
+    }
+
     async fn join_next(&mut self) -> Result<BatchResult, tokio::task::JoinError> {
-        if self.0.is_empty() {
+        if self.in_progress.is_empty() {
             std::future::pending().await
         } else {
             // Cannot be None as its not empty.
-            self.0.join_next().await.unwrap()
+            self.in_progress.join_next().await.unwrap()
         }
     }
 
     fn len(&self) -> usize {
-        self.0.len()
+        self.in_progress.len()
     }
 
-    fn spawn(&mut self, id: BatchJobId, transactions: Vec<TransactionId>) {
-        self.0.spawn(async move {
-            todo!("Do actual work like aggregating transaction data");
+    fn spawn(&mut self, id: BatchJobId, transactions: Vec<AuthenticatedTransaction>) {
+        self.in_progress.spawn({
+            let simulated_proof_time = self.simulated_proof_time;
+            async move {
+                tracing::debug!("Begin proving batch.");
+
+                let transactions =
+                    transactions.into_iter().map(AuthenticatedTransaction::into_raw).collect();
+
+                let batch = TransactionBatch::new(transactions, Default::default())
+                    .map_err(|err| (id, err))?;
+
+                tokio::time::sleep(simulated_proof_time).await;
+                tracing::debug!("Batch proof completed.");
+
+                Ok((id, batch))
+            }
         });
     }
 }
 
 impl BatchProducer {
+    /// Starts the [BlockProducer], infinitely producing blocks at the configured interval.
+    ///
+    /// Block production is sequential and consists of
+    ///
+    ///   1. Pulling the next set of batches from the [Mempool]
+    ///   2. Compiling these batches into the next block
+    ///   3. Proving the block (this is not yet implemented)
+    ///   4. Committing the block to the store
     pub async fn run(self) {
         let mut interval = tokio::time::interval(self.batch_interval);
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
-        let mut inflight = WorkerPool(tokio::task::JoinSet::new());
+        let mut inflight = WorkerPool::new(self.simulated_proof_time);
 
         loop {
             tokio::select! {
@@ -285,8 +327,8 @@ impl BatchProducer {
                             tracing::warn!(%batch_id, %err, "Batch job failed.");
                             mempool.batch_failed(batch_id);
                         },
-                        Ok(Ok(batch_id)) => {
-                            mempool.batch_proved(batch_id);
+                        Ok(Ok((batch_id, batch))) => {
+                            mempool.batch_proved(batch_id, batch);
                         }
                     }
                 }
