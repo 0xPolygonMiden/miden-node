@@ -48,7 +48,7 @@ impl BatchGraph {
 
         // Insert the new node into the graph.
         let batch = Node {
-            status: Status::InFlight,
+            status: Status::Queued,
             transactions,
             parents,
             children: Default::default(),
@@ -114,7 +114,7 @@ impl BatchGraph {
 
         for batch in batches {
             let node = self.nodes.remove(&batch).expect("Node must be in graph");
-            assert_eq!(node.status, Status::InBlock);
+            assert_eq!(node.status, Status::Processed);
 
             // Remove batch from graph. No need to update parents as they should be removed in this
             // call as well.
@@ -137,6 +137,7 @@ impl BatchGraph {
         // Its possible for inflight batches to have been removed as part of another batches
         // failure.
         if let Some(node) = self.nodes.get_mut(&id) {
+            assert!(node.status == Status::Queued);
             node.status = Status::Proven(batch);
             self.try_make_root(id);
         }
@@ -162,7 +163,7 @@ impl BatchGraph {
             };
 
             batches.insert(*batch_id, batch);
-            node.status = Status::InBlock;
+            node.status = Status::Processed;
 
             if batches.len() == count {
                 break;
@@ -185,7 +186,7 @@ impl BatchGraph {
         for parent in node.parents.clone() {
             let parent = self.nodes.get(&parent).expect("Parent must be in pool");
 
-            if parent.status != Status::InBlock {
+            if parent.status != Status::Processed {
                 return;
             }
         }
@@ -203,7 +204,11 @@ struct Node {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Status {
-    InFlight,
+    /// The batch is a busy being proven.
+    Queued,
+    /// The batch is proven. It may be placed in a block
+    /// __IFF__ all of its parents are already in a block.
     Proven(TransactionBatch),
-    InBlock,
+    /// Batch is part of a block.
+    Processed,
 }

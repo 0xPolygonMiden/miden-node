@@ -211,7 +211,7 @@ impl<T> Node<T> {
     /// Creates a new inflight [Node] with no children.
     fn new(data: T, parents: BTreeSet<TransactionId>) -> Self {
         Self {
-            status: Status::InQueue,
+            status: Status::Queued,
             data,
             parents,
             children: Default::default(),
@@ -235,7 +235,7 @@ impl<T> Node<T> {
     /// Panics if the node is already inqueue.
     fn mark_as_inqueue(&mut self) {
         assert!(!self.is_inqueue());
-        self.status = Status::InQueue
+        self.status = Status::Queued
     }
 
     fn is_processed(&self) -> bool {
@@ -243,18 +243,13 @@ impl<T> Node<T> {
     }
 
     fn is_inqueue(&self) -> bool {
-        self.status == Status::InQueue
-    }
-
-    /// Returns true if this node is connected to the target as either a child or parent.
-    fn has_edge(&self, target: &TransactionId) -> bool {
-        self.parents.contains(target) || self.children.contains(target)
+        self.status == Status::Queued
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Status {
-    InQueue,
+    Queued,
     Processed,
 }
 

@@ -98,8 +98,12 @@ pub struct Mempool {
 
     block_in_progress: Option<BTreeSet<BatchJobId>>,
 
-    /// Number of blocks before transaction input is considered stale.
-    staleness: BlockNumber,
+    /// Amount of recently committed blocks we retain in addition to the inflight state.
+    ///
+    /// This provides an overlap between committed and inflight state, giving a grace
+    /// period for incoming transactions to be verified against both without requiring it
+    /// to be an atomic action.
+    num_retained_blocks: BlockNumber,
 
     batch_transaction_limit: usize,
     block_batch_limit: usize,
@@ -119,7 +123,15 @@ impl Mempool {
         &mut self,
         transaction: AuthenticatedTransaction,
     ) -> Result<u32, AddTransactionError> {
-        // Ensure inputs aren't stale.
+        // The mempool retains recently committed blocks, in addition to the state that is currently inflight.
+        // This overlap with the committed state allows us to verify incoming transactions against the current
+        // state (committed + inflight). Transactions are first authenticated against the committed state prior
+        // to being submitted to the mempool. The overlap provides a grace period between transaction authentication
+        // against committed state and verification against inflight state.
+        //
+        // Here we just ensure that this authentication point is still within this overlap zone. This should only fail
+        // if the grace period is too restrictive for the current combination of block rate, transaction throughput and
+        // database IO.
         if let Some(stale_block) = self.stale_block() {
             if transaction.authentication_height() <= stale_block.0 {
                 return Err(AddTransactionError::StaleInputs {
@@ -229,7 +241,7 @@ impl Mempool {
         self.state.commit_transactions(&diff);
 
         self.committed_diffs.push_back(diff);
-        if self.committed_diffs.len() > self.staleness.0 as usize {
+        if self.committed_diffs.len() > self.num_retained_blocks.0 as usize {
             // SAFETY: just checked that length is non-zero.
             let stale_block = self.committed_diffs.pop_front().unwrap();
 
@@ -265,6 +277,6 @@ impl Mempool {
     ///
     /// Returns [None] if the blockchain is so short that all blocks are considered fresh.
     fn stale_block(&self) -> Option<BlockNumber> {
-        self.chain_tip.checked_sub(self.staleness)
+        self.chain_tip.checked_sub(self.num_retained_blocks)
     }
 }
