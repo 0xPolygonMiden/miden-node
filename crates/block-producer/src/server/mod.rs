@@ -28,11 +28,11 @@ use crate::{
     batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
     block_builder::DefaultBlockBuilder,
     config::BlockProducerConfig,
+    domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
     mempool::Mempool,
     state_view::DefaultStateView,
     store::{DefaultStore, Store},
-    transaction::VerifiedTransaction,
     txqueue::{TransactionQueue, TransactionQueueOptions},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK,
@@ -188,7 +188,7 @@ impl Server {
         let inputs = self.store.get_tx_inputs(&tx).await.map_err(VerifyTxError::from)?;
 
         // SAFETY: we assume that the rpc component has verified the transaction proof already.
-        let tx = VerifiedTransaction::new_unchecked(tx).validate_inputs(inputs)?;
+        let tx = AuthenticatedTransaction::new(tx, inputs)?;
 
         self.mempool
             .lock()

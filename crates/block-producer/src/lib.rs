@@ -12,11 +12,11 @@ pub mod test_utils;
 
 mod batch_builder;
 mod block_builder;
+mod domain;
 mod errors;
 mod mempool;
 mod state_view;
 mod store;
-mod transaction;
 mod txqueue;
 
 pub mod block;

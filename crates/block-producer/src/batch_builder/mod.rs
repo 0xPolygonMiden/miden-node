@@ -18,8 +18,8 @@ use tracing::{debug, info, instrument, Span};
 
 use crate::{
     block_builder::BlockBuilder,
+    domain::transaction::AuthenticatedTransaction,
     mempool::{BatchJobId, Mempool},
-    transaction::AuthenticatedTransaction,
     ProvenTransaction, SharedRwVec, COMPONENT,
 };
 

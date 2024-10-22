@@ -11,9 +11,9 @@ use miden_objects::{
 };
 
 use crate::{
+    domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
     store::TransactionInputs,
-    transaction::AuthenticatedTransaction,
 };
 
 mod account_state;
@@ -163,6 +163,7 @@ impl InflightState {
             .or(tx.store_account_state());
         let expected = tx.account_update().init_state_hash();
 
+        // SAFETY: a new accounts state is set to zero ie default.
         if expected != current.unwrap_or_default() {
             return Err(VerifyTxError::IncorrectAccountInitialHash {
                 tx_initial_account_hash: expected,
@@ -172,6 +173,9 @@ impl InflightState {
         }
 
         // Ensure nullifiers aren't already present.
+        //
+        // We don't need to check the store state here because that was
+        // already performed as part of authenticated the transaction.
         let double_spend = tx
             .nullifiers()
             .filter(|nullifier| self.nullifiers.contains(nullifier))
@@ -193,6 +197,9 @@ impl InflightState {
         //
         // We don't need to worry about double spending them since we already checked for
         // that using the nullifiers.
+        //
+        // Note that the authenticated transaction already filters out notes that were
+        // previously unauthenticated, but were authenticated by the store.
         let missing = tx
             .unauthenticated_notes()
             .filter(|note_id| !self.output_notes.contains_key(note_id))

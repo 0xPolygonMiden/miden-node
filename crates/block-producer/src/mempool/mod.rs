@@ -18,9 +18,9 @@ use transaction_graph::TransactionGraph;
 
 use crate::{
     batch_builder::batch::TransactionBatch,
+    domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
     store::{TransactionInputs, TxInputsError},
-    transaction::AuthenticatedTransaction,
 };
 
 mod batch_graph;
