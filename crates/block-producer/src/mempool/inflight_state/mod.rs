@@ -638,9 +638,11 @@ mod tests {
             }
             committed.commit_block(&txs[..i]);
 
-            let mut inserted = InflightState::new(BlockNumber::default(), 0);
+            let mut inserted = InflightState::new(BlockNumber::new(1), 0);
             for (idx, tx) in txs.iter().skip(i).enumerate() {
-                inserted.add_transaction(tx).unwrap_or_else(|err| {
+                // We need to adjust the height since we are effectively at block "1" now.
+                let tx = tx.clone().with_authentication_height(1);
+                inserted.add_transaction(&tx).unwrap_or_else(|err| {
                     panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
                 });
             }

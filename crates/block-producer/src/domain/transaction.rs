@@ -131,6 +131,12 @@ impl AuthenticatedTransaction {
         }
     }
 
+    /// Overrides the authentication height with the given value.
+    pub fn with_authentication_height(mut self, height: u32) -> Self {
+        self.authentication_height = BlockNumber::new(height);
+        self
+    }
+
     /// Overrides the store state with the given value.
     pub fn with_store_state(mut self, state: Digest) -> Self {
         self.store_account_state = Some(state);
