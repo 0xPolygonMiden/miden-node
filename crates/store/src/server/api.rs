@@ -490,8 +490,12 @@ impl api_server::Api for StoreApi {
 
         let account_ids = convert(request.account_ids);
         let include_headers = request.include_headers.unwrap_or_default();
-        let (block_num, infos) =
-            self.state.get_account_proofs(account_ids, include_headers).await?;
+        let request_code_commitments = try_convert(request.code_commitments)
+            .map_err(|err| Status::invalid_argument(format!("Invalid code commitment: {}", err)))?;
+        let (block_num, infos) = self
+            .state
+            .get_account_proofs(account_ids, request_code_commitments, include_headers)
+            .await?;
 
         Ok(Response::new(GetAccountProofsResponse {
             block_num,

@@ -188,8 +188,11 @@ message AccountProofsResponse {
     digest.Digest account_hash = 2;
     // Authentication path from the `account_root` of the block header to the account.
     merkle.MerklePath account_proof = 3;
+    // Account code, returned only in the case where the request code commitment does not match
+    // with the current one.
+    optional bytes account_code = 4;
     // State header for public accounts. Filled only if `include_headers` flag is set to `true`.
-    optional AccountStateHeader state_header = 4;
+    optional AccountStateHeader state_header = 5;
 }
 
 message AccountStateHeader {
