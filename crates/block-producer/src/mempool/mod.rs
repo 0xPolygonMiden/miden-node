@@ -6,7 +6,7 @@ use std::{
 };
 
 use batch_graph::BatchGraph;
-use inflight_state::{InflightState, StateDelta};
+use inflight_state::InflightState;
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, Nullifier},
@@ -42,7 +42,7 @@ impl BatchJobId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockNumber(u32);
 
 impl Display for BlockNumber {
@@ -52,6 +52,10 @@ impl Display for BlockNumber {
 }
 
 impl BlockNumber {
+    pub fn new(x: u32) -> Self {
+        Self(x)
+    }
+
     pub fn next(&self) -> Self {
         let mut ret = *self;
         ret.increment();
@@ -63,7 +67,7 @@ impl BlockNumber {
         self.checked_sub(Self(1))
     }
 
-    pub fn increment(mut self) {
+    pub fn increment(&mut self) {
         self.0 += 1;
     }
 
@@ -90,20 +94,10 @@ pub struct Mempool {
     /// The next batches ID.
     next_batch_id: BatchJobId,
 
-    /// Blocks which have been committed but are not yet considered stale.
-    committed_diffs: VecDeque<StateDelta>,
-
     /// The current block height of the chain.
     chain_tip: BlockNumber,
 
     block_in_progress: Option<BTreeSet<BatchJobId>>,
-
-    /// Amount of recently committed blocks we retain in addition to the inflight state.
-    ///
-    /// This provides an overlap between committed and inflight state, giving a grace
-    /// period for incoming transactions to be verified against both without requiring it
-    /// to be an atomic action.
-    num_retained_blocks: BlockNumber,
 
     batch_transaction_limit: usize,
     block_batch_limit: usize,
@@ -123,24 +117,6 @@ impl Mempool {
         &mut self,
         transaction: AuthenticatedTransaction,
     ) -> Result<u32, AddTransactionError> {
-        // The mempool retains recently committed blocks, in addition to the state that is currently inflight.
-        // This overlap with the committed state allows us to verify incoming transactions against the current
-        // state (committed + inflight). Transactions are first authenticated against the committed state prior
-        // to being submitted to the mempool. The overlap provides a grace period between transaction authentication
-        // against committed state and verification against inflight state.
-        //
-        // Here we just ensure that this authentication point is still within this overlap zone. This should only fail
-        // if the grace period is too restrictive for the current combination of block rate, transaction throughput and
-        // database IO.
-        if let Some(stale_block) = self.stale_block() {
-            if transaction.authentication_height() <= stale_block.0 {
-                return Err(AddTransactionError::StaleInputs {
-                    input_block: BlockNumber(transaction.authentication_height()),
-                    stale_limit: stale_block,
-                });
-            }
-        }
-
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction)?;
 
@@ -237,16 +213,7 @@ impl Mempool {
         let transactions = self.transactions.prune_processed(&transactions);
 
         // Inform inflight state about committed data.
-        let diff = StateDelta::new(&transactions);
-        self.state.commit_transactions(&diff);
-
-        self.committed_diffs.push_back(diff);
-        if self.committed_diffs.len() > self.num_retained_blocks.0 as usize {
-            // SAFETY: just checked that length is non-zero.
-            let stale_block = self.committed_diffs.pop_front().unwrap();
-
-            self.state.prune_committed_state(stale_block);
-        }
+        self.state.commit_block(&transactions);
 
         self.chain_tip.increment();
     }
@@ -271,12 +238,5 @@ impl Mempool {
 
         // Rollback state.
         self.state.revert_transactions(&transactions);
-    }
-
-    /// The highest block height we consider stale.
-    ///
-    /// Returns [None] if the blockchain is so short that all blocks are considered fresh.
-    fn stale_block(&self) -> Option<BlockNumber> {
-        self.chain_tip.checked_sub(self.num_retained_blocks)
     }
 }

@@ -20,6 +20,8 @@ mod account_state;
 
 use account_state::InflightAccountState;
 
+use super::BlockNumber;
+
 // IN-FLIGHT STATE
 // ================================================================================================
 
@@ -28,7 +30,7 @@ use account_state::InflightAccountState;
 /// Allows appending and reverting transactions as well as marking them as part of a committed
 /// block. Committed state can also be pruned once the state is considered past the stale
 /// threshold.
-#[derive(Default, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct InflightState {
     /// Account states from inflight transactions.
     ///
@@ -42,10 +44,26 @@ pub struct InflightState {
     ///
     /// Some of these may already be consumed - check the nullifiers.
     output_notes: BTreeMap<NoteId, OutputNoteState>,
+
+    /// Delta's representing the impact of each recently committed blocks on the inflight state.
+    ///
+    /// These are used to prune committed state after `num_retained_blocks` have passed.
+    committed_state: VecDeque<StateDelta>,
+
+    /// Amount of recently committed blocks we retain in addition to the inflight state.
+    ///
+    /// This provides an overlap between committed and inflight state, giving a grace
+    /// period for incoming transactions to be verified against both without requiring it
+    /// to be an atomic action.
+    num_retained_blocks: usize,
+
+    /// The latest committed block height.
+    chain_tip: BlockNumber,
 }
 
 /// The aggregated impact of a set of sequential transactions on the [InflightState].
-pub struct StateDelta {
+#[derive(Clone, Default, Debug, PartialEq)]
+struct StateDelta {
     /// The number of transactions that affected each account.
     account_transactions: BTreeMap<AccountId, usize>,
 
@@ -57,7 +75,7 @@ pub struct StateDelta {
 }
 
 impl StateDelta {
-    pub fn new(txs: &[AuthenticatedTransaction]) -> Self {
+    fn new(txs: &[AuthenticatedTransaction]) -> Self {
         let mut account_transactions = BTreeMap::<AccountId, usize>::new();
         let mut nullifiers = BTreeSet::new();
         let mut output_notes = BTreeSet::new();
@@ -77,13 +95,26 @@ impl StateDelta {
 }
 
 impl InflightState {
+    /// Creates an [InflightState] which will retain committed state for the given
+    /// amount of blocks before pruning them.
+    pub fn new(chain_tip: BlockNumber, num_retained_blocks: usize) -> Self {
+        Self {
+            num_retained_blocks,
+            chain_tip,
+            accounts: Default::default(),
+            nullifiers: Default::default(),
+            output_notes: Default::default(),
+            committed_state: Default::default(),
+        }
+    }
+
     /// Appends the transaction to the inflight state.
     ///
     /// This operation is atomic i.e. a rejected transaction has no impact of the state.
     pub fn add_transaction(
         &mut self,
         tx: &AuthenticatedTransaction,
-    ) -> Result<BTreeSet<TransactionId>, VerifyTxError> {
+    ) -> Result<BTreeSet<TransactionId>, AddTransactionError> {
         // Separate verification and state mutation so that a rejected transaction
         // does not impact the state (atomicity).
         self.verify_transaction(tx)?;
@@ -93,7 +124,36 @@ impl InflightState {
         Ok(parents)
     }
 
-    fn verify_transaction(&self, tx: &AuthenticatedTransaction) -> Result<(), VerifyTxError> {
+    fn oldest_committed_state(&self) -> BlockNumber {
+        let committed_len: u32 = self
+            .committed_state
+            .len()
+            .try_into()
+            .expect("We should not be storing many blocks");
+        self.chain_tip
+            .checked_sub(BlockNumber::new(committed_len))
+            .expect("Chain height cannot be less than number of committed blocks")
+    }
+
+    fn verify_transaction(&self, tx: &AuthenticatedTransaction) -> Result<(), AddTransactionError> {
+        // The mempool retains recently committed blocks, in addition to the state that is currently
+        // inflight. This overlap with the committed state allows us to verify incoming
+        // transactions against the current state (committed + inflight). Transactions are
+        // first authenticated against the committed state prior to being submitted to the
+        // mempool. The overlap provides a grace period between transaction authentication
+        // against committed state and verification against inflight state.
+        //
+        // Here we just ensure that this authentication point is still within this overlap zone.
+        // This should only fail if the grace period is too restrictive for the current
+        // combination of block rate, transaction throughput and database IO.
+        let stale_limit = self.oldest_committed_state();
+        if tx.authentication_height() < stale_limit {
+            return Err(AddTransactionError::StaleInputs {
+                input_block: tx.authentication_height(),
+                stale_limit,
+            });
+        }
+
         // Ensure current account state is correct.
         let current = self
             .accounts
@@ -107,7 +167,8 @@ impl InflightState {
             return Err(VerifyTxError::IncorrectAccountInitialHash {
                 tx_initial_account_hash: expected,
                 current_account_hash: current,
-            });
+            }
+            .into());
         }
 
         // Ensure nullifiers aren't already present.
@@ -116,7 +177,7 @@ impl InflightState {
             .filter(|nullifier| self.nullifiers.contains(nullifier))
             .collect::<Vec<_>>();
         if !double_spend.is_empty() {
-            return Err(VerifyTxError::InputNotesAlreadyConsumed(double_spend));
+            return Err(VerifyTxError::InputNotesAlreadyConsumed(double_spend).into());
         }
 
         // Ensure output notes aren't already present.
@@ -125,7 +186,7 @@ impl InflightState {
             .filter(|note| self.output_notes.contains_key(note))
             .collect::<Vec<_>>();
         if !duplicates.is_empty() {
-            return Err(VerifyTxError::OutputNotesAlreadyExist(duplicates));
+            return Err(VerifyTxError::OutputNotesAlreadyExist(duplicates).into());
         }
 
         // Ensure that all unauthenticated notes have an inflight output note to consume.
@@ -137,7 +198,7 @@ impl InflightState {
             .filter(|note_id| !self.output_notes.contains_key(note_id))
             .collect::<Vec<_>>();
         if !missing.is_empty() {
-            return Err(VerifyTxError::UnauthenticatedNotesNotFound(missing));
+            return Err(VerifyTxError::UnauthenticatedNotesNotFound(missing).into());
         }
 
         Ok(())
@@ -175,8 +236,8 @@ impl InflightState {
     /// Panics if any part of the diff isn't present in the state. Callers should take
     /// care to only revert transaction sets who's ancestors are all either committed or reverted.
     pub fn revert_transactions(&mut self, txs: &[AuthenticatedTransaction]) {
-        let diff = StateDelta::new(txs);
-        for (account, count) in diff.account_transactions {
+        let delta = StateDelta::new(txs);
+        for (account, count) in delta.account_transactions {
             let status = self.accounts.get_mut(&account).expect("Account must exist").revert(count);
 
             // Prune empty accounts.
@@ -185,11 +246,11 @@ impl InflightState {
             }
         }
 
-        for nullifier in diff.nullifiers {
+        for nullifier in delta.nullifiers {
             assert!(self.nullifiers.remove(&nullifier), "Nullifier must exist");
         }
 
-        for note in diff.output_notes {
+        for note in delta.output_notes {
             assert!(self.output_notes.remove(&note).is_some(), "Output note must exist");
         }
     }
@@ -199,26 +260,39 @@ impl InflightState {
     /// These transactions are no longer considered inflight. Callers should take care to only
     /// commit transactions who's ancestors are all committed.
     ///
+    /// Note that this state is still retained for the configured number of blocks. The oldest
+    /// retained block is also pruned from the state.
+    ///
     /// # Panics
     ///
     /// Panics if the accounts don't have enough inflight transactions to commit or if
     /// the output notes don't exist.
-    pub fn commit_transactions(&mut self, diff: &StateDelta) {
-        for (account, count) in &diff.account_transactions {
+    pub fn commit_block(&mut self, txs: &[AuthenticatedTransaction]) {
+        let delta = StateDelta::new(txs);
+        for (account, count) in &delta.account_transactions {
             self.accounts.get_mut(account).expect("Account must exist").commit(*count);
         }
 
-        for note in &diff.output_notes {
+        for note in &delta.output_notes {
             self.output_notes.get_mut(note).expect("Output note must exist").commit();
         }
+
+        self.committed_state.push_back(delta);
+
+        if self.committed_state.len() > self.num_retained_blocks {
+            let delta = self.committed_state.pop_front().expect("Must be some due to length check");
+            self.prune_committed_state(delta);
+        }
+
+        self.chain_tip.increment();
     }
 
-    /// Drops the given state diff from memory.
+    /// Removes the delta from inflight state.
     ///
     /// # Panics
     ///
     /// Panics if the accounts don't have enough inflight transactions to commit.
-    pub fn prune_committed_state(&mut self, diff: StateDelta) {
+    fn prune_committed_state(&mut self, diff: StateDelta) {
         for (account, count) in diff.account_transactions {
             let status = self
                 .accounts
@@ -305,7 +379,7 @@ mod tests {
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
-        let mut uut = InflightState::default();
+        let mut uut = InflightState::new(BlockNumber::default(), 1);
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1)).unwrap();
 
@@ -313,7 +387,7 @@ mod tests {
 
         assert_eq!(
             err,
-            VerifyTxError::InputNotesAlreadyConsumed(vec![mock_note(note_seed).nullifier()])
+            VerifyTxError::InputNotesAlreadyConsumed(vec![mock_note(note_seed).nullifier()]).into()
         );
     }
 
@@ -330,12 +404,12 @@ mod tests {
             .output_notes(vec![note.clone()])
             .build();
 
-        let mut uut = InflightState::default();
+        let mut uut = InflightState::new(BlockNumber::default(), 1);
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
 
         let err = uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1)).unwrap_err();
 
-        assert_eq!(err, VerifyTxError::OutputNotesAlreadyExist(vec![note.id()]));
+        assert_eq!(err, VerifyTxError::OutputNotesAlreadyExist(vec![note.id()]).into());
     }
 
     #[test]
@@ -345,7 +419,7 @@ mod tests {
 
         let tx = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
 
-        let mut uut = InflightState::default();
+        let mut uut = InflightState::new(BlockNumber::default(), 1);
         let err = uut
             .add_transaction(&AuthenticatedTransaction::from_inner(tx).with_store_state(states[2]))
             .unwrap_err();
@@ -356,6 +430,7 @@ mod tests {
                 tx_initial_account_hash: states[0],
                 current_account_hash: states[2].into()
             }
+            .into()
         );
     }
 
@@ -367,7 +442,7 @@ mod tests {
         let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
         let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2]).build();
 
-        let mut uut = InflightState::default();
+        let mut uut = InflightState::new(BlockNumber::default(), 1);
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1).with_empty_store_state())
             .unwrap();
@@ -384,7 +459,7 @@ mod tests {
         )
         .build();
 
-        let mut uut = InflightState::default();
+        let mut uut = InflightState::new(BlockNumber::default(), 1);
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx).with_empty_store_state())
             .unwrap();
     }
@@ -397,7 +472,7 @@ mod tests {
         let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
         let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2]).build();
 
-        let mut uut = InflightState::default();
+        let mut uut = InflightState::new(BlockNumber::default(), 1);
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
 
         // Feed in an old state via input. This should be ignored, and the previous tx's final
@@ -423,7 +498,7 @@ mod tests {
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
-        let mut uut = InflightState::default();
+        let mut uut = InflightState::new(BlockNumber::default(), 1);
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0.clone())).unwrap();
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1.clone())).unwrap();
 
@@ -454,13 +529,12 @@ mod tests {
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
-        let mut uut = InflightState::default();
+        let mut uut = InflightState::new(BlockNumber::default(), 1);
         uut.add_transaction(&tx0.clone()).unwrap();
         uut.add_transaction(&tx1.clone()).unwrap();
 
         // Commit the parents, which should remove them from dependency tracking.
-        let delta = StateDelta::new(&[tx0, tx1]);
-        uut.commit_transactions(&delta);
+        uut.commit_block(&[tx0, tx1]);
 
         let parents = uut
             .add_transaction(&AuthenticatedTransaction::from_inner(tx).with_empty_store_state())
@@ -497,7 +571,7 @@ mod tests {
         for i in 0..states.len() {
             // Insert all txs and then revert the last `i` of them.
             // This should match only inserting the first `N-i` of them.
-            let mut reverted = InflightState::default();
+            let mut reverted = InflightState::new(BlockNumber::default(), 1);
             for (idx, tx) in txs.iter().enumerate() {
                 reverted.add_transaction(tx).unwrap_or_else(|err| {
                     panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
@@ -505,7 +579,7 @@ mod tests {
             }
             reverted.revert_transactions(&txs[txs.len() - i..]);
 
-            let mut inserted = InflightState::default();
+            let mut inserted = InflightState::new(BlockNumber::default(), 1);
             for (idx, tx) in txs.iter().rev().skip(i).rev().enumerate() {
                 inserted.add_transaction(tx).unwrap_or_else(|err| {
                     panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
@@ -547,17 +621,17 @@ mod tests {
             // Insert all txs and then commit and prune the first `i` of them.
             //
             // This should match only inserting the final `N-i` transactions.
-            let mut committed = InflightState::default();
+            // Note: we force all committed state to immedietely be pruned by setting
+            // it to zero.
+            let mut committed = InflightState::new(BlockNumber::default(), 0);
             for (idx, tx) in txs.iter().enumerate() {
                 committed.add_transaction(tx).unwrap_or_else(|err| {
                     panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
                 });
             }
-            let delta = StateDelta::new(&txs[..i]);
-            committed.commit_transactions(&delta);
-            committed.prune_committed_state(delta);
+            committed.commit_block(&txs[..i]);
 
-            let mut inserted = InflightState::default();
+            let mut inserted = InflightState::new(BlockNumber::default(), 0);
             for (idx, tx) in txs.iter().skip(i).enumerate() {
                 inserted.add_transaction(tx).unwrap_or_else(|err| {
                     panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")

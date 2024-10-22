@@ -19,7 +19,7 @@ use crate::{
 // ================================================================================================
 
 /// Tracks the inflight state of an account.
-#[derive(Default, Debug, PartialEq)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct InflightAccountState {
     /// This account's state transitions due to inflight transactions.
     ///

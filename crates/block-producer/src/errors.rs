@@ -62,7 +62,7 @@ pub enum AddTransactionError {
     #[error("Transaction verification failed: {0}")]
     VerificationFailed(#[from] VerifyTxError),
 
-    #[error("Transaction input data is stale. Required data fresher than {stale_limit} but inputs are from {input_block}.")]
+    #[error("Transaction input data is stale. Required data from {stale_limit} or newer, but inputs are from {input_block}.")]
     StaleInputs {
         input_block: BlockNumber,
         stale_limit: BlockNumber,

@@ -7,7 +7,7 @@ use miden_objects::{
     Digest,
 };
 
-use crate::{errors::VerifyTxError, store::TransactionInputs};
+use crate::{errors::VerifyTxError, mempool::BlockNumber, store::TransactionInputs};
 
 /// A transaction whose proof has been verified.
 #[derive(Clone, PartialEq)]
@@ -19,7 +19,7 @@ pub struct AuthenticatedTransaction {
     inner: VerifiedTransaction,
     store_account_state: Option<Digest>,
     authenticated_notes: BTreeSet<NoteId>,
-    authentication_height: u32,
+    authentication_height: BlockNumber,
 }
 
 impl AuthenticatedTransaction {
@@ -39,7 +39,7 @@ impl AuthenticatedTransaction {
         self.store_account_state
     }
 
-    pub fn authentication_height(&self) -> u32 {
+    pub fn authentication_height(&self) -> BlockNumber {
         self.authentication_height
     }
 
@@ -124,7 +124,7 @@ impl VerifiedTransaction {
         Ok(AuthenticatedTransaction {
             inner: self,
             authenticated_notes,
-            authentication_height: inputs.current_block_height,
+            authentication_height: BlockNumber::new(inputs.current_block_height),
             store_account_state: inputs.account_hash,
         })
     }
