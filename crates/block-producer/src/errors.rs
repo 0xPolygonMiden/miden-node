@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
@@ -11,7 +9,6 @@ use miden_objects::{
     MAX_BATCHES_PER_BLOCK, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use miden_processor::ExecutionError;
-use miden_tx::TransactionVerifierError;
 use thiserror::Error;
 
 use crate::mempool::BlockNumber;
@@ -31,6 +28,9 @@ pub enum VerifyTxError {
         "Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions: {0:?}"
     )]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
+
+    #[error("Output note IDs already used: {0:?}")]
+    OutputNotesAlreadyExist(Vec<NoteId>),
 
     /// The account's initial hash did not match the current account's hash
     #[error("Incorrect account's initial hash ({tx_initial_account_hash}, current: {})", format_opt(.current_account_hash.as_ref()))]
@@ -61,29 +61,34 @@ pub enum VerifyTxError {
 pub enum AddTransactionError {
     #[error("Transaction verification failed: {0}")]
     VerificationFailed(#[from] VerifyTxError),
-}
 
-#[derive(thiserror::Error, Debug, PartialEq)]
-pub enum AddTransactionErrorRework {
-    #[error("Transaction's initial account state {expected} did not match the current account state {current}.")]
-    InvalidAccountState { current: Digest, expected: Digest },
-    #[error("Transaction input data is stale. Required data fresher than {stale_limit} but inputs are from {input_block}.")]
+    #[error("Transaction input data is stale. Required data from {stale_limit} or newer, but inputs are from {input_block}.")]
     StaleInputs {
         input_block: BlockNumber,
         stale_limit: BlockNumber,
     },
-    #[error("Authenticated note nullifier {0} not found.")]
-    AuthenticatedNoteNotFound(Nullifier),
-    #[error("Unauthenticated note {0} not found.")]
-    UnauthenticatedNoteNotFound(NoteId),
-    #[error("Note nullifiers already consumed: {0:?}")]
-    NotesAlreadyConsumed(BTreeSet<Nullifier>),
-    #[error(transparent)]
-    TxInputsError(#[from] TxInputsError),
-    #[error(transparent)]
-    ProofVerificationFailed(#[from] TransactionVerifierError),
-    #[error("Failed to deserialize transaction: {0}.")]
+
+    #[error("Deserialization failed: {0}")]
     DeserializationError(String),
+}
+
+impl From<AddTransactionError> for tonic::Status {
+    fn from(value: AddTransactionError) -> Self {
+        use AddTransactionError::*;
+        match value {
+            VerificationFailed(VerifyTxError::InputNotesAlreadyConsumed(_))
+            | VerificationFailed(VerifyTxError::UnauthenticatedNotesNotFound(_))
+            | VerificationFailed(VerifyTxError::OutputNotesAlreadyExist(_))
+            | VerificationFailed(VerifyTxError::IncorrectAccountInitialHash { .. })
+            | VerificationFailed(VerifyTxError::InvalidTransactionProof(_))
+            | DeserializationError(_) => Self::invalid_argument(value.to_string()),
+
+            // Internal errors which should not be communicated to the user.
+            VerificationFailed(VerifyTxError::TransactionInputError(_))
+            | VerificationFailed(VerifyTxError::StoreConnectionFailed(_))
+            | StaleInputs { .. } => Self::internal("Internal error"),
+        }
+    }
 }
 
 // Batch building errors
