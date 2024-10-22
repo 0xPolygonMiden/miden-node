@@ -215,12 +215,8 @@ pub struct AccountProofsResponse {
     /// Authentication path from the `account_root` of the block header to the account.
     #[prost(message, optional, tag = "3")]
     pub account_proof: ::core::option::Option<super::merkle::MerklePath>,
-    /// Account code, returned only in the case where the request code commitment does not match
-    /// with the current one.
-    #[prost(bytes = "vec", optional, tag = "4")]
-    pub account_code: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     /// State header for public accounts. Filled only if `include_headers` flag is set to `true`.
-    #[prost(message, optional, tag = "5")]
+    #[prost(message, optional, tag = "4")]
     pub state_header: ::core::option::Option<AccountStateHeader>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -231,4 +227,8 @@ pub struct AccountStateHeader {
     /// Values of all account storage slots (max 255).
     #[prost(bytes = "vec", tag = "2")]
     pub storage_header: ::prost::alloc::vec::Vec<u8>,
+    /// Account code, returned only in the case where the request code commitment does not match
+    /// with the current one.
+    #[prost(bytes = "vec", optional, tag = "3")]
+    pub account_code: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

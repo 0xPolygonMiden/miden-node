@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use miden_node_proto::{
     convert,
@@ -488,10 +488,19 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let account_ids = convert(request.account_ids);
         let include_headers = request.include_headers.unwrap_or_default();
-        let request_code_commitments = try_convert(request.code_commitments)
-            .map_err(|err| Status::invalid_argument(format!("Invalid code commitment: {}", err)))?;
+        let account_ids: Vec<u64> = convert(request.account_ids);
+        let request_code_commitments: BTreeSet<RpoDigest> = try_convert(request.code_commitments)
+            .map_err(|err| {
+            Status::invalid_argument(format!("Invalid code commitment: {}", err))
+        })?;
+
+        if account_ids.len() != request_code_commitments.len() {
+            return Err(Status::invalid_argument(
+                "Amount of code commitments should be the same as the requested Account IDs",
+            ));
+        }
+
         let (block_num, infos) = self
             .state
             .get_account_proofs(account_ids, request_code_commitments, include_headers)

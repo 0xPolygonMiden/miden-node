@@ -17,7 +17,7 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
-    accounts::{AccountCode, AccountDelta, AccountHeader},
+    accounts::{AccountDelta, AccountHeader},
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
@@ -684,7 +684,7 @@ impl State {
     pub async fn get_account_proofs(
         &self,
         account_ids: Vec<AccountId>,
-        request_code_commitments: Vec<RpoDigest>,
+        request_code_commitments: BTreeSet<RpoDigest>,
         include_headers: bool,
     ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
         // Lock inner state for the whole operation. We need to hold this lock to prevent the
@@ -692,7 +692,9 @@ impl State {
         // because changing one of them would lead to inconsistent state.
         let inner_state = self.inner.read().await;
 
-        let account_data: BTreeMap<u64, (AccountStateHeader, AccountCode)> = {
+        let state_headers = if !include_headers {
+            BTreeMap::<u64, AccountStateHeader>::new()
+        } else {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
 
             if account_ids.len() > infos.len() {
@@ -709,13 +711,16 @@ impl State {
                     info.details.map(|details| {
                         (
                             info.summary.account_id.into(),
-                            (
-                                AccountStateHeader {
-                                    header: Some(AccountHeader::from(&details).into()),
-                                    storage_header: details.storage().get_header().to_bytes(),
-                                },
-                                details.code().clone(),
-                            ),
+                            AccountStateHeader {
+                                header: Some(AccountHeader::from(&details).into()),
+                                storage_header: details.storage().get_header().to_bytes(),
+                                // Only include account code if the request did not contain it
+                                // as known by the caller
+                                account_code: request_code_commitments
+                                    .contains(&details.code().commitment())
+                                    .not()
+                                    .then_some(details.code().to_bytes()),
+                            },
                         )
                     })
                 })
@@ -727,21 +732,13 @@ impl State {
             .map(|account_id| {
                 let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
                 let opening = inner_state.account_tree.open(&acc_leaf_idx);
-                let (state_header, account_code) = account_data
-                    .get(&account_id)
-                    .cloned()
-                    .expect("Function would have errored if accounts were not found");
-                let account_code = request_code_commitments
-                    .contains(&account_code.commitment())
-                    .not()
-                    .then_some(account_code.to_bytes());
+                let state_header = state_headers.get(&account_id).cloned();
 
                 AccountProofsResponse {
                     account_id: Some(account_id.into()),
                     account_hash: Some(opening.value.into()),
                     account_proof: Some(opening.path.into()),
-                    account_code,
-                    state_header: include_headers.then_some(state_header),
+                    state_header,
                 }
             })
             .collect();
