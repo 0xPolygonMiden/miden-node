@@ -692,7 +692,7 @@ impl State {
         // because changing one of them would lead to inconsistent state.
         let inner_state = self.inner.read().await;
 
-        let state_headers: BTreeMap<u64, (AccountStateHeader, AccountCode)> = {
+        let account_data: BTreeMap<u64, (AccountStateHeader, AccountCode)> = {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
 
             if account_ids.len() > infos.len() {
@@ -727,7 +727,7 @@ impl State {
             .map(|account_id| {
                 let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
                 let opening = inner_state.account_tree.open(&acc_leaf_idx);
-                let (acc_state_header, account_code) = state_headers
+                let (state_header, account_code) = account_data
                     .get(&account_id)
                     .cloned()
                     .expect("Function would have errored if accounts were not found");
@@ -741,7 +741,7 @@ impl State {
                     account_hash: Some(opening.value.into()),
                     account_proof: Some(opening.path.into()),
                     account_code,
-                    state_header: include_headers.then_some(acc_state_header),
+                    state_header: include_headers.then_some(state_header),
                 }
             })
             .collect();
