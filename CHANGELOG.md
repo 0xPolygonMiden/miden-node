@@ -2,6 +2,7 @@
 
 ## v0.6.0 (TBD)
 
+- Added `AccountCode` as part of `GetAccountProofs` endpoint response (#521).
 - [BREAKING] Added `kernel_root` to block header's protobuf message definitions (#496).
 - [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#489).
 - Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
