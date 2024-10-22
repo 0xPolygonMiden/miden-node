@@ -23,10 +23,11 @@ pub struct AuthenticatedTransaction {
     /// This does not necessarily have to match the transaction's initial state
     /// as this may still be modified by inflight transactions.
     store_account_state: Option<Digest>,
-    /// Unauthenticates notes that have now been authenticated by the store [inputs](TransactionInputs).
+    /// Unauthenticates notes that have now been authenticated by the store
+    /// [inputs](TransactionInputs).
     ///
-    /// In other words, notes which were unauthenticated at the time the transaction was proven, but
-    /// which have since been committed to, and authenticated by the store.
+    /// In other words, notes which were unauthenticated at the time the transaction was proven,
+    /// but which have since been committed to, and authenticated by the store.
     notes_authenticated_by_store: BTreeSet<NoteId>,
     /// Chain height that the authentication took place at.
     authentication_height: BlockNumber,
@@ -115,7 +116,8 @@ impl AuthenticatedTransaction {
 impl AuthenticatedTransaction {
     //! Builder methods intended for easier test setup.
 
-    /// Short-hand for `Self::new` where the input's are setup to match the transaction's initial account state.
+    /// Short-hand for `Self::new` where the input's are setup to match the transaction's initial
+    /// account state.
     pub fn from_inner(inner: ProvenTransaction) -> Self {
         let store_account_state = match inner.account_update().init_state_hash() {
             zero if zero == Digest::default() => None,
