@@ -233,6 +233,10 @@ pub struct BatchProducer {
     /// Used to simulate batch proving by sleeping for
     /// a random duration selected from this range.
     pub simulated_proof_time: Range<Duration>,
+    /// Simulated block failure rate as a percentage.
+    ///
+    /// Note: this _must_ be sign positive and less than 1.0.
+    pub failure_rate: f32,
 }
 
 type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
@@ -242,12 +246,14 @@ type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatc
 struct WorkerPool {
     in_progress: JoinSet<BatchResult>,
     simulated_proof_time: Range<Duration>,
+    failure_rate: f32,
 }
 
 impl WorkerPool {
-    fn new(simulated_proof_time: Range<Duration>) -> Self {
+    fn new(simulated_proof_time: Range<Duration>, failure_rate: f32) -> Self {
         Self {
             simulated_proof_time,
+            failure_rate,
             in_progress: JoinSet::new(),
         }
     }
@@ -267,19 +273,30 @@ impl WorkerPool {
 
     fn spawn(&mut self, id: BatchJobId, transactions: Vec<AuthenticatedTransaction>) {
         self.in_progress.spawn({
-            // Select a random duration from the given proof range.
+            // Select a random work duration from the given proof range.
             let simulated_proof_time =
                 rand::thread_rng().gen_range(self.simulated_proof_time.clone());
+
+            // Randomly fail batches at the configured rate.
+            //
+            // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
+            let failed = rand::thread_rng().gen::<f32>() < self.failure_rate;
+
             async move {
                 tracing::debug!("Begin proving batch.");
 
                 let transactions =
                     transactions.into_iter().map(AuthenticatedTransaction::into_raw).collect();
 
+                tokio::time::sleep(simulated_proof_time).await;
+                if failed {
+                    tracing::debug!("Batch proof failure injected.");
+                    return Err((id, BuildBatchError::InjectedFailure(transactions)));
+                }
+
                 let batch = TransactionBatch::new(transactions, Default::default())
                     .map_err(|err| (id, err))?;
 
-                tokio::time::sleep(simulated_proof_time).await;
                 tracing::debug!("Batch proof completed.");
 
                 Ok((id, batch))
@@ -295,10 +312,15 @@ impl BatchProducer {
     /// A batch is skipped if there are no available workers, or if there are no transactions
     /// available to batch.
     pub async fn run(self) {
+        assert!(
+            self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
+            "Failure rate must be a percentage"
+        );
+
         let mut interval = tokio::time::interval(self.batch_interval);
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
-        let mut inflight = WorkerPool::new(self.simulated_proof_time);
+        let mut inflight = WorkerPool::new(self.simulated_proof_time, self.failure_rate);
 
         loop {
             tokio::select! {

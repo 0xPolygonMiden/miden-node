@@ -149,6 +149,9 @@ pub enum BuildBatchError {
         error: AccountDeltaError,
         txs: Vec<ProvenTransaction>,
     },
+
+    #[error("Nothing actually went wrong, failure was injected on purpose")]
+    InjectedFailure(Vec<ProvenTransaction>),
 }
 
 impl BuildBatchError {
@@ -164,6 +167,7 @@ impl BuildBatchError {
             BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
             BuildBatchError::NoteHashesMismatch { txs, .. } => txs,
             BuildBatchError::AccountUpdateError { txs, .. } => txs,
+            BuildBatchError::InjectedFailure(txs) => txs,
         }
     }
 }
@@ -239,11 +243,13 @@ pub enum BuildBlockError {
     UnauthenticatedNotesNotFound(Vec<NoteId>),
     #[error("too many batches in block. Got: {0}, max: {MAX_BATCHES_PER_BLOCK}")]
     TooManyBatchesInBlock(usize),
-    #[error("Failed to merge transaction delta into account {account_id}: {error}")]
+    #[error("failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {
         account_id: AccountId,
         error: AccountDeltaError,
     },
+    #[error("nothing actually went wrong, failure was injected on purpose")]
+    InjectedFailure,
 }
 
 // Transaction inputs errors

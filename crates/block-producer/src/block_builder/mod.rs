@@ -158,6 +158,11 @@ struct BlockProducer<BB> {
     /// Used to simulate block proving by sleeping for
     /// a random duration selected from this range.
     pub simulated_proof_time: Range<Duration>,
+
+    /// Simulated block failure rate as a percentage.
+    ///
+    /// Note: this _must_ be sign positive and less than 1.0.
+    pub failure_rate: f32,
 }
 
 impl<BB: BlockBuilder> BlockProducer<BB> {
@@ -170,6 +175,11 @@ impl<BB: BlockBuilder> BlockProducer<BB> {
     ///   3. Proving the block (this is simulated using random sleeps)
     ///   4. Committing the block to the store
     pub async fn run(self) {
+        assert!(
+            self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
+            "Failure rate must be a percentage"
+        );
+
         let mut interval = tokio::time::interval(self.block_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
@@ -179,10 +189,17 @@ impl<BB: BlockBuilder> BlockProducer<BB> {
             let (block_number, batches) = self.mempool.lock().await.select_block();
             let batches = batches.into_values().collect::<Vec<_>>();
 
-            let result = self.block_builder.build_block(&batches).await;
+            let mut result = self.block_builder.build_block(&batches).await;
             let proving_duration = rand::thread_rng().gen_range(self.simulated_proof_time.clone());
 
             tokio::time::sleep(proving_duration).await;
+
+            // Randomly inject failures at the given rate.
+            //
+            // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
+            if rand::thread_rng().gen::<f32>() < self.failure_rate {
+                result = Err(BuildBlockError::InjectedFailure);
+            }
 
             let mut mempool = self.mempool.lock().await;
             match result {
