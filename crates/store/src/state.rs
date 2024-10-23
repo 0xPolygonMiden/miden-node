@@ -5,6 +5,7 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::Not,
     sync::Arc,
 };
 
@@ -683,6 +684,7 @@ impl State {
     pub async fn get_account_proofs(
         &self,
         account_ids: Vec<AccountId>,
+        request_code_commitments: BTreeSet<RpoDigest>,
         include_headers: bool,
     ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
         // Lock inner state for the whole operation. We need to hold this lock to prevent the
@@ -696,8 +698,7 @@ impl State {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
 
             if account_ids.len() > infos.len() {
-                let found_ids: BTreeSet<AccountId> =
-                    infos.iter().map(|info| info.summary.account_id.into()).collect();
+                let found_ids = infos.iter().map(|info| info.summary.account_id.into()).collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
                     BTreeSet::from_iter(account_ids).difference(&found_ids).copied().collect(),
                 ));
@@ -712,6 +713,12 @@ impl State {
                             AccountStateHeader {
                                 header: Some(AccountHeader::from(&details).into()),
                                 storage_header: details.storage().get_header().to_bytes(),
+                                // Only include account code if the request did not contain it
+                                // (known by the caller)
+                                account_code: request_code_commitments
+                                    .contains(&details.code().commitment())
+                                    .not()
+                                    .then_some(details.code().to_bytes()),
                             },
                         )
                     })
@@ -724,12 +731,13 @@ impl State {
             .map(|account_id| {
                 let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
                 let opening = inner_state.account_tree.open(&acc_leaf_idx);
+                let state_header = state_headers.get(&account_id).cloned();
 
                 AccountProofsResponse {
                     account_id: Some(account_id.into()),
                     account_hash: Some(opening.value.into()),
                     account_proof: Some(opening.path.into()),
-                    state_header: state_headers.get(&account_id).cloned(),
+                    state_header,
                 }
             })
             .collect();

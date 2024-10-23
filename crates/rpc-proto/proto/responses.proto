@@ -197,4 +197,7 @@ message AccountStateHeader {
     account.AccountHeader header = 1;
     // Values of all account storage slots (max 255).
     bytes storage_header = 2;
+    // Account code, returned only when none of the request's code commitments match with the
+    // current one.
+    optional bytes account_code = 3;
 }

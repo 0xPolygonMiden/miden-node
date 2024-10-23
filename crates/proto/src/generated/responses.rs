@@ -227,4 +227,8 @@ pub struct AccountStateHeader {
     /// Values of all account storage slots (max 255).
     #[prost(bytes = "vec", tag = "2")]
     pub storage_header: ::prost::alloc::vec::Vec<u8>,
+    /// Account code, returned only when none of the request's code commitments match with the
+    /// current one.
+    #[prost(bytes = "vec", optional, tag = "3")]
+    pub account_code: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

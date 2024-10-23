@@ -135,6 +135,9 @@ message GetAccountStateDeltaRequest {
 message GetAccountProofsRequest {
     // List of account IDs to get states.
     repeated account.AccountId account_ids = 1;
+    // Account code commitments corresponding to the last-known `AccountCode` for requested 
+    // accounts. Responses will include only the ones that are not known to the caller.
+    repeated digest.Digest code_commitments = 2;
     // Optional flag to include header in the response. `false` by default.
-    optional bool include_headers = 2;
+    optional bool include_headers = 3;
 }

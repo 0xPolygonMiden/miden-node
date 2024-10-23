@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use miden_node_proto::{
     convert,
@@ -485,13 +485,25 @@ impl api_server::Api for StoreApi {
         request: Request<GetAccountProofsRequest>,
     ) -> Result<Response<GetAccountProofsResponse>, Status> {
         let request = request.into_inner();
+        if request.account_ids.len() > request.code_commitments.len() {
+            return Err(Status::invalid_argument(
+                "The number of code commitments should not exceed the number of requested accounts.",
+            ));
+        }
 
         debug!(target: COMPONENT, ?request);
 
-        let account_ids = convert(request.account_ids);
         let include_headers = request.include_headers.unwrap_or_default();
-        let (block_num, infos) =
-            self.state.get_account_proofs(account_ids, include_headers).await?;
+        let account_ids: Vec<u64> = convert(request.account_ids);
+        let request_code_commitments: BTreeSet<RpoDigest> = try_convert(request.code_commitments)
+            .map_err(|err| {
+            Status::invalid_argument(format!("Invalid code commitment: {}", err))
+        })?;
+
+        let (block_num, infos) = self
+            .state
+            .get_account_proofs(account_ids, request_code_commitments, include_headers)
+            .await?;
 
         Ok(Response::new(GetAccountProofsResponse {
             block_num,
