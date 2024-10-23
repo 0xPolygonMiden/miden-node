@@ -156,6 +156,14 @@ struct BlockProducer<BB> {
 }
 
 impl<BB: BlockBuilder> BlockProducer<BB> {
+    /// Starts the [BlockProducer], infinitely producing blocks at the configured interval.
+    ///
+    /// Block production is sequential and consists of
+    ///
+    ///   1. Pulling the next set of batches from the [Mempool]
+    ///   2. Compiling these batches into the next block
+    ///   3. Proving the block (this is simulated using random sleeps)
+    ///   4. Committing the block to the store
     pub async fn run(self) {
         let mut interval = tokio::time::interval(self.block_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

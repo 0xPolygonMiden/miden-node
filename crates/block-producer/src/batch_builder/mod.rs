@@ -283,14 +283,11 @@ impl WorkerPool {
 }
 
 impl BatchProducer {
-    /// Starts the [BlockProducer], infinitely producing blocks at the configured interval.
+    /// Starts the [BatchProducer], creating and proving batches at the configured interval.
     ///
-    /// Block production is sequential and consists of
-    ///
-    ///   1. Pulling the next set of batches from the [Mempool]
-    ///   2. Compiling these batches into the next block
-    ///   3. Proving the block (this is not yet implemented)
-    ///   4. Committing the block to the store
+    /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.
+    /// A batch is skipped if there are no available workers, or if there are no transactions
+    /// available to batch.
     pub async fn run(self) {
         let mut interval = tokio::time::interval(self.batch_interval);
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
