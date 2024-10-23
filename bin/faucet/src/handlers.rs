@@ -1,3 +1,4 @@
+use anyhow::Context;
 use axum::{
     extract::{Path, State},
     http::{Response, StatusCode},
@@ -13,9 +14,9 @@ use miden_objects::{
 };
 use serde::{Deserialize, Serialize};
 use tonic::body;
-use tracing::info;
+use tracing::{error, info};
 
-use crate::{errors::ProcessError, state::FaucetState, COMPONENT};
+use crate::{errors::HandlerError, state::FaucetState, COMPONENT};
 
 #[derive(Deserialize)]
 pub struct FaucetRequest {
@@ -44,7 +45,7 @@ pub async fn get_metadata(
 pub async fn get_tokens(
     State(state): State<FaucetState>,
     Json(req): Json<FaucetRequest>,
-) -> Result<impl IntoResponse, ProcessError> {
+) -> Result<impl IntoResponse, HandlerError> {
     info!(
         target: COMPONENT,
         account_id = %req.account_id,
@@ -55,33 +56,83 @@ pub async fn get_tokens(
 
     // Check that the amount is in the asset amount options
     if !state.config.asset_amount_options.contains(&req.asset_amount) {
-        return Err(ProcessError::BadRequest("Invalid asset amount".to_string()));
+        return Err(HandlerError::BadRequest("Invalid asset amount".to_string()));
     }
 
     let mut client = state.client.lock().await;
 
     // Receive and hex user account id
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
-        .map_err(|err| ProcessError::BadRequest(err.to_string()))?;
+        .map_err(|err| HandlerError::BadRequest(err.to_string()))?;
 
-    // Execute transaction
-    info!(target: COMPONENT, "Executing mint transaction for account.");
-    let (executed_tx, created_note) = client.execute_mint_transaction(
-        target_account_id,
-        req.is_private_note,
-        req.asset_amount,
-    )?;
+    let (created_note, block_height) = loop {
+        let mut faucet_account = client.data_store().faucet_account();
 
-    // Run transaction prover & send transaction to node
-    info!(target: COMPONENT, "Proving and submitting transaction.");
-    let block_height = client.prove_and_submit_transaction(executed_tx).await?;
+        // Execute transaction
+        info!(target: COMPONENT, "Executing mint transaction for account.");
+        let (executed_tx, created_note) = client.execute_mint_transaction(
+            target_account_id,
+            req.is_private_note,
+            req.asset_amount,
+        )?;
+
+        let prev_hash = faucet_account.hash();
+
+        faucet_account
+            .apply_delta(executed_tx.account_delta())
+            .context("Failed to apply faucet account delta")?;
+
+        let new_hash = faucet_account.hash();
+
+        // Run transaction prover & send transaction to node
+        info!(target: COMPONENT, "Proving and submitting transaction.");
+        match client.prove_and_submit_transaction(executed_tx.clone()).await {
+            Ok(block_height) => {
+                break (created_note, block_height);
+            },
+            Err(err) => {
+                error!(
+                    target: COMPONENT,
+                    %err,
+                    "Failed to prove and submit transaction",
+                );
+
+                // TODO: Improve error statuses returned from the `SubmitProvenTransaction` endpoint
+                //       of block producer. Check received error status here.
+
+                info!(target: COMPONENT, "Requesting account state from the node...");
+                let (got_faucet_account, block_num) = client.request_account_state().await?;
+                let got_new_hash = got_faucet_account.hash();
+                info!(
+                    target: COMPONENT,
+                    %prev_hash,
+                    %new_hash,
+                    %got_new_hash,
+                    "Received new account state from the node",
+                );
+                // If the hash hasn't changed, then the account's state we had is correct,
+                // and we should not try to execute the transaction again. We can just return error
+                // to the caller.
+                if new_hash == prev_hash {
+                    return Err(err.into());
+                }
+                // If the new hash from the node is the same, as we expected to have, then
+                // transaction was successfully executed despite the error. Don't need to retry.
+                if new_hash == got_new_hash {
+                    break (created_note, block_num);
+                }
+
+                client.data_store().update_faucet_state(got_faucet_account).await?;
+            },
+        }
+    };
 
     let note_id: NoteId = created_note.id();
     let note_details =
         NoteDetails::new(created_note.assets().clone(), created_note.recipient().clone());
 
     let note_tag = NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)
-        .expect("failed to build note tag for local execution");
+        .context("failed to build note tag for local execution")?;
 
     // Serialize note into bytes
     let bytes = NoteFile::NoteDetails {
@@ -100,24 +151,26 @@ pub async fn get_tokens(
         .header(header::CONTENT_DISPOSITION, "attachment; filename=note.mno")
         .header("Note-Id", note_id.to_string())
         .body(body::boxed(Full::from(bytes)))
-        .map_err(|err| ProcessError::InternalServerError(err.to_string()))
+        .context("Failed to build response")
+        .map_err(Into::into)
 }
 
-pub async fn get_index(state: State<FaucetState>) -> Result<impl IntoResponse, ProcessError> {
+pub async fn get_index(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
     get_static_file(state, Path("index.html".to_string())).await
 }
 
 pub async fn get_static_file(
     State(state): State<FaucetState>,
     Path(path): Path<String>,
-) -> Result<impl IntoResponse, ProcessError> {
+) -> Result<impl IntoResponse, HandlerError> {
     info!(target: COMPONENT, path, "Serving static file");
 
-    let static_file = state.static_files.get(path.as_str()).ok_or(ProcessError::NotFound(path))?;
+    let static_file = state.static_files.get(path.as_str()).ok_or(HandlerError::NotFound(path))?;
 
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, static_file.mime_type)
         .body(body::boxed(Full::from(static_file.data)))
-        .map_err(|err| ProcessError::InternalServerError(err.to_string()))
+        .context("Failed to build response")
+        .map_err(Into::into)
 }

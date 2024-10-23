@@ -1466,6 +1466,7 @@ dependencies = [
 name = "miden-faucet"
 version = "0.6.0"
 dependencies = [
+ "anyhow",
  "axum",
  "clap",
  "figment",

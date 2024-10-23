@@ -1,4 +1,7 @@
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    path::PathBuf,
+};
 
 use miden_node_utils::config::{Endpoint, DEFAULT_FAUCET_SERVER_PORT, DEFAULT_NODE_RPC_PORT};
 use serde::{Deserialize, Serialize};
@@ -6,12 +9,15 @@ use serde::{Deserialize, Serialize};
 // Faucet config
 // ================================================================================================
 
+/// Default path to the secret key file
+const DEFAULT_SECRET_KEY_PATH: &str = "faucet-secret.key";
+
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FaucetConfig {
     /// Endpoint of the faucet
     pub endpoint: Endpoint,
-    /// Node RPC gRPC endpoint in the format `http://<host>[:<port>]`.
+    /// Node RPC gRPC endpoint in the format `http://<host>[:<port>]`
     pub node_url: String,
     /// Timeout for RPC requests in milliseconds
     pub timeout_ms: u64,
@@ -23,6 +29,8 @@ pub struct FaucetConfig {
     pub decimals: u8,
     /// Maximum supply of the generated fungible asset
     pub max_supply: u64,
+    /// Path to the key store file
+    pub secret_key_path: PathBuf,
 }
 
 impl Display for FaucetConfig {
@@ -44,6 +52,7 @@ impl Default for FaucetConfig {
             token_symbol: "POL".to_string(),
             decimals: 8,
             max_supply: 1000000,
+            secret_key_path: DEFAULT_SECRET_KEY_PATH.into(),
         }
     }
 }
