@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::Range,
     sync::Arc,
 };
 
@@ -11,7 +12,8 @@ use miden_objects::{
     notes::{NoteHeader, Nullifier},
     transaction::InputNoteCommitment,
 };
-use tokio::sync::Mutex;
+use rand::Rng;
+use tokio::{sync::Mutex, time::Duration};
 use tracing::{debug, info, instrument};
 
 use crate::{
@@ -151,8 +153,11 @@ where
 
 struct BlockProducer<BB> {
     pub mempool: Arc<Mutex<Mempool>>,
-    pub block_interval: tokio::time::Duration,
+    pub block_interval: Duration,
     pub block_builder: BB,
+    /// Used to simulate block proving by sleeping for
+    /// a random duration selected from this range.
+    pub simulated_proof_time: Range<Duration>,
 }
 
 impl<BB: BlockBuilder> BlockProducer<BB> {
@@ -175,8 +180,11 @@ impl<BB: BlockBuilder> BlockProducer<BB> {
             let batches = batches.into_values().collect::<Vec<_>>();
 
             let result = self.block_builder.build_block(&batches).await;
-            let mut mempool = self.mempool.lock().await;
+            let proving_duration = rand::thread_rng().gen_range(self.simulated_proof_time.clone());
 
+            tokio::time::sleep(proving_duration).await;
+
+            let mut mempool = self.mempool.lock().await;
             match result {
                 Ok(_) => mempool.block_committed(block_number),
                 Err(_) => mempool.block_failed(block_number),

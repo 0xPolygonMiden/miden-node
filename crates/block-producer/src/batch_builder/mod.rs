@@ -2,6 +2,7 @@ use std::{
     cmp::min,
     collections::{BTreeMap, BTreeSet},
     num::NonZeroUsize,
+    ops::Range,
     sync::Arc,
     time::Duration,
 };
@@ -12,6 +13,7 @@ use miden_objects::{
     transaction::{OutputNote, TransactionId},
     Digest,
 };
+use rand::Rng;
 use tokio::{sync::Mutex, task::JoinSet, time};
 use tonic::async_trait;
 use tracing::{debug, info, instrument, Span};
@@ -228,7 +230,9 @@ pub struct BatchProducer {
     pub workers: NonZeroUsize,
     pub mempool: Arc<Mutex<Mempool>>,
     pub tx_per_batch: usize,
-    pub simulated_proof_time: Duration,
+    /// Used to simulate batch proving by sleeping for
+    /// a random duration selected from this range.
+    pub simulated_proof_time: Range<Duration>,
 }
 
 type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
@@ -237,11 +241,11 @@ type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatc
 /// instead of returning None.
 struct WorkerPool {
     in_progress: JoinSet<BatchResult>,
-    simulated_proof_time: Duration,
+    simulated_proof_time: Range<Duration>,
 }
 
 impl WorkerPool {
-    fn new(simulated_proof_time: Duration) -> Self {
+    fn new(simulated_proof_time: Range<Duration>) -> Self {
         Self {
             simulated_proof_time,
             in_progress: JoinSet::new(),
@@ -263,7 +267,9 @@ impl WorkerPool {
 
     fn spawn(&mut self, id: BatchJobId, transactions: Vec<AuthenticatedTransaction>) {
         self.in_progress.spawn({
-            let simulated_proof_time = self.simulated_proof_time;
+            // Select a random duration from the given proof range.
+            let simulated_proof_time =
+                rand::thread_rng().gen_range(self.simulated_proof_time.clone());
             async move {
                 tracing::debug!("Begin proving batch.");
 
