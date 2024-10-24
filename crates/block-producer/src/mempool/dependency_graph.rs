@@ -170,6 +170,8 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
     ///
     /// The last point implies that all parents of the given nodes must either be part of the set,
     /// or already been pruned.
+    ///
+    /// This method is atomic.
     pub fn prune_processed(&mut self, keys: BTreeSet<K>) -> Result<Vec<V>, GraphError<K>> {
         let missing_nodes = keys
             .iter()
@@ -224,6 +226,8 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
     /// # Errors
     ///
     /// Returns an error if any of the given nodes does not exist.
+    ///
+    /// This method is atomic.
     pub fn purge_subgraphs(&mut self, keys: BTreeSet<K>) -> Result<Vec<V>, GraphError<K>> {
         let missing_nodes = keys
             .iter()
@@ -300,6 +304,8 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
     /// # Error
     ///
     /// Errors if the node is not in the roots list.
+    ///
+    /// This method is atomic.
     pub fn process_root(&mut self, key: K) -> Result<(), GraphError<K>> {
         if !self.roots.remove(&key) {
             return Err(GraphError::NotARootNode(key));
