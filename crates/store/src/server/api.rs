@@ -485,7 +485,7 @@ impl api_server::Api for StoreApi {
         request: Request<GetAccountProofsRequest>,
     ) -> Result<Response<GetAccountProofsResponse>, Status> {
         let request = request.into_inner();
-        if request.account_ids.len() > request.code_commitments.len() {
+        if request.account_ids.len() < request.code_commitments.len() {
             return Err(Status::invalid_argument(
                 "The number of code commitments should not exceed the number of requested accounts.",
             ));
