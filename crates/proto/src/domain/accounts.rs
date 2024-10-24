@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::{Account, AccountId},
+    accounts::{Account, AccountHeader, AccountId},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     utils::Serializable,
     Digest,
@@ -12,8 +12,8 @@ use crate::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         account::{
-            AccountId as AccountIdPb, AccountInfo as AccountInfoPb,
-            AccountSummary as AccountSummaryPb,
+            AccountHeader as AccountHeaderPb, AccountId as AccountIdPb,
+            AccountInfo as AccountInfoPb, AccountSummary as AccountSummaryPb,
         },
         responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
@@ -180,13 +180,23 @@ impl From<AccountState> for AccountTransactionInputRecord {
     }
 }
 
+impl From<AccountHeader> for AccountHeaderPb {
+    fn from(from: AccountHeader) -> Self {
+        Self {
+            vault_root: Some(from.vault_root().into()),
+            storage_commitment: Some(from.storage_commitment().into()),
+            code_commitment: Some(from.code_commitment().into()),
+            nonce: from.nonce().into(),
+        }
+    }
+}
+
 impl TryFrom<AccountTransactionInputRecord> for AccountState {
     type Error = ConversionError;
 
     fn try_from(from: AccountTransactionInputRecord) -> Result<Self, Self::Error> {
         let account_id = from
             .account_id
-            .clone()
             .ok_or(AccountTransactionInputRecord::missing_field(stringify!(account_id)))?
             .try_into()?;
 

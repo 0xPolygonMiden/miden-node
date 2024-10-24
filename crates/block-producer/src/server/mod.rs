@@ -28,9 +28,11 @@ type Api = api::BlockProducerApi<
 >;
 
 /// Represents an initialized block-producer component where the RPC connection is open,
-/// but not yet actively responding to requests. Separating the connection binding
-/// from the server spawning allows the caller to connect other components to the
-/// store without resorting to sleeps or other mechanisms to spawn dependent components.
+/// but not yet actively responding to requests.
+///
+/// Separating the connection binding from the server spawning allows the caller to connect other
+/// components to the store without resorting to sleeps or other mechanisms to spawn dependent
+/// components.
 pub struct BlockProducer {
     api_service: api_server::ApiServer<Api>,
     listener: TcpListener,

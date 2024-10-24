@@ -14,6 +14,7 @@ use miden_objects::{
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
+use tonic::Status;
 
 use crate::types::{AccountId, BlockNumber};
 
@@ -48,6 +49,8 @@ pub enum DatabaseError {
     IoError(#[from] io::Error),
     #[error("Account error: {0}")]
     AccountError(#[from] AccountError),
+    #[error("Block error: {0}")]
+    BlockError(#[from] BlockError),
     #[error("Note error: {0}")]
     NoteError(#[from] NoteError),
     #[error("Migration error: {0}")]
@@ -58,17 +61,17 @@ pub enum DatabaseError {
     InteractError(String),
     #[error("Deserialization of BLOB data from database failed: {0}")]
     DeserializationError(DeserializationError),
-    #[error("Corrupted data: {0}")]
-    CorruptedData(String),
     #[error("Invalid Felt: {0}")]
     InvalidFelt(String),
     #[error("Block applying was broken because of closed channel on state side: {0}")]
     ApplyBlockFailedClosedChannel(RecvError),
     #[error("Account {0} not found in the database")]
     AccountNotFoundInDb(AccountId),
+    #[error("Accounts {0:?} not found in the database")]
+    AccountsNotFoundInDb(Vec<AccountId>),
     #[error("Account {0} is not on the chain")]
     AccountNotOnChain(AccountId),
-    #[error("Failed to apply block because of on-chain account final hashes mismatch (expected {expected}, \
+    #[error("Failed to apply block because of public account final hashes mismatch (expected {expected}, \
         but calculated is {calculated}")]
     ApplyBlockFailedAccountHashesMismatch {
         expected: RpoDigest,
@@ -84,6 +87,19 @@ pub enum DatabaseError {
 impl From<DeserializationError> for DatabaseError {
     fn from(value: DeserializationError) -> Self {
         Self::DeserializationError(value)
+    }
+}
+
+impl From<DatabaseError> for Status {
+    fn from(err: DatabaseError) -> Self {
+        match err {
+            DatabaseError::AccountNotFoundInDb(_)
+            | DatabaseError::AccountsNotFoundInDb(_)
+            | DatabaseError::AccountNotOnChain(_)
+            | DatabaseError::BlockNotFoundInDb(_) => Status::not_found(err.to_string()),
+
+            _ => Status::internal(err.to_string()),
+        }
     }
 }
 
@@ -167,8 +183,6 @@ pub enum ApplyBlockError {
     NewBlockInvalidNullifierRoot,
     #[error("Duplicated nullifiers {0:?}")]
     DuplicatedNullifiers(Vec<Nullifier>),
-    #[error("Unable to create proof for note: {0}")]
-    UnableToCreateProofForNote(MerkleError),
     #[error("Block applying was broken because of closed channel on database side: {0}")]
     BlockApplyingBrokenBecauseOfClosedChannel(RecvError),
     #[error("Failed to create notes tree: {0}")]

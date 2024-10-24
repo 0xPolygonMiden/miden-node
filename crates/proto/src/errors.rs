@@ -1,4 +1,4 @@
-use std::any::type_name;
+use std::{any::type_name, num::TryFromIntError};
 
 use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use thiserror::Error;
@@ -13,6 +13,8 @@ pub enum ConversionError {
     SmtLeafError(#[from] SmtLeafError),
     #[error("SMT proof error: {0}")]
     SmtProofError(#[from] SmtProofError),
+    #[error("Integer conversion error: {0}")]
+    TryFromIntError(#[from] TryFromIntError),
     #[error("Too much data, expected {expected}, got {got}")]
     TooMuchData { expected: usize, got: usize },
     #[error("Not enough data, expected {expected}, got {got}")]

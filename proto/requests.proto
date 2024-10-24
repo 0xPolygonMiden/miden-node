@@ -29,7 +29,7 @@ message CheckNullifiersRequest {
 message GetBlockHeaderByNumberRequest {
     // The block number of the target block.
     //
-    // If not provided, means latest know block.
+    // If not provided, means latest known block.
     optional uint32 block_num = 1;
     // Whether or not to return authentication data for the block header.
     optional bool include_mmr_proof = 2;
@@ -37,7 +37,7 @@ message GetBlockHeaderByNumberRequest {
 
 // State synchronization request.
 //
-// Specifies state updates the client is intersted in. The server will return the first block which
+// Specifies state updates the client is interested in. The server will return the first block which
 // contains a note matching `note_tags` or the chain tip. And the corresponding updates to
 // `nullifiers` and `account_ids` for that block range.
 message SyncStateRequest {
@@ -63,7 +63,7 @@ message SyncStateRequest {
 
 // Note synchronization request.
 //
-// Specifies note tags that client is intersted in. The server will return the first block which
+// Specifies note tags that client is interested in. The server will return the first block which
 // contains a note matching `note_tags` or the chain tip.
 message SyncNoteRequest {
     // Last block known by the client. The response will contain data starting from the next block,
@@ -130,4 +130,16 @@ message GetAccountStateDeltaRequest {
     fixed32 from_block_num = 2;
     // Block number up to which the delta is requested (inclusive).
     fixed32 to_block_num = 3;
+}
+
+message GetAccountProofsRequest {
+    // List of account IDs to get states.
+    repeated account.AccountId account_ids = 1;
+    // Optional flag to include header and account code in the response. `false` by default.
+    optional bool include_headers = 2;
+    // Account code commitments corresponding to the last-known `AccountCode` for requested 
+    // accounts. Responses will include only the ones that are not known to the caller.
+    // These are not associated with a specific account but rather, they will be matched against
+    // all requested accounts.
+    repeated digest.Digest code_commitments = 3;
 }

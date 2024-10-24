@@ -10,10 +10,12 @@ use crate::{blocks::BlockStore, config::StoreConfig, db::Db, state::State, COMPO
 
 mod api;
 
-/// Represents an initialized store component where the RPC connection is open,
-/// but not yet actively responding to requests. Separating the connection binding
-/// from the server spawning allows the caller to connect other components to the
-/// store without resorting to sleeps or other mechanisms to spawn dependent components.
+/// Represents an initialized store component where the RPC connection is open, but not yet actively
+/// responding to requests.
+///
+/// Separating the connection binding from the server spawning allows the caller to connect other
+/// components to the store without resorting to sleeps or other mechanisms to spawn dependent
+/// components.
 pub struct Store {
     api_service: api_server::ApiServer<api::StoreApi>,
     listener: TcpListener,

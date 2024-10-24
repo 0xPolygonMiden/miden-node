@@ -5,18 +5,19 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::Not,
     sync::Arc,
 };
 
 use miden_node_proto::{
     convert,
     domain::{accounts::AccountInfo, blocks::BlockInclusionProof, notes::NoteAuthenticationInfo},
-    generated::responses::GetBlockInputsResponse,
+    generated::responses::{AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse},
     AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::{format_account_id, format_array};
 use miden_objects::{
-    accounts::AccountDelta,
+    accounts::{AccountDelta, AccountHeader},
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
@@ -93,6 +94,13 @@ struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
     account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
+}
+
+impl InnerState {
+    /// Returns the latest block number.
+    fn latest_block_num(&self) -> BlockNumber {
+        (self.chain_mmr.forest() + 1).try_into().expect("block number overflow")
+    }
 }
 
 /// The rollup state
@@ -283,9 +291,7 @@ impl State {
                         note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
                     };
 
-                    let merkle_path = note_tree
-                        .get_note_path(note_index)
-                        .map_err(ApplyBlockError::UnableToCreateProofForNote)?;
+                    let merkle_path = note_tree.get_note_path(note_index);
 
                     Ok(NoteRecord {
                         block_num,
@@ -655,23 +661,88 @@ impl State {
 
     /// Lists all known nullifiers with their inclusion blocks, intended for testing.
     pub async fn list_nullifiers(&self) -> Result<Vec<(Nullifier, u32)>, DatabaseError> {
-        self.db.select_nullifiers().await
+        self.db.select_all_nullifiers().await
     }
 
     /// Lists all known accounts, with their ids, latest state hash, and block at which the account
     /// was last modified, intended for testing.
     pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, DatabaseError> {
-        self.db.select_accounts().await
+        self.db.select_all_accounts().await
     }
 
     /// Lists all known notes, intended for testing.
     pub async fn list_notes(&self) -> Result<Vec<NoteRecord>, DatabaseError> {
-        self.db.select_notes().await
+        self.db.select_all_notes().await
     }
 
     /// Returns details for public (on-chain) account.
     pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await
+    }
+
+    /// Returns account proofs with optional account and storage headers.
+    pub async fn get_account_proofs(
+        &self,
+        account_ids: Vec<AccountId>,
+        request_code_commitments: BTreeSet<RpoDigest>,
+        include_headers: bool,
+    ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
+        // Lock inner state for the whole operation. We need to hold this lock to prevent the
+        // database, account tree and latest block number from changing during the operation,
+        // because changing one of them would lead to inconsistent state.
+        let inner_state = self.inner.read().await;
+
+        let state_headers = if !include_headers {
+            BTreeMap::<AccountId, AccountStateHeader>::default()
+        } else {
+            let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
+
+            if account_ids.len() > infos.len() {
+                let found_ids = infos.iter().map(|info| info.summary.account_id.into()).collect();
+                return Err(DatabaseError::AccountsNotFoundInDb(
+                    BTreeSet::from_iter(account_ids).difference(&found_ids).copied().collect(),
+                ));
+            }
+
+            infos
+                .into_iter()
+                .filter_map(|info| {
+                    info.details.map(|details| {
+                        (
+                            info.summary.account_id.into(),
+                            AccountStateHeader {
+                                header: Some(AccountHeader::from(&details).into()),
+                                storage_header: details.storage().get_header().to_bytes(),
+                                // Only include account code if the request did not contain it
+                                // (known by the caller)
+                                account_code: request_code_commitments
+                                    .contains(&details.code().commitment())
+                                    .not()
+                                    .then_some(details.code().to_bytes()),
+                            },
+                        )
+                    })
+                })
+                .collect()
+        };
+
+        let responses = account_ids
+            .into_iter()
+            .map(|account_id| {
+                let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
+                let opening = inner_state.account_tree.open(&acc_leaf_idx);
+                let state_header = state_headers.get(&account_id).cloned();
+
+                AccountProofsResponse {
+                    account_id: Some(account_id.into()),
+                    account_hash: Some(opening.value.into()),
+                    account_proof: Some(opening.path.into()),
+                    state_header,
+                }
+            })
+            .collect();
+
+        Ok((inner_state.latest_block_num(), responses))
     }
 
     /// Returns the state delta between `from_block` (exclusive) and `to_block` (inclusive) for the
@@ -705,7 +776,7 @@ impl State {
 
     /// Returns the latest block number.
     pub async fn latest_block_num(&self) -> BlockNumber {
-        (self.inner.read().await.chain_mmr.forest() + 1) as BlockNumber
+        self.inner.read().await.latest_block_num()
     }
 }
 
@@ -714,7 +785,7 @@ impl State {
 
 #[instrument(target = "miden-store", skip_all)]
 async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitializationError> {
-    let nullifiers = db.select_nullifiers().await?;
+    let nullifiers = db.select_all_nullifiers().await?;
     let len = nullifiers.len();
 
     let now = Instant::now();
@@ -744,7 +815,7 @@ async fn load_accounts(
     db: &mut Db,
 ) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
     let account_data: Vec<_> = db
-        .select_account_hashes()
+        .select_all_account_hashes()
         .await?
         .into_iter()
         .map(|(id, account_hash)| (id, account_hash.into()))

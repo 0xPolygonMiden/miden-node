@@ -16,6 +16,7 @@ pub struct MockProvenTxBuilder {
     account_id: AccountId,
     initial_account_hash: Digest,
     final_account_hash: Digest,
+    expiration_block_num: u32,
     output_notes: Option<Vec<OutputNote>>,
     input_notes: Option<Vec<InputNote>>,
     nullifiers: Option<Vec<Nullifier>>,
@@ -37,6 +38,7 @@ impl MockProvenTxBuilder {
             account_id,
             initial_account_hash,
             final_account_hash,
+            expiration_block_num: u32::MAX,
             output_notes: None,
             input_notes: None,
             nullifiers: None,
@@ -51,6 +53,12 @@ impl MockProvenTxBuilder {
 
     pub fn nullifiers(mut self, nullifiers: Vec<Nullifier>) -> Self {
         self.nullifiers = Some(nullifiers);
+
+        self
+    }
+
+    pub fn expiration_block_num(mut self, expiration_block_num: u32) -> Self {
+        self.expiration_block_num = expiration_block_num;
 
         self
     }
@@ -99,6 +107,7 @@ impl MockProvenTxBuilder {
             self.initial_account_hash,
             self.final_account_hash,
             Digest::default(),
+            self.expiration_block_num,
             ExecutionProof::new(Proof::new_dummy(), HashFunction::Blake3_192),
         )
         .add_input_notes(self.input_notes.unwrap_or_default())
