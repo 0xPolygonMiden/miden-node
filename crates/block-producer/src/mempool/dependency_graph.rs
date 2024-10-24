@@ -48,6 +48,9 @@ pub enum GraphError<K> {
 
     #[error("Nodes would be left dangling: {0:?}")]
     DanglingNodes(BTreeSet<K>),
+
+    #[error("Node {0} is not ready to be processed")]
+    NotARootNode(K),
 }
 
 /// This cannot be derived without enforcing `Default` bounds on K and V.
@@ -91,6 +94,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
         }
         self.vertices.insert(key.clone(), value);
         self.parents.insert(key.clone(), parents);
+        self.children.insert(key.clone(), Default::default());
 
         self.try_make_root(key);
 
@@ -154,7 +158,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
 
     /// Removes a set of previously processed nodes from the graph.
     ///
-    /// This is used to bound the size of the graph, by removing nodes once they are no longer
+    /// This is used to bound the size of the graph by removing nodes once they are no longer
     /// required.
     ///
     /// # Errors
@@ -162,7 +166,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
     /// Errors if
     ///   - any node is unknown
     ///   - any node is __not__ processed
-    ///   - any parent of the nodes is dangling
+    ///   - any parent node would be left unpruned
     ///
     /// The last point implies that all parents of the given nodes must either be part of the set,
     /// or already been pruned.
@@ -275,7 +279,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             .get(&key)
             .into_iter()
             .flatten()
-            .all(|parent| self.processed.contains(parent));
+            .all(|parent| (&self.processed).contains(parent));
 
         if parents_completed {
             self.roots.insert(key);
@@ -293,11 +297,13 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
     ///
     /// The node's children are [evaluated](Self::try_make_root) as possible roots.
     ///
-    /// # SAFETY
+    /// # Error
     ///
-    /// Caller is reponsible for ensuring the node was in the root list.
-    pub(super) fn process_root(&mut self, key: K) {
-        debug_assert!(self.roots.remove(&key), "Must be a root node");
+    /// Errors if the node is not in the roots list.
+    pub fn process_root(&mut self, key: K) -> Result<(), GraphError<K>> {
+        if !self.roots.remove(&key) {
+            return Err(GraphError::NotARootNode(key));
+        }
 
         self.processed.insert(key.clone());
 
@@ -307,6 +313,8 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             .unwrap_or_default()
             .into_iter()
             .for_each(|child| self.try_make_root(child));
+
+        Ok(())
     }
 
     /// Returns the value of a node.
@@ -381,7 +389,7 @@ mod tests {
         uut.insert_root(parent_b).unwrap();
 
         // Only process one parent so that some children remain unrootable.
-        uut.process_root(parent_a);
+        uut.process_root(parent_a).unwrap();
 
         uut.insert_with_parent(child_a, parent_a).unwrap();
         uut.insert_with_parent(child_b, parent_b).unwrap();
@@ -472,7 +480,7 @@ mod tests {
         uut.insert_root(1).unwrap();
         uut.insert_root(2).unwrap();
         uut.insert_root(3).unwrap();
-        uut.process_root(1);
+        uut.process_root(1).unwrap();
 
         let err = uut.revert_subgraphs([1, 2, 3].into()).unwrap_err();
         let expected = GraphError::UnprocessedNodes([2, 3].into());
@@ -489,7 +497,7 @@ mod tests {
 
     #[test]
     fn reverting_resets_the_entire_subgraph() {
-        //! Reverting should reset all descendents to unprocessed.
+        //! Reverting should reset the state to before any of the nodes where processed.
         let grandparent = 1;
         let parent_a = 2;
         let parent_b = 3;
@@ -497,13 +505,18 @@ mod tests {
         let child_b = 5;
         let child_c = 6;
 
+        let disjoint = 7;
+
         let mut uut = TestGraph::default();
         uut.insert_root(grandparent).unwrap();
+        uut.insert_root(disjoint).unwrap();
         uut.insert_with_parent(parent_a, grandparent).unwrap();
         uut.insert_with_parent(parent_b, grandparent).unwrap();
         uut.insert_with_parent(child_a, parent_a).unwrap();
         uut.insert_with_parent(child_b, parent_b).unwrap();
         uut.insert_with_parents(child_c, [parent_a, parent_b].into()).unwrap();
+
+        uut.process_root(disjoint).unwrap();
 
         let reference = uut.clone();
 
@@ -539,13 +552,269 @@ mod tests {
         uut.insert_with_parents(partially_disjoin_child, [disjoint_parent, parent_a].into());
 
         // Since we are reverting the other parents, we expect the roots to match the current state.
-        uut.process_root(disjoint_parent);
+        uut.process_root(disjoint_parent).unwrap();
         let reference = uut.roots().clone();
 
-        uut.process_root(parent_a);
-        uut.process_root(parent_b);
+        uut.process_root(parent_a).unwrap();
+        uut.process_root(parent_b).unwrap();
         uut.revert_subgraphs([parent_a, parent_b].into()).unwrap();
 
         assert_eq!(uut.roots(), &reference);
+    }
+
+    // PRUNING TESTS
+    // ================================================================================================
+
+    #[test]
+    fn pruned_nodes_are_nonextant() {
+        //! Checks that processed and then pruned nodes behave as if they never existed in the
+        //! graph. We test this by comparing it to a reference graph created without these ancestor
+        //! nodes.
+        let ancestor_a = 1;
+        let ancestor_b = 2;
+
+        let child_a = 3;
+        let child_b = 4;
+        let child_both = 5;
+
+        let mut uut = TestGraph::default();
+        uut.insert_root(ancestor_a).unwrap();
+        uut.insert_root(ancestor_b).unwrap();
+        uut.insert_with_parent(child_a, ancestor_a).unwrap();
+        uut.insert_with_parent(child_b, ancestor_b).unwrap();
+        uut.insert_with_parents(child_both, [ancestor_a, ancestor_b].into()).unwrap();
+
+        uut.process_root(ancestor_a).unwrap();
+        uut.process_root(ancestor_b).unwrap();
+        uut.prune_processed([ancestor_a, ancestor_b].into()).unwrap();
+
+        let mut reference = TestGraph::default();
+        reference.insert_root(child_a).unwrap();
+        reference.insert_root(child_b).unwrap();
+        reference.insert_root(child_both).unwrap();
+
+        assert_eq!(uut, reference);
+    }
+
+    #[test]
+    fn pruning_unknown_nodes_is_rejected() {
+        let err = TestGraph::default().prune_processed([1].into()).unwrap_err();
+        let expected = GraphError::UnknownNodes([1].into());
+        assert_eq!(err, expected);
+    }
+
+    #[test]
+    fn pruning_unprocessed_nodes_is_rejected() {
+        let mut uut = TestGraph::default();
+        uut.insert_root(1).unwrap();
+
+        let err = uut.prune_processed([1].into()).unwrap_err();
+        let expected = GraphError::UnprocessedNodes([1].into());
+        assert_eq!(err, expected);
+    }
+
+    #[test]
+    fn pruning_cannot_leave_parents_dangling() {
+        //! Pruning processed nodes must always prune all parent nodes as well. No parent node may
+        //! be left behind.
+        let dangling = 1;
+        let pruned = 2;
+        let mut uut = TestGraph::default();
+        uut.insert_root(dangling).unwrap();
+        uut.insert_with_parent(pruned, dangling).unwrap();
+        uut.process_all();
+
+        let err = uut.prune_processed([pruned].into()).unwrap_err();
+        let expected = GraphError::DanglingNodes([dangling].into());
+        assert_eq!(err, expected);
+    }
+
+    // PURGING TESTS
+    // ================================================================================================
+
+    #[test]
+    fn purging_subgraph_handles_internal_nodes() {
+        //! Purging a subgraph should correctly handle nodes already deleted within that subgraph.
+        //!
+        //! This is a concern for errors as we are deleting parts of the subgraph while we are
+        //! iterating through the nodes to purge. This means its likely a node will already have
+        //! been deleted before processing it as an input.
+        //!
+        //! We can force this to occur by re-ordering the inputs relative to the actual dependency
+        //! order. This means this test is a bit weaker because it relies on implementation details.
+
+        let ancestor_a = 1;
+        let ancestor_b = 2;
+        let parent_a = 3;
+        let parent_b = 4;
+        let child_a = 5;
+        // This should be purged prior to parent_a. Relies on the fact that we are iterating over a
+        // btree which is ordered by value.
+        let child_b = 0;
+        let child_c = 6;
+
+        let mut uut = TestGraph::default();
+        uut.insert_root(ancestor_a).unwrap();
+        uut.insert_root(ancestor_b).unwrap();
+        uut.insert_with_parent(parent_a, ancestor_a).unwrap();
+        uut.insert_with_parent(parent_b, ancestor_b).unwrap();
+        uut.insert_with_parents(child_a, [ancestor_a, parent_a].into()).unwrap();
+        uut.insert_with_parents(child_b, [parent_a, parent_b].into()).unwrap();
+        uut.insert_with_parent(child_c, parent_b).unwrap();
+
+        uut.purge_subgraphs([child_b, parent_a].into());
+
+        let mut reference = TestGraph::default();
+        reference.insert_root(ancestor_a).unwrap();
+        reference.insert_root(ancestor_b).unwrap();
+        reference.insert_with_parent(parent_b, ancestor_b).unwrap();
+        reference.insert_with_parent(child_c, parent_b).unwrap();
+
+        assert_eq!(uut, reference);
+    }
+
+    #[test]
+    fn purging_removes_all_descendents() {
+        let ancestor_a = 1;
+        let ancestor_b = 2;
+        let parent_a = 3;
+        let parent_b = 4;
+        let child_a = 5;
+        let child_b = 6;
+        let child_c = 7;
+
+        let mut uut = TestGraph::default();
+        uut.insert_root(ancestor_a).unwrap();
+        uut.insert_root(ancestor_b).unwrap();
+        uut.insert_with_parent(parent_a, ancestor_a).unwrap();
+        uut.insert_with_parent(parent_b, ancestor_b).unwrap();
+        uut.insert_with_parents(child_a, [ancestor_a, parent_a].into()).unwrap();
+        uut.insert_with_parents(child_b, [parent_a, parent_b].into()).unwrap();
+        uut.insert_with_parent(child_c, parent_b).unwrap();
+
+        uut.purge_subgraphs([parent_a].into()).unwrap();
+
+        let mut reference = TestGraph::default();
+        reference.insert_root(ancestor_a).unwrap();
+        reference.insert_root(ancestor_b).unwrap();
+        reference.insert_with_parent(parent_b, ancestor_b).unwrap();
+        reference.insert_with_parent(child_c, parent_b).unwrap();
+
+        assert_eq!(uut, reference);
+    }
+
+    // PROCESSING TESTS
+    // ================================================================================================
+
+    #[test]
+    fn process_root_evaluates_children_as_roots() {
+        let parent_a = 1;
+        let parent_b = 2;
+        let child_a = 3;
+        let child_b = 4;
+        let child_c = 5;
+
+        let mut uut = TestGraph::default();
+        uut.insert_root(parent_a).unwrap();
+        uut.insert_root(parent_b).unwrap();
+        uut.insert_with_parent(child_a, parent_a).unwrap();
+        uut.insert_with_parent(child_b, parent_b).unwrap();
+        uut.insert_with_parents(child_c, [parent_a, parent_b].into()).unwrap();
+
+        // This should promote only child_a to root, in addition to the remaining parent_b root.
+        uut.process_root(parent_a).unwrap();
+        assert_eq!(uut.roots(), &[parent_b, child_a].into());
+    }
+
+    #[test]
+    fn process_root_rejects_non_root_node() {
+        let mut uut = TestGraph::default();
+        uut.insert_root(1).unwrap();
+        uut.insert_with_parent(2, 1).unwrap();
+
+        let err = uut.process_root(2).unwrap_err();
+        let expected = GraphError::NotARootNode(2);
+        assert_eq!(err, expected);
+    }
+
+    #[test]
+    fn process_root_cannot_reprocess_same_node() {
+        let mut uut = TestGraph::default();
+        uut.insert_root(1).unwrap();
+        uut.process_root(1).unwrap();
+
+        let err = uut.process_root(1).unwrap_err();
+        let expected = GraphError::NotARootNode(1);
+        assert_eq!(err, expected);
+    }
+
+    #[test]
+    fn processing_a_queue_graph() {
+        //! Creates a queue graph and ensures that nodes processed in FIFO order.
+        let nodes = (0..10).collect::<Vec<_>>();
+
+        let mut uut = TestGraph::default();
+        uut.insert_root(nodes[0]);
+        for pairs in nodes.windows(2) {
+            let (parent, id) = (pairs[0], pairs[1]);
+            uut.insert_with_parent(id, parent);
+        }
+
+        let mut ordered_roots = Vec::<u32>::new();
+        for node in &nodes {
+            let current_roots = uut.roots().clone();
+            ordered_roots.extend(&current_roots);
+
+            for root in current_roots {
+                uut.process_root(root).unwrap();
+            }
+        }
+
+        assert_eq!(ordered_roots, nodes);
+    }
+
+    #[test]
+    fn processing_and_root_tracking() {
+        //! Creates a somewhat arbitrarily connected graph and ensures that roots are tracked as
+        //! expected as the they are processed.
+        let ancestor_a = 1;
+        let ancestor_b = 2;
+        let parent_a = 3;
+        let parent_b = 4;
+        let child_a = 5;
+        let child_b = 6;
+        let child_c = 7;
+
+        let mut uut = TestGraph::default();
+        uut.insert_root(ancestor_a).unwrap();
+        uut.insert_root(ancestor_b).unwrap();
+        uut.insert_with_parent(parent_a, ancestor_a).unwrap();
+        uut.insert_with_parent(parent_b, ancestor_b).unwrap();
+        uut.insert_with_parents(child_a, [ancestor_a, parent_a].into()).unwrap();
+        uut.insert_with_parents(child_b, [parent_a, parent_b].into()).unwrap();
+        uut.insert_with_parent(child_c, parent_b).unwrap();
+
+        assert_eq!(uut.roots(), &[ancestor_a, ancestor_b].into());
+
+        uut.process_root(ancestor_a).unwrap();
+        assert_eq!(uut.roots(), &[ancestor_b, parent_a].into());
+
+        uut.process_root(ancestor_b).unwrap();
+        assert_eq!(uut.roots(), &[parent_a, parent_b].into());
+
+        uut.process_root(parent_a).unwrap();
+        assert_eq!(uut.roots(), &[parent_b, child_a].into());
+
+        uut.process_root(parent_b).unwrap();
+        assert_eq!(uut.roots(), &[child_a, child_b, child_c].into());
+
+        uut.process_root(child_a).unwrap();
+        assert_eq!(uut.roots(), &[child_b, child_c].into());
+
+        uut.process_root(child_b).unwrap();
+        assert_eq!(uut.roots(), &[child_c].into());
+
+        uut.process_root(child_c).unwrap();
+        assert!(uut.roots().is_empty());
     }
 }
