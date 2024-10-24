@@ -15,7 +15,7 @@ use crate::{errors::VerifyTxError, mempool::BlockNumber, store::TransactionInput
 /// previously unauthenticated input notes.
 ///
 /// Note that this is of course only valid for the chain height of the authentication.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AuthenticatedTransaction {
     inner: ProvenTransaction,
     /// The account state provided by the store [inputs](TransactionInputs).

@@ -24,6 +24,7 @@ use crate::{
 };
 
 mod batch_graph;
+mod dependency_graph;
 mod inflight_state;
 mod transaction_graph;
 
@@ -86,7 +87,7 @@ pub struct Mempool {
     state: InflightState,
 
     /// Inflight transactions.
-    transactions: TransactionGraph<AuthenticatedTransaction>,
+    transactions: TransactionGraph,
 
     /// Inflight batches.
     batches: BatchGraph,
@@ -120,7 +121,7 @@ impl Mempool {
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction)?;
 
-        self.transactions.insert(transaction.id(), transaction, parents);
+        self.transactions.insert(transaction, parents);
 
         Ok(self.chain_tip.0)
     }
@@ -131,24 +132,11 @@ impl Mempool {
     ///
     /// Returns `None` if no transactions are available.
     pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<AuthenticatedTransaction>)> {
-        let mut parents = BTreeSet::new();
-        let mut batch = Vec::with_capacity(self.batch_transaction_limit);
-        let mut tx_ids = Vec::with_capacity(self.batch_transaction_limit);
-
-        for _ in 0..self.batch_transaction_limit {
-            // Select transactions according to some strategy here. For now its just arbitrary.
-            let Some((tx, tx_parents)) = self.transactions.pop_for_processing() else {
-                break;
-            };
-            batch.push(tx);
-            parents.extend(tx_parents);
+        let (batch, parents) = self.transactions.select_batch(self.batch_transaction_limit);
+        if batch.is_empty() {
+            return None;
         }
-
-        // Update the dependency graph to reflect parents at the batch level by removing all edges
-        // within this batch.
-        for tx in &batch {
-            parents.remove(&tx.id());
-        }
+        let tx_ids = batch.iter().map(AuthenticatedTransaction::id).collect();
 
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
@@ -210,7 +198,10 @@ impl Mempool {
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
         let transactions = self.batches.remove_committed(batches);
-        let transactions = self.transactions.prune_processed(&transactions);
+        let transactions = self
+            .transactions
+            .commit_transactions(&transactions)
+            .expect("Transaction graph malformed");
 
         // Inform inflight state about committed data.
         self.state.commit_block(&transactions);
@@ -234,7 +225,10 @@ impl Mempool {
         let batches = purged.keys().collect::<Vec<_>>();
         let transactions = purged.into_values().flatten().collect();
 
-        let transactions = self.transactions.purge_subgraphs(transactions);
+        let transactions = self
+            .transactions
+            .purge_subgraphs(transactions)
+            .expect("Transaction graph is malformed");
 
         // Rollback state.
         self.state.revert_transactions(&transactions);
