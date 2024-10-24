@@ -87,7 +87,7 @@ pub struct Mempool {
     state: InflightState,
 
     /// Inflight transactions.
-    transactions: TransactionGraph<AuthenticatedTransaction>,
+    transactions: TransactionGraph,
 
     /// Inflight batches.
     batches: BatchGraph,
@@ -121,7 +121,7 @@ impl Mempool {
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction)?;
 
-        self.transactions.insert(transaction.id(), transaction, parents);
+        self.transactions.insert(transaction, parents);
 
         Ok(self.chain_tip.0)
     }
@@ -211,7 +211,10 @@ impl Mempool {
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
         let transactions = self.batches.remove_committed(batches);
-        let transactions = self.transactions.prune_processed(&transactions);
+        let transactions = self
+            .transactions
+            .remove_committed(&transactions)
+            .expect("Transaction graph malformed");
 
         // Inform inflight state about committed data.
         self.state.commit_block(&transactions);
@@ -235,7 +238,10 @@ impl Mempool {
         let batches = purged.keys().collect::<Vec<_>>();
         let transactions = purged.into_values().flatten().collect();
 
-        let transactions = self.transactions.purge_subgraphs(transactions);
+        let transactions = self
+            .transactions
+            .purge_subgraphs(transactions)
+            .expect("Transaction graph is malformed");
 
         // Rollback state.
         self.state.revert_transactions(&transactions);

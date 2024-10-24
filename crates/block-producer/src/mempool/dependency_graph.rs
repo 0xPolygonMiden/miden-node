@@ -164,7 +164,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
     ///
     /// The last point implies that all parents of the given nodes must either be part of the set,
     /// or already been pruned.
-    pub fn prune_processed(&mut self, keys: BTreeSet<K>) -> Result<(), GraphError<K>> {
+    pub fn prune_processed(&mut self, keys: BTreeSet<K>) -> Result<Vec<V>, GraphError<K>> {
         let missing_nodes = keys
             .iter()
             .filter(|key| !self.vertices.contains_key(key))
@@ -191,13 +191,17 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             return Err(GraphError::DanglingNodes(dangling));
         }
 
+        let mut pruned = Vec::with_capacity(keys.len());
+
         for key in keys {
-            self.vertices.remove(&key);
+            let value = self.vertices.remove(&key).expect("Checked in precondition");
+            pruned.push(value);
             self.processed.remove(&key);
             self.parents.remove(&key);
 
             let children = self.children.remove(&key).unwrap_or_default();
 
+            // Remove edges from children to this node.
             for child in children {
                 if let Some(child) = self.parents.get_mut(&child) {
                     child.remove(&key);
@@ -205,24 +209,41 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             }
         }
 
-        Ok(())
+        Ok(pruned)
     }
 
-    /// Yanks the given nodes from the graph regardless of completion status.
-    pub fn purge(&mut self, keys: BTreeSet<K>) -> Result<BTreeMap<K, V>, GraphError<K>> {
-        // TODO: validate keys exist
+    /// Removes the set of nodes __and all descendents__ from the graph, returning all removed
+    /// values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any of the given nodes does not exist.
+    pub fn purge_subgraphs(&mut self, keys: BTreeSet<K>) -> Result<Vec<V>, GraphError<K>> {
+        let missing_nodes = keys
+            .iter()
+            .filter(|key| !self.vertices.contains_key(key))
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if !missing_nodes.is_empty() {
+            return Err(GraphError::UnknownNodes(missing_nodes));
+        }
 
         let mut visited = keys.clone();
         let mut to_process = keys;
-        let mut values = BTreeMap::new();
+        let mut removed = Vec::new();
 
         while let Some(key) = to_process.pop_first() {
-            let value = self.vertices.remove(&key).expect("Must exist");
-            values.insert(key.clone(), value);
+            let value = self
+                .vertices
+                .remove(&key)
+                .expect("Node was checked in precondition and must therefore exist");
+            removed.push(value);
+
             self.processed.remove(&key);
             self.roots.remove(&key);
 
-            // Children must also be purged.
+            // Children must also be purged. Take care not to visit them twice which is
+            // possible since children can have multiple purged parents.
             let unvisited_children = self.children.remove(&key).unwrap_or_default();
             let unvisited_children = unvisited_children.difference(&visited).cloned();
             to_process.extend(unvisited_children);
@@ -236,7 +257,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             }
         }
 
-        Ok(values)
+        Ok(removed)
     }
 
     /// Adds the node to the `roots` list _IFF_ all of its parents are processed.
@@ -257,6 +278,43 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
         if parents_completed {
             self.roots.insert(key);
         }
+    }
+
+    /// Set of nodes that are ready for processing.
+    ///
+    /// Nodes can be selected from here and marked as processed using `[Self::process_root]`.
+    pub fn roots(&self) -> &BTreeSet<K> {
+        &self.roots
+    }
+
+    /// Marks a root node as processed, removing it from the roots list.
+    ///
+    /// The node's children are [evaluated](Self::try_make_root) as possible roots.
+    ///
+    /// # SAFETY
+    ///
+    /// Caller is reponsible for ensuring the node was in the root list.
+    pub(super) fn process_root(&mut self, key: K) {
+        debug_assert!(self.roots.remove(&key), "Must be a root node");
+
+        self.processed.insert(key.clone());
+
+        self.children
+            .get(&key)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .for_each(|child| self.try_make_root(child));
+    }
+
+    /// Returns the value of a node.
+    pub fn get(&self, key: &K) -> Option<&V> {
+        self.vertices.get(&key)
+    }
+
+    /// Returns the parents of the node, or [None] if the node does not exist.
+    pub fn parents(&self, key: &K) -> Option<&BTreeSet<K>> {
+        self.parents.get(key)
     }
 }
 
