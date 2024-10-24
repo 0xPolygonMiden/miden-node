@@ -39,7 +39,6 @@ tonic = { workspace = true }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "set-header", "trace"] }
 tracing = { workspace = true }
-winter-maybe-async = { version = "0.10" }
 
 [build-dependencies]
 # Required to inject build metadata.

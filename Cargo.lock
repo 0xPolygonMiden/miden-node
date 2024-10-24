@@ -1491,7 +1491,6 @@ dependencies = [
  "tower 0.5.1",
  "tower-http 0.6.1",
  "tracing",
- "winter-maybe-async 0.10.1",
 ]
 
 [[package]]

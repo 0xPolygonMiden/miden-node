@@ -30,7 +30,6 @@ use miden_tx::{
 use rand::{rngs::StdRng, thread_rng, Rng};
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use tonic::transport::Channel;
-use winter_maybe_async::*;
 
 use crate::{
     config::FaucetConfig,
@@ -204,9 +203,7 @@ impl FaucetDataStore {
 unsafe impl Send for FaucetDataStore {}
 unsafe impl Sync for FaucetDataStore {}
 
-#[maybe_async_trait]
 impl DataStore for FaucetDataStore {
-    #[maybe_async]
     fn get_transaction_inputs(
         &self,
         account_id: AccountId,
