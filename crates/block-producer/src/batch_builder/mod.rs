@@ -230,8 +230,7 @@ pub struct BatchProducer {
     pub workers: NonZeroUsize,
     pub mempool: Arc<Mutex<Mempool>>,
     pub tx_per_batch: usize,
-    /// Used to simulate batch proving by sleeping for
-    /// a random duration selected from this range.
+    /// Used to simulate batch proving by sleeping for a random duration selected from this range.
     pub simulated_proof_time: Range<Duration>,
     /// Simulated block failure rate as a percentage.
     ///

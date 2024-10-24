@@ -155,8 +155,7 @@ struct BlockProducer<BB> {
     pub mempool: Arc<Mutex<Mempool>>,
     pub block_interval: Duration,
     pub block_builder: BB,
-    /// Used to simulate block proving by sleeping for
-    /// a random duration selected from this range.
+    /// Used to simulate block proving by sleeping for a random duration selected from this range.
     pub simulated_proof_time: Range<Duration>,
 
     /// Simulated block failure rate as a percentage.
