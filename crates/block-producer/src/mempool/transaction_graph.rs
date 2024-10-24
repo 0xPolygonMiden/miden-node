@@ -55,7 +55,7 @@ impl TransactionGraph {
         &mut self,
         transactions: BTreeSet<TransactionId>,
     ) -> Result<(), GraphError<TransactionId>> {
-        self.inner.requeue(transactions)
+        self.inner.revert_subgraphs(transactions)
     }
 
     /// Removes committed transactions, pruning them from the graph.
@@ -397,26 +397,6 @@ impl TransactionGraph {
 //         reference.insert_with_parent(child_c, parent_b);
 
 //         assert_eq!(uut, reference);
-//     }
-
-//     #[test]
-//     #[should_panic]
-//     fn duplicate_insert() {
-//         let mut rng = Random::with_random_seed();
-//         let mut uut = TestGraph::default();
-
-//         let id = rng.draw_tx_id();
-//         uut.insert_with_no_parent(id);
-//         uut.insert_with_no_parent(id);
-//     }
-
-//     #[test]
-//     #[should_panic]
-//     fn missing_parents_in_insert() {
-//         let mut rng = Random::with_random_seed();
-//         let mut uut = TestGraph::default();
-
-//         uut.insert_with_parents(rng.draw_tx_id(), [rng.draw_tx_id()].into());
 //     }
 
 //     #[test]

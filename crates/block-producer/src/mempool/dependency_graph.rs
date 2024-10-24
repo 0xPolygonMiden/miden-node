@@ -90,12 +90,14 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             self.children.entry(parent.clone()).or_default().insert(key.clone());
         }
         self.vertices.insert(key.clone(), value);
-        self.parents.insert(key, parents);
+        self.parents.insert(key.clone(), parents);
+
+        self.try_make_root(key);
 
         Ok(())
     }
 
-    /// Requeue the given nodes and their descendents for processing.
+    /// Reverts the nodes __and their descendents__, requeueing them for processing.
     ///
     /// # Errors
     ///
@@ -105,7 +107,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
     ///   - were not previously processed
     ///
     /// This method is atomic.
-    pub fn requeue(&mut self, keys: BTreeSet<K>) -> Result<(), GraphError<K>> {
+    pub fn revert_subgraphs(&mut self, keys: BTreeSet<K>) -> Result<(), GraphError<K>> {
         let missing_nodes = keys
             .iter()
             .filter(|key| !self.vertices.contains_key(key))
@@ -282,7 +284,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
 
     /// Set of nodes that are ready for processing.
     ///
-    /// Nodes can be selected from here and marked as processed using `[Self::process_root]`.
+    /// Nodes can be selected from here and marked as processed using [`Self::process_root`].
     pub fn roots(&self) -> &BTreeSet<K> {
         &self.roots
     }
@@ -352,19 +354,12 @@ mod tests {
             self.insert(node, node, parents)
         }
 
-        /// Marks a root node as completed, adding any valid children to the roots list.
-        ///
-        /// Panics if the node is not in the roots list.
-        fn process(&mut self, node: u32) {
-            self.roots.take(&node).expect("Node must be in roots list");
-            self.processed.insert(node);
-
-            self.children
-                .get(&node)
-                .cloned()
-                .into_iter()
-                .flatten()
-                .for_each(|child| self.try_make_root(child));
+        /// Calls process_root until all nodes have been processed.
+        fn process_all(&mut self) {
+            while let Some(root) = self.roots().first().cloned() {
+                /// SAFETY: this is definitely a root since we just took it from there :)
+                self.process_root(root);
+            }
         }
     }
 
@@ -386,7 +381,7 @@ mod tests {
         uut.insert_root(parent_b).unwrap();
 
         // Only process one parent so that some children remain unrootable.
-        uut.process(parent_a);
+        uut.process_root(parent_a);
 
         uut.insert_with_parent(child_a, parent_a).unwrap();
         uut.insert_with_parent(child_b, parent_b).unwrap();
@@ -466,5 +461,91 @@ mod tests {
         let expected = GraphError::MissingParents([MISSING].into());
         assert_eq!(err, expected);
         assert_eq!(uut, atomic_reference);
+    }
+
+    // REVERT TESTS
+    // ================================================================================================
+
+    #[test]
+    fn reverting_unprocessed_nodes_is_rejected() {
+        let mut uut = TestGraph::default();
+        uut.insert_root(1).unwrap();
+        uut.insert_root(2).unwrap();
+        uut.insert_root(3).unwrap();
+        uut.process_root(1);
+
+        let err = uut.revert_subgraphs([1, 2, 3].into()).unwrap_err();
+        let expected = GraphError::UnprocessedNodes([2, 3].into());
+
+        assert_eq!(err, expected);
+    }
+
+    #[test]
+    fn reverting_unknown_nodes_is_rejected() {
+        let err = TestGraph::default().revert_subgraphs([1].into()).unwrap_err();
+        let expected = GraphError::UnknownNodes([1].into());
+        assert_eq!(err, expected);
+    }
+
+    #[test]
+    fn reverting_resets_the_entire_subgraph() {
+        //! Reverting should reset all descendents to unprocessed.
+        let grandparent = 1;
+        let parent_a = 2;
+        let parent_b = 3;
+        let child_a = 4;
+        let child_b = 5;
+        let child_c = 6;
+
+        let mut uut = TestGraph::default();
+        uut.insert_root(grandparent).unwrap();
+        uut.insert_with_parent(parent_a, grandparent).unwrap();
+        uut.insert_with_parent(parent_b, grandparent).unwrap();
+        uut.insert_with_parent(child_a, parent_a).unwrap();
+        uut.insert_with_parent(child_b, parent_b).unwrap();
+        uut.insert_with_parents(child_c, [parent_a, parent_b].into()).unwrap();
+
+        let reference = uut.clone();
+
+        uut.process_all();
+        uut.revert_subgraphs([grandparent].into()).unwrap();
+
+        assert_eq!(uut, reference);
+    }
+
+    #[test]
+    fn reverting_reevaluates_roots() {
+        //! Node reverting from processed to unprocessed should cause the root nodes to be
+        //! re-evaluated. Only nodes with all parents processed should remain in the set.
+        let disjoint_parent = 1;
+        let disjoint_child = 2;
+
+        let parent_a = 3;
+        let parent_b = 4;
+        let child_a = 5;
+        let child_b = 6;
+
+        let partially_disjoin_child = 7;
+
+        let mut uut = TestGraph::default();
+        // This pair of nodes should not be impacted by the reverted subgraph.
+        uut.insert_root(disjoint_parent).unwrap();
+        uut.insert_with_parent(disjoint_child, disjoint_parent).unwrap();
+
+        uut.insert_root(parent_a).unwrap();
+        uut.insert_root(parent_b).unwrap();
+        uut.insert_with_parent(child_a, parent_a);
+        uut.insert_with_parent(child_b, parent_b);
+        uut.insert_with_parents(partially_disjoin_child, [disjoint_parent, parent_a].into());
+
+        // Since we are reverting the other parents, we expect the roots to match the current state.
+        uut.process_root(disjoint_parent);
+        let reference = uut.roots().clone();
+
+        uut.process_root(parent_a);
+        uut.process_root(parent_b);
+        uut.revert_subgraphs([parent_a, parent_b].into()).unwrap();
+
+        assert_eq!(uut.roots(), &reference);
     }
 }
