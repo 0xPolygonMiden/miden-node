@@ -22,13 +22,15 @@ use miden_objects::{
     BlockHeader, Felt, Word,
 };
 use miden_tx::{
-    auth::BasicAuthenticator, utils::Serializable, DataStore, DataStoreError,
-    LocalTransactionProver, ProvingOptions, TransactionExecutor, TransactionInputs,
-    TransactionProver,
+    auth::{BasicAuthenticator, TransactionAuthenticator},
+    utils::Serializable,
+    DataStore, DataStoreError, LocalTransactionProver, ProvingOptions, TransactionExecutor,
+    TransactionInputs, TransactionProver,
 };
 use rand::{rngs::StdRng, thread_rng, Rng};
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use tonic::transport::Channel;
+use winter_maybe_async::*;
 
 use crate::{
     config::FaucetConfig,
@@ -69,12 +71,12 @@ impl FaucetClient {
             root_block_header,
             root_chain_mmr,
         );
-        let authenticator = BasicAuthenticator::<StdRng>::new(&[(
+        let authenticator = Arc::new(BasicAuthenticator::<StdRng>::new(&[(
             secret.public_key().into(),
             AuthSecretKey::RpoFalcon512(secret),
-        )]);
+        )])) as Arc<dyn TransactionAuthenticator>;
         let executor =
-            TransactionExecutor::new(Arc::new(data_store.clone()), Some(Arc::new(authenticator)));
+            TransactionExecutor::new(Arc::new(data_store.clone()), Some(authenticator.clone()));
 
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
@@ -199,7 +201,12 @@ impl FaucetDataStore {
     }
 }
 
+unsafe impl Send for FaucetDataStore {}
+unsafe impl Sync for FaucetDataStore {}
+
+#[maybe_async_trait]
 impl DataStore for FaucetDataStore {
+    #[maybe_async]
     fn get_transaction_inputs(
         &self,
         account_id: AccountId,
