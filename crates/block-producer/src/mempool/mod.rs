@@ -132,24 +132,11 @@ impl Mempool {
     ///
     /// Returns `None` if no transactions are available.
     pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<AuthenticatedTransaction>)> {
-        let mut parents = BTreeSet::new();
-        let mut batch = Vec::with_capacity(self.batch_transaction_limit);
-        let mut tx_ids = Vec::with_capacity(self.batch_transaction_limit);
-
-        for _ in 0..self.batch_transaction_limit {
-            // Select transactions according to some strategy here. For now its just arbitrary.
-            let Some((tx, tx_parents)) = self.transactions.pop_for_processing() else {
-                break;
-            };
-            batch.push(tx);
-            parents.extend(tx_parents);
+        let (batch, parents) = self.transactions.select_batch(self.batch_transaction_limit);
+        if batch.is_empty() {
+            return None;
         }
-
-        // Update the dependency graph to reflect parents at the batch level by removing all edges
-        // within this batch.
-        for tx in &batch {
-            parents.remove(&tx.id());
-        }
+        let tx_ids = batch.iter().map(AuthenticatedTransaction::id).collect();
 
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
@@ -213,7 +200,7 @@ impl Mempool {
         let transactions = self.batches.remove_committed(batches);
         let transactions = self
             .transactions
-            .remove_committed(&transactions)
+            .prune_committed(&transactions)
             .expect("Transaction graph malformed");
 
         // Inform inflight state about committed data.

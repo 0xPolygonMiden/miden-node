@@ -12,6 +12,18 @@ use crate::domain::transaction::AuthenticatedTransaction;
 // ================================================================================================
 
 /// Tracks the dependency graph and status of transactions.
+///
+/// It handles insertion of transactions, locking them inqueue until they are ready to be processed.
+/// A transaction is considered eligible for batch selection once all of its parents have also been
+/// selected. Essentially this graph ensures that transaction dependency ordering is adhered to.
+///
+/// Transactions from failed batches may be [re-queued](Self::requeue_transactions) for batch
+/// selection. Successful batches will eventually form part of a committed block at which point the
+/// transaction data may be safely [pruned](Self::prune_committed).
+///
+/// Transactions may also be outright [purged](Self::purge_subgraphs) from the graph. This is useful
+/// for transactions which may have become invalid due to external considerations e.g. expired
+/// transactions.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TransactionGraph {
     inner: DependencyGraph<TransactionId, AuthenticatedTransaction>,
@@ -31,19 +43,40 @@ impl TransactionGraph {
         self.inner.insert(transaction.id(), transaction, parents)
     }
 
-    /// Returns the next transaction ready for processing, and its parent edges.
+    /// Selects a set of up-to count transactions for the next batch, as well as their parents.
     ///
-    /// Internally this transaction is now marked as processed and is no longer considered inqueue.
-    pub fn pop_for_processing(
+    /// Internally these transactions are considered processed and cannot be emitted in future
+    /// batches.
+    ///
+    /// Note: this may emit empty batches.
+    ///
+    /// See also:
+    ///   - [Self::requeue_transactions]
+    ///   - [Self::prune_committed]
+    pub fn select_batch(
         &mut self,
-    ) -> Option<(AuthenticatedTransaction, BTreeSet<TransactionId>)> {
-        let root = self.inner.roots().first()?.clone();
+        count: usize,
+    ) -> (Vec<AuthenticatedTransaction>, BTreeSet<TransactionId>) {
+        // This strategy just selects arbitrary roots for now. This is valid but not very
+        // interesting or efficient.
+        let mut batch = Vec::with_capacity(count);
+        let mut parents = BTreeSet::new();
 
-        self.inner.process_root(root).expect("This is definitely a root");
-        let tx = self.inner.get(&root).expect("Node exists").clone();
-        let parents = self.inner.parents(&root).expect("Node exists").clone();
+        for _ in 0..count {
+            let Some(root) = self.inner.roots().first().cloned() else {
+                break;
+            };
 
-        Some((tx, parents))
+            // SAFETY: we retieved a root node, and therefore this node must exist.
+            self.inner.process_root(root).unwrap();
+            let tx = self.inner.get(&root).unwrap();
+            let tx_parents = self.inner.parents(&root).unwrap();
+
+            batch.push(tx.clone());
+            parents.extend(tx_parents);
+        }
+
+        (batch, parents)
     }
 
     /// Marks the given transactions as being back in queue.
@@ -63,7 +96,7 @@ impl TransactionGraph {
     /// # Errors
     ///
     /// Follows the error conditions of [DependencyGraph::prune_processed].
-    pub fn remove_committed(
+    pub fn prune_committed(
         &mut self,
         tx_ids: &[TransactionId],
     ) -> Result<Vec<AuthenticatedTransaction>, GraphError<TransactionId>> {
@@ -86,5 +119,50 @@ impl TransactionGraph {
         // TODO: revisit this api.
         let transactions = transactions.into_iter().collect();
         self.inner.purge_subgraphs(transactions)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::mock_proven_tx;
+
+    // BATCH SELECTION TESTS
+    // ================================================================================================
+
+    #[test]
+    fn select_batch_respects_limit() {
+        // These transactions are independent and just used to ensure we have more available
+        // transactions than we want in the batch.
+        let txs = (0..10)
+            .map(|i| mock_proven_tx(i, vec![], vec![]))
+            .map(AuthenticatedTransaction::from_inner);
+
+        let mut uut = TransactionGraph::default();
+        for tx in txs {
+            uut.insert(tx, [].into()).unwrap();
+        }
+
+        let (batch, parents) = uut.select_batch(0);
+        assert!(batch.is_empty());
+        assert!(parents.is_empty());
+
+        let (batch, parents) = uut.select_batch(3);
+        assert_eq!(batch.len(), 3);
+        assert!(parents.is_empty());
+
+        let (batch, parents) = uut.select_batch(4);
+        assert_eq!(batch.len(), 4);
+        assert!(parents.is_empty());
+
+        // We expect this to be partially filled.
+        let (batch, parents) = uut.select_batch(4);
+        assert_eq!(batch.len(), 3);
+        assert!(parents.is_empty());
+
+        // And thereafter empty.
+        let (batch, parents) = uut.select_batch(100);
+        assert!(batch.is_empty());
+        assert!(parents.is_empty());
     }
 }
