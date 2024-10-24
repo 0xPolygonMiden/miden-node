@@ -6,6 +6,7 @@
 
 use.std::collections::smt
 use.std::collections::mmr
+use.std::sys
 
 const.ACCOUNT_TREE_DEPTH=64
 const.BLOCK_NOTES_BATCH_TREE_DEPTH=6
@@ -237,4 +238,7 @@ begin
     # Load output on stack
     padw mem_loadw.2 padw mem_loadw.1 padw mem_loadw.0
     # => [ACCOUNT_ROOT, NOTE_ROOT, NULLIFIER_ROOT, CHAIN_MMR_ROOT]
+
+    # truncate the stack
+    exec.sys::truncate_stack
 end

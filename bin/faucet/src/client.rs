@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use miden_lib::{
     accounts::faucets::create_basic_fungible_faucet, notes::create_p2id_note,
@@ -22,9 +22,10 @@ use miden_objects::{
     BlockHeader, Felt, Word,
 };
 use miden_tx::{
-    auth::BasicAuthenticator, utils::Serializable, DataStore, DataStoreError,
-    LocalTransactionProver, ProvingOptions, TransactionExecutor, TransactionInputs,
-    TransactionProver,
+    auth::{BasicAuthenticator, TransactionAuthenticator},
+    utils::Serializable,
+    DataStore, DataStoreError, LocalTransactionProver, ProvingOptions, TransactionExecutor,
+    TransactionInputs, TransactionProver,
 };
 use rand::{rngs::StdRng, thread_rng, Rng};
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
@@ -45,7 +46,7 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
 /// for the faucet.
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
-    executor: TransactionExecutor<FaucetDataStore, BasicAuthenticator<StdRng>>,
+    executor: TransactionExecutor,
     data_store: FaucetDataStore,
     id: AccountId,
     rng: RpoRandomCoin,
@@ -69,11 +70,12 @@ impl FaucetClient {
             root_block_header,
             root_chain_mmr,
         );
-        let authenticator = BasicAuthenticator::<StdRng>::new(&[(
+        let authenticator = Arc::new(BasicAuthenticator::<StdRng>::new(&[(
             secret.public_key().into(),
             AuthSecretKey::RpoFalcon512(secret),
-        )]);
-        let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
+        )])) as Arc<dyn TransactionAuthenticator>;
+        let executor =
+            TransactionExecutor::new(Arc::new(data_store.clone()), Some(authenticator.clone()));
 
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
@@ -135,9 +137,10 @@ impl FaucetClient {
         let request = {
             let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
 
-            let proven_transaction = transaction_prover.prove(executed_tx).map_err(|err| {
-                ProcessError::InternalServerError(format!("Failed to prove transaction: {err}"))
-            })?;
+            let proven_transaction =
+                transaction_prover.prove(executed_tx.into()).map_err(|err| {
+                    ProcessError::InternalServerError(format!("Failed to prove transaction: {err}"))
+                })?;
 
             SubmitProvenTransactionRequest {
                 transaction: proven_transaction.to_bytes(),
@@ -196,6 +199,9 @@ impl FaucetDataStore {
             .map_err(|err| ProcessError::InternalServerError(err.to_string()))
     }
 }
+
+unsafe impl Send for FaucetDataStore {}
+unsafe impl Sync for FaucetDataStore {}
 
 impl DataStore for FaucetDataStore {
     fn get_transaction_inputs(

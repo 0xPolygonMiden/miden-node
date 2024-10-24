@@ -232,12 +232,7 @@ impl State {
                 let mut chain_mmr = inner.chain_mmr.clone();
 
                 // new_block.chain_root must be equal to the chain MMR root prior to the update
-                let peaks = chain_mmr.peaks(chain_mmr.forest()).map_err(|error| {
-                    ApplyBlockError::FailedToGetMmrPeaksForForest {
-                        forest: chain_mmr.forest(),
-                        error,
-                    }
-                })?;
+                let peaks = chain_mmr.peaks();
                 if peaks.hash_peaks() != header.chain_root() {
                     return Err(ApplyBlockError::NewBlockInvalidChainRoot);
                 }
@@ -372,8 +367,7 @@ impl State {
         if let Some(header) = block_header {
             let mmr_proof = if include_mmr_proof {
                 let inner = self.inner.read().await;
-                let mmr_proof =
-                    inner.chain_mmr.open(header.block_num() as usize, inner.chain_mmr.forest())?;
+                let mmr_proof = inner.chain_mmr.open(header.block_num() as usize)?;
                 Some(mmr_proof)
             } else {
                 None
@@ -444,7 +438,7 @@ impl State {
             let paths = blocks
                 .iter()
                 .map(|&block_num| {
-                    let proof = state.chain_mmr.open(block_num as usize, chain_length)?.merkle_path;
+                    let proof = state.chain_mmr.open(block_num as usize)?.merkle_path;
 
                     Ok::<_, MmrError>((block_num, proof))
                 })
@@ -548,9 +542,7 @@ impl State {
 
         let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
 
-        let mmr_proof = inner
-            .chain_mmr
-            .open(note_sync.block_header.block_num() as usize, inner.chain_mmr.forest())?;
+        let mmr_proof = inner.chain_mmr.open(note_sync.block_header.block_num() as usize)?;
 
         Ok((note_sync, mmr_proof))
     }
@@ -580,12 +572,13 @@ impl State {
 
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
-        let chain_peaks = inner.chain_mmr.peaks(latest.block_num() as usize).map_err(|error| {
-            GetBlockInputsError::FailedToGetMmrPeaksForForest {
-                forest: latest.block_num() as usize,
-                error,
-            }
-        })?;
+        let chain_peaks =
+            inner.chain_mmr.peaks_at(latest.block_num() as usize).map_err(|error| {
+                GetBlockInputsError::FailedToGetMmrPeaksForForest {
+                    forest: latest.block_num() as usize,
+                    error,
+                }
+            })?;
         let account_states = account_ids
             .iter()
             .cloned()

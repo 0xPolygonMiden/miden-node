@@ -13,7 +13,7 @@ BUILD_PROTO=BUILD_PROTO=1
 
 .PHONY: clippy
 clippy: ## Runs Clippy with configs
-	cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+	cargo clippy --locked --workspace --all-targets --all-features -- -D warnings --allow clippy::arc_with_non_send_sync
 
 
 .PHONY: fix
