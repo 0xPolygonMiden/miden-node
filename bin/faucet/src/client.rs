@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use miden_lib::{
     accounts::faucets::create_basic_fungible_faucet, notes::create_p2id_note,
@@ -45,7 +45,7 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
 /// for the faucet.
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
-    executor: TransactionExecutor<FaucetDataStore, BasicAuthenticator<StdRng>>,
+    executor: TransactionExecutor,
     data_store: FaucetDataStore,
     id: AccountId,
     rng: RpoRandomCoin,
@@ -73,7 +73,8 @@ impl FaucetClient {
             secret.public_key().into(),
             AuthSecretKey::RpoFalcon512(secret),
         )]);
-        let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
+        let executor =
+            TransactionExecutor::new(Arc::new(data_store.clone()), Some(Arc::new(authenticator)));
 
         let mut rng = thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
@@ -135,9 +136,10 @@ impl FaucetClient {
         let request = {
             let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
 
-            let proven_transaction = transaction_prover.prove(executed_tx).map_err(|err| {
-                ProcessError::InternalServerError(format!("Failed to prove transaction: {err}"))
-            })?;
+            let proven_transaction =
+                transaction_prover.prove(executed_tx.into()).map_err(|err| {
+                    ProcessError::InternalServerError(format!("Failed to prove transaction: {err}"))
+                })?;
 
             SubmitProvenTransactionRequest {
                 transaction: proven_transaction.to_bytes(),

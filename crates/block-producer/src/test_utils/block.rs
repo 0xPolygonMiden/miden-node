@@ -49,7 +49,7 @@ pub async fn build_expected_block_header(
 
         store_chain_mmr.add(last_block_header.hash());
 
-        store_chain_mmr.peaks(store_chain_mmr.forest()).unwrap().hash_peaks()
+        store_chain_mmr.peaks().hash_peaks()
     };
 
     let note_created_smt = note_created_smt_from_note_batches(block_output_notes(batches.iter()));
@@ -157,7 +157,7 @@ impl MockBlockBuilder {
             0,
             self.last_block_header.hash(),
             self.last_block_header.block_num() + 1,
-            self.store_chain_mmr.peaks(self.store_chain_mmr.forest()).unwrap().hash_peaks(),
+            self.store_chain_mmr.peaks().hash_peaks(),
             self.store_accounts.root(),
             Digest::default(),
             note_created_smt_from_note_batches(created_notes.iter()).root(),

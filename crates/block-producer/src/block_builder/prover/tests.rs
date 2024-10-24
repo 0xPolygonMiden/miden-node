@@ -843,7 +843,7 @@ async fn test_compute_chain_mmr_root_mmr_17_peaks() {
             mmr.add(Digest::default());
         }
 
-        assert_eq!(mmr.peaks(mmr.forest()).unwrap().peaks().len(), 17);
+        assert_eq!(mmr.peaks().peaks().len(), 17);
 
         mmr
     };
