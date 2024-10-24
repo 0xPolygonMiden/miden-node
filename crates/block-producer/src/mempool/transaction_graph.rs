@@ -101,7 +101,7 @@ impl TransactionGraph {
         tx_ids: &[TransactionId],
     ) -> Result<Vec<AuthenticatedTransaction>, GraphError<TransactionId>> {
         // TODO: revisit this api.
-        let tx_ids = tx_ids.into_iter().cloned().collect();
+        let tx_ids = tx_ids.iter().cloned().collect();
         self.inner.prune_processed(tx_ids)
     }
 

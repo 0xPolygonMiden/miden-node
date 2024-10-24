@@ -190,7 +190,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             .iter()
             .flat_map(|key| self.parents.get(key))
             .flatten()
-            .filter(|parent| !keys.contains(&parent))
+            .filter(|parent| !keys.contains(parent))
             .cloned()
             .collect::<BTreeSet<_>>();
         if !dangling.is_empty() {
@@ -279,7 +279,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             .get(&key)
             .into_iter()
             .flatten()
-            .all(|parent| (&self.processed).contains(parent));
+            .all(|parent| self.processed.contains(parent));
 
         if parents_completed {
             self.roots.insert(key);
@@ -319,7 +319,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
 
     /// Returns the value of a node.
     pub fn get(&self, key: &K) -> Option<&V> {
-        self.vertices.get(&key)
+        self.vertices.get(key)
     }
 
     /// Returns the parents of the node, or [None] if the node does not exist.
