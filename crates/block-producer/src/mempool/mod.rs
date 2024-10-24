@@ -200,7 +200,7 @@ impl Mempool {
         let transactions = self.batches.remove_committed(batches);
         let transactions = self
             .transactions
-            .prune_committed(&transactions)
+            .commit_transactions(&transactions)
             .expect("Transaction graph malformed");
 
         // Inform inflight state about committed data.

@@ -91,12 +91,12 @@ impl TransactionGraph {
         self.inner.revert_subgraphs(transactions)
     }
 
-    /// Removes committed transactions, pruning them from the graph.
+    /// Committed transactions are removed from the graph.
     ///
     /// # Errors
     ///
     /// Follows the error conditions of [DependencyGraph::prune_processed].
-    pub fn prune_committed(
+    pub fn commit_transactions(
         &mut self,
         tx_ids: &[TransactionId],
     ) -> Result<Vec<AuthenticatedTransaction>, GraphError<TransactionId>> {
