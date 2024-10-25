@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::Arc};
 
 use miden_objects::{
     accounts::AccountId,
@@ -17,7 +17,7 @@ use crate::{errors::VerifyTxError, mempool::BlockNumber, store::TransactionInput
 /// Note that this is of course only valid for the chain height of the authentication.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AuthenticatedTransaction {
-    inner: ProvenTransaction,
+    inner: Arc<ProvenTransaction>,
     /// The account state provided by the store [inputs](TransactionInputs).
     ///
     /// This does not necessarily have to match the transaction's initial state
@@ -62,7 +62,7 @@ impl AuthenticatedTransaction {
             .collect();
 
         Ok(AuthenticatedTransaction {
-            inner: tx,
+            inner: Arc::new(tx),
             notes_authenticated_by_store: authenticated_notes,
             authentication_height: BlockNumber::new(inputs.current_block_height),
             store_account_state: inputs.account_hash,
@@ -107,8 +107,8 @@ impl AuthenticatedTransaction {
             .filter(|note_id| !self.notes_authenticated_by_store.contains(note_id))
     }
 
-    pub fn into_raw(self) -> ProvenTransaction {
-        self.inner
+    pub fn raw_proven_transaction(&self) -> &ProvenTransaction {
+        &self.inner
     }
 }
 
@@ -117,18 +117,21 @@ impl AuthenticatedTransaction {
     //! Builder methods intended for easier test setup.
 
     /// Short-hand for `Self::new` where the input's are setup to match the transaction's initial
-    /// account state.
+    /// account state. This covers the account's initial state and nullifiers beting set to unspent.
     pub fn from_inner(inner: ProvenTransaction) -> Self {
         let store_account_state = match inner.account_update().init_state_hash() {
             zero if zero == Digest::default() => None,
             non_zero => Some(non_zero),
         };
-        Self {
-            inner,
-            store_account_state,
-            notes_authenticated_by_store: Default::default(),
-            authentication_height: Default::default(),
-        }
+        let inputs = TransactionInputs {
+            account_id: inner.account_id(),
+            account_hash: store_account_state,
+            nullifiers: inner.get_nullifiers().map(|nullifier| (nullifier, None)).collect(),
+            missing_unauthenticated_notes: Default::default(),
+            current_block_height: Default::default(),
+        };
+        // SAFETY: nullifiers were set to None aka are definitely unspent.
+        Self::new(inner, inputs).unwrap()
     }
 
     /// Overrides the authentication height with the given value.

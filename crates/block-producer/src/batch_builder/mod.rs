@@ -9,6 +9,7 @@ use std::{
 
 use miden_objects::{
     accounts::AccountId,
+    assembly::SourceManager,
     notes::NoteId,
     transaction::{OutputNote, TransactionId},
     Digest,
@@ -284,8 +285,13 @@ impl WorkerPool {
             async move {
                 tracing::debug!("Begin proving batch.");
 
-                let transactions =
-                    transactions.into_iter().map(AuthenticatedTransaction::into_raw).collect();
+                // TODO: This is a deep clone which can be avoided by change batch building to using
+                // refs or arcs.
+                let transactions = transactions
+                    .iter()
+                    .map(AuthenticatedTransaction::raw_proven_transaction)
+                    .cloned()
+                    .collect();
 
                 tokio::time::sleep(simulated_proof_time).await;
                 if failed {
