@@ -6,7 +6,7 @@ use miden_tx::utils::collections::KvMap;
 // ================================================================================================
 
 /// A dependency graph structure where nodes are inserted, and then made available for processing
-/// once all parent nodes have been processing.
+/// once all parent nodes have been processed.
 ///
 /// Forms the basis of our transaction and batch dependency graphs.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,23 +125,23 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             return Err(GraphError::UnprocessedNodes(unprocessed));
         }
 
-        let mut processed = BTreeSet::new();
-        let mut to_process = keys.clone();
+        let mut reverted = BTreeSet::new();
+        let mut to_revert = keys.clone();
 
-        while let Some(key) = to_process.pop_first() {
+        while let Some(key) = to_revert.pop_first() {
             self.processed.remove(&key);
 
             let unprocessed_children = self
                 .children
                 .get(&key)
-                .map(|children| children.difference(&processed))
+                .map(|children| children.difference(&reverted))
                 .into_iter()
                 .flatten()
                 .cloned();
 
-            to_process.extend(unprocessed_children);
+            to_revert.extend(unprocessed_children);
 
-            processed.insert(key);
+            reverted.insert(key);
         }
 
         // Only the original keys and the current roots need to be considered as roots.
@@ -223,12 +223,16 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
     /// Removes the set of nodes __and all descendents__ from the graph, returning all removed
     /// values.
     ///
+    /// # Returns
+    ///
+    /// Returns a mapping of each removed key to its value.
+    ///
     /// # Errors
     ///
     /// Returns an error if any of the given nodes does not exist.
     ///
     /// This method is atomic.
-    pub fn purge_subgraphs(&mut self, keys: BTreeSet<K>) -> Result<Vec<V>, GraphError<K>> {
+    pub fn purge_subgraphs(&mut self, keys: BTreeSet<K>) -> Result<BTreeMap<K, V>, GraphError<K>> {
         let missing_nodes = keys
             .iter()
             .filter(|key| !self.vertices.contains_key(key))
@@ -239,15 +243,15 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
         }
 
         let mut visited = keys.clone();
-        let mut to_process = keys;
-        let mut removed = Vec::new();
+        let mut to_remove = keys;
+        let mut removed = BTreeMap::new();
 
-        while let Some(key) = to_process.pop_first() {
+        while let Some(key) = to_remove.pop_first() {
             let value = self
                 .vertices
                 .remove(&key)
                 .expect("Node was checked in precondition and must therefore exist");
-            removed.push(value);
+            removed.insert(key.clone(), value);
 
             self.processed.remove(&key);
             self.roots.remove(&key);
@@ -256,7 +260,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             // possible since children can have multiple purged parents.
             let unvisited_children = self.children.remove(&key).unwrap_or_default();
             let unvisited_children = unvisited_children.difference(&visited).cloned();
-            to_process.extend(unvisited_children);
+            to_remove.extend(unvisited_children);
 
             // Inform parents that this child no longer exists.
             let parents = self.parents.remove(&key).unwrap_or_default();
@@ -278,19 +282,19 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
     fn try_make_root(&mut self, key: K) {
         debug_assert!(self.vertices.contains_key(&key), "Potential root must exist in the graph");
 
-        let parents_completed = self
+        let all_parents_processed = self
             .parents
             .get(&key)
             .into_iter()
             .flatten()
             .all(|parent| self.processed.contains(parent));
 
-        if parents_completed {
+        if all_parents_processed {
             self.roots.insert(key);
         }
     }
 
-    /// Set of nodes that are ready for processing.
+    /// Returns the set of nodes that are ready for processing.
     ///
     /// Nodes can be selected from here and marked as processed using [`Self::process_root`].
     pub fn roots(&self) -> &BTreeSet<K> {

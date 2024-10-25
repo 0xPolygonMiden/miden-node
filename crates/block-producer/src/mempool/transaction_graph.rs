@@ -91,7 +91,7 @@ impl TransactionGraph {
         self.inner.revert_subgraphs(transactions)
     }
 
-    /// Committed transactions are removed from the graph.
+    /// Removes the provided transactions from the graph.
     ///
     /// # Errors
     ///
@@ -118,7 +118,7 @@ impl TransactionGraph {
     ) -> Result<Vec<AuthenticatedTransaction>, GraphError<TransactionId>> {
         // TODO: revisit this api.
         let transactions = transactions.into_iter().collect();
-        self.inner.purge_subgraphs(transactions)
+        self.inner.purge_subgraphs(transactions).map(|kv| kv.into_values().collect())
     }
 }
 
