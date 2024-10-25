@@ -25,7 +25,7 @@ use miden_objects::{
     BlockHeader, Felt, Word,
 };
 use miden_tx::{
-    auth::{BasicAuthenticator, TransactionAuthenticator},
+    auth::BasicAuthenticator,
     utils::Serializable,
     DataStore, DataStoreError, LocalTransactionProver, ProvingOptions, TransactionExecutor,
     TransactionInputs, TransactionProver,
@@ -76,7 +76,7 @@ impl FaucetClient {
         let authenticator = Arc::new(BasicAuthenticator::<StdRng>::new(&[(
             secret.public_key().into(),
             AuthSecretKey::RpoFalcon512(secret),
-        )])) as Arc<dyn TransactionAuthenticator>;
+        )]));
         let executor = TransactionExecutor::new(data_store.clone(), Some(authenticator));
 
         let mut rng = thread_rng();
