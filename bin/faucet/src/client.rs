@@ -86,6 +86,7 @@ impl FaucetClient {
 
                 account
             },
+
             Err(err) => match err {
                 ClientError::RequestError(status) if status.code() == tonic::Code::NotFound => {
                     info!(target: COMPONENT, "Faucet account not found in the node");
@@ -239,8 +240,7 @@ async fn request_account_state(
 ) -> Result<Account, ClientError> {
     let account_info = rpc_api
         .get_account_details(GetAccountDetailsRequest { account_id: Some(account_id.into()) })
-        .await
-        .context("Failed to get faucet account state")?
+        .await?
         .into_inner()
         .details
         .context("Account info field is empty")?;

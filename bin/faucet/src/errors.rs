@@ -14,7 +14,7 @@ pub struct ImplError<E: Display + Debug>(pub E);
 
 #[derive(Debug, Error)]
 pub enum ClientError {
-    #[error("Request error: {0:#}")]
+    #[error("Request error: {0}")]
     RequestError(#[from] tonic::Status),
 
     #[error("Client error: {0:#}")]
