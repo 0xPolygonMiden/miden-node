@@ -7,17 +7,15 @@ use anyhow::{anyhow, bail, Context, Result};
 pub use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
 use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_store::genesis::GenesisState;
-use miden_node_utils::config::load_config;
+use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin};
 use miden_objects::{
     accounts::{Account, AccountData, AuthSecretKey},
     assets::TokenSymbol,
-    crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin, utils::Serializable},
-    Digest, Felt, ONE,
+    crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
+    Felt, ONE,
 };
-use rand_chacha::{
-    rand_core::{RngCore, SeedableRng},
-    ChaCha20Rng,
-};
+use rand::Rng;
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use tracing::info;
 
 mod inputs;
@@ -122,15 +120,11 @@ fn create_accounts(
         let (mut account_data, name) = match account {
             AccountInput::BasicFungibleFaucet(inputs) => {
                 info!("Creating fungible faucet account...");
-                let mut auth_seed = [0; 32];
-                rng.fill_bytes(&mut auth_seed);
-                let (auth_scheme, auth_secret_key) = gen_auth_keys(inputs.auth_scheme, auth_seed)?;
+                let (auth_scheme, auth_secret_key) = gen_auth_keys(inputs.auth_scheme, &mut rng)?;
 
-                let mut init_seed = [0; 32];
-                rng.fill_bytes(&mut init_seed);
                 let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
-                    init_seed,
+                    rng.gen(),
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
                     Felt::try_from(inputs.max_supply)
@@ -171,18 +165,16 @@ fn create_accounts(
 
 fn gen_auth_keys(
     auth_scheme_input: AuthSchemeInput,
-    auth_seed: [u8; 32],
+    rng: &mut ChaCha20Rng,
 ) -> Result<(AuthScheme, AuthSecretKey)> {
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
-            let rng_seed = Digest::try_from(&auth_seed)?.into();
-            let mut rng = RpoRandomCoin::new(rng_seed);
-            let secret = SecretKey::with_rng(&mut rng);
+            let secret = SecretKey::with_rng(&mut get_rpo_random_coin(rng));
 
-            let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
-            let auth_secret_key = AuthSecretKey::RpoFalcon512(secret);
-
-            Ok((auth_scheme, auth_secret_key))
+            Ok((
+                AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
+                AuthSecretKey::RpoFalcon512(secret),
+            ))
         },
     }
 }

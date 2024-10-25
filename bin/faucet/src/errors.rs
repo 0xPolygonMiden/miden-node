@@ -13,8 +13,13 @@ use thiserror::Error;
 pub struct ImplError<E: Display + Debug>(pub E);
 
 #[derive(Debug, Error)]
-#[error("Client error: {0:#}")]
-pub struct ClientError(#[from] anyhow::Error);
+pub enum ClientError {
+    #[error("Request error: {0:#}")]
+    RequestError(#[from] tonic::Status),
+
+    #[error("Client error: {0:#}")]
+    Other(#[from] anyhow::Error),
+}
 
 #[derive(Debug, Error)]
 pub enum HandlerError {

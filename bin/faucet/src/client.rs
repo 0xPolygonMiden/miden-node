@@ -75,14 +75,35 @@ impl FaucetClient {
         )]);
 
         info!(target: COMPONENT, "Requesting account state from the node...");
-        let faucet_account = request_account_state(&mut rpc_api, id).await?;
-        info!(
-            target: COMPONENT,
-            got_new_hash = %faucet_account.hash(),
-            "Received faucet account state from the node",
-        );
+        let faucet_account = match request_account_state(&mut rpc_api, id).await {
+            Ok(account) => {
+                info!(
+                    target: COMPONENT,
+                    hash = %account.hash(),
+                    nonce = %account.nonce(),
+                    "Received faucet account state from the node",
+                );
 
-        let data_store = FaucetDataStore::new(faucet_account, root_block_header, root_chain_mmr);
+                account
+            },
+            Err(err) => match err {
+                ClientError::RequestError(status) if status.code() == tonic::Code::NotFound => {
+                    info!(target: COMPONENT, "Faucet account not found in the node");
+
+                    faucet_account_data.account
+                },
+                _ => {
+                    return Err(err);
+                },
+            },
+        };
+
+        let data_store = FaucetDataStore::new(
+            faucet_account,
+            faucet_account_data.account_seed,
+            root_block_header,
+            root_chain_mmr,
+        );
 
         let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
 

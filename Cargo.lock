@@ -1685,6 +1685,7 @@ dependencies = [
  "figment",
  "itertools 0.12.1",
  "miden-objects",
+ "rand",
  "serde",
  "thiserror",
  "tonic",

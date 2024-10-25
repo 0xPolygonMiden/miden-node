@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 /// Default path to the faucet account file
 pub const DEFAULT_FAUCET_ACCOUNT_PATH: &str = "accounts/faucet.mac";
 
+/// Default timeout for RPC requests
+pub const DEFAULT_RPC_TIMEOUT_MS: u64 = 10000;
+
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FaucetConfig {
@@ -41,7 +44,7 @@ impl Default for FaucetConfig {
         Self {
             endpoint: Endpoint::localhost(DEFAULT_FAUCET_SERVER_PORT),
             node_url: Endpoint::localhost(DEFAULT_NODE_RPC_PORT).to_string(),
-            timeout_ms: 10000,
+            timeout_ms: DEFAULT_RPC_TIMEOUT_MS,
             asset_amount_options: vec![100, 500, 1000],
             faucet_account_path: DEFAULT_FAUCET_ACCOUNT_PATH.into(),
         }

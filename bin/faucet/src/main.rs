@@ -5,7 +5,7 @@ mod handlers;
 mod state;
 mod store;
 
-use std::{fs::File, io::Write, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Context;
 use axum::{
@@ -14,7 +14,16 @@ use axum::{
 };
 use clap::{Parser, Subcommand};
 use http::HeaderValue;
-use miden_node_utils::{config::load_config, version::LongVersion};
+use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
+use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
+use miden_objects::{
+    accounts::{AccountData, AccountStorageMode, AuthSecretKey},
+    assets::TokenSymbol,
+    crypto::dsa::rpo_falcon512::SecretKey,
+    Felt,
+};
+use rand::Rng;
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use state::FaucetState;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
@@ -25,6 +34,7 @@ use crate::{
     config::{FaucetConfig, DEFAULT_FAUCET_ACCOUNT_PATH},
     handlers::{get_index, get_metadata, get_static_file, get_tokens},
 };
+
 // CONSTANTS
 // =================================================================================================
 
@@ -49,7 +59,19 @@ pub enum Command {
         config: PathBuf,
     },
 
-    /// Generates default configuration file for the faucet
+    /// Create a new public faucet account and save to the file
+    CreateFaucetAccount {
+        #[arg(short, long, value_name = "FILE", default_value = DEFAULT_FAUCET_ACCOUNT_PATH)]
+        output_path: PathBuf,
+        #[arg(short, long)]
+        token_symbol: String,
+        #[arg(short, long)]
+        decimals: u8,
+        #[arg(short, long)]
+        max_supply: u64,
+    },
+
+    /// Generate default configuration file for the faucet
     Init {
         #[arg(short, long, default_value = FAUCET_CONFIG_FILE_PATH)]
         config_path: String,
@@ -104,9 +126,46 @@ async fn main() -> anyhow::Result<()> {
 
             axum::serve(listener, app).await.unwrap();
         },
+
+        Command::CreateFaucetAccount {
+            output_path,
+            token_symbol,
+            decimals,
+            max_supply,
+        } => {
+            let current_dir =
+                std::env::current_dir().context("Failed to open current directory")?;
+
+            let mut rng = ChaCha20Rng::from_seed(rand::random());
+
+            let secret = SecretKey::with_rng(&mut get_rpo_random_coin(&mut rng));
+
+            let (account, account_seed) = create_basic_fungible_faucet(
+                rng.gen(),
+                TokenSymbol::try_from(token_symbol.as_str())
+                    .context("Failed to parse token symbol")?,
+                *decimals,
+                Felt::try_from(*max_supply)
+                    .expect("max supply value is greater than or equal to the field modulus"),
+                AccountStorageMode::Public,
+                AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
+            )
+            .context("Failed to create basic fungible faucet account")?;
+
+            let account_data =
+                AccountData::new(account, Some(account_seed), AuthSecretKey::RpoFalcon512(secret));
+
+            let output_path = current_dir.join(output_path);
+            account_data
+                .write(&output_path)
+                .context("Failed to write account data to file")?;
+
+            println!("Faucet account file successfully created at: {output_path:?}");
+        },
+
         Command::Init { config_path, faucet_account_path } => {
             let current_dir =
-                std::env::current_dir().context("failed to open current directory")?;
+                std::env::current_dir().context("Failed to open current directory")?;
 
             let config_file_path = current_dir.join(config_path);
 
@@ -118,15 +177,8 @@ async fn main() -> anyhow::Result<()> {
             let config_as_toml_string =
                 toml::to_string(&config).context("Failed to serialize default config")?;
 
-            let mut file_handle = File::options()
-                .write(true)
-                .create_new(true)
-                .open(&config_file_path)
-                .context("Error opening configuration file")?;
-
-            file_handle
-                .write(config_as_toml_string.as_bytes())
-                .context("Error writing to file")?;
+            std::fs::write(&config_file_path, config_as_toml_string)
+                .context("Error writing config to file")?;
 
             println!("Config file successfully created at: {config_file_path:?}");
         },
