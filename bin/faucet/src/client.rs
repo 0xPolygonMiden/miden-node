@@ -25,10 +25,9 @@ use miden_objects::{
     BlockHeader, Felt, Word,
 };
 use miden_tx::{
-    auth::BasicAuthenticator,
-    utils::Serializable,
-    DataStore, DataStoreError, LocalTransactionProver, ProvingOptions, TransactionExecutor,
-    TransactionInputs, TransactionProver,
+    auth::BasicAuthenticator, utils::Serializable, DataStore, DataStoreError,
+    LocalTransactionProver, ProvingOptions, TransactionExecutor, TransactionInputs,
+    TransactionProver,
 };
 use rand::{rngs::StdRng, thread_rng, Rng};
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
