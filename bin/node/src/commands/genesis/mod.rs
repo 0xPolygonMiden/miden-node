@@ -9,14 +9,14 @@ use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::config::load_config;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountStorageMode, AuthSecretKey},
+    accounts::{Account, AccountData, AuthSecretKey},
     assets::TokenSymbol,
-    crypto::{
-        dsa::rpo_falcon512::SecretKey,
-        rand::RpoRandomCoin,
-        utils::{hex_to_bytes, Serializable},
-    },
+    crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin, utils::Serializable},
     Digest, Felt, ONE,
+};
+use rand_chacha::{
+    rand_core::{RngCore, SeedableRng},
+    ChaCha20Rng,
 };
 use tracing::info;
 
@@ -80,13 +80,9 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
     })?;
     info!("Genesis input file: {} has successfully been loaded.", inputs_path.display());
 
+    let accounts_path = parent_path.join(DEFAULT_ACCOUNTS_DIR);
     let accounts =
-        create_accounts(&genesis_input.accounts.unwrap_or_default(), parent_path, force)?;
-    info!(
-        "Accounts have successfully been created at: {}/{}",
-        parent_path.display(),
-        DEFAULT_ACCOUNTS_DIR
-    );
+        create_accounts(&genesis_input.accounts.unwrap_or_default(), &accounts_path, force)?;
 
     let genesis_state = GenesisState::new(accounts, genesis_input.version, genesis_input.timestamp);
     fs::write(output_path, genesis_state.to_bytes()).unwrap_or_else(|_| {
@@ -102,13 +98,10 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
 /// This function also writes the account data files into the default accounts directory.
 fn create_accounts(
     accounts: &[AccountInput],
-    parent_path: &Path,
+    accounts_path: impl AsRef<Path>,
     force: &bool,
 ) -> Result<Vec<Account>> {
-    let mut accounts_path = PathBuf::from(&parent_path);
-    accounts_path.push(DEFAULT_ACCOUNTS_DIR);
-
-    if accounts_path.try_exists()? {
+    if accounts_path.as_ref().try_exists()? {
         if !force {
             bail!(
                 "Failed to create accounts directory because it already exists. \
@@ -121,19 +114,21 @@ fn create_accounts(
     fs::create_dir_all(&accounts_path).context("Failed to create accounts directory")?;
 
     let mut final_accounts = Vec::new();
+    let mut faucet_count = 0;
+    let mut rng = ChaCha20Rng::from_seed(rand::random());
 
     for account in accounts {
         // build offchain account data from account inputs
-        let mut account_data = match account {
+        let (mut account_data, name) = match account {
             AccountInput::BasicFungibleFaucet(inputs) => {
                 info!("Creating fungible faucet account...");
-                let init_seed = hex_to_bytes(&inputs.init_seed)?;
+                let mut auth_seed = [0; 32];
+                rng.fill_bytes(&mut auth_seed);
+                let (auth_scheme, auth_secret_key) = gen_auth_keys(inputs.auth_scheme, auth_seed)?;
 
-                let (auth_scheme, auth_secret_key) =
-                    parse_auth_inputs(inputs.auth_scheme, &inputs.auth_seed)?;
-
-                let storage_mode: AccountStorageMode = inputs.storage_mode.as_str().try_into()?;
-
+                let mut init_seed = [0; 32];
+                rng.fill_bytes(&mut init_seed);
+                let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
                     init_seed,
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
@@ -144,23 +139,29 @@ fn create_accounts(
                     auth_scheme,
                 )?;
 
-                AccountData::new(account, Some(account_seed), auth_secret_key)
+                let name = if faucet_count == 0 {
+                    "faucet".to_string()
+                } else {
+                    format!("faucet{faucet_count}")
+                };
+                faucet_count += 1;
+
+                (AccountData::new(account, Some(account_seed), auth_secret_key), name)
             },
         };
 
         // write account data to file
-        let path = format!("{}/account{}.mac", accounts_path.display(), final_accounts.len());
-        let path = Path::new(&path);
+        let path = accounts_path.as_ref().join(format!("{name}.mac"));
 
-        if let Ok(path_exists) = path.try_exists() {
-            if path_exists && !force {
-                bail!("Failed to generate account file {} because it already exists. Use the --force flag to overwrite.", path.display());
-            }
+        if !force && matches!(path.try_exists(), Ok(true)) {
+            bail!("Failed to generate account file {} because it already exists. Use the --force flag to overwrite.", path.display());
         }
 
         account_data.account.set_nonce(ONE)?;
 
-        account_data.write(path)?;
+        account_data.write(&path)?;
+
+        info!("Account \"{name}\" has successfully been saved to: {}", path.display());
 
         final_accounts.push(account_data.account);
     }
@@ -168,13 +169,12 @@ fn create_accounts(
     Ok(final_accounts)
 }
 
-fn parse_auth_inputs(
+fn gen_auth_keys(
     auth_scheme_input: AuthSchemeInput,
-    auth_seed: &str,
+    auth_seed: [u8; 32],
 ) -> Result<(AuthScheme, AuthSecretKey)> {
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
-            let auth_seed: [u8; 32] = hex_to_bytes(auth_seed)?;
             let rng_seed = Digest::try_from(&auth_seed)?.into();
             let mut rng = RpoRandomCoin::new(rng_seed);
             let secret = SecretKey::with_rng(&mut rng);
@@ -215,9 +215,7 @@ mod tests {
 
                 [[accounts]]
                 type = "BasicFungibleFaucet"
-                init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 auth_scheme = "RpoFalcon512"
-                auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 token_symbol = "POL"
                 decimals = 12
                 max_supply = 1000000
@@ -230,7 +228,7 @@ mod tests {
             //  run make_genesis to generate genesis.dat and accounts folder and files
             make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
 
-            let a0_file_path = PathBuf::from("accounts/account0.mac");
+            let a0_file_path = PathBuf::from("accounts/faucet.mac");
 
             // assert that the genesis.dat and account files exist
             assert!(genesis_dat_file_path.exists());

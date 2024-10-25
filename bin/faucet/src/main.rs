@@ -22,7 +22,7 @@ use tower_http::{cors::CorsLayer, set_header::SetResponseHeaderLayer, trace::Tra
 use tracing::info;
 
 use crate::{
-    config::FaucetConfig,
+    config::{FaucetConfig, DEFAULT_FAUCET_ACCOUNT_PATH},
     handlers::{get_index, get_metadata, get_static_file, get_tokens},
 };
 // CONSTANTS
@@ -53,6 +53,8 @@ pub enum Command {
     Init {
         #[arg(short, long, default_value = FAUCET_CONFIG_FILE_PATH)]
         config_path: String,
+        #[arg(short, long, default_value = DEFAULT_FAUCET_ACCOUNT_PATH)]
+        faucet_account_path: String,
     },
 }
 
@@ -102,12 +104,17 @@ async fn main() -> anyhow::Result<()> {
 
             axum::serve(listener, app).await.unwrap();
         },
-        Command::Init { config_path } => {
+        Command::Init { config_path, faucet_account_path } => {
             let current_dir =
                 std::env::current_dir().context("failed to open current directory")?;
 
             let config_file_path = current_dir.join(config_path);
-            let config = FaucetConfig::default();
+
+            let config = FaucetConfig {
+                faucet_account_path: faucet_account_path.into(),
+                ..FaucetConfig::default()
+            };
+
             let config_as_toml_string =
                 toml::to_string(&config).context("Failed to serialize default config")?;
 

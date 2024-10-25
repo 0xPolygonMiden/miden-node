@@ -1566,6 +1566,7 @@ dependencies = [
  "miden-node-store",
  "miden-node-utils",
  "miden-objects",
+ "rand",
  "rand_chacha",
  "serde",
  "tokio",

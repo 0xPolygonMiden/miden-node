@@ -4,7 +4,7 @@ use miden_objects::{
     accounts::{Account, AccountId},
     notes::NoteId,
     transaction::{ChainMmr, InputNotes, TransactionInputs},
-    BlockHeader, Word,
+    BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError};
 
@@ -13,8 +13,6 @@ use crate::errors::HandlerError;
 #[derive(Clone)]
 pub struct FaucetDataStore {
     faucet_account: Arc<RwLock<Account>>,
-    /// Seed used for faucet account creation.
-    seed: Word,
     block_header: BlockHeader,
     chain_mmr: ChainMmr,
 }
@@ -24,14 +22,12 @@ pub struct FaucetDataStore {
 
 impl FaucetDataStore {
     pub fn new(
-        faucet_account: Arc<RwLock<Account>>,
-        seed: Word,
+        faucet_account: Account,
         root_block_header: BlockHeader,
         root_chain_mmr: ChainMmr,
     ) -> Self {
         Self {
-            faucet_account,
-            seed,
+            faucet_account: Arc::new(RwLock::new(faucet_account)),
             block_header: root_block_header,
             chain_mmr: root_chain_mmr,
         }
@@ -62,14 +58,12 @@ impl DataStore for FaucetDataStore {
             return Err(DataStoreError::AccountNotFound(account_id));
         }
 
-        let empty_input_notes = InputNotes::new(vec![]).expect("Empty notes must succeed");
-
         TransactionInputs::new(
             account.clone(),
-            account.is_new().then_some(self.seed),
+            None,
             self.block_header,
             self.chain_mmr.clone(),
-            empty_input_notes,
+            InputNotes::default(),
         )
         .map_err(DataStoreError::InvalidTransactionInput)
     }

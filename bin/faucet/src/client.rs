@@ -1,15 +1,7 @@
-use std::{
-    path::Path,
-    rc::Rc,
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use std::{rc::Rc, time::Duration};
 
-use anyhow::{anyhow, Context};
-use miden_lib::{
-    accounts::faucets::create_basic_fungible_faucet, notes::create_p2id_note,
-    transaction::TransactionKernel, AuthScheme,
-};
+use anyhow::Context;
+use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
 use miden_node_proto::generated::{
     requests::{
         GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,
@@ -17,10 +9,9 @@ use miden_node_proto::generated::{
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStorageMode, AuthSecretKey},
-    assets::{FungibleAsset, TokenSymbol},
+    accounts::{Account, AccountData, AccountId, AuthSecretKey},
+    assets::FungibleAsset,
     crypto::{
-        dsa::rpo_falcon512::SecretKey,
         merkle::{MmrPeaks, PartialMmr},
         rand::RpoRandomCoin,
     },
@@ -28,20 +19,21 @@ use miden_objects::{
     transaction::{ChainMmr, ExecutedTransaction, TransactionArgs, TransactionScript},
     utils::Deserializable,
     vm::AdviceMap,
-    BlockHeader, Felt, Word,
+    BlockHeader, Felt,
 };
 use miden_tx::{
     auth::BasicAuthenticator, utils::Serializable, LocalTransactionProver, ProvingOptions,
     TransactionExecutor, TransactionProver,
 };
-use rand::{rngs::StdRng, thread_rng, Rng};
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use rand::{random, rngs::StdRng};
 use tonic::transport::Channel;
+use tracing::info;
 
 use crate::{
     config::FaucetConfig,
     errors::{ClientError, ImplError},
     store::FaucetDataStore,
+    COMPONENT,
 };
 
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
@@ -65,25 +57,36 @@ unsafe impl Send for FaucetClient {}
 impl FaucetClient {
     /// Creates a new faucet client.
     pub async fn new(config: &FaucetConfig) -> Result<Self, ClientError> {
-        let (rpc_api, root_block_header, root_chain_mmr) = initialize_faucet_client(config).await?;
-        let init_seed: [u8; 32] = [0; 32];
-        let (auth_scheme, authenticator) = init_authenticator(init_seed, &config.secret_key_path)
-            .context("Failed to initialize authentication scheme")?;
+        let (mut rpc_api, root_block_header, root_chain_mmr) =
+            initialize_faucet_client(config).await?;
 
-        let (faucet_account, account_seed) = build_account(config, init_seed, auth_scheme)?;
-        let id = faucet_account.id();
+        let faucet_account_data = AccountData::read(&config.faucet_account_path)
+            .context("Failed to load faucet account from file")?;
 
-        let data_store = FaucetDataStore::new(
-            Arc::new(RwLock::new(faucet_account)),
-            account_seed,
-            root_block_header,
-            root_chain_mmr,
+        let id = faucet_account_data.account.id();
+
+        let public_key = match &faucet_account_data.auth_secret_key {
+            AuthSecretKey::RpoFalcon512(secret) => secret.public_key(),
+        };
+
+        let authenticator = BasicAuthenticator::<StdRng>::new(&[(
+            public_key.into(),
+            faucet_account_data.auth_secret_key,
+        )]);
+
+        info!(target: COMPONENT, "Requesting account state from the node...");
+        let faucet_account = request_account_state(&mut rpc_api, id).await?;
+        info!(
+            target: COMPONENT,
+            got_new_hash = %faucet_account.hash(),
+            "Received faucet account state from the node",
         );
+
+        let data_store = FaucetDataStore::new(faucet_account, root_block_header, root_chain_mmr);
 
         let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
 
-        let mut rng = thread_rng();
-        let coin_seed: [u64; 4] = rng.gen();
+        let coin_seed: [u64; 4] = random();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
         Ok(Self { data_store, rpc_api, executor, id, rng })
@@ -155,29 +158,6 @@ impl FaucetClient {
         Ok(response.into_inner().block_height)
     }
 
-    /// Requests faucet account state from the node.
-    ///
-    /// The account is expected to be public, otherwise, the error is returned.
-    pub async fn request_account_state(&mut self) -> Result<(Account, u32), ClientError> {
-        let account_info = self
-            .rpc_api
-            .get_account_details(GetAccountDetailsRequest { account_id: Some(self.id.into()) })
-            .await
-            .context("Failed to get faucet account state")?
-            .into_inner()
-            .details
-            .context("Account info field is empty")?;
-
-        let faucet_account_state_bytes =
-            account_info.details.context("Account details field is empty")?;
-        let faucet_account = Account::read_from_bytes(&faucet_account_state_bytes)
-            .map_err(ImplError)
-            .context("Failed to deserialize faucet account")?;
-        let block_num = account_info.summary.context("Account summary field is empty")?.block_num;
-
-        Ok((faucet_account, block_num))
-    }
-
     /// Returns a reference to the data store.
     pub fn data_store(&self) -> &FaucetDataStore {
         &self.data_store
@@ -191,65 +171,6 @@ impl FaucetClient {
 
 // HELPER FUNCTIONS
 // ================================================================================================
-
-/// Initializes the keypair used to sign transactions.
-///
-/// If the secret key file exists, it is read from the file. Otherwise, a new key is generated and
-/// written to the file.
-fn init_authenticator(
-    init_seed: [u8; 32],
-    secret_key_path: impl AsRef<Path>,
-) -> Result<(AuthScheme, BasicAuthenticator<StdRng>), ClientError> {
-    // Load secret key from file or generate new one
-    let secret = if secret_key_path.as_ref().exists() {
-        SecretKey::read_from_bytes(
-            &std::fs::read(secret_key_path).context("Failed to read secret key from file")?,
-        )
-        .map_err(ImplError)
-        .context("Failed to deserialize secret key")?
-    } else {
-        let mut rng = ChaCha20Rng::from_seed(init_seed);
-        let secret = SecretKey::with_rng(&mut rng);
-        std::fs::write(secret_key_path, secret.to_bytes())
-            .context("Failed to write secret key to file")?;
-
-        secret
-    };
-
-    let auth_scheme = AuthScheme::RpoFalcon512 { pub_key: secret.public_key() };
-
-    let authenticator = BasicAuthenticator::<StdRng>::new(&[(
-        secret.public_key().into(),
-        AuthSecretKey::RpoFalcon512(secret),
-    )]);
-
-    Ok((auth_scheme, authenticator))
-}
-
-/// Builds a new faucet account with the provided configuration.
-///
-/// Returns the created account, its seed, and the secret key used to sign transactions.
-fn build_account(
-    config: &FaucetConfig,
-    init_seed: [u8; 32],
-    auth_scheme: AuthScheme,
-) -> Result<(Account, Word), ClientError> {
-    let token_symbol = TokenSymbol::new(config.token_symbol.as_str())
-        .context("Failed to parse token symbol from configuration file")?;
-
-    let (faucet_account, account_seed) = create_basic_fungible_faucet(
-        init_seed,
-        token_symbol,
-        config.decimals,
-        Felt::try_from(config.max_supply)
-            .map_err(|err| anyhow!("Error converting max supply to Felt: {err}"))?,
-        AccountStorageMode::Public,
-        auth_scheme,
-    )
-    .context("Failed to create basic fungible faucet account")?;
-
-    Ok((faucet_account, account_seed))
-}
 
 /// Initializes the faucet client by connecting to the node and fetching the root block header.
 pub async fn initialize_faucet_client(
@@ -286,6 +207,30 @@ pub async fn initialize_faucet_client(
     .expect("Empty ChainMmr should be valid");
 
     Ok((rpc_api, root_block_header, root_chain_mmr))
+}
+
+/// Requests account state from the node.
+///
+/// The account is expected to be public, otherwise, the error is returned.
+async fn request_account_state(
+    rpc_api: &mut ApiClient<Channel>,
+    account_id: AccountId,
+) -> Result<Account, ClientError> {
+    let account_info = rpc_api
+        .get_account_details(GetAccountDetailsRequest { account_id: Some(account_id.into()) })
+        .await
+        .context("Failed to get faucet account state")?
+        .into_inner()
+        .details
+        .context("Account info field is empty")?;
+
+    let faucet_account_state_bytes =
+        account_info.details.context("Account details field is empty")?;
+
+    Account::read_from_bytes(&faucet_account_state_bytes)
+        .map_err(ImplError)
+        .context("Failed to deserialize faucet account")
+        .map_err(Into::into)
 }
 
 /// Builds transaction arguments for the mint transaction.
