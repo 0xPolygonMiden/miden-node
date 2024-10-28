@@ -1,4 +1,7 @@
-use std::{rc::Rc, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use anyhow::Context;
 use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
@@ -46,8 +49,8 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
 /// for the faucet.
 pub struct FaucetClient {
     rpc_api: ApiClient<Channel>,
-    executor: TransactionExecutor<FaucetDataStore, BasicAuthenticator<StdRng>>,
-    data_store: FaucetDataStore,
+    executor: TransactionExecutor,
+    data_store: Arc<FaucetDataStore>,
     id: AccountId,
     rng: RpoRandomCoin,
 }
@@ -99,7 +102,7 @@ impl FaucetClient {
             },
         };
 
-        let data_store = FaucetDataStore::new(
+        let data_store = Arc::new(FaucetDataStore::new(
             faucet_account,
             faucet_account_data.account_seed,
             root_block_header,
@@ -164,7 +167,7 @@ impl FaucetClient {
             let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
 
             let proven_transaction =
-                transaction_prover.prove(executed_tx).context("Failed to prove transaction")?;
+                transaction_prover.prove(executed_tx.into()).context("Failed to prove transaction")?;
 
             SubmitProvenTransactionRequest {
                 transaction: proven_transaction.to_bytes(),

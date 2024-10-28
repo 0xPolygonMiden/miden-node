@@ -5,6 +5,7 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::Not,
     sync::Arc,
 };
 
@@ -231,12 +232,7 @@ impl State {
                 let mut chain_mmr = inner.chain_mmr.clone();
 
                 // new_block.chain_root must be equal to the chain MMR root prior to the update
-                let peaks = chain_mmr.peaks(chain_mmr.forest()).map_err(|error| {
-                    ApplyBlockError::FailedToGetMmrPeaksForForest {
-                        forest: chain_mmr.forest(),
-                        error,
-                    }
-                })?;
+                let peaks = chain_mmr.peaks();
                 if peaks.hash_peaks() != header.chain_root() {
                     return Err(ApplyBlockError::NewBlockInvalidChainRoot);
                 }
@@ -371,8 +367,7 @@ impl State {
         if let Some(header) = block_header {
             let mmr_proof = if include_mmr_proof {
                 let inner = self.inner.read().await;
-                let mmr_proof =
-                    inner.chain_mmr.open(header.block_num() as usize, inner.chain_mmr.forest())?;
+                let mmr_proof = inner.chain_mmr.open(header.block_num() as usize)?;
                 Some(mmr_proof)
             } else {
                 None
@@ -443,7 +438,7 @@ impl State {
             let paths = blocks
                 .iter()
                 .map(|&block_num| {
-                    let proof = state.chain_mmr.open(block_num as usize, chain_length)?.merkle_path;
+                    let proof = state.chain_mmr.open(block_num as usize)?.merkle_path;
 
                     Ok::<_, MmrError>((block_num, proof))
                 })
@@ -547,9 +542,7 @@ impl State {
 
         let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
 
-        let mmr_proof = inner
-            .chain_mmr
-            .open(note_sync.block_header.block_num() as usize, inner.chain_mmr.forest())?;
+        let mmr_proof = inner.chain_mmr.open(note_sync.block_header.block_num() as usize)?;
 
         Ok((note_sync, mmr_proof))
     }
@@ -579,12 +572,13 @@ impl State {
 
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
-        let chain_peaks = inner.chain_mmr.peaks(latest.block_num() as usize).map_err(|error| {
-            GetBlockInputsError::FailedToGetMmrPeaksForForest {
-                forest: latest.block_num() as usize,
-                error,
-            }
-        })?;
+        let chain_peaks =
+            inner.chain_mmr.peaks_at(latest.block_num() as usize).map_err(|error| {
+                GetBlockInputsError::FailedToGetMmrPeaksForForest {
+                    forest: latest.block_num() as usize,
+                    error,
+                }
+            })?;
         let account_states = account_ids
             .iter()
             .cloned()
@@ -683,6 +677,7 @@ impl State {
     pub async fn get_account_proofs(
         &self,
         account_ids: Vec<AccountId>,
+        request_code_commitments: BTreeSet<RpoDigest>,
         include_headers: bool,
     ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
         // Lock inner state for the whole operation. We need to hold this lock to prevent the
@@ -696,8 +691,7 @@ impl State {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
 
             if account_ids.len() > infos.len() {
-                let found_ids: BTreeSet<AccountId> =
-                    infos.iter().map(|info| info.summary.account_id.into()).collect();
+                let found_ids = infos.iter().map(|info| info.summary.account_id.into()).collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
                     BTreeSet::from_iter(account_ids).difference(&found_ids).copied().collect(),
                 ));
@@ -712,6 +706,12 @@ impl State {
                             AccountStateHeader {
                                 header: Some(AccountHeader::from(&details).into()),
                                 storage_header: details.storage().get_header().to_bytes(),
+                                // Only include account code if the request did not contain it
+                                // (known by the caller)
+                                account_code: request_code_commitments
+                                    .contains(&details.code().commitment())
+                                    .not()
+                                    .then_some(details.code().to_bytes()),
                             },
                         )
                     })
@@ -724,12 +724,13 @@ impl State {
             .map(|account_id| {
                 let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
                 let opening = inner_state.account_tree.open(&acc_leaf_idx);
+                let state_header = state_headers.get(&account_id).cloned();
 
                 AccountProofsResponse {
                     account_id: Some(account_id.into()),
                     account_hash: Some(opening.value.into()),
                     account_proof: Some(opening.path.into()),
-                    state_header: state_headers.get(&account_id).cloned(),
+                    state_header,
                 }
             })
             .collect();

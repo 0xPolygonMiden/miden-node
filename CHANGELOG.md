@@ -2,6 +2,7 @@
 
 ## v0.6.0 (TBD)
 
+- Added `AccountCode` as part of `GetAccountProofs` endpoint response (#521).
 - [BREAKING] Added `kernel_root` to block header's protobuf message definitions (#496).
 - [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#489).
 - Optimized state synchronizations by removing unnecessary fetching and parsing of note details (#462).
@@ -13,6 +14,7 @@
 - Migrated faucet from actix-web to axum (#511).
 - Changed the `BlockWitness` to pass the inputs to the VM using only advice provider (#516).
 - [BREAKING] Improved store API errors (return "not found" instead of "internal error" status if requested account(s) not found) (#518).
+- [BREAKING] Migrated to v0.11 version of Miden VM (#528).
 - [BREAKING] Changed faucet storage type in the genesis to public. Using faucet from the genesis for faucet web app. Added support for faucet restarting without blockchain restarting (#517).
 
 ## 0.5.1 (2024-09-12)
