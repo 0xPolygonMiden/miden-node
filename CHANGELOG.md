@@ -13,7 +13,7 @@
 - Migrated faucet from actix-web to axum (#511).
 - Changed the `BlockWitness` to pass the inputs to the VM using only advice provider (#516).
 - [BREAKING] Improved store API errors (return "not found" instead of "internal error" status if requested account(s) not found) (#518).
-- Support for faucet restarting without blockchain restarting (#517).
+- [BREAKING] Changed faucet storage type in the genesis to public. Using faucet from the genesis for faucet web app. Added support for faucet restarting without blockchain restarting (#517).
 
 ## 0.5.1 (2024-09-12)
 
