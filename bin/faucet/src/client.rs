@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
 use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
@@ -68,15 +65,6 @@ impl FaucetClient {
 
         let id = faucet_account_data.account.id();
 
-        let public_key = match &faucet_account_data.auth_secret_key {
-            AuthSecretKey::RpoFalcon512(secret) => secret.public_key(),
-        };
-
-        let authenticator = BasicAuthenticator::<StdRng>::new(&[(
-            public_key.into(),
-            faucet_account_data.auth_secret_key,
-        )]);
-
         info!(target: COMPONENT, "Requesting account state from the node...");
         let faucet_account = match request_account_state(&mut rpc_api, id).await {
             Ok(account) => {
@@ -107,9 +95,18 @@ impl FaucetClient {
             faucet_account_data.account_seed,
             root_block_header,
             root_chain_mmr,
-        );
+        ));
 
-        let executor = TransactionExecutor::new(data_store.clone(), Some(Rc::new(authenticator)));
+        let public_key = match &faucet_account_data.auth_secret_key {
+            AuthSecretKey::RpoFalcon512(secret) => secret.public_key(),
+        };
+
+        let authenticator = Arc::new(BasicAuthenticator::<StdRng>::new(&[(
+            public_key.into(),
+            faucet_account_data.auth_secret_key,
+        )]));
+
+        let executor = TransactionExecutor::new(data_store.clone(), Some(authenticator));
 
         let coin_seed: [u64; 4] = random();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
@@ -166,8 +163,9 @@ impl FaucetClient {
         let request = {
             let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
 
-            let proven_transaction =
-                transaction_prover.prove(executed_tx.into()).context("Failed to prove transaction")?;
+            let proven_transaction = transaction_prover
+                .prove(executed_tx.into())
+                .context("Failed to prove transaction")?;
 
             SubmitProvenTransactionRequest {
                 transaction: proven_transaction.to_bytes(),

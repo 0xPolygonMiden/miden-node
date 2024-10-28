@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Mutex;
 
 use miden_objects::{
     accounts::{Account, AccountId},
@@ -10,9 +10,8 @@ use miden_tx::{DataStore, DataStoreError};
 
 use crate::errors::HandlerError;
 
-#[derive(Clone)]
 pub struct FaucetDataStore {
-    faucet_account: Arc<RwLock<Account>>,
+    faucet_account: Mutex<Account>,
     /// Optional initial seed used for faucet account creation.
     init_seed: Option<Word>,
     block_header: BlockHeader,
@@ -30,7 +29,7 @@ impl FaucetDataStore {
         chain_mmr: ChainMmr,
     ) -> Self {
         Self {
-            faucet_account: Arc::new(RwLock::new(faucet_account)),
+            faucet_account: Mutex::new(faucet_account),
             init_seed,
             block_header,
             chain_mmr,
@@ -39,12 +38,12 @@ impl FaucetDataStore {
 
     /// Returns the stored faucet account.
     pub fn faucet_account(&self) -> Account {
-        self.faucet_account.read().expect("Poisoned lock").clone()
+        self.faucet_account.lock().expect("Poisoned lock").clone()
     }
 
     /// Updates the stored faucet account with the new one.
     pub async fn update_faucet_state(&self, new_faucet_state: Account) -> Result<(), HandlerError> {
-        *self.faucet_account.write().expect("Poisoned lock") = new_faucet_state;
+        *self.faucet_account.lock().expect("Poisoned lock") = new_faucet_state;
 
         Ok(())
     }
@@ -57,7 +56,7 @@ impl DataStore for FaucetDataStore {
         _block_ref: u32,
         _notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
-        let account = self.faucet_account.read().expect("Poisoned lock");
+        let account = self.faucet_account.lock().expect("Poisoned lock");
         if account_id != account.id() {
             return Err(DataStoreError::AccountNotFound(account_id));
         }
