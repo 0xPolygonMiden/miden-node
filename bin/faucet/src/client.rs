@@ -102,12 +102,12 @@ impl FaucetClient {
             AuthSecretKey::RpoFalcon512(secret) => secret.public_key(),
         };
 
-        let authenticator = Arc::new(BasicAuthenticator::<StdRng>::new(&[(
+        let authenticator = BasicAuthenticator::<StdRng>::new(&[(
             public_key.into(),
             faucet_account_data.auth_secret_key,
-        )]));
+        )]);
 
-        let executor = TransactionExecutor::new(data_store.clone(), Some(authenticator));
+        let executor = TransactionExecutor::new(data_store.clone(), Some(Arc::new(authenticator)));
 
         let coin_seed: [u64; 4] = random();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
