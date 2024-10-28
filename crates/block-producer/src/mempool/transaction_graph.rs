@@ -40,7 +40,8 @@ impl TransactionGraph {
         transaction: AuthenticatedTransaction,
         parents: BTreeSet<TransactionId>,
     ) -> Result<(), GraphError<TransactionId>> {
-        self.inner.insert(transaction.id(), transaction, parents)
+        self.inner.insert_pending(transaction.id(), parents)?;
+        self.inner.promote_pending(transaction.id(), transaction)
     }
 
     /// Selects a set of up-to count transactions for the next batch, as well as their parents.
@@ -115,10 +116,10 @@ impl TransactionGraph {
     pub fn purge_subgraphs(
         &mut self,
         transactions: Vec<TransactionId>,
-    ) -> Result<Vec<AuthenticatedTransaction>, GraphError<TransactionId>> {
+    ) -> Result<BTreeSet<TransactionId>, GraphError<TransactionId>> {
         // TODO: revisit this api.
         let transactions = transactions.into_iter().collect();
-        self.inner.purge_subgraphs(transactions).map(|kv| kv.into_values().collect())
+        self.inner.purge_subgraphs(transactions)
     }
 }
 

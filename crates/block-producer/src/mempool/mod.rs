@@ -231,6 +231,11 @@ impl Mempool {
             .expect("Transaction graph is malformed");
 
         // Rollback state.
+        let transactions = transactions
+            .into_iter()
+            // FIXME
+            .map(|tx_id| todo!("Inflight state should remember diffs"))
+            .collect::<Vec<_>>();
         self.state.revert_transactions(&transactions);
     }
 }
