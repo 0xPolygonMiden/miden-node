@@ -1,7 +1,8 @@
+use miden_crypto::merkle::SMT_DEPTH;
 use miden_objects::{
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{Smt, SmtProof},
+        merkle::{MutationSet, Smt, SmtProof},
     },
     notes::Nullifier,
     Felt, FieldElement, Word,
@@ -27,34 +28,9 @@ impl NullifierTree {
         Ok(Self(inner))
     }
 
-    /// Get SMT root.
-    pub fn root(&self) -> RpoDigest {
-        self.0.root()
-    }
-
     /// Returns an opening of the leaf associated with the given nullifier.
     pub fn open(&self, nullifier: &Nullifier) -> SmtProof {
         self.0.open(&nullifier.inner())
-    }
-
-    /// Inserts block number in which nullifier was consumed.
-    pub fn insert(
-        &mut self,
-        nullifier: &Nullifier,
-        block_num: BlockNumber,
-    ) -> Result<(), NullifierTreeError> {
-        let key = nullifier.inner();
-        let prev_value = self.0.get_value(&key);
-        if prev_value != Smt::EMPTY_VALUE {
-            return Err(NullifierTreeError::NullifierAlreadyExists {
-                nullifier: *nullifier,
-                block_num: Self::leaf_value_to_block_num(prev_value),
-            });
-        }
-
-        self.0.insert(key, Self::block_num_to_leaf_value(block_num));
-
-        Ok(())
     }
 
     /// Returns block number stored for the given nullifier or `None` if the nullifier wasn't
@@ -66,6 +42,24 @@ impl NullifierTree {
         }
 
         Some(Self::leaf_value_to_block_num(value))
+    }
+
+    /// Computes mutations for the nullifier SMT.
+    pub fn compute_mutations(
+        &self,
+        kv_pairs: impl IntoIterator<Item = (Nullifier, BlockNumber)>,
+    ) -> MutationSet<SMT_DEPTH, RpoDigest, Word> {
+        self.0.compute_mutations(kv_pairs.into_iter().map(|(nullifier, block_num)| {
+            (nullifier.inner(), Self::block_num_to_leaf_value(block_num))
+        }))
+    }
+
+    /// Applies mutations to the nullifier SMT.
+    pub fn apply_mutations(
+        &mut self,
+        mutations: MutationSet<SMT_DEPTH, RpoDigest, Word>,
+    ) -> Result<(), NullifierTreeError> {
+        self.0.apply_mutations(mutations).map_err(Into::into)
     }
 
     /// Returns the nullifier's leaf value in the SMT by its block number.

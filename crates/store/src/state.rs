@@ -203,15 +203,15 @@ impl State {
         // block store. Thus, such block should be considered as block candidates, but not
         // finalized blocks. So we should check for the latest block when getting block from
         // the store.
-        let store = self.block_store.clone();
+        let store = Arc::clone(&self.block_store);
         let block_save_task =
             tokio::spawn(async move { store.save_block(block_num, &block_data).await });
 
         // scope to read in-memory data, validate the request, and compute intermediary values
-        let (account_tree, chain_mmr, nullifier_tree, notes) = {
+        let (account_tree_update, nullifier_tree_update, account_tree_old_root) = {
             let inner = self.inner.read().await;
 
-            let span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
+            let _span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = block
@@ -224,83 +224,67 @@ impl State {
                 return Err(ApplyBlockError::DuplicatedNullifiers(duplicate_nullifiers));
             }
 
-            // update the in-memory data structures and compute the new block header. Important, the
-            // structures are not yet committed
+            // compute updates for the in-memory data structures
 
-            // update chain MMR
-            let chain_mmr = {
-                let mut chain_mmr = inner.chain_mmr.clone();
-
-                // new_block.chain_root must be equal to the chain MMR root prior to the update
-                let peaks = chain_mmr.peaks();
-                if peaks.hash_peaks() != header.chain_root() {
-                    return Err(ApplyBlockError::NewBlockInvalidChainRoot);
-                }
-
-                chain_mmr.add(block_hash);
-                chain_mmr
-            };
-
-            // update nullifier tree
-            let nullifier_tree = {
-                let mut nullifier_tree = inner.nullifier_tree.clone();
-                for nullifier in block.nullifiers() {
-                    nullifier_tree
-                        .insert(nullifier, block_num)
-                        .map_err(ApplyBlockError::FailedToUpdateNullifierTree)?;
-                }
-
-                if nullifier_tree.root() != header.nullifier_root() {
-                    return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
-                }
-                nullifier_tree
-            };
-
-            // update account tree
-            let mut account_tree = inner.account_tree.clone();
-            for update in block.updated_accounts() {
-                account_tree.insert(
-                    LeafIndex::new_max_depth(update.account_id().into()),
-                    update.new_state_hash().into(),
-                );
+            // new_block.chain_root must be equal to the chain MMR root prior to the update
+            let peaks = inner.chain_mmr.peaks();
+            if peaks.hash_peaks() != header.chain_root() {
+                return Err(ApplyBlockError::NewBlockInvalidChainRoot);
             }
 
-            if account_tree.root() != header.account_root() {
+            // compute update for nullifier tree
+            let nullifier_tree_update = inner.nullifier_tree.compute_mutations(
+                block.nullifiers().iter().map(|nullifier| (*nullifier, block_num)),
+            );
+
+            if nullifier_tree_update.root() != header.nullifier_root() {
+                return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
+            }
+
+            // compute update for account tree
+            let account_tree_update = inner.account_tree.compute_mutations(
+                block.updated_accounts().iter().map(|update| {
+                    (
+                        LeafIndex::new_max_depth(update.account_id().into()),
+                        update.new_state_hash().into(),
+                    )
+                }),
+            );
+
+            if account_tree_update.root() != header.account_root() {
                 return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
             }
 
-            // build note tree
-            let note_tree = block.build_note_tree();
-            if note_tree.root() != header.note_root() {
-                return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
-            }
-
-            drop(span);
-
-            let notes = block
-                .notes()
-                .map(|(note_index, note)| {
-                    let details = match note {
-                        OutputNote::Full(note) => Some(note.to_bytes()),
-                        OutputNote::Header(_) => None,
-                        note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
-                    };
-
-                    let merkle_path = note_tree.get_note_path(note_index);
-
-                    Ok(NoteRecord {
-                        block_num,
-                        note_index,
-                        note_id: note.id().into(),
-                        metadata: *note.metadata(),
-                        details,
-                        merkle_path,
-                    })
-                })
-                .collect::<Result<Vec<NoteRecord>, ApplyBlockError>>()?;
-
-            (account_tree, chain_mmr, nullifier_tree, notes)
+            (account_tree_update, nullifier_tree_update, inner.account_tree.root())
         };
+
+        // build note tree
+        let note_tree = block.build_note_tree();
+        if note_tree.root() != header.note_root() {
+            return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
+        }
+
+        let notes = block
+            .notes()
+            .map(|(note_index, note)| {
+                let details = match note {
+                    OutputNote::Full(note) => Some(note.to_bytes()),
+                    OutputNote::Header(_) => None,
+                    note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
+                };
+
+                let merkle_path = note_tree.get_note_path(note_index);
+
+                Ok(NoteRecord {
+                    block_num,
+                    note_index,
+                    note_id: note.id().into(),
+                    metadata: *note.metadata(),
+                    details,
+                    merkle_path,
+                })
+            })
+            .collect::<Result<Vec<NoteRecord>, ApplyBlockError>>()?;
 
         // Signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
@@ -311,7 +295,7 @@ impl State {
         // overlapping. Namely, the DB transaction only proceeds after this task acquires the
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
-        let db = self.db.clone();
+        let db = Arc::clone(&self.db);
         let db_update_task =
             tokio::spawn(
                 async move { db.apply_block(allow_acquire, acquire_done, block, notes).await },
@@ -332,6 +316,13 @@ impl State {
             // successfully.
             let mut inner = self.inner.write().await;
 
+            // We need to check that the account tree root hasn't changed while we were waiting for
+            // the DB update task to complete. If it has changed, we mustn't proceed with in-memory
+            // updates, since it might lead to inconsistent state.
+            if inner.account_tree.root() != account_tree_old_root {
+                return Err(ApplyBlockError::ConcurrentWrite);
+            }
+
             // Notify the DB update task that the write lock has been acquired, so it can commit
             // the DB transaction
             let _ = inform_acquire_done.send(());
@@ -343,9 +334,15 @@ impl State {
             db_update_task.await??;
 
             // Update the in-memory data structures after successful commit of the DB transaction
-            inner.chain_mmr = chain_mmr;
-            inner.nullifier_tree = nullifier_tree;
-            inner.account_tree = account_tree;
+            inner
+                .nullifier_tree
+                .apply_mutations(nullifier_tree_update)
+                .map_err(|_| ApplyBlockError::ConcurrentWrite)?;
+            inner
+                .account_tree
+                .apply_mutations(account_tree_update)
+                .expect("Unreachable: old account tree root must be checked before this step");
+            inner.chain_mmr.add(block_hash);
         }
 
         info!(%block_hash, block_num, COMPONENT, "apply_block successful");
