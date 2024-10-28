@@ -150,7 +150,8 @@ impl Mempool {
     ///
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchJobId) {
-        let removed_batches = self.batches.purge_subgraphs([batch].into());
+        let removed_batches =
+            self.batches.purge_subgraphs([batch].into()).expect("Batch was not present");
 
         // Its possible to receive failures for batches which were already removed
         // as part of a prior failure. Early exit to prevent logging these no-ops.
@@ -197,7 +198,8 @@ impl Mempool {
 
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
-        let transactions = self.batches.remove_committed(batches);
+        let transactions =
+            self.batches.remove_committed(batches).expect("Batches failed to commit");
         let transactions = self
             .transactions
             .commit_transactions(&transactions)
@@ -221,7 +223,7 @@ impl Mempool {
         let batches = self.block_in_progress.take().expect("No block in progress to be failed");
 
         // Remove all transactions from the graphs.
-        let purged = self.batches.purge_subgraphs(batches);
+        let purged = self.batches.purge_subgraphs(batches).expect("Bad graph");
         let batches = purged.keys().collect::<Vec<_>>();
         let transactions = purged.into_values().flatten().collect();
 
