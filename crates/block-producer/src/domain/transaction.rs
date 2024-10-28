@@ -127,7 +127,10 @@ impl AuthenticatedTransaction {
             account_id: inner.account_id(),
             account_hash: store_account_state,
             nullifiers: inner.get_nullifiers().map(|nullifier| (nullifier, None)).collect(),
-            missing_unauthenticated_notes: Default::default(),
+            missing_unauthenticated_notes: inner
+                .get_unauthenticated_notes()
+                .map(|header| header.id())
+                .collect(),
             current_block_height: Default::default(),
         };
         // SAFETY: nullifiers were set to None aka are definitely unspent.
