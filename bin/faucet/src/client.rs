@@ -207,7 +207,7 @@ impl DataStore for FaucetDataStore {
         _block_ref: u32,
         _notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
-        let account = self.faucet_account.lock().unwrap();
+        let account = self.faucet_account.lock().expect("Poisoned lock");
         if account_id != account.id() {
             return Err(DataStoreError::AccountNotFound(account_id));
         }

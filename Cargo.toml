@@ -26,7 +26,7 @@ readme = "README.md"
 
 [workspace.dependencies]
 miden-air = { git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next" }
-miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "andrew-migrate-to-new-padding-rule" }
+miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.6" }
 miden-node-faucet = { path = "bin/faucet", version = "0.6" }
 miden-node-proto = { path = "crates/proto", version = "0.6" }
@@ -35,10 +35,10 @@ miden-node-rpc-proto = { path = "crates/rpc-proto", version = "0.6" }
 miden-node-store = { path = "crates/store", version = "0.6" }
 miden-node-test-macro = { path = "crates/test-macro" }
 miden-node-utils = { path = "crates/utils", version = "0.6" }
-miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "andrew-migrate-to-new-padding-rule" }
+miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-processor = { git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next" }
 miden-stdlib = { git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
-miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "andrew-migrate-to-new-padding-rule" }
+miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 prost = { version = "0.13" }
 thiserror = { version = "1.0" }
 tokio = { version = "1.40", features = ["rt-multi-thread"] }
