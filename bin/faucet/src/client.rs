@@ -63,7 +63,6 @@ impl FaucetClient {
             initialize_faucet_client(config.clone()).await?;
 
         let (faucet_account, account_seed, secret) = build_account(config.clone())?;
-        let faucet_account = faucet_account;
         let id = faucet_account.id();
 
         let data_store = Arc::new(FaucetDataStore::new(
@@ -195,7 +194,7 @@ impl FaucetDataStore {
     fn update_faucet_account(&self, delta: &AccountDelta) -> Result<(), ProcessError> {
         self.faucet_account
             .lock()
-            .unwrap()
+            .expect("Poisoned lock")
             .apply_delta(delta)
             .map_err(|err| ProcessError::InternalServerError(err.to_string()))
     }
