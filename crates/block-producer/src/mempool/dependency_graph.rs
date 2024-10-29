@@ -472,7 +472,7 @@ mod tests {
     }
 
     #[test]
-    fn unpromoted_nodes_are_not_considered_for_root() {
+    fn pending_nodes_are_not_considered_for_root() {
         //! Ensure that an unpromoted node is _not_ added to the root list even if all parents are
         //! already processed.
         let parent_a = 1;
