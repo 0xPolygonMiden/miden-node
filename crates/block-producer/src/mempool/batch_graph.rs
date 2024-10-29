@@ -27,6 +27,30 @@ use crate::batch_builder::batch::TransactionBatch;
 ///
 /// Batches may also be outright [purged](Self::purge_subgraphs) from the graph. This is useful for
 /// batches which may have become invalid due to external considerations e.g. expired transactions.
+///
+/// # Batch lifecycle
+/// ```
+///                           │                           
+///                     insert│                           
+///                     ┌─────▼─────┐                     
+///                     │  pending  ┼────┐                
+///                     └─────┬─────┘    │                
+///                           │          │                
+///               submit_proof│          │                
+///                     ┌─────▼─────┐    │                
+///                     │   proved  ┼────┤                
+///                     └─────┬─────┘    │                
+///                           │          │                
+///               select_block│          │                
+///                     ┌─────▼─────┐    │                
+///                     │ committed ┼────┤                
+///                     └─────┬─────┘    │                
+///                           │          │                
+///            prune_committed│          │purge_subgraphs
+///                     ┌─────▼─────┐    │                
+///                     │  <null>   ◄────┘                
+///                     └───────────┘                     
+/// ```
 #[derive(Default, Clone)]
 pub struct BatchGraph {
     /// Tracks the interdependencies between batches.
