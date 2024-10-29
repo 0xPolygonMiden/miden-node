@@ -14,6 +14,8 @@ use crate::{errors::VerifyTxError, mempool::BlockNumber, store::TransactionInput
 /// Authentication ensures that all nullifiers are unspent, and additionally authenticates some
 /// previously unauthenticated input notes.
 ///
+/// This struct is cheap to clone as it uses an Arc for the heavy data.
+///
 /// Note that this is of course only valid for the chain height of the authentication.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AuthenticatedTransaction {
@@ -117,7 +119,7 @@ impl AuthenticatedTransaction {
     //! Builder methods intended for easier test setup.
 
     /// Short-hand for `Self::new` where the input's are setup to match the transaction's initial
-    /// account state. This covers the account's initial state and nullifiers beting set to unspent.
+    /// account state. This covers the account's initial state and nullifiers being set to unspent.
     pub fn from_inner(inner: ProvenTransaction) -> Self {
         let store_account_state = match inner.account_update().init_state_hash() {
             zero if zero == Digest::default() => None,
