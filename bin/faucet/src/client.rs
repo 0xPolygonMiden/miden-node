@@ -56,7 +56,11 @@ pub struct FaucetClient {
 unsafe impl Send for FaucetClient {}
 
 impl FaucetClient {
-    /// Creates a new faucet client.
+    /// Fetches the latest faucet account state from the node and creates a new faucet client.
+    ///
+    /// # Note
+    /// If the faucet account is not found on chain, it will be created on submission of the first
+    /// minting transaction.
     pub async fn new(config: &FaucetConfig) -> Result<Self, ClientError> {
         let (mut rpc_api, root_block_header, root_chain_mmr) =
             initialize_faucet_client(config).await?;

@@ -133,11 +133,10 @@ fn create_accounts(
                     auth_scheme,
                 )?;
 
-                let name = if faucet_count == 0 {
-                    "faucet".to_string()
-                } else {
-                    format!("faucet{faucet_count}")
-                };
+                let name = format!(
+                    "faucet{}",
+                    (faucet_count > 0).then(|| faucet_count.to_string()).unwrap_or_default()
+                );
                 faucet_count += 1;
 
                 (AccountData::new(account, Some(account_seed), auth_secret_key), name)

@@ -59,7 +59,7 @@ pub enum Command {
         config: PathBuf,
     },
 
-    /// Create a new public faucet account and save to the file
+    /// Create a new public faucet account and save to the specified file
     CreateFaucetAccount {
         #[arg(short, long, value_name = "FILE", default_value = DEFAULT_FAUCET_ACCOUNT_PATH)]
         output_path: PathBuf,
@@ -133,6 +133,8 @@ async fn main() -> anyhow::Result<()> {
             decimals,
             max_supply,
         } => {
+            println!("Generating new faucet account. This may take a few minutes...");
+
             let current_dir =
                 std::env::current_dir().context("Failed to open current directory")?;
 
