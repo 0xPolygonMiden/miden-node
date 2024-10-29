@@ -16,7 +16,7 @@ deadpool-sqlite = { version = "0.8", features = ["rt_tokio_1"] }
 directories = { version = "5.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 hex = { version = "0.4" }
-miden-crypto = { version = "0.10", default-features = false }
+miden-crypto = { version = "0.11", default-features = false }
 miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
