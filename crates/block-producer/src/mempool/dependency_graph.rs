@@ -12,6 +12,10 @@ use miden_tx::utils::collections::KvMap;
 /// once all parent nodes have been processed.
 ///
 /// Forms the basis of our transaction and batch dependency graphs.
+///
+/// # Node lifecycle
+/// ```
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DependencyGraph<K, V> {
     /// Node's who's data is still pending.
@@ -122,7 +126,7 @@ impl<K: Ord + Copy + Display + std::fmt::Debug, V: Clone> DependencyGraph<K, V> 
             return Err(GraphError::InvalidPendingNode(key));
         }
 
-        self.vertices.insert(key.clone(), value);
+        self.vertices.insert(key, value);
         self.try_make_root(key);
 
         Ok(())
@@ -167,10 +171,10 @@ impl<K: Ord + Copy + Display + std::fmt::Debug, V: Clone> DependencyGraph<K, V> 
                 .into_iter()
                 .flatten()
                 // We should not revert children which are pending.
-                .filter(|child| self.vertices.contains_key(&child))
+                .filter(|child| self.vertices.contains_key(child))
                 .copied();
 
-            to_revert.extend(dbg!(unprocessed_children));
+            to_revert.extend(unprocessed_children);
 
             reverted.insert(key);
         }
