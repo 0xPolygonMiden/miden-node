@@ -169,7 +169,7 @@ impl Mempool {
 
     /// Marks a batch as proven if it exists.
     pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
-        self.batches.mark_proven(batch_id, batch);
+        self.batches.submit_proof(batch_id, batch);
     }
 
     /// Select batches for the next block.
@@ -198,8 +198,7 @@ impl Mempool {
 
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
-        let transactions =
-            self.batches.remove_committed(batches).expect("Batches failed to commit");
+        let transactions = self.batches.prune_committed(batches).expect("Batches failed to commit");
         let transactions = self
             .transactions
             .commit_transactions(&transactions)

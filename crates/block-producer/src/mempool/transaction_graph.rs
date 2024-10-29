@@ -68,8 +68,10 @@ impl TransactionGraph {
                 break;
             };
 
-            // SAFETY: we retieved a root node, and therefore this node must exist.
+            // SAFETY: This is definitely a root since we just selected it from the set of roots.
             self.inner.process_root(root).unwrap();
+            // SAFETY: Since it was a root batch, it must definitely have a processed batch
+            // associated with it.
             let tx = self.inner.get(&root).unwrap();
             let tx_parents = self.inner.parents(&root).unwrap();
 
