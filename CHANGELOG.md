@@ -15,6 +15,7 @@
 - Changed the `BlockWitness` to pass the inputs to the VM using only advice provider (#516).
 - [BREAKING] Improved store API errors (return "not found" instead of "internal error" status if requested account(s) not found) (#518).
 - [BREAKING] Migrated to v0.11 version of Miden VM (#528).
+- Got rid of cloning in-memory structures on `apply_block` (#532).
 
 ## 0.5.1 (2024-09-12)
 
