@@ -1435,31 +1435,13 @@ dependencies = [
  "lock_api",
  "loom",
  "memchr",
- "miden-crypto 0.11.0",
+ "miden-crypto",
  "miden-formatting",
  "miden-miette",
  "miden-thiserror",
  "num-derive",
  "num-traits",
  "parking_lot",
- "winter-math",
- "winter-utils",
-]
-
-[[package]]
-name = "miden-crypto"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "825fc5d2e4c951f45da54da2d0d23071918d966133f85dbc219694e0b9a1e141"
-dependencies = [
- "blake3",
- "glob",
- "num",
- "num-complex",
- "rand",
- "rand_core",
- "sha3",
- "winter-crypto",
  "winter-math",
  "winter-utils",
 ]
@@ -1671,7 +1653,7 @@ dependencies = [
  "directories",
  "figment",
  "hex",
- "miden-crypto 0.10.3",
+ "miden-crypto",
  "miden-lib",
  "miden-node-proto",
  "miden-node-utils",
@@ -1722,7 +1704,7 @@ source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#b624d
 dependencies = [
  "miden-assembly",
  "miden-core",
- "miden-crypto 0.11.0",
+ "miden-crypto",
  "miden-processor",
  "miden-verifier",
  "rand",
