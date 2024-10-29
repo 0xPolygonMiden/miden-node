@@ -131,6 +131,10 @@ impl BatchGraph {
     /// [`select_block`](Self::select_block). This is intended for limiting the size of the graph by
     /// culling committed data.
     ///
+    /// # Returns
+    ///
+    /// Returns the transactions of the pruned batches.
+    ///
     /// # Errors
     ///
     /// Returns an error if
@@ -192,5 +196,57 @@ impl BatchGraph {
         }
 
         batches
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::Random;
+
+    // INSERT TESTS
+    // ================================================================================================
+
+    #[test]
+    fn insert_rejects_duplicate_batch_ids() {
+        let id = BatchJobId::new(1);
+        let mut uut = BatchGraph::default();
+
+        uut.insert(id, Default::default(), Default::default()).unwrap();
+        let err = uut.insert(id, Default::default(), Default::default()).unwrap_err();
+        let expected = BatchInsertError::GraphError(GraphError::DuplicateKey(id));
+
+        assert_eq!(err, expected);
+    }
+
+    #[test]
+    fn insert_rejects_duplicate_transactions() {
+        let mut rng = Random::with_random_seed();
+        let tx_dup = rng.draw_tx_id();
+        let tx_non_dup = rng.draw_tx_id();
+
+        let mut uut = BatchGraph::default();
+
+        uut.insert(BatchJobId::new(1), vec![tx_dup], Default::default()).unwrap();
+        let err = uut
+            .insert(BatchJobId::new(2), vec![tx_dup, tx_non_dup], Default::default())
+            .unwrap_err();
+        let expected = BatchInsertError::DuplicateTransactions([tx_dup].into());
+
+        assert_eq!(err, expected);
+    }
+
+    #[test]
+    fn insert_rejects_missing_parents() {
+        let mut rng = Random::with_random_seed();
+        let tx = rng.draw_tx_id();
+        let missing = rng.draw_tx_id();
+
+        let mut uut = BatchGraph::default();
+
+        let err = uut.insert(BatchJobId::new(2), vec![tx], [missing].into()).unwrap_err();
+        let expected = BatchInsertError::UknownParentTransaction(missing);
+
+        assert_eq!(err, expected);
     }
 }

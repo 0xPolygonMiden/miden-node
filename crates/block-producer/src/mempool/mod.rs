@@ -38,8 +38,13 @@ impl Display for BatchJobId {
 }
 
 impl BatchJobId {
-    pub fn increment(mut self) {
+    pub fn increment(&mut self) {
         self.0 += 1;
+    }
+
+    #[cfg(test)]
+    pub fn new(value: u64) -> Self {
+        Self(value)
     }
 }
 
