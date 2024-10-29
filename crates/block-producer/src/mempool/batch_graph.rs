@@ -14,9 +14,9 @@ use crate::batch_builder::batch::TransactionBatch;
 
 /// Tracks the dependencies between batches, transactions and their parents.
 ///
-/// Batches are inserted with their transaction, and parent transaction sets which form the edges of
-/// the dependency graph. Batches are initially inserted in a pending state while we wait on their
-/// proofs to be generated. The dependencies are still tracked in this state.
+/// Batches are inserted with their transaction and parent transaction sets which defines the edges
+/// of the dependency graph. Batches are initially inserted in a pending state while we wait on
+/// their proofs to be generated. The dependencies are still tracked in this state.
 ///
 /// Batches can then be promoted to ready by [submitting their proofs](Self::submit_proof) once
 /// available. Proven batches are considered for inclusion in blocks once _all_ parent batches have
@@ -135,11 +135,14 @@ impl BatchGraph {
         &mut self,
         batches: BTreeSet<BatchJobId>,
     ) -> Result<BTreeMap<BatchJobId, Vec<TransactionId>>, GraphError<BatchJobId>> {
+        // This returns all descendent batches as well.
         let batches = self.inner.purge_subgraphs(batches)?;
 
+        // SAFETY: These batches must all have been inserted since they are emitted from the inner
+        // dependency graph, and therefore must all be in the batches mapping.
         let batches = batches
             .into_iter()
-            .map(|batch| (batch, self.batches.remove(&batch).expect("Malformed graph")))
+            .map(|batch| (batch, self.batches.remove(&batch).unwrap()))
             .collect::<BTreeMap<_, _>>();
 
         for tx in batches.values().flatten() {
@@ -272,5 +275,35 @@ mod tests {
         let expected = BatchInsertError::UknownParentTransaction(missing);
 
         assert_eq!(err, expected);
+    }
+
+    // PURGE_SUBGRAPHS TESTS
+    // ================================================================================================
+
+    #[test]
+    fn purge_subgraphs_returns_all_purged_transaction_sets() {
+        //! Ensure that purge_subgraphs returns both parent and child batches when the parent is
+        //! pruned. Further ensure that a disjoint batch is not pruned.
+        let mut rng = Random::with_random_seed();
+        let parent_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect::<Vec<_>>();
+        let child_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect::<Vec<_>>();
+        let disjoint_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect();
+
+        let parent_batch_id = BatchJobId::new(0);
+        let child_batch_id = BatchJobId::new(1);
+        let disjoint_batch_id = BatchJobId::new(2);
+
+        let mut uut = BatchGraph::default();
+        uut.insert(parent_batch_id, parent_batch_txs.clone(), Default::default())
+            .unwrap();
+        uut.insert(child_batch_id, child_batch_txs.clone(), [parent_batch_txs[0]].into())
+            .unwrap();
+        uut.insert(disjoint_batch_id, disjoint_batch_txs, Default::default()).unwrap();
+
+        let result = uut.purge_subgraphs([parent_batch_id].into()).unwrap();
+        let expected =
+            [(parent_batch_id, parent_batch_txs), (child_batch_id, child_batch_txs)].into();
+
+        assert_eq!(result, expected);
     }
 }
