@@ -66,7 +66,7 @@ impl<K, V> Default for DependencyGraph<K, V> {
     }
 }
 
-impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
+impl<K: Ord + Copy, V: Clone> DependencyGraph<K, V> {
     /// Inserts a new node into the graph.
     ///
     /// # Errors
@@ -82,7 +82,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
         let missing_parents = parents
             .iter()
             .filter(|parent| !self.vertices.contains_key(parent))
-            .cloned()
+            .copied()
             .collect::<BTreeSet<_>>();
         if !missing_parents.is_empty() {
             return Err(GraphError::MissingParents(missing_parents));
@@ -90,11 +90,11 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
 
         // Inform parents of their new child.
         for parent in &parents {
-            self.children.entry(parent.clone()).or_default().insert(key.clone());
+            self.children.entry(*parent).or_default().insert(key);
         }
-        self.vertices.insert(key.clone(), value);
-        self.parents.insert(key.clone(), parents);
-        self.children.insert(key.clone(), Default::default());
+        self.vertices.insert(key, value);
+        self.parents.insert(key, parents);
+        self.children.insert(key, Default::default());
 
         self.try_make_root(key);
 
@@ -115,12 +115,12 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
         let missing_nodes = keys
             .iter()
             .filter(|key| !self.vertices.contains_key(key))
-            .cloned()
+            .copied()
             .collect::<BTreeSet<_>>();
         if !missing_nodes.is_empty() {
             return Err(GraphError::UnknownNodes(missing_nodes));
         }
-        let unprocessed = keys.difference(&self.processed).cloned().collect::<BTreeSet<_>>();
+        let unprocessed = keys.difference(&self.processed).copied().collect::<BTreeSet<_>>();
         if !unprocessed.is_empty() {
             return Err(GraphError::UnprocessedNodes(unprocessed));
         }
@@ -137,7 +137,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
                 .map(|children| children.difference(&reverted))
                 .into_iter()
                 .flatten()
-                .cloned();
+                .copied();
 
             to_revert.extend(unprocessed_children);
 
@@ -176,13 +176,13 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
         let missing_nodes = keys
             .iter()
             .filter(|key| !self.vertices.contains_key(key))
-            .cloned()
+            .copied()
             .collect::<BTreeSet<_>>();
         if !missing_nodes.is_empty() {
             return Err(GraphError::UnknownNodes(missing_nodes));
         }
 
-        let unprocessed = keys.difference(&self.processed).cloned().collect::<BTreeSet<_>>();
+        let unprocessed = keys.difference(&self.processed).copied().collect::<BTreeSet<_>>();
         if !unprocessed.is_empty() {
             return Err(GraphError::UnprocessedNodes(unprocessed));
         }
@@ -193,7 +193,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             .flat_map(|key| self.parents.get(key))
             .flatten()
             .filter(|parent| !keys.contains(parent))
-            .cloned()
+            .copied()
             .collect::<BTreeSet<_>>();
         if !dangling.is_empty() {
             return Err(GraphError::DanglingNodes(dangling));
@@ -236,7 +236,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
         let missing_nodes = keys
             .iter()
             .filter(|key| !self.vertices.contains_key(key))
-            .cloned()
+            .copied()
             .collect::<BTreeSet<_>>();
         if !missing_nodes.is_empty() {
             return Err(GraphError::UnknownNodes(missing_nodes));
@@ -251,7 +251,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
                 .vertices
                 .remove(&key)
                 .expect("Node was checked in precondition and must therefore exist");
-            removed.insert(key.clone(), value);
+            removed.insert(key, value);
 
             self.processed.remove(&key);
             self.roots.remove(&key);
@@ -259,7 +259,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             // Children must also be purged. Take care not to visit them twice which is
             // possible since children can have multiple purged parents.
             let unvisited_children = self.children.remove(&key).unwrap_or_default();
-            let unvisited_children = unvisited_children.difference(&visited).cloned();
+            let unvisited_children = unvisited_children.difference(&visited);
             to_remove.extend(unvisited_children);
 
             // Inform parents that this child no longer exists.
@@ -315,7 +315,7 @@ impl<K: Ord + Clone, V: Clone> DependencyGraph<K, V> {
             return Err(GraphError::NotARootNode(key));
         }
 
-        self.processed.insert(key.clone());
+        self.processed.insert(key);
 
         self.children
             .get(&key)
@@ -374,7 +374,7 @@ mod tests {
 
         /// Calls process_root until all nodes have been processed.
         fn process_all(&mut self) {
-            while let Some(root) = self.roots().first().cloned() {
+            while let Some(root) = self.roots().first().copied() {
                 /// SAFETY: this is definitely a root since we just took it from there :)
                 self.process_root(root);
             }
