@@ -3,16 +3,27 @@ mod config;
 mod errors;
 mod handlers;
 mod state;
+mod store;
 
-use std::{fs::File, io::Write, path::PathBuf};
+use std::path::PathBuf;
 
+use anyhow::Context;
 use axum::{
     routing::{get, post},
     Router,
 };
 use clap::{Parser, Subcommand};
 use http::HeaderValue;
-use miden_node_utils::{config::load_config, version::LongVersion};
+use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
+use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
+use miden_objects::{
+    accounts::{AccountData, AccountStorageMode, AuthSecretKey},
+    assets::TokenSymbol,
+    crypto::dsa::rpo_falcon512::SecretKey,
+    Felt,
+};
+use rand::Rng;
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use state::FaucetState;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
@@ -20,10 +31,10 @@ use tower_http::{cors::CorsLayer, set_header::SetResponseHeaderLayer, trace::Tra
 use tracing::info;
 
 use crate::{
-    config::FaucetConfig,
-    errors::InitError,
+    config::{FaucetConfig, DEFAULT_FAUCET_ACCOUNT_PATH},
     handlers::{get_index, get_metadata, get_static_file, get_tokens},
 };
+
 // CONSTANTS
 // =================================================================================================
 
@@ -48,10 +59,24 @@ pub enum Command {
         config: PathBuf,
     },
 
-    /// Generates default configuration file for the faucet
+    /// Create a new public faucet account and save to the specified file
+    CreateFaucetAccount {
+        #[arg(short, long, value_name = "FILE", default_value = DEFAULT_FAUCET_ACCOUNT_PATH)]
+        output_path: PathBuf,
+        #[arg(short, long)]
+        token_symbol: String,
+        #[arg(short, long)]
+        decimals: u8,
+        #[arg(short, long)]
+        max_supply: u64,
+    },
+
+    /// Generate default configuration file for the faucet
     Init {
         #[arg(short, long, default_value = FAUCET_CONFIG_FILE_PATH)]
         config_path: String,
+        #[arg(short, long, default_value = DEFAULT_FAUCET_ACCOUNT_PATH)]
+        faucet_account_path: String,
     },
 }
 
@@ -59,16 +84,15 @@ pub enum Command {
 // =================================================================================================
 
 #[tokio::main]
-async fn main() -> Result<(), InitError> {
-    miden_node_utils::logging::setup_logging()
-        .map_err(|err| InitError::FaucetFailedToStart(err.to_string()))?;
+async fn main() -> anyhow::Result<()> {
+    miden_node_utils::logging::setup_logging().context("Failed to initialize logging")?;
 
     let cli = Cli::parse();
 
     match &cli.command {
         Command::Start { config } => {
-            let config: FaucetConfig = load_config(config)
-                .map_err(|err| InitError::ConfigurationError(err.to_string()))?;
+            let config: FaucetConfig =
+                load_config(config).context("Failed to load configuration file")?;
 
             let faucet_state = FaucetState::new(config.clone()).await?;
 
@@ -96,31 +120,67 @@ async fn main() -> Result<(), InitError> {
 
             let listener = TcpListener::bind((config.endpoint.host.as_str(), config.endpoint.port))
                 .await
-                .map_err(|err| InitError::FaucetFailedToStart(err.to_string()))?;
+                .context("Failed to bind TCP listener")?;
 
             info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
 
             axum::serve(listener, app).await.unwrap();
         },
-        Command::Init { config_path } => {
-            let current_dir = std::env::current_dir().map_err(|err| {
-                InitError::ConfigurationError(format!("failed to open current directory: {err}"))
-            })?;
+
+        Command::CreateFaucetAccount {
+            output_path,
+            token_symbol,
+            decimals,
+            max_supply,
+        } => {
+            println!("Generating new faucet account. This may take a few minutes...");
+
+            let current_dir =
+                std::env::current_dir().context("Failed to open current directory")?;
+
+            let mut rng = ChaCha20Rng::from_seed(rand::random());
+
+            let secret = SecretKey::with_rng(&mut get_rpo_random_coin(&mut rng));
+
+            let (account, account_seed) = create_basic_fungible_faucet(
+                rng.gen(),
+                TokenSymbol::try_from(token_symbol.as_str())
+                    .context("Failed to parse token symbol")?,
+                *decimals,
+                Felt::try_from(*max_supply)
+                    .expect("max supply value is greater than or equal to the field modulus"),
+                AccountStorageMode::Public,
+                AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
+            )
+            .context("Failed to create basic fungible faucet account")?;
+
+            let account_data =
+                AccountData::new(account, Some(account_seed), AuthSecretKey::RpoFalcon512(secret));
+
+            let output_path = current_dir.join(output_path);
+            account_data
+                .write(&output_path)
+                .context("Failed to write account data to file")?;
+
+            println!("Faucet account file successfully created at: {output_path:?}");
+        },
+
+        Command::Init { config_path, faucet_account_path } => {
+            let current_dir =
+                std::env::current_dir().context("Failed to open current directory")?;
 
             let config_file_path = current_dir.join(config_path);
-            let config = FaucetConfig::default();
-            let config_as_toml_string = toml::to_string(&config).map_err(|err| {
-                InitError::ConfigurationError(format!("Failed to serialize default config: {err}"))
-            })?;
 
-            let mut file_handle =
-                File::options().write(true).create_new(true).open(&config_file_path).map_err(
-                    |err| InitError::ConfigurationError(format!("Error opening the file: {err}")),
-                )?;
+            let config = FaucetConfig {
+                faucet_account_path: faucet_account_path.into(),
+                ..FaucetConfig::default()
+            };
 
-            file_handle.write(config_as_toml_string.as_bytes()).map_err(|err| {
-                InitError::ConfigurationError(format!("Error writing to file: {err}"))
-            })?;
+            let config_as_toml_string =
+                toml::to_string(&config).context("Failed to serialize default config")?;
+
+            std::fs::write(&config_file_path, config_as_toml_string)
+                .context("Error writing config to file")?;
 
             println!("Config file successfully created at: {config_file_path:?}");
         },

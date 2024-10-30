@@ -40,6 +40,7 @@ miden-processor = { git = "https://github.com/0xPolygonMiden/miden-vm.git", bran
 miden-stdlib = { git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 prost = { version = "0.13" }
+rand = { version = "0.8" }
 thiserror = { version = "1.0" }
 tokio = { version = "1.40", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1" }
