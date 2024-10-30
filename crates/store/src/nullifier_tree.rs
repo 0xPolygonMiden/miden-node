@@ -27,6 +27,11 @@ impl NullifierTree {
         Ok(Self(inner))
     }
 
+    /// Returns the root of the nullifier SMT.
+    pub fn root(&self) -> RpoDigest {
+        self.0.root()
+    }
+
     /// Returns an opening of the leaf associated with the given nullifier.
     pub fn open(&self, nullifier: &Nullifier) -> SmtProof {
         self.0.open(&nullifier.inner())
@@ -60,6 +65,9 @@ impl NullifierTree {
     ) -> Result<(), NullifierTreeError> {
         self.0.apply_mutations(mutations).map_err(Into::into)
     }
+
+    // HELPER FUNCTIONS
+    // --------------------------------------------------------------------------------------------
 
     /// Returns the nullifier's leaf value in the SMT by its block number.
     fn block_num_to_leaf_value(block: BlockNumber) -> Word {
