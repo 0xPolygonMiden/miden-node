@@ -211,9 +211,9 @@ impl State {
         // and nullifier trees, and validate the request
         let (
             nullifier_tree_old_root,
+            nullifier_tree_update,
             account_tree_old_root,
             account_tree_update,
-            nullifier_tree_update,
         ) = {
             let inner = self.inner.read().await;
 
@@ -263,9 +263,9 @@ impl State {
 
             (
                 inner.nullifier_tree.root(),
+                nullifier_tree_update,
                 inner.account_tree.root(),
                 account_tree_update,
-                nullifier_tree_update,
             )
         };
 
@@ -327,10 +327,10 @@ impl State {
             // successfully.
             let mut inner = self.inner.write().await;
 
-            // We need to check that neither the nullifier tree root, nor the account tree root
-            // haven't changed while we were waiting for the DB preparation task to complete.
-            // If it has changed, we mustn't proceed with both in-memory and database updates,
-            // since it might lead to inconsistent state.
+            // We need to check that neither the nullifier tree nor the account tree have changed
+            // while we were waiting for the DB preparation task to complete. If either of them
+            // did change, we do not proceed with in-memory and database updates, since it may
+            // lead to an inconsistent state.
             if inner.nullifier_tree.root() != nullifier_tree_old_root
                 || inner.account_tree.root() != account_tree_old_root
             {
