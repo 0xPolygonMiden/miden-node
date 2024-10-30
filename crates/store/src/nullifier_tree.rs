@@ -1,8 +1,7 @@
-use miden_crypto::merkle::SMT_DEPTH;
 use miden_objects::{
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{MutationSet, Smt, SmtProof},
+        merkle::{MutationSet, Smt, SmtProof, SMT_DEPTH},
     },
     notes::Nullifier,
     Felt, FieldElement, Word,

@@ -1653,7 +1653,6 @@ dependencies = [
  "directories",
  "figment",
  "hex",
- "miden-crypto",
  "miden-lib",
  "miden-node-proto",
  "miden-node-utils",

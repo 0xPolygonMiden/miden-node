@@ -207,8 +207,9 @@ impl State {
         let block_save_task =
             tokio::spawn(async move { store.save_block(block_num, &block_data).await });
 
-        // scope to read in-memory data, validate the request, and compute intermediary values
-        let (account_tree_update, nullifier_tree_update, account_tree_old_root) = {
+        // scope to read in-memory data, compute mutations required for updating account
+        // and nullifier trees, and validate the request
+        let (account_tree_old_root, account_tree_update, nullifier_tree_update) = {
             let inner = self.inner.read().await;
 
             let _span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
@@ -255,7 +256,7 @@ impl State {
                 return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
             }
 
-            (account_tree_update, nullifier_tree_update, inner.account_tree.root())
+            (inner.account_tree.root(), account_tree_update, nullifier_tree_update)
         };
 
         // build note tree
