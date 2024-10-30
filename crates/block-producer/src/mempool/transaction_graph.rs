@@ -21,9 +21,28 @@ use crate::domain::transaction::AuthenticatedTransaction;
 /// selection. Successful batches will eventually form part of a committed block at which point the
 /// transaction data may be safely [pruned](Self::prune_committed).
 ///
-/// Transactions may also be outright [purged](Self::purge_subgraphs) from the graph. This is useful
-/// for transactions which may have become invalid due to external considerations e.g. expired
-/// transactions.
+/// Transactions may also be outright [purged](Self::remove_transactions) from the graph. This is
+/// useful for transactions which may have become invalid due to external considerations e.g.
+/// expired transactions.
+///
+/// # Transaction lifecycle:
+/// ```
+///                                        │                                   
+///                                  insert│                                   
+///                                  ┌─────▼─────┐                             
+///                        ┌─────────►           ┼────┐                        
+///                        │         └─────┬─────┘    │                        
+///                        │               │          │                        
+///    requeue_transactions│   select_batch│          │                        
+///                        │         ┌─────▼─────┐    │                        
+///                        └─────────┼ in batch  ┼────┤                        
+///                                  └─────┬─────┘    │                        
+///                                        │          │                        
+///                     commit_transactions│          │remove_transactions     
+///                                  ┌─────▼─────┐    │                        
+///                                  │  <null>   ◄────┘                        
+///                                  └───────────┘                             
+/// ```
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TransactionGraph {
     inner: DependencyGraph<TransactionId, AuthenticatedTransaction>,
@@ -115,7 +134,7 @@ impl TransactionGraph {
     /// # Errors
     ///
     /// Follows the error conditions of [DependencyGraph::purge_subgraphs].
-    pub fn purge_subgraphs(
+    pub fn remove_transactions(
         &mut self,
         transactions: Vec<TransactionId>,
     ) -> Result<BTreeSet<TransactionId>, GraphError<TransactionId>> {

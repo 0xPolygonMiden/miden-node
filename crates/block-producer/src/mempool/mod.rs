@@ -156,7 +156,7 @@ impl Mempool {
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchJobId) {
         let removed_batches =
-            self.batches.purge_subgraphs([batch].into()).expect("Batch was not present");
+            self.batches.remove_batches([batch].into()).expect("Batch was not present");
 
         // Its possible to receive failures for batches which were already removed
         // as part of a prior failure. Early exit to prevent logging these no-ops.
@@ -227,13 +227,13 @@ impl Mempool {
         let batches = self.block_in_progress.take().expect("No block in progress to be failed");
 
         // Remove all transactions from the graphs.
-        let purged = self.batches.purge_subgraphs(batches).expect("Bad graph");
+        let purged = self.batches.remove_batches(batches).expect("Bad graph");
         let batches = purged.keys().collect::<Vec<_>>();
         let transactions = purged.into_values().flatten().collect();
 
         let transactions = self
             .transactions
-            .purge_subgraphs(transactions)
+            .remove_transactions(transactions)
             .expect("Transaction graph is malformed");
 
         // Rollback state.

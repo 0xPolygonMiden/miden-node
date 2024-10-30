@@ -46,7 +46,7 @@ use crate::batch_builder::batch::TransactionBatch;
 ///                     │ committed ┼────┤                
 ///                     └─────┬─────┘    │                
 ///                           │          │                
-///            prune_committed│          │purge_subgraphs
+///            prune_committed│          │remove_batches
 ///                     ┌─────▼─────┐    │                
 ///                     │  <null>   ◄────┘                
 ///                     └───────────┘                     
@@ -74,7 +74,7 @@ pub enum BatchInsertError {
     #[error("Transactions are already in the graph: {0:?}")]
     DuplicateTransactions(BTreeSet<TransactionId>),
     #[error("Unknown parent transaction {0}")]
-    UknownParentTransaction(TransactionId),
+    UnknownParentTransaction(TransactionId),
     #[error(transparent)]
     GraphError(#[from] GraphError<BatchJobId>),
 }
@@ -110,7 +110,7 @@ impl BatchGraph {
                 self.transactions
                     .get(&tx)
                     .copied()
-                    .ok_or(BatchInsertError::UknownParentTransaction(tx))
+                    .ok_or(BatchInsertError::UnknownParentTransaction(tx))
             })
             .collect::<Result<_, _>>()?;
 
@@ -126,23 +126,25 @@ impl BatchGraph {
 
     /// Removes the batches and their descendants from the graph.
     ///
-    /// Returns all removed batches and their transactions.
+    /// # Returns
+    ///
+    /// Returns all removes batches and their transactions.
     ///
     /// # Errors
     ///
     /// Returns an error if any of the batches are not currently in the graph.
-    pub fn purge_subgraphs(
+    pub fn remove_batches(
         &mut self,
-        batches: BTreeSet<BatchJobId>,
+        batch_ids: BTreeSet<BatchJobId>,
     ) -> Result<BTreeMap<BatchJobId, Vec<TransactionId>>, GraphError<BatchJobId>> {
         // This returns all descendent batches as well.
-        let batches = self.inner.purge_subgraphs(batches)?;
+        let batch_ids = self.inner.purge_subgraphs(batch_ids)?;
 
         // SAFETY: These batches must all have been inserted since they are emitted from the inner
         // dependency graph, and therefore must all be in the batches mapping.
-        let batches = batches
+        let batches = batch_ids
             .into_iter()
-            .map(|batch| (batch, self.batches.remove(&batch).unwrap()))
+            .map(|batch_id| (batch_id, self.batches.remove(&batch_id).unwrap()))
             .collect::<BTreeMap<_, _>>();
 
         for tx in batches.values().flatten() {
@@ -152,7 +154,7 @@ impl BatchGraph {
         Ok(batches)
     }
 
-    /// Removes set set of committed batches from the graph.
+    /// Removes the set of committed batches from the graph.
     ///
     /// The batches _must_ have been previously selected for inclusion in a block using
     /// [`select_block`](Self::select_block). This is intended for limiting the size of the graph by
@@ -172,13 +174,13 @@ impl BatchGraph {
     /// The last point implies that batches should be removed in block order.
     pub fn prune_committed(
         &mut self,
-        batches: BTreeSet<BatchJobId>,
+        batch_ids: BTreeSet<BatchJobId>,
     ) -> Result<Vec<TransactionId>, GraphError<BatchJobId>> {
-        self.inner.prune_processed(batches.clone())?;
+        self.inner.prune_processed(batch_ids.clone())?;
         let mut transactions = Vec::new();
 
-        for batch in &batches {
-            transactions.extend(self.batches.remove(batch).into_iter().flatten());
+        for batch_id in &batch_ids {
+            transactions.extend(self.batches.remove(batch_id).into_iter().flatten());
         }
 
         for tx in &transactions {
@@ -272,7 +274,7 @@ mod tests {
         let mut uut = BatchGraph::default();
 
         let err = uut.insert(BatchJobId::new(2), vec![tx], [missing].into()).unwrap_err();
-        let expected = BatchInsertError::UknownParentTransaction(missing);
+        let expected = BatchInsertError::UnknownParentTransaction(missing);
 
         assert_eq!(err, expected);
     }
@@ -300,7 +302,7 @@ mod tests {
             .unwrap();
         uut.insert(disjoint_batch_id, disjoint_batch_txs, Default::default()).unwrap();
 
-        let result = uut.purge_subgraphs([parent_batch_id].into()).unwrap();
+        let result = uut.remove_batches([parent_batch_id].into()).unwrap();
         let expected =
             [(parent_batch_id, parent_batch_txs), (child_batch_id, child_batch_txs)].into();
 

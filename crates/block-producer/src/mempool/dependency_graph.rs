@@ -15,6 +15,27 @@ use miden_tx::utils::collections::KvMap;
 ///
 /// # Node lifecycle
 /// ```
+///                                    │                           
+///                                    │                           
+///                      insert_pending│                           
+///                              ┌─────▼─────┐                     
+///                              │  pending  │────┐                
+///                              └─────┬─────┘    │                
+///                                    │          │                
+///                     promote_pending│          │                
+///                              ┌─────▼─────┐    │                
+///                   ┌──────────► in queue  │────│                
+///                   │          └─────┬─────┘    │                
+///   revert_processed│                │          │                
+///                   │    process_root│          │                
+///                   │          ┌─────▼─────┐    │                
+///                   └──────────┼ processed │────│                
+///                              └─────┬─────┘    │                
+///                                    │          │                
+///                     prune_processed│          │purge_subgraphs
+///                              ┌─────▼─────┐    │                
+///                              │  <null>   ◄────┘                
+///                              └───────────┘                     
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DependencyGraph<K, V> {
