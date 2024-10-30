@@ -21,9 +21,28 @@ use crate::domain::transaction::AuthenticatedTransaction;
 /// selection. Successful batches will eventually form part of a committed block at which point the
 /// transaction data may be safely [pruned](Self::prune_committed).
 ///
-/// Transactions may also be outright [purged](Self::purge_subgraphs) from the graph. This is useful
-/// for transactions which may have become invalid due to external considerations e.g. expired
-/// transactions.
+/// Transactions may also be outright [purged](Self::remove_transactions) from the graph. This is
+/// useful for transactions which may have become invalid due to external considerations e.g.
+/// expired transactions.
+///
+/// # Transaction lifecycle:
+/// ```
+///                                        │                                   
+///                                  insert│                                   
+///                                  ┌─────▼─────┐                             
+///                        ┌─────────►           ┼────┐                        
+///                        │         └─────┬─────┘    │                        
+///                        │               │          │                        
+///    requeue_transactions│   select_batch│          │                        
+///                        │         ┌─────▼─────┐    │                        
+///                        └─────────┼ in batch  ┼────┤                        
+///                                  └─────┬─────┘    │                        
+///                                        │          │                        
+///                     commit_transactions│          │remove_transactions     
+///                                  ┌─────▼─────┐    │                        
+///                                  │  <null>   ◄────┘                        
+///                                  └───────────┘                             
+/// ```
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TransactionGraph {
     inner: DependencyGraph<TransactionId, AuthenticatedTransaction>,
@@ -40,7 +59,8 @@ impl TransactionGraph {
         transaction: AuthenticatedTransaction,
         parents: BTreeSet<TransactionId>,
     ) -> Result<(), GraphError<TransactionId>> {
-        self.inner.insert(transaction.id(), transaction, parents)
+        self.inner.insert_pending(transaction.id(), parents)?;
+        self.inner.promote_pending(transaction.id(), transaction)
     }
 
     /// Selects a set of up-to count transactions for the next batch, as well as their parents.
@@ -67,8 +87,10 @@ impl TransactionGraph {
                 break;
             };
 
-            // SAFETY: we retieved a root node, and therefore this node must exist.
+            // SAFETY: This is definitely a root since we just selected it from the set of roots.
             self.inner.process_root(root).unwrap();
+            // SAFETY: Since it was a root batch, it must definitely have a processed batch
+            // associated with it.
             let tx = self.inner.get(&root).unwrap();
             let tx_parents = self.inner.parents(&root).unwrap();
 
@@ -112,13 +134,13 @@ impl TransactionGraph {
     /// # Errors
     ///
     /// Follows the error conditions of [DependencyGraph::purge_subgraphs].
-    pub fn purge_subgraphs(
+    pub fn remove_transactions(
         &mut self,
         transactions: Vec<TransactionId>,
-    ) -> Result<Vec<AuthenticatedTransaction>, GraphError<TransactionId>> {
+    ) -> Result<BTreeSet<TransactionId>, GraphError<TransactionId>> {
         // TODO: revisit this api.
         let transactions = transactions.into_iter().collect();
-        self.inner.purge_subgraphs(transactions).map(|kv| kv.into_values().collect())
+        self.inner.purge_subgraphs(transactions)
     }
 }
 
