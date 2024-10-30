@@ -38,8 +38,13 @@ impl Display for BatchJobId {
 }
 
 impl BatchJobId {
-    pub fn increment(mut self) {
+    pub fn increment(&mut self) {
         self.0 += 1;
+    }
+
+    #[cfg(test)]
+    pub fn new(value: u64) -> Self {
+        Self(value)
     }
 }
 
@@ -150,7 +155,8 @@ impl Mempool {
     ///
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchJobId) {
-        let removed_batches = self.batches.purge_subgraphs([batch].into());
+        let removed_batches =
+            self.batches.remove_batches([batch].into()).expect("Batch was not present");
 
         // Its possible to receive failures for batches which were already removed
         // as part of a prior failure. Early exit to prevent logging these no-ops.
@@ -168,7 +174,7 @@ impl Mempool {
 
     /// Marks a batch as proven if it exists.
     pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
-        self.batches.mark_proven(batch_id, batch);
+        self.batches.submit_proof(batch_id, batch);
     }
 
     /// Select batches for the next block.
@@ -197,7 +203,7 @@ impl Mempool {
 
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
-        let transactions = self.batches.remove_committed(batches);
+        let transactions = self.batches.prune_committed(batches).expect("Batches failed to commit");
         let transactions = self
             .transactions
             .commit_transactions(&transactions)
@@ -221,16 +227,21 @@ impl Mempool {
         let batches = self.block_in_progress.take().expect("No block in progress to be failed");
 
         // Remove all transactions from the graphs.
-        let purged = self.batches.purge_subgraphs(batches);
+        let purged = self.batches.remove_batches(batches).expect("Bad graph");
         let batches = purged.keys().collect::<Vec<_>>();
         let transactions = purged.into_values().flatten().collect();
 
         let transactions = self
             .transactions
-            .purge_subgraphs(transactions)
+            .remove_transactions(transactions)
             .expect("Transaction graph is malformed");
 
         // Rollback state.
+        let transactions = transactions
+            .into_iter()
+            // FIXME
+            .map(|tx_id| todo!("Inflight state should remember diffs"))
+            .collect::<Vec<_>>();
         self.state.revert_transactions(&transactions);
     }
 }
