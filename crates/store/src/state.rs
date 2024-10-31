@@ -281,7 +281,9 @@ impl State {
                 let details = match note {
                     OutputNote::Full(note) => Some(note.to_bytes()),
                     OutputNote::Header(_) => None,
-                    note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
+                    note => {
+                        return Err(ApplyBlockError::InvalidOutputNoteType(Box::new(note.clone())))
+                    },
                 };
 
                 let merkle_path = note_tree.get_note_path(note_index);
@@ -313,9 +315,7 @@ impl State {
             );
 
         // Wait for the message from the DB update task, that we ready to commit the DB transaction
-        acquired_allowed
-            .await
-            .map_err(ApplyBlockError::BlockApplyingBrokenBecauseOfClosedChannel)?;
+        acquired_allowed.await.map_err(ApplyBlockError::ClosedChannel)?;
 
         // Awaiting the block saving task to complete without errors
         block_save_task.await??;
@@ -339,13 +339,17 @@ impl State {
 
             // Notify the DB update task that the write lock has been acquired, so it can commit
             // the DB transaction
-            let _ = inform_acquire_done.send(());
+            inform_acquire_done
+                .send(())
+                .map_err(|_| ApplyBlockError::DbUpdateTaskFailed("Receiver was dropped".into()))?;
 
             // TODO: shutdown #91
             // Await for successful commit of the DB transaction. If the commit fails, we mustn't
             // change in-memory state, so we return a block applying error and don't proceed with
             // in-memory updates.
-            db_update_task.await??;
+            db_update_task
+                .await?
+                .map_err(|err| ApplyBlockError::DbUpdateTaskFailed(err.to_string()))?;
 
             // Update the in-memory data structures after successful commit of the DB transaction
             inner
