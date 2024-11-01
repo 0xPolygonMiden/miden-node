@@ -225,17 +225,15 @@ impl InflightState {
         account_parent.into_iter().chain(note_parents).collect()
     }
 
-    /// Reverts the given state diff.
+    /// Reverts the given set of _uncommitted_ transactions.
     ///
     /// # Panics
     ///
-    /// Panics if any part of the diff isn't present in the state. Callers should take
-    /// care to only revert transaction sets who's ancestors are all either committed or reverted.
+    /// Panics if any transactions is not part of the uncommitted state. Callers should take care to
+    /// only revert transaction sets who's ancestors are all either committed or reverted.
     pub fn revert_transactions(&mut self, txs: BTreeSet<TransactionId>) {
         for tx in txs {
-            let Some(delta) = self.transaction_deltas.remove(&tx) else {
-                todo!("ERROR ME");
-            };
+            let delta = self.transaction_deltas.remove(&tx).expect("Transaction delta must exist");
 
             // SAFETY: Since the delta exists, so must the account.
             let account_status = self.accounts.get_mut(&delta.account).unwrap().revert(1);
@@ -264,14 +262,11 @@ impl InflightState {
     ///
     /// # Panics
     ///
-    /// Panics if the accounts don't have enough inflight transactions to commit or if
-    /// the output notes don't exist.
+    /// Panics if any transactions is not part of the uncommitted state.
     pub fn commit_block(&mut self, txs: impl IntoIterator<Item = TransactionId>) {
         let mut block_deltas = BTreeMap::new();
         for tx in txs.into_iter() {
-            let Some(delta) = self.transaction_deltas.remove(&tx) else {
-                todo!("EORO");
-            };
+            let delta = self.transaction_deltas.remove(&tx).expect("Transaction delta must exist");
 
             // SAFETY: Since the delta exists, so must the account.
             self.accounts.get_mut(&delta.account).unwrap().commit(1);
