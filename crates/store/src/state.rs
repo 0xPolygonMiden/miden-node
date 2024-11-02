@@ -5,6 +5,7 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::Not,
     sync::Arc,
 };
 
@@ -202,15 +203,21 @@ impl State {
         // block store. Thus, such block should be considered as block candidates, but not
         // finalized blocks. So we should check for the latest block when getting block from
         // the store.
-        let store = self.block_store.clone();
+        let store = Arc::clone(&self.block_store);
         let block_save_task =
             tokio::spawn(async move { store.save_block(block_num, &block_data).await });
 
-        // scope to read in-memory data, validate the request, and compute intermediary values
-        let (account_tree, chain_mmr, nullifier_tree, notes) = {
+        // scope to read in-memory data, compute mutations required for updating account
+        // and nullifier trees, and validate the request
+        let (
+            nullifier_tree_old_root,
+            nullifier_tree_update,
+            account_tree_old_root,
+            account_tree_update,
+        ) = {
             let inner = self.inner.read().await;
 
-            let span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
+            let _span = info_span!(target: COMPONENT, "update_in_memory_structs").entered();
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = block
@@ -223,88 +230,72 @@ impl State {
                 return Err(ApplyBlockError::DuplicatedNullifiers(duplicate_nullifiers));
             }
 
-            // update the in-memory data structures and compute the new block header. Important, the
-            // structures are not yet committed
+            // compute updates for the in-memory data structures
 
-            // update chain MMR
-            let chain_mmr = {
-                let mut chain_mmr = inner.chain_mmr.clone();
-
-                // new_block.chain_root must be equal to the chain MMR root prior to the update
-                let peaks = chain_mmr.peaks(chain_mmr.forest()).map_err(|error| {
-                    ApplyBlockError::FailedToGetMmrPeaksForForest {
-                        forest: chain_mmr.forest(),
-                        error,
-                    }
-                })?;
-                if peaks.hash_peaks() != header.chain_root() {
-                    return Err(ApplyBlockError::NewBlockInvalidChainRoot);
-                }
-
-                chain_mmr.add(block_hash);
-                chain_mmr
-            };
-
-            // update nullifier tree
-            let nullifier_tree = {
-                let mut nullifier_tree = inner.nullifier_tree.clone();
-                for nullifier in block.nullifiers() {
-                    nullifier_tree
-                        .insert(nullifier, block_num)
-                        .map_err(ApplyBlockError::FailedToUpdateNullifierTree)?;
-                }
-
-                if nullifier_tree.root() != header.nullifier_root() {
-                    return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
-                }
-                nullifier_tree
-            };
-
-            // update account tree
-            let mut account_tree = inner.account_tree.clone();
-            for update in block.updated_accounts() {
-                account_tree.insert(
-                    LeafIndex::new_max_depth(update.account_id().into()),
-                    update.new_state_hash().into(),
-                );
+            // new_block.chain_root must be equal to the chain MMR root prior to the update
+            let peaks = inner.chain_mmr.peaks();
+            if peaks.hash_peaks() != header.chain_root() {
+                return Err(ApplyBlockError::NewBlockInvalidChainRoot);
             }
 
-            if account_tree.root() != header.account_root() {
+            // compute update for nullifier tree
+            let nullifier_tree_update = inner.nullifier_tree.compute_mutations(
+                block.nullifiers().iter().map(|nullifier| (*nullifier, block_num)),
+            );
+
+            if nullifier_tree_update.root() != header.nullifier_root() {
+                return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
+            }
+
+            // compute update for account tree
+            let account_tree_update = inner.account_tree.compute_mutations(
+                block.updated_accounts().iter().map(|update| {
+                    (
+                        LeafIndex::new_max_depth(update.account_id().into()),
+                        update.new_state_hash().into(),
+                    )
+                }),
+            );
+
+            if account_tree_update.root() != header.account_root() {
                 return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
             }
 
-            // build note tree
-            let note_tree = block.build_note_tree();
-            if note_tree.root() != header.note_root() {
-                return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
-            }
-
-            drop(span);
-
-            let notes = block
-                .notes()
-                .map(|(note_index, note)| {
-                    let details = match note {
-                        OutputNote::Full(note) => Some(note.to_bytes()),
-                        OutputNote::Header(_) => None,
-                        note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
-                    };
-
-                    let merkle_path = note_tree.get_note_path(note_index);
-
-                    Ok(NoteRecord {
-                        block_num,
-                        note_index,
-                        note_id: note.id().into(),
-                        metadata: *note.metadata(),
-                        details,
-                        merkle_path,
-                    })
-                })
-                .collect::<Result<Vec<NoteRecord>, ApplyBlockError>>()?;
-
-            (account_tree, chain_mmr, nullifier_tree, notes)
+            (
+                inner.nullifier_tree.root(),
+                nullifier_tree_update,
+                inner.account_tree.root(),
+                account_tree_update,
+            )
         };
+
+        // build note tree
+        let note_tree = block.build_note_tree();
+        if note_tree.root() != header.note_root() {
+            return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
+        }
+
+        let notes = block
+            .notes()
+            .map(|(note_index, note)| {
+                let details = match note {
+                    OutputNote::Full(note) => Some(note.to_bytes()),
+                    OutputNote::Header(_) => None,
+                    note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
+                };
+
+                let merkle_path = note_tree.get_note_path(note_index);
+
+                Ok(NoteRecord {
+                    block_num,
+                    note_index,
+                    note_id: note.id().into(),
+                    metadata: *note.metadata(),
+                    details,
+                    merkle_path,
+                })
+            })
+            .collect::<Result<Vec<NoteRecord>, ApplyBlockError>>()?;
 
         // Signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
@@ -315,7 +306,7 @@ impl State {
         // overlapping. Namely, the DB transaction only proceeds after this task acquires the
         // in-memory write lock. This requires the DB update to run concurrently, so a new task is
         // spawned.
-        let db = self.db.clone();
+        let db = Arc::clone(&self.db);
         let db_update_task =
             tokio::spawn(
                 async move { db.apply_block(allow_acquire, acquire_done, block, notes).await },
@@ -336,6 +327,16 @@ impl State {
             // successfully.
             let mut inner = self.inner.write().await;
 
+            // We need to check that neither the nullifier tree nor the account tree have changed
+            // while we were waiting for the DB preparation task to complete. If either of them
+            // did change, we do not proceed with in-memory and database updates, since it may
+            // lead to an inconsistent state.
+            if inner.nullifier_tree.root() != nullifier_tree_old_root
+                || inner.account_tree.root() != account_tree_old_root
+            {
+                return Err(ApplyBlockError::ConcurrentWrite);
+            }
+
             // Notify the DB update task that the write lock has been acquired, so it can commit
             // the DB transaction
             let _ = inform_acquire_done.send(());
@@ -347,9 +348,15 @@ impl State {
             db_update_task.await??;
 
             // Update the in-memory data structures after successful commit of the DB transaction
-            inner.chain_mmr = chain_mmr;
-            inner.nullifier_tree = nullifier_tree;
-            inner.account_tree = account_tree;
+            inner
+                .nullifier_tree
+                .apply_mutations(nullifier_tree_update)
+                .expect("Unreachable: old nullifier tree root must be checked before this step");
+            inner
+                .account_tree
+                .apply_mutations(account_tree_update)
+                .expect("Unreachable: old account tree root must be checked before this step");
+            inner.chain_mmr.add(block_hash);
         }
 
         info!(%block_hash, block_num, COMPONENT, "apply_block successful");
@@ -371,8 +378,7 @@ impl State {
         if let Some(header) = block_header {
             let mmr_proof = if include_mmr_proof {
                 let inner = self.inner.read().await;
-                let mmr_proof =
-                    inner.chain_mmr.open(header.block_num() as usize, inner.chain_mmr.forest())?;
+                let mmr_proof = inner.chain_mmr.open(header.block_num() as usize)?;
                 Some(mmr_proof)
             } else {
                 None
@@ -443,7 +449,7 @@ impl State {
             let paths = blocks
                 .iter()
                 .map(|&block_num| {
-                    let proof = state.chain_mmr.open(block_num as usize, chain_length)?.merkle_path;
+                    let proof = state.chain_mmr.open(block_num as usize)?.merkle_path;
 
                     Ok::<_, MmrError>((block_num, proof))
                 })
@@ -547,9 +553,7 @@ impl State {
 
         let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
 
-        let mmr_proof = inner
-            .chain_mmr
-            .open(note_sync.block_header.block_num() as usize, inner.chain_mmr.forest())?;
+        let mmr_proof = inner.chain_mmr.open(note_sync.block_header.block_num() as usize)?;
 
         Ok((note_sync, mmr_proof))
     }
@@ -579,12 +583,13 @@ impl State {
 
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
-        let chain_peaks = inner.chain_mmr.peaks(latest.block_num() as usize).map_err(|error| {
-            GetBlockInputsError::FailedToGetMmrPeaksForForest {
-                forest: latest.block_num() as usize,
-                error,
-            }
-        })?;
+        let chain_peaks =
+            inner.chain_mmr.peaks_at(latest.block_num() as usize).map_err(|error| {
+                GetBlockInputsError::FailedToGetMmrPeaksForForest {
+                    forest: latest.block_num() as usize,
+                    error,
+                }
+            })?;
         let account_states = account_ids
             .iter()
             .cloned()
@@ -679,10 +684,11 @@ impl State {
         self.db.select_account(id).await
     }
 
-    /// Returns account states with details for public accounts.
-    pub async fn get_account_states(
+    /// Returns account proofs with optional account and storage headers.
+    pub async fn get_account_proofs(
         &self,
         account_ids: Vec<AccountId>,
+        request_code_commitments: BTreeSet<RpoDigest>,
         include_headers: bool,
     ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
         // Lock inner state for the whole operation. We need to hold this lock to prevent the
@@ -696,8 +702,7 @@ impl State {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
 
             if account_ids.len() > infos.len() {
-                let found_ids: BTreeSet<AccountId> =
-                    infos.iter().map(|info| info.summary.account_id.into()).collect();
+                let found_ids = infos.iter().map(|info| info.summary.account_id.into()).collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
                     BTreeSet::from_iter(account_ids).difference(&found_ids).copied().collect(),
                 ));
@@ -712,6 +717,12 @@ impl State {
                             AccountStateHeader {
                                 header: Some(AccountHeader::from(&details).into()),
                                 storage_header: details.storage().get_header().to_bytes(),
+                                // Only include account code if the request did not contain it
+                                // (known by the caller)
+                                account_code: request_code_commitments
+                                    .contains(&details.code().commitment())
+                                    .not()
+                                    .then_some(details.code().to_bytes()),
                             },
                         )
                     })
@@ -724,12 +735,13 @@ impl State {
             .map(|account_id| {
                 let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
                 let opening = inner_state.account_tree.open(&acc_leaf_idx);
+                let state_header = state_headers.get(&account_id).cloned();
 
                 AccountProofsResponse {
                     account_id: Some(account_id.into()),
                     account_hash: Some(opening.value.into()),
                     account_proof: Some(opening.path.into()),
-                    state_header: state_headers.get(&account_id).cloned(),
+                    state_header,
                 }
             })
             .collect();

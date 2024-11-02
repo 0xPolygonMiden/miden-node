@@ -153,7 +153,13 @@ pub struct GetAccountProofsRequest {
     /// List of account IDs to get states.
     #[prost(message, repeated, tag = "1")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Optional flag to include header in the response. `false` by default.
+    /// Optional flag to include header and account code in the response. `false` by default.
     #[prost(bool, optional, tag = "2")]
     pub include_headers: ::core::option::Option<bool>,
+    /// Account code commitments corresponding to the last-known `AccountCode` for requested
+    /// accounts. Responses will include only the ones that are not known to the caller.
+    /// These are not associated with a specific account but rather, they will be matched against
+    /// all requested accounts.
+    #[prost(message, repeated, tag = "3")]
+    pub code_commitments: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }

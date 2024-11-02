@@ -20,6 +20,7 @@ anyhow = { version = "1.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.12" }
 miden-objects = { workspace = true }
+rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
 tonic = { workspace = true }
