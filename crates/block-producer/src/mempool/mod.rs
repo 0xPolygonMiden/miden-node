@@ -204,13 +204,12 @@ impl Mempool {
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
         let transactions = self.batches.prune_committed(batches).expect("Batches failed to commit");
-        let transactions = self
-            .transactions
+        self.transactions
             .commit_transactions(&transactions)
             .expect("Transaction graph malformed");
 
         // Inform inflight state about committed data.
-        self.state.commit_block(&transactions);
+        self.state.commit_block(transactions);
 
         self.chain_tip.increment();
     }
@@ -237,11 +236,6 @@ impl Mempool {
             .expect("Transaction graph is malformed");
 
         // Rollback state.
-        let transactions = transactions
-            .into_iter()
-            // FIXME
-            .map(|tx_id| todo!("Inflight state should remember diffs"))
-            .collect::<Vec<_>>();
-        self.state.revert_transactions(&transactions);
+        self.state.revert_transactions(transactions);
     }
 }
