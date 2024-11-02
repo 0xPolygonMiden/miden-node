@@ -64,10 +64,14 @@ pub struct InflightState {
     chain_tip: BlockNumber,
 }
 
+/// A summary of a transaction's impact on the state.
 #[derive(Clone, Debug, PartialEq)]
 struct Delta {
+    /// The account this transaction updated.
     account: AccountId,
+    /// The nullifiers produced by this transaction.
     nullifiers: BTreeSet<Nullifier>,
+    /// The output notes created by this transaction.
     output_notes: BTreeSet<NoteId>,
 }
 
