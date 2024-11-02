@@ -57,9 +57,6 @@ pub struct DefaultBatchBuilder<S, BB> {
     ready_batches: SharedRwVec<TransactionBatch>,
 }
 
-// FIXME: remove the allow when the upstream clippy issue is fixed:
-// https://github.com/rust-lang/rust-clippy/issues/12281
-#[allow(clippy::blocks_in_conditions)]
 impl<S, BB> DefaultBatchBuilder<S, BB>
 where
     S: Store,
@@ -146,9 +143,6 @@ where
     }
 }
 
-// FIXME: remove the allow when the upstream clippy issue is fixed:
-// https://github.com/rust-lang/rust-clippy/issues/12281
-#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl<S, BB> BatchBuilder for DefaultBatchBuilder<S, BB>
 where
