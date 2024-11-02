@@ -56,9 +56,6 @@ impl RpcApi {
     }
 }
 
-// FIXME: remove the allow when the upstream clippy issue is fixed:
-// https://github.com/rust-lang/rust-clippy/issues/12281
-#[allow(clippy::blocks_in_conditions)]
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
     #[instrument(

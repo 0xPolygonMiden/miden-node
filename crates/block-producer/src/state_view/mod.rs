@@ -56,9 +56,6 @@ where
     }
 }
 
-// FIXME: remove the allow when the upstream clippy issue is fixed:
-// https://github.com/rust-lang/rust-clippy/issues/12281
-#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl<S> TransactionValidator for DefaultStateView<S>
 where
@@ -136,9 +133,6 @@ where
     }
 }
 
-// FIXME: remove the allow when the upstream clippy issue is fixed:
-// https://github.com/rust-lang/rust-clippy/issues/12281
-#[allow(clippy::blocks_in_conditions)]
 #[async_trait]
 impl<S> ApplyBlock for DefaultStateView<S>
 where
