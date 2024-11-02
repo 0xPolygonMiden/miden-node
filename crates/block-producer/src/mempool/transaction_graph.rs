@@ -121,10 +121,11 @@ impl TransactionGraph {
     pub fn commit_transactions(
         &mut self,
         tx_ids: &[TransactionId],
-    ) -> Result<Vec<AuthenticatedTransaction>, GraphError<TransactionId>> {
+    ) -> Result<(), GraphError<TransactionId>> {
         // TODO: revisit this api.
         let tx_ids = tx_ids.iter().cloned().collect();
-        self.inner.prune_processed(tx_ids)
+        self.inner.prune_processed(tx_ids)?;
+        Ok(())
     }
 
     /// Removes the transactions and all their descendants from the graph.
