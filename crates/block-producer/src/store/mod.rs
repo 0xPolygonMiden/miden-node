@@ -154,6 +154,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
 // DEFAULT STORE IMPLEMENTATION
 // ================================================================================================
 
+#[derive(Clone)]
 pub struct DefaultStore {
     store: store_client::ApiClient<Channel>,
 }

@@ -56,9 +56,9 @@ type Api = api::BlockProducerApi<
 /// Separating the connection binding from the server spawning allows the caller to connect other
 /// components to the store without resorting to sleeps or other mechanisms to spawn dependent
 /// components.
-pub struct BlockProducer<BB> {
+pub struct BlockProducer {
     batch_config: BatchProver,
-    block_config: BlockProver<BB>,
+    block_config: BlockProver,
     batch_limit: usize,
     block_limit: usize,
     state_retention: usize,
@@ -67,13 +67,14 @@ pub struct BlockProducer<BB> {
     chain_tip: BlockNumber,
 }
 
-impl<BB: BlockBuilder + Default> BlockProducer<BB> {
+impl BlockProducer {
     /// Performs all expensive initialization tasks, and notably begins listening on the rpc
     /// endpoint without serving the API yet. Incoming requests will be queued until
     /// [`serve`](Self::serve) is called.
     pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
+        // TODO: Does this actually need an arc to be properly shared?
         let store = DefaultStore::new(
             store_client::ApiClient::connect(config.store_url.to_string())
                 .await
@@ -99,7 +100,7 @@ impl<BB: BlockBuilder + Default> BlockProducer<BB> {
 
         Ok(Self {
             batch_config: Default::default(),
-            block_config: Default::default(),
+            block_config: BlockProver::new(store.clone()),
             batch_limit: SERVER_BATCH_SIZE,
             block_limit: SERVER_MAX_BATCHES_PER_BLOCK,
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
@@ -120,8 +121,6 @@ impl<BB: BlockBuilder + Default> BlockProducer<BB> {
             store,
             chain_tip,
         } = self;
-
-        // TODO: proper errrorrrrs.
 
         let mempool = Arc::new(Mutex::new(Mempool::new(
             chain_tip,
