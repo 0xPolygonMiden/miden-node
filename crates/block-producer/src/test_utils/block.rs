@@ -11,7 +11,7 @@ use miden_objects::{
 use super::MockStoreSuccess;
 use crate::{
     block::BlockInputs,
-    block_builder::prover::{block_witness::BlockWitness, BlockProver},
+    block_builder::prover::{block_witness::BlockWitness, BlockProverKernel},
     store::Store,
     TransactionBatch,
 };
@@ -93,7 +93,7 @@ pub async fn build_actual_block_header(
 
     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    BlockProver::new().prove(block_witness).unwrap()
+    BlockProverKernel::new().prove(block_witness).unwrap()
 }
 
 #[derive(Debug)]

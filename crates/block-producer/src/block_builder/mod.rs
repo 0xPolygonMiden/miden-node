@@ -21,12 +21,12 @@ use crate::{
     errors::BuildBlockError,
     mempool::{BatchJobId, Mempool},
     store::{ApplyBlock, DefaultStore, Store},
-    COMPONENT,
+    COMPONENT, SERVER_BLOCK_FREQUENCY,
 };
 
 pub(crate) mod prover;
 
-use self::prover::{block_witness::BlockWitness, BlockProver};
+use self::prover::{block_witness::BlockWitness, BlockProverKernel};
 
 #[cfg(test)]
 mod tests;
@@ -48,7 +48,7 @@ pub trait BlockBuilder: Send + Sync + 'static {
 pub struct DefaultBlockBuilder<S, A> {
     store: Arc<S>,
     state_view: Arc<A>,
-    block_kernel: BlockProver,
+    block_kernel: BlockProverKernel,
 }
 
 impl<S, A> DefaultBlockBuilder<S, A>
@@ -60,7 +60,7 @@ where
         Self {
             store,
             state_view,
-            block_kernel: BlockProver::new(),
+            block_kernel: BlockProverKernel::new(),
         }
     }
 }
@@ -151,8 +151,7 @@ where
     }
 }
 
-struct BlockProducer<BB> {
-    pub mempool: Arc<Mutex<Mempool>>,
+pub struct BlockProver<BB> {
     pub block_interval: Duration,
     pub block_builder: BB,
     /// Used to simulate block proving by sleeping for a random duration selected from this range.
@@ -164,7 +163,18 @@ struct BlockProducer<BB> {
     pub failure_rate: f32,
 }
 
-impl<BB: BlockBuilder> BlockProducer<BB> {
+impl<BB: Default> Default for BlockProver<BB> {
+    fn default() -> Self {
+        Self {
+            block_interval: SERVER_BLOCK_FREQUENCY,
+            block_builder: BB::default(),
+            simulated_proof_time: Duration::ZERO..Duration::ZERO,
+            failure_rate: 0.0,
+        }
+    }
+}
+
+impl<BB: BlockBuilder> BlockProver<BB> {
     /// Starts the [BlockProducer], infinitely producing blocks at the configured interval.
     ///
     /// Block production is sequential and consists of
@@ -173,7 +183,7 @@ impl<BB: BlockBuilder> BlockProducer<BB> {
     ///   2. Compiling these batches into the next block
     ///   3. Proving the block (this is simulated using random sleeps)
     ///   4. Committing the block to the store
-    pub async fn run(self) {
+    pub async fn run(self, mempool: Arc<Mutex<Mempool>>) {
         assert!(
             self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
             "Failure rate must be a percentage"
@@ -185,7 +195,7 @@ impl<BB: BlockBuilder> BlockProducer<BB> {
         loop {
             interval.tick().await;
 
-            let (block_number, batches) = self.mempool.lock().await.select_block();
+            let (block_number, batches) = mempool.lock().await.select_block();
             let batches = batches.into_values().collect::<Vec<_>>();
 
             let mut result = self.block_builder.build_block(&batches).await;
@@ -200,7 +210,7 @@ impl<BB: BlockBuilder> BlockProducer<BB> {
                 result = Err(BuildBlockError::InjectedFailure);
             }
 
-            let mut mempool = self.mempool.lock().await;
+            let mut mempool = mempool.lock().await;
             match result {
                 Ok(_) => mempool.block_committed(block_number),
                 Err(_) => mempool.block_failed(block_number),
