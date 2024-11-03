@@ -15,9 +15,7 @@ mod block_builder;
 mod domain;
 mod errors;
 mod mempool;
-mod state_view;
 mod store;
-mod txqueue;
 
 pub mod block;
 pub mod config;

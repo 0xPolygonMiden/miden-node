@@ -27,28 +27,16 @@ use tonic::Status;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    batch_builder::{BatchProver, DefaultBatchBuilder, DefaultBatchBuilderOptions},
-    block_builder::{BlockBuilder, BlockProver, DefaultBlockBuilder},
+    batch_builder::BatchProver,
+    block_builder::BlockProver,
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
     mempool::{BlockNumber, Mempool},
-    state_view::DefaultStateView,
     store::{DefaultStore, Store},
-    txqueue::{TransactionQueue, TransactionQueueOptions},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
     SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
 };
-
-pub mod api;
-
-type Api = api::BlockProducerApi<
-    DefaultBatchBuilder<
-        DefaultStore,
-        DefaultBlockBuilder<DefaultStore, DefaultStateView<DefaultStore>>,
-    >,
-    DefaultStateView<DefaultStore>,
->;
 
 /// Represents an initialized block-producer component where the RPC connection is open,
 /// but not yet actively responding to requests.
