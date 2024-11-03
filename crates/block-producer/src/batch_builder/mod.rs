@@ -23,7 +23,7 @@ use crate::{
     block_builder::BlockBuilder,
     domain::transaction::AuthenticatedTransaction,
     mempool::{BatchJobId, Mempool},
-    ProvenTransaction, SharedRwVec, COMPONENT,
+    ProvenTransaction, SharedRwVec, COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
 };
 
 #[cfg(test)]
@@ -226,17 +226,27 @@ where
     }
 }
 
-pub struct BatchProducer {
+pub struct BatchProver {
     pub batch_interval: Duration,
     pub workers: NonZeroUsize,
-    pub mempool: Arc<Mutex<Mempool>>,
-    pub tx_per_batch: usize,
     /// Used to simulate batch proving by sleeping for a random duration selected from this range.
     pub simulated_proof_time: Range<Duration>,
     /// Simulated block failure rate as a percentage.
     ///
     /// Note: this _must_ be sign positive and less than 1.0.
     pub failure_rate: f32,
+}
+
+impl Default for BatchProver {
+    fn default() -> Self {
+        Self {
+            batch_interval: SERVER_BUILD_BATCH_FREQUENCY,
+            // SAFETY: 2 is non-zero so this always succeeds.
+            workers: 2.try_into().unwrap(),
+            simulated_proof_time: Duration::ZERO..Duration::ZERO,
+            failure_rate: 0.0,
+        }
+    }
 }
 
 type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
@@ -310,13 +320,13 @@ impl WorkerPool {
     }
 }
 
-impl BatchProducer {
+impl BatchProver {
     /// Starts the [BatchProducer], creating and proving batches at the configured interval.
     ///
     /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.
     /// A batch is skipped if there are no available workers, or if there are no transactions
     /// available to batch.
-    pub async fn run(self) {
+    pub async fn run(self, mempool: Arc<Mutex<Mempool>>) {
         assert!(
             self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
             "Failure rate must be a percentage"
@@ -337,7 +347,7 @@ impl BatchProducer {
 
                     // Transactions available?
                     let Some((batch_id, transactions)) =
-                        self.mempool.lock().await.select_batch()
+                        mempool.lock().await.select_batch()
                     else {
                         tracing::info!("No transactions available for batch.");
                         continue;
@@ -346,7 +356,7 @@ impl BatchProducer {
                     inflight.spawn(batch_id, transactions);
                 },
                 result = inflight.join_next() => {
-                    let mut mempool = self.mempool.lock().await;
+                    let mut mempool = mempool.lock().await;
                     match result {
                         Err(err) => {
                             tracing::warn!(%err, "Batch job panic'd.")
