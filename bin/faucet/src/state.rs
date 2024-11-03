@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use async_mutex::Mutex;
 use miden_objects::accounts::AccountId;
+use static_files::Resource;
+use tokio::sync::Mutex;
 use tracing::info;
 
-use crate::{client::FaucetClient, config::FaucetConfig, errors::FaucetError};
+use crate::{client::FaucetClient, config::FaucetConfig, static_resources, COMPONENT};
 
 // FAUCET STATE
 // ================================================================================================
@@ -18,15 +19,18 @@ pub struct FaucetState {
     pub id: AccountId,
     pub client: Arc<Mutex<FaucetClient>>,
     pub config: FaucetConfig,
+    pub static_files: Arc<HashMap<&'static str, Resource>>,
 }
 
 impl FaucetState {
-    pub async fn new(config: FaucetConfig) -> Result<Self, FaucetError> {
-        let client = FaucetClient::new(config.clone()).await?;
+    pub async fn new(config: FaucetConfig) -> anyhow::Result<Self> {
+        let client = FaucetClient::new(&config).await?;
         let id = client.get_faucet_id();
         let client = Arc::new(Mutex::new(client));
-        info!("Faucet initialization successful, account id: {}", id);
+        let static_files = Arc::new(static_resources::generate());
 
-        Ok(FaucetState { client, id, config })
+        info!(target: COMPONENT, account_id = %id, "Faucet initialization successful");
+
+        Ok(FaucetState { client, id, config, static_files })
     }
 }

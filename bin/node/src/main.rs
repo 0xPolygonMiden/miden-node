@@ -127,11 +127,8 @@ async fn main() -> anyhow::Result<()> {
             let current_dir = std::env::current_dir()
                 .map_err(|err| anyhow!("failed to open current directory: {err}"))?;
 
-            let mut config = current_dir.clone();
-            let mut genesis = current_dir.clone();
-
-            config.push(config_path);
-            genesis.push(genesis_path);
+            let config = current_dir.join(config_path);
+            let genesis = current_dir.join(genesis_path);
 
             init_config_files(config, genesis)
         },
