@@ -1,9 +1,6 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-};
+use std::collections::BTreeSet;
 
-use miden_objects::transaction::{ProvenTransaction, TransactionId};
+use miden_objects::transaction::TransactionId;
 
 use super::dependency_graph::{DependencyGraph, GraphError};
 use crate::domain::transaction::AuthenticatedTransaction;

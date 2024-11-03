@@ -1,11 +1,4 @@
-// TODO: remove once block-producer rework is complete
-#![allow(unused)]
-
-use std::{sync::Arc, time::Duration};
-
-use batch_builder::batch::TransactionBatch;
-use miden_objects::transaction::ProvenTransaction;
-use tokio::sync::RwLock;
+use std::time::Duration;
 
 #[cfg(test)]
 pub mod test_utils;
@@ -20,12 +13,6 @@ mod store;
 pub mod block;
 pub mod config;
 pub mod server;
-
-// TYPE ALIASES
-// =================================================================================================
-
-/// A vector that can be shared across threads
-pub(crate) type SharedRwVec<T> = Arc<RwLock<Vec<T>>>;
 
 // CONSTANTS
 // =================================================================================================

@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::transaction::TransactionId;
-use miden_tx::utils::collections::KvMap;
 
 use super::{
     dependency_graph::{DependencyGraph, GraphError},

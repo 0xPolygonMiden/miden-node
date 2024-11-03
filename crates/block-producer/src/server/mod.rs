@@ -1,26 +1,19 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
     net::ToSocketAddrs,
-    num::NonZero,
     sync::Arc,
-    time::Duration,
 };
 
-use miden_node_proto::{
-    domain::nullifiers,
-    generated::{
+use miden_node_proto::generated::{
         block_producer::api_server, requests::SubmitProvenTransactionRequest,
         responses::SubmitProvenTransactionResponse, store::api_client as store_client,
-    },
-};
+    };
 use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
 };
 use miden_objects::{
-    transaction::ProvenTransaction, utils::serde::Deserializable, MIN_PROOF_SECURITY_LEVEL,
+    transaction::ProvenTransaction, utils::serde::Deserializable,
 };
-use miden_tx::TransactionVerifier;
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
@@ -34,7 +27,7 @@ use crate::{
     errors::{AddTransactionError, VerifyTxError},
     mempool::{BlockNumber, Mempool},
     store::{DefaultStore, Store},
-    COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
+    COMPONENT, SERVER_BATCH_SIZE,
     SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
 };
 

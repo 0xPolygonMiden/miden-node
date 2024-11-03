@@ -1,19 +1,6 @@
-use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
-    sync::Arc,
-};
+use std::collections::VecDeque;
 
-use miden_objects::{
-    accounts::AccountId,
-    notes::{NoteId, Nullifier},
-    transaction::{OutputNote, OutputNotes, ProvenTransaction, TransactionId},
-    Digest,
-};
-
-use crate::{
-    errors::{AddTransactionError, VerifyTxError},
-    store::TransactionInputs,
-};
+use miden_objects::{transaction::TransactionId, Digest};
 
 // IN-FLIGHT ACCOUNT STATE
 // ================================================================================================
@@ -244,7 +231,7 @@ mod tests {
         for (state, tx) in &states {
             uut.insert(*state, *tx);
         }
-        uut.revert(REVERT);
+        let _ = uut.revert(REVERT);
 
         let mut expected = InflightAccountState::default();
         for (state, tx) in states.iter().rev().skip(REVERT).rev() {
@@ -267,7 +254,7 @@ mod tests {
             uut.insert(*state, *tx);
         }
         uut.commit(PRUNE);
-        uut.prune_committed(PRUNE);
+        let _ = uut.prune_committed(PRUNE);
 
         let mut expected = InflightAccountState::default();
         for (state, tx) in states.iter().skip(PRUNE) {
@@ -287,14 +274,13 @@ mod tests {
         }
 
         uut.commit(N);
-        uut.prune_committed(N);
+        let _ = uut.prune_committed(N);
 
         assert_eq!(uut, Default::default());
     }
 
     #[test]
     fn is_empty_after_full_revert() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
         let mut uut = InflightAccountState::default();
         let mut rng = Random::with_random_seed();
@@ -302,7 +288,7 @@ mod tests {
             uut.insert(rng.draw_digest(), rng.draw_tx_id());
         }
 
-        uut.revert(N);
+        let _ = uut.revert(N);
 
         assert_eq!(uut, Default::default());
     }
@@ -318,7 +304,7 @@ mod tests {
         }
 
         uut.commit(1);
-        uut.revert(N);
+        let _ = uut.revert(N);
     }
 
     #[test]

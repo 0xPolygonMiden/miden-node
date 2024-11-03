@@ -1,10 +1,9 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     ops::Range,
     sync::Arc,
 };
 
-use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{
     accounts::AccountId,
@@ -19,7 +18,7 @@ use tracing::{debug, info, instrument};
 use crate::{
     batch_builder::batch::TransactionBatch,
     errors::BuildBlockError,
-    mempool::{BatchJobId, Mempool},
+    mempool::Mempool,
     store::{ApplyBlock, DefaultStore, Store},
     COMPONENT, SERVER_BLOCK_FREQUENCY,
 };

@@ -1,29 +1,14 @@
-use std::{
-    cmp::min,
-    collections::{BTreeMap, BTreeSet},
-    num::NonZeroUsize,
-    ops::Range,
-    sync::Arc,
-    time::Duration,
-};
+use std::{num::NonZeroUsize, ops::Range, sync::Arc, time::Duration};
 
-use miden_objects::{
-    accounts::AccountId,
-    assembly::SourceManager,
-    notes::NoteId,
-    transaction::{OutputNote, TransactionId},
-    Digest,
-};
+use miden_objects::transaction::ProvenTransaction;
 use rand::Rng;
 use tokio::{sync::Mutex, task::JoinSet, time};
-use tonic::async_trait;
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
     domain::transaction::AuthenticatedTransaction,
     mempool::{BatchJobId, Mempool},
-    store::DefaultStore,
-    ProvenTransaction, SharedRwVec, COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
+    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
 };
 
 // FIXME: fix the batch builder tests.
@@ -34,7 +19,7 @@ pub mod batch;
 pub use batch::TransactionBatch;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 
-use crate::{errors::BuildBatchError, store::Store};
+use crate::errors::BuildBatchError;
 
 // BATCH PROVER
 // ================================================================================================
@@ -193,7 +178,7 @@ impl WorkerPool {
     }
 
     #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
-    async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError> {
+    fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError> {
         let num_txs = txs.len();
 
         info!(target: COMPONENT, num_txs, "Building a transaction batch");

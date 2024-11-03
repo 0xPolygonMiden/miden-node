@@ -1,26 +1,15 @@
 use std::{
-    collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet},
     fmt::Display,
-    ops::Sub,
-    sync::Arc,
 };
 
 use batch_graph::BatchGraph;
 use inflight_state::InflightState;
-use miden_objects::{
-    accounts::AccountId,
-    notes::{NoteId, Nullifier},
-    transaction::{ProvenTransaction, TransactionId},
-    Digest,
-};
-use miden_tx::{utils::collections::KvMap, TransactionVerifierError};
 use transaction_graph::TransactionGraph;
 
 use crate::{
-    batch_builder::batch::TransactionBatch,
-    domain::transaction::AuthenticatedTransaction,
-    errors::{AddTransactionError, VerifyTxError},
-    store::{TransactionInputs, TxInputsError},
+    batch_builder::batch::TransactionBatch, domain::transaction::AuthenticatedTransaction,
+    errors::AddTransactionError,
 };
 
 mod batch_graph;
@@ -145,7 +134,7 @@ impl Mempool {
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction)?;
 
-        self.transactions.insert(transaction, parents);
+        self.transactions.insert(transaction, parents).expect("Malformed graph");
 
         Ok(self.chain_tip.0)
     }
@@ -165,7 +154,7 @@ impl Mempool {
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        self.batches.insert(batch_id, tx_ids, parents);
+        self.batches.insert(batch_id, tx_ids, parents).expect("Malformed graph");
 
         Some((batch_id, batch))
     }
@@ -186,14 +175,14 @@ impl Mempool {
         let batches = removed_batches.keys().copied().collect::<Vec<_>>();
         let transactions = removed_batches.into_values().flatten().collect();
 
-        self.transactions.requeue_transactions(transactions);
+        self.transactions.requeue_transactions(transactions).expect("Malformed graph");
 
         tracing::warn!(%batch, descendents=?batches, "Batch failed, dropping all inflight descendent batches, impacted transactions are back in queue.");
     }
 
     /// Marks a batch as proven if it exists.
     pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
-        self.batches.submit_proof(batch_id, batch);
+        self.batches.submit_proof(batch_id, batch).expect("Malformed graph");
     }
 
     /// Select batches for the next block.
@@ -246,7 +235,6 @@ impl Mempool {
 
         // Remove all transactions from the graphs.
         let purged = self.batches.remove_batches(batches).expect("Bad graph");
-        let batches = purged.keys().collect::<Vec<_>>();
         let transactions = purged.into_values().flatten().collect();
 
         let transactions = self

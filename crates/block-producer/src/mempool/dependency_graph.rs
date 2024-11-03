@@ -3,8 +3,6 @@ use std::{
     fmt::Display,
 };
 
-use miden_tx::utils::collections::KvMap;
-
 // DEPENDENCY GRAPH
 // ================================================================================================
 
@@ -292,7 +290,7 @@ impl<K: Ord + Copy + Display + std::fmt::Debug, V: Clone> DependencyGraph<K, V> 
             return Err(GraphError::UnknownNodes(missing_nodes));
         }
 
-        let mut visited = keys.clone();
+        let visited = keys.clone();
         let mut to_remove = keys;
         let mut removed = BTreeSet::new();
 
@@ -445,15 +443,15 @@ mod tests {
 
         /// Promotes all nodes in the pending list with value=key.
         fn promote_all(&mut self) {
-            /// SAFETY: these are definitely pending nodes.
+            // SAFETY: these are definitely pending nodes.
             self.promote(self.pending.clone()).unwrap();
         }
 
         /// Calls process_root until all nodes have been processed.
         fn process_all(&mut self) {
             while let Some(root) = self.roots().first().copied() {
-                /// SAFETY: this is definitely a root since we just took it from there :)
-                self.process_root(root);
+                // SAFETY: this is definitely a root since we just took it from there :)
+                self.process_root(root).unwrap();
             }
         }
     }
@@ -528,7 +526,7 @@ mod tests {
         assert!(uut.pending.contains(&123));
         assert!(!uut.vertices.contains_key(&123));
 
-        uut.promote_pending(123, 123);
+        uut.promote_pending(123, 123).unwrap();
 
         assert!(!uut.pending.contains(&123));
         assert!(uut.vertices.contains_key(&123));
@@ -584,7 +582,7 @@ mod tests {
         assert_eq!(err, expected);
 
         let mut atomic_reference = TestGraph::default();
-        atomic_reference.insert_with_no_parents(KEY);
+        atomic_reference.insert_with_no_parents(KEY).unwrap();
         assert_eq!(uut, atomic_reference);
     }
 
@@ -703,9 +701,10 @@ mod tests {
 
         uut.insert_with_no_parents(parent_a).unwrap();
         uut.insert_with_no_parents(parent_b).unwrap();
-        uut.insert_with_parent(child_a, parent_a);
-        uut.insert_with_parent(child_b, parent_b);
-        uut.insert_with_parents(partially_disjoin_child, [disjoint_parent, parent_a].into());
+        uut.insert_with_parent(child_a, parent_a).unwrap();
+        uut.insert_with_parent(child_b, parent_b).unwrap();
+        uut.insert_with_parents(partially_disjoin_child, [disjoint_parent, parent_a].into())
+            .unwrap();
 
         // Since we are reverting the other parents, we expect the roots to match the current state.
         uut.promote_all();
@@ -823,7 +822,7 @@ mod tests {
         uut.insert_with_parents(child_b, [parent_a, parent_b].into()).unwrap();
         uut.insert_with_parent(child_c, parent_b).unwrap();
 
-        uut.purge_subgraphs([child_b, parent_a].into());
+        uut.purge_subgraphs([child_b, parent_a].into()).unwrap();
 
         let mut reference = TestGraph::default();
         reference.insert_with_no_parents(ancestor_a).unwrap();
@@ -917,15 +916,15 @@ mod tests {
         let nodes = (0..10).collect::<Vec<_>>();
 
         let mut uut = TestGraph::default();
-        uut.insert_with_no_parents(nodes[0]);
+        uut.insert_with_no_parents(nodes[0]).unwrap();
         for pairs in nodes.windows(2) {
             let (parent, id) = (pairs[0], pairs[1]);
-            uut.insert_with_parent(id, parent);
+            uut.insert_with_parent(id, parent).unwrap();
         }
         uut.promote_all();
 
         let mut ordered_roots = Vec::<u32>::new();
-        for node in &nodes {
+        for _ in &nodes {
             let current_roots = uut.roots().clone();
             ordered_roots.extend(&current_roots);
 

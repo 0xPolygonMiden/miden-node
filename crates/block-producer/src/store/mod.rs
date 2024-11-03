@@ -7,14 +7,10 @@ use std::{
 use async_trait::async_trait;
 use itertools::Itertools;
 use miden_node_proto::{
-    domain::notes::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
-        requests::{
-            ApplyBlockRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
-            GetNoteAuthenticationInfoRequest, GetTransactionInputsRequest,
-        },
+        requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
@@ -25,6 +21,7 @@ use miden_objects::{
     accounts::AccountId,
     block::Block,
     notes::{NoteId, Nullifier},
+    transaction::ProvenTransaction,
     utils::Serializable,
     BlockHeader, Digest,
 };
@@ -33,7 +30,7 @@ use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{block::BlockInputs, errors::NotePathsError, ProvenTransaction, COMPONENT};
+use crate::{block::BlockInputs, COMPONENT};
 
 // STORE TRAIT
 // ================================================================================================
@@ -53,15 +50,6 @@ pub trait Store: ApplyBlock {
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
-
-    /// Returns note authentication information for the set of specified notes.
-    ///
-    /// If authentication info for a note does not exist in the store, the note is omitted
-    /// from the returned set of notes.
-    async fn get_note_authentication_info(
-        &self,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<NoteAuthenticationInfo, NotePathsError>;
 }
 
 #[async_trait]
@@ -269,29 +257,5 @@ impl Store for DefaultStore {
             .into_inner();
 
         Ok(store_response.try_into()?)
-    }
-
-    async fn get_note_authentication_info(
-        &self,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<NoteAuthenticationInfo, NotePathsError> {
-        let request = tonic::Request::new(GetNoteAuthenticationInfoRequest {
-            note_ids: notes.map(digest::Digest::from).collect(),
-        });
-
-        let store_response = self
-            .store
-            .clone()
-            .get_note_authentication_info(request)
-            .await
-            .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
-            .into_inner();
-
-        let note_authentication_info = store_response
-            .proofs
-            .ok_or(GetTransactionInputsResponse::missing_field("proofs"))?
-            .try_into()?;
-
-        Ok(note_authentication_info)
     }
 }
