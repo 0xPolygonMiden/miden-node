@@ -1,7 +1,9 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     net::ToSocketAddrs,
+    num::NonZero,
     sync::Arc,
+    time::Duration,
 };
 
 use miden_node_proto::{
@@ -25,17 +27,17 @@ use tonic::Status;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    batch_builder::{DefaultBatchBuilder, DefaultBatchBuilderOptions},
-    block_builder::DefaultBlockBuilder,
+    batch_builder::{BatchProver, DefaultBatchBuilder, DefaultBatchBuilderOptions},
+    block_builder::{BlockBuilder, BlockProver, DefaultBlockBuilder},
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
-    mempool::Mempool,
+    mempool::{BlockNumber, Mempool},
     state_view::DefaultStateView,
     store::{DefaultStore, Store},
     txqueue::{TransactionQueue, TransactionQueueOptions},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_BLOCK_FREQUENCY, SERVER_BUILD_BATCH_FREQUENCY,
-    SERVER_MAX_BATCHES_PER_BLOCK,
+    SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 pub mod api;
@@ -54,76 +56,113 @@ type Api = api::BlockProducerApi<
 /// Separating the connection binding from the server spawning allows the caller to connect other
 /// components to the store without resorting to sleeps or other mechanisms to spawn dependent
 /// components.
-pub struct BlockProducer {
-    api_service: api_server::ApiServer<Api>,
-    listener: TcpListener,
+pub struct BlockProducer<BB> {
+    batch_config: BatchProver,
+    block_config: BlockProver<BB>,
+    batch_limit: usize,
+    block_limit: usize,
+    state_retention: usize,
+    rpc_listener: TcpListener,
+    store: DefaultStore,
+    chain_tip: BlockNumber,
 }
 
-impl BlockProducer {
+impl<BB: BlockBuilder + Default> BlockProducer<BB> {
     /// Performs all expensive initialization tasks, and notably begins listening on the rpc
     /// endpoint without serving the API yet. Incoming requests will be queued until
     /// [`serve`](Self::serve) is called.
     pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
-        let store = Arc::new(DefaultStore::new(
+        let store = DefaultStore::new(
             store_client::ApiClient::connect(config.store_url.to_string())
                 .await
                 .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
-        ));
-        let state_view =
-            Arc::new(DefaultStateView::new(Arc::clone(&store), config.verify_tx_proofs));
+        );
 
-        let block_builder = DefaultBlockBuilder::new(Arc::clone(&store), Arc::clone(&state_view));
-        let batch_builder_options = DefaultBatchBuilderOptions {
-            block_frequency: SERVER_BLOCK_FREQUENCY,
-            max_batches_per_block: SERVER_MAX_BATCHES_PER_BLOCK,
-        };
-        let batch_builder = Arc::new(DefaultBatchBuilder::new(
-            Arc::clone(&store),
-            Arc::new(block_builder),
-            batch_builder_options,
-        ));
+        let latest_header = store
+            .latest_header()
+            .await
+            .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
+        let chain_tip = BlockNumber::new(latest_header.block_num());
 
-        let transaction_queue_options = TransactionQueueOptions {
-            build_batch_frequency: SERVER_BUILD_BATCH_FREQUENCY,
-            batch_size: SERVER_BATCH_SIZE,
-        };
-        let queue = Arc::new(TransactionQueue::new(
-            state_view,
-            Arc::clone(&batch_builder),
-            transaction_queue_options,
-        ));
-
-        let api_service =
-            api_server::ApiServer::new(api::BlockProducerApi::new(Arc::clone(&queue)));
-
-        tokio::spawn(async move { queue.run().await });
-        tokio::spawn(async move { batch_builder.run().await });
-
-        let addr = config
+        let rpc_listener = config
             .endpoint
             .to_socket_addrs()
             .map_err(ApiError::EndpointToSocketFailed)?
             .next()
-            .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))?;
-
-        let listener = TcpListener::bind(addr).await?;
+            .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))
+            .map(TcpListener::bind)?
+            .await?;
 
         info!(target: COMPONENT, "Server initialized");
 
-        Ok(Self { api_service, listener })
+        Ok(Self {
+            batch_config: Default::default(),
+            block_config: Default::default(),
+            batch_limit: SERVER_BATCH_SIZE,
+            block_limit: SERVER_MAX_BATCHES_PER_BLOCK,
+            state_retention: SERVER_MEMPOOL_STATE_RETENTION,
+            store,
+            rpc_listener,
+            chain_tip,
+        })
     }
 
-    /// Serves the block-producers's RPC API.
-    ///
-    /// Note: this blocks until the server dies.
     pub async fn serve(self) -> Result<(), ApiError> {
-        tonic::transport::Server::builder()
-            .add_service(self.api_service)
-            .serve_with_incoming(TcpListenerStream::new(self.listener))
-            .await
-            .map_err(ApiError::ApiServeFailed)
+        let Self {
+            batch_config,
+            block_config,
+            batch_limit,
+            block_limit,
+            state_retention,
+            rpc_listener,
+            store,
+            chain_tip,
+        } = self;
+
+        // TODO: proper errrorrrrs.
+
+        let mempool = Arc::new(Mutex::new(Mempool::new(
+            chain_tip,
+            batch_limit,
+            block_limit,
+            state_retention,
+        )));
+
+        // Spawn rpc server and batch and block provers.
+        //
+        // These communicate indirectly via a shared mempool.
+        //
+        // These should run forever, so we combine them into a joinset so that if
+        // any complete or fail, we can shutdown the rest (somewhat) gracefully.
+        let mut tasks = tokio::task::JoinSet::new();
+
+        // TODO: improve the error situationship.
+        tasks.spawn({
+            let mempool = mempool.clone();
+            async { batch_config.run(mempool) }.await
+        });
+        tasks.spawn({
+            let mempool = mempool.clone();
+            async { block_config.run(mempool) }.await
+        });
+        tasks.spawn(async move {
+            Server::new(mempool, store)
+                .serve(rpc_listener)
+                .await
+                .expect("Really the rest should throw errors instead of panic'ing.")
+        });
+
+        // TODO: Improve logs etc here.
+        tasks.join_next().await;
+
+        // TODO: Consider if there is any benefit in waiting for the rest to abort/complete.
+        //
+        // Probably some value to debug this scenario.
+        tasks.abort_all();
+
+        Ok(())
     }
 }
 
@@ -152,6 +191,17 @@ impl api_server::Api for Server {
 }
 
 impl Server {
+    pub fn new(mempool: Arc<Mutex<Mempool>>, store: DefaultStore) -> Self {
+        Self { mempool: Mutex::new(mempool), store }
+    }
+
+    async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
+        tonic::transport::Server::builder()
+            .add_service(api_server::ApiServer::new(self))
+            .serve_with_incoming(TcpListenerStream::new(listener))
+            .await
+    }
+
     #[instrument(
         target = "miden-block-producer",
         name = "block_producer:submit_proven_transaction",

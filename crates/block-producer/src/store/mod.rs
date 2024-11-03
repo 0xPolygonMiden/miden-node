@@ -12,8 +12,8 @@ use miden_node_proto::{
     generated::{
         digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetTransactionInputsRequest,
+            ApplyBlockRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNoteAuthenticationInfoRequest, GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
@@ -26,7 +26,7 @@ use miden_objects::{
     block::Block,
     notes::{NoteId, Nullifier},
     utils::Serializable,
-    Digest,
+    BlockHeader, Digest,
 };
 use miden_processor::crypto::RpoDigest;
 use tonic::transport::Channel;
@@ -162,6 +162,20 @@ impl DefaultStore {
     /// TODO: this should probably take store connection string and create a connection internally
     pub fn new(store: store_client::ApiClient<Channel>) -> Self {
         Self { store }
+    }
+
+    /// Returns the latest block's header from the store.
+    pub async fn latest_header(&self) -> Result<BlockHeader, String> {
+        // TODO: fixup the errors types.
+        let response = self
+            .store
+            .clone()
+            .get_block_header_by_number(tonic::Request::new(Default::default()))
+            .await
+            .map_err(|err| err.to_string())?
+            .into_inner();
+
+        BlockHeader::try_from(response.block_header.unwrap()).map_err(|err| err.to_string())
     }
 }
 

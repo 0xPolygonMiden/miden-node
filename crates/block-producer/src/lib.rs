@@ -46,3 +46,9 @@ const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
 
 /// Maximum number of batches per block
 const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
+
+/// The number of blocks of committed state that the mempool retains.
+///
+/// This determines the grace period incoming transactions have between fetching their input from
+/// the store and verification in the mempool.
+const SERVER_MEMPOOL_STATE_RETENTION: usize = 2;

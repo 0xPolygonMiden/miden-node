@@ -28,7 +28,7 @@ mod dependency_graph;
 mod inflight_state;
 mod transaction_graph;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BatchJobId(u64);
 
 impl Display for BatchJobId {
@@ -110,6 +110,25 @@ pub struct Mempool {
 }
 
 impl Mempool {
+    /// Creates a new [Mempool] with the provided configuration.
+    pub fn new(
+        chain_tip: BlockNumber,
+        batch_limit: usize,
+        block_limit: usize,
+        state_retention: usize,
+    ) -> Self {
+        Self {
+            chain_tip,
+            batch_transaction_limit: batch_limit,
+            block_batch_limit: block_limit,
+            state: InflightState::new(chain_tip, state_retention),
+            block_in_progress: Default::default(),
+            transactions: Default::default(),
+            batches: Default::default(),
+            next_batch_id: Default::default(),
+        }
+    }
+
     /// Adds a transaction to the mempool.
     ///
     /// # Returns
