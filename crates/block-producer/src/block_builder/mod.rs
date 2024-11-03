@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeSet,
-    ops::Range,
-    sync::Arc,
-};
+use std::{collections::BTreeSet, ops::Range, sync::Arc};
 
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{

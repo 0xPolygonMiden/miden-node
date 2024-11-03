@@ -1,19 +1,14 @@
-use std::{
-    net::ToSocketAddrs,
-    sync::Arc,
-};
+use std::{net::ToSocketAddrs, sync::Arc};
 
 use miden_node_proto::generated::{
-        block_producer::api_server, requests::SubmitProvenTransactionRequest,
-        responses::SubmitProvenTransactionResponse, store::api_client as store_client,
-    };
+    block_producer::api_server, requests::SubmitProvenTransactionRequest,
+    responses::SubmitProvenTransactionResponse, store::api_client as store_client,
+};
 use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
 };
-use miden_objects::{
-    transaction::ProvenTransaction, utils::serde::Deserializable,
-};
+use miden_objects::{transaction::ProvenTransaction, utils::serde::Deserializable};
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
@@ -27,8 +22,7 @@ use crate::{
     errors::{AddTransactionError, VerifyTxError},
     mempool::{BlockNumber, Mempool},
     store::{DefaultStore, Store},
-    COMPONENT, SERVER_BATCH_SIZE,
-    SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
+    COMPONENT, SERVER_BATCH_SIZE, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,
@@ -121,11 +115,11 @@ impl BlockProducer {
         // TODO: improve the error situationship.
         tasks.spawn({
             let mempool = mempool.clone();
-            async { batch_config.run(mempool) }.await
+            async { batch_config.run(mempool).await }
         });
         tasks.spawn({
             let mempool = mempool.clone();
-            async { block_config.run(mempool) }.await
+            async { block_config.run(mempool).await }
         });
         tasks.spawn(async move {
             Server::new(mempool, store)
