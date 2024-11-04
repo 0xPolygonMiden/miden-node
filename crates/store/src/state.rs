@@ -41,13 +41,13 @@ use crate::{
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
-        GetNoteInclusionProofError, NoteSyncError, StateInitializationError, StateSyncError,
+        GetNoteInclusionProofError, InvalidBlockError, NoteSyncError, StateInitializationError,
+        StateSyncError,
     },
     nullifier_tree::NullifierTree,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
-
 // STRUCTURES
 // ================================================================================================
 
@@ -173,10 +173,11 @@ impl State {
 
         let tx_hash = block.compute_tx_hash();
         if header.tx_hash() != tx_hash {
-            return Err(ApplyBlockError::InvalidTxHash {
+            return Err(InvalidBlockError::InvalidTxHash {
                 expected: tx_hash,
                 actual: header.tx_hash(),
-            });
+            }
+            .into());
         }
 
         let block_num = header.block_num();
@@ -190,10 +191,10 @@ impl State {
             .ok_or(ApplyBlockError::DbBlockHeaderEmpty)?;
 
         if block_num != prev_block.block_num() + 1 {
-            return Err(ApplyBlockError::NewBlockInvalidBlockNum);
+            return Err(InvalidBlockError::NewBlockInvalidBlockNum.into());
         }
         if header.prev_hash() != prev_block.hash() {
-            return Err(ApplyBlockError::NewBlockInvalidPrevHash);
+            return Err(InvalidBlockError::NewBlockInvalidPrevHash.into());
         }
 
         let block_data = block.to_bytes();
@@ -227,7 +228,7 @@ impl State {
                 .cloned()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
-                return Err(ApplyBlockError::DuplicatedNullifiers(duplicate_nullifiers));
+                return Err(InvalidBlockError::DuplicatedNullifiers(duplicate_nullifiers).into());
             }
 
             // compute updates for the in-memory data structures
@@ -235,7 +236,7 @@ impl State {
             // new_block.chain_root must be equal to the chain MMR root prior to the update
             let peaks = inner.chain_mmr.peaks();
             if peaks.hash_peaks() != header.chain_root() {
-                return Err(ApplyBlockError::NewBlockInvalidChainRoot);
+                return Err(InvalidBlockError::NewBlockInvalidChainRoot.into());
             }
 
             // compute update for nullifier tree
@@ -244,7 +245,7 @@ impl State {
             );
 
             if nullifier_tree_update.root() != header.nullifier_root() {
-                return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
+                return Err(InvalidBlockError::NewBlockInvalidNullifierRoot.into());
             }
 
             // compute update for account tree
@@ -258,7 +259,7 @@ impl State {
             );
 
             if account_tree_update.root() != header.account_root() {
-                return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
+                return Err(InvalidBlockError::NewBlockInvalidAccountRoot.into());
             }
 
             (
@@ -272,7 +273,7 @@ impl State {
         // build note tree
         let note_tree = block.build_note_tree();
         if note_tree.root() != header.note_root() {
-            return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
+            return Err(InvalidBlockError::NewBlockInvalidNoteRoot.into());
         }
 
         let notes = block
@@ -282,7 +283,9 @@ impl State {
                     OutputNote::Full(note) => Some(note.to_bytes()),
                     OutputNote::Header(_) => None,
                     note => {
-                        return Err(ApplyBlockError::InvalidOutputNoteType(Box::new(note.clone())))
+                        return Err(InvalidBlockError::InvalidOutputNoteType(Box::new(
+                            note.clone(),
+                        )))
                     },
                 };
 
@@ -297,7 +300,7 @@ impl State {
                     merkle_path,
                 })
             })
-            .collect::<Result<Vec<NoteRecord>, ApplyBlockError>>()?;
+            .collect::<Result<Vec<NoteRecord>, InvalidBlockError>>()?;
 
         // Signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();

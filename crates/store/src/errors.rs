@@ -169,28 +169,8 @@ pub enum GenesisError {
 
 // ENDPOINT ERRORS
 // =================================================================================================
-
 #[derive(Error, Debug)]
-pub enum ApplyBlockError {
-    // ERRORS WITH AUTOMATIC CONVERSIONS FROM NESTED ERROR TYPES
-    // ---------------------------------------------------------------------------------------------
-    #[error("Database error: {0}")]
-    DatabaseError(#[from] DatabaseError),
-    #[error("I/O error: {0}")]
-    IoError(#[from] io::Error),
-    #[error("Task join error: {0}")]
-    TokioJoinError(#[from] tokio::task::JoinError),
-
-    // OTHER ERRORS
-    // ---------------------------------------------------------------------------------------------
-    #[error("Block applying was cancelled because of closed channel on database side: {0}")]
-    ClosedChannel(RecvError),
-    #[error("Concurrent write detected")]
-    ConcurrentWrite,
-    #[error("Database doesn't have any block header data")]
-    DbBlockHeaderEmpty,
-    #[error("Database update task failed: {0}")]
-    DbUpdateTaskFailed(String),
+pub enum InvalidBlockError {
     #[error("Duplicated nullifiers {0:?}")]
     DuplicatedNullifiers(Vec<Nullifier>),
     #[error("Invalid output note type: {0:?}")]
@@ -211,18 +191,35 @@ pub enum ApplyBlockError {
     NewBlockInvalidPrevHash,
 }
 
+#[derive(Error, Debug)]
+pub enum ApplyBlockError {
+    // ERRORS WITH AUTOMATIC CONVERSIONS FROM NESTED ERROR TYPES
+    // ---------------------------------------------------------------------------------------------
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
+    #[error("I/O error: {0}")]
+    IoError(#[from] io::Error),
+    #[error("Task join error: {0}")]
+    TokioJoinError(#[from] tokio::task::JoinError),
+    #[error("Invalid block error: {0}")]
+    InvalidBlockError(#[from] InvalidBlockError),
+
+    // OTHER ERRORS
+    // ---------------------------------------------------------------------------------------------
+    #[error("Block applying was cancelled because of closed channel on database side: {0}")]
+    ClosedChannel(RecvError),
+    #[error("Concurrent write detected")]
+    ConcurrentWrite,
+    #[error("Database doesn't have any block header data")]
+    DbBlockHeaderEmpty,
+    #[error("Database update task failed: {0}")]
+    DbUpdateTaskFailed(String),
+}
+
 impl From<ApplyBlockError> for Status {
     fn from(err: ApplyBlockError) -> Self {
         match err {
-            ApplyBlockError::NewBlockInvalidBlockNum
-            | ApplyBlockError::NewBlockInvalidPrevHash
-            | ApplyBlockError::NewBlockInvalidChainRoot
-            | ApplyBlockError::NewBlockInvalidAccountRoot
-            | ApplyBlockError::NewBlockInvalidNoteRoot
-            | ApplyBlockError::NewBlockInvalidNullifierRoot
-            | ApplyBlockError::DuplicatedNullifiers(_)
-            | ApplyBlockError::InvalidOutputNoteType(_)
-            | ApplyBlockError::InvalidTxHash { .. } => Status::invalid_argument(err.to_string()),
+            ApplyBlockError::InvalidBlockError(_) => Status::invalid_argument(err.to_string()),
 
             _ => Status::internal(err.to_string()),
         }
