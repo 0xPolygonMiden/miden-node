@@ -48,7 +48,8 @@ impl BlockBuilder {
     pub fn new(store: DefaultStore) -> Self {
         Self {
             block_interval: SERVER_BLOCK_FREQUENCY,
-            simulated_proof_time: Duration::ZERO..Duration::ZERO,
+            // Note: The range cannot be empty.
+            simulated_proof_time: Duration::ZERO..Duration::from_millis(1),
             failure_rate: 0.0,
             block_kernel: BlockProver::new(),
             store,

@@ -40,7 +40,8 @@ impl Default for BatchBuilder {
             batch_interval: SERVER_BUILD_BATCH_FREQUENCY,
             // SAFETY: 2 is non-zero so this always succeeds.
             workers: 2.try_into().unwrap(),
-            simulated_proof_time: Duration::ZERO..Duration::ZERO,
+            // Note: The range cannot be empty.
+            simulated_proof_time: Duration::ZERO..Duration::from_millis(1),
             failure_rate: 0.0,
         }
     }
