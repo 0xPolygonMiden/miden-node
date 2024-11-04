@@ -122,7 +122,7 @@ impl BlockProducer {
             async { block_config.run(mempool).await }
         });
         tasks.spawn(async move {
-            Server::new(mempool, store)
+            BlockProducerRpcServer::new(mempool, store)
                 .serve(rpc_listener)
                 .await
                 .expect("Really the rest should throw errors instead of panic'ing.")
@@ -140,7 +140,7 @@ impl BlockProducer {
     }
 }
 
-pub struct Server {
+struct BlockProducerRpcServer {
     /// This outer mutex enforces that the incoming transactions won't crowd out more important
     /// mempool locks.
     ///
@@ -151,7 +151,7 @@ pub struct Server {
 }
 
 #[tonic::async_trait]
-impl api_server::Api for Server {
+impl api_server::Api for BlockProducerRpcServer {
     async fn submit_proven_transaction(
         &self,
         request: tonic::Request<SubmitProvenTransactionRequest>,
@@ -164,7 +164,7 @@ impl api_server::Api for Server {
     }
 }
 
-impl Server {
+impl BlockProducerRpcServer {
     pub fn new(mempool: Arc<Mutex<Mempool>>, store: DefaultStore) -> Self {
         Self { mempool: Mutex::new(mempool), store }
     }
