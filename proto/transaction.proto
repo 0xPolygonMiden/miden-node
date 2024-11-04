@@ -4,13 +4,21 @@ package transaction;
 import "account.proto";
 import "digest.proto";
 
+// Represents a transaction ID
 message TransactionId {
+    // The transaction ID
     digest.Digest id = 1;
 }
 
+// Represents a transaction summary
 message TransactionSummary {
+    // The transaction ID
     TransactionId transaction_id = 1;
+
+    // The block number
     fixed32 block_num = 2;
+
+    // The account ID
     account.AccountId account_id = 3;
 }
 

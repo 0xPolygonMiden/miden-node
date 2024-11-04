@@ -90,6 +90,7 @@ pub mod api_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        /// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree
         pub async fn check_nullifiers(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -113,6 +114,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "CheckNullifiers"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
         pub async fn check_nullifiers_by_prefix(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -139,6 +141,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "CheckNullifiersByPrefix"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns the latest state of an account with the specified ID.
         pub async fn get_account_details(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -164,6 +167,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountDetails"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns the latest state proofs of accounts with the specified IDs.
         pub async fn get_account_proofs(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -187,6 +191,8 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountProofs"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns delta of the account states in the range from `from_block_num` (exclusive) to
+        /// `to_block_num` (inclusive).
         pub async fn get_account_state_delta(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -213,6 +219,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "GetAccountStateDelta"));
             self.inner.unary(req, path, codec).await
         }
+        /// Retrieves block data by given block number.
         pub async fn get_block_by_number(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -236,6 +243,8 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetBlockByNumber"));
             self.inner.unary(req, path, codec).await
         }
+        /// Retrieves block header by given block number. Optionally, it also returns the MMR path
+        /// and current chain length to authenticate the block's inclusion.
         pub async fn get_block_header_by_number(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -262,6 +271,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "GetBlockHeaderByNumber"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns a list of notes matching the provided note IDs.
         pub async fn get_notes_by_id(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::GetNotesByIdRequest>,
@@ -283,6 +293,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetNotesById"));
             self.inner.unary(req, path, codec).await
         }
+        /// Submits proven transaction to the Miden network.
         pub async fn submit_proven_transaction(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -309,6 +320,10 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "SubmitProvenTransaction"));
             self.inner.unary(req, path, codec).await
         }
+        /// Note synchronization request.
+        ///
+        /// Specifies note tags that client is interested in. The server will return the first block which
+        /// contains a note matching `note_tags` or the chain tip.
         pub async fn sync_notes(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncNoteRequest>,
@@ -330,6 +345,21 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "SyncNotes"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns info which can be used by the client to sync up to the latest state of the chain
+        /// for the objects (accounts, notes, nullifiers) the client is interested in.
+        ///
+        /// This request returns the next block containing requested data. It also returns `chain_tip`
+        /// which is the latest block number in the chain. Client is expected to repeat these requests
+        /// in a loop until `response.block_header.block_num == response.chain_tip`, at which point
+        /// the client is fully synchronized with the chain.
+        ///
+        /// Each request also returns info about new notes, nullifiers etc. created. It also returns
+        /// Chain MMR delta that can be used to update the state of Chain MMR. This includes both chain
+        /// MMR peaks and chain MMR nodes.
+        ///
+        /// For preserving some degree of privacy, note tags and nullifiers filters contain only high
+        /// part of hashes. Thus, returned data contains excessive notes and nullifiers, client can make
+        /// additional filtering of that data on its side.
         pub async fn sync_state(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,
@@ -366,6 +396,7 @@ pub mod api_server {
     /// Generated trait containing gRPC methods that should be implemented for use with ApiServer.
     #[async_trait]
     pub trait Api: std::marker::Send + std::marker::Sync + 'static {
+        /// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree
         async fn check_nullifiers(
             &self,
             request: tonic::Request<super::super::requests::CheckNullifiersRequest>,
@@ -373,6 +404,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
             tonic::Status,
         >;
+        /// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
         async fn check_nullifiers_by_prefix(
             &self,
             request: tonic::Request<
@@ -382,6 +414,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::CheckNullifiersByPrefixResponse>,
             tonic::Status,
         >;
+        /// Returns the latest state of an account with the specified ID.
         async fn get_account_details(
             &self,
             request: tonic::Request<super::super::requests::GetAccountDetailsRequest>,
@@ -389,6 +422,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountDetailsResponse>,
             tonic::Status,
         >;
+        /// Returns the latest state proofs of accounts with the specified IDs.
         async fn get_account_proofs(
             &self,
             request: tonic::Request<super::super::requests::GetAccountProofsRequest>,
@@ -396,6 +430,8 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountProofsResponse>,
             tonic::Status,
         >;
+        /// Returns delta of the account states in the range from `from_block_num` (exclusive) to
+        /// `to_block_num` (inclusive).
         async fn get_account_state_delta(
             &self,
             request: tonic::Request<super::super::requests::GetAccountStateDeltaRequest>,
@@ -403,6 +439,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountStateDeltaResponse>,
             tonic::Status,
         >;
+        /// Retrieves block data by given block number.
         async fn get_block_by_number(
             &self,
             request: tonic::Request<super::super::requests::GetBlockByNumberRequest>,
@@ -410,6 +447,8 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetBlockByNumberResponse>,
             tonic::Status,
         >;
+        /// Retrieves block header by given block number. Optionally, it also returns the MMR path
+        /// and current chain length to authenticate the block's inclusion.
         async fn get_block_header_by_number(
             &self,
             request: tonic::Request<
@@ -419,6 +458,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
         >;
+        /// Returns a list of notes matching the provided note IDs.
         async fn get_notes_by_id(
             &self,
             request: tonic::Request<super::super::requests::GetNotesByIdRequest>,
@@ -426,6 +466,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetNotesByIdResponse>,
             tonic::Status,
         >;
+        /// Submits proven transaction to the Miden network.
         async fn submit_proven_transaction(
             &self,
             request: tonic::Request<
@@ -435,6 +476,10 @@ pub mod api_server {
             tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
             tonic::Status,
         >;
+        /// Note synchronization request.
+        ///
+        /// Specifies note tags that client is interested in. The server will return the first block which
+        /// contains a note matching `note_tags` or the chain tip.
         async fn sync_notes(
             &self,
             request: tonic::Request<super::super::requests::SyncNoteRequest>,
@@ -442,6 +487,21 @@ pub mod api_server {
             tonic::Response<super::super::responses::SyncNoteResponse>,
             tonic::Status,
         >;
+        /// Returns info which can be used by the client to sync up to the latest state of the chain
+        /// for the objects (accounts, notes, nullifiers) the client is interested in.
+        ///
+        /// This request returns the next block containing requested data. It also returns `chain_tip`
+        /// which is the latest block number in the chain. Client is expected to repeat these requests
+        /// in a loop until `response.block_header.block_num == response.chain_tip`, at which point
+        /// the client is fully synchronized with the chain.
+        ///
+        /// Each request also returns info about new notes, nullifiers etc. created. It also returns
+        /// Chain MMR delta that can be used to update the state of Chain MMR. This includes both chain
+        /// MMR peaks and chain MMR nodes.
+        ///
+        /// For preserving some degree of privacy, note tags and nullifiers filters contain only high
+        /// part of hashes. Thus, returned data contains excessive notes and nullifiers, client can make
+        /// additional filtering of that data on its side.
         async fn sync_state(
             &self,
             request: tonic::Request<super::super::requests::SyncStateRequest>,

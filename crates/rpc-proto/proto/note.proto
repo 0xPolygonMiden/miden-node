@@ -6,42 +6,85 @@ import "block.proto";
 import "digest.proto";
 import "merkle.proto";
 
+// Represents a note metadata
 message NoteMetadata {
+    // The sender of the note
     account.AccountId sender = 1;
+
+    // The type of the note (0b01 = public, 0b10 = private, 0b11 = encrypted)
     uint32 note_type = 2;
+
+    // A value which can be used by the recipient(s) to identify notes intended for them
     fixed32 tag = 3;
+
+    // Specifies when a note is ready to be consumed:
+    // * 6 least significant bits: Hint identifier (tag).
+    // * Bits 6 to 38: Hint payload.
+    //
+    // See `miden_objects::notes::execution_hint` for more info.
     fixed64 execution_hint = 4;
+
+    // An arbitrary user-defined value
     fixed64 aux = 5;
 }
 
+// Represents a note
 message Note {
+    // The block number in which the note was created
     fixed32 block_num = 1;
+
+    // The index of the note in the block
     uint32 note_index = 2;
+
+    // The ID of the note
     digest.Digest note_id = 3;
+
+    // The note metadata
     NoteMetadata metadata = 4;
+
+    // The note inclusion proof in the block
     merkle.MerklePath merkle_path = 5;
+
     // This field will be present when the note is public.
     // details contain the `Note` in a serialized format.
     optional bytes details = 6;
 }
 
+// Represents proof of a note's inclusion in a block
 message NoteInclusionInBlockProof {
+    // The ID of the note
     digest.Digest note_id = 1;
+
+    // The block number in which the note was created
     fixed32 block_num = 2;
+
+    // The index of the note in the block
     uint32 note_index_in_block = 3;
+
+    // The note inclusion proof in the block
     merkle.MerklePath merkle_path = 4;
 }
 
+// Represents proof of a note inclusion in the block
 message NoteSyncRecord {
+    // The index of the note
     uint32 note_index = 1;
+
+    // The ID of the note
     digest.Digest note_id = 2;
+
+    // The note metadata
     NoteMetadata metadata = 3;
+
+    // The note inclusion proof in the block
     merkle.MerklePath merkle_path = 4;
 }
 
+// Represents proof of notes inclusion in the block(s) and block(s) inclusion in the chain
 message NoteAuthenticationInfo {
     // Proof of each note's inclusion in a block.
     repeated note.NoteInclusionInBlockProof note_proofs = 1;
+
     // Proof of each block's inclusion in the chain.
     repeated block.BlockInclusionProof block_proofs = 2;
 }

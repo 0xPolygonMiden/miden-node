@@ -90,6 +90,7 @@ pub mod api_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        /// Submits proven transaction to the Miden network.
         pub async fn submit_proven_transaction(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -133,6 +134,7 @@ pub mod api_server {
     /// Generated trait containing gRPC methods that should be implemented for use with ApiServer.
     #[async_trait]
     pub trait Api: std::marker::Send + std::marker::Sync + 'static {
+        /// Submits proven transaction to the Miden network.
         async fn submit_proven_transaction(
             &self,
             request: tonic::Request<

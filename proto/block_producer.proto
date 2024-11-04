@@ -6,6 +6,7 @@ import "requests.proto";
 import "responses.proto";
 
 service Api {
+    // Submits proven transaction to the Miden network.
     rpc SubmitProvenTransaction(requests.SubmitProvenTransactionRequest) returns (responses.SubmitProvenTransactionResponse) {}
 }
 

@@ -3,30 +3,45 @@ package account;
 
 import "digest.proto";
 
+// An account ID
 message AccountId {
     // A Miden account ID is a 120-bit value derived from the commitments to account code and
     // storage, and a random user-provided seed.
     bytes id = 1;
 }
 
+// A summary of an account
 message AccountSummary {
+    // The account ID
     AccountId account_id = 1;
+
+    // The latest account hash, zero hash if the account doesn't exist
     digest.Digest account_hash = 2;
+
+    // Merkle path to verify the account's inclusion in the MMR
     uint32 block_num = 3;
 }
 
+// An account info
 message AccountInfo {
+    // Account summary
     AccountSummary summary = 1;
+
+    // Account details encoded using Miden native format
     optional bytes details = 2;
 }
 
+// An account header
 message AccountHeader {
-    // Vault root hash.
+    // Vault root hash
     digest.Digest vault_root = 1;
-    // Storage root hash.
+
+    // Storage root hash
     digest.Digest storage_commitment = 2;
-    // Code root hash.
+
+    // Code root hash
     digest.Digest code_commitment = 3;
-    // Account nonce.
+
+    // Account nonce
     uint64 nonce = 4;
 }
