@@ -142,7 +142,7 @@ pub enum BuildBatchError {
     },
 
     #[error("Nothing actually went wrong, failure was injected on purpose")]
-    InjectedFailure(Vec<ProvenTransaction>),
+    InjectedFailure,
 }
 
 // Block prover errors

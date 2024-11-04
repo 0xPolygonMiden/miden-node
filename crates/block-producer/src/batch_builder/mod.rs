@@ -1,6 +1,5 @@
 use std::{num::NonZeroUsize, ops::Range, time::Duration};
 
-use miden_objects::transaction::ProvenTransaction;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
 use tracing::{debug, info, instrument, Span};
@@ -153,22 +152,13 @@ impl WorkerPool {
             async move {
                 tracing::debug!("Begin proving batch.");
 
-                // TODO: This is a deep clone which can be avoided by change batch building to using
-                // refs or arcs.
-                let transactions = transactions
-                    .iter()
-                    .map(AuthenticatedTransaction::raw_proven_transaction)
-                    .cloned()
-                    .collect();
+                let batch = Self::build_batch(transactions).map_err(|err| (id, err))?;
 
                 tokio::time::sleep(simulated_proof_time).await;
                 if failed {
                     tracing::debug!("Batch proof failure injected.");
-                    return Err((id, BuildBatchError::InjectedFailure(transactions)));
+                    return Err((id, BuildBatchError::InjectedFailure));
                 }
-
-                let batch = TransactionBatch::new(transactions, Default::default())
-                    .map_err(|err| (id, err))?;
 
                 tracing::debug!("Batch proof completed.");
 
@@ -178,18 +168,27 @@ impl WorkerPool {
     }
 
     #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
-    fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError> {
+    fn build_batch(
+        txs: Vec<AuthenticatedTransaction>,
+    ) -> Result<TransactionBatch, BuildBatchError> {
         let num_txs = txs.len();
 
         info!(target: COMPONENT, num_txs, "Building a transaction batch");
         debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
 
+        // TODO: This is a deep clone which can be avoided by change batch building to using
+        // refs or arcs.
+        let txs = txs
+            .iter()
+            .map(AuthenticatedTransaction::raw_proven_transaction)
+            .cloned()
+            .collect();
         // TODO: Found unauthenticated notes are no longer required.. potentially?
         let batch = TransactionBatch::new(txs, Default::default())?;
 
-        info!(target: COMPONENT, "Transaction batch built");
         Span::current().record("batch_id", format_blake3_digest(batch.id()));
+        info!(target: COMPONENT, "Transaction batch built");
 
-        Ok(())
+        Ok(batch)
     }
 }
