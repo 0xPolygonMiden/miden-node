@@ -87,8 +87,8 @@ impl BlockProducer {
 
     pub async fn serve(self) -> Result<(), ApiError> {
         let Self {
-            batch_builder: batch_config,
-            block_builder: block_config,
+            batch_builder,
+            block_builder,
             batch_limit,
             block_limit,
             state_retention,
@@ -108,27 +108,52 @@ impl BlockProducer {
         let mut tasks = tokio::task::JoinSet::new();
 
         // TODO: improve the error situationship.
-        tasks.spawn({
-            let mempool = mempool.clone();
-            async { batch_config.run(mempool).await }
-        });
-        tasks.spawn({
-            let mempool = mempool.clone();
-            async { block_config.run(mempool).await }
-        });
-        tasks.spawn(async move {
-            BlockProducerRpcServer::new(mempool, store)
-                .serve(rpc_listener)
-                .await
-                .expect("Really the rest should throw errors instead of panic'ing.")
-        });
+        let batch_builder_id = tasks
+            .spawn({
+                let mempool = mempool.clone();
+                async { batch_builder.run(mempool).await }
+            })
+            .id();
+        let block_builder_id = tasks
+            .spawn({
+                let mempool = mempool.clone();
+                async { block_builder.run(mempool).await }
+            })
+            .id();
+        let rpc_id = tasks
+            .spawn(async move {
+                BlockProducerRpcServer::new(mempool, store)
+                    .serve(rpc_listener)
+                    .await
+                    .expect("Really the rest should throw errors instead of panic'ing.")
+            })
+            .id();
 
-        // TODO: Improve logs etc here.
-        tasks.join_next().await;
+        // Wait for any task to end. They should run forever, so this is an unexpected result.
 
-        // TODO: Consider if there is any benefit in waiting for the rest to abort/complete.
-        //
-        // Probably some value to debug this scenario.
+        // SAFETY: The JoinSet is definitely not empty.
+        let task_result = tasks.join_next_with_id().await.unwrap();
+        let task_id = match &task_result {
+            Ok((id, _)) => *id,
+            Err(err) => err.id(),
+        };
+
+        let task_name = match task_id {
+            id if id == batch_builder_id => "batch-builder",
+            id if id == block_builder_id => "block-builder",
+            id if id == rpc_id => "rpc",
+            _ => {
+                tracing::warn!("An unknown task ID was detected in the block-producer.");
+                "unknown"
+            },
+        };
+
+        tracing::error!(
+            task = task_name,
+            result = ?task_result,
+            "Block-producer task ended unexpectedly, aborting"
+        );
+
         tasks.abort_all();
 
         Ok(())
