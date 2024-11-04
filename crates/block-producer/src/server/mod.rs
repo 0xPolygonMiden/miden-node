@@ -1,4 +1,4 @@
-use std::{net::ToSocketAddrs, sync::Arc};
+use std::net::ToSocketAddrs;
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -20,7 +20,7 @@ use crate::{
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
-    mempool::{BlockNumber, Mempool},
+    mempool::{BlockNumber, SharedMempool},
     store::{DefaultStore, Store},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
 };
@@ -97,12 +97,7 @@ impl BlockProducer {
             chain_tip,
         } = self;
 
-        let mempool = Arc::new(Mutex::new(Mempool::new(
-            chain_tip,
-            batch_limit,
-            block_limit,
-            state_retention,
-        )));
+        let mempool = SharedMempool::new(chain_tip, batch_limit, block_limit, state_retention);
 
         // Spawn rpc server and batch and block provers.
         //
@@ -140,12 +135,15 @@ impl BlockProducer {
     }
 }
 
+/// Serves the block producer's RPC [api](api_server::Api).
 struct BlockProducerRpcServer {
-    /// This outer mutex enforces that the incoming transactions won't crowd out more important
-    /// mempool locks.
+    /// The mutex effectively rate limits incoming transactions into the mempool by forcing them
+    /// through a queue.
     ///
-    /// The inner mutex will be abstracted away once we are happy with the api.
-    mempool: Mutex<Arc<Mutex<Mempool>>>,
+    /// This gives mempool users such as the batch and block builders equal footing with __all__
+    /// incoming transactions combined. Without this incoming transactions would greatly restrict
+    /// the block-producers usage of the mempool.
+    mempool: Mutex<SharedMempool>,
 
     store: DefaultStore,
 }
@@ -165,7 +163,7 @@ impl api_server::Api for BlockProducerRpcServer {
 }
 
 impl BlockProducerRpcServer {
-    pub fn new(mempool: Arc<Mutex<Mempool>>, store: DefaultStore) -> Self {
+    pub fn new(mempool: SharedMempool, store: DefaultStore) -> Self {
         Self { mempool: Mutex::new(mempool), store }
     }
 

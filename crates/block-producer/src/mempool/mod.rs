@@ -1,10 +1,12 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Display,
+    sync::Arc,
 };
 
 use batch_graph::BatchGraph;
 use inflight_state::InflightState;
+use tokio::sync::Mutex;
 use transaction_graph::TransactionGraph;
 
 use crate::{
@@ -74,6 +76,29 @@ impl BlockNumber {
 // MEMPOOL
 // ================================================================================================
 
+#[derive(Clone)]
+pub struct SharedMempool(Arc<Mutex<Mempool>>);
+
+impl SharedMempool {
+    pub fn new(
+        chain_tip: BlockNumber,
+        batch_limit: usize,
+        block_limit: usize,
+        state_retention: usize,
+    ) -> Self {
+        Self(Arc::new(Mutex::new(Mempool::new(
+            chain_tip,
+            batch_limit,
+            block_limit,
+            state_retention,
+        ))))
+    }
+
+    pub async fn lock(&self) -> tokio::sync::MutexGuard<Mempool> {
+        self.0.lock().await
+    }
+}
+
 pub struct Mempool {
     /// The latest inflight state of each account.
     ///
@@ -100,7 +125,7 @@ pub struct Mempool {
 
 impl Mempool {
     /// Creates a new [Mempool] with the provided configuration.
-    pub fn new(
+    fn new(
         chain_tip: BlockNumber,
         batch_limit: usize,
         block_limit: usize,

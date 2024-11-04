@@ -1,13 +1,13 @@
-use std::{num::NonZeroUsize, ops::Range, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, ops::Range, time::Duration};
 
 use miden_objects::transaction::ProvenTransaction;
 use rand::Rng;
-use tokio::{sync::Mutex, task::JoinSet, time};
+use tokio::{task::JoinSet, time};
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
     domain::transaction::AuthenticatedTransaction,
-    mempool::{BatchJobId, Mempool},
+    mempool::{BatchJobId, SharedMempool},
     COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
 };
 
@@ -53,7 +53,7 @@ impl BatchBuilder {
     /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.
     /// A batch is skipped if there are no available workers, or if there are no transactions
     /// available to batch.
-    pub async fn run(self, mempool: Arc<Mutex<Mempool>>) {
+    pub async fn run(self, mempool: SharedMempool) {
         assert!(
             self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
             "Failure rate must be a percentage"

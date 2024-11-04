@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, ops::Range, sync::Arc};
+use std::{collections::BTreeSet, ops::Range};
 
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{
@@ -8,13 +8,13 @@ use miden_objects::{
     transaction::InputNoteCommitment,
 };
 use rand::Rng;
-use tokio::{sync::Mutex, time::Duration};
+use tokio::time::Duration;
 use tracing::{debug, info, instrument};
 
 use crate::{
     batch_builder::batch::TransactionBatch,
     errors::BuildBlockError,
-    mempool::Mempool,
+    mempool::SharedMempool,
     store::{ApplyBlock, DefaultStore, Store},
     COMPONENT, SERVER_BLOCK_FREQUENCY,
 };
@@ -62,7 +62,7 @@ impl BlockBuilder {
     ///   2. Compiling these batches into the next block
     ///   3. Proving the block (this is simulated using random sleeps)
     ///   4. Committing the block to the store
-    pub async fn run(self, mempool: Arc<Mutex<Mempool>>) {
+    pub async fn run(self, mempool: SharedMempool) {
         assert!(
             self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
             "Failure rate must be a percentage"
