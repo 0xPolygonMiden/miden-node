@@ -21,10 +21,10 @@ use miden_node_utils::formatting::{format_array, format_blake3_digest};
 
 use crate::errors::BuildBatchError;
 
-// BATCH PROVER
+// BATCH BUILDER
 // ================================================================================================
 
-pub struct BatchProver {
+pub struct BatchBuilder {
     pub batch_interval: Duration,
     pub workers: NonZeroUsize,
     /// Used to simulate batch proving by sleeping for a random duration selected from this range.
@@ -35,7 +35,7 @@ pub struct BatchProver {
     pub failure_rate: f32,
 }
 
-impl Default for BatchProver {
+impl Default for BatchBuilder {
     fn default() -> Self {
         Self {
             batch_interval: SERVER_BUILD_BATCH_FREQUENCY,
@@ -47,7 +47,7 @@ impl Default for BatchProver {
     }
 }
 
-impl BatchProver {
+impl BatchBuilder {
     /// Starts the [BatchProducer], creating and proving batches at the configured interval.
     ///
     /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.

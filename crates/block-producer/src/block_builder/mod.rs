@@ -21,16 +21,16 @@ use crate::{
 
 pub(crate) mod prover;
 
-use self::prover::{block_witness::BlockWitness, BlockProverKernel};
+use self::prover::{block_witness::BlockWitness, BlockProver};
 
 // FIXME: reimplement the tests.
 // #[cfg(test)]
 // mod tests;
 
-// BLOCK PROVER
+// BLOCK BUILDER
 // =================================================================================================
 
-pub struct BlockProver {
+pub struct BlockBuilder {
     pub block_interval: Duration,
     /// Used to simulate block proving by sleeping for a random duration selected from this range.
     pub simulated_proof_time: Range<Duration>,
@@ -41,20 +41,20 @@ pub struct BlockProver {
     pub failure_rate: f32,
 
     pub store: DefaultStore,
-    pub block_kernel: BlockProverKernel,
+    pub block_kernel: BlockProver,
 }
 
-impl BlockProver {
+impl BlockBuilder {
     pub fn new(store: DefaultStore) -> Self {
         Self {
             block_interval: SERVER_BLOCK_FREQUENCY,
             simulated_proof_time: Duration::ZERO..Duration::ZERO,
             failure_rate: 0.0,
-            block_kernel: BlockProverKernel::new(),
+            block_kernel: BlockProver::new(),
             store,
         }
     }
-    /// Starts the [BlockProducer], infinitely producing blocks at the configured interval.
+    /// Starts the [BlockBuilder], infinitely producing blocks at the configured interval.
     ///
     /// Block production is sequential and consists of
     ///

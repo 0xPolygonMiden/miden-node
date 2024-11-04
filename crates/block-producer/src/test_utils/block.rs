@@ -12,7 +12,7 @@ use super::MockStoreSuccess;
 use crate::{
     batch_builder::TransactionBatch,
     block::BlockInputs,
-    block_builder::prover::{block_witness::BlockWitness, BlockProverKernel},
+    block_builder::prover::{block_witness::BlockWitness, BlockProver},
     store::Store,
 };
 
@@ -93,7 +93,7 @@ pub async fn build_actual_block_header(
 
     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    BlockProverKernel::new().prove(block_witness).unwrap()
+    BlockProver::new().prove(block_witness).unwrap()
 }
 
 #[derive(Debug)]

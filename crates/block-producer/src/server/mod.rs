@@ -15,8 +15,8 @@ use tonic::Status;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    batch_builder::BatchProver,
-    block_builder::BlockProver,
+    batch_builder::BatchBuilder,
+    block_builder::BlockBuilder,
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
@@ -32,8 +32,8 @@ use crate::{
 /// components to the store without resorting to sleeps or other mechanisms to spawn dependent
 /// components.
 pub struct BlockProducer {
-    batch_config: BatchProver,
-    block_config: BlockProver,
+    batch_builder: BatchBuilder,
+    block_builder: BlockBuilder,
     batch_limit: usize,
     block_limit: usize,
     state_retention: usize,
@@ -74,8 +74,8 @@ impl BlockProducer {
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            batch_config: Default::default(),
-            block_config: BlockProver::new(store.clone()),
+            batch_builder: Default::default(),
+            block_builder: BlockBuilder::new(store.clone()),
             batch_limit: SERVER_BATCH_SIZE,
             block_limit: SERVER_MAX_BATCHES_PER_BLOCK,
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
@@ -87,8 +87,8 @@ impl BlockProducer {
 
     pub async fn serve(self) -> Result<(), ApiError> {
         let Self {
-            batch_config,
-            block_config,
+            batch_builder: batch_config,
+            block_builder: block_config,
             batch_limit,
             block_limit,
             state_retention,

@@ -36,4 +36,4 @@ const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
 ///
 /// This determines the grace period incoming transactions have between fetching their input from
 /// the store and verification in the mempool.
-const SERVER_MEMPOOL_STATE_RETENTION: usize = 2;
+const SERVER_MEMPOOL_STATE_RETENTION: usize = 5;

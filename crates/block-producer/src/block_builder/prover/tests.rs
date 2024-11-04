@@ -338,7 +338,7 @@ async fn test_compute_account_root_success() {
 
     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    let block_prover = BlockProverKernel::new();
+    let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
     // Update SMT by hand to get new root
@@ -411,7 +411,7 @@ async fn test_compute_account_root_empty_batches() {
     let batches = Vec::new();
     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    let block_prover = BlockProverKernel::new();
+    let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
     // Compare roots
@@ -445,7 +445,7 @@ async fn test_compute_note_root_empty_batches_success() {
 
     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    let block_prover = BlockProverKernel::new();
+    let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
     // Compare roots
@@ -480,7 +480,7 @@ async fn test_compute_note_root_empty_notes_success() {
 
     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    let block_prover = BlockProverKernel::new();
+    let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
     // Compare roots
@@ -556,7 +556,7 @@ async fn test_compute_note_root_success() {
 
     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    let block_prover = BlockProverKernel::new();
+    let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
     // Create block note tree to get new root
@@ -716,7 +716,7 @@ async fn test_compute_nullifier_root_empty_success() {
 
     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    let block_prover = BlockProverKernel::new();
+    let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
     // Create SMT by hand to get new root
@@ -778,7 +778,7 @@ async fn test_compute_nullifier_root_success() {
 
     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    let block_prover = BlockProverKernel::new();
+    let block_prover = BlockProver::new();
     let block_header = block_prover.prove(block_witness).unwrap();
 
     // Create SMT by hand to get new root
