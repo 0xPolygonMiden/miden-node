@@ -43,4 +43,4 @@ miden-objects = { workspace = true, features = ["testing"] }
 miden-tx = { workspace = true, features = ["testing"] }
 rand_chacha = { version = "0.3", default-features = false }
 tokio = { workspace = true, features = ["test-util"] }
-winterfell = { version = "0.9" }
+winterfell = { version = "0.10" }
