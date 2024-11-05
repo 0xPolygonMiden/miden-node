@@ -17,6 +17,7 @@
 - [BREAKING] Migrated to v0.11 version of Miden VM (#528).
 - Reduce cloning in the store's `apply_block` (#532).
 - [BREAKING] Changed faucet storage type in the genesis to public. Using faucet from the genesis for faucet web app. Added support for faucet restarting without blockchain restarting (#517).
+- [BREAKING] Improved `ApplyBlockError` in the store (#535).
 
 ## 0.5.1 (2024-09-12)
 

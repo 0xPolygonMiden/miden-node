@@ -254,7 +254,7 @@ pub fn upsert_accounts(
                 debug_assert_eq!(account_id, u64::from(account.id()));
 
                 if account.hash() != update.new_state_hash() {
-                    return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
+                    return Err(DatabaseError::AccountHashesMismatch {
                         calculated: account.hash(),
                         expected: update.new_state_hash(),
                     });
@@ -1151,7 +1151,7 @@ fn apply_delta(
 
     let actual_hash = account.hash();
     if &actual_hash != final_state_hash {
-        return Err(DatabaseError::ApplyBlockFailedAccountHashesMismatch {
+        return Err(DatabaseError::AccountHashesMismatch {
             calculated: actual_hash,
             expected: *final_state_hash,
         });
