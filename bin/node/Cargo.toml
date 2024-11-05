@@ -14,7 +14,7 @@ repository.workspace = true
 [features]
 # Makes `make-genesis` subcommand run faster. Is only suitable for testing.
 # INFO: Make sure that all your components have matching features for them to function.
-testing = ["miden-lib/testing"]
+testing = ["miden-lib/testing", "miden-objects/testing"]
 tracing-forest = ["miden-node-block-producer/tracing-forest"]
 
 [dependencies]

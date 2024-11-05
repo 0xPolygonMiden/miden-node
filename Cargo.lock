@@ -395,9 +395,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.34"
+version = "1.1.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67b9470d453346108f93a59222a9a1a5724db32d0a4727b7ab7ace4b4d822dc9"
+checksum = "0f57c4b4da2a9d619dd035f27316d7a426305b75be93d09e92f2b9229c34feaf"
 dependencies = [
  "jobserver",
  "libc",
@@ -1511,7 +1511,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#ff3c5227c5962cc97cd44562f134b0a545be21cc"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#804da570c00c4a6a2ef48598c05cb7f3a191f4c0"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1707,7 +1707,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#ff3c5227c5962cc97cd44562f134b0a545be21cc"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#804da570c00c4a6a2ef48598c05cb7f3a191f4c0"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -1780,7 +1780,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#ff3c5227c5962cc97cd44562f134b0a545be21cc"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#804da570c00c4a6a2ef48598c05cb7f3a191f4c0"
 dependencies = [
  "async-trait",
  "miden-assembly",
