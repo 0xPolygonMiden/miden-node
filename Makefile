@@ -39,6 +39,10 @@ lint: format fix clippy ## Runs all linting tasks at once (Clippy, fixing, forma
 .PHONY: doc
 doc: ## Generates & checks documentation
 	$(WARNINGS) cargo doc --all-features --keep-going --release --locked
+	docker run --rm \
+      -v $(PWD)/docs:/out \
+      -v $(PWD)/proto:/protos \
+      pseudomuto/protoc-gen-doc --doc_opt=markdown,api.md
 
 
 .PHONY: doc-serve
