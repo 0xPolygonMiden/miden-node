@@ -99,7 +99,9 @@ struct InnerState {
 impl InnerState {
     /// Returns the latest block number.
     fn latest_block_num(&self) -> BlockNumber {
-        (self.chain_mmr.forest() - 1).try_into().expect("chain_mmr always has, at least, the genesis block")
+        (self.chain_mmr.forest() - 1)
+            .try_into()
+            .expect("chain_mmr always has, at least, the genesis block")
     }
 }
 
