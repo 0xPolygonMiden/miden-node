@@ -22,7 +22,8 @@ use crate::{
     errors::{AddTransactionError, VerifyTxError},
     mempool::{BlockNumber, Mempool, SharedMempool},
     store::{DefaultStore, Store},
-    COMPONENT, SERVER_BATCH_SIZE, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
+    COMPONENT, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
+    SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,
@@ -76,7 +77,7 @@ impl BlockProducer {
         Ok(Self {
             batch_builder: Default::default(),
             block_builder: BlockBuilder::new(store.clone()),
-            batch_limit: SERVER_BATCH_SIZE,
+            batch_limit: SERVER_MAX_TXS_PER_BATCH,
             block_limit: SERVER_MAX_BATCHES_PER_BLOCK,
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
             store,

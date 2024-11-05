@@ -11,7 +11,8 @@ use transaction_graph::TransactionGraph;
 
 use crate::{
     batch_builder::batch::TransactionBatch, domain::transaction::AuthenticatedTransaction,
-    errors::AddTransactionError,
+    errors::AddTransactionError, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
+    SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 mod batch_graph;
@@ -77,6 +78,50 @@ impl BlockNumber {
 // ================================================================================================
 
 pub type SharedMempool = Arc<Mutex<Mempool>>;
+
+#[derive(Clone)]
+pub struct MempoolBuilder {
+    /// The maximum number of transactions that will be selected for a batch.
+    pub batch_transaction_limit: usize,
+    /// The maximum number of batches that will be selected for a block.
+    pub block_batch_limit: usize,
+    /// Number of committed blocks the mempool will retain in its state tracking.
+    pub committed_state_retention: usize,
+}
+
+impl Default for MempoolBuilder {
+    fn default() -> Self {
+        Self {
+            batch_transaction_limit: SERVER_MAX_TXS_PER_BATCH,
+            block_batch_limit: SERVER_MAX_BATCHES_PER_BLOCK,
+            committed_state_retention: SERVER_MEMPOOL_STATE_RETENTION,
+        }
+    }
+}
+
+impl MempoolBuilder {
+    pub fn build_shared(self, chain_tip: BlockNumber) -> SharedMempool {
+        SharedMempool::new(self.build(chain_tip))
+    }
+
+    fn build(self, chain_tip: BlockNumber) -> Mempool {
+        let Self {
+            batch_transaction_limit,
+            block_batch_limit,
+            committed_state_retention,
+        } = self;
+        Mempool {
+            chain_tip,
+            batch_transaction_limit,
+            block_batch_limit,
+            state: InflightState::new(chain_tip, committed_state_retention),
+            block_in_progress: Default::default(),
+            transactions: Default::default(),
+            batches: Default::default(),
+            next_batch_id: Default::default(),
+        }
+    }
+}
 
 pub struct Mempool {
     /// The latest inflight state of each account.

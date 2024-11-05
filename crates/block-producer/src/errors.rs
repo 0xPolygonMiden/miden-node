@@ -94,11 +94,7 @@ impl From<AddTransactionError> for tonic::Status {
 // Batch building errors
 // =================================================================================================
 
-/// Error that may happen while building a transaction batch.
-///
-/// These errors are returned from the batch builder to the transaction queue, instead of
-/// dropping the transactions, they are included into the error values, so that the transaction
-/// queue can re-queue them.
+/// Error encountered while building a batch.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum BuildBatchError {
     #[error(
