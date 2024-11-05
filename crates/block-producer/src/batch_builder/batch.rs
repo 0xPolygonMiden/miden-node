@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     mem,
 };
@@ -81,17 +82,21 @@ impl TransactionBatch {
     ///   in the batch.
     /// - Hashes for corresponding input notes and output notes don't match.
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
-    pub fn new(
-        txs: Vec<ProvenTransaction>,
+    pub fn new<T>(
+        txs: impl IntoIterator<Item = T> + Clone,
         found_unauthenticated_notes: NoteAuthenticationInfo,
-    ) -> Result<Self, BuildBatchError> {
-        let id = Self::compute_id(&txs);
+    ) -> Result<Self, BuildBatchError>
+    where
+        T: Borrow<ProvenTransaction>,
+    {
+        let id = Self::compute_id(txs.clone().into_iter());
 
         // Populate batch output notes and updated accounts.
-        let mut output_notes = OutputNoteTracker::new(&txs)?;
+        let mut output_notes = OutputNoteTracker::new(txs.clone().into_iter())?;
         let mut updated_accounts = BTreeMap::<AccountId, AccountUpdate>::new();
         let mut unauthenticated_input_notes = BTreeSet::new();
-        for tx in &txs {
+        for tx in txs.clone().into_iter() {
+            let tx = tx.borrow();
             // Merge account updates so that state transitions A->B->C become A->C.
             match updated_accounts.entry(tx.account_id()) {
                 Entry::Vacant(vacant) => {
@@ -121,26 +126,28 @@ impl TransactionBatch {
         // note `x` (i.e., have a circular dependency between transactions), but this is not
         // a problem.
         let mut input_notes = vec![];
-        for input_note in txs.iter().flat_map(|tx| tx.input_notes().iter()) {
-            // Header is presented only for unauthenticated input notes.
-            let input_note = match input_note.header() {
-                Some(input_note_header) => {
-                    if output_notes.remove_note(input_note_header)? {
-                        continue;
-                    }
+        for tx in txs.into_iter() {
+            for input_note in tx.borrow().input_notes().iter() {
+                // Header is presented only for unauthenticated input notes.
+                let input_note = match input_note.header() {
+                    Some(input_note_header) => {
+                        if output_notes.remove_note(input_note_header)? {
+                            continue;
+                        }
 
-                    // If an unauthenticated note was found in the store, transform it to an
-                    // authenticated one (i.e. erase additional note details
-                    // except the nullifier)
-                    if found_unauthenticated_notes.contains_note(&input_note_header.id()) {
-                        InputNoteCommitment::from(input_note.nullifier())
-                    } else {
-                        input_note.clone()
-                    }
-                },
-                None => input_note.clone(),
-            };
-            input_notes.push(input_note)
+                        // If an unauthenticated note was found in the store, transform it to an
+                        // authenticated one (i.e. erase additional note details
+                        // except the nullifier)
+                        if found_unauthenticated_notes.contains_note(&input_note_header.id()) {
+                            InputNoteCommitment::from(input_note.nullifier())
+                        } else {
+                            input_note.clone()
+                        }
+                    },
+                    None => input_note.clone(),
+                };
+                input_notes.push(input_note)
+            }
         }
 
         let output_notes = output_notes.into_notes();
@@ -208,10 +215,13 @@ impl TransactionBatch {
     // HELPER FUNCTIONS
     // --------------------------------------------------------------------------------------------
 
-    fn compute_id(txs: &[ProvenTransaction]) -> BatchId {
-        let mut buf = Vec::with_capacity(32 * txs.len());
+    fn compute_id<T>(txs: impl Iterator<Item = T>) -> BatchId
+    where
+        T: Borrow<ProvenTransaction>,
+    {
+        let mut buf = Vec::with_capacity(32 * txs.size_hint().0);
         for tx in txs {
-            buf.extend_from_slice(&tx.id().as_bytes());
+            buf.extend_from_slice(&tx.borrow().id().as_bytes());
         }
         Blake3_256::hash(&buf)
     }
@@ -224,11 +234,14 @@ struct OutputNoteTracker {
 }
 
 impl OutputNoteTracker {
-    fn new(txs: &[ProvenTransaction]) -> Result<Self, BuildBatchError> {
+    fn new<T>(txs: impl IntoIterator<Item = T>) -> Result<Self, BuildBatchError>
+    where
+        T: Borrow<ProvenTransaction>,
+    {
         let mut output_notes = vec![];
         let mut output_note_index = BTreeMap::new();
         for tx in txs {
-            for note in tx.output_notes().iter() {
+            for note in tx.borrow().output_notes().iter() {
                 if output_note_index.insert(note.id(), output_notes.len()).is_some() {
                     return Err(BuildBatchError::DuplicateOutputNote(note.id()));
                 }

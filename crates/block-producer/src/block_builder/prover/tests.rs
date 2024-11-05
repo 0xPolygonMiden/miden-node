@@ -474,7 +474,7 @@ async fn test_compute_note_root_empty_notes_success() {
         .unwrap();
 
     let batches: Vec<TransactionBatch> = {
-        let batch = TransactionBatch::new(vec![], Default::default()).unwrap();
+        let batch = TransactionBatch::new(&vec![], Default::default()).unwrap();
         vec![batch]
     };
 
