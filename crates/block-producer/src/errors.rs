@@ -4,8 +4,8 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
-    transaction::{ProvenTransaction, TransactionId},
-    AccountDeltaError, Digest, TransactionInputError, MAX_BATCHES_PER_BLOCK,
+    transaction::TransactionId,
+    AccountDeltaError, Digest, TransactionInputError,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -97,24 +97,22 @@ impl From<AddTransactionError> for tonic::Status {
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum BuildBatchError {
     #[error("Duplicated unauthenticated transaction input note ID in the batch: {0}")]
-    DuplicateUnauthenticatedNote(NoteId, Vec<ProvenTransaction>),
+    DuplicateUnauthenticatedNote(NoteId),
 
     #[error("Duplicated transaction output note ID in the batch: {0}")]
-    DuplicateOutputNote(NoteId, Vec<ProvenTransaction>),
+    DuplicateOutputNote(NoteId),
 
     #[error("Note hashes mismatch for note {id}: (input: {input_hash}, output: {output_hash})")]
     NoteHashesMismatch {
         id: NoteId,
         input_hash: Digest,
         output_hash: Digest,
-        txs: Vec<ProvenTransaction>,
     },
 
     #[error("Failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {
         account_id: AccountId,
         error: AccountDeltaError,
-        txs: Vec<ProvenTransaction>,
     },
 
     #[error("Nothing actually went wrong, failure was injected on purpose")]
@@ -178,8 +176,6 @@ pub enum BuildBlockError {
     InconsistentNullifiers(Vec<Nullifier>),
     #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
-    #[error("too many batches in block. Got: {0}, max: {MAX_BATCHES_PER_BLOCK}")]
-    TooManyBatchesInBlock(usize),
     #[error("failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {
         account_id: AccountId,

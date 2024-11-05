@@ -98,11 +98,7 @@ impl TransactionBatch {
                     vacant.insert(AccountUpdate::new(tx));
                 },
                 Entry::Occupied(occupied) => occupied.into_mut().merge_tx(tx).map_err(|error| {
-                    BuildBatchError::AccountUpdateError {
-                        account_id: tx.account_id(),
-                        error,
-                        txs: txs.clone(),
-                    }
+                    BuildBatchError::AccountUpdateError { account_id: tx.account_id(), error }
                 })?,
             };
 
@@ -110,7 +106,7 @@ impl TransactionBatch {
             for note in tx.get_unauthenticated_notes() {
                 let id = note.id();
                 if !unauthenticated_input_notes.insert(id) {
-                    return Err(BuildBatchError::DuplicateUnauthenticatedNote(id, txs.clone()));
+                    return Err(BuildBatchError::DuplicateUnauthenticatedNote(id));
                 }
             }
         }
@@ -129,7 +125,7 @@ impl TransactionBatch {
             // Header is presented only for unauthenticated input notes.
             let input_note = match input_note.header() {
                 Some(input_note_header) => {
-                    if output_notes.remove_note(input_note_header, &txs)? {
+                    if output_notes.remove_note(input_note_header)? {
                         continue;
                     }
 
@@ -234,7 +230,7 @@ impl OutputNoteTracker {
         for tx in txs {
             for note in tx.output_notes().iter() {
                 if output_note_index.insert(note.id(), output_notes.len()).is_some() {
-                    return Err(BuildBatchError::DuplicateOutputNote(note.id(), txs.to_vec()));
+                    return Err(BuildBatchError::DuplicateOutputNote(note.id()));
                 }
                 output_notes.push(Some(note.clone()));
             }
@@ -243,11 +239,7 @@ impl OutputNoteTracker {
         Ok(Self { output_notes, output_note_index })
     }
 
-    pub fn remove_note(
-        &mut self,
-        input_note_header: &NoteHeader,
-        txs: &[ProvenTransaction],
-    ) -> Result<bool, BuildBatchError> {
+    pub fn remove_note(&mut self, input_note_header: &NoteHeader) -> Result<bool, BuildBatchError> {
         let id = input_note_header.id();
         if let Some(note_index) = self.output_note_index.remove(&id) {
             if let Some(output_note) = mem::take(&mut self.output_notes[note_index]) {
@@ -258,7 +250,6 @@ impl OutputNoteTracker {
                         id,
                         input_hash,
                         output_hash,
-                        txs: txs.to_vec(),
                     });
                 }
 
@@ -307,7 +298,7 @@ mod tests {
         ));
 
         match OutputNoteTracker::new(&txs) {
-            Err(BuildBatchError::DuplicateOutputNote(note_id, _)) => {
+            Err(BuildBatchError::DuplicateOutputNote(note_id)) => {
                 assert_eq!(note_id, duplicate_output_note.id())
             },
             res => panic!("Unexpected result: {res:?}"),
@@ -321,8 +312,8 @@ mod tests {
 
         let note_to_remove = mock_note(4);
 
-        assert!(tracker.remove_note(note_to_remove.header(), &txs).unwrap());
-        assert!(!tracker.remove_note(note_to_remove.header(), &txs).unwrap());
+        assert!(tracker.remove_note(note_to_remove.header()).unwrap());
+        assert!(!tracker.remove_note(note_to_remove.header()).unwrap());
 
         // Check that output notes are in the expected order and consumed note was removed
         assert_eq!(
@@ -343,7 +334,7 @@ mod tests {
         let duplicate_note = mock_note(5);
         txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
         match TransactionBatch::new(txs, Default::default()) {
-            Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id, _)) => {
+            Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id)) => {
                 assert_eq!(note_id, duplicate_note.id())
             },
             res => panic!("Unexpected result: {res:?}"),
