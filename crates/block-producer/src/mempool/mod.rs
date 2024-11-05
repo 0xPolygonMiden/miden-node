@@ -6,6 +6,9 @@ use std::{
 
 use batch_graph::BatchGraph;
 use inflight_state::InflightState;
+use miden_objects::{
+    MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
+};
 use tokio::sync::Mutex;
 use transaction_graph::TransactionGraph;
 
@@ -74,6 +77,101 @@ impl BlockNumber {
     }
 }
 
+// MEMPOOL BUDGET
+// ================================================================================================
+
+/// Limits placed on a batch's contents.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BatchBudget {
+    /// Maximum number of transactions allowed in a batch.
+    pub transactions: usize,
+    /// Maximum number of input notes allowed.
+    pub input_notes: usize,
+    /// Maximum number of output notes allowed.
+    pub output_notes: usize,
+    /// Maximum number of updated accounts.
+    pub accounts: usize,
+}
+
+/// Limits placed on a blocks's contents.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockBudget {
+    /// Maximum number of batches allowed in a block.
+    pub batches: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BudgetStatus {
+    Depleted,
+    Undepleted,
+}
+
+impl Default for BatchBudget {
+    fn default() -> Self {
+        Self {
+            transactions: SERVER_MAX_TXS_PER_BATCH,
+            input_notes: MAX_INPUT_NOTES_PER_BATCH,
+            output_notes: MAX_OUTPUT_NOTES_PER_BATCH,
+            accounts: MAX_ACCOUNTS_PER_BATCH,
+        }
+    }
+}
+
+impl Default for BlockBudget {
+    fn default() -> Self {
+        Self { batches: SERVER_MAX_BATCHES_PER_BLOCK }
+    }
+}
+
+impl BatchBudget {
+    /// Attempts to consume the transaction's resources from the budget.
+    ///
+    /// Returns [BudgetStatus::Depleted] if the transaction would exceed the remaining budget,
+    /// otherwise returns [BudgetStatus::Undepleted]
+    #[must_use]
+    fn check_then_deplete(&mut self, tx: &AuthenticatedTransaction) -> BudgetStatus {
+        // This type assertion reminds us to update the account check if we ever support multiple
+        // account updates per tx.
+        let _: miden_objects::accounts::AccountId = tx.account_update().account_id();
+        const ACCOUNT_COUNT: usize = 1;
+
+        // TODO: This is inefficient and ProvenTransaction should provide len() access.
+        let output_notes = tx.output_notes().count();
+        let input_notes = tx.nullifiers().count();
+
+        if self.transactions == 0
+            || self.accounts < ACCOUNT_COUNT
+            || self.input_notes < input_notes
+            || self.output_notes < output_notes
+        {
+            return BudgetStatus::Depleted;
+        }
+
+        self.transactions -= 1;
+        self.accounts -= ACCOUNT_COUNT;
+        self.input_notes -= input_notes;
+        self.output_notes -= output_notes;
+
+        BudgetStatus::Undepleted
+    }
+}
+
+impl BlockBudget {
+    /// Attempts to consume the batch's resources from the budget.
+    ///
+    /// Returns [BudgetStatus::Depleted] if the batch would exceed the remaining budget,
+    /// otherwise returns [BudgetStatus::Undepleted]
+    #[must_use]
+    fn check_then_deplete(&mut self, _batch: &TransactionBatch) -> BudgetStatus {
+        if self.batches == 0 {
+            BudgetStatus::Depleted
+        } else {
+            self.batches -= 1;
+            BudgetStatus::Undepleted
+        }
+    }
+}
+
 // MEMPOOL
 // ================================================================================================
 
@@ -92,10 +190,10 @@ impl SharedMempool {
 
 #[derive(Clone)]
 pub struct MempoolBuilder {
-    /// The maximum number of transactions that will be selected for a batch.
-    pub batch_transaction_limit: usize,
+    /// Limits placed on each batch.
+    pub batch_limits: BatchBudget,
     /// The maximum number of batches that will be selected for a block.
-    pub block_batch_limit: usize,
+    pub block_limits: BlockBudget,
     /// Number of committed blocks the mempool will retain in its state tracking.
     pub committed_state_retention: usize,
 }
@@ -103,9 +201,9 @@ pub struct MempoolBuilder {
 impl Default for MempoolBuilder {
     fn default() -> Self {
         Self {
-            batch_transaction_limit: SERVER_MAX_TXS_PER_BATCH,
-            block_batch_limit: SERVER_MAX_BATCHES_PER_BLOCK,
             committed_state_retention: SERVER_MEMPOOL_STATE_RETENTION,
+            block_limits: Default::default(),
+            batch_limits: Default::default(),
         }
     }
 }
@@ -117,14 +215,14 @@ impl MempoolBuilder {
 
     fn build(self, chain_tip: BlockNumber) -> Mempool {
         let Self {
-            batch_transaction_limit,
-            block_batch_limit,
+            block_limits,
             committed_state_retention,
+            batch_limits,
         } = self;
         Mempool {
             chain_tip,
-            batch_transaction_limit,
-            block_batch_limit,
+            block_limits,
+            batch_limits,
             state: InflightState::new(chain_tip, committed_state_retention),
             block_in_progress: Default::default(),
             transactions: Default::default(),
@@ -154,8 +252,9 @@ pub struct Mempool {
 
     block_in_progress: Option<BTreeSet<BatchJobId>>,
 
-    batch_transaction_limit: usize,
-    block_batch_limit: usize,
+    batch_limits: BatchBudget,
+
+    block_limits: BlockBudget,
 }
 
 impl Mempool {
@@ -186,7 +285,7 @@ impl Mempool {
     ///
     /// Returns `None` if no transactions are available.
     pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<AuthenticatedTransaction>)> {
-        let (batch, parents) = self.transactions.select_batch(self.batch_transaction_limit);
+        let (batch, parents) = self.transactions.select_batch(self.batch_limits.clone());
         if batch.is_empty() {
             return None;
         }
@@ -236,7 +335,7 @@ impl Mempool {
     pub fn select_block(&mut self) -> (BlockNumber, BTreeMap<BatchJobId, TransactionBatch>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
-        let batches = self.batches.select_block(self.block_batch_limit);
+        let batches = self.batches.select_block(self.block_limits.clone());
         self.block_in_progress = Some(batches.keys().cloned().collect());
 
         (self.chain_tip.next(), batches)

@@ -37,3 +37,13 @@ const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
 /// This determines the grace period incoming transactions have between fetching their input from
 /// the store and verification in the mempool.
 const SERVER_MEMPOOL_STATE_RETENTION: usize = 5;
+
+const _: () = assert!(
+    SERVER_MAX_BATCHES_PER_BLOCK <= miden_objects::MAX_BATCHES_PER_BLOCK,
+    "Server constraint cannot exceed the protocol's constraint"
+);
+
+const _: () = assert!(
+    SERVER_MAX_TXS_PER_BATCH <= miden_objects::MAX_ACCOUNTS_PER_BATCH,
+    "Server constraint cannot exceed the protocol's constraint"
+);

@@ -4,7 +4,7 @@ use miden_objects::transaction::TransactionId;
 
 use super::{
     dependency_graph::{DependencyGraph, GraphError},
-    BatchJobId,
+    BatchJobId, BlockBudget, BudgetStatus,
 };
 use crate::batch_builder::batch::TransactionBatch;
 
@@ -204,23 +204,26 @@ impl BatchGraph {
     }
 
     /// Returns at most `count` batches which are ready for inclusion in a block.
-    pub fn select_block(&mut self, count: usize) -> BTreeMap<BatchJobId, TransactionBatch> {
+    pub fn select_block(
+        &mut self,
+        mut budget: BlockBudget,
+    ) -> BTreeMap<BatchJobId, TransactionBatch> {
         let mut batches = BTreeMap::new();
 
-        for _ in 0..count {
-            // This strategy just selects arbitrary roots for now. This is valid but not very
-            // interesting or efficient.
-            let Some(batch_id) = self.inner.roots().first().copied() else {
+        while let Some(batch_id) = self.inner.roots().first().copied() {
+            // SAFETY: Since it was a root batch, it must definitely have a processed batch
+            // associated with it.
+            let batch = self.inner.get(&batch_id).unwrap().clone();
+
+            // Adhere to block's budget.
+            if budget.check_then_deplete(&batch) == BudgetStatus::Depleted {
                 break;
-            };
+            }
 
             // SAFETY: This is definitely a root since we just selected it from the set of roots.
             self.inner.process_root(batch_id).unwrap();
-            // SAFETY: Since it was a root batch, it must definitely have a processed batch
-            // associated with it.
-            let batch = self.inner.get(&batch_id).unwrap();
 
-            batches.insert(batch_id, batch.clone());
+            batches.insert(batch_id, batch);
         }
 
         batches

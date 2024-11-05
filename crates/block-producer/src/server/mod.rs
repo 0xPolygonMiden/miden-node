@@ -20,10 +20,9 @@ use crate::{
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
-    mempool::{BlockNumber, MempoolBuilder, SharedMempool},
+    mempool::{BatchBudget, BlockBudget, BlockNumber, MempoolBuilder, SharedMempool},
     store::{DefaultStore, Store},
-    COMPONENT, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
-    SERVER_MEMPOOL_STATE_RETENTION,
+    COMPONENT, SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,
@@ -35,8 +34,8 @@ use crate::{
 pub struct BlockProducer {
     batch_builder: BatchBuilder,
     block_builder: BlockBuilder,
-    batch_limit: usize,
-    block_limit: usize,
+    batch_limits: BatchBudget,
+    block_limits: BlockBudget,
     state_retention: usize,
     rpc_listener: TcpListener,
     store: DefaultStore,
@@ -77,8 +76,8 @@ impl BlockProducer {
         Ok(Self {
             batch_builder: Default::default(),
             block_builder: BlockBuilder::new(store.clone()),
-            batch_limit: SERVER_MAX_TXS_PER_BATCH,
-            block_limit: SERVER_MAX_BATCHES_PER_BLOCK,
+            batch_limits: Default::default(),
+            block_limits: Default::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
             store,
             rpc_listener,
@@ -90,8 +89,8 @@ impl BlockProducer {
         let Self {
             batch_builder,
             block_builder,
-            batch_limit,
-            block_limit,
+            batch_limits,
+            block_limits,
             state_retention,
             rpc_listener,
             store,
@@ -99,9 +98,9 @@ impl BlockProducer {
         } = self;
 
         let mempool = MempoolBuilder {
-            batch_transaction_limit: batch_limit,
-            block_batch_limit: block_limit,
+            block_limits,
             committed_state_retention: state_retention,
+            batch_limits,
         }
         .build_shared(chain_tip);
 
