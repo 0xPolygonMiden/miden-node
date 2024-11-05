@@ -21,7 +21,7 @@ pub mod server;
 pub const COMPONENT: &str = "miden-block-producer";
 
 /// The number of transactions per batch
-const SERVER_BATCH_SIZE: usize = 2;
+const SERVER_MAX_TXS_PER_BATCH: usize = 2;
 
 /// The frequency at which blocks are produced
 const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_secs(10);

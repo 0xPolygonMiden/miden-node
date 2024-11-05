@@ -11,7 +11,8 @@ use transaction_graph::TransactionGraph;
 
 use crate::{
     batch_builder::batch::TransactionBatch, domain::transaction::AuthenticatedTransaction,
-    errors::AddTransactionError,
+    errors::AddTransactionError, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
+    SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 mod batch_graph;
@@ -80,22 +81,56 @@ impl BlockNumber {
 pub struct SharedMempool(Arc<Mutex<Mempool>>);
 
 impl SharedMempool {
-    pub fn new(
-        chain_tip: BlockNumber,
-        batch_limit: usize,
-        block_limit: usize,
-        state_retention: usize,
-    ) -> Self {
-        Self(Arc::new(Mutex::new(Mempool::new(
-            chain_tip,
-            batch_limit,
-            block_limit,
-            state_retention,
-        ))))
+    fn new(inner: Mempool) -> Self {
+        Self(Arc::new(Mutex::new(inner)))
     }
 
     pub async fn lock(&self) -> tokio::sync::MutexGuard<Mempool> {
         self.0.lock().await
+    }
+}
+
+#[derive(Clone)]
+pub struct MempoolBuilder {
+    /// The maximum number of transactions that will be selected for a batch.
+    pub batch_transaction_limit: usize,
+    /// The maximum number of batches that will be selected for a block.
+    pub block_batch_limit: usize,
+    /// Number of committed blocks the mempool will retain in its state tracking.
+    pub committed_state_retention: usize,
+}
+
+impl Default for MempoolBuilder {
+    fn default() -> Self {
+        Self {
+            batch_transaction_limit: SERVER_MAX_TXS_PER_BATCH,
+            block_batch_limit: SERVER_MAX_BATCHES_PER_BLOCK,
+            committed_state_retention: SERVER_MEMPOOL_STATE_RETENTION,
+        }
+    }
+}
+
+impl MempoolBuilder {
+    pub fn build_shared(self, chain_tip: BlockNumber) -> SharedMempool {
+        SharedMempool::new(self.build(chain_tip))
+    }
+
+    fn build(self, chain_tip: BlockNumber) -> Mempool {
+        let Self {
+            batch_transaction_limit,
+            block_batch_limit,
+            committed_state_retention,
+        } = self;
+        Mempool {
+            chain_tip,
+            batch_transaction_limit,
+            block_batch_limit,
+            state: InflightState::new(chain_tip, committed_state_retention),
+            block_in_progress: Default::default(),
+            transactions: Default::default(),
+            batches: Default::default(),
+            next_batch_id: Default::default(),
+        }
     }
 }
 
@@ -124,25 +159,6 @@ pub struct Mempool {
 }
 
 impl Mempool {
-    /// Creates a new [Mempool] with the provided configuration.
-    fn new(
-        chain_tip: BlockNumber,
-        batch_limit: usize,
-        block_limit: usize,
-        state_retention: usize,
-    ) -> Self {
-        Self {
-            chain_tip,
-            batch_transaction_limit: batch_limit,
-            block_batch_limit: block_limit,
-            state: InflightState::new(chain_tip, state_retention),
-            block_in_progress: Default::default(),
-            transactions: Default::default(),
-            batches: Default::default(),
-            next_batch_id: Default::default(),
-        }
-    }
-
     /// Adds a transaction to the mempool.
     ///
     /// # Returns
