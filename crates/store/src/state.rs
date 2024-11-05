@@ -99,7 +99,7 @@ struct InnerState {
 impl InnerState {
     /// Returns the latest block number.
     fn latest_block_num(&self) -> BlockNumber {
-        (self.chain_mmr.forest() + 1).try_into().expect("block number overflow")
+        (self.chain_mmr.forest() - 1).try_into().expect("block number overflow")
     }
 }
 
