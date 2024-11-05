@@ -9,13 +9,13 @@ use miden_objects::{
     batches::BatchNoteTree,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteHeader, NoteId, Nullifier},
-    transaction::{InputNoteCommitment, OutputNote, TransactionId},
+    transaction::{InputNoteCommitment, OutputNote, ProvenTransaction, TransactionId},
     AccountDeltaError, Digest, MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH,
     MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use tracing::instrument;
 
-use crate::{errors::BuildBatchError, ProvenTransaction};
+use crate::errors::BuildBatchError;
 
 pub type BatchId = Blake3Digest<32>;
 

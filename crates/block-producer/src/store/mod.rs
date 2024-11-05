@@ -7,14 +7,10 @@ use std::{
 use async_trait::async_trait;
 use itertools::Itertools;
 use miden_node_proto::{
-    domain::notes::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
-        requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetTransactionInputsRequest,
-        },
+        requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
@@ -25,15 +21,16 @@ use miden_objects::{
     accounts::AccountId,
     block::Block,
     notes::{NoteId, Nullifier},
+    transaction::ProvenTransaction,
     utils::Serializable,
-    Digest,
+    BlockHeader, Digest,
 };
 use miden_processor::crypto::RpoDigest;
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{block::BlockInputs, errors::NotePathsError, ProvenTransaction, COMPONENT};
+use crate::{block::BlockInputs, COMPONENT};
 
 // STORE TRAIT
 // ================================================================================================
@@ -53,15 +50,6 @@ pub trait Store: ApplyBlock {
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
-
-    /// Returns note authentication information for the set of specified notes.
-    ///
-    /// If authentication info for a note does not exist in the store, the note is omitted
-    /// from the returned set of notes.
-    async fn get_note_authentication_info(
-        &self,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<NoteAuthenticationInfo, NotePathsError>;
 }
 
 #[async_trait]
@@ -154,6 +142,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
 // DEFAULT STORE IMPLEMENTATION
 // ================================================================================================
 
+#[derive(Clone)]
 pub struct DefaultStore {
     store: store_client::ApiClient<Channel>,
 }
@@ -162,6 +151,20 @@ impl DefaultStore {
     /// TODO: this should probably take store connection string and create a connection internally
     pub fn new(store: store_client::ApiClient<Channel>) -> Self {
         Self { store }
+    }
+
+    /// Returns the latest block's header from the store.
+    pub async fn latest_header(&self) -> Result<BlockHeader, String> {
+        // TODO: fixup the errors types.
+        let response = self
+            .store
+            .clone()
+            .get_block_header_by_number(tonic::Request::new(Default::default()))
+            .await
+            .map_err(|err| err.to_string())?
+            .into_inner();
+
+        BlockHeader::try_from(response.block_header.unwrap()).map_err(|err| err.to_string())
     }
 }
 
@@ -254,29 +257,5 @@ impl Store for DefaultStore {
             .into_inner();
 
         Ok(store_response.try_into()?)
-    }
-
-    async fn get_note_authentication_info(
-        &self,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<NoteAuthenticationInfo, NotePathsError> {
-        let request = tonic::Request::new(GetNoteAuthenticationInfoRequest {
-            note_ids: notes.map(digest::Digest::from).collect(),
-        });
-
-        let store_response = self
-            .store
-            .clone()
-            .get_note_authentication_info(request)
-            .await
-            .map_err(|err| NotePathsError::GrpcClientError(err.message().to_string()))?
-            .into_inner();
-
-        let note_authentication_info = store_response
-            .proofs
-            .ok_or(GetTransactionInputsResponse::missing_field("proofs"))?
-            .try_into()?;
-
-        Ok(note_authentication_info)
     }
 }

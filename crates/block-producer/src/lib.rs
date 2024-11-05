@@ -1,11 +1,4 @@
-// TODO: remove once block-producer rework is complete
-#![allow(unused)]
-
-use std::{sync::Arc, time::Duration};
-
-use batch_builder::batch::TransactionBatch;
-use miden_objects::transaction::ProvenTransaction;
-use tokio::sync::RwLock;
+use std::time::Duration;
 
 #[cfg(test)]
 pub mod test_utils;
@@ -15,19 +8,11 @@ mod block_builder;
 mod domain;
 mod errors;
 mod mempool;
-mod state_view;
 mod store;
-mod txqueue;
 
 pub mod block;
 pub mod config;
 pub mod server;
-
-// TYPE ALIASES
-// =================================================================================================
-
-/// A vector that can be shared across threads
-pub(crate) type SharedRwVec<T> = Arc<RwLock<Vec<T>>>;
 
 // CONSTANTS
 // =================================================================================================
@@ -46,3 +31,9 @@ const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
 
 /// Maximum number of batches per block
 const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
+
+/// The number of blocks of committed state that the mempool retains.
+///
+/// This determines the grace period incoming transactions have between fetching their input from
+/// the store and verification in the mempool.
+const SERVER_MEMPOOL_STATE_RETENTION: usize = 5;

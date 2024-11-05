@@ -1,19 +1,14 @@
-use std::{
-    collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque},
-    sync::Arc,
-};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, Nullifier},
-    transaction::{OutputNote, OutputNotes, ProvenTransaction, TransactionId},
-    Digest,
+    transaction::TransactionId,
 };
 
 use crate::{
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
-    store::TransactionInputs,
 };
 
 mod account_state;
@@ -301,7 +296,7 @@ impl InflightState {
         // SAFETY: The length check above guarantees that we have at least one committed block.
         let block = self.committed_blocks.pop_front().unwrap();
 
-        for (tx_id, delta) in block {
+        for (_, delta) in block {
             // SAFETY: Since the delta exists, so must the account.
             let status = self.accounts.get_mut(&delta.account).unwrap().prune_committed(1);
 
@@ -357,14 +352,13 @@ impl OutputNoteState {
 
 #[cfg(test)]
 mod tests {
-    use miden_air::Felt;
-    use miden_objects::{accounts::AccountType, testing::account_id::AccountIdBuilder};
+    use miden_objects::Digest;
 
     use super::*;
     use crate::test_utils::{
-        mock_account_id, mock_proven_tx,
+        mock_account_id,
         note::{mock_note, mock_output_note},
-        MockPrivateAccount, MockProvenTxBuilder,
+        MockProvenTxBuilder,
     };
 
     #[test]

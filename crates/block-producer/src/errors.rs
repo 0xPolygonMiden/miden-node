@@ -120,20 +120,11 @@ pub enum BuildBatchError {
     )]
     TooManyAccountsInBatch(Vec<ProvenTransaction>),
 
-    #[error("Failed to create notes SMT: {0}")]
-    NotesSmtError(MerkleError, Vec<ProvenTransaction>),
-
-    #[error("Failed to get note paths: {0}")]
-    NotePathsError(NotePathsError, Vec<ProvenTransaction>),
-
     #[error("Duplicated unauthenticated transaction input note ID in the batch: {0}")]
     DuplicateUnauthenticatedNote(NoteId, Vec<ProvenTransaction>),
 
     #[error("Duplicated transaction output note ID in the batch: {0}")]
     DuplicateOutputNote(NoteId, Vec<ProvenTransaction>),
-
-    #[error("Unauthenticated transaction notes not found in the store: {0:?}")]
-    UnauthenticatedNotesNotFound(Vec<NoteId>, Vec<ProvenTransaction>),
 
     #[error("Note hashes mismatch for note {id}: (input: {input_hash}, output: {output_hash})")]
     NoteHashesMismatch {
@@ -151,25 +142,7 @@ pub enum BuildBatchError {
     },
 
     #[error("Nothing actually went wrong, failure was injected on purpose")]
-    InjectedFailure(Vec<ProvenTransaction>),
-}
-
-impl BuildBatchError {
-    pub fn into_transactions(self) -> Vec<ProvenTransaction> {
-        match self {
-            BuildBatchError::TooManyInputNotes(_, txs) => txs,
-            BuildBatchError::TooManyNotesCreated(_, txs) => txs,
-            BuildBatchError::TooManyAccountsInBatch(txs) => txs,
-            BuildBatchError::NotesSmtError(_, txs) => txs,
-            BuildBatchError::NotePathsError(_, txs) => txs,
-            BuildBatchError::DuplicateUnauthenticatedNote(_, txs) => txs,
-            BuildBatchError::DuplicateOutputNote(_, txs) => txs,
-            BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
-            BuildBatchError::NoteHashesMismatch { txs, .. } => txs,
-            BuildBatchError::AccountUpdateError { txs, .. } => txs,
-            BuildBatchError::InjectedFailure(txs) => txs,
-        }
-    }
+    InjectedFailure,
 }
 
 // Block prover errors
@@ -195,18 +168,6 @@ pub enum BlockInputsError {
     ConversionError(#[from] ConversionError),
     #[error("MmrPeaks error: {0}")]
     MmrPeaksError(#[from] MmrError),
-    #[error("gRPC client failed with error: {0}")]
-    GrpcClientError(String),
-}
-
-// Note paths errors
-// =================================================================================================
-
-#[allow(clippy::enum_variant_names)]
-#[derive(Debug, PartialEq, Eq, Error)]
-pub enum NotePathsError {
-    #[error("failed to parse protobuf message: {0}")]
-    ConversionError(#[from] ConversionError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
 }

@@ -1,26 +1,17 @@
 use std::{
-    collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet},
     fmt::Display,
-    ops::Sub,
     sync::Arc,
 };
 
 use batch_graph::BatchGraph;
 use inflight_state::InflightState;
-use miden_objects::{
-    accounts::AccountId,
-    notes::{NoteId, Nullifier},
-    transaction::{ProvenTransaction, TransactionId},
-    Digest,
-};
-use miden_tx::{utils::collections::KvMap, TransactionVerifierError};
+use tokio::sync::Mutex;
 use transaction_graph::TransactionGraph;
 
 use crate::{
-    batch_builder::batch::TransactionBatch,
-    domain::transaction::AuthenticatedTransaction,
-    errors::{AddTransactionError, VerifyTxError},
-    store::{TransactionInputs, TxInputsError},
+    batch_builder::batch::TransactionBatch, domain::transaction::AuthenticatedTransaction,
+    errors::AddTransactionError,
 };
 
 mod batch_graph;
@@ -28,7 +19,7 @@ mod dependency_graph;
 mod inflight_state;
 mod transaction_graph;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BatchJobId(u64);
 
 impl Display for BatchJobId {
@@ -85,6 +76,29 @@ impl BlockNumber {
 // MEMPOOL
 // ================================================================================================
 
+#[derive(Clone)]
+pub struct SharedMempool(Arc<Mutex<Mempool>>);
+
+impl SharedMempool {
+    pub fn new(
+        chain_tip: BlockNumber,
+        batch_limit: usize,
+        block_limit: usize,
+        state_retention: usize,
+    ) -> Self {
+        Self(Arc::new(Mutex::new(Mempool::new(
+            chain_tip,
+            batch_limit,
+            block_limit,
+            state_retention,
+        ))))
+    }
+
+    pub async fn lock(&self) -> tokio::sync::MutexGuard<Mempool> {
+        self.0.lock().await
+    }
+}
+
 pub struct Mempool {
     /// The latest inflight state of each account.
     ///
@@ -110,6 +124,25 @@ pub struct Mempool {
 }
 
 impl Mempool {
+    /// Creates a new [Mempool] with the provided configuration.
+    fn new(
+        chain_tip: BlockNumber,
+        batch_limit: usize,
+        block_limit: usize,
+        state_retention: usize,
+    ) -> Self {
+        Self {
+            chain_tip,
+            batch_transaction_limit: batch_limit,
+            block_batch_limit: block_limit,
+            state: InflightState::new(chain_tip, state_retention),
+            block_in_progress: Default::default(),
+            transactions: Default::default(),
+            batches: Default::default(),
+            next_batch_id: Default::default(),
+        }
+    }
+
     /// Adds a transaction to the mempool.
     ///
     /// # Returns
@@ -126,7 +159,7 @@ impl Mempool {
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction)?;
 
-        self.transactions.insert(transaction, parents);
+        self.transactions.insert(transaction, parents).expect("Malformed graph");
 
         Ok(self.chain_tip.0)
     }
@@ -146,7 +179,7 @@ impl Mempool {
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        self.batches.insert(batch_id, tx_ids, parents);
+        self.batches.insert(batch_id, tx_ids, parents).expect("Malformed graph");
 
         Some((batch_id, batch))
     }
@@ -167,14 +200,14 @@ impl Mempool {
         let batches = removed_batches.keys().copied().collect::<Vec<_>>();
         let transactions = removed_batches.into_values().flatten().collect();
 
-        self.transactions.requeue_transactions(transactions);
+        self.transactions.requeue_transactions(transactions).expect("Malformed graph");
 
         tracing::warn!(%batch, descendents=?batches, "Batch failed, dropping all inflight descendent batches, impacted transactions are back in queue.");
     }
 
     /// Marks a batch as proven if it exists.
     pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
-        self.batches.submit_proof(batch_id, batch);
+        self.batches.submit_proof(batch_id, batch).expect("Malformed graph");
     }
 
     /// Select batches for the next block.
@@ -227,7 +260,6 @@ impl Mempool {
 
         // Remove all transactions from the graphs.
         let purged = self.batches.remove_batches(batches).expect("Bad graph");
-        let batches = purged.keys().collect::<Vec<_>>();
         let transactions = purged.into_values().flatten().collect();
 
         let transactions = self

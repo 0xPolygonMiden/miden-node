@@ -1,10 +1,5 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::Range,
-    sync::Arc,
-};
+use std::{collections::BTreeSet, ops::Range};
 
-use async_trait::async_trait;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
 use miden_objects::{
     accounts::AccountId,
@@ -13,67 +8,96 @@ use miden_objects::{
     transaction::InputNoteCommitment,
 };
 use rand::Rng;
-use tokio::{sync::Mutex, time::Duration};
+use tokio::time::Duration;
 use tracing::{debug, info, instrument};
 
 use crate::{
     batch_builder::batch::TransactionBatch,
     errors::BuildBlockError,
-    mempool::{BatchJobId, Mempool},
+    mempool::SharedMempool,
     store::{ApplyBlock, DefaultStore, Store},
-    COMPONENT,
+    COMPONENT, SERVER_BLOCK_FREQUENCY,
 };
 
 pub(crate) mod prover;
 
 use self::prover::{block_witness::BlockWitness, BlockProver};
 
-#[cfg(test)]
-mod tests;
+// FIXME: reimplement the tests.
+// #[cfg(test)]
+// mod tests;
 
 // BLOCK BUILDER
 // =================================================================================================
 
-#[async_trait]
-pub trait BlockBuilder: Send + Sync + 'static {
-    /// Receive batches to be included in a block. An empty vector indicates that no batches were
-    /// ready, and that an empty block should be created.
+pub struct BlockBuilder {
+    pub block_interval: Duration,
+    /// Used to simulate block proving by sleeping for a random duration selected from this range.
+    pub simulated_proof_time: Range<Duration>,
+
+    /// Simulated block failure rate as a percentage.
     ///
-    /// The `BlockBuilder` relies on `build_block()` to be called as a precondition to creating a
-    /// block. In other words, if `build_block()` is never called, then no blocks are produced.
-    async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError>;
+    /// Note: this _must_ be sign positive and less than 1.0.
+    pub failure_rate: f32,
+
+    pub store: DefaultStore,
+    pub block_kernel: BlockProver,
 }
 
-#[derive(Debug)]
-pub struct DefaultBlockBuilder<S, A> {
-    store: Arc<S>,
-    state_view: Arc<A>,
-    block_kernel: BlockProver,
-}
-
-impl<S, A> DefaultBlockBuilder<S, A>
-where
-    S: Store,
-    A: ApplyBlock,
-{
-    pub fn new(store: Arc<S>, state_view: Arc<A>) -> Self {
+impl BlockBuilder {
+    pub fn new(store: DefaultStore) -> Self {
         Self {
-            store,
-            state_view,
+            block_interval: SERVER_BLOCK_FREQUENCY,
+            // Note: The range cannot be empty.
+            simulated_proof_time: Duration::ZERO..Duration::from_millis(1),
+            failure_rate: 0.0,
             block_kernel: BlockProver::new(),
+            store,
         }
     }
-}
+    /// Starts the [BlockBuilder], infinitely producing blocks at the configured interval.
+    ///
+    /// Block production is sequential and consists of
+    ///
+    ///   1. Pulling the next set of batches from the [Mempool]
+    ///   2. Compiling these batches into the next block
+    ///   3. Proving the block (this is simulated using random sleeps)
+    ///   4. Committing the block to the store
+    pub async fn run(self, mempool: SharedMempool) {
+        assert!(
+            self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
+            "Failure rate must be a percentage"
+        );
 
-// FIXME: remove the allow when the upstream clippy issue is fixed:
-// https://github.com/rust-lang/rust-clippy/issues/12281
-#[allow(clippy::blocks_in_conditions)]
-#[async_trait]
-impl<S, A> BlockBuilder for DefaultBlockBuilder<S, A>
-where
-    S: Store,
-    A: ApplyBlock,
-{
+        let mut interval = tokio::time::interval(self.block_interval);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            interval.tick().await;
+
+            let (block_number, batches) = mempool.lock().await.select_block();
+            let batches = batches.into_values().collect::<Vec<_>>();
+
+            let mut result = self.build_block(&batches).await;
+            let proving_duration = rand::thread_rng().gen_range(self.simulated_proof_time.clone());
+
+            tokio::time::sleep(proving_duration).await;
+
+            // Randomly inject failures at the given rate.
+            //
+            // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
+            if rand::thread_rng().gen::<f32>() < self.failure_rate {
+                result = Err(BuildBlockError::InjectedFailure);
+            }
+
+            let mut mempool = mempool.lock().await;
+            match result {
+                Ok(_) => mempool.block_committed(block_number),
+                Err(_) => mempool.block_failed(block_number),
+            }
+        }
+    }
+
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
         info!(
@@ -143,68 +167,10 @@ where
         info!(target: COMPONENT, block_num, %block_hash, "block built");
         debug!(target: COMPONENT, ?block);
 
-        self.state_view.apply_block(&block).await?;
+        self.store.apply_block(&block).await?;
 
         info!(target: COMPONENT, block_num, %block_hash, "block committed");
 
         Ok(())
-    }
-}
-
-struct BlockProducer<BB> {
-    pub mempool: Arc<Mutex<Mempool>>,
-    pub block_interval: Duration,
-    pub block_builder: BB,
-    /// Used to simulate block proving by sleeping for a random duration selected from this range.
-    pub simulated_proof_time: Range<Duration>,
-
-    /// Simulated block failure rate as a percentage.
-    ///
-    /// Note: this _must_ be sign positive and less than 1.0.
-    pub failure_rate: f32,
-}
-
-impl<BB: BlockBuilder> BlockProducer<BB> {
-    /// Starts the [BlockProducer], infinitely producing blocks at the configured interval.
-    ///
-    /// Block production is sequential and consists of
-    ///
-    ///   1. Pulling the next set of batches from the [Mempool]
-    ///   2. Compiling these batches into the next block
-    ///   3. Proving the block (this is simulated using random sleeps)
-    ///   4. Committing the block to the store
-    pub async fn run(self) {
-        assert!(
-            self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
-            "Failure rate must be a percentage"
-        );
-
-        let mut interval = tokio::time::interval(self.block_interval);
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-
-        loop {
-            interval.tick().await;
-
-            let (block_number, batches) = self.mempool.lock().await.select_block();
-            let batches = batches.into_values().collect::<Vec<_>>();
-
-            let mut result = self.block_builder.build_block(&batches).await;
-            let proving_duration = rand::thread_rng().gen_range(self.simulated_proof_time.clone());
-
-            tokio::time::sleep(proving_duration).await;
-
-            // Randomly inject failures at the given rate.
-            //
-            // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
-            if rand::thread_rng().gen::<f32>() < self.failure_rate {
-                result = Err(BuildBlockError::InjectedFailure);
-            }
-
-            let mut mempool = self.mempool.lock().await;
-            match result {
-                Ok(_) => mempool.block_committed(block_number),
-                Err(_) => mempool.block_failed(block_number),
-            }
-        }
     }
 }

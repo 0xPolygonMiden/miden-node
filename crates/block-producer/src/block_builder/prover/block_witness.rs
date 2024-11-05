@@ -11,10 +11,9 @@ use miden_objects::{
 };
 
 use crate::{
-    batch_builder::batch::AccountUpdate,
+    batch_builder::{batch::AccountUpdate, TransactionBatch},
     block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
-    TransactionBatch,
 };
 
 // BLOCK WITNESS

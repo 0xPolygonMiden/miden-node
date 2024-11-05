@@ -13,7 +13,6 @@ pub use proven_tx::{mock_proven_tx, MockProvenTxBuilder};
 
 mod store;
 
-use rand::Rng;
 pub use store::{MockStoreFailure, MockStoreSuccess, MockStoreSuccessBuilder};
 
 mod account;

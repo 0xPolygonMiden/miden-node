@@ -1,4 +1,4 @@
-use crate::{test_utils::MockProvenTxBuilder, TransactionBatch};
+use crate::{batch_builder::TransactionBatch, test_utils::MockProvenTxBuilder};
 
 pub trait TransactionBatchConstructor {
     /// Returns a `TransactionBatch` with `notes_per_tx.len()` transactions, where the i'th

@@ -10,6 +10,7 @@ use miden_objects::{
     block::{Block, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::{NoteId, NoteInclusionProof, Nullifier},
+    transaction::ProvenTransaction,
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 use tokio::sync::RwLock;
@@ -18,14 +19,12 @@ use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
-    errors::NotePathsError,
     store::{
         ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
     },
     test_utils::block::{
         block_output_notes, flatten_output_notes, note_created_smt_from_note_batches,
     },
-    ProvenTransaction,
 };
 
 /// Builds a [`MockStoreSuccess`]
@@ -352,39 +351,6 @@ impl Store for MockStoreSuccess {
             found_unauthenticated_notes,
         })
     }
-
-    async fn get_note_authentication_info(
-        &self,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<NoteAuthenticationInfo, NotePathsError> {
-        let locked_notes = self.notes.read().await;
-        let locked_headers = self.block_headers.read().await;
-        let locked_chain_mmr = self.chain_mmr.read().await;
-
-        let note_proofs = notes
-            .filter_map(|id| locked_notes.get(id).map(|proof| (*id, proof.clone())))
-            .collect::<BTreeMap<_, _>>();
-
-        let latest_header =
-            *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
-        let chain_length = latest_header.block_num();
-
-        let block_proofs = note_proofs
-            .values()
-            .map(|note_proof| {
-                let block_num = note_proof.location().block_num();
-                let block_header = *locked_headers.get(&block_num).unwrap();
-                let mmr_path = locked_chain_mmr
-                    .open_at(block_num as usize, latest_header.block_num() as usize)
-                    .unwrap()
-                    .merkle_path;
-
-                BlockInclusionProof { block_header, mmr_path, chain_length }
-            })
-            .collect();
-
-        Ok(NoteAuthenticationInfo { block_proofs, note_proofs })
-    }
 }
 
 #[derive(Default)]
@@ -413,12 +379,5 @@ impl Store for MockStoreFailure {
         _notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError> {
         Err(BlockInputsError::GrpcClientError(String::new()))
-    }
-
-    async fn get_note_authentication_info(
-        &self,
-        _notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<NoteAuthenticationInfo, NotePathsError> {
-        Err(NotePathsError::GrpcClientError(String::new()))
     }
 }
