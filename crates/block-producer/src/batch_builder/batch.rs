@@ -10,8 +10,7 @@ use miden_objects::{
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteHeader, NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote, ProvenTransaction, TransactionId},
-    AccountDeltaError, Digest, MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH,
-    MAX_OUTPUT_NOTES_PER_BATCH,
+    AccountDeltaError, Digest,
 };
 use tracing::instrument;
 
@@ -76,13 +75,11 @@ impl TransactionBatch {
     /// for transforming unauthenticated notes into authenticated notes.
     ///
     /// # Errors
+    ///
     /// Returns an error if:
-    /// - The number of output notes across all transactions exceeds 4096.
-    /// - There are duplicated output notes or unauthenticated notes found across all transactions
+    ///   - There are duplicated output notes or unauthenticated notes found across all transactions
     ///   in the batch.
     /// - Hashes for corresponding input notes and output notes don't match.
-    ///
-    /// TODO: enforce limit on the number of created nullifiers.
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
     pub fn new(
         txs: Vec<ProvenTransaction>,
@@ -118,10 +115,6 @@ impl TransactionBatch {
             }
         }
 
-        if updated_accounts.len() > MAX_ACCOUNTS_PER_BATCH {
-            return Err(BuildBatchError::TooManyAccountsInBatch(txs));
-        }
-
         // Populate batch produced nullifiers and match output notes with corresponding
         // unauthenticated input notes in the same batch, which are removed from the unauthenticated
         // input notes set.
@@ -154,15 +147,7 @@ impl TransactionBatch {
             input_notes.push(input_note)
         }
 
-        if input_notes.len() > MAX_INPUT_NOTES_PER_BATCH {
-            return Err(BuildBatchError::TooManyInputNotes(input_notes.len(), txs));
-        }
-
         let output_notes = output_notes.into_notes();
-
-        if output_notes.len() > MAX_OUTPUT_NOTES_PER_BATCH {
-            return Err(BuildBatchError::TooManyNotesCreated(output_notes.len(), txs));
-        }
 
         // Build the output notes SMT.
         let output_notes_smt = BatchNoteTree::with_contiguous_leaves(

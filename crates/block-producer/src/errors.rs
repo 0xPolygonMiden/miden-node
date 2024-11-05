@@ -5,8 +5,7 @@ use miden_objects::{
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
-    AccountDeltaError, Digest, TransactionInputError, MAX_ACCOUNTS_PER_BATCH,
-    MAX_BATCHES_PER_BLOCK, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
+    AccountDeltaError, Digest, TransactionInputError, MAX_BATCHES_PER_BLOCK,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -97,25 +96,6 @@ impl From<AddTransactionError> for tonic::Status {
 /// Error encountered while building a batch.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum BuildBatchError {
-    #[error(
-        "Too many input notes in the batch. Got: {0}, limit: {}",
-        MAX_INPUT_NOTES_PER_BATCH
-    )]
-    TooManyInputNotes(usize, Vec<ProvenTransaction>),
-
-    #[error(
-        "Too many notes created in the batch. Got: {0}, limit: {}",
-        MAX_OUTPUT_NOTES_PER_BATCH
-    )]
-    TooManyNotesCreated(usize, Vec<ProvenTransaction>),
-
-    #[error(
-        "Too many account updates in the batch. Got: {}, limit: {}",
-        .0.len(),
-        MAX_ACCOUNTS_PER_BATCH
-    )]
-    TooManyAccountsInBatch(Vec<ProvenTransaction>),
-
     #[error("Duplicated unauthenticated transaction input note ID in the batch: {0}")]
     DuplicateUnauthenticatedNote(NoteId, Vec<ProvenTransaction>),
 
