@@ -64,5 +64,3 @@ jobs:
             ${{ env.faucet-package }} \
             ${{ env.faucet-package }}.checksum \
             --clobber
-          
-
