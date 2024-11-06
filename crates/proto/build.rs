@@ -4,7 +4,7 @@ use std::{
 };
 
 use miette::IntoDiagnostic;
-use prost::Message;
+use protox::prost::Message;
 
 /// Generates Rust protobuf bindings from .proto files in the root directory.
 ///
@@ -59,7 +59,7 @@ fn main() -> miette::Result<()> {
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
         .out_dir(&dst_dir)
-        .compile_with_config(prost_config, protos, includes)
+        .compile_protos_with_config(prost_config, protos, includes)
         .into_diagnostic()?;
 
     generate_mod_rs(&dst_dir).into_diagnostic()?;

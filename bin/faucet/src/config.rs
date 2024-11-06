@@ -9,38 +9,32 @@ use serde::{Deserialize, Serialize};
 // Faucet config
 // ================================================================================================
 
+/// Default path to the faucet account file
+pub const DEFAULT_FAUCET_ACCOUNT_PATH: &str = "accounts/faucet.mac";
+
+/// Default timeout for RPC requests
+pub const DEFAULT_RPC_TIMEOUT_MS: u64 = 10000;
+
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FaucetConfig {
     /// Endpoint of the faucet
     pub endpoint: Endpoint,
-    /// Node RPC gRPC endpoint in the format `http://<host>[:<port>]`.
+    /// Node RPC gRPC endpoint in the format `http://<host>[:<port>]`
     pub node_url: String,
     /// Timeout for RPC requests in milliseconds
     pub timeout_ms: u64,
-    /// Location to store database files
-    pub database_filepath: PathBuf,
     /// Possible options on the amount of asset that should be dispersed on each faucet request
     pub asset_amount_options: Vec<u64>,
-    /// Token symbol of the generated fungible asset
-    pub token_symbol: String,
-    /// Number of decimals of the generated fungible asset
-    pub decimals: u8,
-    /// Maximum supply of the generated fungible asset
-    pub max_supply: u64,
-}
-
-impl FaucetConfig {
-    pub fn endpoint_url(&self) -> String {
-        self.endpoint.to_string()
-    }
+    /// Path to the faucet account file
+    pub faucet_account_path: PathBuf,
 }
 
 impl Display for FaucetConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{{ endpoint: \"{}\",  database_filepath: {:?}, asset_amount_options: {:?}, token_symbol: {}, decimals: {}, max_supply: {} }}",
-            self.endpoint, self.database_filepath, self.asset_amount_options, self.token_symbol, self.decimals, self.max_supply
+            "{{ endpoint: \"{}\", node_url: \"{}\", timeout_ms: \"{}\", asset_amount_options: {:?}, faucet_account_path: \"{}\" }}",
+            self.endpoint, self.node_url, self.timeout_ms, self.asset_amount_options, self.faucet_account_path.display()
         ))
     }
 }
@@ -50,12 +44,9 @@ impl Default for FaucetConfig {
         Self {
             endpoint: Endpoint::localhost(DEFAULT_FAUCET_SERVER_PORT),
             node_url: Endpoint::localhost(DEFAULT_NODE_RPC_PORT).to_string(),
-            timeout_ms: 10000,
-            database_filepath: PathBuf::from("store.sqlite3"),
+            timeout_ms: DEFAULT_RPC_TIMEOUT_MS,
             asset_amount_options: vec![100, 500, 1000],
-            token_symbol: "POL".to_string(),
-            decimals: 8,
-            max_supply: 1000000,
+            faucet_account_path: DEFAULT_FAUCET_ACCOUNT_PATH.into(),
         }
     }
 }

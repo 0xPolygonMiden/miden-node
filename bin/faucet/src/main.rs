@@ -3,23 +3,36 @@ mod config;
 mod errors;
 mod handlers;
 mod state;
+mod store;
 
-use std::{fs::File, io::Write, path::PathBuf};
+use std::path::PathBuf;
 
-use actix_cors::Cors;
-use actix_web::{
-    middleware::{DefaultHeaders, Logger},
-    web, App, HttpServer,
+use anyhow::Context;
+use axum::{
+    routing::{get, post},
+    Router,
 };
 use clap::{Parser, Subcommand};
-use errors::FaucetError;
-use miden_node_utils::config::load_config;
+use http::HeaderValue;
+use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
+use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
+use miden_objects::{
+    accounts::{AccountData, AccountStorageMode, AuthSecretKey},
+    assets::TokenSymbol,
+    crypto::dsa::rpo_falcon512::SecretKey,
+    Felt,
+};
+use rand::Rng;
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use state::FaucetState;
+use tokio::net::TcpListener;
+use tower::ServiceBuilder;
+use tower_http::{cors::CorsLayer, set_header::SetResponseHeaderLayer, trace::TraceLayer};
 use tracing::info;
 
 use crate::{
-    config::FaucetConfig,
-    handlers::{get_metadata, get_tokens},
+    config::{FaucetConfig, DEFAULT_FAUCET_ACCOUNT_PATH},
+    handlers::{get_index, get_metadata, get_static_file, get_tokens},
 };
 
 // CONSTANTS
@@ -32,7 +45,7 @@ const FAUCET_CONFIG_FILE_PATH: &str = "miden-faucet.toml";
 // ================================================================================================
 
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None, long_version = long_version().to_string())]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,
@@ -46,79 +59,130 @@ pub enum Command {
         config: PathBuf,
     },
 
-    /// Generates default configuration file for the faucet
+    /// Create a new public faucet account and save to the specified file
+    CreateFaucetAccount {
+        #[arg(short, long, value_name = "FILE", default_value = DEFAULT_FAUCET_ACCOUNT_PATH)]
+        output_path: PathBuf,
+        #[arg(short, long)]
+        token_symbol: String,
+        #[arg(short, long)]
+        decimals: u8,
+        #[arg(short, long)]
+        max_supply: u64,
+    },
+
+    /// Generate default configuration file for the faucet
     Init {
         #[arg(short, long, default_value = FAUCET_CONFIG_FILE_PATH)]
         config_path: String,
+        #[arg(short, long, default_value = DEFAULT_FAUCET_ACCOUNT_PATH)]
+        faucet_account_path: String,
     },
 }
 
 // MAIN
 // =================================================================================================
 
-#[actix_web::main]
-async fn main() -> Result<(), FaucetError> {
-    miden_node_utils::logging::setup_logging()
-        .map_err(|err| FaucetError::StartError(err.to_string()))?;
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    miden_node_utils::logging::setup_logging().context("Failed to initialize logging")?;
 
     let cli = Cli::parse();
 
     match &cli.command {
         Command::Start { config } => {
-            let config: FaucetConfig = load_config(config)
-                .map_err(|err| FaucetError::ConfigurationError(err.to_string()))?;
+            let config: FaucetConfig =
+                load_config(config).context("Failed to load configuration file")?;
 
             let faucet_state = FaucetState::new(config.clone()).await?;
 
             info!(target: COMPONENT, %config, "Initializing server");
 
-            info!("Server is now running on: {}", config.endpoint_url());
+            let app = Router::new()
+                .route("/", get(get_index))
+                .route("/get_metadata", get(get_metadata))
+                .route("/get_tokens", post(get_tokens))
+                .route("/*path", get(get_static_file))
+                .layer(
+                    ServiceBuilder::new()
+                        .layer(TraceLayer::new_for_http())
+                        .layer(SetResponseHeaderLayer::if_not_present(
+                            http::header::CACHE_CONTROL,
+                            HeaderValue::from_static("no-cache"),
+                        ))
+                        .layer(
+                            CorsLayer::new()
+                                .allow_origin(tower_http::cors::Any)
+                                .allow_methods(tower_http::cors::Any),
+                        ),
+                )
+                .with_state(faucet_state);
 
-            HttpServer::new(move || {
-                let cors = Cors::default().allow_any_origin().allow_any_method();
-                App::new()
-                    .app_data(web::Data::new(faucet_state.clone()))
-                    .wrap(cors)
-                    .wrap(Logger::default())
-                    .wrap(DefaultHeaders::new().add(("Cache-Control", "no-cache")))
-                    .service(get_metadata)
-                    .service(get_tokens)
-                    .service(actix_web_static_files::ResourceFiles::new(
-                        "/",
-                        static_resources::generate(),
-                    ))
-            })
-            .bind((config.endpoint.host, config.endpoint.port))
-            .map_err(|err| FaucetError::StartError(err.to_string()))?
-            .run()
-            .await
-            .map_err(|err| FaucetError::StartError(err.to_string()))?;
+            let listener = TcpListener::bind((config.endpoint.host.as_str(), config.endpoint.port))
+                .await
+                .context("Failed to bind TCP listener")?;
+
+            info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
+
+            axum::serve(listener, app).await.unwrap();
         },
-        Command::Init { config_path } => {
-            let current_dir = std::env::current_dir().map_err(|err| {
-                FaucetError::ConfigurationError(format!("failed to open current directory: {err}"))
-            })?;
 
-            let mut config_file_path = current_dir.clone();
-            config_file_path.push(config_path);
+        Command::CreateFaucetAccount {
+            output_path,
+            token_symbol,
+            decimals,
+            max_supply,
+        } => {
+            println!("Generating new faucet account. This may take a few minutes...");
 
-            let config = FaucetConfig::default();
-            let config_as_toml_string = toml::to_string(&config).map_err(|err| {
-                FaucetError::ConfigurationError(format!(
-                    "Failed to serialize default config: {err}"
-                ))
-            })?;
+            let current_dir =
+                std::env::current_dir().context("Failed to open current directory")?;
 
-            let mut file_handle =
-                File::options().write(true).create_new(true).open(&config_file_path).map_err(
-                    |err| FaucetError::ConfigurationError(format!("Error opening the file: {err}")),
-                )?;
+            let mut rng = ChaCha20Rng::from_seed(rand::random());
 
-            file_handle.write(config_as_toml_string.as_bytes()).map_err(|err| {
-                FaucetError::ConfigurationError(format!("Error writing to file: {err}"))
-            })?;
+            let secret = SecretKey::with_rng(&mut get_rpo_random_coin(&mut rng));
 
-            println!("Config file successfully created at: {:?}", config_file_path);
+            let (account, account_seed) = create_basic_fungible_faucet(
+                rng.gen(),
+                TokenSymbol::try_from(token_symbol.as_str())
+                    .context("Failed to parse token symbol")?,
+                *decimals,
+                Felt::try_from(*max_supply)
+                    .expect("max supply value is greater than or equal to the field modulus"),
+                AccountStorageMode::Public,
+                AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
+            )
+            .context("Failed to create basic fungible faucet account")?;
+
+            let account_data =
+                AccountData::new(account, Some(account_seed), AuthSecretKey::RpoFalcon512(secret));
+
+            let output_path = current_dir.join(output_path);
+            account_data
+                .write(&output_path)
+                .context("Failed to write account data to file")?;
+
+            println!("Faucet account file successfully created at: {output_path:?}");
+        },
+
+        Command::Init { config_path, faucet_account_path } => {
+            let current_dir =
+                std::env::current_dir().context("Failed to open current directory")?;
+
+            let config_file_path = current_dir.join(config_path);
+
+            let config = FaucetConfig {
+                faucet_account_path: faucet_account_path.into(),
+                ..FaucetConfig::default()
+            };
+
+            let config_as_toml_string =
+                toml::to_string(&config).context("Failed to serialize default config")?;
+
+            std::fs::write(&config_file_path, config_as_toml_string)
+                .context("Error writing config to file")?;
+
+            println!("Config file successfully created at: {config_file_path:?}");
         },
     }
 
@@ -128,4 +192,21 @@ async fn main() -> Result<(), FaucetError> {
 /// The static website files embedded by the build.rs script.
 mod static_resources {
     include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+}
+
+/// Generates [LongVersion] using the metadata generated by build.rs.
+fn long_version() -> LongVersion {
+    // Use optional to allow for build script embedding failure.
+    LongVersion {
+        version: env!("CARGO_PKG_VERSION"),
+        sha: option_env!("VERGEN_GIT_SHA").unwrap_or_default(),
+        branch: option_env!("VERGEN_GIT_BRANCH").unwrap_or_default(),
+        dirty: option_env!("VERGEN_GIT_DIRTY").unwrap_or_default(),
+        features: option_env!("VERGEN_CARGO_FEATURES").unwrap_or_default(),
+        rust_version: option_env!("VERGEN_RUSTC_SEMVER").unwrap_or_default(),
+        host: option_env!("VERGEN_RUSTC_HOST_TRIPLE").unwrap_or_default(),
+        target: option_env!("VERGEN_CARGO_TARGET_TRIPLE").unwrap_or_default(),
+        opt_level: option_env!("VERGEN_CARGO_OPT_LEVEL").unwrap_or_default(),
+        debug: option_env!("VERGEN_CARGO_DEBUG").unwrap_or_default(),
+    }
 }

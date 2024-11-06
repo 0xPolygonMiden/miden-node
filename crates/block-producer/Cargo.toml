@@ -18,6 +18,7 @@ tracing-forest = ["miden-node-utils/tracing-forest"]
 async-trait = { version = "0.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
 itertools = { version = "0.13" }
+miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
@@ -40,7 +41,6 @@ miden-lib = { workspace = true, features = ["testing"] }
 miden-node-test-macro = { path = "../test-macro" }
 miden-objects = { workspace = true, features = ["testing"] }
 miden-tx = { workspace = true, features = ["testing"] }
-once_cell = { version = "1.18" }
 rand_chacha = { version = "0.3", default-features = false }
 tokio = { workspace = true, features = ["test-util"] }
-winterfell = { version = "0.9" }
+winterfell = { version = "0.10" }

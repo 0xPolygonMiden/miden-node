@@ -1,5 +1,6 @@
+use std::sync::LazyLock;
+
 use miden_objects::crypto::hash::blake::{Blake3Digest, Blake3_160};
-use once_cell::sync::Lazy;
 use rusqlite::Connection;
 use rusqlite_migration::{Migrations, SchemaVersion, M};
 use tracing::{debug, error, info, instrument};
@@ -13,8 +14,8 @@ use crate::{
 type Hash = Blake3Digest<20>;
 
 const MIGRATION_SCRIPTS: [&str; 1] = [include_str!("migrations/001-init.sql")];
-static MIGRATION_HASHES: Lazy<Vec<Hash>> = Lazy::new(compute_migration_hashes);
-static MIGRATIONS: Lazy<Migrations> = Lazy::new(prepare_migrations);
+static MIGRATION_HASHES: LazyLock<Vec<Hash>> = LazyLock::new(compute_migration_hashes);
+static MIGRATIONS: LazyLock<Migrations> = LazyLock::new(prepare_migrations);
 
 fn up(s: &'static str) -> M<'static> {
     M::up(s).foreign_key_check()

@@ -3,14 +3,15 @@ use miden_node_proto::{
         block_producer::api_client as block_producer_client,
         requests::{
             CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
-            GetAccountStateDeltaRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
-            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+            GetAccountProofsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
+            GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
+            SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             CheckNullifiersByPrefixResponse, CheckNullifiersResponse, GetAccountDetailsResponse,
-            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetNotesByIdResponse, SubmitProvenTransactionResponse, SyncNoteResponse,
-            SyncStateResponse,
+            GetAccountProofsResponse, GetAccountStateDeltaResponse, GetBlockByNumberResponse,
+            GetBlockHeaderByNumberResponse, GetNotesByIdResponse, SubmitProvenTransactionResponse,
+            SyncNoteResponse, SyncStateResponse,
         },
         rpc::api_server,
         store::api_client as store_client,
@@ -19,7 +20,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
-    utils::serde::Deserializable, Digest, MIN_PROOF_SECURITY_LEVEL,
+    utils::serde::Deserializable, Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
@@ -55,9 +56,6 @@ impl RpcApi {
     }
 }
 
-// FIXME: remove the allow when the upstream clippy issue is fixed:
-// https://github.com/rust-lang/rust-clippy/issues/12281
-#[allow(clippy::blocks_in_conditions)]
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
     #[instrument(
@@ -190,7 +188,7 @@ impl api_server::Api for RpcApi {
         self.block_producer.clone().submit_proven_transaction(request).await
     }
 
-    /// Returns details for public (on-chain) account by id.
+    /// Returns details for public (public) account by id.
     #[instrument(
         target = "miden-rpc",
         name = "rpc:get_account_details",
@@ -208,7 +206,6 @@ impl api_server::Api for RpcApi {
         let _account_id: AccountId = request
             .get_ref()
             .account_id
-            .clone()
             .ok_or(Status::invalid_argument("account_id is missing"))?
             .try_into()
             .map_err(|err| Status::invalid_argument(format!("Invalid account id: {err}")))?;
@@ -250,5 +247,30 @@ impl api_server::Api for RpcApi {
         debug!(target: COMPONENT, ?request);
 
         self.store.clone().get_account_state_delta(request).await
+    }
+
+    #[instrument(
+        target = "miden-rpc",
+        name = "rpc:get_account_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_proofs(
+        &self,
+        request: Request<GetAccountProofsRequest>,
+    ) -> Result<Response<GetAccountProofsResponse>, Status> {
+        let request = request.into_inner();
+
+        debug!(target: COMPONENT, ?request);
+
+        if request.account_ids.len() > MAX_NUM_FOREIGN_ACCOUNTS as usize {
+            return Err(Status::invalid_argument(format!(
+                "Too many accounts requested: {}, limit: {MAX_NUM_FOREIGN_ACCOUNTS}",
+                request.account_ids.len()
+            )));
+        }
+
+        self.store.clone().get_account_proofs(request).await
     }
 }

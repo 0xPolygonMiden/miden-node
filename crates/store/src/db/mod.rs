@@ -7,7 +7,7 @@ use std::{
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
     domain::accounts::{AccountInfo, AccountSummary},
-    generated::note::Note as NotePb,
+    generated::note::{Note as NotePb, NoteSyncRecord as NoteSyncRecordPb},
 };
 use miden_objects::{
     accounts::AccountDelta,
@@ -72,7 +72,7 @@ impl From<NoteRecord> for NotePb {
     fn from(note: NoteRecord) -> Self {
         Self {
             block_num: note.block_num,
-            note_index: note.note_index.to_absolute_index(),
+            note_index: note.note_index.leaf_index_value().into(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
             merkle_path: Some(Into::into(&note.merkle_path)),
@@ -83,9 +83,8 @@ impl From<NoteRecord> for NotePb {
 
 #[derive(Debug, PartialEq)]
 pub struct StateSyncUpdate {
-    pub notes: Vec<NoteRecord>,
+    pub notes: Vec<NoteSyncRecord>,
     pub block_header: BlockHeader,
-    pub chain_tip: BlockNumber,
     pub account_updates: Vec<AccountSummary>,
     pub transactions: Vec<TransactionSummary>,
     pub nullifiers: Vec<NullifierInfo>,
@@ -93,9 +92,40 @@ pub struct StateSyncUpdate {
 
 #[derive(Debug, PartialEq)]
 pub struct NoteSyncUpdate {
-    pub notes: Vec<NoteRecord>,
+    pub notes: Vec<NoteSyncRecord>,
     pub block_header: BlockHeader,
-    pub chain_tip: BlockNumber,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteSyncRecord {
+    pub block_num: BlockNumber,
+    pub note_index: BlockNoteIndex,
+    pub note_id: RpoDigest,
+    pub metadata: NoteMetadata,
+    pub merkle_path: MerklePath,
+}
+
+impl From<NoteSyncRecord> for NoteSyncRecordPb {
+    fn from(note: NoteSyncRecord) -> Self {
+        Self {
+            note_index: note.note_index.leaf_index_value().into(),
+            note_id: Some(note.note_id.into()),
+            metadata: Some(note.metadata.into()),
+            merkle_path: Some(Into::into(&note.merkle_path)),
+        }
+    }
+}
+
+impl From<NoteRecord> for NoteSyncRecord {
+    fn from(note: NoteRecord) -> Self {
+        Self {
+            block_num: note.block_num,
+            note_index: note.note_index,
+            note_id: note.note_id,
+            metadata: note.metadata,
+            merkle_path: note.merkle_path,
+        }
+    }
 }
 
 impl Db {
@@ -170,10 +200,15 @@ impl Db {
 
     /// Loads all the nullifiers from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_nullifiers(&self) -> Result<Vec<(Nullifier, BlockNumber)>> {
-        self.pool.get().await?.interact(sql::select_nullifiers).await.map_err(|err| {
-            DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
-        })?
+    pub async fn select_all_nullifiers(&self) -> Result<Vec<(Nullifier, BlockNumber)>> {
+        self.pool
+            .get()
+            .await?
+            .interact(sql::select_all_nullifiers)
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
+            })?
     }
 
     /// Loads the nullifiers that match the prefixes from the DB.
@@ -199,16 +234,16 @@ impl Db {
 
     /// Loads all the notes from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_notes(&self) -> Result<Vec<NoteRecord>> {
-        self.pool.get().await?.interact(sql::select_notes).await.map_err(|err| {
+    pub async fn select_all_notes(&self) -> Result<Vec<NoteRecord>> {
+        self.pool.get().await?.interact(sql::select_all_notes).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select notes task failed: {err}"))
         })?
     }
 
     /// Loads all the accounts from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_accounts(&self) -> Result<Vec<AccountInfo>> {
-        self.pool.get().await?.interact(sql::select_accounts).await.map_err(|err| {
+    pub async fn select_all_accounts(&self) -> Result<Vec<AccountInfo>> {
+        self.pool.get().await?.interact(sql::select_all_accounts).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select accounts task failed: {err}"))
         })?
     }
@@ -261,11 +296,11 @@ impl Db {
 
     /// Loads all the account hashes from the DB.
     #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
-    pub async fn select_account_hashes(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
+    pub async fn select_all_account_hashes(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
         self.pool
             .get()
             .await?
-            .interact(sql::select_account_hashes)
+            .interact(sql::select_all_account_hashes)
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select account hashes task failed: {err}"))
@@ -282,6 +317,22 @@ impl Db {
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get account details task failed: {err}"))
+            })?
+    }
+
+    /// Loads public accounts details from the DB.
+    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    pub async fn select_accounts_by_ids(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<Vec<AccountInfo>> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| sql::select_accounts_by_ids(conn, &account_ids))
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Get accounts details task failed: {err}"))
             })?
     }
 
@@ -392,9 +443,7 @@ impl Db {
                 )?;
 
                 let _ = allow_acquire.send(());
-                acquire_done
-                    .blocking_recv()
-                    .map_err(DatabaseError::ApplyBlockFailedClosedChannel)?;
+                acquire_done.blocking_recv()?;
 
                 transaction.commit()?;
 

@@ -121,10 +121,11 @@ impl MockStoreSuccessBuilder {
             0,
             Digest::default(),
             block_num,
-            chain_mmr.peaks(chain_mmr.forest()).unwrap().hash_peaks(),
+            chain_mmr.peaks().hash_peaks(),
             accounts_smt.root(),
             nullifiers_smt.root(),
             note_root,
+            Digest::default(),
             Digest::default(),
             Digest::default(),
             1,
@@ -136,8 +137,8 @@ impl MockStoreSuccessBuilder {
                     note.id(),
                     NoteInclusionProof::new(
                         block_num,
-                        index.to_absolute_index(),
-                        block_note_tree.get_note_path(index).unwrap(),
+                        index.leaf_index_value(),
+                        block_note_tree.get_note_path(index),
                     )
                     .expect("Failed to create `NoteInclusionProof`"),
                 )
@@ -224,8 +225,8 @@ impl ApplyBlock for MockStoreSuccess {
                 note.id(),
                 NoteInclusionProof::new(
                     header.block_num(),
-                    note_index.to_absolute_index(),
-                    note_tree.get_note_path(note_index).unwrap_or_default(),
+                    note_index.leaf_index_value(),
+                    note_tree.get_note_path(note_index),
                 )
                 .expect("Failed to build `NoteInclusionProof`"),
             );
@@ -300,7 +301,7 @@ impl Store for MockStoreSuccess {
 
         let chain_peaks = {
             let locked_chain_mmr = self.chain_mmr.read().await;
-            locked_chain_mmr.peaks(locked_chain_mmr.forest()).unwrap()
+            locked_chain_mmr.peaks()
         };
 
         let accounts = {
@@ -328,15 +329,13 @@ impl Store for MockStoreSuccess {
             *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
 
         let locked_chain_mmr = self.chain_mmr.read().await;
-        let mmr_forest = locked_chain_mmr.forest();
         let chain_length = latest_header.block_num();
         let block_proofs = note_proofs
             .values()
             .map(|note_proof| {
                 let block_num = note_proof.location().block_num();
                 let block_header = *locked_headers.get(&block_num).unwrap();
-                let mmr_path =
-                    locked_chain_mmr.open(block_num as usize, mmr_forest).unwrap().merkle_path;
+                let mmr_path = locked_chain_mmr.open(block_num as usize).unwrap().merkle_path;
 
                 BlockInclusionProof { block_header, mmr_path, chain_length }
             })
@@ -375,7 +374,7 @@ impl Store for MockStoreSuccess {
                 let block_num = note_proof.location().block_num();
                 let block_header = *locked_headers.get(&block_num).unwrap();
                 let mmr_path = locked_chain_mmr
-                    .open(block_num as usize, latest_header.block_num() as usize)
+                    .open_at(block_num as usize, latest_header.block_num() as usize)
                     .unwrap()
                     .merkle_path;
 

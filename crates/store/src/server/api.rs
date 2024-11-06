@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use miden_node_proto::{
     convert,
@@ -7,21 +7,23 @@ use miden_node_proto::{
     generated::{
         self,
         account::AccountSummary,
-        note::{NoteAuthenticationInfo as NoteAuthenticationInfoProto, NoteSyncRecord},
+        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
-            GetAccountDetailsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
-            GetBlockHeaderByNumberRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetNotesByIdRequest, GetTransactionInputsRequest, ListAccountsRequest,
-            ListNotesRequest, ListNullifiersRequest, SyncNoteRequest, SyncStateRequest,
+            GetAccountDetailsRequest, GetAccountProofsRequest, GetAccountStateDeltaRequest,
+            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNoteAuthenticationInfoRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncNoteRequest,
+            SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
-            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountStateDeltaResponse,
-            GetBlockByNumberResponse, GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNoteAuthenticationInfoResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
-            ListAccountsResponse, ListNotesResponse, ListNullifiersResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
+            CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
+            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
+            GetBlockInputsResponse, GetNoteAuthenticationInfoResponse, GetNotesByIdResponse,
+            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
+            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncNoteResponse, SyncStateResponse,
         },
         smt::SmtLeafEntry,
         store::api_server,
@@ -36,7 +38,7 @@ use miden_objects::{
     utils::{Deserializable, Serializable},
     Felt, ZERO,
 };
-use tonic::{Response, Status};
+use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
 use crate::{state::State, types::AccountId, COMPONENT};
@@ -48,9 +50,6 @@ pub struct StoreApi {
     pub(super) state: Arc<State>,
 }
 
-// FIXME: remove the allow when the upstream clippy issue is fixed:
-// https://github.com/rust-lang/rust-clippy/issues/12281
-#[allow(clippy::blocks_in_conditions)]
 #[tonic::async_trait]
 impl api_server::Api for StoreApi {
     // CLIENT ENDPOINTS
@@ -68,7 +67,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_block_header_by_number(
         &self,
-        request: tonic::Request<GetBlockHeaderByNumberRequest>,
+        request: Request<GetBlockHeaderByNumberRequest>,
     ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
         info!(target: COMPONENT, ?request);
         let request = request.into_inner();
@@ -100,7 +99,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn check_nullifiers(
         &self,
-        request: tonic::Request<CheckNullifiersRequest>,
+        request: Request<CheckNullifiersRequest>,
     ) -> Result<Response<CheckNullifiersResponse>, Status> {
         // Validate the nullifiers and convert them to Digest values. Stop on first error.
         let request = request.into_inner();
@@ -124,7 +123,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn check_nullifiers_by_prefix(
         &self,
-        request: tonic::Request<CheckNullifiersByPrefixRequest>,
+        request: Request<CheckNullifiersByPrefixRequest>,
     ) -> Result<Response<CheckNullifiersByPrefixResponse>, Status> {
         let request = request.into_inner();
 
@@ -135,8 +134,7 @@ impl api_server::Api for StoreApi {
         let nullifiers = self
             .state
             .check_nullifiers_by_prefix(request.prefix_len, request.nullifiers)
-            .await
-            .map_err(internal_error)?
+            .await?
             .into_iter()
             .map(|nullifier_info| NullifierUpdate {
                 nullifier: Some(nullifier_info.nullifier.into()),
@@ -158,7 +156,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn sync_state(
         &self,
-        request: tonic::Request<SyncStateRequest>,
+        request: Request<SyncStateRequest>,
     ) -> Result<Response<SyncStateResponse>, Status> {
         let request = request.into_inner();
 
@@ -190,16 +188,7 @@ impl api_server::Api for StoreApi {
             })
             .collect();
 
-        let notes = state
-            .notes
-            .into_iter()
-            .map(|note| NoteSyncRecord {
-                note_index: note.note_index.to_absolute_index(),
-                note_id: Some(note.note_id.into()),
-                metadata: Some(note.metadata.into()),
-                merkle_path: Some(Into::into(&note.merkle_path)),
-            })
-            .collect();
+        let notes = state.notes.into_iter().map(Into::into).collect();
 
         let nullifiers = state
             .nullifiers
@@ -211,7 +200,7 @@ impl api_server::Api for StoreApi {
             .collect();
 
         Ok(Response::new(SyncStateResponse {
-            chain_tip: state.chain_tip,
+            chain_tip: self.state.latest_block_num().await,
             block_header: Some(state.block_header.into()),
             mmr_delta: Some(delta.into()),
             accounts,
@@ -231,7 +220,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn sync_notes(
         &self,
-        request: tonic::Request<SyncNoteRequest>,
+        request: Request<SyncNoteRequest>,
     ) -> Result<Response<SyncNoteResponse>, Status> {
         let request = request.into_inner();
 
@@ -241,19 +230,10 @@ impl api_server::Api for StoreApi {
             .await
             .map_err(internal_error)?;
 
-        let notes = state
-            .notes
-            .into_iter()
-            .map(|note| NoteSyncRecord {
-                note_index: note.note_index.to_absolute_index(),
-                note_id: Some(note.note_id.into()),
-                metadata: Some(note.metadata.into()),
-                merkle_path: Some((&note.merkle_path).into()),
-            })
-            .collect();
+        let notes = state.notes.into_iter().map(Into::into).collect();
 
         Ok(Response::new(SyncNoteResponse {
-            chain_tip: state.chain_tip,
+            chain_tip: self.state.latest_block_num().await,
             block_header: Some(state.block_header.into()),
             mmr_path: Some((&mmr_proof.merkle_path).into()),
             notes,
@@ -272,7 +252,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_notes_by_id(
         &self,
-        request: tonic::Request<GetNotesByIdRequest>,
+        request: Request<GetNotesByIdRequest>,
     ) -> Result<Response<GetNotesByIdResponse>, Status> {
         info!(target: COMPONENT, ?request);
 
@@ -286,8 +266,7 @@ impl api_server::Api for StoreApi {
         let notes = self
             .state
             .get_notes_by_id(note_ids)
-            .await
-            .map_err(internal_error)?
+            .await?
             .into_iter()
             .map(Into::into)
             .collect();
@@ -305,7 +284,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_note_authentication_info(
         &self,
-        request: tonic::Request<GetNoteAuthenticationInfoRequest>,
+        request: Request<GetNoteAuthenticationInfoRequest>,
     ) -> Result<Response<GetNoteAuthenticationInfoResponse>, Status> {
         info!(target: COMPONENT, ?request);
 
@@ -331,7 +310,7 @@ impl api_server::Api for StoreApi {
         }))
     }
 
-    /// Returns details for public (on-chain) account by id.
+    /// Returns details for public (public) account by id.
     #[instrument(
         target = "miden-store",
         name = "store:get_account_details",
@@ -341,7 +320,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_account_details(
         &self,
-        request: tonic::Request<GetAccountDetailsRequest>,
+        request: Request<GetAccountDetailsRequest>,
     ) -> Result<Response<GetAccountDetailsResponse>, Status> {
         let request = request.into_inner();
         let account_info = self
@@ -349,11 +328,10 @@ impl api_server::Api for StoreApi {
             .get_account_details(
                 request.account_id.ok_or(invalid_argument("Account missing id"))?.into(),
             )
-            .await
-            .map_err(internal_error)?;
+            .await?;
 
         Ok(Response::new(GetAccountDetailsResponse {
-            account: Some((&account_info).into()),
+            details: Some((&account_info).into()),
         }))
     }
 
@@ -370,8 +348,8 @@ impl api_server::Api for StoreApi {
     )]
     async fn apply_block(
         &self,
-        request: tonic::Request<ApplyBlockRequest>,
-    ) -> Result<tonic::Response<ApplyBlockResponse>, tonic::Status> {
+        request: Request<ApplyBlockRequest>,
+    ) -> Result<Response<ApplyBlockResponse>, Status> {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
@@ -391,8 +369,7 @@ impl api_server::Api for StoreApi {
             nullifier_count = block.nullifiers().len(),
         );
 
-        // TODO: Why the error is swallowed here? Fix or add a comment with explanation.
-        let _ = self.state.apply_block(block).await;
+        self.state.apply_block(block).await?;
 
         Ok(Response::new(ApplyBlockResponse {}))
     }
@@ -407,7 +384,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_block_inputs(
         &self,
-        request: tonic::Request<GetBlockInputsRequest>,
+        request: Request<GetBlockInputsRequest>,
     ) -> Result<Response<GetBlockInputsResponse>, Status> {
         let request = request.into_inner();
 
@@ -433,21 +410,20 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_transaction_inputs(
         &self,
-        request: tonic::Request<GetTransactionInputsRequest>,
+        request: Request<GetTransactionInputsRequest>,
     ) -> Result<Response<GetTransactionInputsResponse>, Status> {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
 
-        let account_id = request.account_id.ok_or(invalid_argument("Account_id missing"))?.id;
+        let account_id = request.account_id.ok_or(invalid_argument("`account_id` missing"))?.id;
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
         let tx_inputs = self
             .state
             .get_transaction_inputs(account_id, &nullifiers, unauthenticated_notes)
-            .await
-            .map_err(internal_error)?;
+            .await?;
 
         let block_height = self.state.latest_block_num().await;
 
@@ -482,15 +458,53 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_block_by_number(
         &self,
-        request: tonic::Request<GetBlockByNumberRequest>,
+        request: Request<GetBlockByNumberRequest>,
     ) -> Result<Response<GetBlockByNumberResponse>, Status> {
         let request = request.into_inner();
 
         debug!(target: COMPONENT, ?request);
 
-        let block = self.state.load_block(request.block_num).await.map_err(internal_error)?;
+        let block = self.state.load_block(request.block_num).await?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
+    }
+
+    #[instrument(
+        target = "miden-store",
+        name = "store:get_account_proofs",
+        skip_all,
+        ret(level = "debug"),
+        err
+    )]
+    async fn get_account_proofs(
+        &self,
+        request: Request<GetAccountProofsRequest>,
+    ) -> Result<Response<GetAccountProofsResponse>, Status> {
+        let request = request.into_inner();
+        if request.account_ids.len() < request.code_commitments.len() {
+            return Err(Status::invalid_argument(
+                "The number of code commitments should not exceed the number of requested accounts.",
+            ));
+        }
+
+        debug!(target: COMPONENT, ?request);
+
+        let include_headers = request.include_headers.unwrap_or_default();
+        let account_ids: Vec<u64> = convert(request.account_ids);
+        let request_code_commitments: BTreeSet<RpoDigest> = try_convert(request.code_commitments)
+            .map_err(|err| {
+            Status::invalid_argument(format!("Invalid code commitment: {}", err))
+        })?;
+
+        let (block_num, infos) = self
+            .state
+            .get_account_proofs(account_ids, request_code_commitments, include_headers)
+            .await?;
+
+        Ok(Response::new(GetAccountProofsResponse {
+            block_num,
+            account_proofs: infos.into_iter().map(Into::into).collect(),
+        }))
     }
 
     #[instrument(
@@ -502,7 +516,7 @@ impl api_server::Api for StoreApi {
     )]
     async fn get_account_state_delta(
         &self,
-        request: tonic::Request<GetAccountStateDeltaRequest>,
+        request: Request<GetAccountStateDeltaRequest>,
     ) -> Result<Response<GetAccountStateDeltaResponse>, Status> {
         let request = request.into_inner();
 
@@ -515,8 +529,7 @@ impl api_server::Api for StoreApi {
                 request.from_block_num,
                 request.to_block_num,
             )
-            .await
-            .map_err(internal_error)?;
+            .await?;
 
         Ok(Response::new(GetAccountStateDeltaResponse { delta: Some(delta.to_bytes()) }))
     }
@@ -534,9 +547,9 @@ impl api_server::Api for StoreApi {
     )]
     async fn list_nullifiers(
         &self,
-        _request: tonic::Request<ListNullifiersRequest>,
+        _request: Request<ListNullifiersRequest>,
     ) -> Result<Response<ListNullifiersResponse>, Status> {
-        let raw_nullifiers = self.state.list_nullifiers().await.map_err(internal_error)?;
+        let raw_nullifiers = self.state.list_nullifiers().await?;
         let nullifiers = raw_nullifiers
             .into_iter()
             .map(|(key, block_num)| SmtLeafEntry {
@@ -557,16 +570,9 @@ impl api_server::Api for StoreApi {
     )]
     async fn list_notes(
         &self,
-        _request: tonic::Request<ListNotesRequest>,
+        _request: Request<ListNotesRequest>,
     ) -> Result<Response<ListNotesResponse>, Status> {
-        let notes = self
-            .state
-            .list_notes()
-            .await
-            .map_err(internal_error)?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        let notes = self.state.list_notes().await?.into_iter().map(Into::into).collect();
         Ok(Response::new(ListNotesResponse { notes }))
     }
 
@@ -580,16 +586,9 @@ impl api_server::Api for StoreApi {
     )]
     async fn list_accounts(
         &self,
-        _request: tonic::Request<ListAccountsRequest>,
+        _request: Request<ListAccountsRequest>,
     ) -> Result<Response<ListAccountsResponse>, Status> {
-        let accounts = self
-            .state
-            .list_accounts()
-            .await
-            .map_err(internal_error)?
-            .iter()
-            .map(Into::into)
-            .collect();
+        let accounts = self.state.list_accounts().await?.iter().map(Into::into).collect();
         Ok(Response::new(ListAccountsResponse { accounts }))
     }
 }
@@ -597,13 +596,14 @@ impl api_server::Api for StoreApi {
 // UTILITIES
 // ================================================================================================
 
-/// Formats an error
-fn internal_error<E: core::fmt::Debug>(err: E) -> Status {
-    Status::internal(format!("{:?}", err))
+/// Formats an "Internal error" error
+fn internal_error<E: core::fmt::Display>(err: E) -> Status {
+    Status::internal(err.to_string())
 }
 
-fn invalid_argument<E: core::fmt::Debug>(err: E) -> Status {
-    Status::invalid_argument(format!("{:?}", err))
+/// Formats an "Invalid argument" error
+fn invalid_argument<E: core::fmt::Display>(err: E) -> Status {
+    Status::invalid_argument(err.to_string())
 }
 
 #[instrument(target = "miden-store", skip_all, err)]
@@ -620,7 +620,7 @@ fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<N
 fn validate_notes(notes: &[generated::digest::Digest]) -> Result<Vec<NoteId>, Status> {
     notes
         .iter()
-        .map(|digest| Ok(RpoDigest::try_from(digest.clone())?.into()))
+        .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }

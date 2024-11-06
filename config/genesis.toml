@@ -3,18 +3,9 @@ version = 1
 timestamp = 1672531200
 
 [[accounts]]
-type = "BasicWallet"
-storage_mode = "off-chain"
-init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-auth_scheme = "RpoFalcon512"
-auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-
-[[accounts]]
 type = "BasicFungibleFaucet"
-storage_mode = "on-chain"
-init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+storage_mode = "public"
 auth_scheme = "RpoFalcon512"
-auth_seed = "0xd123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 token_symbol = "POL"
 decimals = 12
 max_supply = 1000000

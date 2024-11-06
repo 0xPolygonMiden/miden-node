@@ -1,0 +1,244 @@
+#! Note: For now, the "block kernel" only computes the account root. Eventually, it will compute
+#! the entire block header.
+#!
+#! Stack inputs: [num_accounts_updated, OLD_ACCOUNT_ROOT, NEW_ACCOUNT_HASH_0, account_id_0, ... ,
+#! NEW_ACCOUNT_HASH_n, account_id_n]
+
+use.std::collections::smt
+use.std::collections::mmr
+use.std::sys
+
+const.ACCOUNT_TREE_DEPTH=64
+const.BLOCK_NOTES_BATCH_TREE_DEPTH=6
+const.CHAIN_MMR_PTR=1000
+
+#! Compute the account root
+#!
+#! Inputs:
+#!   Operand stack: []
+#!   Advice stack:  [num_accounts_updated, OLD_ACCOUNT_ROOT, [NEW_ACCOUNT_HASH_i, account_id_i]]
+#! Outputs:
+#!   Operand stack: [NEW_ACCOUNT_ROOT]
+proc.compute_account_root
+    # move the number of updated accounts and an old account root to the operand stack
+    adv_push.5 
+    # OS => [OLD_ACCOUNT_ROOT, num_accounts_updated] 
+    # AS => [[NEW_ACCOUNT_HASH_i, account_id_i]]
+
+    # assess if we should loop
+    dup.4 neq.0
+    # OS => [flag, OLD_ACCOUNT_ROOT, num_accounts_updated]
+    # AS => [[NEW_ACCOUNT_HASH_i, account_id_i]]
+
+    while.true
+        # num_accounts_updated here serves as a counter, so rename it accordingly
+        # old account root will be updated in each iteration, so rename it to the ROOT_i
+        # OS => [ROOT_i, counter]
+        # AS => [[NEW_ACCOUNT_HASH_i, account_id_i]]
+
+        # move the account hash to the operand stack and move it below the root
+        adv_push.4 swapw
+        # OS => [ROOT_i, NEW_ACCOUNT_HASH_i, counter]
+        # AS => [account_id_i, [NEW_ACCOUNT_HASH_{i+1}, account_id_{i+1}]]
+
+        # move the account id to the operand stack, push the account tree depth 
+        adv_push.1 push.ACCOUNT_TREE_DEPTH
+        # OS => [account_tree_depth, account_id_i, ROOT_i, NEW_ACCOUNT_HASH_i, counter]
+        # AS => [[NEW_ACCOUNT_HASH_{i+1}, account_id_{i+1}]]
+
+        # set new value in SMT
+        mtree_set dropw
+        # OS => [ROOT_{i+1}, counter]
+        # AS => [[NEW_ACCOUNT_HASH_{i+1}, account_id_{i+1}]]
+
+        # loop counter
+        movup.4 sub.1 dup movdn.5 neq.0
+        # OS => [flag, ROOT_{i+1}, counter]
+        # AS => [[NEW_ACCOUNT_HASH_{i+1}, account_id_{i+1}]]
+    end
+
+    # drop the counter
+    movup.4 drop
+    # OS => [ROOT_{n-1}]
+    # AS => []
+end
+
+#! Compute the note root.
+#!
+#! Each batch contains a tree of depth 10 for its created notes. The block's created notes tree is 
+#! created by aggregating up to 2^6 tree roots coming from the batches contained in the block.
+#!
+#! `SMT_EMPTY_ROOT` must be `E16`, the root of the empty tree of depth 16. If less than 2^6 batches 
+#! are contained in the block, `E10` is used as the padding value; this is derived from the fact 
+#! that `SMT_EMPTY_ROOT` is `E16`, and that our tree has depth 6.
+#!
+#! Inputs:
+#!   Operand stack: []
+#!   Advice stack:  [num_notes_updated, SMT_EMPTY_ROOT, [BATCH_NOTE_TREE_ROOT_i, batch_note_root_idx_i]]
+#! Outputs:
+#!   Operand stack: [NOTES_ROOT]
+proc.compute_note_root
+    # move the number of updated notes and empty root to the operand stack 
+    adv_push.5
+    # OS => [SMT_EMPTY_ROOT, num_notes_updated]
+    # AS => [[BATCH_NOTE_TREE_ROOT_i, batch_note_root_idx_i]]
+
+    # assess if we should loop
+    dup.4 neq.0
+    # OS => [flag, SMT_EMPTY_ROOT, num_notes_updated]
+    # AS => [[BATCH_NOTE_TREE_ROOT_i, batch_note_root_idx_i]]
+
+    while.true
+        # num_notes_updated here serves as a counter, so rename it accordingly
+        # empty root will be updated in each iteration, so rename it to the ROOT_i
+        # OS => [ROOT_i, counter]
+        # AS => [[BATCH_NOTE_TREE_ROOT_i, batch_note_root_idx_i]]
+
+        # move the batch note tree root to the operand stack and move it below the root
+        adv_push.4 swapw
+        # OS => [ROOT_i, BATCH_NOTE_TREE_ROOT_i, counter]
+        # AS => [batch_note_root_idx_i, [BATCH_NOTE_TREE_ROOT_{i+1}, batch_note_root_idx_{i+1}]]
+
+        # move the batch note root index to the operand stack, push the block notes batch tree depth 
+        adv_push.1 push.BLOCK_NOTES_BATCH_TREE_DEPTH
+        # OS => [batch_tree_depth, batch_note_root_idx_i, ROOT_i, BATCH_NOTE_TREE_ROOT_i, counter]
+        # AS => [[BATCH_NOTE_TREE_ROOT_{i+1}, batch_note_root_idx_{i+1}]]
+
+        # set new value in SMT
+        mtree_set dropw
+        # OS => [ROOT_{i+1}, counter]
+        # AS => [[BATCH_NOTE_TREE_ROOT_{i+1}, batch_note_root_idx_{i+1}]]
+        
+        # loop counter
+        movup.4 sub.1 dup movdn.5 neq.0
+        # OS => [flag, ROOT_{i+1}, counter]
+        # AS => [[BATCH_NOTE_TREE_ROOT_{i+1}, batch_note_root_idx_{i+1}]]
+    end
+
+    # drop the counter
+    movup.4 drop
+    # OS => [ROOT_{n-1}]
+    # AS => []
+end
+
+#! Compute the nullifier root.
+#!
+#! Inputs:
+#!   Operand stack: []
+#!   Advice stack:  [num_produced_nullifiers, OLD_NULLIFIER_ROOT, NULLIFIER_VALUE, [NULLIFIER_i]]
+#! Outputs:
+#!   Operand stack: [NULLIFIER_ROOT]
+proc.compute_nullifier_root
+    # move the number of produced nullifiers, old root and nullifier value to the operand stack;
+    # move nullifier value below the root 
+    adv_push.9 swapw
+    # OS => [OLD_NULLIFIER_ROOT, NULLIFIER_VALUE, num_produced_nullifiers]
+    # AS => [[NULLIFIER_i]]
+
+    # assess if we should loop
+    dup.8 neq.0
+    # OS => [flag, OLD_NULLIFIER_ROOT, NULLIFIER_VALUE, num_produced_nullifiers]
+    # AS => [[NULLIFIER_i]]
+
+    while.true
+        # num_produced_nullifiers here serves as a counter, so rename it accordingly
+        # old nullifier root will be updated in each iteration, so rename it to the ROOT_i
+        # OS => [ROOT_i, NULLIFIER_VALUE, counter]
+        # AS => [[NULLIFIER_i]]
+
+        # move the nullifier hash to the operand stack
+        adv_push.4
+        # OS => [NULLIFIER_i, ROOT_i, NULLIFIER_VALUE, counter]
+        # AS => [[NULLIFIER_{i+1}]]
+
+        # dup the nullifier value
+        dupw.2
+        # OS => [NULLIFIER_VALUE, NULLIFIER_i, ROOT_i, NULLIFIER_VALUE, counter]
+        # AS => [[NULLIFIER_{i+1}]]
+
+        exec.smt::set
+        # OS => [OLD_VALUE, ROOT_{i+1}, NULLIFIER_VALUE, counter]
+        # AS => [[NULLIFIER_{i+1}]]
+
+        # Check that OLD_VALUE == 0 (i.e. that nullifier was indeed not previously produced)
+        assertz assertz assertz assertz
+        # OS => [ROOT_{i+1}, NULLIFIER_VALUE, counter]
+        # AS => [[NULLIFIER_{i+1}]]
+
+        # loop counter
+        movup.8 sub.1 dup movdn.9 neq.0
+        # OS => [flag, ROOT_{i+1}, NULLIFIER_VALUE, counter]
+        # AS => [[NULLIFIER_{i+1}]]
+    end
+
+    # drop the counter and the nullifier value
+    swapw dropw movup.4 drop
+    # OS => [ROOT_{n-1}]
+    # AS => []
+end
+
+#! Compute the chain MMR root
+#!
+#! Inputs:
+#!   Operand stack: []
+#!   Advice stack:  [PREV_BLOCK_HASH_TO_INSERT, PREV_CHAIN_MMR_HASH]
+#!   Advice map: {
+#!      PREV_CHAIN_MMR_HASH: [NUM_LEAVES, [peak_i], <maybe padding>]
+#!   }
+#! Outputs:
+#!   Operand stack: [CHAIN_MMR_ROOT]
+proc.compute_chain_mmr_root
+    # move the previous block hash and chain MMR hash to the operand stack
+    adv_push.8
+    # OS => [PREV_CHAIN_MMR_HASH, PREV_BLOCK_HASH_TO_INSERT]
+    # AS => []
+
+    # push chain MMR pointer to the operand stack
+    push.CHAIN_MMR_PTR movdn.4
+    # OS => [PREV_CHAIN_MMR_HASH, chain_mmr_ptr, PREV_BLOCK_HASH_TO_INSERT]
+
+    # load the chain MMR (as of previous block) at memory location CHAIN_MMR_PTR
+    exec.mmr::unpack
+    # OS => [PREV_BLOCK_HASH_TO_INSERT]
+
+    # push chain MMR pointer to the operand stack
+    push.CHAIN_MMR_PTR movdn.4
+    # OS => [PREV_BLOCK_HASH_TO_INSERT, chain_mmr_ptr]
+
+    # add PREV_BLOCK_HASH_TO_INSERT to chain MMR
+    exec.mmr::add
+    # OS => []
+
+    # Compute new MMR root
+    push.CHAIN_MMR_PTR exec.mmr::pack
+    # OS => [CHAIN_MMR_ROOT]
+end
+
+#! Inputs:
+#!   Operand stack: []
+#!   Advice stack:  [<account root inputs>, <note root inputs>, <nullifier root inputs>, <chain mmr root inputs>]
+#!   Advice map: {
+#!     PREV_CHAIN_MMR_HASH: [NUM_LEAVES, [peak_i], <maybe padding>]
+#!   }
+#! Outputs:
+#!   Operand stack: [ACCOUNT_ROOT, NOTE_ROOT, NULLIFIER_ROOT, CHAIN_MMR_ROOT]
+begin
+    exec.compute_account_root mem_storew.0 dropw
+    # => [<note root inputs>, <nullifier root inputs>, <chain mmr root inputs>]
+
+    exec.compute_note_root mem_storew.1 dropw
+    # => [<nullifier root inputs>, <chain mmr root inputs>]
+
+    exec.compute_nullifier_root mem_storew.2 dropw
+    # => [<chain mmr root inputs>]
+
+    exec.compute_chain_mmr_root
+    # => [CHAIN_MMR_ROOT]
+
+    # Load output on stack
+    padw mem_loadw.2 padw mem_loadw.1 padw mem_loadw.0
+    # => [ACCOUNT_ROOT, NOTE_ROOT, NULLIFIER_ROOT, CHAIN_MMR_ROOT]
+
+    # truncate the stack
+    exec.sys::truncate_stack
+end
