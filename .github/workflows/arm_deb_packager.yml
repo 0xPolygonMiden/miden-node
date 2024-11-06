@@ -181,15 +181,4 @@ jobs:
             echo "account_id=MIDEN_DEV_ACCOUNT_ID" >> $GITHUB_OUTPUT
             echo "instance_id=DEVNET_INSTANCE_TF" >> $GITHUB_OUTPUT
           fi
-      
-
-  deploy:
-    name: Deploy to ${{ needs.build_package.outputs.target }}
-    needs: build_package
-    uses: ./.github/workflows/deploy_package.yml
-    with:
-      target: ${{ needs.build_package.outputs.target }}
-      tag: ${{ needs.build_package.outputs.tag }}
-      account_id: ${{ needs.build_package.outputs.account_id }}
-      instance_id: ${{ needs.build_package.outputs.instance_id }}
-    secrets: inherit
+     

@@ -1,0 +1,66 @@
+name: Release packages
+run-name: Release packaging for ${{ env.version }}
+
+env:
+  version: ${{ inputs.version || github.ref }}
+
+on:
+  release:
+    types: [released, prereleased]
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  package:
+  matrix:
+    os: [ubuntu-latest, ubuntu22-arm-4core]
+    runs-on:
+      labels: ${{ matrix.os }}
+    steps:
+      # Note that this checkout is _not_ used as the source for the package.
+      # Instead this is required to access the workflow actions. Package source
+      # selection is handled by the packaging action.
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Build packages
+        uses: ./.github/actions/build_packages
+        with:
+          gitref: ${{ env.version }}
+
+      - name: Package names
+        env: 
+          arch: $(uname -m)
+        run: |
+          echo "node-package=$(echo miden-node-${{ env.version }}-${{ env.arch }}.deb") >> $GITHUB_ENV
+          echo "faucet-package=$(echo miden-faucet-${{ env.version }}-${{ env.arch }}.deb") >> $GITHUB_ENV
+
+      - name: Rename package files
+        run: |
+          mv miden-node.deb   ${{ env.node-package }}
+          mv miden-faucet.deb ${{ env.faucet-package }}
+
+      - name: shasum packages
+        run: |
+          sha256sum ${{ env.node-package }}   > ${{ env.node-package }}.checksum
+          sha256sum ${{ env.faucet-package }} > ${{ env.faucet-package }}.checksum
+
+      - name: Publish packages
+        run: |
+          gh release upload ${{ env.version }} \
+            ${{ env.node-package }} \
+            ${{ env.node-package }}.checksum \
+            ${{ env.faucet-package }} \
+            ${{ env.faucet-package }}.checksum \
+            --clobber
