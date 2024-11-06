@@ -1,0 +1,34 @@
+name: Release packages
+run-name: Release packaging for ${{ env.version }}
+
+env:
+  version: ${{ inputs.version || github.ref }}
+
+on:
+  release:
+    types: [released, prereleased]
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  package:
+  matrix:
+    os: [ubuntu-latest, ubuntu22-arm-4core]
+    runs-on:
+      labels: ${{ matrix.os }}
+    steps:
+      # Note that this checkout is _not_ used as the source for the package.
+      # Instead this is required to access the workflow actions. Package source
+      # selection is handled by the packaging action.
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        

@@ -1,0 +1,154 @@
+name: Deploy
+run-name: Deploy ${{ inputs.network }} - ${{ inputs.gitref }}
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Deployment instance'
+        required: true
+        type: choice
+        options:
+          - testnet
+          - devnet
+
+      gitref:
+        description: 'Version, commit or other gitref to deploy'
+        required: true
+        type: string
+        
+      architecture:
+        description: 'Instance architecture'
+        type: choice
+        options:
+          - arm64
+        default: 'arm64'
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  deploy:
+    # Select the runner based on the input architecture using github workflows ternary operator.
+    runs-on:
+      labels: ${{ inputs.architecture == 'arm64' && 'ubuntu22-arm-4core' || ubuntu-latest }}
+
+    env:
+      # Define the instance information.
+      account-id: MIDEN_DEV_ACCOUNT_ID
+      oicdrole: midendev 
+      instance-id: ${{ inputs.network == 'testnet' && 'TESTNET_INSTANCE_TF' || 'DEVNET_INSTANCE_TF' }}
+
+      # Define the expected package names.
+      node-package:   miden-node-${{ inputs.gitref }}-${{ inputs.architecture }}.deb
+      faucet-package: miden-faucet-${{ inputs.gitref }}-${{ inputs.architecture }}.deb
+
+      # S3 path where packages are stored; used to send packages to instance as this isn't trivially possible directly.
+      s3-path: s3://release-artifacts-${{ secrets[env.account-id] }}
+        
+    steps:
+      # Checkout repo so we have access to the required workflow actions.
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      # Download from github if its a version tag referece.
+      - name: Download packages from releases
+        if: ${{ startsWith(inputs.gitref, 'v') }}
+        run: |
+          gh release ${{ inputs.gitref }} download ${{ env.node-package }}
+          gh release ${{ inputs.gitref }} download ${{ env.node-package }}.checksum
+          gh release ${{ inputs.gitref }} download ${{ env.faucet-package }}
+          gh release ${{ inputs.gitref }} download ${{ env.faucet-package }}.checksum
+
+          sha256 --check ${{ env.node-package }}.checksum
+          sha256 --check ${{ env.faucet-package }}.checksum
+
+      # Otherwise build the packages from source.
+      #
+      # Note that we cannot build from the currently checked out repo source since that source
+      # defines our workflow actions, and not the compilation source target. For this reason we
+      # prefer building the binary using `cargo install ...`.
+      - name: Build package
+        if: ${{ !startsWith(inputs.gitref, 'v') }}
+        run: |
+          echo "::error Non-release deployment currently not supported"
+          exit 1
+
+      # Configure AWS communication via SSM.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with: 
+          aws-region: eu-west-1
+          role-to-assume: "arn:aws:iam::${{ secrets[env.account-id] }}:role/${{ env.oidcrole }}-GithubActionsRole"
+          role-session-name: GithubActionsSession
+          
+      - name: Install awscli
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[env.instance-id] }}
+          command: |
+            sudo apt udpate; \
+            sudo apt install awscli -y
+
+      # Move packages to instance using S3.
+      # TODO: does this fail if the files already exist?
+      - name: Upload packages to S3
+        run: |
+          aws s3 cp ${{ env.node-package }} ${{ env.s3-path }}/${{ env.node-package }}
+          aws s3 cp ${{ env.node-faucet }} ${{ env.s3-path }}/${{ env.node-faucet }}
+
+      # TODO: does this fail if the files already exist?
+      - name: Download packages to instance
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[env.instance-id] }}
+          command: |
+            aws s3 cp ${{ env.s3-path }}/${{ env.node-package }}   ${{ env.node-package}}; \
+            aws s3 cp ${{ env.s3-path }}/${{ env.faucet-package }} ${{ env.faucet-package}}
+      
+      # Install and launch services on the instance.
+      - name: Stop miden services
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[env.instance-id] }}
+          command: |
+            sudo systemctl stop miden-node; \
+            sudo systemctl stop miden-faucet; \
+            sudo apt remove miden-node miden-faucet -y; \
+            sudo rm -f miden-*
+      
+      - name: Install packages
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[env.instance-id] }}
+          command: |
+            dpkg -i ${{ env.node-package }}; \
+            dpkg -i ${{ env.faucet-package }} 
+
+      - name: Configure environment
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[env.instance-id] }}
+          command: |
+            sudo chown -R miden /opt/miden; \
+            sudo /usr/bin/miden-node init -c /etc/miden/miden-node.toml -g /opt/miden/miden-node/genesis.toml; \
+            sudo /usr/bin/miden-node make-genesis -i /opt/miden/miden-node/genesis.toml -o /opt/miden/miden-node/genesis.dat --force; \
+            sudo /usr/bin/miden-faucet init -c /opt/miden/miden-faucet/miden-faucet.toml -f /opt/miden/miden-node/accounts/faucet.mac
+
+      - name: Start miden node service
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[env.instance-id] }}
+          command: |
+              sudo systemctl daemon-reload; \
+              sudo systemctl start miden-node
+
+      - name: Start miden faucet service
+        uses: ./.github/actions/ssm_execute
+        with:
+          instance_id: ${{ secrets[env.instance-id] }}
+          command: |
+            sudo systemctl daemon-reload; \
+            sudo systemctl start miden-faucet
