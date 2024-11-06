@@ -1,5 +1,6 @@
+# Release debian packages for miden node and faucet.
 name: Release packages
-run-name: Release packaging for ${{ env.version }}
+run-name: Release packaging for ${{ inputs.version || github.ref }}
 
 env:
   version: ${{ inputs.version || github.ref }}
@@ -21,30 +22,30 @@ permissions:
 
 jobs:
   package:
-  matrix:
-    os: [ubuntu-latest, ubuntu22-arm-4core]
+    name: ${{ inputs.version }} for ${{ matrix.arch }}
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     runs-on:
-      labels: ${{ matrix.os }}
+      labels: ${{ matrix.arch == 'arm64' && 'ubuntu22-arm-4core' || 'ubuntu-latest' }}
     steps:
       # Note that this checkout is _not_ used as the source for the package.
       # Instead this is required to access the workflow actions. Package source
       # selection is handled by the packaging action.
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@main
         with:
           fetch-depth: 0
 
       - name: Build packages
-        uses: ./.github/actions/build_packages
+        uses: ./.github/actions/build_package
         with:
           gitref: ${{ env.version }}
 
       - name: Package names
-        env: 
-          arch: $(uname -m)
         run: |
-          echo "node-package=$(echo miden-node-${{ env.version }}-${{ env.arch }}.deb") >> $GITHUB_ENV
-          echo "faucet-package=$(echo miden-faucet-${{ env.version }}-${{ env.arch }}.deb") >> $GITHUB_ENV
+          echo "node-package=miden-node-${{ env.version }}-${{ matrix.arch }}.deb"     >> $GITHUB_ENV
+          echo "faucet-package=miden-faucet-${{ env.version }}-${{ matrix.arch }}.deb" >> $GITHUB_ENV
 
       - name: Rename package files
         run: |
@@ -57,6 +58,8 @@ jobs:
           sha256sum ${{ env.faucet-package }} > ${{ env.faucet-package }}.checksum
 
       - name: Publish packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ env.version }} \
             ${{ env.node-package }} \
