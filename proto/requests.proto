@@ -3,7 +3,6 @@ package requests;
 
 import "account.proto";
 import "digest.proto";
-import "note.proto";
 
 // Applies changes of a new block to the DB and in-memory data structures.
 message ApplyBlockRequest {
