@@ -10,73 +10,73 @@ import "note.proto";
 import "smt.proto";
 import "transaction.proto";
 
-// Represents the result of applying a block
+// Represents the result of applying a block.
 message ApplyBlockResponse {}
 
-// Represents the result of checking nullifiers
+// Represents the result of checking nullifiers.
 message CheckNullifiersResponse {
-    // Each requested nullifier has its corresponding nullifier proof at the same position
+    // Each requested nullifier has its corresponding nullifier proof at the same position.
     repeated smt.SmtOpening proofs = 1;
 }
 
-// Represents the result of checking nullifiers by prefix
+// Represents the result of checking nullifiers by prefix.
 message CheckNullifiersByPrefixResponse {
-    // List of nullifiers matching the prefixes specified in the request
+    // List of nullifiers matching the prefixes specified in the request.
     repeated NullifierUpdate nullifiers = 1;
 }
 
-// Represents the result of getting a block header by block number
+// Represents the result of getting a block header by block number.
 message GetBlockHeaderByNumberResponse {
-    // The requested block header
+    // The requested block header.
     block.BlockHeader block_header = 1;
 
-    // Merkle path to verify the block's inclusion in the MMR at the returned `chain_length`
+    // Merkle path to verify the block's inclusion in the MMR at the returned `chain_length`.
     optional merkle.MerklePath mmr_path = 2;
 
-    // Current chain length
+    // Current chain length.
     optional fixed32 chain_length = 3;
 }
 
-// Represents a single nullifier update
+// Represents a single nullifier update.
 message NullifierUpdate {
-    // Nullifier ID
+    // Nullifier ID.
     digest.Digest nullifier = 1;
 
-    // Block number
+    // Block number.
     fixed32 block_num = 2;
 }
 
-// Represents the result of syncing state request
+// Represents the result of syncing state request.
 message SyncStateResponse {
-    // Number of the latest block in the chain
+    // Number of the latest block in the chain.
     fixed32 chain_tip = 1;
 
-    // Block header of the block with the first note matching the specified criteria
+    // Block header of the block with the first note matching the specified criteria.
     block.BlockHeader block_header = 2;
 
-    // Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
+    // Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`.
     mmr.MmrDelta mmr_delta = 3;
 
-    // List of account hashes updated after `request.block_num + 1` but not after `response.block_header.block_num`
+    // List of account hashes updated after `request.block_num + 1` but not after `response.block_header.block_num`.
     repeated account.AccountSummary accounts = 5;
 
     // List of transactions executed against requested accounts between `request.block_num + 1` and
-    // `response.block_header.block_num`
+    // `response.block_header.block_num`.
     repeated transaction.TransactionSummary transactions = 6;
 
-    // List of all notes together with the Merkle paths from `response.block_header.note_root`
+    // List of all notes together with the Merkle paths from `response.block_header.note_root`.
     repeated note.NoteSyncRecord notes = 7;
 
-    // List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`
+    // List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
     repeated NullifierUpdate nullifiers = 8;
 }
 
-// Represents the result of syncing notes request
+// Represents the result of syncing notes request.
 message SyncNoteResponse {
-    // Number of the latest block in the chain
+    // Number of the latest block in the chain.
     fixed32 chain_tip = 1;
 
-    // Block header of the block with the first note matching the specified criteria
+    // Block header of the block with the first note matching the specified criteria.
     block.BlockHeader block_header = 2;
 
     // Merkle path to verify the block's inclusion in the MMR at the returned `chain_tip`.
@@ -85,147 +85,148 @@ message SyncNoteResponse {
     // an MMR of forest `chain_tip` with this path.
     merkle.MerklePath mmr_path = 3;
 
-    // List of all notes together with the Merkle paths from `response.block_header.note_root`
+    // List of all notes together with the Merkle paths from `response.block_header.note_root`.
     repeated note.NoteSyncRecord notes = 4;
 }
 
-// An account returned as a response to the `GetBlockInputs`
+// An account returned as a response to the `GetBlockInputs`.
 message AccountBlockInputRecord {
-    // The account ID
+    // The account ID.
     account.AccountId account_id = 1;
 
-    // The latest account hash, zero hash if the account doesn't exist
+    // The latest account hash, zero hash if the account doesn't exist.
     digest.Digest account_hash = 2;
 
-    // Merkle path to verify the account's inclusion in the MMR
+    // Merkle path to verify the account's inclusion in the MMR.
     merkle.MerklePath proof = 3;
 }
 
-// A nullifier returned as a response to the `GetBlockInputs`
+// A nullifier returned as a response to the `GetBlockInputs`.
 message NullifierBlockInputRecord {
-    // The nullifier ID
+    // The nullifier ID.
     digest.Digest nullifier = 1;
 
-    // Merkle path to verify the nullifier's inclusion in the MMR
+    // Merkle path to verify the nullifier's inclusion in the MMR.
     smt.SmtOpening opening = 2;
 }
 
-// Represents the result of getting block inputs
+// Represents the result of getting block inputs.
 message GetBlockInputsResponse {
-    // The latest block header
+    // The latest block header.
     block.BlockHeader block_header = 1;
 
-    // Peaks of the above block's mmr, The `forest` value is equal to the block number
+    // Peaks of the above block's mmr, The `forest` value is equal to the block number.
     repeated digest.Digest mmr_peaks = 2;
 
-    // The hashes of the requested accounts and their authentication paths
+    // The hashes of the requested accounts and their authentication paths.
     repeated AccountBlockInputRecord account_states = 3;
 
-    // The requested nullifiers and their authentication paths
+    // The requested nullifiers and their authentication paths.
     repeated NullifierBlockInputRecord nullifiers = 4;
 
-    // The list of requested notes which were found in the database
+    // The list of requested notes which were found in the database.
     note.NoteAuthenticationInfo found_unauthenticated_notes = 5;
 }
 
-// An account returned as a response to the `GetTransactionInputs`
+// An account returned as a response to the `GetTransactionInputs`.
 message AccountTransactionInputRecord {
-    // The account ID
+    // The account ID.
     account.AccountId account_id = 1;
 
-    // The latest account hash, zero hash if the account doesn't exist
+    // The latest account hash, zero hash if the account doesn't exist.
     digest.Digest account_hash = 2;
 }
 
-// A nullifier returned as a response to the `GetTransactionInputs`
+// A nullifier returned as a response to the `GetTransactionInputs`.
 message NullifierTransactionInputRecord {
-    // The nullifier ID
+    // The nullifier ID.
     digest.Digest nullifier = 1;
 
-    // The block at which the nullifier has been consumed, zero if not consumed
+    // The block at which the nullifier has been consumed, zero if not consumed.
     fixed32 block_num = 2;
 }
 
-// Represents the result of getting transaction inputs
+// Represents the result of getting transaction inputs.
 message GetTransactionInputsResponse {
-    // Account state proof
+    // Account state proof.
     AccountTransactionInputRecord account_state = 1;
 
-    // List of nullifiers that have been consumed
+    // List of nullifiers that have been consumed.
     repeated NullifierTransactionInputRecord nullifiers = 2;
 
-    // List of unauthenticated notes that were not found in the database
+    // List of unauthenticated notes that were not found in the database.
     repeated digest.Digest found_unauthenticated_notes = 3;
 
-    // The node's current block height
+    // The node's current block height.
     fixed32 block_height = 4;
 }
 
-// Represents the result of submitting proven transaction
+// Represents the result of submitting proven transaction.
 message SubmitProvenTransactionResponse {
-    // The node's current block height
+    // The node's current block height.
     fixed32 block_height = 1;
 }
 
-// Represents the result of getting notes by IDs
+// Represents the result of getting notes by IDs.
 message GetNotesByIdResponse {
-    // Lists Note's returned by the database
+    // Lists Note's returned by the database.
     repeated note.Note notes = 1;
 }
 
-// Represents the result of getting note authentication info
+// Represents the result of getting note authentication info.
 message GetNoteAuthenticationInfoResponse {
-    // Proofs of note inclusions in blocks and block inclusions in chain
+    // Proofs of note inclusions in blocks and block inclusions in chain.
     note.NoteAuthenticationInfo proofs = 1;
 }
 
+// Represents the result of getting account details.
 message GetAccountDetailsResponse {
-    // Account info (with details for public accounts)
+    // Account info (with details for public accounts).
     account.AccountInfo details = 1;
 }
 
-// Represents the result of getting block by number
+// Represents the result of getting block by number.
 message GetBlockByNumberResponse {
-    // The requested `Block` data encoded using Miden native format
+    // The requested `Block` data encoded using Miden native format.
     optional bytes block = 1;
 }
 
-// Represents the result of getting account state delta
+// Represents the result of getting account state delta.
 message GetAccountStateDeltaResponse {
-    // The calculated `AccountStateDelta` encoded using Miden native format
+    // The calculated `AccountStateDelta` encoded using Miden native format.
     optional bytes delta = 1;
 }
 
-// Represents the result of getting account proofs
+// Represents the result of getting account proofs.
 message GetAccountProofsResponse {
-    // Block number at which the state of the account was returned
+    // Block number at which the state of the account was returned.
     fixed32 block_num = 1;
-    // List of account state infos for the requested account keys
+    // List of account state infos for the requested account keys.
     repeated AccountProofsResponse account_proofs = 2;
 }
 
-// A single account proof returned as a response to the `GetAccountProofs`
+// A single account proof returned as a response to the `GetAccountProofs`.
 message AccountProofsResponse {
-    // Account ID
+    // Account ID.
     account.AccountId account_id = 1;
-    // Account hash
+    // Account hash.
     digest.Digest account_hash = 2;
-    // Authentication path from the `account_root` of the block header to the account
+    // Authentication path from the `account_root` of the block header to the account.
     merkle.MerklePath account_proof = 3;
     // State header for public accounts. Filled only if `include_headers` flag is set to `true`.
     optional AccountStateHeader state_header = 4;
 }
 
-// State header for public accounts
+// State header for public accounts.
 message AccountStateHeader {
-    // Account header
+    // Account header.
     account.AccountHeader header = 1;
 
-    // Values of all account storage slots (max 255)
+    // Values of all account storage slots (max 255).
     bytes storage_header = 2;
 
     // Account code, returned only when none of the request's code commitments match
-    // the current one
+    // the current one.
     optional bytes account_code = 3;
 
     // Storage slots information for this account

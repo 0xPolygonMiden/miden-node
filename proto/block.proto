@@ -4,50 +4,50 @@ package block;
 import "digest.proto";
 import "merkle.proto";
 
-// Represents a block header
+// Represents a block header.
 message BlockHeader {
-    // Specifies the version of the protocol
+    // Specifies the version of the protocol.
     uint32 version = 1;
 
-    // The hash of the previous blocks header
+    // The hash of the previous blocks header.
     digest.Digest prev_hash = 2;
 
-    // A unique sequential number of the current block
+    // A unique sequential number of the current block.
     fixed32 block_num = 3;
 
-    // A commitment to an MMR of the entire chain where each block is a leaf
+    // A commitment to an MMR of the entire chain where each block is a leaf.
     digest.Digest chain_root = 4;
 
-    // A commitment to account database
+    // A commitment to account database.
     digest.Digest account_root = 5;
 
-    // A commitment to the nullifier database
+    // A commitment to the nullifier database.
     digest.Digest nullifier_root = 6;
 
-    // A commitment to all notes created in the current block
+    // A commitment to all notes created in the current block.
     digest.Digest note_root = 7;
 
-    // A commitment to a set of IDs of transactions which affected accounts in this block
+    // A commitment to a set of IDs of transactions which affected accounts in this block.
     digest.Digest tx_hash = 8;
 
-    // A hash of a STARK proof attesting to the correct state transition
+    // A hash of a STARK proof attesting to the correct state transition.
     digest.Digest proof_hash = 9;
 
-    // A commitment to all transaction kernels supported by this block
+    // A commitment to all transaction kernels supported by this block.
     digest.Digest kernel_root = 10;
 
-    // The time when the block was created
+    // The time when the block was created.
     fixed32 timestamp = 11;
 }
 
-// Represents a block inclusion proof
+// Represents a block inclusion proof.
 message BlockInclusionProof {
-    // Block header associated with the inclusion proof
+    // Block header associated with the inclusion proof.
     BlockHeader block_header = 1;
 
-    // Merkle path associated with the inclusion proof
+    // Merkle path associated with the inclusion proof.
     merkle.MerklePath mmr_path = 2;
 
-    // The chain length associated with `mmr_path`
+    // The chain length associated with `mmr_path`.
     fixed32 chain_length = 3;
 }

@@ -112,7 +112,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "ApplyBlock"));
             self.inner.unary(req, path, codec).await
         }
-        /// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree
+        /// Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
         pub async fn check_nullifiers(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -487,7 +487,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::ApplyBlockResponse>,
             tonic::Status,
         >;
-        /// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree
+        /// Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
         async fn check_nullifiers(
             &self,
             request: tonic::Request<super::super::requests::CheckNullifiersRequest>,

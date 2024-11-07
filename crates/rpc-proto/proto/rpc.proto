@@ -6,7 +6,7 @@ import "requests.proto";
 import "responses.proto";
 
 service Api {
-    // Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree
+    // Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
     rpc CheckNullifiers(requests.CheckNullifiersRequest) returns (responses.CheckNullifiersResponse) {}
 
     // Returns a list of nullifiers that match the specified prefixes and are recorded in the node.

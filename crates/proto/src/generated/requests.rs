@@ -2,7 +2,7 @@
 /// Applies changes of a new block to the DB and in-memory data structures.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyBlockRequest {
-    /// Block data encoded using Miden's native format
+    /// Block data encoded using Miden's native format.
     #[prost(bytes = "vec", tag = "1")]
     pub block: ::prost::alloc::vec::Vec<u8>,
 }
@@ -13,14 +13,14 @@ pub struct CheckNullifiersByPrefixRequest {
     #[prost(uint32, tag = "1")]
     pub prefix_len: u32,
     /// List of nullifiers to check. Each nullifier is specified by its prefix with length equal
-    /// to prefix_len
+    /// to `prefix_len`.
     #[prost(uint32, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
 }
-/// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree
+/// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersRequest {
-    /// List of nullifiers to return proofs for
+    /// List of nullifiers to return proofs for.
     #[prost(message, repeated, tag = "1")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
@@ -30,9 +30,7 @@ pub struct CheckNullifiersRequest {
 /// The Merkle path is an MMR proof for the block's leaf, based on the current chain length.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetBlockHeaderByNumberRequest {
-    /// The block number of the target block.
-    ///
-    /// If not provided, means latest known block.
+    /// The block number of the target block. If not provided, means latest known block.
     #[prost(uint32, optional, tag = "1")]
     pub block_num: ::core::option::Option<u32>,
     /// Whether or not to return authentication data for the block header.
@@ -52,7 +50,6 @@ pub struct SyncStateRequest {
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
     /// Accounts' hash to include in the response.
-    ///
     /// An account hash will be included if-and-only-if it is the latest update. Meaning it is
     /// possible there was an update to the account for the given range, but if it is not the latest,
     /// it won't be included in the response.
@@ -110,21 +107,21 @@ pub struct GetTransactionInputsRequest {
 /// Submits proven transaction to the Miden network.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubmitProvenTransactionRequest {
-    /// Transaction encoded using Miden's native format
+    /// Transaction encoded using Miden's native format.
     #[prost(bytes = "vec", tag = "1")]
     pub transaction: ::prost::alloc::vec::Vec<u8>,
 }
 /// Returns a list of notes matching the provided note IDs.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNotesByIdRequest {
-    /// List of NoteId's to be queried from the database
+    /// List of NoteId's to be queried from the database.
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 /// Returns a list of Note inclusion proofs for the specified Note IDs.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNoteAuthenticationInfoRequest {
-    /// List of NoteId's to be queried from the database
+    /// List of NoteId's to be queried from the database.
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }

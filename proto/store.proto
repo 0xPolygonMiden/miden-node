@@ -11,7 +11,7 @@ service Api {
     // Applies changes of a new block to the DB and in-memory data structures.
     rpc ApplyBlock(requests.ApplyBlockRequest) returns (responses.ApplyBlockResponse) {}
 
-    // Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree
+    // Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
     rpc CheckNullifiers(requests.CheckNullifiersRequest) returns (responses.CheckNullifiersResponse) {}
 
     // Returns a list of nullifiers that match the specified prefixes and are recorded in the node.

@@ -7,7 +7,7 @@ import "note.proto";
 
 // Applies changes of a new block to the DB and in-memory data structures.
 message ApplyBlockRequest {
-    // Block data encoded using Miden's native format
+    // Block data encoded using Miden's native format.
     bytes block = 1;
 }
 
@@ -16,13 +16,13 @@ message CheckNullifiersByPrefixRequest {
     // Number of bits used for nullifier prefix. Currently the only supported value is 16.
     uint32 prefix_len = 1;
     // List of nullifiers to check. Each nullifier is specified by its prefix with length equal
-    // to prefix_len
+    // to `prefix_len`.
     repeated uint32 nullifiers = 2;
 }
 
-// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree
+// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
 message CheckNullifiersRequest {
-    // List of nullifiers to return proofs for
+    // List of nullifiers to return proofs for.
     repeated digest.Digest nullifiers = 1;
 }
 
@@ -31,9 +31,7 @@ message CheckNullifiersRequest {
 //
 // The Merkle path is an MMR proof for the block's leaf, based on the current chain length.
 message GetBlockHeaderByNumberRequest {
-    // The block number of the target block.
-    //
-    // If not provided, means latest known block.
+    // The block number of the target block. If not provided, means latest known block.
     optional uint32 block_num = 1;
     // Whether or not to return authentication data for the block header.
     optional bool include_mmr_proof = 2;
@@ -51,7 +49,6 @@ message SyncStateRequest {
     fixed32 block_num = 1;
 
     // Accounts' hash to include in the response.
-    //
     // An account hash will be included if-and-only-if it is the latest update. Meaning it is
     // possible there was an update to the account for the given range, but if it is not the latest,
     // it won't be included in the response.
@@ -101,19 +98,19 @@ message GetTransactionInputsRequest {
 
 // Submits proven transaction to the Miden network.
 message SubmitProvenTransactionRequest {
-    // Transaction encoded using Miden's native format
+    // Transaction encoded using Miden's native format.
     bytes transaction = 1;
 }
 
 // Returns a list of notes matching the provided note IDs.
 message GetNotesByIdRequest {
-    // List of NoteId's to be queried from the database
+    // List of NoteId's to be queried from the database.
     repeated digest.Digest note_ids = 1;
 }
 
 // Returns a list of Note inclusion proofs for the specified Note IDs.
 message GetNoteAuthenticationInfoRequest {
-    // List of NoteId's to be queried from the database
+    // List of NoteId's to be queried from the database.
     repeated digest.Digest note_ids = 1;
 }
 
