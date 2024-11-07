@@ -20,12 +20,12 @@
 
 ### {{.Name}}
 {{ .Description}}
-> **rpc** {{.Name}}([{{.RequestType}}](#{{.RequestLongType}})) returns [{{.ResponseType}}](#{{.ResponseLongType}})
+> **rpc** {{.Name}}([{{.RequestType}}](#requests-{{.RequestType | lower}})) returns [{{.ResponseType}}](#responses-{{.ResponseType | lower}})
 
 {{end}}{{end}}{{end}}
 # Messages
 {{range .Files}}{{if .HasMessages}}
-## <a name="#{{.Name | lower | replace "." "-"}}" />{{.Name}}
+## <a name="{{.Name | lower | replace "." "-"}}" />{{.Name}}
 {{range .Messages}}
 ### <a name="{{.FullName | lower | replace "." "-"}}" />{{.LongName}}
 {{.Description}}
@@ -40,5 +40,5 @@
 | .proto Type | Notes | C++ Type | Java Type | Python Type |
 | ----------- | ----- | -------- | --------- | ----------- |
 {{range .Scalars -}}
-  | <div><h4 id="{{.ProtoType | lower | replace "." ""}}" /></div><a name="{{.ProtoType}}" /> `{{.ProtoType}}` | {{.Notes}} | `{{.CppType}}` | `{{.JavaType}}` | `{{.PythonType}}` |
+  | <div><h4 id="{{.ProtoType | lower | replace "." ""}}" /></div><a name="{{.ProtoType | lower | replace "." "-"}}" /> `{{.ProtoType}}` | {{.Notes}} | `{{.CppType}}` | `{{.JavaType}}` | `{{.PythonType}}` |
 {{end}}

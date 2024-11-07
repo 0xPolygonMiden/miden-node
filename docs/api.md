@@ -89,54 +89,54 @@
 
 ### SubmitProvenTransaction
 Submits proven transaction to the Miden network
-> **rpc** SubmitProvenTransaction([SubmitProvenTransactionRequest](#.requests.SubmitProvenTransactionRequest)) returns [SubmitProvenTransactionResponse](#.responses.SubmitProvenTransactionResponse)
+> **rpc** SubmitProvenTransaction([SubmitProvenTransactionRequest](#requests-submitproventransactionrequest)) returns [SubmitProvenTransactionResponse](#responses-submitproventransactionresponse)
 
 ## `rpc` methods
 
 ### CheckNullifiers
 Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
-> **rpc** CheckNullifiers([CheckNullifiersRequest](#.requests.CheckNullifiersRequest)) returns [CheckNullifiersResponse](#.responses.CheckNullifiersResponse)
+> **rpc** CheckNullifiers([CheckNullifiersRequest](#requests-checknullifiersrequest)) returns [CheckNullifiersResponse](#responses-checknullifiersresponse)
 
 ### CheckNullifiersByPrefix
 Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
-> **rpc** CheckNullifiersByPrefix([CheckNullifiersByPrefixRequest](#.requests.CheckNullifiersByPrefixRequest)) returns [CheckNullifiersByPrefixResponse](#.responses.CheckNullifiersByPrefixResponse)
+> **rpc** CheckNullifiersByPrefix([CheckNullifiersByPrefixRequest](#requests-checknullifiersbyprefixrequest)) returns [CheckNullifiersByPrefixResponse](#responses-checknullifiersbyprefixresponse)
 
 ### GetAccountDetails
 Returns the latest state of an account with the specified ID.
-> **rpc** GetAccountDetails([GetAccountDetailsRequest](#.requests.GetAccountDetailsRequest)) returns [GetAccountDetailsResponse](#.responses.GetAccountDetailsResponse)
+> **rpc** GetAccountDetails([GetAccountDetailsRequest](#requests-getaccountdetailsrequest)) returns [GetAccountDetailsResponse](#responses-getaccountdetailsresponse)
 
 ### GetAccountProofs
 Returns the latest state proofs of accounts with the specified IDs.
-> **rpc** GetAccountProofs([GetAccountProofsRequest](#.requests.GetAccountProofsRequest)) returns [GetAccountProofsResponse](#.responses.GetAccountProofsResponse)
+> **rpc** GetAccountProofs([GetAccountProofsRequest](#requests-getaccountproofsrequest)) returns [GetAccountProofsResponse](#responses-getaccountproofsresponse)
 
 ### GetAccountStateDelta
 Returns delta of the account states in the range from `from_block_num` (exclusive) to
 `to_block_num` (inclusive).
-> **rpc** GetAccountStateDelta([GetAccountStateDeltaRequest](#.requests.GetAccountStateDeltaRequest)) returns [GetAccountStateDeltaResponse](#.responses.GetAccountStateDeltaResponse)
+> **rpc** GetAccountStateDelta([GetAccountStateDeltaRequest](#requests-getaccountstatedeltarequest)) returns [GetAccountStateDeltaResponse](#responses-getaccountstatedeltaresponse)
 
 ### GetBlockByNumber
 Retrieves block data by given block number.
-> **rpc** GetBlockByNumber([GetBlockByNumberRequest](#.requests.GetBlockByNumberRequest)) returns [GetBlockByNumberResponse](#.responses.GetBlockByNumberResponse)
+> **rpc** GetBlockByNumber([GetBlockByNumberRequest](#requests-getblockbynumberrequest)) returns [GetBlockByNumberResponse](#responses-getblockbynumberresponse)
 
 ### GetBlockHeaderByNumber
 Retrieves block header by given block number. Optionally, it also returns the MMR path
 and current chain length to authenticate the block's inclusion.
-> **rpc** GetBlockHeaderByNumber([GetBlockHeaderByNumberRequest](#.requests.GetBlockHeaderByNumberRequest)) returns [GetBlockHeaderByNumberResponse](#.responses.GetBlockHeaderByNumberResponse)
+> **rpc** GetBlockHeaderByNumber([GetBlockHeaderByNumberRequest](#requests-getblockheaderbynumberrequest)) returns [GetBlockHeaderByNumberResponse](#responses-getblockheaderbynumberresponse)
 
 ### GetNotesById
 Returns a list of notes matching the provided note IDs.
-> **rpc** GetNotesById([GetNotesByIdRequest](#.requests.GetNotesByIdRequest)) returns [GetNotesByIdResponse](#.responses.GetNotesByIdResponse)
+> **rpc** GetNotesById([GetNotesByIdRequest](#requests-getnotesbyidrequest)) returns [GetNotesByIdResponse](#responses-getnotesbyidresponse)
 
 ### SubmitProvenTransaction
 Submits proven transaction to the Miden network.
-> **rpc** SubmitProvenTransaction([SubmitProvenTransactionRequest](#.requests.SubmitProvenTransactionRequest)) returns [SubmitProvenTransactionResponse](#.responses.SubmitProvenTransactionResponse)
+> **rpc** SubmitProvenTransaction([SubmitProvenTransactionRequest](#requests-submitproventransactionrequest)) returns [SubmitProvenTransactionResponse](#responses-submitproventransactionresponse)
 
 ### SyncNotes
 Note synchronization request.
 
 Specifies note tags that client is interested in. The server will return the first block which
 contains a note matching `note_tags` or the chain tip.
-> **rpc** SyncNotes([SyncNoteRequest](#.requests.SyncNoteRequest)) returns [SyncNoteResponse](#.responses.SyncNoteResponse)
+> **rpc** SyncNotes([SyncNoteRequest](#requests-syncnoterequest)) returns [SyncNoteResponse](#responses-syncnoteresponse)
 
 ### SyncState
 Returns info which can be used by the client to sync up to the latest state of the chain
@@ -154,79 +154,79 @@ MMR peaks and chain MMR nodes.
 For preserving some degree of privacy, note tags and nullifiers filters contain only high
 part of hashes. Thus, returned data contains excessive notes and nullifiers, client can make
 additional filtering of that data on its side.
-> **rpc** SyncState([SyncStateRequest](#.requests.SyncStateRequest)) returns [SyncStateResponse](#.responses.SyncStateResponse)
+> **rpc** SyncState([SyncStateRequest](#requests-syncstaterequest)) returns [SyncStateResponse](#responses-syncstateresponse)
 
 ## `store` methods
 
 ### ApplyBlock
 Applies changes of a new block to the DB and in-memory data structures.
-> **rpc** ApplyBlock([ApplyBlockRequest](#.requests.ApplyBlockRequest)) returns [ApplyBlockResponse](#.responses.ApplyBlockResponse)
+> **rpc** ApplyBlock([ApplyBlockRequest](#requests-applyblockrequest)) returns [ApplyBlockResponse](#responses-applyblockresponse)
 
 ### CheckNullifiers
 Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
-> **rpc** CheckNullifiers([CheckNullifiersRequest](#.requests.CheckNullifiersRequest)) returns [CheckNullifiersResponse](#.responses.CheckNullifiersResponse)
+> **rpc** CheckNullifiers([CheckNullifiersRequest](#requests-checknullifiersrequest)) returns [CheckNullifiersResponse](#responses-checknullifiersresponse)
 
 ### CheckNullifiersByPrefix
 Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
-> **rpc** CheckNullifiersByPrefix([CheckNullifiersByPrefixRequest](#.requests.CheckNullifiersByPrefixRequest)) returns [CheckNullifiersByPrefixResponse](#.responses.CheckNullifiersByPrefixResponse)
+> **rpc** CheckNullifiersByPrefix([CheckNullifiersByPrefixRequest](#requests-checknullifiersbyprefixrequest)) returns [CheckNullifiersByPrefixResponse](#responses-checknullifiersbyprefixresponse)
 
 ### GetAccountDetails
 Returns the latest state of an account with the specified ID.
-> **rpc** GetAccountDetails([GetAccountDetailsRequest](#.requests.GetAccountDetailsRequest)) returns [GetAccountDetailsResponse](#.responses.GetAccountDetailsResponse)
+> **rpc** GetAccountDetails([GetAccountDetailsRequest](#requests-getaccountdetailsrequest)) returns [GetAccountDetailsResponse](#responses-getaccountdetailsresponse)
 
 ### GetAccountProofs
 Returns the latest state proofs of accounts with the specified IDs.
-> **rpc** GetAccountProofs([GetAccountProofsRequest](#.requests.GetAccountProofsRequest)) returns [GetAccountProofsResponse](#.responses.GetAccountProofsResponse)
+> **rpc** GetAccountProofs([GetAccountProofsRequest](#requests-getaccountproofsrequest)) returns [GetAccountProofsResponse](#responses-getaccountproofsresponse)
 
 ### GetAccountStateDelta
 Returns delta of the account states in the range from `from_block_num` (exclusive) to
 `to_block_num` (inclusive).
-> **rpc** GetAccountStateDelta([GetAccountStateDeltaRequest](#.requests.GetAccountStateDeltaRequest)) returns [GetAccountStateDeltaResponse](#.responses.GetAccountStateDeltaResponse)
+> **rpc** GetAccountStateDelta([GetAccountStateDeltaRequest](#requests-getaccountstatedeltarequest)) returns [GetAccountStateDeltaResponse](#responses-getaccountstatedeltaresponse)
 
 ### GetBlockByNumber
 Retrieves block data by given block number.
-> **rpc** GetBlockByNumber([GetBlockByNumberRequest](#.requests.GetBlockByNumberRequest)) returns [GetBlockByNumberResponse](#.responses.GetBlockByNumberResponse)
+> **rpc** GetBlockByNumber([GetBlockByNumberRequest](#requests-getblockbynumberrequest)) returns [GetBlockByNumberResponse](#responses-getblockbynumberresponse)
 
 ### GetBlockHeaderByNumber
 Retrieves block header by given block number. Optionally, it also returns the MMR path
 and current chain length to authenticate the block's inclusion.
-> **rpc** GetBlockHeaderByNumber([GetBlockHeaderByNumberRequest](#.requests.GetBlockHeaderByNumberRequest)) returns [GetBlockHeaderByNumberResponse](#.responses.GetBlockHeaderByNumberResponse)
+> **rpc** GetBlockHeaderByNumber([GetBlockHeaderByNumberRequest](#requests-getblockheaderbynumberrequest)) returns [GetBlockHeaderByNumberResponse](#responses-getblockheaderbynumberresponse)
 
 ### GetBlockInputs
 Returns data needed by the block producer to construct and prove the next block, including
 account states, nullifiers, and unauthenticated notes.
-> **rpc** GetBlockInputs([GetBlockInputsRequest](#.requests.GetBlockInputsRequest)) returns [GetBlockInputsResponse](#.responses.GetBlockInputsResponse)
+> **rpc** GetBlockInputs([GetBlockInputsRequest](#requests-getblockinputsrequest)) returns [GetBlockInputsResponse](#responses-getblockinputsresponse)
 
 ### GetNoteAuthenticationInfo
 Returns a list of Note inclusion proofs for the specified Note IDs.
-> **rpc** GetNoteAuthenticationInfo([GetNoteAuthenticationInfoRequest](#.requests.GetNoteAuthenticationInfoRequest)) returns [GetNoteAuthenticationInfoResponse](#.responses.GetNoteAuthenticationInfoResponse)
+> **rpc** GetNoteAuthenticationInfo([GetNoteAuthenticationInfoRequest](#requests-getnoteauthenticationinforequest)) returns [GetNoteAuthenticationInfoResponse](#responses-getnoteauthenticationinforesponse)
 
 ### GetNotesById
 Returns a list of notes matching the provided note IDs.
-> **rpc** GetNotesById([GetNotesByIdRequest](#.requests.GetNotesByIdRequest)) returns [GetNotesByIdResponse](#.responses.GetNotesByIdResponse)
+> **rpc** GetNotesById([GetNotesByIdRequest](#requests-getnotesbyidrequest)) returns [GetNotesByIdResponse](#responses-getnotesbyidresponse)
 
 ### GetTransactionInputs
 Returns the data needed by the block producer to check validity of an incoming transaction.
-> **rpc** GetTransactionInputs([GetTransactionInputsRequest](#.requests.GetTransactionInputsRequest)) returns [GetTransactionInputsResponse](#.responses.GetTransactionInputsResponse)
+> **rpc** GetTransactionInputs([GetTransactionInputsRequest](#requests-gettransactioninputsrequest)) returns [GetTransactionInputsResponse](#responses-gettransactioninputsresponse)
 
 ### ListAccounts
 Lists all accounts of the current chain.
-> **rpc** ListAccounts([ListAccountsRequest](#.requests.ListAccountsRequest)) returns [ListAccountsResponse](#.responses.ListAccountsResponse)
+> **rpc** ListAccounts([ListAccountsRequest](#requests-listaccountsrequest)) returns [ListAccountsResponse](#responses-listaccountsresponse)
 
 ### ListNotes
 Lists all notes of the current chain.
-> **rpc** ListNotes([ListNotesRequest](#.requests.ListNotesRequest)) returns [ListNotesResponse](#.responses.ListNotesResponse)
+> **rpc** ListNotes([ListNotesRequest](#requests-listnotesrequest)) returns [ListNotesResponse](#responses-listnotesresponse)
 
 ### ListNullifiers
 Lists all nullifiers of the current chain.
-> **rpc** ListNullifiers([ListNullifiersRequest](#.requests.ListNullifiersRequest)) returns [ListNullifiersResponse](#.responses.ListNullifiersResponse)
+> **rpc** ListNullifiers([ListNullifiersRequest](#requests-listnullifiersrequest)) returns [ListNullifiersResponse](#responses-listnullifiersresponse)
 
 ### SyncNotes
 Note synchronization request.
 
 Specifies note tags that client is interested in. The server will return the first block which
 contains a note matching `note_tags` or the chain tip.
-> **rpc** SyncNotes([SyncNoteRequest](#.requests.SyncNoteRequest)) returns [SyncNoteResponse](#.responses.SyncNoteResponse)
+> **rpc** SyncNotes([SyncNoteRequest](#requests-syncnoterequest)) returns [SyncNoteResponse](#responses-syncnoteresponse)
 
 ### SyncState
 Returns info which can be used by the client to sync up to the latest state of the chain
@@ -244,12 +244,12 @@ MMR peaks and chain MMR nodes.
 For preserving some degree of privacy, note tags and nullifiers filters contain only high
 part of hashes. Thus, returned data contains excessive notes and nullifiers, client can make
 additional filtering of that data on its side.
-> **rpc** SyncState([SyncStateRequest](#.requests.SyncStateRequest)) returns [SyncStateResponse](#.responses.SyncStateResponse)
+> **rpc** SyncState([SyncStateRequest](#requests-syncstaterequest)) returns [SyncStateResponse](#responses-syncstateresponse)
 
 
 # Messages
 
-## <a name="#account-proto" />account.proto
+## <a name="account-proto" />account.proto
 
 ### <a name="account-accountheader" />AccountHeader
 An account header.
@@ -285,7 +285,7 @@ A summary of an account.
 - `block_num`: [`uint32`](#uint32) — Merkle path to verify the account's inclusion in the MMR.
 
 
-## <a name="#block-proto" />block.proto
+## <a name="block-proto" />block.proto
 
 ### <a name="block-blockheader" />BlockHeader
 Represents a block header.
@@ -313,7 +313,7 @@ Represents a block inclusion proof.
 - `chain_length`: [`fixed32`](#fixed32) — The chain length associated with `mmr_path`.
 
 
-## <a name="#digest-proto" />digest.proto
+## <a name="digest-proto" />digest.proto
 
 ### <a name="digest-digest" />Digest
 A hash digest, the result of a hash function.
@@ -325,7 +325,7 @@ A hash digest, the result of a hash function.
 - `d3`: [`fixed64`](#fixed64) — none
 
 
-## <a name="#merkle-proto" />merkle.proto
+## <a name="merkle-proto" />merkle.proto
 
 ### <a name="merkle-merklepath" />MerklePath
 Represents a Merkle path.
@@ -334,7 +334,7 @@ Represents a Merkle path.
 - `siblings`: _repeated_ [`digest.Digest`](#digest-digest) — List of sibling node hashes, in order from the root to the leaf.
 
 
-## <a name="#mmr-proto" />mmr.proto
+## <a name="mmr-proto" />mmr.proto
 
 ### <a name="mmr-mmrdelta" />MmrDelta
 Represents an MMR delta.
@@ -344,7 +344,7 @@ Represents an MMR delta.
 - `data`: _repeated_ [`digest.Digest`](#digest-digest) — New and changed MMR peaks.
 
 
-## <a name="#note-proto" />note.proto
+## <a name="note-proto" />note.proto
 
 ### <a name="note-note" />Note
 Represents a note.
@@ -397,7 +397,7 @@ Represents proof of a note inclusion in the block.
 - `merkle_path`: [`merkle.MerklePath`](#merkle-merklepath) — The note inclusion proof in the block.
 
 
-## <a name="#requests-proto" />requests.proto
+## <a name="requests-proto" />requests.proto
 
 ### <a name="requests-applyblockrequest" />ApplyBlockRequest
 Applies changes of a new block to the DB and in-memory data structures.
@@ -548,7 +548,7 @@ contains a note matching `note_tags` or the chain tip. And the corresponding upd
 - `nullifiers`: _repeated_ [`uint32`](#uint32) — Determines the nullifiers the client is interested in by specifying the 16high bits of the target nullifier.
 
 
-## <a name="#responses-proto" />responses.proto
+## <a name="responses-proto" />responses.proto
 
 ### <a name="responses-accountblockinputrecord" />AccountBlockInputRecord
 An account returned as a response to the `GetBlockInputs`.
@@ -756,7 +756,7 @@ Represents the result of syncing state request.
 - `nullifiers`: _repeated_ [`NullifierUpdate`](#nullifierupdate) — List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
 
 
-## <a name="#smt-proto" />smt.proto
+## <a name="smt-proto" />smt.proto
 
 ### <a name="smt-smtleaf" />SmtLeaf
 A leaf in an SMT, sitting at depth 64. A leaf can contain 0, 1 or multiple leaf entries.
@@ -790,7 +790,7 @@ The opening of a leaf in an SMT.
 - `leaf`: [`SmtLeaf`](#smtleaf) — The leaf itself.
 
 
-## <a name="#transaction-proto" />transaction.proto
+## <a name="transaction-proto" />transaction.proto
 
 ### <a name="transaction-transactionid" />TransactionId
 Represents a transaction ID.
