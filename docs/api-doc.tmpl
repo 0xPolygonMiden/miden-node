@@ -1,37 +1,35 @@
-# API Reference
-
-# Table of Contents
+# Miden gRPC API Reference
+## Table of Contents
 - [Endpoints](#endpoints)
 {{range .Files}}{{range .Services}}  - [`{{.FullName | replace ".Api" ""}}` methods](#{{.FullName | lower | replace ".api" ""}}-methods)
-{{end}}{{end}}
-- [Messages](#messages)
+{{range .Methods}}    - [{{.Name}}](#rpc-{{.Name | lower}})
+{{end}}{{end}}{{end}}- [Messages](#messages)
 {{range .Files}}{{if .HasMessages}}  - [{{.Name}}](#{{.Name | lower | replace "." "-"}})
 {{range .Messages}}    - [{{.LongName}}](#{{.FullName | lower | replace "." "-"}})
-{{end}}{{end}}{{end}}
-- [Scalar Value Types](#scalar-value-types)
+{{end}}{{end}}{{end}}- [Scalar Value Types](#scalar-value-types)
 
-# Endpoints
+## Endpoints
 
 {{range .Files}}{{range .Services -}}
 
-## `{{.FullName | replace ".Api" ""}}` methods
+### `{{.FullName | replace ".Api" ""}}` methods
 {{.Description}}
 {{range .Methods -}}
 
-### {{.Name}}
+#### <a name="rpc-{{.Name | lower}}" />{{.Name}}
 {{ .Description}}
 > **rpc** {{.Name}}([{{.RequestType}}](#requests-{{.RequestType | lower}})) returns [{{.ResponseType}}](#responses-{{.ResponseType | lower}})
 
 {{end}}{{end}}{{end}}
-# Messages
+## Messages
 {{range .Files}}{{if .HasMessages}}
-## <a name="{{.Name | lower | replace "." "-"}}" />{{.Name}}
+### <a name="{{.Name | lower | replace "." "-"}}" />{{.Name}}
 {{range .Messages}}
-### <a name="{{.FullName | lower | replace "." "-"}}" />{{.LongName}}
+#### <a name="{{.FullName | lower | replace "." "-"}}" />{{.LongName}}
 {{.Description}}
 
-#### Fields
-{{if .HasFields}}{{range .Fields -}}- `{{.Name}}`: {{if .IsMap}}_map_ {{else}}{{if .Label}}_{{.Label}}_ {{end}}{{end}}[`{{.LongType}}`](#{{.LongType | lower | replace "." "-"}}) — {{if .Description}}{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}{{else}}none{{end}}
+##### Fields
+{{if .HasFields}}{{range .Fields -}}- `{{.Name}}`: {{if .IsMap}}_map_ {{else}}{{if .Label}}_{{.Label}}_ {{end}}{{end}}[`{{.FullType}}`](#{{.FullType | lower | replace "." "-"}}) — {{if .Description}}{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}{{else}}none{{end}}
 {{end}}{{else}}No fields{{end}}
 {{end}}{{end}}{{end}}
 
