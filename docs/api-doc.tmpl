@@ -1,0 +1,42 @@
+# API Reference
+
+# Table of Contents
+- [Endpoints](#endpoints)
+{{range .Files}}{{range .Services}}  - [`{{.FullName | replace ".Api" ""}}` methods](#{{.FullName | lower | replace ".api" ""}}-methods)
+{{end}}{{end}}
+- [Messages](#messages)
+{{range .Files}}{{if .HasMessages}}  - [{{.Name}}](#{{.Name}})
+{{range .Messages}}    - [{{.LongName}}](#{{.FullName | lower | replace "." "-"}})
+{{end}}{{end}}{{end}}
+- [Scalar Value Types](#scalar-value-types)
+
+# Endpoints
+
+{{range .Files}}{{range .Services -}}
+
+## `{{.FullName | replace ".Api" ""}}` methods
+{{.Description}}
+{{range .Methods -}}
+
+### {{.Name}}
+{{ .Description}}
+> **rpc** {{.Name}}([{{.RequestType}}](#{{.RequestLongType}})) returns [{{.ResponseType}}](#{{.ResponseLongType}})
+
+{{end}}{{end}}{{end}}
+# Messages
+{{range .Files}}{{range .Messages}}
+## {{.LongName}} {#{{.FullName | lower | replace "." "-"}}}
+{{.Description}}
+
+### Fields
+{{if .HasFields}}{{range .Fields -}}- `{{.Name}}`: {{if .IsMap}}_map_ {{else}}{{if .Label}}_{{.Label}}_ {{end}}{{end}}[`{{.LongType}}`](#{{.LongType | lower | replace "." "-"}}) — {{if .Description}}{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}{{else}}none{{end}}
+{{end}}{{else}}No fields{{end}}
+{{end}}{{end}}
+
+# Scalar Value Types
+
+| .proto Type | Notes | C++ Type | Java Type | Python Type |
+| ----------- | ----- | -------- | --------- | ----------- |
+{{range .Scalars -}}
+  | <div><h4 id="{{.ProtoType | lower | replace "." ""}}" /></div><a name="{{.ProtoType}}" /> `{{.ProtoType}}` | {{.Notes}} | `{{.CppType}}` | `{{.JavaType}}` | `{{.PythonType}}` |
+{{end}}
