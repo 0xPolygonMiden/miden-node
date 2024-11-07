@@ -1,7 +1,7 @@
 # Miden gRPC API Reference
 ## Table of Contents
 - [Endpoints](#endpoints)
-{{range .Files}}{{range .Services}}  - [`{{.FullName | replace ".Api" ""}}` methods](#{{.FullName | lower | replace ".api" ""}}-methods)
+{{range .Files}}{{range .Services}}  - [`{{.FullName | replace ".Api" ""}}` endpoints](#{{.FullName | lower | replace ".api" ""}}-endpoints)
 {{range .Methods}}    - [{{.Name}}](#rpc-{{.Name | lower}})
 {{end}}{{end}}{{end}}- [Messages](#messages)
 {{range .Files}}{{if .HasMessages}}  - [{{.Name}}](#{{.Name | lower | replace "." "-"}})
@@ -12,7 +12,7 @@
 
 {{range .Files}}{{range .Services -}}
 
-### `{{.FullName | replace ".Api" ""}}` methods
+### `{{.FullName | replace ".Api" ""}}` endpoints
 {{.Description}}
 {{range .Methods -}}
 

@@ -1,9 +1,9 @@
 # Miden gRPC API Reference
 ## Table of Contents
 - [Endpoints](#endpoints)
-  - [`block_producer` methods](#block_producer-methods)
+  - [`block_producer` endpoints](#block_producer-endpoints)
     - [SubmitProvenTransaction](#rpc-submitproventransaction)
-  - [`rpc` methods](#rpc-methods)
+  - [`rpc` endpoints](#rpc-endpoints)
     - [CheckNullifiers](#rpc-checknullifiers)
     - [CheckNullifiersByPrefix](#rpc-checknullifiersbyprefix)
     - [GetAccountDetails](#rpc-getaccountdetails)
@@ -15,7 +15,7 @@
     - [SubmitProvenTransaction](#rpc-submitproventransaction)
     - [SyncNotes](#rpc-syncnotes)
     - [SyncState](#rpc-syncstate)
-  - [`store` methods](#store-methods)
+  - [`store` endpoints](#store-endpoints)
     - [ApplyBlock](#rpc-applyblock)
     - [CheckNullifiers](#rpc-checknullifiers)
     - [CheckNullifiersByPrefix](#rpc-checknullifiersbyprefix)
@@ -111,13 +111,13 @@
 
 ## Endpoints
 
-### `block_producer` methods
+### `block_producer` endpoints
 
 #### <a name="rpc-submitproventransaction" />SubmitProvenTransaction
 Submits proven transaction to the Miden network
 > **rpc** SubmitProvenTransaction([SubmitProvenTransactionRequest](#requests-submitproventransactionrequest)) returns [SubmitProvenTransactionResponse](#responses-submitproventransactionresponse)
 
-### `rpc` methods
+### `rpc` endpoints
 
 #### <a name="rpc-checknullifiers" />CheckNullifiers
 Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
@@ -182,7 +182,7 @@ part of hashes. Thus, returned data contains excessive notes and nullifiers, cli
 additional filtering of that data on its side.
 > **rpc** SyncState([SyncStateRequest](#requests-syncstaterequest)) returns [SyncStateResponse](#responses-syncstateresponse)
 
-### `store` methods
+### `store` endpoints
 
 #### <a name="rpc-applyblock" />ApplyBlock
 Applies changes of a new block to the DB and in-memory data structures.
