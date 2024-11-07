@@ -29,7 +29,7 @@
 {{.Description}}
 
 ##### Fields
-{{if .HasFields}}{{range .Fields -}}- `{{.Name}}`: {{if .IsMap}}_map_ {{else}}{{if .Label}}_{{.Label}}_ {{end}}{{end}}[`{{.FullType}}`](#{{.FullType | lower | replace "." "-"}}) — {{if .Description}}{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}{{else}}none{{end}}
+{{if .HasFields}}{{range .Fields -}}- `{{.Name}}`: {{if .IsMap}}[map] {{else}}{{if .Label}}[{{.Label}}] {{end}}{{end}}[`{{.FullType}}`](#{{.FullType | lower | replace "." "-"}}) — {{if .Description}}{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}{{else}}none{{end}}
 {{end}}{{else}}No fields{{end}}
 {{end}}{{end}}{{end}}
 
