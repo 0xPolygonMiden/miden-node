@@ -249,7 +249,7 @@ additional filtering of that data on its side.
 
 # Messages
 
-## AccountHeader {#account-accountheader}
+## <a name="account-accountheader" />AccountHeader
 An account header.
 
 ### Fields
@@ -259,14 +259,14 @@ An account header.
 - `nonce`: [`uint64`](#uint64) — Account nonce.
 
 
-## AccountId {#account-accountid}
+## <a name="account-accountid" />AccountId
 An account ID.
 
 ### Fields
 - `id`: [`fixed64`](#fixed64) — A miden account is defined with a little bit of proof-of-work, the id itself is defined as the first word of a hash digest. For this reason account ids can be considered as random values, because of that the encoding below uses fixed 64 bits, instead of zig-zag encoding.
 
 
-## AccountInfo {#account-accountinfo}
+## <a name="account-accountinfo" />AccountInfo
 An account info.
 
 ### Fields
@@ -274,7 +274,7 @@ An account info.
 - `details`: _optional_ [`bytes`](#bytes) — Account details encoded using Miden native format.
 
 
-## AccountSummary {#account-accountsummary}
+## <a name="account-accountsummary" />AccountSummary
 A summary of an account.
 
 ### Fields
@@ -283,7 +283,7 @@ A summary of an account.
 - `block_num`: [`uint32`](#uint32) — Merkle path to verify the account's inclusion in the MMR.
 
 
-## BlockHeader {#block-blockheader}
+## <a name="block-blockheader" />BlockHeader
 Represents a block header.
 
 ### Fields
@@ -300,7 +300,7 @@ Represents a block header.
 - `timestamp`: [`fixed32`](#fixed32) — The time when the block was created.
 
 
-## BlockInclusionProof {#block-blockinclusionproof}
+## <a name="block-blockinclusionproof" />BlockInclusionProof
 Represents a block inclusion proof.
 
 ### Fields
@@ -309,7 +309,7 @@ Represents a block inclusion proof.
 - `chain_length`: [`fixed32`](#fixed32) — The chain length associated with `mmr_path`.
 
 
-## Digest {#digest-digest}
+## <a name="digest-digest" />Digest
 A hash digest, the result of a hash function.
 
 ### Fields
@@ -319,14 +319,14 @@ A hash digest, the result of a hash function.
 - `d3`: [`fixed64`](#fixed64) — none
 
 
-## MerklePath {#merkle-merklepath}
+## <a name="merkle-merklepath" />MerklePath
 Represents a Merkle path.
 
 ### Fields
 - `siblings`: _repeated_ [`digest.Digest`](#digest-digest) — List of sibling node hashes, in order from the root to the leaf.
 
 
-## MmrDelta {#mmr-mmrdelta}
+## <a name="mmr-mmrdelta" />MmrDelta
 Represents an MMR delta.
 
 ### Fields
@@ -334,7 +334,7 @@ Represents an MMR delta.
 - `data`: _repeated_ [`digest.Digest`](#digest-digest) — New and changed MMR peaks.
 
 
-## Note {#note-note}
+## <a name="note-note" />Note
 Represents a note.
 
 ### Fields
@@ -346,7 +346,7 @@ Represents a note.
 - `details`: _optional_ [`bytes`](#bytes) — This field will be present when the note is public. details contain the `Note` in a serialized format.
 
 
-## NoteAuthenticationInfo {#note-noteauthenticationinfo}
+## <a name="note-noteauthenticationinfo" />NoteAuthenticationInfo
 Represents proof of notes inclusion in the block(s) and block(s) inclusion in the chain.
 
 ### Fields
@@ -354,7 +354,7 @@ Represents proof of notes inclusion in the block(s) and block(s) inclusion in th
 - `block_proofs`: _repeated_ [`block.BlockInclusionProof`](#block-blockinclusionproof) — Proof of each block's inclusion in the chain.
 
 
-## NoteInclusionInBlockProof {#note-noteinclusioninblockproof}
+## <a name="note-noteinclusioninblockproof" />NoteInclusionInBlockProof
 Represents proof of a note's inclusion in a block.
 
 ### Fields
@@ -364,7 +364,7 @@ Represents proof of a note's inclusion in a block.
 - `merkle_path`: [`merkle.MerklePath`](#merkle-merklepath) — The note inclusion proof in the block.
 
 
-## NoteMetadata {#note-notemetadata}
+## <a name="note-notemetadata" />NoteMetadata
 Represents a note metadata.
 
 ### Fields
@@ -375,7 +375,7 @@ Represents a note metadata.
 - `aux`: [`fixed64`](#fixed64) — An arbitrary user-defined value.
 
 
-## NoteSyncRecord {#note-notesyncrecord}
+## <a name="note-notesyncrecord" />NoteSyncRecord
 Represents proof of a note inclusion in the block.
 
 ### Fields
@@ -385,14 +385,14 @@ Represents proof of a note inclusion in the block.
 - `merkle_path`: [`merkle.MerklePath`](#merkle-merklepath) — The note inclusion proof in the block.
 
 
-## ApplyBlockRequest {#requests-applyblockrequest}
+## <a name="requests-applyblockrequest" />ApplyBlockRequest
 Applies changes of a new block to the DB and in-memory data structures.
 
 ### Fields
 - `block`: [`bytes`](#bytes) — Block data encoded using Miden's native format.
 
 
-## CheckNullifiersByPrefixRequest {#requests-checknullifiersbyprefixrequest}
+## <a name="requests-checknullifiersbyprefixrequest" />CheckNullifiersByPrefixRequest
 Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
 
 ### Fields
@@ -400,21 +400,21 @@ Returns a list of nullifiers that match the specified prefixes and are recorded 
 - `nullifiers`: _repeated_ [`uint32`](#uint32) — List of nullifiers to check. Each nullifier is specified by its prefix with length equal to `prefix_len`.
 
 
-## CheckNullifiersRequest {#requests-checknullifiersrequest}
+## <a name="requests-checknullifiersrequest" />CheckNullifiersRequest
 Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
 
 ### Fields
 - `nullifiers`: _repeated_ [`digest.Digest`](#digest-digest) — List of nullifiers to return proofs for.
 
 
-## GetAccountDetailsRequest {#requests-getaccountdetailsrequest}
+## <a name="requests-getaccountdetailsrequest" />GetAccountDetailsRequest
 Returns the latest state of an account with the specified ID.
 
 ### Fields
 - `account_id`: [`account.AccountId`](#account-accountid) — Account ID to get details.
 
 
-## GetAccountProofsRequest {#requests-getaccountproofsrequest}
+## <a name="requests-getaccountproofsrequest" />GetAccountProofsRequest
 Returns the latest state proofs of accounts with the specified IDs.
 
 ### Fields
@@ -423,7 +423,7 @@ Returns the latest state proofs of accounts with the specified IDs.
 - `code_commitments`: _repeated_ [`digest.Digest`](#digest-digest) — Account code commitments corresponding to the last-known `AccountCode` for requested accounts. Responses will include only the ones that are not known to the caller. These are not associated with a specific account but rather, they will be matched against all requested accounts.
 
 
-## GetAccountStateDeltaRequest {#requests-getaccountstatedeltarequest}
+## <a name="requests-getaccountstatedeltarequest" />GetAccountStateDeltaRequest
 Returns delta of the account states in the range from `from_block_num` (exclusive) to
 `to_block_num` (inclusive).
 
@@ -433,14 +433,14 @@ Returns delta of the account states in the range from `from_block_num` (exclusiv
 - `to_block_num`: [`fixed32`](#fixed32) — Block number up to which the delta is requested (inclusive).
 
 
-## GetBlockByNumberRequest {#requests-getblockbynumberrequest}
+## <a name="requests-getblockbynumberrequest" />GetBlockByNumberRequest
 Retrieves block data by given block number.
 
 ### Fields
 - `block_num`: [`fixed32`](#fixed32) — The block number of the target block.
 
 
-## GetBlockHeaderByNumberRequest {#requests-getblockheaderbynumberrequest}
+## <a name="requests-getblockheaderbynumberrequest" />GetBlockHeaderByNumberRequest
 Returns the block header corresponding to the requested block number, as well as the merkle
 path and current forest which validate the block's inclusion in the chain.
 
@@ -451,7 +451,7 @@ The Merkle path is an MMR proof for the block's leaf, based on the current chain
 - `include_mmr_proof`: _optional_ [`bool`](#bool) — Whether or not to return authentication data for the block header.
 
 
-## GetBlockInputsRequest {#requests-getblockinputsrequest}
+## <a name="requests-getblockinputsrequest" />GetBlockInputsRequest
 Returns data needed by the block producer to construct and prove the next block, including
 account states, nullifiers, and unauthenticated notes.
 
@@ -461,21 +461,21 @@ account states, nullifiers, and unauthenticated notes.
 - `unauthenticated_notes`: _repeated_ [`digest.Digest`](#digest-digest) — Array of note IDs to be checked for existence in the database.
 
 
-## GetNoteAuthenticationInfoRequest {#requests-getnoteauthenticationinforequest}
+## <a name="requests-getnoteauthenticationinforequest" />GetNoteAuthenticationInfoRequest
 Returns a list of Note inclusion proofs for the specified Note IDs.
 
 ### Fields
 - `note_ids`: _repeated_ [`digest.Digest`](#digest-digest) — List of NoteId's to be queried from the database.
 
 
-## GetNotesByIdRequest {#requests-getnotesbyidrequest}
+## <a name="requests-getnotesbyidrequest" />GetNotesByIdRequest
 Returns a list of notes matching the provided note IDs.
 
 ### Fields
 - `note_ids`: _repeated_ [`digest.Digest`](#digest-digest) — List of NoteId's to be queried from the database.
 
 
-## GetTransactionInputsRequest {#requests-gettransactioninputsrequest}
+## <a name="requests-gettransactioninputsrequest" />GetTransactionInputsRequest
 Returns the data needed by the block producer to check validity of an incoming transaction.
 
 ### Fields
@@ -484,32 +484,32 @@ Returns the data needed by the block producer to check validity of an incoming t
 - `unauthenticated_notes`: _repeated_ [`digest.Digest`](#digest-digest) — Array of unauthenticated note IDs to be checked for existence in the database.
 
 
-## ListAccountsRequest {#requests-listaccountsrequest}
+## <a name="requests-listaccountsrequest" />ListAccountsRequest
 Lists all accounts of the current chain.
 
 ### Fields
 No fields
 
-## ListNotesRequest {#requests-listnotesrequest}
+## <a name="requests-listnotesrequest" />ListNotesRequest
 Lists all notes of the current chain.
 
 ### Fields
 No fields
 
-## ListNullifiersRequest {#requests-listnullifiersrequest}
+## <a name="requests-listnullifiersrequest" />ListNullifiersRequest
 Lists all nullifiers of the current chain.
 
 ### Fields
 No fields
 
-## SubmitProvenTransactionRequest {#requests-submitproventransactionrequest}
+## <a name="requests-submitproventransactionrequest" />SubmitProvenTransactionRequest
 Submits proven transaction to the Miden network.
 
 ### Fields
 - `transaction`: [`bytes`](#bytes) — Transaction encoded using Miden's native format.
 
 
-## SyncNoteRequest {#requests-syncnoterequest}
+## <a name="requests-syncnoterequest" />SyncNoteRequest
 Note synchronization request.
 
 Specifies note tags that client is interested in. The server will return the first block which
@@ -520,7 +520,7 @@ contains a note matching `note_tags` or the chain tip.
 - `note_tags`: _repeated_ [`fixed32`](#fixed32) — Specifies the tags which the client is interested in.
 
 
-## SyncStateRequest {#requests-syncstaterequest}
+## <a name="requests-syncstaterequest" />SyncStateRequest
 State synchronization request.
 
 Specifies state updates the client is interested in. The server will return the first block which
@@ -534,7 +534,7 @@ contains a note matching `note_tags` or the chain tip. And the corresponding upd
 - `nullifiers`: _repeated_ [`uint32`](#uint32) — Determines the nullifiers the client is interested in by specifying the 16high bits of the target nullifier.
 
 
-## AccountBlockInputRecord {#responses-accountblockinputrecord}
+## <a name="responses-accountblockinputrecord" />AccountBlockInputRecord
 An account returned as a response to the `GetBlockInputs`.
 
 ### Fields
@@ -543,7 +543,7 @@ An account returned as a response to the `GetBlockInputs`.
 - `proof`: [`merkle.MerklePath`](#merkle-merklepath) — Merkle path to verify the account's inclusion in the MMR.
 
 
-## AccountProofsResponse {#responses-accountproofsresponse}
+## <a name="responses-accountproofsresponse" />AccountProofsResponse
 A single account proof returned as a response to the `GetAccountProofs`.
 
 ### Fields
@@ -553,7 +553,7 @@ A single account proof returned as a response to the `GetAccountProofs`.
 - `state_header`: _optional_ [`AccountStateHeader`](#accountstateheader) — State header for public accounts. Filled only if `include_headers` flag is set to `true`.
 
 
-## AccountStateHeader {#responses-accountstateheader}
+## <a name="responses-accountstateheader" />AccountStateHeader
 State header for public accounts.
 
 ### Fields
@@ -562,7 +562,7 @@ State header for public accounts.
 - `account_code`: _optional_ [`bytes`](#bytes) — Account code, returned only when none of the request's code commitments match with the current one.
 
 
-## AccountTransactionInputRecord {#responses-accounttransactioninputrecord}
+## <a name="responses-accounttransactioninputrecord" />AccountTransactionInputRecord
 An account returned as a response to the `GetTransactionInputs`.
 
 ### Fields
@@ -570,34 +570,34 @@ An account returned as a response to the `GetTransactionInputs`.
 - `account_hash`: [`digest.Digest`](#digest-digest) — The latest account hash, zero hash if the account doesn't exist.
 
 
-## ApplyBlockResponse {#responses-applyblockresponse}
+## <a name="responses-applyblockresponse" />ApplyBlockResponse
 Represents the result of applying a block.
 
 ### Fields
 No fields
 
-## CheckNullifiersByPrefixResponse {#responses-checknullifiersbyprefixresponse}
+## <a name="responses-checknullifiersbyprefixresponse" />CheckNullifiersByPrefixResponse
 Represents the result of checking nullifiers by prefix.
 
 ### Fields
 - `nullifiers`: _repeated_ [`NullifierUpdate`](#nullifierupdate) — List of nullifiers matching the prefixes specified in the request.
 
 
-## CheckNullifiersResponse {#responses-checknullifiersresponse}
+## <a name="responses-checknullifiersresponse" />CheckNullifiersResponse
 Represents the result of checking nullifiers.
 
 ### Fields
 - `proofs`: _repeated_ [`smt.SmtOpening`](#smt-smtopening) — Each requested nullifier has its corresponding nullifier proof at the same position.
 
 
-## GetAccountDetailsResponse {#responses-getaccountdetailsresponse}
+## <a name="responses-getaccountdetailsresponse" />GetAccountDetailsResponse
 Represents the result of getting account details.
 
 ### Fields
 - `details`: [`account.AccountInfo`](#account-accountinfo) — Account info (with details for public accounts).
 
 
-## GetAccountProofsResponse {#responses-getaccountproofsresponse}
+## <a name="responses-getaccountproofsresponse" />GetAccountProofsResponse
 Represents the result of getting account proofs.
 
 ### Fields
@@ -605,21 +605,21 @@ Represents the result of getting account proofs.
 - `account_proofs`: _repeated_ [`AccountProofsResponse`](#accountproofsresponse) — List of account state infos for the requested account keys.
 
 
-## GetAccountStateDeltaResponse {#responses-getaccountstatedeltaresponse}
+## <a name="responses-getaccountstatedeltaresponse" />GetAccountStateDeltaResponse
 Represents the result of getting account state delta.
 
 ### Fields
 - `delta`: _optional_ [`bytes`](#bytes) — The calculated `AccountStateDelta` encoded using Miden native format.
 
 
-## GetBlockByNumberResponse {#responses-getblockbynumberresponse}
+## <a name="responses-getblockbynumberresponse" />GetBlockByNumberResponse
 Represents the result of getting block by number.
 
 ### Fields
 - `block`: _optional_ [`bytes`](#bytes) — The requested `Block` data encoded using Miden native format.
 
 
-## GetBlockHeaderByNumberResponse {#responses-getblockheaderbynumberresponse}
+## <a name="responses-getblockheaderbynumberresponse" />GetBlockHeaderByNumberResponse
 Represents the result of getting a block header by block number.
 
 ### Fields
@@ -628,7 +628,7 @@ Represents the result of getting a block header by block number.
 - `chain_length`: _optional_ [`fixed32`](#fixed32) — Current chain length.
 
 
-## GetBlockInputsResponse {#responses-getblockinputsresponse}
+## <a name="responses-getblockinputsresponse" />GetBlockInputsResponse
 Represents the result of getting block inputs.
 
 ### Fields
@@ -639,21 +639,21 @@ Represents the result of getting block inputs.
 - `found_unauthenticated_notes`: [`note.NoteAuthenticationInfo`](#note-noteauthenticationinfo) — The list of requested notes which were found in the database.
 
 
-## GetNoteAuthenticationInfoResponse {#responses-getnoteauthenticationinforesponse}
+## <a name="responses-getnoteauthenticationinforesponse" />GetNoteAuthenticationInfoResponse
 Represents the result of getting note authentication info.
 
 ### Fields
 - `proofs`: [`note.NoteAuthenticationInfo`](#note-noteauthenticationinfo) — Proofs of note inclusions in blocks and block inclusions in chain.
 
 
-## GetNotesByIdResponse {#responses-getnotesbyidresponse}
+## <a name="responses-getnotesbyidresponse" />GetNotesByIdResponse
 Represents the result of getting notes by IDs.
 
 ### Fields
 - `notes`: _repeated_ [`note.Note`](#note-note) — Lists Note's returned by the database.
 
 
-## GetTransactionInputsResponse {#responses-gettransactioninputsresponse}
+## <a name="responses-gettransactioninputsresponse" />GetTransactionInputsResponse
 Represents the result of getting transaction inputs.
 
 ### Fields
@@ -663,28 +663,28 @@ Represents the result of getting transaction inputs.
 - `block_height`: [`fixed32`](#fixed32) — The node's current block height.
 
 
-## ListAccountsResponse {#responses-listaccountsresponse}
+## <a name="responses-listaccountsresponse" />ListAccountsResponse
 Represents the result of getting accounts list.
 
 ### Fields
 - `accounts`: _repeated_ [`account.AccountInfo`](#account-accountinfo) — Lists all accounts of the current chain.
 
 
-## ListNotesResponse {#responses-listnotesresponse}
+## <a name="responses-listnotesresponse" />ListNotesResponse
 Represents the result of getting notes list.
 
 ### Fields
 - `notes`: _repeated_ [`note.Note`](#note-note) — Lists all notes of the current chain.
 
 
-## ListNullifiersResponse {#responses-listnullifiersresponse}
+## <a name="responses-listnullifiersresponse" />ListNullifiersResponse
 Represents the result of getting nullifiers list.
 
 ### Fields
 - `nullifiers`: _map_ [`smt.SmtLeafEntry`](#smt-smtleafentry) — Lists all nullifiers of the current chain.
 
 
-## NullifierBlockInputRecord {#responses-nullifierblockinputrecord}
+## <a name="responses-nullifierblockinputrecord" />NullifierBlockInputRecord
 A nullifier returned as a response to the `GetBlockInputs`.
 
 ### Fields
@@ -692,7 +692,7 @@ A nullifier returned as a response to the `GetBlockInputs`.
 - `opening`: [`smt.SmtOpening`](#smt-smtopening) — Merkle path to verify the nullifier's inclusion in the MMR.
 
 
-## NullifierTransactionInputRecord {#responses-nullifiertransactioninputrecord}
+## <a name="responses-nullifiertransactioninputrecord" />NullifierTransactionInputRecord
 A nullifier returned as a response to the `GetTransactionInputs`.
 
 ### Fields
@@ -700,7 +700,7 @@ A nullifier returned as a response to the `GetTransactionInputs`.
 - `block_num`: [`fixed32`](#fixed32) — The block at which the nullifier has been consumed, zero if not consumed.
 
 
-## NullifierUpdate {#responses-nullifierupdate}
+## <a name="responses-nullifierupdate" />NullifierUpdate
 Represents a single nullifier update.
 
 ### Fields
@@ -708,14 +708,14 @@ Represents a single nullifier update.
 - `block_num`: [`fixed32`](#fixed32) — Block number.
 
 
-## SubmitProvenTransactionResponse {#responses-submitproventransactionresponse}
+## <a name="responses-submitproventransactionresponse" />SubmitProvenTransactionResponse
 Represents the result of submitting proven transaction.
 
 ### Fields
 - `block_height`: [`fixed32`](#fixed32) — The node's current block height.
 
 
-## SyncNoteResponse {#responses-syncnoteresponse}
+## <a name="responses-syncnoteresponse" />SyncNoteResponse
 Represents the result of syncing notes request.
 
 ### Fields
@@ -727,7 +727,7 @@ An MMR proof can be constructed for the leaf of index `block_header.block_num` o
 - `notes`: _repeated_ [`note.NoteSyncRecord`](#note-notesyncrecord) — List of all notes together with the Merkle paths from `response.block_header.note_root`.
 
 
-## SyncStateResponse {#responses-syncstateresponse}
+## <a name="responses-syncstateresponse" />SyncStateResponse
 Represents the result of syncing state request.
 
 ### Fields
@@ -740,7 +740,7 @@ Represents the result of syncing state request.
 - `nullifiers`: _repeated_ [`NullifierUpdate`](#nullifierupdate) — List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
 
 
-## SmtLeaf {#smt-smtleaf}
+## <a name="smt-smtleaf" />SmtLeaf
 A leaf in an SMT, sitting at depth 64. A leaf can contain 0, 1 or multiple leaf entries.
 
 ### Fields
@@ -749,14 +749,14 @@ A leaf in an SMT, sitting at depth 64. A leaf can contain 0, 1 or multiple leaf 
 - `multiple`: [`SmtLeafEntries`](#smtleafentries) — Multiple leaf entries.
 
 
-## SmtLeafEntries {#smt-smtleafentries}
+## <a name="smt-smtleafentries" />SmtLeafEntries
 Represents multiple leaf entries in an SMT.
 
 ### Fields
 - `entries`: _repeated_ [`SmtLeafEntry`](#smtleafentry) — The entries list.
 
 
-## SmtLeafEntry {#smt-smtleafentry}
+## <a name="smt-smtleafentry" />SmtLeafEntry
 Represents a single SMT leaf entry.
 
 ### Fields
@@ -764,7 +764,7 @@ Represents a single SMT leaf entry.
 - `value`: [`digest.Digest`](#digest-digest) — The value of the entry.
 
 
-## SmtOpening {#smt-smtopening}
+## <a name="smt-smtopening" />SmtOpening
 The opening of a leaf in an SMT.
 
 ### Fields
@@ -772,14 +772,14 @@ The opening of a leaf in an SMT.
 - `leaf`: [`SmtLeaf`](#smtleaf) — The leaf itself.
 
 
-## TransactionId {#transaction-transactionid}
+## <a name="transaction-transactionid" />TransactionId
 Represents a transaction ID.
 
 ### Fields
 - `id`: [`digest.Digest`](#digest-digest) — The transaction ID.
 
 
-## TransactionSummary {#transaction-transactionsummary}
+## <a name="transaction-transactionsummary" />TransactionSummary
 Represents a transaction summary.
 
 ### Fields
