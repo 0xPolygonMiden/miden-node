@@ -1,5 +1,6 @@
 # Miden gRPC API Reference
 ## Table of Contents
+- [Overview](#overview)
 - [Endpoints](#endpoints)
   - [`block_producer` endpoints](#block_producer-endpoints)
     - [SubmitProvenTransaction](#rpc-submitproventransaction)
@@ -108,6 +109,10 @@
     - [TransactionId](#transaction-transactionid)
     - [TransactionSummary](#transaction-transactionsummary)
 - [Scalar Value Types](#scalar-value-types)
+
+## Overview
+
+Node components serve connections using the [gRPC protocol](https://grpc.io) on ports, set in their configuration file(s). Here is a brief description of supported methods.
 
 ## Endpoints
 

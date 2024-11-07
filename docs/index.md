@@ -1,17 +1,19 @@
-# Welcome to MkDocs
+# Miden Node Documentation
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+## Architecture
 
-## Commands
+The Miden node consists of 3 main components, which communicate using gRPC:
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+- **[RPC](../crates/rpc):** an externally-facing component through which clients can interact with the node. It receives client requests (e.g., to synchronize with the latest state of the chain, or to submit transactions), performs basic validation, and forwards the requests to the appropriate internal components.
+- **[Store](../crates/store):** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in the store, the node does not consider it to be part of the chain.
+- **[Block Producer](../crates/block-producer):** accepts transactions from the RPC component, creates blocks containing those transactions, and sends them to the store.
 
-## Project layout
+All 3 components can either run as one process, or each component can run in its own process. See the [Running the node](#running-the-node) section for more details.
 
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+The diagram below illustrates high-level design of each component as well as basic interactions between them (components in light-grey are yet to be built).
+
+![Architecture diagram](../assets/architecture.png)
+
+## API Reference
+
+Node components serve connections using the [gRPC protocol](https://grpc.io). Full gRPC API documentation reference located [here](api.md).

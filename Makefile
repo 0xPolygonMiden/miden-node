@@ -42,7 +42,7 @@ doc: ## Generates & checks documentation
 	docker run --rm \
       -v $(PWD)/docs:/out \
       -v $(PWD)/proto:/protos \
-      pseudomuto/protoc-gen-doc --doc_opt=/out/api-doc.tmpl,api.md
+      pseudomuto/protoc-gen-doc --doc_opt=/out/api.tmpl,api.md
 
 
 .PHONY: doc-serve

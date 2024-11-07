@@ -1,5 +1,6 @@
 # Miden gRPC API Reference
 ## Table of Contents
+- [Overview](#overview)
 - [Endpoints](#endpoints)
 {{range .Files}}{{range .Services}}  - [`{{.FullName | replace ".Api" ""}}` endpoints](#{{.FullName | lower | replace ".api" ""}}-endpoints)
 {{range .Methods}}    - [{{.Name}}](#rpc-{{.Name | lower}})
@@ -7,6 +8,10 @@
 {{range .Files}}{{if .HasMessages}}  - [{{.Name}}](#{{.Name | lower | replace "." "-"}})
 {{range .Messages}}    - [{{.LongName}}](#{{.FullName | lower | replace "." "-"}})
 {{end}}{{end}}{{end}}- [Scalar Value Types](#scalar-value-types)
+
+## Overview
+
+Node components serve connections using the [gRPC protocol](https://grpc.io) on ports, set in their configuration file(s). Here is a brief description of supported methods.
 
 ## Endpoints
 
