@@ -16,6 +16,7 @@
 - [BREAKING] Remove store's `ListXXX` endpoints which were intended for test purposes (#608).
 - [BREAKING] Added support for storage maps on `GetAccountProofs` endpoint (#598).
 - [BREAKING] Removed the `testing` feature (#619).
+- Added automatic generation of API reference docs (#542).
 
 ## v0.6.0 (2024-11-05)
 
@@ -40,7 +41,6 @@
 - Reduce cloning in the store's `apply_block` (#532).
 - [BREAKING] Changed faucet storage type in the genesis to public. Using faucet from the genesis for faucet web app. Added support for faucet restarting without blockchain restarting (#517).
 - [BREAKING] Improved `ApplyBlockError` in the store (#535).
-- Added automatic generation of API reference docs (#542).
 
 ## 0.5.1 (2024-09-12)
 
