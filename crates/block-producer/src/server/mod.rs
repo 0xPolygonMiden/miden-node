@@ -20,7 +20,7 @@ use crate::{
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
-    mempool::{BlockNumber, SharedMempool},
+    mempool::{BlockNumber, Mempool, SharedMempool},
     store::{DefaultStore, Store},
     COMPONENT, SERVER_BATCH_SIZE, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
 };
@@ -97,7 +97,7 @@ impl BlockProducer {
             chain_tip,
         } = self;
 
-        let mempool = SharedMempool::new(chain_tip, batch_limit, block_limit, state_retention);
+        let mempool = Mempool::new(chain_tip, batch_limit, block_limit, state_retention);
 
         // Spawn rpc server and batch and block provers.
         //
