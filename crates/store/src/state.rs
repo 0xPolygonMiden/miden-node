@@ -41,13 +41,13 @@ use crate::{
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
-        GetNoteInclusionProofError, NoteSyncError, StateInitializationError, StateSyncError,
+        GetNoteInclusionProofError, InvalidBlockError, NoteSyncError, StateInitializationError,
+        StateSyncError,
     },
     nullifier_tree::NullifierTree,
     types::{AccountId, BlockNumber},
     COMPONENT,
 };
-
 // STRUCTURES
 // ================================================================================================
 
@@ -99,7 +99,9 @@ struct InnerState {
 impl InnerState {
     /// Returns the latest block number.
     fn latest_block_num(&self) -> BlockNumber {
-        (self.chain_mmr.forest() + 1).try_into().expect("block number overflow")
+        (self.chain_mmr.forest() - 1)
+            .try_into()
+            .expect("chain_mmr always has, at least, the genesis block")
     }
 }
 
@@ -173,10 +175,11 @@ impl State {
 
         let tx_hash = block.compute_tx_hash();
         if header.tx_hash() != tx_hash {
-            return Err(ApplyBlockError::InvalidTxHash {
+            return Err(InvalidBlockError::InvalidTxHash {
                 expected: tx_hash,
                 actual: header.tx_hash(),
-            });
+            }
+            .into());
         }
 
         let block_num = header.block_num();
@@ -190,10 +193,10 @@ impl State {
             .ok_or(ApplyBlockError::DbBlockHeaderEmpty)?;
 
         if block_num != prev_block.block_num() + 1 {
-            return Err(ApplyBlockError::NewBlockInvalidBlockNum);
+            return Err(InvalidBlockError::NewBlockInvalidBlockNum.into());
         }
         if header.prev_hash() != prev_block.hash() {
-            return Err(ApplyBlockError::NewBlockInvalidPrevHash);
+            return Err(InvalidBlockError::NewBlockInvalidPrevHash.into());
         }
 
         let block_data = block.to_bytes();
@@ -227,7 +230,7 @@ impl State {
                 .cloned()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
-                return Err(ApplyBlockError::DuplicatedNullifiers(duplicate_nullifiers));
+                return Err(InvalidBlockError::DuplicatedNullifiers(duplicate_nullifiers).into());
             }
 
             // compute updates for the in-memory data structures
@@ -235,7 +238,7 @@ impl State {
             // new_block.chain_root must be equal to the chain MMR root prior to the update
             let peaks = inner.chain_mmr.peaks();
             if peaks.hash_peaks() != header.chain_root() {
-                return Err(ApplyBlockError::NewBlockInvalidChainRoot);
+                return Err(InvalidBlockError::NewBlockInvalidChainRoot.into());
             }
 
             // compute update for nullifier tree
@@ -244,7 +247,7 @@ impl State {
             );
 
             if nullifier_tree_update.root() != header.nullifier_root() {
-                return Err(ApplyBlockError::NewBlockInvalidNullifierRoot);
+                return Err(InvalidBlockError::NewBlockInvalidNullifierRoot.into());
             }
 
             // compute update for account tree
@@ -258,7 +261,7 @@ impl State {
             );
 
             if account_tree_update.root() != header.account_root() {
-                return Err(ApplyBlockError::NewBlockInvalidAccountRoot);
+                return Err(InvalidBlockError::NewBlockInvalidAccountRoot.into());
             }
 
             (
@@ -272,7 +275,7 @@ impl State {
         // build note tree
         let note_tree = block.build_note_tree();
         if note_tree.root() != header.note_root() {
-            return Err(ApplyBlockError::NewBlockInvalidNoteRoot);
+            return Err(InvalidBlockError::NewBlockInvalidNoteRoot.into());
         }
 
         let notes = block
@@ -281,7 +284,11 @@ impl State {
                 let details = match note {
                     OutputNote::Full(note) => Some(note.to_bytes()),
                     OutputNote::Header(_) => None,
-                    note => return Err(ApplyBlockError::InvalidOutputNoteType(note.clone())),
+                    note => {
+                        return Err(InvalidBlockError::InvalidOutputNoteType(Box::new(
+                            note.clone(),
+                        )))
+                    },
                 };
 
                 let merkle_path = note_tree.get_note_path(note_index);
@@ -295,7 +302,7 @@ impl State {
                     merkle_path,
                 })
             })
-            .collect::<Result<Vec<NoteRecord>, ApplyBlockError>>()?;
+            .collect::<Result<Vec<NoteRecord>, InvalidBlockError>>()?;
 
         // Signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
@@ -313,9 +320,7 @@ impl State {
             );
 
         // Wait for the message from the DB update task, that we ready to commit the DB transaction
-        acquired_allowed
-            .await
-            .map_err(ApplyBlockError::BlockApplyingBrokenBecauseOfClosedChannel)?;
+        acquired_allowed.await.map_err(ApplyBlockError::ClosedChannel)?;
 
         // Awaiting the block saving task to complete without errors
         block_save_task.await??;
@@ -339,13 +344,17 @@ impl State {
 
             // Notify the DB update task that the write lock has been acquired, so it can commit
             // the DB transaction
-            let _ = inform_acquire_done.send(());
+            inform_acquire_done
+                .send(())
+                .map_err(|_| ApplyBlockError::DbUpdateTaskFailed("Receiver was dropped".into()))?;
 
             // TODO: shutdown #91
             // Await for successful commit of the DB transaction. If the commit fails, we mustn't
             // change in-memory state, so we return a block applying error and don't proceed with
             // in-memory updates.
-            db_update_task.await??;
+            db_update_task
+                .await?
+                .map_err(|err| ApplyBlockError::DbUpdateTaskFailed(err.to_string()))?;
 
             // Update the in-memory data structures after successful commit of the DB transaction
             inner
