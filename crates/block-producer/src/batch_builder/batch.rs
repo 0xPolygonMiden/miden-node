@@ -1,5 +1,4 @@
 use std::{
-    borrow::Borrow,
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     mem,
 };
@@ -82,21 +81,21 @@ impl TransactionBatch {
     ///   in the batch.
     /// - Hashes for corresponding input notes and output notes don't match.
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
-    pub fn new<T>(
-        txs: impl IntoIterator<Item = T> + Clone,
+    pub fn new<'a, I>(
+        txs: impl IntoIterator<Item = &'a ProvenTransaction, IntoIter = I>,
         found_unauthenticated_notes: NoteAuthenticationInfo,
     ) -> Result<Self, BuildBatchError>
     where
-        T: Borrow<ProvenTransaction>,
+        I: Iterator<Item = &'a ProvenTransaction> + Clone,
     {
-        let id = Self::compute_id(txs.clone().into_iter());
+        let tx_iter = txs.into_iter();
+        let id = Self::compute_id(tx_iter.clone());
 
         // Populate batch output notes and updated accounts.
-        let mut output_notes = OutputNoteTracker::new(txs.clone().into_iter())?;
+        let mut output_notes = OutputNoteTracker::new(tx_iter.clone())?;
         let mut updated_accounts = BTreeMap::<AccountId, AccountUpdate>::new();
         let mut unauthenticated_input_notes = BTreeSet::new();
-        for tx in txs.clone().into_iter() {
-            let tx = tx.borrow();
+        for tx in tx_iter.clone() {
             // Merge account updates so that state transitions A->B->C become A->C.
             match updated_accounts.entry(tx.account_id()) {
                 Entry::Vacant(vacant) => {
@@ -126,8 +125,8 @@ impl TransactionBatch {
         // note `x` (i.e., have a circular dependency between transactions), but this is not
         // a problem.
         let mut input_notes = vec![];
-        for tx in txs.into_iter() {
-            for input_note in tx.borrow().input_notes().iter() {
+        for tx in tx_iter {
+            for input_note in tx.input_notes().iter() {
                 // Header is presented only for unauthenticated input notes.
                 let input_note = match input_note.header() {
                     Some(input_note_header) => {
@@ -215,13 +214,10 @@ impl TransactionBatch {
     // HELPER FUNCTIONS
     // --------------------------------------------------------------------------------------------
 
-    fn compute_id<T>(txs: impl Iterator<Item = T>) -> BatchId
-    where
-        T: Borrow<ProvenTransaction>,
-    {
+    fn compute_id<'a>(txs: impl Iterator<Item = &'a ProvenTransaction>) -> BatchId {
         let mut buf = Vec::with_capacity(32 * txs.size_hint().0);
         for tx in txs {
-            buf.extend_from_slice(&tx.borrow().id().as_bytes());
+            buf.extend_from_slice(&tx.id().as_bytes());
         }
         Blake3_256::hash(&buf)
     }
@@ -234,14 +230,11 @@ struct OutputNoteTracker {
 }
 
 impl OutputNoteTracker {
-    fn new<T>(txs: impl IntoIterator<Item = T>) -> Result<Self, BuildBatchError>
-    where
-        T: Borrow<ProvenTransaction>,
-    {
+    fn new<'a>(txs: impl Iterator<Item = &'a ProvenTransaction>) -> Result<Self, BuildBatchError> {
         let mut output_notes = vec![];
         let mut output_note_index = BTreeMap::new();
         for tx in txs {
-            for note in tx.borrow().output_notes().iter() {
+            for note in tx.output_notes().iter() {
                 if output_note_index.insert(note.id(), output_notes.len()).is_some() {
                     return Err(BuildBatchError::DuplicateOutputNote(note.id()));
                 }
@@ -296,7 +289,7 @@ mod tests {
     fn test_output_note_tracker_duplicate_output_notes() {
         let mut txs = mock_proven_txs();
 
-        let result = OutputNoteTracker::new(&txs);
+        let result = OutputNoteTracker::new(txs.iter());
         assert!(
             result.is_ok(),
             "Creation of output note tracker was not expected to fail: {result:?}"
@@ -310,7 +303,7 @@ mod tests {
             vec![duplicate_output_note.clone(), mock_output_note(8), mock_output_note(4)],
         ));
 
-        match OutputNoteTracker::new(&txs) {
+        match OutputNoteTracker::new(txs.iter()) {
             Err(BuildBatchError::DuplicateOutputNote(note_id)) => {
                 assert_eq!(note_id, duplicate_output_note.id())
             },
@@ -321,7 +314,7 @@ mod tests {
     #[test]
     fn test_output_note_tracker_remove_in_place_consumed_note() {
         let txs = mock_proven_txs();
-        let mut tracker = OutputNoteTracker::new(&txs).unwrap();
+        let mut tracker = OutputNoteTracker::new(txs.iter()).unwrap();
 
         let note_to_remove = mock_note(4);
 
@@ -346,7 +339,7 @@ mod tests {
         let mut txs = mock_proven_txs();
         let duplicate_note = mock_note(5);
         txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
-        match TransactionBatch::new(txs, Default::default()) {
+        match TransactionBatch::new(&txs, Default::default()) {
             Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id)) => {
                 assert_eq!(note_id, duplicate_note.id())
             },
@@ -364,7 +357,7 @@ mod tests {
             vec![mock_output_note(9), mock_output_note(10)],
         ));
 
-        let batch = TransactionBatch::new(txs, Default::default()).unwrap();
+        let batch = TransactionBatch::new(&txs, Default::default()).unwrap();
 
         // One of the unauthenticated notes must be removed from the batch due to the consumption
         // of the corresponding output note
@@ -408,7 +401,7 @@ mod tests {
             note_proofs: found_unauthenticated_notes,
             block_proofs: Default::default(),
         };
-        let batch = TransactionBatch::new(txs, found_unauthenticated_notes).unwrap();
+        let batch = TransactionBatch::new(&txs, found_unauthenticated_notes).unwrap();
 
         let expected_input_notes =
             vec![mock_unauthenticated_note_commitment(1), mock_note(5).nullifier().into()];
