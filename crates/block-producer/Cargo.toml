@@ -42,6 +42,7 @@ miden-lib = { workspace = true, features = ["testing"] }
 miden-node-test-macro = { path = "../test-macro" }
 miden-objects = { workspace = true, features = ["testing"] }
 miden-tx = { workspace = true, features = ["testing"] }
+pretty_assertions = "1.4.1"
 rand_chacha = { version = "0.3", default-features = false }
 tokio = { workspace = true, features = ["test-util"] }
 winterfell = { version = "0.9" }

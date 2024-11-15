@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt::Display,
+    fmt::{Debug, Display},
 };
 
 // DEPENDENCY GRAPH
@@ -35,7 +35,7 @@ use std::{
 ///                              │  <null>   ◄────┘                
 ///                              └───────────┘                     
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DependencyGraph<K, V> {
     /// Node's who's data is still pending.
     pending: BTreeSet<K>,
@@ -59,6 +59,18 @@ pub struct DependencyGraph<K, V> {
 
     /// Set of nodes that are already processed.
     processed: BTreeSet<K>,
+}
+
+impl<K, V> Debug for DependencyGraph<K, V>
+where
+    K: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DependencyGraph")
+            .field("pending", &self.pending)
+            .field("vertices", &self.vertices.keys())
+            .finish()
+    }
 }
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
@@ -99,7 +111,7 @@ impl<K, V> Default for DependencyGraph<K, V> {
     }
 }
 
-impl<K: Ord + Copy + Display + std::fmt::Debug, V: Clone> DependencyGraph<K, V> {
+impl<K: Ord + Copy + Display + Debug, V: Clone> DependencyGraph<K, V> {
     /// Inserts a new pending node into the graph.
     ///
     /// # Errors

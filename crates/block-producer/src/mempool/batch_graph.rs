@@ -50,7 +50,7 @@ use crate::batch_builder::batch::TransactionBatch;
 ///                     │  <null>   ◄────┘                
 ///                     └───────────┘                     
 /// ```
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct BatchGraph {
     /// Tracks the interdependencies between batches.
     inner: DependencyGraph<BatchJobId, TransactionBatch>,
