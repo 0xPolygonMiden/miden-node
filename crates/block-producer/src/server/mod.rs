@@ -1,4 +1,4 @@
-use std::net::ToSocketAddrs;
+use std::{net::ToSocketAddrs, sync::Arc};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -97,7 +97,12 @@ impl BlockProducer {
             chain_tip,
         } = self;
 
-        let mempool = Mempool::new(chain_tip, batch_limit, block_limit, state_retention);
+        let mempool = Arc::new(Mutex::new(Mempool::new(
+            chain_tip,
+            batch_limit,
+            block_limit,
+            state_retention,
+        )));
 
         // Spawn rpc server and batch and block provers.
         //

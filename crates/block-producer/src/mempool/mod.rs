@@ -109,8 +109,8 @@ impl Mempool {
         batch_limit: usize,
         block_limit: usize,
         state_retention: usize,
-    ) -> SharedMempool {
-        Arc::new(Mutex::new(Self {
+    ) -> Self {
+        Self {
             chain_tip,
             batch_transaction_limit: batch_limit,
             block_batch_limit: block_limit,
@@ -119,7 +119,7 @@ impl Mempool {
             transactions: Default::default(),
             batches: Default::default(),
             next_batch_id: Default::default(),
-        }))
+        }
     }
 
     /// Adds a transaction to the mempool.
