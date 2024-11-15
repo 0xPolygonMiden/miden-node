@@ -63,7 +63,9 @@ impl TransactionGraph {
         self.inner.promote_pending(transaction.id(), transaction)
     }
 
-    /// Selects a set of up-to count transactions for the next batch, as well as their parents.
+    /// Selects a set transactions for the next batch such that they adhere to the given budget.
+    ///
+    /// Also returns the transactions' parents.
     ///
     /// Internally these transactions are considered processed and cannot be emitted in future
     /// batches.
@@ -88,7 +90,7 @@ impl TransactionGraph {
             let tx = self.inner.get(&root).unwrap().clone();
 
             // Adhere to batch budget.
-            if budget.check_then_deplete(&tx) == BudgetStatus::Depleted {
+            if budget.check_then_subtract(&tx) == BudgetStatus::Exceeded {
                 break;
             }
 

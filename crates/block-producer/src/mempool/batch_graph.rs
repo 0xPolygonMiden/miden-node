@@ -203,7 +203,8 @@ impl BatchGraph {
         self.inner.promote_pending(id, batch)
     }
 
-    /// Returns at most `count` batches which are ready for inclusion in a block.
+    /// Selects the next set of batches ready for inclusion in a block while adhering to the given
+    /// budget.
     pub fn select_block(
         &mut self,
         mut budget: BlockBudget,
@@ -216,7 +217,7 @@ impl BatchGraph {
             let batch = self.inner.get(&batch_id).unwrap().clone();
 
             // Adhere to block's budget.
-            if budget.check_then_deplete(&batch) == BudgetStatus::Depleted {
+            if budget.check_then_deplete(&batch) == BudgetStatus::Exceeded {
                 break;
             }
 

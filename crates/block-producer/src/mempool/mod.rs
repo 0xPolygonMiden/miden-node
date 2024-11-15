@@ -84,26 +84,28 @@ impl BlockNumber {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BatchBudget {
     /// Maximum number of transactions allowed in a batch.
-    pub transactions: usize,
+    transactions: usize,
     /// Maximum number of input notes allowed.
-    pub input_notes: usize,
+    input_notes: usize,
     /// Maximum number of output notes allowed.
-    pub output_notes: usize,
+    output_notes: usize,
     /// Maximum number of updated accounts.
-    pub accounts: usize,
+    accounts: usize,
 }
 
 /// Limits placed on a blocks's contents.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockBudget {
     /// Maximum number of batches allowed in a block.
-    pub batches: usize,
+    batches: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BudgetStatus {
-    Depleted,
-    Undepleted,
+    /// The operation remained within the budget.
+    WithinScope,
+    /// The operation exceeded the budget.
+    Exceeded,
 }
 
 impl Default for BatchBudget {
@@ -126,48 +128,48 @@ impl Default for BlockBudget {
 impl BatchBudget {
     /// Attempts to consume the transaction's resources from the budget.
     ///
-    /// Returns [BudgetStatus::Depleted] if the transaction would exceed the remaining budget,
-    /// otherwise returns [BudgetStatus::Undepleted]
+    /// Returns [BudgetStatus::Exceeded] if the transaction would exceed the remaining budget,
+    /// otherwise returns [BudgetStatus::Ok] and subtracts the resources from the budger.
     #[must_use]
-    fn check_then_deplete(&mut self, tx: &AuthenticatedTransaction) -> BudgetStatus {
+    fn check_then_subtract(&mut self, tx: &AuthenticatedTransaction) -> BudgetStatus {
         // This type assertion reminds us to update the account check if we ever support multiple
         // account updates per tx.
         let _: miden_objects::accounts::AccountId = tx.account_update().account_id();
-        const ACCOUNT_COUNT: usize = 1;
+        const ACCOUNT_UPDATES_PER_TX: usize = 1;
 
         // TODO: This is inefficient and ProvenTransaction should provide len() access.
         let output_notes = tx.output_notes().count();
         let input_notes = tx.nullifiers().count();
 
         if self.transactions == 0
-            || self.accounts < ACCOUNT_COUNT
+            || self.accounts < ACCOUNT_UPDATES_PER_TX
             || self.input_notes < input_notes
             || self.output_notes < output_notes
         {
-            return BudgetStatus::Depleted;
+            return BudgetStatus::Exceeded;
         }
 
         self.transactions -= 1;
-        self.accounts -= ACCOUNT_COUNT;
+        self.accounts -= ACCOUNT_UPDATES_PER_TX;
         self.input_notes -= input_notes;
         self.output_notes -= output_notes;
 
-        BudgetStatus::Undepleted
+        BudgetStatus::WithinScope
     }
 }
 
 impl BlockBudget {
     /// Attempts to consume the batch's resources from the budget.
     ///
-    /// Returns [BudgetStatus::Depleted] if the batch would exceed the remaining budget,
-    /// otherwise returns [BudgetStatus::Undepleted]
+    /// Returns [BudgetStatus::Exceeded] if the batch would exceed the remaining budget,
+    /// otherwise returns [BudgetStatus::Ok].
     #[must_use]
     fn check_then_deplete(&mut self, _batch: &TransactionBatch) -> BudgetStatus {
         if self.batches == 0 {
-            BudgetStatus::Depleted
+            BudgetStatus::Exceeded
         } else {
             self.batches -= 1;
-            BudgetStatus::Undepleted
+            BudgetStatus::WithinScope
         }
     }
 }
