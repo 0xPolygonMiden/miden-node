@@ -31,7 +31,7 @@ jobs:
       # Define the instance information.
       account-id: MIDEN_DEV_ACCOUNT_ID
       oidcrole: midendev
-      instance-id: ${{ inputs.network == 'testnet' && 'TESTNET_INSTANCE_New_TF' || 'DEVNET_INSTANCE_TF' }}
+      instance-id: ${{ inputs.network == 'testnet' && 'TESTNET_INSTANCE_NEW_TF' || 'DEVNET_INSTANCE_TF' }}
 
       # Define the expected package names.
       node-package:   miden-node-${{ inputs.gitref }}-arm64.deb
