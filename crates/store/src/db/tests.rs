@@ -425,21 +425,11 @@ fn test_sql_public_account_details() {
 
     assert_eq!(accounts_in_db.len(), 1, "One element must have been inserted");
 
-    let mut account_read = accounts_in_db.pop().unwrap().details.unwrap();
+    let account_read = accounts_in_db.pop().unwrap().details.unwrap();
 
     assert_eq!(account_read.id(), account.id());
     assert_eq!(account_read.vault(), account.vault());
     assert_eq!(account_read.nonce(), account.nonce());
-
-    // Cleared item was not serialized, check it and apply delta only with clear item second time:
-    assert_eq!(account_read.storage().get_item(3), Ok(RpoDigest::default()));
-
-    let storage_delta2_aux = AccountStorageDelta::from_iters([3], [], []);
-    let delta2_aux =
-        AccountDelta::new(storage_delta2_aux, AccountVaultDelta::default(), Some(Felt::new(2)))
-            .unwrap();
-    account_read.apply_delta(&delta2_aux).unwrap();
-
     assert_eq!(account_read.storage(), account.storage());
 
     let read_delta = sql::select_account_delta(&mut conn, account_id.into(), 1, 2).unwrap();
