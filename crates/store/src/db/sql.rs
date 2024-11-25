@@ -241,15 +241,15 @@ pub fn select_account_delta(
 
     enum FieldIndex {
         RecordType = 0,
-        Slot,
-        Key,
-        Value,
+        Slot = 2,
+        Key = 3,
+        Value = 4,
     }
 
     let mut storage_scalars = BTreeMap::new();
     let mut storage_maps = BTreeMap::new();
     let mut fungible = BTreeMap::new();
-    let mut non_fungible = BTreeMap::new();
+    let mut non_fungible_delta = NonFungibleAssetDelta::default();
     while let Some(row) = rows.next()? {
         let record_type = RecordType::from_usize(row.get(FieldIndex::RecordType as usize)?)
             .expect("Record type value must be one of the `RecordType` enum variants");
@@ -291,26 +291,21 @@ pub fn select_account_delta(
                 let asset = unsafe { NonFungibleAsset::new_unchecked(vault_key) };
 
                 let action: usize = row.get(FieldIndex::Value as usize)?;
-                let action = match action {
-                    0 => NonFungibleDeltaAction::Add,
-                    1 => NonFungibleDeltaAction::Remove,
+                match action {
+                    0 => non_fungible_delta.add(asset)?,
+                    1 => non_fungible_delta.remove(asset)?,
                     _ => {
                         return Err(DatabaseError::DataCorrupted(format!(
                             "Invalid non-fungible asset delta action: {action}"
                         )))
                     },
-                };
-
-                non_fungible.insert(asset, action);
+                }
             },
         }
     }
 
     let storage = AccountStorageDelta::new(storage_scalars, storage_maps)?;
-    let vault = AccountVaultDelta::new(
-        FungibleAssetDelta::new(fungible)?,
-        NonFungibleAssetDelta::new(non_fungible),
-    );
+    let vault = AccountVaultDelta::new(FungibleAssetDelta::new(fungible)?, non_fungible_delta);
 
     Ok(Some(AccountDelta::new(storage, vault, Some(nonce))?))
 }
@@ -1248,6 +1243,8 @@ pub(crate) fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
 /// Generates a simple insert SQL statement with values for the provided table, fields, and record
 /// number.
 fn insert_sql(table: &str, fields: &[&str], record_count: usize) -> String {
+    assert!(record_count > 0);
+
     format!(
         "INSERT INTO {table} ({}) VALUES {}",
         fields.join(", "),
@@ -1264,6 +1261,10 @@ fn bulk_insert(
     fields: &[&str],
     records: &[Vec<Value>],
 ) -> rusqlite::Result<usize> {
+    if records.is_empty() {
+        return Ok(0);
+    }
+
     let sql = insert_sql(table, fields, records.len());
     let param_values: Vec<_> = records.iter().flatten().map(|v| v as &dyn ToSql).collect();
 

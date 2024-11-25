@@ -325,8 +325,7 @@ fn test_sql_select_accounts() {
 fn test_sql_public_account_details() {
     let mut conn = create_db();
 
-    let block_num = 1;
-    create_block(&mut conn, block_num);
+    create_block(&mut conn, 1);
 
     let account_id =
         AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap();
@@ -368,7 +367,7 @@ fn test_sql_public_account_details() {
             AccountUpdateDetails::New(account.clone()),
             vec![],
         )],
-        block_num,
+        1,
     )
     .unwrap();
 
@@ -383,6 +382,12 @@ fn test_sql_public_account_details() {
     let account_read = accounts_in_db.pop().unwrap().details.unwrap();
     assert_eq!(account_read, account);
 
+    create_block(&mut conn, 2);
+
+    let read_delta = sql::select_account_delta(&mut conn, account_id.into(), 1, 2).unwrap();
+
+    assert_eq!(read_delta, None);
+
     let storage_delta =
         AccountStorageDelta::from_iters([3], [(4, num_to_word(5)), (5, num_to_word(6))], []);
 
@@ -395,9 +400,9 @@ fn test_sql_public_account_details() {
 
     let vault_delta = AccountVaultDelta::from_iters([nft2], [nft1]);
 
-    let mut delta = AccountDelta::new(storage_delta, vault_delta, Some(ONE)).unwrap();
+    let mut delta2 = AccountDelta::new(storage_delta, vault_delta, Some(ONE)).unwrap();
 
-    account.apply_delta(&delta).unwrap();
+    account.apply_delta(&delta2).unwrap();
 
     let transaction = conn.transaction().unwrap();
     let inserted = sql::upsert_accounts(
@@ -405,10 +410,10 @@ fn test_sql_public_account_details() {
         &[BlockAccountUpdate::new(
             account_id,
             account.hash(),
-            AccountUpdateDetails::Delta(delta.clone()),
+            AccountUpdateDetails::Delta(delta2.clone()),
             vec![],
         )],
-        block_num,
+        2,
     )
     .unwrap();
 
@@ -429,28 +434,29 @@ fn test_sql_public_account_details() {
     // Cleared item was not serialized, check it and apply delta only with clear item second time:
     assert_eq!(account_read.storage().get_item(3), Ok(RpoDigest::default()));
 
-    let storage_delta = AccountStorageDelta::from_iters([3], [], []);
-    account_read
-        .apply_delta(
-            &AccountDelta::new(storage_delta, AccountVaultDelta::default(), Some(Felt::new(2)))
-                .unwrap(),
-        )
-        .unwrap();
+    let storage_delta2_aux = AccountStorageDelta::from_iters([3], [], []);
+    let delta2_aux =
+        AccountDelta::new(storage_delta2_aux, AccountVaultDelta::default(), Some(Felt::new(2)))
+            .unwrap();
+    account_read.apply_delta(&delta2_aux).unwrap();
 
     assert_eq!(account_read.storage(), account.storage());
 
-    let storage_delta2 = AccountStorageDelta::from_iters([5], [], []);
+    let read_delta = sql::select_account_delta(&mut conn, account_id.into(), 1, 2).unwrap();
+    assert_eq!(read_delta.as_ref(), Some(&delta2));
 
-    let delta2 = AccountDelta::new(
-        storage_delta2,
+    create_block(&mut conn, 3);
+
+    let storage_delta3 = AccountStorageDelta::from_iters([5], [], []);
+
+    let delta3 = AccountDelta::new(
+        storage_delta3,
         AccountVaultDelta::from_iters([nft1], []),
-        Some(Felt::new(3)),
+        Some(Felt::new(2)),
     )
     .unwrap();
 
-    account.apply_delta(&delta2).unwrap();
-
-    create_block(&mut conn, block_num + 1);
+    account.apply_delta(&delta3).unwrap();
 
     let transaction = conn.transaction().unwrap();
     let inserted = sql::upsert_accounts(
@@ -458,10 +464,10 @@ fn test_sql_public_account_details() {
         &[BlockAccountUpdate::new(
             account_id,
             account.hash(),
-            AccountUpdateDetails::Delta(delta2.clone()),
+            AccountUpdateDetails::Delta(delta3.clone()),
             vec![],
         )],
-        block_num + 1,
+        3,
     )
     .unwrap();
 
@@ -479,12 +485,11 @@ fn test_sql_public_account_details() {
     assert_eq!(account_read.vault(), account.vault());
     assert_eq!(account_read.nonce(), account.nonce());
 
-    let read_delta =
-        sql::select_account_delta(&mut conn, account_id.into(), 0, block_num + 1).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account_id.into(), 1, 3).unwrap();
 
-    delta.merge(delta2).unwrap();
+    delta2.merge(delta3).unwrap();
 
-    assert_eq!(read_delta, Some(delta));
+    assert_eq!(read_delta, Some(delta2));
 }
 
 #[test]
