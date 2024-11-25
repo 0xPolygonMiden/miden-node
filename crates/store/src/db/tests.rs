@@ -395,7 +395,7 @@ fn test_sql_public_account_details() {
 
     let vault_delta = AccountVaultDelta::from_iters([nft2], [nft1]);
 
-    let delta = AccountDelta::new(storage_delta, vault_delta, Some(ONE)).unwrap();
+    let mut delta = AccountDelta::new(storage_delta, vault_delta, Some(ONE)).unwrap();
 
     account.apply_delta(&delta).unwrap();
 
@@ -479,10 +479,12 @@ fn test_sql_public_account_details() {
     assert_eq!(account_read.vault(), account.vault());
     assert_eq!(account_read.nonce(), account.nonce());
 
-    let read_deltas =
-        sql::select_account_deltas(&mut conn, account_id.into(), 0, block_num + 1).unwrap();
+    let read_delta =
+        sql::select_account_delta(&mut conn, account_id.into(), 0, block_num + 1).unwrap();
 
-    assert_eq!(read_deltas, vec![delta, delta2]);
+    delta.merge(delta2).unwrap();
+
+    assert_eq!(read_delta, Some(delta));
 }
 
 #[test]

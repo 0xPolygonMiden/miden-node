@@ -529,9 +529,10 @@ impl api_server::Api for StoreApi {
                 request.from_block_num,
                 request.to_block_num,
             )
-            .await?;
+            .await?
+            .map(|delta| delta.to_bytes());
 
-        Ok(Response::new(GetAccountStateDeltaResponse { delta: Some(delta.to_bytes()) }))
+        Ok(Response::new(GetAccountStateDeltaResponse { delta }))
     }
 
     // TESTING ENDPOINTS

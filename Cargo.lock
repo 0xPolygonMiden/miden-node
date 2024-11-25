@@ -1510,9 +1510,8 @@ dependencies = [
 
 [[package]]
 name = "miden-lib"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "816404c10b0799f12d3b53b3a9baa9af99fa340fe1a579e0919bba57718fa97a"
+version = "0.6.1"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-conv-acc-to-delta#92fd7f8fd02761e35b6fedb0e7c810ea4bbea914"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1665,6 +1664,8 @@ dependencies = [
  "miden-node-proto",
  "miden-node-utils",
  "miden-objects",
+ "num-derive",
+ "num-traits",
  "prost",
  "rusqlite",
  "rusqlite_migration",
@@ -1707,9 +1708,8 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a6f54dde939928e438488b36651485a0e80057025b7e30343d4340a524a1651"
+version = "0.6.1"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-conv-acc-to-delta#92fd7f8fd02761e35b6fedb0e7c810ea4bbea914"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -1781,9 +1781,8 @@ dependencies = [
 
 [[package]]
 name = "miden-tx"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d433744a3f02233ec53b151bfe88b7a008b4eae5dfd41bb38a9889eb67efaf7"
+version = "0.6.1"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-conv-acc-to-delta#92fd7f8fd02761e35b6fedb0e7c810ea4bbea914"
 dependencies = [
  "async-trait",
  "miden-assembly",

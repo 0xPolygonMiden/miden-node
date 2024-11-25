@@ -765,14 +765,10 @@ impl State {
         account_id: AccountId,
         from_block: BlockNumber,
         to_block: BlockNumber,
-    ) -> Result<AccountDelta, DatabaseError> {
-        let deltas = self.db.select_account_state_deltas(account_id, from_block, to_block).await?;
-
-        deltas
-            .into_iter()
-            .try_fold(AccountDelta::default(), |mut accumulator, delta| {
-                accumulator.merge(delta).map(|_| accumulator)
-            })
+    ) -> Result<Option<AccountDelta>, DatabaseError> {
+        self.db
+            .select_account_state_delta(account_id, from_block, to_block)
+            .await
             .map_err(Into::into)
     }
 

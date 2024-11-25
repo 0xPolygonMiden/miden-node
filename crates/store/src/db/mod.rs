@@ -457,20 +457,20 @@ impl Db {
         Ok(())
     }
 
-    /// Loads account deltas from the DB for given account ID and block range.
+    /// Merges all account deltas from the DB for given account ID and block range.
     /// Note, that `from_block` is exclusive and `to_block` is inclusive.
-    pub(crate) async fn select_account_state_deltas(
+    pub(crate) async fn select_account_state_delta(
         &self,
         account_id: AccountId,
         from_block: BlockNumber,
         to_block: BlockNumber,
-    ) -> Result<Vec<AccountDelta>> {
+    ) -> Result<Option<AccountDelta>> {
         self.pool
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| -> Result<Vec<AccountDelta>> {
-                sql::select_account_deltas(conn, account_id, from_block, to_block)
+            .interact(move |conn| -> Result<Option<AccountDelta>> {
+                sql::select_account_delta(conn, account_id, from_block, to_block)
             })
             .await
             .map_err(|err| DatabaseError::InteractError(err.to_string()))?

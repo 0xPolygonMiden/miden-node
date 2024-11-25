@@ -61,11 +61,71 @@ CREATE TABLE
 (
     account_id  INTEGER NOT NULL,
     block_num   INTEGER NOT NULL,
-    delta       BLOB    NOT NULL,
+    nonce       INTEGER NOT NULL,
 
     PRIMARY KEY (account_id, block_num),
+    FOREIGN KEY (account_id) REFERENCES accounts(account_id),
     FOREIGN KEY (block_num) REFERENCES block_headers(block_num)
 ) STRICT;
+
+CREATE TABLE
+    account_storage_delta_values
+(
+    account_id  INTEGER NOT NULL,
+    block_num   INTEGER NOT NULL,
+    slot        INTEGER NOT NULL,
+    value       BLOB    NOT NULL,
+
+    PRIMARY KEY (account_id, block_num, slot),
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas(account_id, block_num)
+) STRICT, WITHOUT ROWID;
+
+CREATE INDEX idx_account_storage_delta_values_slot ON account_storage_delta_values(slot);
+
+CREATE TABLE
+    account_storage_map_delta_values
+(
+    account_id  INTEGER NOT NULL,
+    block_num   INTEGER NOT NULL,
+    slot        INTEGER NOT NULL,
+    key         BLOB    NOT NULL,
+    value       BLOB    NOT NULL,
+
+    PRIMARY KEY (account_id, block_num, slot, key),
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas(account_id, block_num)
+) STRICT;
+
+CREATE INDEX idx_account_storage_map_delta_values_slot ON account_storage_map_delta_values(slot);
+CREATE INDEX idx_account_storage_map_delta_values_key ON account_storage_map_delta_values(key);
+
+CREATE TABLE
+    account_fungible_asset_deltas
+(
+    account_id  INTEGER NOT NULL,
+    block_num   INTEGER NOT NULL,
+    faucet_id   INTEGER NOT NULL,
+    delta       INTEGER NOT NULL,
+
+    PRIMARY KEY (account_id, block_num, faucet_id),
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas(account_id, block_num)
+) STRICT, WITHOUT ROWID;
+
+CREATE INDEX idx_account_fungible_asset_deltas_faucet ON account_fungible_asset_deltas(faucet_id);
+
+CREATE TABLE
+    account_non_fungible_asset_delta_actions
+(
+    account_id  INTEGER NOT NULL,
+    block_num   INTEGER NOT NULL,
+    vault_key   BLOB NOT NULL,
+    is_remove   INTEGER NOT NULL, -- 0 - add, 1 - remove
+
+    PRIMARY KEY (account_id, block_num, vault_key),
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas(account_id, block_num)
+) STRICT, WITHOUT ROWID;
+
+CREATE INDEX idx_account_non_fungible_asset_delta_actions_vault_key
+    ON account_non_fungible_asset_delta_actions(vault_key);
 
 CREATE TABLE
     nullifiers

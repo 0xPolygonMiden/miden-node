@@ -20,6 +20,8 @@ miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
+num-derive = { version = "0.4" }
+num-traits = { version = "0.2" }
 prost = { workspace = true }
 rusqlite = { version = "0.31", features = ["array", "buildtime_bindgen", "bundled"] }
 rusqlite_migration = { version = "1.0" }

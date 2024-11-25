@@ -79,6 +79,8 @@ pub enum DatabaseError {
     AccountNotOnChain(AccountId),
     #[error("Block {0} not found in the database")]
     BlockNotFoundInDb(BlockNumber),
+    #[error("Data corrupted: {0}")]
+    DataCorrupted(String),
     #[error("SQLite pool interaction task failed: {0}")]
     InteractError(String),
     #[error("Invalid Felt: {0}")]
