@@ -13,8 +13,6 @@ repository.workspace = true
 
 [dependencies]
 deadpool-sqlite = { version = "0.8", features = ["rt_tokio_1"] }
-directories = { version = "5.0" }
-figment = { version = "0.10", features = ["toml", "env"] }
 hex = { version = "0.4" }
 miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
@@ -22,19 +20,15 @@ miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
 num-derive = { version = "0.4" }
 num-traits = { version = "0.2" }
-prost = { workspace = true }
 rusqlite = { version = "0.31", features = ["array", "buildtime_bindgen", "bundled"] }
 rusqlite_migration = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs", "net", "macros", "rt-multi-thread"] }
 tokio-stream = { workspace = true, features = ["net"] }
-toml = { version = "0.8" }
 tonic = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
-figment = { version = "0.10", features = ["toml", "env", "test"] }
 miden-node-utils = { workspace = true, features = ["tracing-forest"] }
 miden-objects = { workspace = true, features = ["testing"] }

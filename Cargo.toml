@@ -28,10 +28,8 @@ readme = "README.md"
 miden-air = { version = "0.11" }
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "polydez-conv-acc-to-delta" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.6" }
-miden-node-faucet = { path = "bin/faucet", version = "0.6" }
 miden-node-proto = { path = "crates/proto", version = "0.6" }
 miden-node-rpc = { path = "crates/rpc", version = "0.6" }
-miden-node-rpc-proto = { path = "crates/rpc-proto", version = "0.6" }
 miden-node-store = { path = "crates/store", version = "0.6" }
 miden-node-test-macro = { path = "crates/test-macro" }
 miden-node-utils = { path = "crates/utils", version = "0.6" }
