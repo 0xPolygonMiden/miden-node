@@ -236,7 +236,7 @@ pub fn select_account_delta(
         NonFungibleAssets,
     }
     let mut select_merged_deltas_stmt =
-        conn.prepare_cached(include_str!("sql_queries/select_merged_deltas.sql"))?;
+        conn.prepare_cached(include_str!("sql-queries/select_merged_deltas.sql"))?;
     let mut rows = select_merged_deltas_stmt.query(params![account_id, block_start, block_end])?;
 
     enum FieldIndex {
@@ -779,7 +779,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     block_num: BlockNumber,
 ) -> Result<Vec<NoteSyncRecord>> {
     let mut stmt = conn.prepare_cached(include_str!(
-        "sql_queries/select_notes_since_block_by_tag_and_sender.sql"
+        "sql-queries/select_notes_since_block_by_tag_and_sender.sql"
     ))?;
 
     let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
