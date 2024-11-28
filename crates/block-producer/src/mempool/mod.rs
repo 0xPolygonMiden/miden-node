@@ -136,9 +136,8 @@ impl BatchBudget {
         let _: miden_objects::accounts::AccountId = tx.account_update().account_id();
         const ACCOUNT_UPDATES_PER_TX: usize = 1;
 
-        // TODO: This is inefficient and ProvenTransaction should provide len() access.
-        let output_notes = tx.output_notes().count();
-        let input_notes = tx.nullifiers().count();
+        let output_notes = tx.output_note_count();
+        let input_notes = tx.input_note_count();
 
         if self.transactions == 0
             || self.accounts < ACCOUNT_UPDATES_PER_TX
