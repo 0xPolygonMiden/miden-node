@@ -143,7 +143,9 @@ impl BatchGraph {
         // dependency graph, and therefore must all be in the batches mapping.
         let batches = batch_ids
             .into_iter()
-            .map(|batch_id| (batch_id, self.batches.remove(&batch_id).unwrap()))
+            .map(|batch_id| {
+                (batch_id, self.batches.remove(&batch_id).expect("batch should be removed"))
+            })
             .collect::<BTreeMap<_, _>>();
 
         for tx in batches.values().flatten() {
@@ -214,15 +216,15 @@ impl BatchGraph {
         while let Some(batch_id) = self.inner.roots().first().copied() {
             // SAFETY: Since it was a root batch, it must definitely have a processed batch
             // associated with it.
-            let batch = self.inner.get(&batch_id).unwrap().clone();
+            let batch = self.inner.get(&batch_id).expect("root should be in graph").clone();
 
             // Adhere to block's budget.
-            if budget.check_then_deplete(&batch) == BudgetStatus::Exceeded {
+            if budget.check_then_subtract(&batch) == BudgetStatus::Exceeded {
                 break;
             }
 
             // SAFETY: This is definitely a root since we just selected it from the set of roots.
-            self.inner.process_root(batch_id).unwrap();
+            self.inner.process_root(batch_id).expect("root should be processed");
 
             batches.insert(batch_id, batch);
         }

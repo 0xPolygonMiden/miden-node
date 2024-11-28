@@ -15,7 +15,6 @@ use transaction_graph::TransactionGraph;
 use crate::{
     batch_builder::batch::TransactionBatch, domain::transaction::AuthenticatedTransaction,
     errors::AddTransactionError, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
-    SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 mod batch_graph;
@@ -81,7 +80,7 @@ impl BlockNumber {
 // ================================================================================================
 
 /// Limits placed on a batch's contents.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BatchBudget {
     /// Maximum number of transactions allowed in a batch.
     transactions: usize,
@@ -94,7 +93,7 @@ pub struct BatchBudget {
 }
 
 /// Limits placed on a blocks's contents.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BlockBudget {
     /// Maximum number of batches allowed in a block.
     batches: usize,
@@ -164,7 +163,7 @@ impl BlockBudget {
     /// Returns [BudgetStatus::Exceeded] if the batch would exceed the remaining budget,
     /// otherwise returns [BudgetStatus::Ok].
     #[must_use]
-    fn check_then_deplete(&mut self, _batch: &TransactionBatch) -> BudgetStatus {
+    fn check_then_subtract(&mut self, _batch: &TransactionBatch) -> BudgetStatus {
         if self.batches == 0 {
             BudgetStatus::Exceeded
         } else {
@@ -178,50 +177,6 @@ impl BlockBudget {
 // ================================================================================================
 
 pub type SharedMempool = Arc<Mutex<Mempool>>;
-
-#[derive(Clone)]
-pub struct MempoolBuilder {
-    /// Limits placed on each batch.
-    pub batch_limits: BatchBudget,
-    /// The maximum number of batches that will be selected for a block.
-    pub block_limits: BlockBudget,
-    /// Number of committed blocks the mempool will retain in its state tracking.
-    pub committed_state_retention: usize,
-}
-
-impl Default for MempoolBuilder {
-    fn default() -> Self {
-        Self {
-            committed_state_retention: SERVER_MEMPOOL_STATE_RETENTION,
-            block_limits: Default::default(),
-            batch_limits: Default::default(),
-        }
-    }
-}
-
-impl MempoolBuilder {
-    pub fn build_shared(self, chain_tip: BlockNumber) -> SharedMempool {
-        SharedMempool::new(self.build(chain_tip))
-    }
-
-    fn build(self, chain_tip: BlockNumber) -> Mempool {
-        let Self {
-            block_limits,
-            committed_state_retention,
-            batch_limits,
-        } = self;
-        Mempool {
-            chain_tip,
-            block_limits,
-            batch_limits,
-            state: InflightState::new(chain_tip, committed_state_retention),
-            block_in_progress: Default::default(),
-            transactions: Default::default(),
-            batches: Default::default(),
-            next_batch_id: Default::default(),
-        }
-    }
-}
 
 pub struct Mempool {
     /// The latest inflight state of each account.
@@ -241,25 +196,25 @@ pub struct Mempool {
     /// The current block height of the chain.
     chain_tip: BlockNumber,
 
+    /// The current inflight block, if any.
     block_in_progress: Option<BTreeSet<BatchJobId>>,
 
-    batch_limits: BatchBudget,
-
-    block_limits: BlockBudget,
+    batch_budget: BatchBudget,
+    block_budget: BlockBudget,
 }
 
 impl Mempool {
     /// Creates a new [Mempool] with the provided configuration.
     pub fn new(
         chain_tip: BlockNumber,
-        batch_limit: usize,
-        block_limit: usize,
+        batch_budget: BatchBudget,
+        block_budget: BlockBudget,
         state_retention: usize,
     ) -> SharedMempool {
         Arc::new(Mutex::new(Self {
             chain_tip,
-            batch_transaction_limit: batch_limit,
-            block_batch_limit: block_limit,
+            batch_budget,
+            block_budget,
             state: InflightState::new(chain_tip, state_retention),
             block_in_progress: Default::default(),
             transactions: Default::default(),
@@ -295,7 +250,7 @@ impl Mempool {
     ///
     /// Returns `None` if no transactions are available.
     pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<AuthenticatedTransaction>)> {
-        let (batch, parents) = self.transactions.select_batch(self.batch_limits.clone());
+        let (batch, parents) = self.transactions.select_batch(self.batch_budget);
         if batch.is_empty() {
             return None;
         }
@@ -345,7 +300,7 @@ impl Mempool {
     pub fn select_block(&mut self) -> (BlockNumber, BTreeMap<BatchJobId, TransactionBatch>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
-        let batches = self.batches.select_block(self.block_limits.clone());
+        let batches = self.batches.select_block(self.block_budget);
         self.block_in_progress = Some(batches.keys().cloned().collect());
 
         (self.chain_tip.next(), batches)
