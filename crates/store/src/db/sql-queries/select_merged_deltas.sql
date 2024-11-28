@@ -1,5 +1,5 @@
 /*
- * Selects and merges account deltas by account id and block range.
+ * Selects and merges account deltas by account ID and block range.
  * Note, that `block_start` is exclusive and `block_end` is inclusive.
  * Parameters:
  *   ?1: Account ID
@@ -12,7 +12,7 @@
  *   3: Non-fungible assets
  */
 
--- Selects and merges storage deltas by account id and block range (gets latest values by slot).
+-- Selects and merges storage deltas by account ID and block range (gets latest values by slot).
 SELECT
     0 AS type, block_num, slot, NULL, value
 FROM
@@ -33,7 +33,7 @@ WHERE
 
 UNION ALL
 
--- Selects and merges storage map deltas by account id and block range (gets latest values by slot
+-- Selects and merges storage map deltas by account ID and block range (gets latest values by slot
 -- and key).
 SELECT
     1, block_num, a.slot, a.key, a.value
@@ -56,7 +56,7 @@ WHERE
 
 UNION ALL
 
--- Selects and merges fungible asset deltas by account id and block range (sums deltas by faucet).
+-- Selects and merges fungible asset deltas by account ID and block range (sums deltas by faucet).
 SELECT
     2, block_num, NULL, faucet_id, SUM(delta)
 FROM
@@ -70,7 +70,7 @@ GROUP BY
 
 UNION ALL
 
--- Selects and merges non-fungible asset deltas by account id and block range (gets latest actions
+-- Selects and merges non-fungible asset deltas by account ID and block range (gets latest actions
 -- by vault key).
 SELECT
     3, block_num, NULL, vault_key, is_remove
