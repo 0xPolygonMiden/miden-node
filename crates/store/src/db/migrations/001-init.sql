@@ -41,7 +41,7 @@ CREATE TABLE
     CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_batch_index_is_u32 CHECK (batch_index BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
-) STRICT;
+) STRICT, WITHOUT ROWID;
 
 CREATE TABLE
     accounts
@@ -66,7 +66,7 @@ CREATE TABLE
     PRIMARY KEY (account_id, block_num),
     FOREIGN KEY (account_id) REFERENCES accounts(account_id),
     FOREIGN KEY (block_num) REFERENCES block_headers(block_num)
-) STRICT;
+) STRICT, WITHOUT ROWID;
 
 CREATE TABLE
     account_storage_slot_updates
@@ -93,7 +93,7 @@ CREATE TABLE
 
     PRIMARY KEY (account_id, block_num, slot, key),
     FOREIGN KEY (account_id, block_num) REFERENCES account_nonce_updates (account_id, block_num)
-) STRICT;
+) STRICT, WITHOUT ROWID;
 
 CREATE INDEX idx_account_storage_map_updates_slot ON account_storage_map_updates (slot);
 CREATE INDEX idx_account_storage_map_updates_key ON account_storage_map_updates (key);
