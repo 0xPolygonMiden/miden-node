@@ -93,10 +93,10 @@ mod tests {
                     verify_tx_proofs = true
 
                     [rpc]
-                    endpoint = { host = "127.0.0.1",  port = 8080 }
+                    endpoint = { host = "127.0.0.1",  port = 8080, protocol = "Http" }
 
                     [store]
-                    endpoint = { host = "127.0.0.1",  port = 8080 }
+                    endpoint = { host = "127.0.0.1",  port = 8080, protocol = "Https" }
                     database_filepath = "local.sqlite3"
                     genesis_filepath = "genesis.dat"
                     blockstore_dir = "blocks"

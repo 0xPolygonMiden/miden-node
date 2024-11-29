@@ -19,7 +19,8 @@ pub const DEFAULT_FAUCET_SERVER_PORT: u16 = 8080;
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default)]
 pub enum Protocol {
-    #[default] Http,
+    #[default]
+    Http,
     Https,
 }
 /// The `(host, port)` pair for the server's listening socket.
@@ -30,6 +31,7 @@ pub struct Endpoint {
     /// Port number used by the store.
     pub port: u16,
     /// Protocol type: http or https.
+    #[serde(default)]
     pub protocol: Protocol,
 }
 
@@ -57,11 +59,11 @@ impl Display for Endpoint {
     }
 }
 
-impl Display for Protocol{
+impl Display for Protocol {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self{
-            Protocol::Http => f.write_fmt(format_args!("http://")),
-            Protocol::Https => f.write_fmt(format_args!("https://")),
+        match self {
+            Protocol::Http => f.write_str("http"),
+            Protocol::Https => f.write_str("https"),
         }
     }
 }
