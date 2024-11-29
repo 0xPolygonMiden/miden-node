@@ -4,9 +4,8 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
-    transaction::{ProvenTransaction, TransactionId},
-    AccountDeltaError, Digest, TransactionInputError, MAX_ACCOUNTS_PER_BATCH,
-    MAX_BATCHES_PER_BLOCK, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
+    transaction::TransactionId,
+    AccountDeltaError, Digest, TransactionInputError,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -109,51 +108,26 @@ impl From<AddTransactionError> for tonic::Status {
 // Batch building errors
 // =================================================================================================
 
-/// Error that may happen while building a transaction batch.
-///
-/// These errors are returned from the batch builder to the transaction queue, instead of
-/// dropping the transactions, they are included into the error values, so that the transaction
-/// queue can re-queue them.
+/// Error encountered while building a batch.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum BuildBatchError {
-    #[error(
-        "Too many input notes in the batch. Got: {0}, limit: {}",
-        MAX_INPUT_NOTES_PER_BATCH
-    )]
-    TooManyInputNotes(usize, Vec<ProvenTransaction>),
-
-    #[error(
-        "Too many notes created in the batch. Got: {0}, limit: {}",
-        MAX_OUTPUT_NOTES_PER_BATCH
-    )]
-    TooManyNotesCreated(usize, Vec<ProvenTransaction>),
-
-    #[error(
-        "Too many account updates in the batch. Got: {}, limit: {}",
-        .0.len(),
-        MAX_ACCOUNTS_PER_BATCH
-    )]
-    TooManyAccountsInBatch(Vec<ProvenTransaction>),
-
     #[error("Duplicated unauthenticated transaction input note ID in the batch: {0}")]
-    DuplicateUnauthenticatedNote(NoteId, Vec<ProvenTransaction>),
+    DuplicateUnauthenticatedNote(NoteId),
 
     #[error("Duplicated transaction output note ID in the batch: {0}")]
-    DuplicateOutputNote(NoteId, Vec<ProvenTransaction>),
+    DuplicateOutputNote(NoteId),
 
     #[error("Note hashes mismatch for note {id}: (input: {input_hash}, output: {output_hash})")]
     NoteHashesMismatch {
         id: NoteId,
         input_hash: Digest,
         output_hash: Digest,
-        txs: Vec<ProvenTransaction>,
     },
 
     #[error("Failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {
         account_id: AccountId,
         error: AccountDeltaError,
-        txs: Vec<ProvenTransaction>,
     },
 
     #[error("Nothing actually went wrong, failure was injected on purpose")]
@@ -217,8 +191,6 @@ pub enum BuildBlockError {
     InconsistentNullifiers(Vec<Nullifier>),
     #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
-    #[error("too many batches in block. Got: {0}, max: {MAX_BATCHES_PER_BLOCK}")]
-    TooManyBatchesInBlock(usize),
     #[error("failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {
         account_id: AccountId,

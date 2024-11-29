@@ -4,7 +4,7 @@ use miden_objects::transaction::TransactionId;
 
 use super::{
     dependency_graph::{DependencyGraph, GraphError},
-    BatchJobId,
+    BatchJobId, BlockBudget, BudgetStatus,
 };
 use crate::batch_builder::batch::TransactionBatch;
 
@@ -151,7 +151,9 @@ impl BatchGraph {
         // dependency graph, and therefore must all be in the batches mapping.
         let batches = batch_ids
             .into_iter()
-            .map(|batch_id| (batch_id, self.batches.remove(&batch_id).unwrap()))
+            .map(|batch_id| {
+                (batch_id, self.batches.remove(&batch_id).expect("batch should be removed"))
+            })
             .collect::<BTreeMap<_, _>>();
 
         for tx in batches.values().flatten() {
@@ -211,24 +213,28 @@ impl BatchGraph {
         self.inner.promote_pending(id, batch)
     }
 
-    /// Returns at most `count` batches which are ready for inclusion in a block.
-    pub fn select_block(&mut self, count: usize) -> BTreeMap<BatchJobId, TransactionBatch> {
+    /// Selects the next set of batches ready for inclusion in a block while adhering to the given
+    /// budget.
+    pub fn select_block(
+        &mut self,
+        mut budget: BlockBudget,
+    ) -> BTreeMap<BatchJobId, TransactionBatch> {
         let mut batches = BTreeMap::new();
 
-        for _ in 0..count {
-            // This strategy just selects arbitrary roots for now. This is valid but not very
-            // interesting or efficient.
-            let Some(batch_id) = self.inner.roots().first().copied() else {
-                break;
-            };
-
-            // SAFETY: This is definitely a root since we just selected it from the set of roots.
-            self.inner.process_root(batch_id).unwrap();
+        while let Some(batch_id) = self.inner.roots().first().copied() {
             // SAFETY: Since it was a root batch, it must definitely have a processed batch
             // associated with it.
-            let batch = self.inner.get(&batch_id).unwrap();
+            let batch = self.inner.get(&batch_id).expect("root should be in graph").clone();
 
-            batches.insert(batch_id, batch.clone());
+            // Adhere to block's budget.
+            if budget.check_then_subtract(&batch) == BudgetStatus::Exceeded {
+                break;
+            }
+
+            // SAFETY: This is definitely a root since we just selected it from the set of roots.
+            self.inner.process_root(batch_id).expect("root should be processed");
+
+            batches.insert(batch_id, batch);
         }
 
         batches
