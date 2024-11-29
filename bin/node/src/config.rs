@@ -74,7 +74,7 @@ impl NodeConfig {
 mod tests {
     use figment::Jail;
     use miden_node_store::config::StoreConfig;
-    use miden_node_utils::config::{load_config, Endpoint};
+    use miden_node_utils::config::{load_config, Endpoint, Protocol};
 
     use super::NodeConfig;
     use crate::{
@@ -112,6 +112,7 @@ mod tests {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
+                            protocol: Protocol::Http
                         },
                         verify_tx_proofs: true
                     },
@@ -119,12 +120,14 @@ mod tests {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
+                            protocol: Protocol::Http
                         },
                     },
                     store: StoreConfig {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
+                            protocol: Protocol::Http
                         },
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into(),
