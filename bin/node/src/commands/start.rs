@@ -54,5 +54,5 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
     // We could abort and gracefully shutdown the other components, but since we're crashing the
     // node there is no point.
 
-    err.context(format!("Component {component}"))
+    err.context(format!("Component {component} failed"))
 }

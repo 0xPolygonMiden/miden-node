@@ -12,7 +12,7 @@ use std::{
 /// Forms the basis of our transaction and batch dependency graphs.
 ///
 /// # Node lifecycle
-/// ```
+/// ```text
 ///                                    │                           
 ///                                    │                           
 ///                      insert_pending│                           

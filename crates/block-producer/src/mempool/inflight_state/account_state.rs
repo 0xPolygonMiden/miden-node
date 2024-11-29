@@ -115,15 +115,15 @@ impl InflightAccountState {
     }
 }
 
-/// Describes the emptiness of an [AccountState].
+/// Describes the emptiness of an [InflightAccountState].
 ///
-/// Is marked as #[must_use] so that callers handle prune empty accounts.
+/// Is marked as `#[must_use]` so that callers handle prune empty accounts.
 #[must_use]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AccountStatus {
-    /// [AccountState] contains no state and should be pruned.
+    /// [InflightAccountState] contains no state and should be pruned.
     Empty,
-    /// [AccountState] contains state and should be kept.
+    /// [InflightAccountState] contains state and should be kept.
     NonEmpty,
 }
 
