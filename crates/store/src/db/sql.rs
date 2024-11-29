@@ -210,7 +210,7 @@ pub fn select_account_delta(
         SELECT
             nonce
         FROM
-            account_deltas
+            account_nonce_updates
         WHERE
             account_id = ?1 AND block_num > ?2 AND block_num <= ?3
         ORDER BY
@@ -390,7 +390,7 @@ fn insert_account_delta(
     delta: &AccountDelta,
 ) -> Result<()> {
     let mut insert_delta_stmt = transaction.prepare_cached(&insert_sql(
-        "account_deltas",
+        "account_nonce_updates",
         &["account_id", "block_num", "nonce"],
         1,
     ))?;
@@ -414,7 +414,7 @@ fn insert_account_delta(
 
     bulk_insert(
         transaction,
-        "account_storage_delta_values",
+        "account_storage_slot_updates",
         &["account_id", "block_num", "slot", "value"],
         &storage_delta_values,
     )?;
@@ -442,7 +442,7 @@ fn insert_account_delta(
 
     bulk_insert(
         transaction,
-        "account_storage_map_delta_values",
+        "account_storage_map_updates",
         &["account_id", "block_num", "slot", "key", "value"],
         &storage_map_delta_values,
     )?;
@@ -488,7 +488,7 @@ fn insert_account_delta(
 
     bulk_insert(
         transaction,
-        "account_non_fungible_asset_delta_actions",
+        "account_non_fungible_asset_updates",
         &["account_id", "block_num", "vault_key", "is_remove"],
         &non_fungible_asset_deltas,
     )?;
