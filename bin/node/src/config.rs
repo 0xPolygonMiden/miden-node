@@ -112,7 +112,7 @@ mod tests {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
-                            protocol: Protocol::Http
+                            protocol: Protocol::default()
                         },
                         verify_tx_proofs: true
                     },
@@ -127,7 +127,7 @@ mod tests {
                         endpoint: Endpoint {
                             host: "127.0.0.1".to_string(),
                             port: 8080,
-                            protocol: Protocol::Http
+                            protocol: Protocol::Https
                         },
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into(),

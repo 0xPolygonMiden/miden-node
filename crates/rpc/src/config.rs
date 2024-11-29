@@ -39,7 +39,7 @@ impl Default for RpcConfig {
             endpoint: Endpoint {
                 host: "0.0.0.0".to_string(),
                 port: DEFAULT_NODE_RPC_PORT,
-                protocol: Protocol::Http,
+                protocol: Protocol::default(),
             },
             store_url: Endpoint::localhost(DEFAULT_STORE_PORT).to_string(),
             block_producer_url: Endpoint::localhost(DEFAULT_BLOCK_PRODUCER_PORT).to_string(),
