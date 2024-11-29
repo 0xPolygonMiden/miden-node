@@ -77,7 +77,7 @@ impl TransactionBatch {
     /// # Errors
     ///
     /// Returns an error if:
-    ///   - There are duplicated output notes or unauthenticated notes found across all transactions
+    /// - There are duplicated output notes or unauthenticated notes found across all transactions
     ///   in the batch.
     /// - Hashes for corresponding input notes and output notes don't match.
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
