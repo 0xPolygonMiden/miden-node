@@ -24,11 +24,11 @@ use crate::batch_builder::batch::TransactionBatch;
 /// Committed batches (i.e. included in blocks) may be [pruned](Self::prune_committed) from the
 /// graph to bound the graph's size.
 ///
-/// Batches may also be outright [purged](Self::purge_subgraphs) from the graph. This is useful for
+/// Batches may also be outright [purged](Self::remove_batches) from the graph. This is useful for
 /// batches which may have become invalid due to external considerations e.g. expired transactions.
 ///
 /// # Batch lifecycle
-/// ```
+/// ```text
 ///                           │                           
 ///                     insert│                           
 ///                     ┌─────▼─────┐                     
@@ -50,7 +50,7 @@ use crate::batch_builder::batch::TransactionBatch;
 ///                     │  <null>   ◄────┘                
 ///                     └───────────┘                     
 /// ```
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct BatchGraph {
     /// Tracks the interdependencies between batches.
     inner: DependencyGraph<BatchJobId, TransactionBatch>,
@@ -81,6 +81,10 @@ pub enum BatchInsertError {
 impl BatchGraph {
     /// Inserts a new batch into the graph.
     ///
+    /// Parents are the transactions on which the given transactions have a direct dependency. This
+    /// includes transactions within the same batch i.e. a transaction and parent transaction may
+    /// both be in this batch.
+    ///
     /// # Errors
     ///
     /// Returns an error if:
@@ -91,7 +95,7 @@ impl BatchGraph {
         &mut self,
         id: BatchJobId,
         transactions: Vec<TransactionId>,
-        parents: BTreeSet<TransactionId>,
+        mut parents: BTreeSet<TransactionId>,
     ) -> Result<(), BatchInsertError> {
         let duplicates = transactions
             .iter()
@@ -102,7 +106,11 @@ impl BatchGraph {
             return Err(BatchInsertError::DuplicateTransactions(duplicates));
         }
 
-        // Reverse lookup parent transaction batches.
+        // Reverse lookup parent batch IDs. Take care to allow for parent transactions within this
+        // batch i.e. internal dependencies.
+        transactions.iter().for_each(|tx| {
+            parents.remove(tx);
+        });
         let parent_batches = parents
             .into_iter()
             .map(|tx| {
@@ -233,7 +241,7 @@ impl BatchGraph {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, doctest))]
 mod tests {
     use super::*;
     use crate::test_utils::Random;
@@ -284,13 +292,24 @@ mod tests {
         assert_eq!(err, expected);
     }
 
+    #[test]
+    fn insert_with_internal_parent_succeeds() {
+        // Ensure that a batch with internal dependencies can be inserted.
+        let mut rng = Random::with_random_seed();
+        let parent = rng.draw_tx_id();
+        let child = rng.draw_tx_id();
+
+        let mut uut = BatchGraph::default();
+        uut.insert(BatchJobId::new(2), vec![parent, child], [parent].into()).unwrap();
+    }
+
     // PURGE_SUBGRAPHS TESTS
     // ================================================================================================
 
     #[test]
     fn purge_subgraphs_returns_all_purged_transaction_sets() {
-        //! Ensure that purge_subgraphs returns both parent and child batches when the parent is
-        //! pruned. Further ensure that a disjoint batch is not pruned.
+        // Ensure that purge_subgraphs returns both parent and child batches when the parent is
+        // pruned. Further ensure that a disjoint batch is not pruned.
         let mut rng = Random::with_random_seed();
         let parent_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect::<Vec<_>>();
         let child_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect::<Vec<_>>();

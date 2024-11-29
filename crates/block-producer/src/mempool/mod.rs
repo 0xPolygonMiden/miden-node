@@ -238,7 +238,9 @@ impl Mempool {
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction)?;
 
-        self.transactions.insert(transaction, parents).expect("Malformed graph");
+        self.transactions
+            .insert(transaction, parents)
+            .expect("Transaction should insert after passing inflight state");
 
         Ok(self.chain_tip.0)
     }
@@ -258,7 +260,9 @@ impl Mempool {
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        self.batches.insert(batch_id, tx_ids, parents).expect("Malformed graph");
+        self.batches
+            .insert(batch_id, tx_ids, parents)
+            .expect("Selected batch should insert");
 
         Some((batch_id, batch))
     }
@@ -279,14 +283,16 @@ impl Mempool {
         let batches = removed_batches.keys().copied().collect::<Vec<_>>();
         let transactions = removed_batches.into_values().flatten().collect();
 
-        self.transactions.requeue_transactions(transactions).expect("Malformed graph");
+        self.transactions
+            .requeue_transactions(transactions)
+            .expect("Transaction should requeue");
 
         tracing::warn!(%batch, descendents=?batches, "Batch failed, dropping all inflight descendent batches, impacted transactions are back in queue.");
     }
 
     /// Marks a batch as proven if it exists.
     pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
-        self.batches.submit_proof(batch_id, batch).expect("Malformed graph");
+        self.batches.submit_proof(batch_id, batch).expect("Batch proof should submit");
     }
 
     /// Select batches for the next block.
@@ -338,13 +344,13 @@ impl Mempool {
         let batches = self.block_in_progress.take().expect("No block in progress to be failed");
 
         // Remove all transactions from the graphs.
-        let purged = self.batches.remove_batches(batches).expect("Bad graph");
+        let purged = self.batches.remove_batches(batches).expect("Batch should be removed");
         let transactions = purged.into_values().flatten().collect();
 
         let transactions = self
             .transactions
             .remove_transactions(transactions)
-            .expect("Transaction graph is malformed");
+            .expect("Failed transactions should be removed");
 
         // Rollback state.
         self.state.revert_transactions(transactions);

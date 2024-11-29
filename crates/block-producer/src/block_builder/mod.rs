@@ -59,7 +59,7 @@ impl BlockBuilder {
     ///
     /// Block production is sequential and consists of
     ///
-    ///   1. Pulling the next set of batches from the [Mempool]
+    ///   1. Pulling the next set of batches from the mempool
     ///   2. Compiling these batches into the next block
     ///   3. Proving the block (this is simulated using random sleeps)
     ///   4. Committing the block to the store

@@ -19,14 +19,14 @@ use crate::domain::transaction::AuthenticatedTransaction;
 ///
 /// Transactions from failed batches may be [re-queued](Self::requeue_transactions) for batch
 /// selection. Successful batches will eventually form part of a committed block at which point the
-/// transaction data may be safely [pruned](Self::prune_committed).
+/// transaction data may be safely [pruned](Self::commit_transactions).
 ///
 /// Transactions may also be outright [purged](Self::remove_transactions) from the graph. This is
 /// useful for transactions which may have become invalid due to external considerations e.g.
 /// expired transactions.
 ///
 /// # Transaction lifecycle:
-/// ```
+/// ```text
 ///                                        │                                   
 ///                                  insert│                                   
 ///                                  ┌─────▼─────┐                             
@@ -53,7 +53,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::insert].
+    /// Follows the error conditions of [DependencyGraph::insert_pending].
     pub fn insert(
         &mut self,
         transaction: AuthenticatedTransaction,
@@ -74,7 +74,7 @@ impl TransactionGraph {
     ///
     /// See also:
     ///   - [Self::requeue_transactions]
-    ///   - [Self::prune_committed]
+    ///   - [Self::commit_transactions]
     pub fn select_batch(
         &mut self,
         mut budget: BatchBudget,
@@ -109,7 +109,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::requeue].
+    /// Follows the error conditions of [DependencyGraph::revert_subgraphs].
     pub fn requeue_transactions(
         &mut self,
         transactions: BTreeSet<TransactionId>,

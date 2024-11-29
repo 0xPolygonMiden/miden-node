@@ -1,4 +1,4 @@
-use std::net::ToSocketAddrs;
+use std::{collections::HashMap, net::ToSocketAddrs};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -19,7 +19,7 @@ use crate::{
     block_builder::BlockBuilder,
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
-    errors::{AddTransactionError, VerifyTxError},
+    errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, BlockNumber, Mempool, SharedMempool},
     store::{DefaultStore, Store},
     COMPONENT, SERVER_MEMPOOL_STATE_RETENTION,
@@ -49,7 +49,6 @@ impl BlockProducer {
     pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
-        // TODO: Does this actually need an arc to be properly shared?
         let store = DefaultStore::new(
             store_client::ApiClient::connect(config.store_url.to_string())
                 .await
@@ -85,7 +84,7 @@ impl BlockProducer {
         })
     }
 
-    pub async fn serve(self) -> Result<(), ApiError> {
+    pub async fn serve(self) -> Result<(), BlockProducerError> {
         let Self {
             batch_builder,
             block_builder,
@@ -125,38 +124,33 @@ impl BlockProducer {
                 BlockProducerRpcServer::new(mempool, store)
                     .serve(rpc_listener)
                     .await
-                    .expect("Really the rest should throw errors instead of panic'ing.")
+                    .expect("block-producer failed")
             })
             .id();
 
-        // Wait for any task to end. They should run forever, so this is an unexpected result.
+        let task_ids = HashMap::from([
+            (batch_builder_id, "batch-builder"),
+            (block_builder_id, "block-builder"),
+            (rpc_id, "rpc"),
+        ]);
 
+        // Wait for any task to end. They should run indefinitely, so this is an unexpected result.
+        //
         // SAFETY: The JoinSet is definitely not empty.
         let task_result = tasks.join_next_with_id().await.unwrap();
+
         let task_id = match &task_result {
-            Ok((id, _)) => *id,
+            Ok((id, ())) => *id,
             Err(err) => err.id(),
         };
+        let task = task_ids.get(&task_id).unwrap_or(&"unknown");
 
-        let task_name = match task_id {
-            id if id == batch_builder_id => "batch-builder",
-            id if id == block_builder_id => "block-builder",
-            id if id == rpc_id => "rpc",
-            _ => {
-                tracing::warn!("An unknown task ID was detected in the block-producer.");
-                "unknown"
-            },
-        };
+        // We could abort the other tasks here, but not much point as we're probably crashing the
+        // node.
 
-        tracing::error!(
-            task = task_name,
-            result = ?task_result,
-            "Block-producer task ended unexpectedly, aborting"
-        );
-
-        tasks.abort_all();
-
-        Ok(())
+        task_result
+            .map_err(|source| BlockProducerError::JoinError { task, source })
+            .map(|(_, ())| Err(BlockProducerError::TaskFailedSuccesfully { task }))?
     }
 }
 

@@ -443,9 +443,7 @@ impl Db {
                 )?;
 
                 let _ = allow_acquire.send(());
-                acquire_done
-                    .blocking_recv()
-                    .map_err(DatabaseError::ApplyBlockFailedClosedChannel)?;
+                acquire_done.blocking_recv()?;
 
                 transaction.commit()?;
 

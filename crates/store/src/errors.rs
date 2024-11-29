@@ -37,50 +37,56 @@ pub enum NullifierTreeError {
 
 #[derive(Debug, Error)]
 pub enum DatabaseError {
-    #[error("Missing database connection: {0}")]
-    MissingDbConnection(#[from] PoolError),
-    #[error("SQLite error: {0}")]
-    SqliteError(#[from] rusqlite::Error),
-    #[error("SQLite error: {0}")]
-    FromSqlError(#[from] FromSqlError),
-    #[error("Hex parsing error: {0}")]
-    FromHexError(#[from] hex::FromHexError),
-    #[error("I/O error: {0}")]
-    IoError(#[from] io::Error),
+    // ERRORS WITH AUTOMATIC CONVERSIONS FROM NESTED ERROR TYPES
+    // ---------------------------------------------------------------------------------------------
     #[error("Account error: {0}")]
     AccountError(#[from] AccountError),
-    #[error("Block error: {0}")]
-    BlockError(#[from] BlockError),
-    #[error("Note error: {0}")]
-    NoteError(#[from] NoteError),
-    #[error("Migration error: {0}")]
-    MigrationError(#[from] rusqlite_migration::Error),
     #[error("Account delta error: {0}")]
     AccountDeltaError(#[from] AccountDeltaError),
-    #[error("SQLite pool interaction task failed: {0}")]
-    InteractError(String),
+    #[error("Block error: {0}")]
+    BlockError(#[from] BlockError),
+    #[error("Closed channel: {0}")]
+    ClosedChannel(#[from] RecvError),
     #[error("Deserialization of BLOB data from database failed: {0}")]
     DeserializationError(DeserializationError),
-    #[error("Invalid Felt: {0}")]
-    InvalidFelt(String),
-    #[error("Block applying was broken because of closed channel on state side: {0}")]
-    ApplyBlockFailedClosedChannel(RecvError),
+    #[error("Hex parsing error: {0}")]
+    FromHexError(#[from] hex::FromHexError),
+    #[error("SQLite error: {0}")]
+    FromSqlError(#[from] FromSqlError),
+    #[error("I/O error: {0}")]
+    IoError(#[from] io::Error),
+    #[error("Migration error: {0}")]
+    MigrationError(#[from] rusqlite_migration::Error),
+    #[error("Missing database connection: {0}")]
+    MissingDbConnection(#[from] PoolError),
+    #[error("Note error: {0}")]
+    NoteError(#[from] NoteError),
+    #[error("SQLite error: {0}")]
+    SqliteError(#[from] rusqlite::Error),
+
+    // OTHER ERRORS
+    // ---------------------------------------------------------------------------------------------
+    #[error("Account hashes mismatch (expected {expected}, but calculated is {calculated})")]
+    AccountHashesMismatch {
+        expected: RpoDigest,
+        calculated: RpoDigest,
+    },
     #[error("Account {0} not found in the database")]
     AccountNotFoundInDb(AccountId),
     #[error("Accounts {0:?} not found in the database")]
     AccountsNotFoundInDb(Vec<AccountId>),
     #[error("Account {0} is not on the chain")]
     AccountNotOnChain(AccountId),
-    #[error("Failed to apply block because of public account final hashes mismatch (expected {expected}, \
-        but calculated is {calculated}")]
-    ApplyBlockFailedAccountHashesMismatch {
-        expected: RpoDigest,
-        calculated: RpoDigest,
-    },
     #[error("Block {0} not found in the database")]
     BlockNotFoundInDb(BlockNumber),
-    #[error("Unsupported database version. There is no migration chain from/to this version. Remove database files \
-        and try again.")]
+    #[error("SQLite pool interaction task failed: {0}")]
+    InteractError(String),
+    #[error("Invalid Felt: {0}")]
+    InvalidFelt(String),
+    #[error(
+        "Unsupported database version. There is no migration chain from/to this version. \
+        Remove all database files and try again."
+    )]
     UnsupportedDatabaseVersion,
 }
 
@@ -132,12 +138,17 @@ pub enum DatabaseSetupError {
 
 #[derive(Debug, Error)]
 pub enum GenesisError {
+    // ERRORS WITH AUTOMATIC CONVERSIONS FROM NESTED ERROR TYPES
+    // ---------------------------------------------------------------------------------------------
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
     #[error("Block error: {0}")]
     BlockError(#[from] BlockError),
     #[error("Merkle error: {0}")]
     MerkleError(#[from] MerkleError),
+
+    // OTHER ERRORS
+    // ---------------------------------------------------------------------------------------------
     #[error("Apply block failed: {0}")]
     ApplyBlockFailed(String),
     #[error("Failed to read genesis file \"{genesis_filepath}\": {error}")]
@@ -145,58 +156,74 @@ pub enum GenesisError {
         genesis_filepath: String,
         error: io::Error,
     },
-    #[error("Failed to deserialize genesis file: {0}")]
-    GenesisFileDeserializationError(DeserializationError),
     #[error("Block header in store doesn't match block header in genesis file. Expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}")]
     GenesisBlockHeaderMismatch {
         expected_genesis_header: Box<BlockHeader>,
         block_header_in_store: Box<BlockHeader>,
     },
+    #[error("Failed to deserialize genesis file: {0}")]
+    GenesisFileDeserializationError(DeserializationError),
     #[error("Retrieving genesis block header failed: {0}")]
     SelectBlockHeaderByBlockNumError(Box<DatabaseError>),
 }
 
 // ENDPOINT ERRORS
 // =================================================================================================
+#[derive(Error, Debug)]
+pub enum InvalidBlockError {
+    #[error("Duplicated nullifiers {0:?}")]
+    DuplicatedNullifiers(Vec<Nullifier>),
+    #[error("Invalid output note type: {0:?}")]
+    InvalidOutputNoteType(Box<OutputNote>),
+    #[error("Invalid tx hash: expected {expected}, but got {actual}")]
+    InvalidTxHash { expected: RpoDigest, actual: RpoDigest },
+    #[error("Received invalid account tree root")]
+    NewBlockInvalidAccountRoot,
+    #[error("New block number must be 1 greater than the current block number")]
+    NewBlockInvalidBlockNum,
+    #[error("New block chain root is not consistent with chain MMR")]
+    NewBlockInvalidChainRoot,
+    #[error("Received invalid note root")]
+    NewBlockInvalidNoteRoot,
+    #[error("Received invalid nullifier root")]
+    NewBlockInvalidNullifierRoot,
+    #[error("New block `prev_hash` must match the chain's tip")]
+    NewBlockInvalidPrevHash,
+}
 
 #[derive(Error, Debug)]
 pub enum ApplyBlockError {
+    // ERRORS WITH AUTOMATIC CONVERSIONS FROM NESTED ERROR TYPES
+    // ---------------------------------------------------------------------------------------------
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
     #[error("I/O error: {0}")]
     IoError(#[from] io::Error),
     #[error("Task join error: {0}")]
     TokioJoinError(#[from] tokio::task::JoinError),
+    #[error("Invalid block error: {0}")]
+    InvalidBlockError(#[from] InvalidBlockError),
+
+    // OTHER ERRORS
+    // ---------------------------------------------------------------------------------------------
+    #[error("Block applying was cancelled because of closed channel on database side: {0}")]
+    ClosedChannel(RecvError),
     #[error("Concurrent write detected")]
     ConcurrentWrite,
-    #[error("New block number must be 1 greater than the current block number")]
-    NewBlockInvalidBlockNum,
-    #[error("New block `prev_hash` must match the chain's tip")]
-    NewBlockInvalidPrevHash,
-    #[error("New block chain root is not consistent with chain MMR")]
-    NewBlockInvalidChainRoot,
-    #[error("Received invalid account tree root")]
-    NewBlockInvalidAccountRoot,
-    #[error("Received invalid note root")]
-    NewBlockInvalidNoteRoot,
-    #[error("Received invalid nullifier root")]
-    NewBlockInvalidNullifierRoot,
-    #[error("Duplicated nullifiers {0:?}")]
-    DuplicatedNullifiers(Vec<Nullifier>),
-    #[error("Block applying was broken because of closed channel on database side: {0}")]
-    BlockApplyingBrokenBecauseOfClosedChannel(RecvError),
-    #[error("Failed to create notes tree: {0}")]
-    FailedToCreateNoteTree(MerkleError),
     #[error("Database doesn't have any block header data")]
     DbBlockHeaderEmpty,
-    #[error("Failed to get MMR peaks for forest ({forest}): {error}")]
-    FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
-    #[error("Failed to update nullifier tree: {0}")]
-    FailedToUpdateNullifierTree(NullifierTreeError),
-    #[error("Invalid output note type: {0:?}")]
-    InvalidOutputNoteType(OutputNote),
-    #[error("Invalid tx hash: expected {expected}, but got {actual}")]
-    InvalidTxHash { expected: RpoDigest, actual: RpoDigest },
+    #[error("Database update task failed: {0}")]
+    DbUpdateTaskFailed(String),
+}
+
+impl From<ApplyBlockError> for Status {
+    fn from(err: ApplyBlockError) -> Self {
+        match err {
+            ApplyBlockError::InvalidBlockError(_) => Status::invalid_argument(err.to_string()),
+
+            _ => Status::internal(err.to_string()),
+        }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -209,10 +236,10 @@ pub enum GetBlockHeaderError {
 
 #[derive(Error, Debug)]
 pub enum GetBlockInputsError {
-    #[error("Database error: {0}")]
-    DatabaseError(#[from] DatabaseError),
     #[error("Account error: {0}")]
     AccountError(#[from] AccountError),
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
     #[error("Database doesn't have any block header data")]
     DbBlockHeaderEmpty,
     #[error("Failed to get MMR peaks for forest ({forest}): {error}")]

@@ -9,8 +9,23 @@ use miden_objects::{
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
+use tokio::task::JoinError;
 
 use crate::mempool::BlockNumber;
+
+// Block-producer errors
+// =================================================================================================
+
+#[derive(Debug, Error)]
+pub enum BlockProducerError {
+    /// A block-producer task completed although it should have ran indefinitely.
+    #[error("task {task} completed unexpectedly")]
+    TaskFailedSuccesfully { task: &'static str },
+
+    /// A block-producer task panic'd.
+    #[error("error joining {task} task")]
+    JoinError { task: &'static str, source: JoinError },
+}
 
 // Transaction verification errors
 // =================================================================================================

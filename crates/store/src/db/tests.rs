@@ -8,8 +8,8 @@ use miden_objects::{
             ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
         },
         delta::AccountUpdateDetails,
-        Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStorageDelta,
-        AccountVaultDelta, StorageSlot,
+        Account, AccountCode, AccountComponent, AccountDelta, AccountId, AccountStorage,
+        AccountStorageDelta, AccountType, AccountVaultDelta, StorageSlot,
     },
     assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
@@ -334,20 +334,14 @@ fn test_sql_public_account_details() {
     let non_fungible_faucet_id =
         AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
 
-    let mut storage = AccountStorage::new(
-        std::iter::repeat(StorageSlot::Value(Word::default())).take(6).collect(),
-    )
-    .unwrap();
-    storage.set_item(1, num_to_word(1)).unwrap();
-    storage.set_item(3, num_to_word(3)).unwrap();
-    storage.set_item(5, num_to_word(5)).unwrap();
-
     let nft1 = Asset::NonFungible(
         NonFungibleAsset::new(
             &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![1, 2, 3]).unwrap(),
         )
         .unwrap(),
     );
+
+    let (code, storage) = mock_account_code_and_storage(account_id.account_type());
 
     let mut account = Account::from_parts(
         account_id,
@@ -357,7 +351,7 @@ fn test_sql_public_account_details() {
         ])
         .unwrap(),
         storage,
-        mock_account_code(),
+        code,
         ZERO,
     );
 
@@ -983,12 +977,30 @@ fn insert_transactions(conn: &mut Connection) -> usize {
     count
 }
 
-pub fn mock_account_code() -> AccountCode {
-    let account_code = "\
-            export.account_procedure_1
-                push.1.2
-                add
-            end
-            ";
-    AccountCode::compile(account_code, TransactionKernel::assembler(), false).unwrap()
+fn mock_account_code_and_storage(account_type: AccountType) -> (AccountCode, AccountStorage) {
+    let component_code = "\
+    export.account_procedure_1
+        push.1.2
+        add
+    end
+    ";
+
+    let component_storage = vec![
+        StorageSlot::Value(Word::default()),
+        StorageSlot::Value(num_to_word(1)),
+        StorageSlot::Value(Word::default()),
+        StorageSlot::Value(num_to_word(3)),
+        StorageSlot::Value(Word::default()),
+        StorageSlot::Value(num_to_word(5)),
+    ];
+
+    let component = AccountComponent::compile(
+        component_code,
+        TransactionKernel::testing_assembler(),
+        component_storage,
+    )
+    .unwrap()
+    .with_supported_type(account_type);
+
+    Account::initialize_from_components(account_type, &[component]).unwrap()
 }
