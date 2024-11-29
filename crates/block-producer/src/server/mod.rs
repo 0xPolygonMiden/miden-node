@@ -20,9 +20,9 @@ use crate::{
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, VerifyTxError},
-    mempool::{BlockNumber, Mempool, SharedMempool},
+    mempool::{BatchBudget, BlockBudget, BlockNumber, Mempool, SharedMempool},
     store::{DefaultStore, Store},
-    COMPONENT, SERVER_BATCH_SIZE, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
+    COMPONENT, SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,
@@ -34,8 +34,8 @@ use crate::{
 pub struct BlockProducer {
     batch_builder: BatchBuilder,
     block_builder: BlockBuilder,
-    batch_limit: usize,
-    block_limit: usize,
+    batch_budget: BatchBudget,
+    block_budget: BlockBudget,
     state_retention: usize,
     rpc_listener: TcpListener,
     store: DefaultStore,
@@ -76,8 +76,8 @@ impl BlockProducer {
         Ok(Self {
             batch_builder: Default::default(),
             block_builder: BlockBuilder::new(store.clone()),
-            batch_limit: SERVER_BATCH_SIZE,
-            block_limit: SERVER_MAX_BATCHES_PER_BLOCK,
+            batch_budget: Default::default(),
+            block_budget: Default::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
             store,
             rpc_listener,
@@ -89,15 +89,15 @@ impl BlockProducer {
         let Self {
             batch_builder,
             block_builder,
-            batch_limit,
-            block_limit,
+            batch_budget,
+            block_budget,
             state_retention,
             rpc_listener,
             store,
             chain_tip,
         } = self;
 
-        let mempool = Mempool::new(chain_tip, batch_limit, block_limit, state_retention);
+        let mempool = Mempool::new(chain_tip, batch_budget, block_budget, state_retention);
 
         // Spawn rpc server and batch and block provers.
         //

@@ -99,6 +99,14 @@ impl AuthenticatedTransaction {
         self.inner.output_notes().iter().map(|note| note.id())
     }
 
+    pub fn output_note_count(&self) -> usize {
+        self.inner.output_notes().num_notes()
+    }
+
+    pub fn input_note_count(&self) -> usize {
+        self.inner.input_notes().num_notes()
+    }
+
     /// Notes which were unauthenticate in the transaction __and__ which were
     /// not authenticated by the store inputs.
     pub fn unauthenticated_notes(&self) -> impl Iterator<Item = NoteId> + '_ {
