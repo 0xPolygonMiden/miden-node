@@ -2,7 +2,10 @@ use std::collections::BTreeSet;
 
 use miden_objects::transaction::TransactionId;
 
-use super::dependency_graph::{DependencyGraph, GraphError};
+use super::{
+    dependency_graph::{DependencyGraph, GraphError},
+    BatchBudget, BudgetStatus,
+};
 use crate::domain::transaction::AuthenticatedTransaction;
 
 // TRANSACTION GRAPH
@@ -16,14 +19,14 @@ use crate::domain::transaction::AuthenticatedTransaction;
 ///
 /// Transactions from failed batches may be [re-queued](Self::requeue_transactions) for batch
 /// selection. Successful batches will eventually form part of a committed block at which point the
-/// transaction data may be safely [pruned](Self::prune_committed).
+/// transaction data may be safely [pruned](Self::commit_transactions).
 ///
 /// Transactions may also be outright [purged](Self::remove_transactions) from the graph. This is
 /// useful for transactions which may have become invalid due to external considerations e.g.
 /// expired transactions.
 ///
 /// # Transaction lifecycle:
-/// ```
+/// ```text
 ///                                        │                                   
 ///                                  insert│                                   
 ///                                  ┌─────▼─────┐                             
@@ -50,7 +53,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::insert].
+    /// Follows the error conditions of [DependencyGraph::insert_pending].
     pub fn insert(
         &mut self,
         transaction: AuthenticatedTransaction,
@@ -60,7 +63,9 @@ impl TransactionGraph {
         self.inner.promote_pending(transaction.id(), transaction)
     }
 
-    /// Selects a set of up-to count transactions for the next batch, as well as their parents.
+    /// Selects a set transactions for the next batch such that they adhere to the given budget.
+    ///
+    /// Also returns the transactions' parents.
     ///
     /// Internally these transactions are considered processed and cannot be emitted in future
     /// batches.
@@ -69,29 +74,31 @@ impl TransactionGraph {
     ///
     /// See also:
     ///   - [Self::requeue_transactions]
-    ///   - [Self::prune_committed]
+    ///   - [Self::commit_transactions]
     pub fn select_batch(
         &mut self,
-        count: usize,
+        mut budget: BatchBudget,
     ) -> (Vec<AuthenticatedTransaction>, BTreeSet<TransactionId>) {
         // This strategy just selects arbitrary roots for now. This is valid but not very
         // interesting or efficient.
-        let mut batch = Vec::with_capacity(count);
+        let mut batch = Vec::with_capacity(budget.transactions);
         let mut parents = BTreeSet::new();
 
-        for _ in 0..count {
-            let Some(root) = self.inner.roots().first().cloned() else {
+        while let Some(root) = self.inner.roots().first().cloned() {
+            // SAFETY: Since it was a root batch, it must definitely have a processed batch
+            // associated with it.
+            let tx = self.inner.get(&root).unwrap().clone();
+
+            // Adhere to batch budget.
+            if budget.check_then_subtract(&tx) == BudgetStatus::Exceeded {
                 break;
-            };
+            }
 
             // SAFETY: This is definitely a root since we just selected it from the set of roots.
             self.inner.process_root(root).unwrap();
-            // SAFETY: Since it was a root batch, it must definitely have a processed batch
-            // associated with it.
-            let tx = self.inner.get(&root).unwrap();
             let tx_parents = self.inner.parents(&root).unwrap();
 
-            batch.push(tx.clone());
+            batch.push(tx);
             parents.extend(tx_parents);
         }
 
@@ -102,7 +109,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::requeue].
+    /// Follows the error conditions of [DependencyGraph::revert_subgraphs].
     pub fn requeue_transactions(
         &mut self,
         transactions: BTreeSet<TransactionId>,
@@ -151,7 +158,7 @@ mod tests {
     // ================================================================================================
 
     #[test]
-    fn select_batch_respects_limit() {
+    fn select_batch_respects_transaction_limit() {
         // These transactions are independent and just used to ensure we have more available
         // transactions than we want in the batch.
         let txs = (0..10)
@@ -163,25 +170,30 @@ mod tests {
             uut.insert(tx, [].into()).unwrap();
         }
 
-        let (batch, parents) = uut.select_batch(0);
+        let (batch, parents) =
+            uut.select_batch(BatchBudget { transactions: 0, ..Default::default() });
         assert!(batch.is_empty());
         assert!(parents.is_empty());
 
-        let (batch, parents) = uut.select_batch(3);
+        let (batch, parents) =
+            uut.select_batch(BatchBudget { transactions: 3, ..Default::default() });
         assert_eq!(batch.len(), 3);
         assert!(parents.is_empty());
 
-        let (batch, parents) = uut.select_batch(4);
+        let (batch, parents) =
+            uut.select_batch(BatchBudget { transactions: 4, ..Default::default() });
         assert_eq!(batch.len(), 4);
         assert!(parents.is_empty());
 
         // We expect this to be partially filled.
-        let (batch, parents) = uut.select_batch(4);
+        let (batch, parents) =
+            uut.select_batch(BatchBudget { transactions: 4, ..Default::default() });
         assert_eq!(batch.len(), 3);
         assert!(parents.is_empty());
 
         // And thereafter empty.
-        let (batch, parents) = uut.select_batch(100);
+        let (batch, parents) =
+            uut.select_batch(BatchBudget { transactions: 100, ..Default::default() });
         assert!(batch.is_empty());
         assert!(parents.is_empty());
     }

@@ -29,7 +29,7 @@ use super::BlockNumber;
 pub struct InflightState {
     /// Account states from inflight transactions.
     ///
-    /// Accounts which are [AccountStatus::Empty] are immediately pruned.
+    /// Accounts which are empty are immediately pruned.
     accounts: BTreeMap<AccountId, InflightAccountState>,
 
     /// Nullifiers produced by the input notes of inflight transactions.

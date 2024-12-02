@@ -7,7 +7,7 @@ use miden_objects::{
     notes::Nullifier,
     transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
-    BlockHeader, Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
+    BlockHeader, Digest, Felt, BLOCK_NOTE_TREE_DEPTH, ZERO,
 };
 
 use crate::{
@@ -35,9 +35,6 @@ impl BlockWitness {
         mut block_inputs: BlockInputs,
         batches: &[TransactionBatch],
     ) -> Result<(Self, Vec<BlockAccountUpdate>), BuildBlockError> {
-        if batches.len() > MAX_BATCHES_PER_BLOCK {
-            return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
-        }
         Self::validate_nullifiers(&block_inputs, batches)?;
 
         let batch_created_notes_roots = batches

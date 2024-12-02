@@ -1,4 +1,4 @@
-use std::{net::ToSocketAddrs, sync::Arc};
+use std::{collections::HashMap, net::ToSocketAddrs};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -19,10 +19,10 @@ use crate::{
     block_builder::BlockBuilder,
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
-    errors::{AddTransactionError, VerifyTxError},
-    mempool::{BlockNumber, Mempool, SharedMempool},
+    errors::{AddTransactionError, BlockProducerError, VerifyTxError},
+    mempool::{BatchBudget, BlockBudget, BlockNumber, Mempool, SharedMempool},
     store::{DefaultStore, Store},
-    COMPONENT, SERVER_BATCH_SIZE, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MEMPOOL_STATE_RETENTION,
+    COMPONENT, SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,
@@ -34,8 +34,8 @@ use crate::{
 pub struct BlockProducer {
     batch_builder: BatchBuilder,
     block_builder: BlockBuilder,
-    batch_limit: usize,
-    block_limit: usize,
+    batch_budget: BatchBudget,
+    block_budget: BlockBudget,
     state_retention: usize,
     rpc_listener: TcpListener,
     store: DefaultStore,
@@ -49,7 +49,6 @@ impl BlockProducer {
     pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
-        // TODO: Does this actually need an arc to be properly shared?
         let store = DefaultStore::new(
             store_client::ApiClient::connect(config.store_url.to_string())
                 .await
@@ -76,8 +75,8 @@ impl BlockProducer {
         Ok(Self {
             batch_builder: Default::default(),
             block_builder: BlockBuilder::new(store.clone()),
-            batch_limit: SERVER_BATCH_SIZE,
-            block_limit: SERVER_MAX_BATCHES_PER_BLOCK,
+            batch_budget: Default::default(),
+            block_budget: Default::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
             store,
             rpc_listener,
@@ -85,24 +84,19 @@ impl BlockProducer {
         })
     }
 
-    pub async fn serve(self) -> Result<(), ApiError> {
+    pub async fn serve(self) -> Result<(), BlockProducerError> {
         let Self {
             batch_builder,
             block_builder,
-            batch_limit,
-            block_limit,
+            batch_budget,
+            block_budget,
             state_retention,
             rpc_listener,
             store,
             chain_tip,
         } = self;
 
-        let mempool = Arc::new(Mutex::new(Mempool::new(
-            chain_tip,
-            batch_limit,
-            block_limit,
-            state_retention,
-        )));
+        let mempool = Mempool::shared(chain_tip, batch_budget, block_budget, state_retention);
 
         // Spawn rpc server and batch and block provers.
         //
@@ -130,38 +124,33 @@ impl BlockProducer {
                 BlockProducerRpcServer::new(mempool, store)
                     .serve(rpc_listener)
                     .await
-                    .expect("Really the rest should throw errors instead of panic'ing.")
+                    .expect("block-producer failed")
             })
             .id();
 
-        // Wait for any task to end. They should run forever, so this is an unexpected result.
+        let task_ids = HashMap::from([
+            (batch_builder_id, "batch-builder"),
+            (block_builder_id, "block-builder"),
+            (rpc_id, "rpc"),
+        ]);
 
+        // Wait for any task to end. They should run indefinitely, so this is an unexpected result.
+        //
         // SAFETY: The JoinSet is definitely not empty.
         let task_result = tasks.join_next_with_id().await.unwrap();
+
         let task_id = match &task_result {
-            Ok((id, _)) => *id,
+            Ok((id, ())) => *id,
             Err(err) => err.id(),
         };
+        let task = task_ids.get(&task_id).unwrap_or(&"unknown");
 
-        let task_name = match task_id {
-            id if id == batch_builder_id => "batch-builder",
-            id if id == block_builder_id => "block-builder",
-            id if id == rpc_id => "rpc",
-            _ => {
-                tracing::warn!("An unknown task ID was detected in the block-producer.");
-                "unknown"
-            },
-        };
+        // We could abort the other tasks here, but not much point as we're probably crashing the
+        // node.
 
-        tracing::error!(
-            task = task_name,
-            result = ?task_result,
-            "Block-producer task ended unexpectedly, aborting"
-        );
-
-        tasks.abort_all();
-
-        Ok(())
+        task_result
+            .map_err(|source| BlockProducerError::JoinError { task, source })
+            .map(|(_, ())| Err(BlockProducerError::TaskFailedSuccesfully { task }))?
     }
 }
 

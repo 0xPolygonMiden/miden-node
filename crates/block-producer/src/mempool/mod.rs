@@ -6,12 +6,15 @@ use std::{
 
 use batch_graph::BatchGraph;
 use inflight_state::InflightState;
+use miden_objects::{
+    MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
+};
 use tokio::sync::Mutex;
 use transaction_graph::TransactionGraph;
 
 use crate::{
     batch_builder::batch::TransactionBatch, domain::transaction::AuthenticatedTransaction,
-    errors::AddTransactionError,
+    errors::AddTransactionError, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
 };
 
 mod batch_graph;
@@ -73,6 +76,102 @@ impl BlockNumber {
     }
 }
 
+// MEMPOOL BUDGET
+// ================================================================================================
+
+/// Limits placed on a batch's contents.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct BatchBudget {
+    /// Maximum number of transactions allowed in a batch.
+    transactions: usize,
+    /// Maximum number of input notes allowed.
+    input_notes: usize,
+    /// Maximum number of output notes allowed.
+    output_notes: usize,
+    /// Maximum number of updated accounts.
+    accounts: usize,
+}
+
+/// Limits placed on a blocks's contents.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct BlockBudget {
+    /// Maximum number of batches allowed in a block.
+    batches: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BudgetStatus {
+    /// The operation remained within the budget.
+    WithinScope,
+    /// The operation exceeded the budget.
+    Exceeded,
+}
+
+impl Default for BatchBudget {
+    fn default() -> Self {
+        Self {
+            transactions: SERVER_MAX_TXS_PER_BATCH,
+            input_notes: MAX_INPUT_NOTES_PER_BATCH,
+            output_notes: MAX_OUTPUT_NOTES_PER_BATCH,
+            accounts: MAX_ACCOUNTS_PER_BATCH,
+        }
+    }
+}
+
+impl Default for BlockBudget {
+    fn default() -> Self {
+        Self { batches: SERVER_MAX_BATCHES_PER_BLOCK }
+    }
+}
+
+impl BatchBudget {
+    /// Attempts to consume the transaction's resources from the budget.
+    ///
+    /// Returns [BudgetStatus::Exceeded] if the transaction would exceed the remaining budget,
+    /// otherwise returns [BudgetStatus::Ok] and subtracts the resources from the budger.
+    #[must_use]
+    fn check_then_subtract(&mut self, tx: &AuthenticatedTransaction) -> BudgetStatus {
+        // This type assertion reminds us to update the account check if we ever support multiple
+        // account updates per tx.
+        let _: miden_objects::accounts::AccountId = tx.account_update().account_id();
+        const ACCOUNT_UPDATES_PER_TX: usize = 1;
+
+        let output_notes = tx.output_note_count();
+        let input_notes = tx.input_note_count();
+
+        if self.transactions == 0
+            || self.accounts < ACCOUNT_UPDATES_PER_TX
+            || self.input_notes < input_notes
+            || self.output_notes < output_notes
+        {
+            return BudgetStatus::Exceeded;
+        }
+
+        self.transactions -= 1;
+        self.accounts -= ACCOUNT_UPDATES_PER_TX;
+        self.input_notes -= input_notes;
+        self.output_notes -= output_notes;
+
+        BudgetStatus::WithinScope
+    }
+}
+
+impl BlockBudget {
+    /// Attempts to consume the batch's resources from the budget.
+    ///
+    /// Returns [BudgetStatus::Exceeded] if the batch would exceed the remaining budget,
+    /// otherwise returns [BudgetStatus::Ok].
+    #[must_use]
+    fn check_then_subtract(&mut self, _batch: &TransactionBatch) -> BudgetStatus {
+        if self.batches == 0 {
+            BudgetStatus::Exceeded
+        } else {
+            self.batches -= 1;
+            BudgetStatus::WithinScope
+        }
+    }
+}
+
 // MEMPOOL
 // ================================================================================================
 
@@ -97,6 +196,7 @@ pub struct Mempool {
     /// The current block height of the chain.
     chain_tip: BlockNumber,
 
+    /// The current inflight block, if any.
     block_in_progress: Option<BTreeSet<BatchJobId>>,
 
     /// Batches which are currently being proven.
@@ -106,22 +206,31 @@ pub struct Mempool {
     /// in this set.
     batches_in_progress: BTreeSet<BatchJobId>,
 
-    batch_transaction_limit: usize,
-    block_batch_limit: usize,
+    block_budget: BlockBudget,
+    batch_budget: BatchBudget,
 }
 
 impl Mempool {
-    /// Creates a new [Mempool] with the provided configuration.
-    pub fn new(
+    /// Creates a new [SharedMempool] with the provided configuration.
+    pub fn shared(
         chain_tip: BlockNumber,
-        batch_limit: usize,
-        block_limit: usize,
+        batch_budget: BatchBudget,
+        block_budget: BlockBudget,
         state_retention: usize,
-    ) -> Self {
+    ) -> SharedMempool {
+        Arc::new(Mutex::new(Self::new(chain_tip, batch_budget, block_budget, state_retention)))
+    }
+
+    fn new(
+        chain_tip: BlockNumber,
+        batch_budget: BatchBudget,
+        block_budget: BlockBudget,
+        state_retention: usize,
+    ) -> Mempool {
         Self {
             chain_tip,
-            batch_transaction_limit: batch_limit,
-            block_batch_limit: block_limit,
+            batch_budget,
+            block_budget,
             state: InflightState::new(chain_tip, state_retention),
             block_in_progress: Default::default(),
             batches_in_progress: Default::default(),
@@ -147,7 +256,9 @@ impl Mempool {
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction)?;
 
-        self.transactions.insert(transaction, parents).expect("Malformed graph");
+        self.transactions
+            .insert(transaction, parents)
+            .expect("Transaction should insert after passing inflight state");
 
         Ok(self.chain_tip.0)
     }
@@ -158,7 +269,7 @@ impl Mempool {
     ///
     /// Returns `None` if no transactions are available.
     pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<AuthenticatedTransaction>)> {
-        let (batch, parents) = self.transactions.select_batch(self.batch_transaction_limit);
+        let (batch, parents) = self.transactions.select_batch(self.batch_budget);
         if batch.is_empty() {
             return None;
         }
@@ -167,8 +278,10 @@ impl Mempool {
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        self.batches.insert(batch_id, tx_ids, parents).expect("Malformed graph");
         self.batches_in_progress.insert(batch_id);
+        self.batches
+            .insert(batch_id, tx_ids, parents)
+            .expect("Selected batch should insert");
 
         Some((batch_id, batch))
     }
@@ -192,7 +305,9 @@ impl Mempool {
             self.batches_in_progress.remove(batch);
         });
 
-        self.transactions.requeue_transactions(transactions).expect("Malformed graph");
+        self.transactions
+            .requeue_transactions(transactions)
+            .expect("Transaction should requeue");
 
         tracing::warn!(
             %batch,
@@ -208,7 +323,7 @@ impl Mempool {
             return;
         }
 
-        self.batches.submit_proof(batch_id, batch).expect("Malformed graph");
+        self.batches.submit_proof(batch_id, batch).expect("Batch proof should submit");
     }
 
     /// Select batches for the next block.
@@ -221,7 +336,7 @@ impl Mempool {
     pub fn select_block(&mut self) -> (BlockNumber, BTreeMap<BatchJobId, TransactionBatch>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
-        let batches = self.batches.select_block(self.block_batch_limit);
+        let batches = self.batches.select_block(self.block_budget);
         self.block_in_progress = Some(batches.keys().cloned().collect());
 
         (self.chain_tip.next(), batches)
@@ -260,13 +375,13 @@ impl Mempool {
         let batches = self.block_in_progress.take().expect("No block in progress to be failed");
 
         // Remove all transactions from the graphs.
-        let purged = self.batches.remove_batches(batches).expect("Bad graph");
+        let purged = self.batches.remove_batches(batches).expect("Batch should be removed");
         let transactions = purged.into_values().flatten().collect();
 
         let transactions = self
             .transactions
             .remove_transactions(transactions)
-            .expect("Transaction graph is malformed");
+            .expect("Failed transactions should be removed");
 
         // Rollback state.
         self.state.revert_transactions(transactions);
@@ -282,7 +397,7 @@ mod tests {
 
     impl Mempool {
         fn for_tests() -> Self {
-            Self::new(BlockNumber::new(0), 5, 10, 5)
+            Self::new(BlockNumber::new(0), Default::default(), Default::default(), 5)
         }
     }
 
@@ -291,8 +406,9 @@ mod tests {
 
     #[test]
     fn children_of_reverted_batches_are_ignored() {
-        //! Batches are proved concurrently. This makes it possible for a child job to complete
-        //! after the parent has been reverted. Such a child job should be ignored.
+        // Batches are proved concurrently. This makes it possible for a child job to complete after
+        // the parent has been reverted (and therefore reverting the child job). Such a child job
+        // should be ignored.
         let txs = MockProvenTxBuilder::sequential();
 
         let mut uut = Mempool::for_tests();

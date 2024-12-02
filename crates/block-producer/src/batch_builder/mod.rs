@@ -48,7 +48,7 @@ impl Default for BatchBuilder {
 }
 
 impl BatchBuilder {
-    /// Starts the [BatchProducer], creating and proving batches at the configured interval.
+    /// Starts the [BatchBuilder], creating and proving batches at the configured interval.
     ///
     /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.
     /// A batch is skipped if there are no available workers, or if there are no transactions

@@ -12,7 +12,7 @@ use std::{
 /// Forms the basis of our transaction and batch dependency graphs.
 ///
 /// # Node lifecycle
-/// ```
+/// ```text
 ///                                    │                           
 ///                                    │                           
 ///                      insert_pending│                           
@@ -69,6 +69,8 @@ where
         f.debug_struct("DependencyGraph")
             .field("pending", &self.pending)
             .field("vertices", &self.vertices.keys())
+            .field("processed", &self.processed)
+            .field("roots", &self.roots)
             .finish()
     }
 }
