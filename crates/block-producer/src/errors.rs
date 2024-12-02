@@ -14,7 +14,7 @@ use thiserror::Error;
 // Transaction verification errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum VerifyTxError {
     /// Another transaction already consumed the notes with given nullifiers
     #[error("Input notes with given nullifiers were already consumed by another transaction")]
@@ -52,7 +52,7 @@ pub enum VerifyTxError {
 // Transaction adding errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum AddTransactionError {
     #[error("Transaction verification failed: {0}")]
     VerificationFailed(#[from] VerifyTxError),
@@ -66,18 +66,12 @@ pub enum AddTransactionError {
 /// These errors are returned from the batch builder to the transaction queue, instead of
 /// dropping the transactions, they are included into the error values, so that the transaction
 /// queue can re-queue them.
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum BuildBatchError {
-    #[error(
-        "Too many input notes in the batch. Got: {0}, limit: {}",
-        MAX_INPUT_NOTES_PER_BATCH
-    )]
+    #[error("Too many input notes in the batch. Got: {0}, limit: {MAX_INPUT_NOTES_PER_BATCH}")]
     TooManyInputNotes(usize, Vec<ProvenTransaction>),
 
-    #[error(
-        "Too many notes created in the batch. Got: {0}, limit: {}",
-        MAX_OUTPUT_NOTES_PER_BATCH
-    )]
+    #[error("Too many notes created in the batch. Got: {0}, limit: {MAX_OUTPUT_NOTES_PER_BATCH}")]
     TooManyNotesCreated(usize, Vec<ProvenTransaction>),
 
     #[error(
@@ -152,7 +146,7 @@ pub enum BlockProverError {
 // =================================================================================================
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum BlockInputsError {
     #[error("failed to parse protobuf message: {0}")]
     ConversionError(#[from] ConversionError),
@@ -166,7 +160,7 @@ pub enum BlockInputsError {
 // =================================================================================================
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum NotePathsError {
     #[error("failed to parse protobuf message: {0}")]
     ConversionError(#[from] ConversionError),
@@ -177,7 +171,7 @@ pub enum NotePathsError {
 // Block applying errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum ApplyBlockError {
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
@@ -186,7 +180,7 @@ pub enum ApplyBlockError {
 // Block building errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum BuildBlockError {
     #[error("failed to compute new block: {0}")]
     BlockProverFailed(#[from] BlockProverError),
@@ -216,7 +210,7 @@ pub enum BuildBlockError {
 // Transaction inputs errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum TxInputsError {
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
