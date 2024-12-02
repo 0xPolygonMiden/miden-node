@@ -1,5 +1,6 @@
 use std::iter;
 
+use assert_matches::assert_matches;
 use miden_objects::{crypto::merkle::Mmr, Digest};
 use tokio::sync::RwLock;
 
@@ -254,7 +255,7 @@ async fn test_block_builder_no_missing_notes() {
         .block_builder
         .build_block(&batch_builder.ready_batches.read().await)
         .await;
-    assert!(matches!(build_block_result, Ok(())));
+    assert_matches!(build_block_result, Ok(()));
 }
 
 #[tokio::test]
@@ -307,10 +308,12 @@ async fn test_block_builder_fails_if_notes_are_missing() {
     let mut expected_missing_notes = vec![notes[4].id(), notes[5].id()];
     expected_missing_notes.sort();
 
-    assert!(matches!(
-            build_block_result,
-            Err(BuildBlockError::UnauthenticatedNotesNotFound(actual_missing_notes))
-                if actual_missing_notes == expected_missing_notes));
+    assert_matches!(
+        build_block_result,
+        Err(BuildBlockError::UnauthenticatedNotesNotFound(actual_missing_notes)) => {
+            assert_eq!(actual_missing_notes, expected_missing_notes);
+        }
+    );
 }
 
 // HELPERS

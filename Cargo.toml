@@ -25,6 +25,7 @@ exclude = [".github/"]
 readme = "README.md"
 
 [workspace.dependencies]
+assert_matches = { version = "1.5" }
 miden-air = { version = "0.11" }
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "polydez-sync-error-trait" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.6" }
