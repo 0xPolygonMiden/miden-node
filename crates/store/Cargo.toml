@@ -28,5 +28,6 @@ tonic = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+assert_matches = { workspace = true}
 miden-node-utils = { workspace = true, features = ["tracing-forest"] }
 miden-objects = { workspace = true, features = ["testing"] }

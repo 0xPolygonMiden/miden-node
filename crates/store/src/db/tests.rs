@@ -1,3 +1,4 @@
+use assert_matches::assert_matches;
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::accounts::AccountSummary;
 use miden_objects::{
@@ -416,9 +417,9 @@ fn test_sql_public_account_details() {
     assert_eq!(account_read.nonce(), account.nonce());
 
     // Cleared item was not serialized, check it and apply delta only with clear item second time:
-    assert!(
-        matches!(account_read.storage().get_item(3), Ok(digest) if digest == RpoDigest::default())
-    );
+    assert_matches!(account_read.storage().get_item(3), Ok(digest) => {
+        assert_eq!(digest, RpoDigest::default());
+    });
 
     let storage_delta = AccountStorageDelta::from_iters([3], [], []);
     account_read

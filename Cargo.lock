@@ -1632,6 +1632,7 @@ dependencies = [
 name = "miden-node-store"
 version = "0.6.0"
 dependencies = [
+ "assert_matches",
  "deadpool-sqlite",
  "hex",
  "miden-lib",
