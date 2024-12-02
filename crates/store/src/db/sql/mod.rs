@@ -211,7 +211,7 @@ pub fn select_account_delta(
         SELECT
             nonce
         FROM
-            account_nonce_updates
+            account_deltas
         WHERE
             account_id = ?1 AND block_num > ?2 AND block_num <= ?3
         ORDER BY
@@ -388,7 +388,7 @@ fn insert_account_delta(
     delta: &AccountDelta,
 ) -> Result<()> {
     let mut insert_delta_stmt = transaction.prepare_cached(&insert_sql(
-        "account_nonce_updates",
+        "account_deltas",
         &["account_id", "block_num", "nonce"],
         1,
     ))?;

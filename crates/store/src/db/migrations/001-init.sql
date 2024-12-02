@@ -57,7 +57,7 @@ CREATE TABLE
 ) STRICT;
 
 CREATE TABLE
-    account_nonce_updates
+    account_deltas
 (
     account_id  INTEGER NOT NULL,
     block_num   INTEGER NOT NULL,
@@ -77,7 +77,7 @@ CREATE TABLE
     value       BLOB    NOT NULL,
 
     PRIMARY KEY (account_id, block_num, slot),
-    FOREIGN KEY (account_id, block_num) REFERENCES account_nonce_updates (account_id, block_num)
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
 CREATE INDEX idx_account_storage_slot_updates_slot ON account_storage_slot_updates (slot);
@@ -92,7 +92,7 @@ CREATE TABLE
     value       BLOB    NOT NULL,
 
     PRIMARY KEY (account_id, block_num, slot, key),
-    FOREIGN KEY (account_id, block_num) REFERENCES account_nonce_updates (account_id, block_num)
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
 CREATE INDEX idx_account_storage_map_updates_slot ON account_storage_map_updates (slot);
@@ -107,7 +107,7 @@ CREATE TABLE
     delta       INTEGER NOT NULL,
 
     PRIMARY KEY (account_id, block_num, faucet_id),
-    FOREIGN KEY (account_id, block_num) REFERENCES account_nonce_updates (account_id, block_num)
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
 CREATE INDEX idx_account_fungible_asset_deltas_faucet ON account_fungible_asset_deltas(faucet_id);
@@ -121,7 +121,7 @@ CREATE TABLE
     is_remove   INTEGER NOT NULL, -- 0 - add, 1 - remove
 
     PRIMARY KEY (account_id, block_num, vault_key),
-    FOREIGN KEY (account_id, block_num) REFERENCES account_nonce_updates (account_id, block_num)
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
 CREATE INDEX idx_account_non_fungible_asset_updates_vault_key
