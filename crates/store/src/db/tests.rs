@@ -4,18 +4,17 @@ use miden_objects::{
     accounts::{
         account_id::testing::{
             ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
-            ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
-            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+            ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
         },
         delta::AccountUpdateDetails,
-        Account, AccountCode, AccountComponent, AccountDelta, AccountId, AccountStorage,
-        AccountStorageDelta, AccountType, AccountVaultDelta, StorageSlot,
+        Account, AccountBuilder, AccountComponent, AccountDelta, AccountId, AccountStorageDelta,
+        AccountStorageMode, AccountType, AccountVaultDelta, StorageSlot,
     },
-    assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
+    assets::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
-    BlockHeader, Felt, FieldElement, Word, ONE, ZERO,
+    BlockHeader, Felt, FieldElement, Word, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 
@@ -327,8 +326,6 @@ fn test_sql_public_account_details() {
 
     create_block(&mut conn, 1);
 
-    let account_id =
-        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap();
     let fungible_faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
     let non_fungible_faucet_id =
         AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
@@ -340,18 +337,10 @@ fn test_sql_public_account_details() {
         .unwrap(),
     );
 
-    let (code, storage) = mock_account_code_and_storage(account_id.account_type());
-
-    let mut account = Account::from_parts(
-        account_id,
-        AssetVault::new(&[
-            Asset::Fungible(FungibleAsset::new(fungible_faucet_id, 150).unwrap()),
-            nft1,
-        ])
-        .unwrap(),
-        storage,
-        code,
-        ZERO,
+    let mut account = mock_account_code_and_storage(
+        AccountType::RegularAccountImmutableCode,
+        AccountStorageMode::Public,
+        [Asset::Fungible(FungibleAsset::new(fungible_faucet_id, 150).unwrap()), nft1],
     );
 
     // test querying empty table
@@ -362,7 +351,7 @@ fn test_sql_public_account_details() {
     let inserted = sql::upsert_accounts(
         &transaction,
         &[BlockAccountUpdate::new(
-            account_id,
+            account.id(),
             account.hash(),
             AccountUpdateDetails::New(account.clone()),
             vec![],
@@ -384,7 +373,7 @@ fn test_sql_public_account_details() {
 
     create_block(&mut conn, 2);
 
-    let read_delta = sql::select_account_delta(&mut conn, account_id.into(), 1, 2).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 2).unwrap();
 
     assert_eq!(read_delta, None);
 
@@ -400,7 +389,7 @@ fn test_sql_public_account_details() {
 
     let vault_delta = AccountVaultDelta::from_iters([nft2], [nft1]);
 
-    let mut delta2 = AccountDelta::new(storage_delta, vault_delta, Some(ONE)).unwrap();
+    let mut delta2 = AccountDelta::new(storage_delta, vault_delta, Some(Felt::new(2))).unwrap();
 
     account.apply_delta(&delta2).unwrap();
 
@@ -408,7 +397,7 @@ fn test_sql_public_account_details() {
     let inserted = sql::upsert_accounts(
         &transaction,
         &[BlockAccountUpdate::new(
-            account_id,
+            account.id(),
             account.hash(),
             AccountUpdateDetails::Delta(delta2.clone()),
             vec![],
@@ -432,7 +421,7 @@ fn test_sql_public_account_details() {
     assert_eq!(account_read.nonce(), account.nonce());
     assert_eq!(account_read.storage(), account.storage());
 
-    let read_delta = sql::select_account_delta(&mut conn, account_id.into(), 1, 2).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 2).unwrap();
     assert_eq!(read_delta.as_ref(), Some(&delta2));
 
     create_block(&mut conn, 3);
@@ -442,7 +431,7 @@ fn test_sql_public_account_details() {
     let delta3 = AccountDelta::new(
         storage_delta3,
         AccountVaultDelta::from_iters([nft1], []),
-        Some(Felt::new(2)),
+        Some(Felt::new(3)),
     )
     .unwrap();
 
@@ -452,7 +441,7 @@ fn test_sql_public_account_details() {
     let inserted = sql::upsert_accounts(
         &transaction,
         &[BlockAccountUpdate::new(
-            account_id,
+            account.id(),
             account.hash(),
             AccountUpdateDetails::Delta(delta3.clone()),
             vec![],
@@ -475,7 +464,7 @@ fn test_sql_public_account_details() {
     assert_eq!(account_read.vault(), account.vault());
     assert_eq!(account_read.nonce(), account.nonce());
 
-    let read_delta = sql::select_account_delta(&mut conn, account_id.into(), 1, 3).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 3).unwrap();
 
     delta2.merge(delta3).unwrap();
 
@@ -503,7 +492,7 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         u32::MAX,
-        &[sql::get_nullifier_prefix(&nullifier1)],
+        &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -531,7 +520,7 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         u32::MAX,
-        &[sql::get_nullifier_prefix(&nullifier1)],
+        &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -545,7 +534,7 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         u32::MAX,
-        &[sql::get_nullifier_prefix(&nullifier2)],
+        &[sql::utils::get_nullifier_prefix(&nullifier2)],
     )
     .unwrap();
     assert_eq!(
@@ -561,7 +550,10 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         1,
-        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+        &[
+            sql::utils::get_nullifier_prefix(&nullifier1),
+            sql::utils::get_nullifier_prefix(&nullifier2),
+        ],
     )
     .unwrap();
     assert_eq!(
@@ -577,7 +569,10 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         1,
         u32::MAX,
-        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+        &[
+            sql::utils::get_nullifier_prefix(&nullifier1),
+            sql::utils::get_nullifier_prefix(&nullifier2),
+        ],
     )
     .unwrap();
     assert_eq!(
@@ -594,7 +589,10 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         2,
         2,
-        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+        &[
+            sql::utils::get_nullifier_prefix(&nullifier1),
+            sql::utils::get_nullifier_prefix(&nullifier2),
+        ],
     )
     .unwrap();
     assert!(nullifiers.is_empty());
@@ -620,7 +618,7 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&nullifier1)],
+        &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -647,7 +645,7 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&nullifier1)],
+        &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -660,7 +658,7 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&nullifier2)],
+        &[sql::utils::get_nullifier_prefix(&nullifier2)],
     )
     .unwrap();
     assert_eq!(
@@ -675,7 +673,10 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+        &[
+            sql::utils::get_nullifier_prefix(&nullifier1),
+            sql::utils::get_nullifier_prefix(&nullifier2),
+        ],
     )
     .unwrap();
     assert_eq!(
@@ -696,7 +697,7 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&num_to_nullifier(3 << 48))],
+        &[sql::utils::get_nullifier_prefix(&num_to_nullifier(3 << 48))],
     )
     .unwrap();
     assert!(nullifiers.is_empty());
@@ -974,7 +975,11 @@ fn insert_transactions(conn: &mut Connection) -> usize {
     count
 }
 
-fn mock_account_code_and_storage(account_type: AccountType) -> (AccountCode, AccountStorage) {
+fn mock_account_code_and_storage(
+    account_type: AccountType,
+    storage_mode: AccountStorageMode,
+    assets: impl IntoIterator<Item = Asset>,
+) -> Account {
     let component_code = "\
     export.account_procedure_1
         push.1.2
@@ -999,5 +1004,12 @@ fn mock_account_code_and_storage(account_type: AccountType) -> (AccountCode, Acc
     .unwrap()
     .with_supported_type(account_type);
 
-    Account::initialize_from_components(account_type, &[component]).unwrap()
+    AccountBuilder::new()
+        .init_seed([0; 32])
+        .account_type(account_type)
+        .storage_mode(storage_mode)
+        .with_assets(assets)
+        .with_component(component)
+        .build_existing()
+        .unwrap()
 }

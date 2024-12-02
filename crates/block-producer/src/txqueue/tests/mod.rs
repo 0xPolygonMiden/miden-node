@@ -1,3 +1,4 @@
+use assert_matches::assert_matches;
 use tokio::sync::mpsc::{self, error::TryRecvError};
 
 use super::*;
@@ -181,7 +182,7 @@ async fn test_tx_verify_failure() {
             .add_transaction(MockProvenTxBuilder::with_account_index(i).build())
             .await;
 
-        assert!(matches!(r, Err(AddTransactionError::VerificationFailed(_))));
+        assert_matches!(r, Err(AddTransactionError::VerificationFailed(_)));
         assert_eq!(
             Err(TryRecvError::Empty),
             receiver.try_recv(),

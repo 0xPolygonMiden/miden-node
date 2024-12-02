@@ -16,14 +16,14 @@
 SELECT
     0 AS type, block_num, slot, NULL, value
 FROM
-    account_storage_delta_values AS a
+    account_storage_slot_updates AS a
 WHERE
     account_id = ?1 AND
     block_num > ?2 AND
     block_num <= ?3 AND
     NOT EXISTS(
         SELECT 1
-        FROM account_storage_delta_values AS b
+        FROM account_storage_slot_updates AS b
         WHERE
             b.account_id = ?1 AND
             a.slot = b.slot AND
@@ -38,14 +38,14 @@ UNION ALL
 SELECT
     1, block_num, a.slot, a.key, a.value
 FROM
-    account_storage_map_delta_values AS a
+    account_storage_map_updates AS a
 WHERE
     account_id = ?1 AND
     block_num > ?2 AND
     block_num <= ?3 AND
     NOT EXISTS(
         SELECT 1
-        FROM account_storage_map_delta_values AS b
+        FROM account_storage_map_updates AS b
         WHERE
             b.account_id = ?1 AND
             a.slot = b.slot AND
@@ -75,7 +75,7 @@ UNION ALL
 SELECT
     3, block_num, NULL, vault_key, is_remove
 FROM
-    account_non_fungible_asset_delta_actions
+    account_non_fungible_asset_updates
 WHERE
     account_id = ?1 AND
     block_num > ?2 AND

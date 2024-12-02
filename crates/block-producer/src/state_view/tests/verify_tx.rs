@@ -12,6 +12,7 @@
 
 use std::iter;
 
+use assert_matches::assert_matches;
 use miden_objects::notes::Note;
 use tokio::task::JoinSet;
 
@@ -95,12 +96,17 @@ async fn test_verify_tx_vt1() {
 
     let verify_tx_result = state_view.verify_tx(&tx).await;
 
-    assert_eq!(
+    assert_matches!(
         verify_tx_result,
         Err(VerifyTxError::IncorrectAccountInitialHash {
-            tx_initial_account_hash: account.states[1],
-            current_account_hash: Some(account.states[0]),
-        })
+            tx_initial_account_hash,
+            current_account_hash,
+        }) => {
+            assert_eq!(tx_initial_account_hash, account.states[1]);
+            assert_matches!(current_account_hash, Some(state) => {
+                assert_eq!(state, account.states[0]);
+            });
+        }
     );
 }
 
@@ -152,9 +158,11 @@ async fn test_verify_tx_vt3() {
 
     let verify_tx_result = state_view.verify_tx(&tx).await;
 
-    assert_eq!(
+    assert_matches!(
         verify_tx_result,
-        Err(VerifyTxError::InputNotesAlreadyConsumed(vec![nullifier_in_store]))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(nullifiers)) => {
+            assert_eq!(nullifiers, vec![nullifier_in_store]);
+        }
     );
 }
 
@@ -221,9 +229,11 @@ async fn test_verify_tx_vt5() {
     assert!(verify_tx1_result.is_ok());
 
     let verify_tx2_result = state_view.verify_tx(&tx2).await;
-    assert_eq!(
+    assert_matches!(
         verify_tx2_result,
-        Err(VerifyTxError::InputNotesAlreadyConsumed(vec![nullifier_in_both_txs]))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(nullifiers)) => {
+            assert_eq!(nullifiers, vec![nullifier_in_both_txs]);
+        }
     );
 }
 
@@ -250,16 +260,20 @@ async fn test_verify_tx_dangling_note_found_in_inflight_notes() {
     let tx1 = MockProvenTxBuilder::with_account_index(1).output_notes(output_notes).build();
 
     let verify_tx1_result = state_view.verify_tx(&tx1).await;
-    assert_eq!(verify_tx1_result, Ok(0));
+    assert_matches!(verify_tx1_result, Ok(block_height) => {
+        assert_eq!(block_height, 0);
+    });
 
     let tx2 = MockProvenTxBuilder::with_account_index(2)
         .unauthenticated_notes(dangling_notes.clone())
         .build();
 
     let verify_tx2_result = state_view.verify_tx(&tx2).await;
-    assert_eq!(
+    assert_matches!(
         verify_tx2_result,
-        Ok(0),
+        Ok(block_height) => {
+            assert_eq!(block_height, 0);
+        },
         "Dangling unauthenticated notes must be found in the in-flight notes after previous tx verification"
     );
 }
@@ -284,11 +298,11 @@ async fn test_verify_tx_stored_unauthenticated_notes() {
     let state_view = DefaultStateView::new(Arc::clone(&store), false);
 
     let verify_tx1_result = state_view.verify_tx(&tx1).await;
-    assert_eq!(
+    assert_matches!(
         verify_tx1_result,
-        Err(VerifyTxError::UnauthenticatedNotesNotFound(
-            dangling_notes.iter().map(Note::id).collect()
-        )),
+        Err(VerifyTxError::UnauthenticatedNotesNotFound(notes)) => {
+            assert_eq!(notes, dangling_notes.iter().map(Note::id).collect::<Vec<_>>());
+        },
         "Dangling unauthenticated notes must not be found in the store by this moment"
     );
 
@@ -298,9 +312,10 @@ async fn test_verify_tx_stored_unauthenticated_notes() {
     store.apply_block(&block).await.unwrap();
 
     let verify_tx1_result = state_view.verify_tx(&tx1).await;
-    assert_eq!(
-        verify_tx1_result,
-        Ok(0),
+    assert_matches!(
+        verify_tx1_result, Ok(block_height) => {
+            assert_eq!(block_height, 0);
+        },
         "Dangling unauthenticated notes must be found in the store after block applying"
     );
 }

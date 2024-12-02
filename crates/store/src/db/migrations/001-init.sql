@@ -41,7 +41,7 @@ CREATE TABLE
     CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_batch_index_is_u32 CHECK (batch_index BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
-) STRICT;
+) STRICT, WITHOUT ROWID;
 
 CREATE TABLE
     accounts
@@ -66,10 +66,10 @@ CREATE TABLE
     PRIMARY KEY (account_id, block_num),
     FOREIGN KEY (account_id) REFERENCES accounts(account_id),
     FOREIGN KEY (block_num) REFERENCES block_headers(block_num)
-) STRICT;
+) STRICT, WITHOUT ROWID;
 
 CREATE TABLE
-    account_storage_delta_values
+    account_storage_slot_updates
 (
     account_id  INTEGER NOT NULL,
     block_num   INTEGER NOT NULL,
@@ -77,13 +77,13 @@ CREATE TABLE
     value       BLOB    NOT NULL,
 
     PRIMARY KEY (account_id, block_num, slot),
-    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas(account_id, block_num)
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE INDEX idx_account_storage_delta_values_slot ON account_storage_delta_values(slot);
+CREATE INDEX idx_account_storage_slot_updates_slot ON account_storage_slot_updates (slot);
 
 CREATE TABLE
-    account_storage_map_delta_values
+    account_storage_map_updates
 (
     account_id  INTEGER NOT NULL,
     block_num   INTEGER NOT NULL,
@@ -92,11 +92,11 @@ CREATE TABLE
     value       BLOB    NOT NULL,
 
     PRIMARY KEY (account_id, block_num, slot, key),
-    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas(account_id, block_num)
-) STRICT;
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
+) STRICT, WITHOUT ROWID;
 
-CREATE INDEX idx_account_storage_map_delta_values_slot ON account_storage_map_delta_values(slot);
-CREATE INDEX idx_account_storage_map_delta_values_key ON account_storage_map_delta_values(key);
+CREATE INDEX idx_account_storage_map_updates_slot ON account_storage_map_updates (slot);
+CREATE INDEX idx_account_storage_map_updates_key ON account_storage_map_updates (key);
 
 CREATE TABLE
     account_fungible_asset_deltas
@@ -107,13 +107,13 @@ CREATE TABLE
     delta       INTEGER NOT NULL,
 
     PRIMARY KEY (account_id, block_num, faucet_id),
-    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas(account_id, block_num)
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
 CREATE INDEX idx_account_fungible_asset_deltas_faucet ON account_fungible_asset_deltas(faucet_id);
 
 CREATE TABLE
-    account_non_fungible_asset_delta_actions
+    account_non_fungible_asset_updates
 (
     account_id  INTEGER NOT NULL,
     block_num   INTEGER NOT NULL,
@@ -121,11 +121,11 @@ CREATE TABLE
     is_remove   INTEGER NOT NULL, -- 0 - add, 1 - remove
 
     PRIMARY KEY (account_id, block_num, vault_key),
-    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas(account_id, block_num)
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE INDEX idx_account_non_fungible_asset_delta_actions_vault_key
-    ON account_non_fungible_asset_delta_actions(vault_key);
+CREATE INDEX idx_account_non_fungible_asset_updates_vault_key
+    ON account_non_fungible_asset_updates (vault_key);
 
 CREATE TABLE
     nullifiers

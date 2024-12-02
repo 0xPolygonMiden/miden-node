@@ -459,6 +459,9 @@ impl Db {
 
     /// Merges all account deltas from the DB for given account ID and block range.
     /// Note, that `from_block` is exclusive and `to_block` is inclusive.
+    ///
+    /// Returns `Ok(None)` if no deltas were found in the DB for the specified account within
+    /// the given block range.
     pub(crate) async fn select_account_state_delta(
         &self,
         account_id: AccountId,

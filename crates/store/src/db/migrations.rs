@@ -6,7 +6,7 @@ use rusqlite_migration::{Migrations, SchemaVersion, M};
 use tracing::{debug, error, info, instrument};
 
 use crate::{
-    db::{settings::Settings, sql::schema_version},
+    db::{settings::Settings, sql::utils::schema_version},
     errors::DatabaseError,
     COMPONENT,
 };

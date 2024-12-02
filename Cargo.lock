@@ -130,6 +130,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert_matches"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
+
+[[package]]
 name = "async-stream"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -390,7 +396,7 @@ dependencies = [
  "semver 1.0.23",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.68",
 ]
 
 [[package]]
@@ -619,9 +625,9 @@ dependencies = [
 
 [[package]]
 name = "deadpool-sqlite"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f9cc6210316f8b7ced394e2a5d2833ce7097fb28afb5881299c61bc18e8e0e9"
+checksum = "656f14fc1ab819c65f332045ea7cb38841bbe551f3b2bc7e3abefb559af4155c"
 dependencies = [
  "deadpool",
  "deadpool-sync",
@@ -1281,9 +1287,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.28.0"
+version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c10584274047cb335c23d3e61bcef8e323adae7c5c8c760540f73610177fc3f"
+checksum = "2e99fb7a497b1e3339bc746195567ed8d3e24945ecd636e3619d20b9de9e9149"
 dependencies = [
  "bindgen",
  "cc",
@@ -1469,7 +1475,7 @@ dependencies = [
  "rand_chacha",
  "serde",
  "static-files",
- "thiserror",
+ "thiserror 2.0.3",
  "tokio",
  "toml",
  "tonic",
@@ -1489,13 +1495,14 @@ dependencies = [
 
 [[package]]
 name = "miden-lib"
-version = "0.6.1"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-conv-acc-to-delta#92fd7f8fd02761e35b6fedb0e7c810ea4bbea914"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
 dependencies = [
  "miden-assembly",
  "miden-objects",
  "miden-stdlib",
  "regex",
+ "walkdir",
 ]
 
 [[package]]
@@ -1566,6 +1573,7 @@ dependencies = [
 name = "miden-node-block-producer"
 version = "0.6.0"
 dependencies = [
+ "assert_matches",
  "async-trait",
  "itertools 0.13.0",
  "miden-air",
@@ -1579,7 +1587,7 @@ dependencies = [
  "miden-tx",
  "rand_chacha",
  "serde",
- "thiserror",
+ "thiserror 2.0.3",
  "tokio",
  "tokio-stream",
  "tonic",
@@ -1599,7 +1607,7 @@ dependencies = [
  "prost",
  "prost-build",
  "protox",
- "thiserror",
+ "thiserror 2.0.3",
  "tonic",
  "tonic-build",
 ]
@@ -1624,6 +1632,7 @@ dependencies = [
 name = "miden-node-store"
 version = "0.6.0"
 dependencies = [
+ "assert_matches",
  "deadpool-sqlite",
  "hex",
  "miden-lib",
@@ -1635,7 +1644,7 @@ dependencies = [
  "rusqlite",
  "rusqlite_migration",
  "serde",
- "thiserror",
+ "thiserror 2.0.3",
  "tokio",
  "tokio-stream",
  "tonic",
@@ -1660,7 +1669,7 @@ dependencies = [
  "miden-objects",
  "rand",
  "serde",
- "thiserror",
+ "thiserror 2.0.3",
  "tonic",
  "tracing",
  "tracing-forest",
@@ -1671,8 +1680,8 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.6.1"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-conv-acc-to-delta#92fd7f8fd02761e35b6fedb0e7c810ea4bbea914"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -1681,6 +1690,7 @@ dependencies = [
  "miden-processor",
  "miden-verifier",
  "rand",
+ "thiserror 2.0.3",
  "winter-rand-utils",
 ]
 
@@ -1744,11 +1754,10 @@ dependencies = [
 
 [[package]]
 name = "miden-tx"
-version = "0.6.1"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-conv-acc-to-delta#92fd7f8fd02761e35b6fedb0e7c810ea4bbea914"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
 dependencies = [
  "async-trait",
- "miden-assembly",
  "miden-lib",
  "miden-objects",
  "miden-processor",
@@ -1756,8 +1765,6 @@ dependencies = [
  "miden-verifier",
  "rand",
  "rand_chacha",
- "regex",
- "walkdir",
  "winter-maybe-async",
 ]
 
@@ -1789,7 +1796,7 @@ dependencies = [
  "supports-unicode",
  "terminal_size",
  "textwrap",
- "thiserror",
+ "thiserror 1.0.68",
  "unicode-width 0.1.14",
 ]
 
@@ -2291,7 +2298,7 @@ dependencies = [
  "prost-reflect",
  "prost-types",
  "protox-parse",
- "thiserror",
+ "thiserror 1.0.68",
 ]
 
 [[package]]
@@ -2303,7 +2310,7 @@ dependencies = [
  "logos",
  "miette",
  "prost-types",
- "thiserror",
+ "thiserror 1.0.68",
 ]
 
 [[package]]
@@ -2397,7 +2404,7 @@ checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
  "getrandom",
  "libredox",
- "thiserror",
+ "thiserror 1.0.68",
 ]
 
 [[package]]
@@ -2446,9 +2453,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "rusqlite"
-version = "0.31.0"
+version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b838eba278d213a8beaf485bd313fd580ca4505a00d5871caeb1457c55322cae"
+checksum = "7753b721174eb8ff87a9a0e799e2d7bc3749323e773db92e0984debb00019d6e"
 dependencies = [
  "bitflags",
  "fallible-iterator",
@@ -2460,9 +2467,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite_migration"
-version = "1.2.0"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55709bc01054c69e2f1cefdc886642b5e6376a8db3c86f761be0c423eebf178b"
+checksum = "923b42e802f7dc20a0a6b5e097ba7c83fe4289da07e49156fecf6af08aa9cd1c"
 dependencies = [
  "log",
  "rusqlite",
@@ -2860,7 +2867,16 @@ version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02dd99dc800bbb97186339685293e1cc5d9df1f8fae2d0aecd9ff1c77efea892"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.68",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+dependencies = [
+ "thiserror-impl 2.0.3",
 ]
 
 [[package]]
@@ -2868,6 +2884,17 @@ name = "thiserror-impl"
 version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7c61ec9a6f64d2793d8a45faba21efbe3ced62a886d44c36a009b2b519b4c7e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3196,7 +3223,7 @@ checksum = "ee40835db14ddd1e3ba414292272eddde9dad04d3d4b65509656414d1c42592f"
 dependencies = [
  "chrono",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.68",
  "tracing",
  "tracing-subscriber",
 ]
@@ -3838,9 +3865,9 @@ dependencies = [
 
 [[package]]
 name = "winter-utils"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76b116c8ade0172506f8bda32dc674cf6b230adc8516e5138a0173ae69158a4f"
+checksum = "1f948e71ffd482aa13d0ec3349047f81ecdb89f3b3287577973dcbf092a25fb4"
 dependencies = [
  "rayon",
 ]
@@ -3860,9 +3887,9 @@ dependencies = [
 
 [[package]]
 name = "winterfell"
-version = "0.10.1"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39c8336dc6a035698780b8cc624f875e479bd6bf6e1846670f3ef4485c125882"
+checksum = "bbf1ab01d2781f7d3f1bd5c12800905c5bbf62e06778672498be798006ac463a"
 dependencies = [
  "winter-air",
  "winter-prover",
