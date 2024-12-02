@@ -22,7 +22,7 @@ use miden_objects::{
 };
 use num_traits::FromPrimitive;
 use rusqlite::{
-    params,
+    params, params_from_iter,
     types::{Value, ValueRef},
     Connection, OptionalExtension, ToSql, Transaction,
 };
@@ -403,94 +403,75 @@ fn insert_account_delta(
         delta.nonce().map(Into::<u64>::into).unwrap_or_default()
     ])?;
 
-    let storage_delta_values: Vec<_> = delta
-        .storage()
-        .values()
-        .iter()
-        .map(|(&slot, value)| {
-            vec![account_id.clone(), block_number.into(), slot.into(), value.to_bytes().into()]
-        })
-        .collect();
-
     bulk_insert(
         transaction,
         "account_storage_slot_updates",
         &["account_id", "block_num", "slot", "value"],
-        &storage_delta_values,
+        delta.storage().values().len(),
+        delta.storage().values().iter().flat_map(|(&slot, value)| {
+            [account_id.clone(), block_number.into(), slot.into(), value.to_bytes().into()]
+        }),
     )?;
-
-    let storage_map_delta_values: Vec<_> = delta
-        .storage()
-        .maps()
-        .iter()
-        .flat_map(|(&slot, map_delta)| {
-            map_delta
-                .leaves()
-                .iter()
-                .map(|(&key, value)| {
-                    vec![
-                        account_id.clone(),
-                        block_number.into(),
-                        slot.into(),
-                        key.to_bytes().into(),
-                        value.to_bytes().into(),
-                    ]
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect();
 
     bulk_insert(
         transaction,
         "account_storage_map_updates",
         &["account_id", "block_num", "slot", "key", "value"],
-        &storage_map_delta_values,
+        delta
+            .storage()
+            .maps()
+            .iter()
+            .map(|(_, map_delta)| map_delta.leaves().len())
+            .sum(),
+        delta.storage().maps().iter().flat_map(|(slot, map_delta)| {
+            map_delta.leaves().iter().flat_map(|(key, value)| {
+                [
+                    account_id.clone(),
+                    block_number.into(),
+                    (*slot).into(),
+                    key.to_bytes().into(),
+                    value.to_bytes().into(),
+                ]
+            })
+        }),
     )?;
-
-    let fungible_asset_deltas: Vec<_> = delta
-        .vault()
-        .fungible()
-        .iter()
-        .map(|(&faucet_id, &delta)| {
-            vec![
-                account_id.clone(),
-                block_number.into(),
-                u64_to_value(faucet_id.into()),
-                delta.into(),
-            ]
-        })
-        .collect();
 
     bulk_insert(
         transaction,
         "account_fungible_asset_deltas",
         &["account_id", "block_num", "faucet_id", "delta"],
-        &fungible_asset_deltas,
-    )?;
-
-    let non_fungible_asset_deltas: Vec<_> = delta
-        .vault()
-        .non_fungible()
-        .iter()
-        .map(|(&asset, action)| {
-            let is_remove = match action {
-                NonFungibleDeltaAction::Add => 0,
-                NonFungibleDeltaAction::Remove => 1,
-            };
-            vec![
+        // TODO: implement `num_assets` method for [FungibleAssetDelta] and use it here:
+        // delta.vault().fungible().num_assets(),
+        delta.vault().fungible().iter().count(),
+        delta.vault().fungible().iter().flat_map(|(&faucet_id, &delta)| {
+            [
                 account_id.clone(),
                 block_number.into(),
-                asset.vault_key().to_bytes().into(),
-                is_remove.into(),
+                u64_to_value(faucet_id.into()),
+                delta.into(),
             ]
-        })
-        .collect();
+        }),
+    )?;
 
     bulk_insert(
         transaction,
         "account_non_fungible_asset_updates",
         &["account_id", "block_num", "vault_key", "is_remove"],
-        &non_fungible_asset_deltas,
+        // TODO: implement `num_assets` method for [NonFungibleAssetDelta] and use it here:
+        // delta.vault().non_fungible().num_assets(),
+        delta.vault().non_fungible().iter().count(),
+        delta.vault().non_fungible().iter().flat_map(|(&asset, action)| {
+            let is_remove = match action {
+                NonFungibleDeltaAction::Add => 0,
+                NonFungibleDeltaAction::Remove => 1,
+            };
+            [
+                account_id.clone(),
+                block_number.into(),
+                asset.vault_key().to_bytes().into(),
+                is_remove.into(),
+            ]
+        }),
     )?;
 
     Ok(())
@@ -1254,21 +1235,25 @@ fn insert_sql(table: &str, fields: &[&str], record_count: usize) -> String {
     )
 }
 
-/// Generates and executes a bulk insert SQL statement for the provided table, fields, and records.
+/// Generates and executes a bulk insert SQL statement for the provided table, fields, and values.
+///
+/// # Notes
+///
+/// Values are expected to be in the same order as the fields.
 fn bulk_insert(
     transaction: &Transaction,
     table: &str,
     fields: &[&str],
-    records: &[Vec<Value>],
+    record_count: usize,
+    values: impl IntoIterator<Item: ToSql>,
 ) -> rusqlite::Result<usize> {
-    if records.is_empty() {
+    if record_count == 0 {
         return Ok(0);
     }
 
-    let sql = insert_sql(table, fields, records.len());
-    let param_values: Vec<_> = records.iter().flatten().map(|v| v as &dyn ToSql).collect();
+    let sql = insert_sql(table, fields, record_count);
 
-    transaction.execute(&sql, &*param_values)
+    transaction.execute(&sql, params_from_iter(values))
 }
 
 /// Converts a `u64` into a [Value].
