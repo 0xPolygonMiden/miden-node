@@ -503,7 +503,7 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         u32::MAX,
-        &[sql::get_nullifier_prefix(&nullifier1)],
+        &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -531,7 +531,7 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         u32::MAX,
-        &[sql::get_nullifier_prefix(&nullifier1)],
+        &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -545,7 +545,7 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         u32::MAX,
-        &[sql::get_nullifier_prefix(&nullifier2)],
+        &[sql::utils::get_nullifier_prefix(&nullifier2)],
     )
     .unwrap();
     assert_eq!(
@@ -561,7 +561,10 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         0,
         1,
-        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+        &[
+            sql::utils::get_nullifier_prefix(&nullifier1),
+            sql::utils::get_nullifier_prefix(&nullifier2),
+        ],
     )
     .unwrap();
     assert_eq!(
@@ -577,7 +580,10 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         1,
         u32::MAX,
-        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+        &[
+            sql::utils::get_nullifier_prefix(&nullifier1),
+            sql::utils::get_nullifier_prefix(&nullifier2),
+        ],
     )
     .unwrap();
     assert_eq!(
@@ -594,7 +600,10 @@ fn test_sql_select_nullifiers_by_block_range() {
         &mut conn,
         2,
         2,
-        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+        &[
+            sql::utils::get_nullifier_prefix(&nullifier1),
+            sql::utils::get_nullifier_prefix(&nullifier2),
+        ],
     )
     .unwrap();
     assert!(nullifiers.is_empty());
@@ -620,7 +629,7 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&nullifier1)],
+        &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -647,7 +656,7 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&nullifier1)],
+        &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
     assert_eq!(
@@ -660,7 +669,7 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&nullifier2)],
+        &[sql::utils::get_nullifier_prefix(&nullifier2)],
     )
     .unwrap();
     assert_eq!(
@@ -675,7 +684,10 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&nullifier1), sql::get_nullifier_prefix(&nullifier2)],
+        &[
+            sql::utils::get_nullifier_prefix(&nullifier1),
+            sql::utils::get_nullifier_prefix(&nullifier2),
+        ],
     )
     .unwrap();
     assert_eq!(
@@ -696,7 +708,7 @@ fn test_select_nullifiers_by_prefix() {
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
-        &[sql::get_nullifier_prefix(&num_to_nullifier(3 << 48))],
+        &[sql::utils::get_nullifier_prefix(&num_to_nullifier(3 << 48))],
     )
     .unwrap();
     assert!(nullifiers.is_empty());
