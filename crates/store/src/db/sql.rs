@@ -285,11 +285,8 @@ pub fn select_account_delta(
             RecordType::NonFungibleAssets => {
                 let vault_key_data = row.get_ref(FieldIndex::Key as usize)?.as_blob()?;
                 let vault_key = Word::read_from_bytes(vault_key_data)?;
-
-                // SAFETY: This conversion is safe because we previously wrote this key from
-                //   internal value of `NonFungibleAsset`.
-                let asset = unsafe { NonFungibleAsset::new_unchecked(vault_key) };
-
+                let asset = NonFungibleAsset::try_from(vault_key)
+                    .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
                 let action: usize = row.get(FieldIndex::Value as usize)?;
                 match action {
                     0 => non_fungible_delta.add(asset)?,
