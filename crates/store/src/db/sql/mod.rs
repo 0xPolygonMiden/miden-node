@@ -344,7 +344,7 @@ pub fn upsert_accounts(
                     });
                 }
 
-                let insert_delta = AccountDelta::from(account);
+                let insert_delta = AccountDelta::from(account.clone());
 
                 (Some(Cow::Borrowed(account)), Some(Cow::Owned(insert_delta)))
             },

@@ -1,4 +1,3 @@
-use assert_matches::assert_matches;
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::accounts::AccountSummary;
 use miden_objects::{
@@ -374,7 +373,7 @@ fn test_sql_public_account_details() {
 
     create_block(&mut conn, 2);
 
-    let read_delta = sql::select_account_delta(&mut conn, account_id.into(), 1, 2).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 2).unwrap();
 
     assert_eq!(read_delta, None);
 
@@ -422,7 +421,7 @@ fn test_sql_public_account_details() {
     assert_eq!(account_read.nonce(), account.nonce());
     assert_eq!(account_read.storage(), account.storage());
 
-    let read_delta = sql::select_account_delta(&mut conn, account_id.into(), 1, 2).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 2).unwrap();
     assert_eq!(read_delta.as_ref(), Some(&delta2));
 
     create_block(&mut conn, 3);
@@ -432,7 +431,7 @@ fn test_sql_public_account_details() {
     let delta3 = AccountDelta::new(
         storage_delta3,
         AccountVaultDelta::from_iters([nft1], []),
-        Some(Felt::new(2)),
+        Some(Felt::new(3)),
     )
     .unwrap();
 

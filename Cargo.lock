@@ -1639,6 +1639,8 @@ dependencies = [
  "miden-node-proto",
  "miden-node-utils",
  "miden-objects",
+ "num-derive",
+ "num-traits",
  "rusqlite",
  "rusqlite_migration",
  "serde",
