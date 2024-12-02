@@ -74,7 +74,7 @@ async fn test_apply_block_ab2() {
     // Verify transactions so it can be tracked in state view
     for tx in txs {
         let verify_tx_res = state_view.verify_tx(&tx).await;
-        assert_eq!(verify_tx_res, Ok(0));
+        assert!(matches!(verify_tx_res, Ok(block_height) if block_height == 0));
     }
 
     // All except the first account will go into the block.
@@ -128,7 +128,7 @@ async fn test_apply_block_ab3() {
     // Verify transactions so it can be tracked in state view
     for tx in txs.clone() {
         let verify_tx_res = state_view.verify_tx(&tx).await;
-        assert_eq!(verify_tx_res, Ok(0));
+        assert!(matches!(verify_tx_res, Ok(block_height) if block_height == 0));
     }
 
     let block = MockBlockBuilder::new(&store)
@@ -163,8 +163,7 @@ async fn test_apply_block_ab3() {
     .build();
 
     let verify_tx_res = state_view.verify_tx(&tx_new).await;
-    assert_eq!(
-        verify_tx_res,
-        Err(VerifyTxError::InputNotesAlreadyConsumed(txs[0].get_nullifiers().collect()))
-    );
+    assert!(matches!(verify_tx_res,
+        Err(VerifyTxError::InputNotesAlreadyConsumed(nullifiers))
+            if nullifiers == txs[0].get_nullifiers().collect::<Vec<_>>()));
 }

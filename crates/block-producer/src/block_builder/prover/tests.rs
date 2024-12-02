@@ -157,14 +157,15 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 
     let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
 
-    assert_eq!(
-        block_witness_result,
+    assert!(matches!(block_witness_result,
         Err(BuildBlockError::InconsistentAccountStateTransition(
-            account_id_1,
-            account_1_hash_store,
-            vec![account_1_hash_batches]
-        ))
-    );
+            account_id,
+            account_hash_store,
+            account_hash_batches
+        )) if account_id == account_id_1 &&
+            account_hash_store == account_1_hash_store &&
+            account_hash_batches == vec![account_1_hash_batches]
+    ));
 }
 
 /// Creates two batches which each update the same pair of accounts.
@@ -668,10 +669,8 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
 
     let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
 
-    assert_eq!(
-        block_witness_result,
-        Err(BuildBlockError::InconsistentNullifiers(vec![nullifier_1, nullifier_3]))
-    );
+    assert!(matches!(block_witness_result,
+        Err(BuildBlockError::InconsistentNullifiers(nullifiers)) if nullifiers == vec![nullifier_1, nullifier_3]));
 }
 
 /// Tests that the block kernel returns the expected nullifier tree when no nullifiers are present
