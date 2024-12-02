@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use miden_node_utils::config::{
-    Endpoint, DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_NODE_RPC_PORT, DEFAULT_STORE_PORT,
+    Endpoint, Protocol, DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_NODE_RPC_PORT, DEFAULT_STORE_PORT,
 };
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +39,7 @@ impl Default for RpcConfig {
             endpoint: Endpoint {
                 host: "0.0.0.0".to_string(),
                 port: DEFAULT_NODE_RPC_PORT,
+                protocol: Protocol::default(),
             },
             store_url: Endpoint::localhost(DEFAULT_STORE_PORT).to_string(),
             block_producer_url: Endpoint::localhost(DEFAULT_BLOCK_PRODUCER_PORT).to_string(),
