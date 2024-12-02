@@ -1496,7 +1496,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-sync-error-trait#33e8cf2a37352d0c057b84ac37e0a30e2a3f2172"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1678,7 +1678,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-sync-error-trait#33e8cf2a37352d0c057b84ac37e0a30e2a3f2172"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -1752,7 +1752,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-sync-error-trait#33e8cf2a37352d0c057b84ac37e0a30e2a3f2172"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
 dependencies = [
  "async-trait",
  "miden-lib",
