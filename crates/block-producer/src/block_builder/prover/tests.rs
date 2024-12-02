@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, iter};
 
+use assert_matches::assert_matches;
 use miden_objects::{
     accounts::{
         account_id::testing::{
@@ -157,13 +158,17 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 
     let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
 
-    assert_eq!(
+    assert_matches!(
         block_witness_result,
         Err(BuildBlockError::InconsistentAccountStateTransition(
-            account_id_1,
-            account_1_hash_store,
-            vec![account_1_hash_batches]
-        ))
+            account_id,
+            account_hash_store,
+            account_hash_batches
+        )) => {
+            assert_eq!(account_id, account_id_1);
+            assert_eq!(account_hash_store, account_1_hash_store);
+            assert_eq!(account_hash_batches, vec![account_1_hash_batches]);
+        }
     );
 }
 
@@ -668,9 +673,11 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
 
     let block_witness_result = BlockWitness::new(block_inputs_from_store, &batches);
 
-    assert_eq!(
+    assert_matches!(
         block_witness_result,
-        Err(BuildBlockError::InconsistentNullifiers(vec![nullifier_1, nullifier_3]))
+        Err(BuildBlockError::InconsistentNullifiers(nullifiers)) => {
+            assert_eq!(nullifiers, vec![nullifier_1, nullifier_3]);
+        }
     );
 }
 

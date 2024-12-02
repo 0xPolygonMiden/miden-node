@@ -130,6 +130,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert_matches"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
+
+[[package]]
 name = "async-stream"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -390,7 +396,7 @@ dependencies = [
  "semver 1.0.23",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.68",
 ]
 
 [[package]]
@@ -1469,7 +1475,7 @@ dependencies = [
  "rand_chacha",
  "serde",
  "static-files",
- "thiserror",
+ "thiserror 2.0.3",
  "tokio",
  "toml",
  "tonic",
@@ -1489,13 +1495,14 @@ dependencies = [
 
 [[package]]
 name = "miden-lib"
-version = "0.6.1"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-conv-acc-to-delta#92fd7f8fd02761e35b6fedb0e7c810ea4bbea914"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
 dependencies = [
  "miden-assembly",
  "miden-objects",
  "miden-stdlib",
  "regex",
+ "walkdir",
 ]
 
 [[package]]
@@ -1566,6 +1573,7 @@ dependencies = [
 name = "miden-node-block-producer"
 version = "0.6.0"
 dependencies = [
+ "assert_matches",
  "async-trait",
  "itertools 0.13.0",
  "miden-air",
@@ -1579,7 +1587,7 @@ dependencies = [
  "miden-tx",
  "rand_chacha",
  "serde",
- "thiserror",
+ "thiserror 2.0.3",
  "tokio",
  "tokio-stream",
  "tonic",
@@ -1599,7 +1607,7 @@ dependencies = [
  "prost",
  "prost-build",
  "protox",
- "thiserror",
+ "thiserror 2.0.3",
  "tonic",
  "tonic-build",
 ]
@@ -1624,18 +1632,17 @@ dependencies = [
 name = "miden-node-store"
 version = "0.6.0"
 dependencies = [
+ "assert_matches",
  "deadpool-sqlite",
  "hex",
  "miden-lib",
  "miden-node-proto",
  "miden-node-utils",
  "miden-objects",
- "num-derive",
- "num-traits",
  "rusqlite",
  "rusqlite_migration",
  "serde",
- "thiserror",
+ "thiserror 2.0.3",
  "tokio",
  "tokio-stream",
  "tonic",
@@ -1660,7 +1667,7 @@ dependencies = [
  "miden-objects",
  "rand",
  "serde",
- "thiserror",
+ "thiserror 2.0.3",
  "tonic",
  "tracing",
  "tracing-forest",
@@ -1671,8 +1678,8 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.6.1"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-conv-acc-to-delta#92fd7f8fd02761e35b6fedb0e7c810ea4bbea914"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -1681,6 +1688,7 @@ dependencies = [
  "miden-processor",
  "miden-verifier",
  "rand",
+ "thiserror 2.0.3",
  "winter-rand-utils",
 ]
 
@@ -1744,11 +1752,10 @@ dependencies = [
 
 [[package]]
 name = "miden-tx"
-version = "0.6.1"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=polydez-conv-acc-to-delta#92fd7f8fd02761e35b6fedb0e7c810ea4bbea914"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
 dependencies = [
  "async-trait",
- "miden-assembly",
  "miden-lib",
  "miden-objects",
  "miden-processor",
@@ -1756,8 +1763,6 @@ dependencies = [
  "miden-verifier",
  "rand",
  "rand_chacha",
- "regex",
- "walkdir",
  "winter-maybe-async",
 ]
 
@@ -1789,7 +1794,7 @@ dependencies = [
  "supports-unicode",
  "terminal_size",
  "textwrap",
- "thiserror",
+ "thiserror 1.0.68",
  "unicode-width 0.1.14",
 ]
 
@@ -2291,7 +2296,7 @@ dependencies = [
  "prost-reflect",
  "prost-types",
  "protox-parse",
- "thiserror",
+ "thiserror 1.0.68",
 ]
 
 [[package]]
@@ -2303,7 +2308,7 @@ dependencies = [
  "logos",
  "miette",
  "prost-types",
- "thiserror",
+ "thiserror 1.0.68",
 ]
 
 [[package]]
@@ -2397,7 +2402,7 @@ checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
  "getrandom",
  "libredox",
- "thiserror",
+ "thiserror 1.0.68",
 ]
 
 [[package]]
@@ -2860,7 +2865,16 @@ version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02dd99dc800bbb97186339685293e1cc5d9df1f8fae2d0aecd9ff1c77efea892"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.68",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+dependencies = [
+ "thiserror-impl 2.0.3",
 ]
 
 [[package]]
@@ -2868,6 +2882,17 @@ name = "thiserror-impl"
 version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7c61ec9a6f64d2793d8a45faba21efbe3ced62a886d44c36a009b2b519b4c7e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3196,7 +3221,7 @@ checksum = "ee40835db14ddd1e3ba414292272eddde9dad04d3d4b65509656414d1c42592f"
 dependencies = [
  "chrono",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.68",
  "tracing",
  "tracing-subscriber",
 ]
@@ -3838,9 +3863,9 @@ dependencies = [
 
 [[package]]
 name = "winter-utils"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76b116c8ade0172506f8bda32dc674cf6b230adc8516e5138a0173ae69158a4f"
+checksum = "1f948e71ffd482aa13d0ec3349047f81ecdb89f3b3287577973dcbf092a25fb4"
 dependencies = [
  "rayon",
 ]
@@ -3860,9 +3885,9 @@ dependencies = [
 
 [[package]]
 name = "winterfell"
-version = "0.10.1"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39c8336dc6a035698780b8cc624f875e479bd6bf6e1846670f3ef4485c125882"
+checksum = "bbf1ab01d2781f7d3f1bd5c12800905c5bbf62e06778672498be798006ac463a"
 dependencies = [
  "winter-air",
  "winter-prover",
