@@ -330,11 +330,8 @@ pub fn compute_old_account_states(
             RecordType::NonFungibleAssets => {
                 let vault_key = row.get_ref(FieldIndex::Key as usize)?.as_blob()?;
                 let vault_key = Word::read_from_bytes(vault_key)?;
-
-                // SAFETY: this conversion is safe because we previously wrote this key from
-                // the internal value of `NonFungibleAsset`.
-                let asset = unsafe { NonFungibleAsset::new_unchecked(vault_key) };
-
+                let asset = NonFungibleAsset::try_from(vault_key)
+                    .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
                 found_account.get_mut().assets.push(Asset::NonFungible(asset));
             },
         }
