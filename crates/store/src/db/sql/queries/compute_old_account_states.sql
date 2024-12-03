@@ -51,13 +51,13 @@ UNION ALL
 SELECT
     2, account_id, slot, NULL, value
 FROM
-    account_storage_delta_values a
+    account_storage_slot_updates a
 WHERE
     account_id IN rarray(?1) AND
     block_num <= ?2 AND
     NOT EXISTS(
         SELECT 1
-        FROM account_storage_delta_values b
+        FROM account_storage_slot_updates b
         WHERE
             a.account_id = b.account_id AND
             b.block_num <= ?2 AND
@@ -73,13 +73,13 @@ UNION ALL
 SELECT
     3, account_id, slot, key, value
 FROM
-    account_storage_map_delta_values a
+    account_storage_map_updates a
 WHERE
     account_id IN rarray(?1) AND
     block_num <= ?2 AND
     NOT EXISTS(
         SELECT 1
-        FROM account_storage_map_delta_values b
+        FROM account_storage_map_updates b
         WHERE
             a.account_id = b.account_id AND
             b.block_num <= ?2 AND
@@ -118,14 +118,14 @@ UNION ALL
 SELECT
     5, account_id, NULL, vault_key, NULL
 FROM
-    account_non_fungible_asset_delta_actions a
+    account_non_fungible_asset_updates a
 WHERE
     account_id IN rarray(?1) AND
     block_num <= ?2 AND
     is_remove = 0 AND
     NOT EXISTS(
         SELECT 1
-        FROM account_non_fungible_asset_delta_actions b
+        FROM account_non_fungible_asset_updates b
         WHERE
             a.account_id = b.account_id AND
             b.is_remove = 1 AND
