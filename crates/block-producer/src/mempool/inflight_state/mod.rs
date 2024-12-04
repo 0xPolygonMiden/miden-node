@@ -352,6 +352,7 @@ impl OutputNoteState {
 
 #[cfg(test)]
 mod tests {
+    use assert_matches::assert_matches;
     use miden_objects::Digest;
 
     use super::*;
@@ -384,9 +385,11 @@ mod tests {
 
         let err = uut.add_transaction(&AuthenticatedTransaction::from_inner(tx2)).unwrap_err();
 
-        assert_eq!(
+        assert_matches!(
             err,
-            VerifyTxError::InputNotesAlreadyConsumed(vec![mock_note(note_seed).nullifier()]).into()
+            AddTransactionError::VerificationFailed(VerifyTxError::InputNotesAlreadyConsumed(
+                notes
+            )) if notes == vec![mock_note(note_seed).nullifier()]
         );
     }
 
@@ -408,7 +411,12 @@ mod tests {
 
         let err = uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1)).unwrap_err();
 
-        assert_eq!(err, VerifyTxError::OutputNotesAlreadyExist(vec![note.id()]).into());
+        assert_matches!(
+            err,
+            AddTransactionError::VerificationFailed(VerifyTxError::OutputNotesAlreadyExist(
+                notes
+            )) if notes == vec![note.id()]
+        );
     }
 
     #[test]
@@ -423,13 +431,12 @@ mod tests {
             .add_transaction(&AuthenticatedTransaction::from_inner(tx).with_store_state(states[2]))
             .unwrap_err();
 
-        assert_eq!(
+        assert_matches!(
             err,
-            VerifyTxError::IncorrectAccountInitialHash {
-                tx_initial_account_hash: states[0],
-                current_account_hash: states[2].into()
-            }
-            .into()
+            AddTransactionError::VerificationFailed(VerifyTxError::IncorrectAccountInitialHash {
+                tx_initial_account_hash: init_state,
+                current_account_hash: current_state,
+            }) if init_state == states[0] && current_state == states[2].into()
         );
     }
 

@@ -5,6 +5,7 @@
 ### Enhancements
 
 - Added `GetAccountProofs` endpoint (#506).
+- Support Https in endpoint configuration (#556).
 
 ### Changes
 
