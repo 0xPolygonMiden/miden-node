@@ -196,6 +196,7 @@ pub fn select_accounts_by_ids(
 /// # Returns
 ///
 /// Account states vector, or an error.
+#[allow(dead_code)] // TODO: remove once the function is used
 pub fn compute_old_account_states(
     conn: &mut Connection,
     account_ids: &[AccountId],
@@ -230,8 +231,8 @@ pub fn compute_old_account_states(
     }
 
     let mut rows = compute_old_account_states_stmt.query(params![
+        Rc::new(account_ids.iter().copied().map(u64_to_value).collect::<Vec<_>>()),
         block_number,
-        Rc::new(account_ids.iter().copied().map(u64_to_value).collect::<Vec<_>>())
     ])?;
 
     // Gathering data from different tables to single accounts map.

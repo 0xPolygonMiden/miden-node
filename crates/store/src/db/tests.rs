@@ -19,7 +19,10 @@ use miden_objects::{
 use rusqlite::{vtab::array, Connection};
 
 use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
-use crate::db::{migrations::apply_migrations, TransactionSummary};
+use crate::{
+    db::{migrations::apply_migrations, TransactionSummary},
+    types::BlockNumber,
+};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -469,6 +472,121 @@ fn test_sql_public_account_details() {
     delta2.merge(delta3).unwrap();
 
     assert_eq!(read_delta, Some(delta2));
+}
+
+#[test]
+fn test_sql_public_account_details_for_old_block() {
+    fn compare_accounts(conn: &mut Connection, block_num: BlockNumber, expected: &[Account]) {
+        for i in 1..=block_num {
+            let account_read = sql::compute_old_account_states(conn, &[expected[0].id().into()], i)
+                .unwrap()
+                .pop()
+                .unwrap();
+            assert_eq!(account_read, expected[i as usize - 1]);
+        }
+    }
+
+    fn apply_delta_and_check(
+        conn: &mut Connection,
+        accounts: &mut Vec<Account>,
+        delta: &AccountDelta,
+        block_num: BlockNumber,
+    ) {
+        create_block(conn, block_num);
+
+        let num_records = accounts.len();
+        accounts.push(accounts[num_records - 1].clone());
+        accounts[num_records].apply_delta(delta).unwrap();
+
+        let transaction = conn.transaction().unwrap();
+        let inserted = sql::upsert_accounts(
+            &transaction,
+            &[BlockAccountUpdate::new(
+                accounts[num_records].id(),
+                accounts[num_records].hash(),
+                AccountUpdateDetails::Delta(delta.clone()),
+                vec![],
+            )],
+            block_num,
+        )
+        .unwrap();
+
+        assert_eq!(inserted, 1, "One element must have been inserted");
+
+        transaction.commit().unwrap();
+
+        compare_accounts(conn, block_num, accounts);
+    }
+
+    let mut conn = create_db();
+    create_block(&mut conn, 1);
+
+    let fungible_faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+    let non_fungible_faucet_id =
+        AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+
+    let nft1 = Asset::NonFungible(
+        NonFungibleAsset::new(
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![1, 2, 3]).unwrap(),
+        )
+        .unwrap(),
+    );
+
+    let mut accounts = vec![];
+    accounts.push(mock_account_code_and_storage(
+        AccountType::RegularAccountImmutableCode,
+        AccountStorageMode::Public,
+        [Asset::Fungible(FungibleAsset::new(fungible_faucet_id, 150).unwrap()), nft1],
+    ));
+
+    // test querying empty table
+    let accounts_in_db = sql::select_all_accounts(&mut conn).unwrap();
+    assert!(accounts_in_db.is_empty());
+
+    let transaction = conn.transaction().unwrap();
+    let inserted = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            accounts[0].id(),
+            accounts[0].hash(),
+            AccountUpdateDetails::New(accounts[0].clone()),
+            vec![],
+        )],
+        1,
+    )
+    .unwrap();
+
+    assert_eq!(inserted, 1, "One element must have been inserted");
+
+    transaction.commit().unwrap();
+
+    compare_accounts(&mut conn, 1, &accounts);
+
+    let storage_delta =
+        AccountStorageDelta::from_iters([3], [(4, num_to_word(5)), (5, num_to_word(6))], []);
+
+    let nft2 = Asset::NonFungible(
+        NonFungibleAsset::new(
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![4, 5, 6]).unwrap(),
+        )
+        .unwrap(),
+    );
+
+    let vault_delta = AccountVaultDelta::from_iters([nft2], [nft1]);
+    let delta2 = AccountDelta::new(storage_delta, vault_delta, Some(Felt::new(2))).unwrap();
+
+    apply_delta_and_check(&mut conn, &mut accounts, &delta2, 2);
+
+    let storage_delta3 = AccountStorageDelta::from_iters([5], [], []);
+
+    let delta3 = AccountDelta::new(
+        storage_delta3,
+        AccountVaultDelta::from_iters([nft1], []),
+        Some(Felt::new(3)),
+    )
+    .unwrap();
+
+    apply_delta_and_check(&mut conn, &mut accounts, &delta3, 3);
 }
 
 #[test]

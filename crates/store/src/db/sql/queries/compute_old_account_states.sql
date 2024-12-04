@@ -21,8 +21,6 @@ FROM
     accounts
 WHERE
     account_id IN rarray(?1)
-ORDER BY
-    account_id
 
 UNION ALL
 
@@ -42,8 +40,6 @@ WHERE
             b.block_num <= ?2 AND
             a.block_num < b.block_num
     )
-ORDER BY
-    account_id
 
 UNION ALL
 
@@ -64,8 +60,6 @@ WHERE
             a.block_num < b.block_num AND
             a.slot = b.slot
     )
-ORDER BY
-    account_id
 
 UNION ALL
 
@@ -87,8 +81,6 @@ WHERE
             a.slot = b.slot AND
             a.key = b.key
     )
-ORDER BY
-    account_id
 
 UNION ALL
 
@@ -104,8 +96,6 @@ GROUP BY
     account_id, faucet_id
 HAVING
     value != 0
-ORDER BY
-    account_id
 
 UNION ALL
 
@@ -133,5 +123,6 @@ WHERE
             a.vault_key = b.vault_key AND
             a.block_num < b.block_num
     )
+
 ORDER BY
-    account_id
+    type, account_id
