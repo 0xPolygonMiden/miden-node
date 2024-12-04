@@ -4,7 +4,10 @@ pub(crate) mod utils;
 
 use std::{
     borrow::Cow,
-    collections::{btree_map::Entry, BTreeMap, BTreeSet},
+    collections::{
+        btree_map::{Entry, OccupiedEntry},
+        BTreeMap, BTreeSet,
+    },
     rc::Rc,
 };
 
@@ -201,26 +204,143 @@ pub fn compute_old_account_states(
     account_ids: &[AccountId],
     block_number: BlockNumber,
 ) -> Result<Vec<Account>> {
-    let mut compute_old_account_states_stmt =
-        conn.prepare_cached(include_str!("queries/compute_old_account_states.sql"))?;
+    fn find_account(
+        accounts: &mut BTreeMap<AccountId, AccountRecord>,
+        account_id: AccountId,
+    ) -> Result<OccupiedEntry<AccountId, AccountRecord>> {
+        let Entry::Occupied(found_account) = accounts.entry(account_id) else {
+            return Err(DatabaseError::DataCorrupted(format!(
+                "Account not found in DB: {account_id:x}"
+            )));
+        };
 
-    #[derive(num_derive::FromPrimitive)]
-    enum RecordType {
-        LatestAccountDetails = 0,
-        AccountNonce,
-        StorageScalars,
-        StorageMapValues,
-        FungibleAssets,
-        NonFungibleAssets,
+        Ok(found_account)
     }
 
-    enum FieldIndex {
-        RecordType = 0,
-        AccountId,
-        Slot,
-        Key,
-        Value,
-    }
+    let mut select_last_states_stmt = conn.prepare_cached(
+        "
+        SELECT
+            account_id, details
+        FROM
+            accounts
+        WHERE
+            account_id IN rarray(?1)
+        ORDER BY
+            account_id
+        ",
+    )?;
+
+    let mut select_latest_nonces_stmt = conn.prepare_cached(
+        "
+        SELECT
+            account_id, nonce
+        FROM
+            account_deltas a
+        WHERE
+            account_id IN rarray(?1) AND
+            block_num <= ?2 AND
+            NOT EXISTS(
+                SELECT 1
+                FROM account_deltas b
+                WHERE
+                    a.account_id = b.account_id AND
+                    b.block_num <= ?2 AND
+                    a.block_num < b.block_num
+            )
+        ORDER BY
+            account_id
+        ",
+    )?;
+
+    let mut select_latest_storage_slot_updates_stmt = conn.prepare_cached(
+        "
+        SELECT
+            account_id, slot, value
+        FROM
+            account_storage_slot_updates a
+        WHERE
+            account_id IN rarray(?1) AND
+            block_num <= ?2 AND
+            NOT EXISTS(
+                SELECT 1
+                FROM account_storage_slot_updates b
+                WHERE
+                    a.account_id = b.account_id AND
+                    b.block_num <= ?2 AND
+                    a.block_num < b.block_num AND
+                    a.slot = b.slot
+            )
+        ORDER BY
+            account_id
+        ",
+    )?;
+
+    let mut select_latest_storage_map_updates_stmt = conn.prepare_cached(
+        "
+        SELECT
+            account_id, slot, key, value
+        FROM
+            account_storage_map_updates a
+        WHERE
+            account_id IN rarray(?1) AND
+            block_num <= ?2 AND
+            NOT EXISTS(
+                SELECT 1
+                FROM account_storage_map_updates b
+                WHERE
+                    a.account_id = b.account_id AND
+                    b.block_num <= ?2 AND
+                    a.block_num < b.block_num AND
+                    a.slot = b.slot AND
+                    a.key = b.key
+            )
+        ORDER BY
+            account_id
+        ",
+    )?;
+
+    let mut select_fungible_asset_deltas_stmt = conn.prepare_cached(
+        "
+        SELECT
+            account_id, faucet_id, SUM(delta) AS value
+        FROM
+            account_fungible_asset_deltas
+        WHERE
+            account_id IN rarray(?1) AND
+            block_num <= ?2
+        GROUP BY
+            account_id, faucet_id
+        HAVING
+            value != 0
+        ORDER BY
+            account_id
+        ",
+    )?;
+
+    let mut select_latest_non_fungible_assets_stmt = conn.prepare_cached(
+        "
+        SELECT
+            account_id, vault_key
+        FROM
+            account_non_fungible_asset_updates a
+        WHERE
+            account_id IN rarray(?1) AND
+            block_num <= ?2 AND
+            is_remove = 0 AND
+            NOT EXISTS(
+                SELECT 1
+                FROM account_non_fungible_asset_updates b
+                WHERE
+                    a.account_id = b.account_id AND
+                    b.is_remove = 1 AND
+                    b.block_num <= ?2 AND
+                    a.vault_key = b.vault_key AND
+                    a.block_num < b.block_num
+            )
+        ORDER BY
+            account_id
+        ",
+    )?;
 
     struct AccountRecord {
         code: AccountCode,
@@ -229,112 +349,118 @@ pub fn compute_old_account_states(
         assets: Vec<Asset>,
     }
 
-    let mut rows = compute_old_account_states_stmt.query(params![
-        Rc::new(account_ids.iter().copied().map(u64_to_value).collect::<Vec<_>>()),
-        block_number,
-    ])?;
+    let account_ids = Rc::new(account_ids.iter().copied().map(u64_to_value).collect::<Vec<_>>());
 
     // Gathering data from different tables to single accounts map.
     let mut accounts = BTreeMap::new();
+
+    let mut rows = select_last_states_stmt.query(params![Rc::clone(&account_ids)])?;
     while let Some(row) = rows.next()? {
-        let record_type = RecordType::from_usize(row.get(FieldIndex::RecordType as usize)?)
-            .expect("Record type value must be one of the `RecordType` enum variants");
-        let account_id: AccountId = row.get(FieldIndex::AccountId as usize)?;
-
-        if let RecordType::LatestAccountDetails = record_type {
-            let account_details = row.get_ref(FieldIndex::Value as usize)?.as_blob_or_null()?;
-            if let Some(details) = account_details {
-                let details = Account::read_from_bytes(details)?;
-                accounts.insert(
-                    account_id,
-                    AccountRecord {
-                        code: details.code().clone(),
-                        nonce: None,
-                        storage: BTreeMap::new(),
-                        assets: vec![],
-                    },
-                );
-            }
-
-            continue;
+        let account_id: AccountId = row.get(0)?;
+        let account_details = row.get_ref(1)?.as_blob_or_null()?;
+        if let Some(details) = account_details {
+            let details = Account::read_from_bytes(details)?;
+            accounts.insert(
+                account_id,
+                AccountRecord {
+                    code: details.code().clone(),
+                    nonce: None,
+                    storage: BTreeMap::new(),
+                    assets: vec![],
+                },
+            );
         }
+    }
 
-        let Entry::Occupied(mut found_account) = accounts.entry(account_id) else {
-            return Err(DatabaseError::DataCorrupted(format!(
-                "Account not found in DB: {account_id:x}"
-            )));
-        };
+    let mut rows =
+        select_latest_nonces_stmt.query(params![Rc::clone(&account_ids), block_number])?;
+    while let Some(row) = rows.next()? {
+        let account_id: AccountId = row.get(0)?;
+        let nonce: u64 = row.get(1)?;
+        find_account(&mut accounts, account_id)?.get_mut().nonce =
+            Some(nonce.try_into().map_err(DatabaseError::DataCorrupted)?);
+    }
 
-        match record_type {
-            RecordType::LatestAccountDetails => {
-                unreachable!("`LatestAccountDetails` must be handled separately")
-            },
-            RecordType::AccountNonce => {
-                let nonce: u64 = row.get(FieldIndex::Value as usize)?;
-                found_account.get_mut().nonce =
-                    Some(nonce.try_into().map_err(DatabaseError::DataCorrupted)?);
-            },
-            RecordType::StorageScalars | RecordType::StorageMapValues => {
-                let slot: u8 = row.get(FieldIndex::Slot as usize)?;
-                let value = row.get_ref(FieldIndex::Value as usize)?.as_blob()?;
-                let value = Word::read_from_bytes(value)?;
+    let mut rows = select_latest_storage_slot_updates_stmt
+        .query(params![Rc::clone(&account_ids), block_number])?;
+    while let Some(row) = rows.next()? {
+        let account_id: AccountId = row.get(0)?;
+        let slot: u8 = row.get(1)?;
+        let value = row.get_ref(2)?.as_blob()?;
+        let value = Word::read_from_bytes(value)?;
 
-                if let RecordType::StorageScalars = record_type {
-                    match found_account.get_mut().storage.entry(slot) {
-                        Entry::Vacant(entry) => {
-                            entry.insert(StorageSlot::Value(value));
-                        },
-                        Entry::Occupied(_) => {
-                            return Err(DatabaseError::DataCorrupted(format!(
-                                "Duplicate storage slot: {slot}"
-                            )));
-                        },
-                    }
-                } else {
-                    let key = row.get_ref(FieldIndex::Key as usize)?.as_blob()?;
-                    let key = Digest::read_from_bytes(key)?;
-                    match found_account.get_mut().storage.entry(slot) {
-                        Entry::Vacant(entry) => {
-                            entry.insert(StorageSlot::Map(
-                                StorageMap::with_entries([(key, value)])
-                                    .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
-                            ));
-                        },
-                        Entry::Occupied(mut entry) => match entry.get_mut() {
-                            StorageSlot::Value(_) => {
-                                return Err(DatabaseError::DataCorrupted(format!(
-                                    "Conflicting storage slot: {slot}, expected map, but actually \
-                                    value"
-                                )))
-                            },
-                            StorageSlot::Map(map) => {
-                                map.insert(key, value);
-                            },
-                        },
-                    }
-                }
+        match find_account(&mut accounts, account_id)?.get_mut().storage.entry(slot) {
+            Entry::Vacant(entry) => {
+                entry.insert(StorageSlot::Value(value));
             },
-            RecordType::FungibleAssets => {
-                let faucet_id: AccountId = row.get(FieldIndex::Key as usize)?;
-                let amount: u64 = row.get(FieldIndex::Value as usize)?;
-                found_account.get_mut().assets.push(Asset::Fungible(
-                    FungibleAsset::new(
-                        faucet_id.try_into().map_err(|err: AccountError| {
-                            DatabaseError::DataCorrupted(err.to_string())
-                        })?,
-                        amount,
-                    )
-                    .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
+            Entry::Occupied(_) => {
+                return Err(DatabaseError::DataCorrupted(format!(
+                    "Duplicate storage slot: {slot}"
+                )));
+            },
+        }
+    }
+
+    let mut rows = select_latest_storage_map_updates_stmt
+        .query(params![Rc::clone(&account_ids), block_number])?;
+    while let Some(row) = rows.next()? {
+        let account_id: AccountId = row.get(0)?;
+        let slot: u8 = row.get(1)?;
+        let key = row.get_ref(2)?.as_blob()?;
+        let key = Digest::read_from_bytes(key)?;
+        let value = row.get_ref(3)?.as_blob()?;
+        let value = Word::read_from_bytes(value)?;
+
+        match find_account(&mut accounts, account_id)?.get_mut().storage.entry(slot) {
+            Entry::Vacant(entry) => {
+                entry.insert(StorageSlot::Map(
+                    StorageMap::with_entries([(key, value)])
+                        .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
                 ));
             },
-            RecordType::NonFungibleAssets => {
-                let vault_key = row.get_ref(FieldIndex::Key as usize)?.as_blob()?;
-                let vault_key = Word::read_from_bytes(vault_key)?;
-                let asset = NonFungibleAsset::try_from(vault_key)
-                    .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
-                found_account.get_mut().assets.push(Asset::NonFungible(asset));
+            Entry::Occupied(mut entry) => match entry.get_mut() {
+                StorageSlot::Value(_) => {
+                    return Err(DatabaseError::DataCorrupted(format!(
+                        "Conflicting storage slot: {slot}, expected map, but actually \
+                                    value"
+                    )))
+                },
+                StorageSlot::Map(map) => {
+                    map.insert(key, value);
+                },
             },
         }
+    }
+
+    let mut rows =
+        select_fungible_asset_deltas_stmt.query(params![Rc::clone(&account_ids), block_number])?;
+    while let Some(row) = rows.next()? {
+        let account_id: AccountId = row.get(0)?;
+        let faucet_id: AccountId = row.get(1)?;
+        let amount: u64 = row.get(2)?;
+        find_account(&mut accounts, account_id)?.get_mut().assets.push(Asset::Fungible(
+            FungibleAsset::new(
+                faucet_id
+                    .try_into()
+                    .map_err(|err: AccountError| DatabaseError::DataCorrupted(err.to_string()))?,
+                amount,
+            )
+            .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
+        ));
+    }
+
+    let mut rows = select_latest_non_fungible_assets_stmt
+        .query(params![Rc::clone(&account_ids), block_number])?;
+    while let Some(row) = rows.next()? {
+        let account_id: AccountId = row.get(0)?;
+        let vault_key = row.get_ref(1)?.as_blob()?;
+        let vault_key = Word::read_from_bytes(vault_key)?;
+        let asset = NonFungibleAsset::try_from(vault_key)
+            .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
+        find_account(&mut accounts, account_id)?
+            .get_mut()
+            .assets
+            .push(Asset::NonFungible(asset));
     }
 
     // Converting gathered data to vector of `Account` structures.
