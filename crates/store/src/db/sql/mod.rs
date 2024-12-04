@@ -31,7 +31,7 @@ use super::{
 };
 use crate::{
     db::sql::utils::{
-        account_summary_from_row, account_info_from_row, apply_delta, bulk_insert,
+        account_info_from_row, account_summary_from_row, apply_delta, bulk_insert,
         column_value_as_u64, get_nullifier_prefix, insert_sql, u32_to_value, u64_to_value,
     },
     errors::{DatabaseError, NoteSyncError, StateSyncError},
