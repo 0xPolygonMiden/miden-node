@@ -22,7 +22,6 @@ use miden_objects::{
     utils::serde::{Deserializable, Serializable},
     BlockHeader, Digest, Word,
 };
-use num_traits::FromPrimitive;
 use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{
@@ -220,6 +219,81 @@ pub fn select_account_delta(
     ",
     )?;
 
+    let mut select_slot_updates_stmt = conn.prepare_cached(
+        "
+            SELECT
+                slot, value
+            FROM
+                account_storage_slot_updates AS a
+            WHERE
+                account_id = ?1 AND
+                block_num > ?2 AND
+                block_num <= ?3 AND
+                NOT EXISTS(
+                    SELECT 1
+                    FROM account_storage_slot_updates AS b
+                    WHERE
+                        b.account_id = ?1 AND
+                        a.slot = b.slot AND
+                        a.block_num < b.block_num AND
+                        b.block_num <= ?3
+                )
+        ",
+    )?;
+
+    let mut select_storage_map_updates_stmt = conn.prepare_cached(
+        "
+        SELECT
+            slot, key, value
+        FROM
+            account_storage_map_updates AS a
+        WHERE
+            account_id = ?1 AND
+            block_num > ?2 AND
+            block_num <= ?3 AND
+            NOT EXISTS(
+                SELECT 1
+                FROM account_storage_map_updates AS b
+                WHERE
+                    b.account_id = ?1 AND
+                    a.slot = b.slot AND
+                    a.key = b.key AND
+                    a.block_num < b.block_num AND
+                    b.block_num <= ?3
+            )
+        ",
+    )?;
+
+    let mut select_fungible_asset_deltas_stmt = conn.prepare_cached(
+        "
+        SELECT
+            faucet_id, SUM(delta)
+        FROM
+            account_fungible_asset_deltas
+        WHERE
+            account_id = ?1 AND
+            block_num > ?2 AND
+            block_num <= ?3
+        GROUP BY
+            faucet_id
+        ",
+    )?;
+
+    let mut select_non_fungible_asset_updates_stmt = conn.prepare_cached(
+        "
+        SELECT
+            block_num, vault_key, is_remove
+        FROM
+            account_non_fungible_asset_updates
+        WHERE
+            account_id = ?1 AND
+            block_num > ?2 AND
+            block_num <= ?3
+        ORDER BY
+            block_num
+        ",
+    )?;
+
     let account_id = u64_to_value(account_id);
     let nonce = match select_nonce_stmt
         .query_row(params![account_id, block_start, block_end], |row| row.get::<_, u64>(0))
@@ -229,75 +303,63 @@ pub fn select_account_delta(
         Err(e) => return Err(e.into()),
     };
 
-    #[derive(num_derive::FromPrimitive)]
-    enum RecordType {
-        StorageScalars = 0,
-        StorageMapValues,
-        FungibleAssets,
-        NonFungibleAssets,
-    }
-    let mut select_merged_deltas_stmt =
-        conn.prepare_cached(include_str!("queries/select_merged_deltas.sql"))?;
-    let mut rows = select_merged_deltas_stmt.query(params![account_id, block_start, block_end])?;
-
-    enum FieldIndex {
-        RecordType = 0,
-        Slot = 2,
-        Key = 3,
-        Value = 4,
-    }
-
     let mut storage_scalars = BTreeMap::new();
-    let mut storage_maps = BTreeMap::new();
-    let mut fungible = BTreeMap::new();
-    let mut non_fungible_delta = NonFungibleAssetDelta::default();
+    let mut rows = select_slot_updates_stmt.query(params![account_id, block_start, block_end])?;
     while let Some(row) = rows.next()? {
-        let record_type = RecordType::from_usize(row.get(FieldIndex::RecordType as usize)?)
-            .expect("Record type value must be one of the `RecordType` enum variants");
-        match record_type {
-            RecordType::StorageScalars => {
-                let slot = row.get(FieldIndex::Slot as usize)?;
-                let value_data = row.get_ref(FieldIndex::Value as usize)?.as_blob()?;
-                let value = Word::read_from_bytes(value_data)?;
-                storage_scalars.insert(slot, value);
-            },
-            RecordType::StorageMapValues => {
-                let slot = row.get(FieldIndex::Slot as usize)?;
-                let key_data = row.get_ref(FieldIndex::Key as usize)?.as_blob()?;
-                let key = Digest::read_from_bytes(key_data)?;
-                let value_data = row.get_ref(FieldIndex::Value as usize)?.as_blob()?;
-                let value = Word::read_from_bytes(value_data)?;
+        let slot = row.get(0)?;
+        let value_data = row.get_ref(1)?.as_blob()?;
+        let value = Word::read_from_bytes(value_data)?;
+        storage_scalars.insert(slot, value);
+    }
 
-                match storage_maps.entry(slot) {
-                    Entry::Vacant(entry) => {
-                        entry.insert(StorageMapDelta::new(BTreeMap::from([(key, value)])));
-                    },
-                    Entry::Occupied(mut entry) => {
-                        entry.get_mut().insert(key, value);
-                    },
-                }
-            },
-            RecordType::FungibleAssets => {
-                let faucet_id: u64 = row.get(FieldIndex::Key as usize)?;
-                let value = row.get(FieldIndex::Value as usize)?;
+    let mut storage_maps = BTreeMap::new();
+    let mut rows =
+        select_storage_map_updates_stmt.query(params![account_id, block_start, block_end])?;
+    while let Some(row) = rows.next()? {
+        let slot = row.get(0)?;
+        let key_data = row.get_ref(1)?.as_blob()?;
+        let key = Digest::read_from_bytes(key_data)?;
+        let value_data = row.get_ref(2)?.as_blob()?;
+        let value = Word::read_from_bytes(value_data)?;
 
-                fungible.insert(faucet_id.try_into()?, value);
+        match storage_maps.entry(slot) {
+            Entry::Vacant(entry) => {
+                entry.insert(StorageMapDelta::new(BTreeMap::from([(key, value)])));
             },
-            RecordType::NonFungibleAssets => {
-                let vault_key_data = row.get_ref(FieldIndex::Key as usize)?.as_blob()?;
-                let vault_key = Word::read_from_bytes(vault_key_data)?;
-                let asset = NonFungibleAsset::try_from(vault_key)
-                    .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
-                let action: usize = row.get(FieldIndex::Value as usize)?;
-                match action {
-                    0 => non_fungible_delta.add(asset)?,
-                    1 => non_fungible_delta.remove(asset)?,
-                    _ => {
-                        return Err(DatabaseError::DataCorrupted(format!(
-                            "Invalid non-fungible asset delta action: {action}"
-                        )))
-                    },
-                }
+            Entry::Occupied(mut entry) => {
+                entry.get_mut().insert(key, value);
+            },
+        }
+    }
+
+    let mut fungible = BTreeMap::new();
+    let mut rows =
+        select_fungible_asset_deltas_stmt.query(params![account_id, block_start, block_end])?;
+    while let Some(row) = rows.next()? {
+        let faucet_id: u64 = row.get(0)?;
+        let value = row.get(1)?;
+        fungible.insert(faucet_id.try_into()?, value);
+    }
+
+    let mut non_fungible_delta = NonFungibleAssetDelta::default();
+    let mut rows = select_non_fungible_asset_updates_stmt.query(params![
+        account_id,
+        block_start,
+        block_end
+    ])?;
+    while let Some(row) = rows.next()? {
+        let vault_key_data = row.get_ref(1)?.as_blob()?;
+        let vault_key = Word::read_from_bytes(vault_key_data)?;
+        let asset = NonFungibleAsset::try_from(vault_key)
+            .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
+        let action: usize = row.get(2)?;
+        match action {
+            0 => non_fungible_delta.add(asset)?,
+            1 => non_fungible_delta.remove(asset)?,
+            _ => {
+                return Err(DatabaseError::DataCorrupted(format!(
+                    "Invalid non-fungible asset delta action: {action}"
+                )))
             },
         }
     }
