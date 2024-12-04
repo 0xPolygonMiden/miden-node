@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use assert_matches::assert_matches;
 use miden_objects::{
     accounts::{account_id::testing::ACCOUNT_ID_OFF_CHAIN_SENDER, AccountId},
     Digest, Felt,
@@ -78,5 +79,5 @@ async fn test_build_block_failure() {
     let result = block_builder.build_block(&Vec::new()).await;
 
     // Ensure that the store's `apply_block()` was called
-    assert!(matches!(result, Err(BuildBlockError::GetBlockInputsFailed(_))));
+    assert_matches!(result, Err(BuildBlockError::GetBlockInputsFailed(_)));
 }

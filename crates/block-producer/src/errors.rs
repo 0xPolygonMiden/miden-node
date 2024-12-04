@@ -30,7 +30,7 @@ pub enum BlockProducerError {
 // Transaction verification errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum VerifyTxError {
     /// Another transaction already consumed the notes with given nullifiers
     #[error("Input notes with given nullifiers were already consumed by another transaction")]
@@ -71,7 +71,7 @@ pub enum VerifyTxError {
 // Transaction adding errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum AddTransactionError {
     #[error("Transaction verification failed: {0}")]
     VerificationFailed(#[from] VerifyTxError),
@@ -109,7 +109,7 @@ impl From<AddTransactionError> for tonic::Status {
 // =================================================================================================
 
 /// Error encountered while building a batch.
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum BuildBatchError {
     #[error("Duplicated unauthenticated transaction input note ID in the batch: {0}")]
     DuplicateUnauthenticatedNote(NoteId),
@@ -137,7 +137,7 @@ pub enum BuildBatchError {
 // Block prover errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum BlockProverError {
     #[error("Received invalid merkle path")]
     InvalidMerklePaths(MerkleError),
@@ -151,7 +151,7 @@ pub enum BlockProverError {
 // =================================================================================================
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum BlockInputsError {
     #[error("failed to parse protobuf message: {0}")]
     ConversionError(#[from] ConversionError),
@@ -164,7 +164,7 @@ pub enum BlockInputsError {
 // Block applying errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum ApplyBlockError {
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
@@ -173,7 +173,7 @@ pub enum ApplyBlockError {
 // Block building errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum BuildBlockError {
     #[error("failed to compute new block: {0}")]
     BlockProverFailed(#[from] BlockProverError),
@@ -203,7 +203,7 @@ pub enum BuildBlockError {
 // Transaction inputs errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum TxInputsError {
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
