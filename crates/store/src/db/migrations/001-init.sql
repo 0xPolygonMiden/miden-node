@@ -80,8 +80,6 @@ CREATE TABLE
     FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE INDEX idx_account_storage_slot_updates_slot ON account_storage_slot_updates (slot);
-
 CREATE TABLE
     account_storage_map_updates
 (
@@ -95,9 +93,6 @@ CREATE TABLE
     FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE INDEX idx_account_storage_map_updates_slot ON account_storage_map_updates (slot);
-CREATE INDEX idx_account_storage_map_updates_key ON account_storage_map_updates (key);
-
 CREATE TABLE
     account_fungible_asset_deltas
 (
@@ -110,8 +105,6 @@ CREATE TABLE
     FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE INDEX idx_account_fungible_asset_deltas_faucet ON account_fungible_asset_deltas(faucet_id);
-
 CREATE TABLE
     account_non_fungible_asset_updates
 (
@@ -123,9 +116,6 @@ CREATE TABLE
     PRIMARY KEY (account_id, block_num, vault_key),
     FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
-
-CREATE INDEX idx_account_non_fungible_asset_updates_vault_key
-    ON account_non_fungible_asset_updates (vault_key);
 
 CREATE TABLE
     nullifiers

@@ -6,9 +6,9 @@ use miden_objects::{
     utils::Deserializable,
 };
 use rusqlite::{
-    params, params_from_iter,
+    params,
     types::{Value, ValueRef},
-    Connection, OptionalExtension, ToSql, Transaction,
+    Connection, OptionalExtension,
 };
 
 use crate::errors::DatabaseError;
@@ -35,39 +35,13 @@ pub fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
     conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
 }
 
-/// Generates a simple insert SQL statement with values for the provided table, fields, and record
-/// number.
-pub fn insert_sql(table: &str, fields: &[&str], record_count: usize) -> String {
-    assert!(record_count > 0);
-
+/// Generates a simple insert SQL statement with parameters for the provided table and fields
+pub fn insert_sql(table: &str, fields: &[&str]) -> String {
     format!(
-        "INSERT INTO {table} ({}) VALUES {}",
+        "INSERT INTO {table} ({}) VALUES ({})",
         fields.join(", "),
-        format!("({}), ", "?, ".repeat(fields.len()).trim_end_matches(", "))
-            .repeat(record_count)
-            .trim_end_matches(", ")
+        "?, ".repeat(fields.len()).trim_end_matches(", ")
     )
-}
-
-/// Generates and executes a bulk insert SQL statement for the provided table, fields, and values.
-///
-/// # Notes
-///
-/// Values are expected to be in the same order as the fields.
-pub fn bulk_insert(
-    transaction: &Transaction,
-    table: &str,
-    fields: &[&str],
-    record_count: usize,
-    values: impl IntoIterator<Item: ToSql>,
-) -> rusqlite::Result<usize> {
-    if record_count == 0 {
-        return Ok(0);
-    }
-
-    let sql = insert_sql(table, fields, record_count);
-
-    transaction.execute(&sql, params_from_iter(values))
 }
 
 /// Converts a `u64` into a [Value].
@@ -76,14 +50,6 @@ pub fn bulk_insert(
 /// lossless conversion from `u64` to `i64`.
 pub fn u64_to_value(v: u64) -> Value {
     Value::Integer(v as i64)
-}
-
-/// Converts a `u32` into a [Value].
-///
-/// Sqlite uses `i64` as its internal representation format.
-pub fn u32_to_value(v: u32) -> Value {
-    let v: i64 = v.into();
-    Value::Integer(v)
 }
 
 /// Gets a `u64` value from the database.
@@ -101,7 +67,7 @@ pub fn column_value_as_u64<I: rusqlite::RowIndex>(
 /// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
-pub fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
+pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
     let account_id = column_value_as_u64(row, 0)?;
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
@@ -118,7 +84,7 @@ pub fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> crate::db::Resul
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_info_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountInfo> {
-    let update = account_hash_update_from_row(row)?;
+    let update = account_summary_from_row(row)?;
 
     let details = row.get_ref(3)?.as_blob_or_null()?;
     let details = details.map(Account::read_from_bytes).transpose()?;
