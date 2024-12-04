@@ -50,7 +50,7 @@ use crate::batch_builder::batch::TransactionBatch;
 ///                     │  <null>   ◄────┘                
 ///                     └───────────┘                     
 /// ```
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct BatchGraph {
     /// Tracks the interdependencies between batches.
     inner: DependencyGraph<BatchJobId, TransactionBatch>,
@@ -238,6 +238,11 @@ impl BatchGraph {
         }
 
         batches
+    }
+
+    /// Returns `true` if the graph contains the given batch.
+    pub fn contains(&self, id: &BatchJobId) -> bool {
+        self.batches.contains_key(id)
     }
 }
 

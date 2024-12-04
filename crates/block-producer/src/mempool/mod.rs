@@ -177,6 +177,7 @@ impl BlockBudget {
 
 pub type SharedMempool = Arc<Mutex<Mempool>>;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Mempool {
     /// The latest inflight state of each account.
     ///
@@ -198,19 +199,28 @@ pub struct Mempool {
     /// The current inflight block, if any.
     block_in_progress: Option<BTreeSet<BatchJobId>>,
 
-    batch_budget: BatchBudget,
     block_budget: BlockBudget,
+    batch_budget: BatchBudget,
 }
 
 impl Mempool {
-    /// Creates a new [Mempool] with the provided configuration.
-    pub fn new(
+    /// Creates a new [SharedMempool] with the provided configuration.
+    pub fn shared(
         chain_tip: BlockNumber,
         batch_budget: BatchBudget,
         block_budget: BlockBudget,
         state_retention: usize,
     ) -> SharedMempool {
-        Arc::new(Mutex::new(Self {
+        Arc::new(Mutex::new(Self::new(chain_tip, batch_budget, block_budget, state_retention)))
+    }
+
+    fn new(
+        chain_tip: BlockNumber,
+        batch_budget: BatchBudget,
+        block_budget: BlockBudget,
+        state_retention: usize,
+    ) -> Mempool {
+        Self {
             chain_tip,
             batch_budget,
             block_budget,
@@ -219,7 +229,7 @@ impl Mempool {
             transactions: Default::default(),
             batches: Default::default(),
             next_batch_id: Default::default(),
-        }))
+        }
     }
 
     /// Adds a transaction to the mempool.
@@ -271,27 +281,34 @@ impl Mempool {
     ///
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchJobId) {
-        let removed_batches =
-            self.batches.remove_batches([batch].into()).expect("Batch was not present");
-
-        // Its possible to receive failures for batches which were already removed
-        // as part of a prior failure. Early exit to prevent logging these no-ops.
-        if removed_batches.is_empty() {
+        // Batch may already have been removed as part of a parent batches failure.
+        if !self.batches.contains(&batch) {
             return;
         }
 
-        let batches = removed_batches.keys().copied().collect::<Vec<_>>();
-        let transactions = removed_batches.into_values().flatten().collect();
+        let removed_batches =
+            self.batches.remove_batches([batch].into()).expect("Batch was not present");
+
+        let transactions = removed_batches.values().flatten().copied().collect();
 
         self.transactions
             .requeue_transactions(transactions)
             .expect("Transaction should requeue");
 
-        tracing::warn!(%batch, descendents=?batches, "Batch failed, dropping all inflight descendent batches, impacted transactions are back in queue.");
+        tracing::warn!(
+            %batch,
+            descendents=?removed_batches.keys(),
+            "Batch failed, dropping all inflight descendent batches, impacted transactions are back in queue."
+        );
     }
 
     /// Marks a batch as proven if it exists.
     pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
+        // Batch may have been removed as part of a parent batches failure.
+        if !self.batches.contains(&batch_id) {
+            return;
+        }
+
         self.batches.submit_proof(batch_id, batch).expect("Batch proof should submit");
     }
 
@@ -354,5 +371,87 @@ impl Mempool {
 
         // Rollback state.
         self.state.revert_transactions(transactions);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::test_utils::MockProvenTxBuilder;
+
+    impl Mempool {
+        fn for_tests() -> Self {
+            Self::new(BlockNumber::new(0), Default::default(), Default::default(), 5)
+        }
+    }
+
+    // BATCH REVERSION TESTS
+    // ================================================================================================
+
+    #[test]
+    fn children_of_reverted_batches_are_ignored() {
+        // Batches are proved concurrently. This makes it possible for a child job to complete after
+        // the parent has been reverted (and therefore reverting the child job). Such a child job
+        // should be ignored.
+        let txs = MockProvenTxBuilder::sequential();
+
+        let mut uut = Mempool::for_tests();
+        uut.add_transaction(txs[0].clone()).unwrap();
+        let (parent_batch, batch_txs) = uut.select_batch().unwrap();
+        assert_eq!(batch_txs, vec![txs[0].clone()]);
+
+        uut.add_transaction(txs[1].clone()).unwrap();
+        let (child_batch_a, batch_txs) = uut.select_batch().unwrap();
+        assert_eq!(batch_txs, vec![txs[1].clone()]);
+
+        uut.add_transaction(txs[2].clone()).unwrap();
+        let (child_batch_b, batch_txs) = uut.select_batch().unwrap();
+        assert_eq!(batch_txs, vec![txs[2].clone()]);
+
+        // Child batch jobs are now dangling.
+        uut.batch_failed(parent_batch);
+        let reference = uut.clone();
+
+        // Success or failure of the child job should effectively do nothing.
+        uut.batch_failed(child_batch_a);
+        assert_eq!(uut, reference);
+
+        let proof = TransactionBatch::new(
+            vec![txs[2].raw_proven_transaction().clone()],
+            Default::default(),
+        )
+        .unwrap();
+        uut.batch_proved(child_batch_b, proof);
+        assert_eq!(uut, reference);
+    }
+
+    #[test]
+    fn reverted_batch_transactions_are_requeued() {
+        let txs = MockProvenTxBuilder::sequential();
+
+        let mut uut = Mempool::for_tests();
+        uut.add_transaction(txs[0].clone()).unwrap();
+        uut.select_batch().unwrap();
+
+        uut.add_transaction(txs[1].clone()).unwrap();
+        let (failed_batch, _) = uut.select_batch().unwrap();
+
+        uut.add_transaction(txs[2].clone()).unwrap();
+        uut.select_batch().unwrap();
+
+        // Middle batch failed, so it and its child transaction should be re-entered into the queue.
+        uut.batch_failed(failed_batch);
+
+        let mut reference = Mempool::for_tests();
+        reference.add_transaction(txs[0].clone()).unwrap();
+        reference.select_batch().unwrap();
+        reference.add_transaction(txs[1].clone()).unwrap();
+        reference.add_transaction(txs[2].clone()).unwrap();
+        reference.next_batch_id.increment();
+        reference.next_batch_id.increment();
+
+        assert_eq!(uut, reference);
     }
 }

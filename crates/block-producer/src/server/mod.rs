@@ -96,7 +96,7 @@ impl BlockProducer {
             chain_tip,
         } = self;
 
-        let mempool = Mempool::new(chain_tip, batch_budget, block_budget, state_retention);
+        let mempool = Mempool::shared(chain_tip, batch_budget, block_budget, state_retention);
 
         // Spawn rpc server and batch and block provers.
         //
