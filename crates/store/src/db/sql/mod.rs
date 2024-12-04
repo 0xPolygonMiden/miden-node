@@ -31,8 +31,8 @@ use super::{
 };
 use crate::{
     db::sql::utils::{
-        account_info_from_row, account_summary_from_row, apply_delta, bulk_insert,
-        column_value_as_u64, get_nullifier_prefix, insert_sql, u64_to_value,
+        account_info_from_row, account_summary_from_row, apply_delta, column_value_as_u64,
+        get_nullifier_prefix, insert_sql, u64_to_value,
     },
     errors::{DatabaseError, NoteSyncError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -387,90 +387,77 @@ fn insert_account_delta(
     block_number: BlockNumber,
     delta: &AccountDelta,
 ) -> Result<()> {
-    let mut insert_delta_stmt = transaction.prepare_cached(&insert_sql(
-        "account_deltas",
-        &["account_id", "block_num", "nonce"],
-        1,
+    let mut insert_acc_delta_stmt = transaction
+        .prepare_cached(&insert_sql("account_deltas", &["account_id", "block_num", "nonce"]))?;
+
+    let mut insert_slot_update_stmt = transaction.prepare_cached(&insert_sql(
+        "account_storage_slot_updates",
+        &["account_id", "block_num", "slot", "value"],
     ))?;
 
-    let account_id = u64_to_value(account_id);
+    let mut insert_storage_map_update_stmt = transaction.prepare_cached(&insert_sql(
+        "account_storage_map_updates",
+        &["account_id", "block_num", "slot", "key", "value"],
+    ))?;
 
-    insert_delta_stmt.execute(params![
-        account_id,
+    let mut insert_fungible_asset_delta_stmt = transaction.prepare_cached(&insert_sql(
+        "account_fungible_asset_deltas",
+        &["account_id", "block_num", "faucet_id", "delta"],
+    ))?;
+
+    let mut insert_non_fungible_asset_update_stmt = transaction.prepare_cached(&insert_sql(
+        "account_non_fungible_asset_updates",
+        &["account_id", "block_num", "vault_key", "is_remove"],
+    ))?;
+
+    insert_acc_delta_stmt.execute(params![
+        u64_to_value(account_id),
         block_number,
         delta.nonce().map(Into::<u64>::into).unwrap_or_default()
     ])?;
 
-    bulk_insert(
-        transaction,
-        "account_storage_slot_updates",
-        &["account_id", "block_num", "slot", "value"],
-        delta.storage().values().len(),
-        delta.storage().values().iter().flat_map(|(&slot, value)| {
-            [account_id.clone(), block_number.into(), slot.into(), value.to_bytes().into()]
-        }),
-    )?;
+    for (&slot, value) in delta.storage().values() {
+        insert_slot_update_stmt.execute(params![
+            u64_to_value(account_id),
+            block_number,
+            slot,
+            value.to_bytes()
+        ])?;
+    }
 
-    bulk_insert(
-        transaction,
-        "account_storage_map_updates",
-        &["account_id", "block_num", "slot", "key", "value"],
-        delta
-            .storage()
-            .maps()
-            .iter()
-            .map(|(_, map_delta)| map_delta.leaves().len())
-            .sum(),
-        delta.storage().maps().iter().flat_map(|(slot, map_delta)| {
-            map_delta.leaves().iter().flat_map(|(key, value)| {
-                [
-                    account_id.clone(),
-                    block_number.into(),
-                    (*slot).into(),
-                    key.to_bytes().into(),
-                    value.to_bytes().into(),
-                ]
-            })
-        }),
-    )?;
+    for (&slot, map_delta) in delta.storage().maps() {
+        for (key, value) in map_delta.leaves() {
+            insert_storage_map_update_stmt.execute(params![
+                u64_to_value(account_id),
+                block_number,
+                slot,
+                key.to_bytes(),
+                value.to_bytes(),
+            ])?;
+        }
+    }
 
-    bulk_insert(
-        transaction,
-        "account_fungible_asset_deltas",
-        &["account_id", "block_num", "faucet_id", "delta"],
-        // TODO: implement `num_assets` method for [FungibleAssetDelta] and use it here:
-        // delta.vault().fungible().num_assets(),
-        delta.vault().fungible().iter().count(),
-        delta.vault().fungible().iter().flat_map(|(&faucet_id, &delta)| {
-            [
-                account_id.clone(),
-                block_number.into(),
-                u64_to_value(faucet_id.into()),
-                delta.into(),
-            ]
-        }),
-    )?;
+    for (&faucet_id, &delta) in delta.vault().fungible().iter() {
+        insert_fungible_asset_delta_stmt.execute(params![
+            u64_to_value(account_id),
+            block_number,
+            u64_to_value(faucet_id.into()),
+            delta,
+        ])?;
+    }
 
-    bulk_insert(
-        transaction,
-        "account_non_fungible_asset_updates",
-        &["account_id", "block_num", "vault_key", "is_remove"],
-        // TODO: implement `num_assets` method for [NonFungibleAssetDelta] and use it here:
-        // delta.vault().non_fungible().num_assets(),
-        delta.vault().non_fungible().iter().count(),
-        delta.vault().non_fungible().iter().flat_map(|(&asset, action)| {
-            let is_remove = match action {
-                NonFungibleDeltaAction::Add => 0,
-                NonFungibleDeltaAction::Remove => 1,
-            };
-            [
-                account_id.clone(),
-                block_number.into(),
-                asset.vault_key().to_bytes().into(),
-                is_remove.into(),
-            ]
-        }),
-    )?;
+    for (&asset, action) in delta.vault().non_fungible().iter() {
+        let is_remove = match action {
+            NonFungibleDeltaAction::Add => 0,
+            NonFungibleDeltaAction::Remove => 1,
+        };
+        insert_non_fungible_asset_update_stmt.execute(params![
+            u64_to_value(account_id),
+            block_number,
+            asset.vault_key().to_bytes(),
+            is_remove,
+        ])?;
+    }
 
     Ok(())
 }
@@ -715,7 +702,6 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             "merkle_path",
             "details",
         ],
-        1,
     ))?;
 
     let mut count = 0;

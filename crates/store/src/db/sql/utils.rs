@@ -6,9 +6,9 @@ use miden_objects::{
     utils::Deserializable,
 };
 use rusqlite::{
-    params, params_from_iter,
+    params,
     types::{Value, ValueRef},
-    Connection, OptionalExtension, ToSql, Transaction,
+    Connection, OptionalExtension,
 };
 
 use crate::errors::DatabaseError;
@@ -35,39 +35,13 @@ pub fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
     conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
 }
 
-/// Generates a simple insert SQL statement with values for the provided table, fields, and record
-/// number.
-pub fn insert_sql(table: &str, fields: &[&str], record_count: usize) -> String {
-    assert!(record_count > 0);
-
+/// Generates a simple insert SQL statement with parameters for the provided table and fields
+pub fn insert_sql(table: &str, fields: &[&str]) -> String {
     format!(
-        "INSERT INTO {table} ({}) VALUES {}",
+        "INSERT INTO {table} ({}) VALUES ({})",
         fields.join(", "),
-        format!("({}), ", "?, ".repeat(fields.len()).trim_end_matches(", "))
-            .repeat(record_count)
-            .trim_end_matches(", ")
+        "?, ".repeat(fields.len()).trim_end_matches(", ")
     )
-}
-
-/// Generates and executes a bulk insert SQL statement for the provided table, fields, and values.
-///
-/// # Notes
-///
-/// Values are expected to be in the same order as the fields.
-pub fn bulk_insert(
-    transaction: &Transaction,
-    table: &str,
-    fields: &[&str],
-    record_count: usize,
-    values: impl IntoIterator<Item: ToSql>,
-) -> rusqlite::Result<usize> {
-    if record_count == 0 {
-        return Ok(0);
-    }
-
-    let sql = insert_sql(table, fields, record_count);
-
-    transaction.execute(&sql, params_from_iter(values))
 }
 
 /// Converts a `u64` into a [Value].
