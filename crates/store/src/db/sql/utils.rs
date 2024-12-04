@@ -101,7 +101,7 @@ pub fn column_value_as_u64<I: rusqlite::RowIndex>(
 /// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
-pub fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
+pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
     let account_id = column_value_as_u64(row, 0)?;
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
@@ -118,7 +118,7 @@ pub fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> crate::db::Resul
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_info_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountInfo> {
-    let update = account_hash_update_from_row(row)?;
+    let update = account_summary_from_row(row)?;
 
     let details = row.get_ref(3)?.as_blob_or_null()?;
     let details = details.map(Account::read_from_bytes).transpose()?;
