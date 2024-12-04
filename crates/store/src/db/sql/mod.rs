@@ -32,7 +32,7 @@ use super::{
 use crate::{
     db::sql::utils::{
         account_info_from_row, account_summary_from_row, apply_delta, bulk_insert,
-        column_value_as_u64, get_nullifier_prefix, insert_sql, u32_to_value, u64_to_value,
+        column_value_as_u64, get_nullifier_prefix, insert_sql, u64_to_value,
     },
     errors::{DatabaseError, NoteSyncError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -542,7 +542,7 @@ pub fn select_nullifiers_by_block_range(
     nullifier_prefixes: &[u32],
 ) -> Result<Vec<NullifierInfo>> {
     let nullifier_prefixes: Vec<Value> =
-        nullifier_prefixes.iter().copied().map(u32_to_value).collect();
+        nullifier_prefixes.iter().copied().map(Into::into).collect();
 
     let mut stmt = conn.prepare_cached(
         "
@@ -591,7 +591,7 @@ pub fn select_nullifiers_by_prefix(
     assert_eq!(prefix_len, 16, "Only 16-bit prefixes are supported");
 
     let nullifier_prefixes: Vec<Value> =
-        nullifier_prefixes.iter().copied().map(u32_to_value).collect();
+        nullifier_prefixes.iter().copied().map(Into::into).collect();
 
     let mut stmt = conn.prepare_cached(
         "
@@ -760,7 +760,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     let mut stmt = conn
         .prepare_cached(include_str!("queries/select_notes_since_block_by_tag_and_sender.sql"))?;
 
-    let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
+    let tags: Vec<Value> = tags.iter().copied().map(Into::into).collect();
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
     let mut rows = stmt.query(params![Rc::new(tags), Rc::new(account_ids), block_num])?;
 
@@ -989,7 +989,7 @@ pub fn select_block_headers(
 ) -> Result<Vec<BlockHeader>> {
     let mut headers = Vec::with_capacity(blocks.len());
 
-    let blocks: Vec<Value> = blocks.iter().copied().map(u32_to_value).collect();
+    let blocks: Vec<Value> = blocks.iter().copied().map(Into::into).collect();
     let mut stmt = conn
         .prepare_cached("SELECT block_header FROM block_headers WHERE block_num IN rarray(?1);")?;
     let mut rows = stmt.query(params![Rc::new(blocks)])?;

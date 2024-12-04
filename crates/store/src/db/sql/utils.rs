@@ -78,14 +78,6 @@ pub fn u64_to_value(v: u64) -> Value {
     Value::Integer(v as i64)
 }
 
-/// Converts a `u32` into a [Value].
-///
-/// Sqlite uses `i64` as its internal representation format.
-pub fn u32_to_value(v: u32) -> Value {
-    let v: i64 = v.into();
-    Value::Integer(v)
-}
-
 /// Gets a `u64` value from the database.
 ///
 /// Sqlite uses `i64` as its internal representation format, and so when retrieving
