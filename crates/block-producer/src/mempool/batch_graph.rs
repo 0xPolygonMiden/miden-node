@@ -239,6 +239,11 @@ impl BatchGraph {
 
         batches
     }
+
+    /// Returns `true` if the graph contains the given batch.
+    pub fn contains(&self, id: &BatchJobId) -> bool {
+        self.batches.contains_key(id)
+    }
 }
 
 #[cfg(any(test, doctest))]

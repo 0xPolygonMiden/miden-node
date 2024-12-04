@@ -199,13 +199,6 @@ pub struct Mempool {
     /// The current inflight block, if any.
     block_in_progress: Option<BTreeSet<BatchJobId>>,
 
-    /// Batches which are currently being proven.
-    ///
-    /// This is used to identify jobs which have been cancelled by the mempool but might still be
-    /// submitted by the batch prover. This is achieved by ignoring all batch proofs which are not
-    /// in this set.
-    batches_in_progress: BTreeSet<BatchJobId>,
-
     block_budget: BlockBudget,
     batch_budget: BatchBudget,
 }
@@ -233,7 +226,6 @@ impl Mempool {
             block_budget,
             state: InflightState::new(chain_tip, state_retention),
             block_in_progress: Default::default(),
-            batches_in_progress: Default::default(),
             transactions: Default::default(),
             batches: Default::default(),
             next_batch_id: Default::default(),
@@ -278,7 +270,6 @@ impl Mempool {
         let batch_id = self.next_batch_id;
         self.next_batch_id.increment();
 
-        self.batches_in_progress.insert(batch_id);
         self.batches
             .insert(batch_id, tx_ids, parents)
             .expect("Selected batch should insert");
@@ -291,7 +282,7 @@ impl Mempool {
     /// Transactions are placed back in the queue.
     pub fn batch_failed(&mut self, batch: BatchJobId) {
         // Batch may already have been removed as part of a parent batches failure.
-        if !self.batches_in_progress.contains(&batch) {
+        if !self.batches.contains(&batch) {
             return;
         }
 
@@ -299,11 +290,6 @@ impl Mempool {
             self.batches.remove_batches([batch].into()).expect("Batch was not present");
 
         let transactions = removed_batches.values().flatten().copied().collect();
-
-        // Remove these batches from the active list so we can ignore any subsequent submissions.
-        removed_batches.keys().for_each(|batch| {
-            self.batches_in_progress.remove(batch);
-        });
 
         self.transactions
             .requeue_transactions(transactions)
@@ -318,8 +304,8 @@ impl Mempool {
 
     /// Marks a batch as proven if it exists.
     pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
-        if !self.batches_in_progress.remove(&batch_id) {
-            // Batch may have been removed as part of a parent batches failure.
+        // Batch may have been removed as part of a parent batches failure.
+        if !self.batches.contains(&batch_id) {
             return;
         }
 

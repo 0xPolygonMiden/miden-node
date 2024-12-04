@@ -71,6 +71,8 @@ where
             .field("vertices", &self.vertices.keys())
             .field("processed", &self.processed)
             .field("roots", &self.roots)
+            .field("parents", &self.parents)
+            .field("children", &self.children)
             .finish()
     }
 }
