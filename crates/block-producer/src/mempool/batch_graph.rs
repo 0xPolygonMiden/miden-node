@@ -224,12 +224,16 @@ impl BatchGraph {
         while let Some(batch_id) = self.inner.roots().first().copied() {
             // SAFETY: Since it was a root batch, it must definitely have a processed batch
             // associated with it.
-            let batch = self.inner.get(&batch_id).expect("root should be in graph").clone();
+            let batch = self.inner.get(&batch_id).expect("root should be in graph");
 
             // Adhere to block's budget.
             if budget.check_then_subtract(&batch) == BudgetStatus::Exceeded {
                 break;
             }
+
+            // Clone is required to avoid multiple borrows of self. We delay this clone until after
+            // the budget check, which is why this looks so out of place.
+            let batch = batch.clone();
 
             // SAFETY: This is definitely a root since we just selected it from the set of roots.
             self.inner.process_root(batch_id).expect("root should be processed");
