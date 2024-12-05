@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use miden_objects::transaction::TransactionId;
 
 use super::{
-    dependency_graph::{DependencyGraph, GraphError},
+    graph::{DependencyGraph, GraphError},
     BatchJobId, BlockBudget, BudgetStatus,
 };
 use crate::batch_builder::batch::TransactionBatch;
