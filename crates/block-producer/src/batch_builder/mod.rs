@@ -10,10 +10,6 @@ use crate::{
     COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
 };
 
-// FIXME: fix the batch builder tests.
-// #[cfg(test)]
-// mod tests;
-
 pub mod batch;
 pub use batch::TransactionBatch;
 use miden_node_utils::formatting::{format_array, format_blake3_digest};
