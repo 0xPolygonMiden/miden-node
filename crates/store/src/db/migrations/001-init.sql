@@ -41,7 +41,7 @@ CREATE TABLE
     CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_batch_index_is_u32 CHECK (batch_index BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
-) STRICT;
+) STRICT, WITHOUT ROWID;
 
 CREATE TABLE
     accounts
@@ -61,11 +61,61 @@ CREATE TABLE
 (
     account_id  INTEGER NOT NULL,
     block_num   INTEGER NOT NULL,
-    delta       BLOB    NOT NULL,
+    nonce       INTEGER NOT NULL,
 
     PRIMARY KEY (account_id, block_num),
+    FOREIGN KEY (account_id) REFERENCES accounts(account_id),
     FOREIGN KEY (block_num) REFERENCES block_headers(block_num)
-) STRICT;
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE
+    account_storage_slot_updates
+(
+    account_id  INTEGER NOT NULL,
+    block_num   INTEGER NOT NULL,
+    slot        INTEGER NOT NULL,
+    value       BLOB    NOT NULL,
+
+    PRIMARY KEY (account_id, block_num, slot),
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE
+    account_storage_map_updates
+(
+    account_id  INTEGER NOT NULL,
+    block_num   INTEGER NOT NULL,
+    slot        INTEGER NOT NULL,
+    key         BLOB    NOT NULL,
+    value       BLOB    NOT NULL,
+
+    PRIMARY KEY (account_id, block_num, slot, key),
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE
+    account_fungible_asset_deltas
+(
+    account_id  INTEGER NOT NULL,
+    block_num   INTEGER NOT NULL,
+    faucet_id   INTEGER NOT NULL,
+    delta       INTEGER NOT NULL,
+
+    PRIMARY KEY (account_id, block_num, faucet_id),
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE
+    account_non_fungible_asset_updates
+(
+    account_id  INTEGER NOT NULL,
+    block_num   INTEGER NOT NULL,
+    vault_key   BLOB NOT NULL,
+    is_remove   INTEGER NOT NULL, -- 0 - add, 1 - remove
+
+    PRIMARY KEY (account_id, block_num, vault_key),
+    FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
+) STRICT, WITHOUT ROWID;
 
 CREATE TABLE
     nullifiers

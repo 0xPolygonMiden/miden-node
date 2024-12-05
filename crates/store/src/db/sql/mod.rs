@@ -1,36 +1,42 @@
 //! Wrapper functions for SQL statements.
 
+#[macro_use]
+pub(crate) mod utils;
+
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, BTreeSet},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
     rc::Rc,
 };
 
 use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
-    accounts::{delta::AccountUpdateDetails, Account, AccountDelta},
+    accounts::{
+        delta::AccountUpdateDetails, AccountDelta, AccountStorageDelta, AccountVaultDelta,
+        FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction, StorageMapDelta,
+    },
+    assets::NonFungibleAsset,
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
-    BlockHeader,
+    BlockHeader, Digest, Word,
 };
-use rusqlite::{
-    params,
-    types::{Value, ValueRef},
-    Connection, OptionalExtension, Transaction,
-};
+use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::{
     NoteRecord, NoteSyncRecord, NoteSyncUpdate, NullifierInfo, Result, StateSyncUpdate,
     TransactionSummary,
 };
 use crate::{
+    db::sql::utils::{
+        account_info_from_row, account_summary_from_row, apply_delta, column_value_as_u64,
+        get_nullifier_prefix, u64_to_value,
+    },
     errors::{DatabaseError, NoteSyncError, StateSyncError},
     types::{AccountId, BlockNumber},
 };
-
 // ACCOUNT QUERIES
 // ================================================================================================
 
@@ -118,7 +124,7 @@ pub fn select_accounts_by_block_range(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        result.push(account_hash_update_from_row(row)?)
+        result.push(account_summary_from_row(row)?)
     }
 
     Ok(result)
@@ -184,7 +190,8 @@ pub fn select_accounts_by_ids(
     Ok(result)
 }
 
-/// Select account deltas by account id and block range from the DB using the given [Connection].
+/// Selects and merges account deltas by account id and block range from the DB using the given
+/// [Connection].
 ///
 /// # Note:
 ///
@@ -192,33 +199,176 @@ pub fn select_accounts_by_ids(
 ///
 /// # Returns
 ///
-/// The account deltas, or an error.
-pub fn select_account_deltas(
+/// The resulting account delta, or an error.
+pub fn select_account_delta(
     conn: &mut Connection,
     account_id: AccountId,
     block_start: BlockNumber,
     block_end: BlockNumber,
-) -> Result<Vec<AccountDelta>> {
-    let mut stmt = conn.prepare_cached(
+) -> Result<Option<AccountDelta>> {
+    let mut select_nonce_stmt = conn.prepare_cached(
         "
         SELECT
-            delta
+            nonce
         FROM
             account_deltas
         WHERE
             account_id = ?1 AND block_num > ?2 AND block_num <= ?3
         ORDER BY
-            block_num ASC
+            block_num DESC
+        LIMIT 1
     ",
     )?;
 
-    let mut rows = stmt.query(params![u64_to_value(account_id), block_start, block_end])?;
-    let mut result = Vec::new();
+    let mut select_slot_updates_stmt = conn.prepare_cached(
+        "
+            SELECT
+                slot, value
+            FROM
+                account_storage_slot_updates AS a
+            WHERE
+                account_id = ?1 AND
+                block_num > ?2 AND
+                block_num <= ?3 AND
+                NOT EXISTS(
+                    SELECT 1
+                    FROM account_storage_slot_updates AS b
+                    WHERE
+                        b.account_id = ?1 AND
+                        a.slot = b.slot AND
+                        a.block_num < b.block_num AND
+                        b.block_num <= ?3
+                )
+        ",
+    )?;
+
+    let mut select_storage_map_updates_stmt = conn.prepare_cached(
+        "
+        SELECT
+            slot, key, value
+        FROM
+            account_storage_map_updates AS a
+        WHERE
+            account_id = ?1 AND
+            block_num > ?2 AND
+            block_num <= ?3 AND
+            NOT EXISTS(
+                SELECT 1
+                FROM account_storage_map_updates AS b
+                WHERE
+                    b.account_id = ?1 AND
+                    a.slot = b.slot AND
+                    a.key = b.key AND
+                    a.block_num < b.block_num AND
+                    b.block_num <= ?3
+            )
+        ",
+    )?;
+
+    let mut select_fungible_asset_deltas_stmt = conn.prepare_cached(
+        "
+        SELECT
+            faucet_id, SUM(delta)
+        FROM
+            account_fungible_asset_deltas
+        WHERE
+            account_id = ?1 AND
+            block_num > ?2 AND
+            block_num <= ?3
+        GROUP BY
+            faucet_id
+        ",
+    )?;
+
+    let mut select_non_fungible_asset_updates_stmt = conn.prepare_cached(
+        "
+        SELECT
+            block_num, vault_key, is_remove
+        FROM
+            account_non_fungible_asset_updates
+        WHERE
+            account_id = ?1 AND
+            block_num > ?2 AND
+            block_num <= ?3
+        ORDER BY
+            block_num
+        ",
+    )?;
+
+    let account_id = u64_to_value(account_id);
+    let nonce = match select_nonce_stmt
+        .query_row(params![account_id, block_start, block_end], |row| row.get::<_, u64>(0))
+    {
+        Ok(nonce) => nonce.try_into().map_err(DatabaseError::InvalidFelt)?,
+        Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
+        Err(e) => return Err(e.into()),
+    };
+
+    let mut storage_scalars = BTreeMap::new();
+    let mut rows = select_slot_updates_stmt.query(params![account_id, block_start, block_end])?;
     while let Some(row) = rows.next()? {
-        let delta = AccountDelta::read_from_bytes(row.get_ref(0)?.as_blob()?)?;
-        result.push(delta);
+        let slot = row.get(0)?;
+        let value_data = row.get_ref(1)?.as_blob()?;
+        let value = Word::read_from_bytes(value_data)?;
+        storage_scalars.insert(slot, value);
     }
-    Ok(result)
+
+    let mut storage_maps = BTreeMap::new();
+    let mut rows =
+        select_storage_map_updates_stmt.query(params![account_id, block_start, block_end])?;
+    while let Some(row) = rows.next()? {
+        let slot = row.get(0)?;
+        let key_data = row.get_ref(1)?.as_blob()?;
+        let key = Digest::read_from_bytes(key_data)?;
+        let value_data = row.get_ref(2)?.as_blob()?;
+        let value = Word::read_from_bytes(value_data)?;
+
+        match storage_maps.entry(slot) {
+            Entry::Vacant(entry) => {
+                entry.insert(StorageMapDelta::new(BTreeMap::from([(key, value)])));
+            },
+            Entry::Occupied(mut entry) => {
+                entry.get_mut().insert(key, value);
+            },
+        }
+    }
+
+    let mut fungible = BTreeMap::new();
+    let mut rows =
+        select_fungible_asset_deltas_stmt.query(params![account_id, block_start, block_end])?;
+    while let Some(row) = rows.next()? {
+        let faucet_id: u64 = row.get(0)?;
+        let value = row.get(1)?;
+        fungible.insert(faucet_id.try_into()?, value);
+    }
+
+    let mut non_fungible_delta = NonFungibleAssetDelta::default();
+    let mut rows = select_non_fungible_asset_updates_stmt.query(params![
+        account_id,
+        block_start,
+        block_end
+    ])?;
+    while let Some(row) = rows.next()? {
+        let vault_key_data = row.get_ref(1)?.as_blob()?;
+        let vault_key = Word::read_from_bytes(vault_key_data)?;
+        let asset = NonFungibleAsset::try_from(vault_key)
+            .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
+        let action: usize = row.get(2)?;
+        match action {
+            0 => non_fungible_delta.add(asset)?,
+            1 => non_fungible_delta.remove(asset)?,
+            _ => {
+                return Err(DatabaseError::DataCorrupted(format!(
+                    "Invalid non-fungible asset delta action: {action}"
+                )))
+            },
+        }
+    }
+
+    let storage = AccountStorageDelta::new(storage_scalars, storage_maps)?;
+    let vault = AccountVaultDelta::new(FungibleAssetDelta::new(fungible)?, non_fungible_delta);
+
+    Ok(Some(AccountDelta::new(storage, vault, Some(nonce))?))
 }
 
 /// Inserts or updates accounts to the DB using the given [Transaction].
@@ -239,17 +389,14 @@ pub fn upsert_accounts(
     let mut upsert_stmt = transaction.prepare_cached(
         "INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num, details) VALUES (?1, ?2, ?3, ?4);",
     )?;
-    let mut insert_delta_stmt = transaction.prepare_cached(
-        "INSERT INTO account_deltas (account_id, block_num, delta) VALUES (?1, ?2, ?3);",
-    )?;
     let mut select_details_stmt =
         transaction.prepare_cached("SELECT details FROM accounts WHERE account_id = ?1;")?;
 
     let mut count = 0;
     for update in accounts.iter() {
         let account_id = update.account_id().into();
-        let full_account = match update.details() {
-            AccountUpdateDetails::Private => None,
+        let (full_account, insert_delta) = match update.details() {
+            AccountUpdateDetails::Private => (None, None),
             AccountUpdateDetails::New(account) => {
                 debug_assert_eq!(account_id, u64::from(account.id()));
 
@@ -260,7 +407,9 @@ pub fn upsert_accounts(
                     });
                 }
 
-                Some(Cow::Borrowed(account))
+                let insert_delta = AccountDelta::from(account.clone());
+
+                (Some(Cow::Borrowed(account)), Some(Cow::Owned(insert_delta)))
             },
             AccountUpdateDetails::Delta(delta) => {
                 let mut rows = select_details_stmt.query(params![u64_to_value(account_id)])?;
@@ -268,16 +417,10 @@ pub fn upsert_accounts(
                     return Err(DatabaseError::AccountNotFoundInDb(account_id));
                 };
 
-                insert_delta_stmt.execute(params![
-                    u64_to_value(account_id),
-                    block_num,
-                    delta.to_bytes()
-                ])?;
-
                 let account =
                     apply_delta(account_id, &row.get_ref(0)?, delta, &update.new_state_hash())?;
 
-                Some(Cow::Owned(account))
+                (Some(Cow::Owned(account)), Some(Cow::Borrowed(delta)))
             },
         };
 
@@ -290,10 +433,109 @@ pub fn upsert_accounts(
 
         debug_assert_eq!(inserted, 1);
 
+        if let Some(delta) = insert_delta {
+            insert_account_delta(transaction, account_id, block_num, &delta)?;
+        }
+
         count += inserted;
     }
 
     Ok(count)
+}
+
+/// Inserts account delta to the DB using the given [Transaction].
+fn insert_account_delta(
+    transaction: &Transaction,
+    account_id: AccountId,
+    block_number: BlockNumber,
+    delta: &AccountDelta,
+) -> Result<()> {
+    let mut insert_acc_delta_stmt =
+        transaction.prepare_cached(insert_sql!(account_deltas { account_id, block_num, nonce }))?;
+
+    let mut insert_slot_update_stmt =
+        transaction.prepare_cached(insert_sql!(account_storage_slot_updates {
+            account_id,
+            block_num,
+            slot,
+            value,
+        }))?;
+
+    let mut insert_storage_map_update_stmt =
+        transaction.prepare_cached(insert_sql!(account_storage_map_updates {
+            account_id,
+            block_num,
+            slot,
+            key,
+            value,
+        }))?;
+
+    let mut insert_fungible_asset_delta_stmt =
+        transaction.prepare_cached(insert_sql!(account_fungible_asset_deltas {
+            account_id,
+            block_num,
+            faucet_id,
+            delta,
+        }))?;
+
+    let mut insert_non_fungible_asset_update_stmt =
+        transaction.prepare_cached(insert_sql!(account_non_fungible_asset_updates {
+            account_id,
+            block_num,
+            vault_key,
+            is_remove,
+        }))?;
+
+    insert_acc_delta_stmt.execute(params![
+        u64_to_value(account_id),
+        block_number,
+        delta.nonce().map(Into::<u64>::into).unwrap_or_default()
+    ])?;
+
+    for (&slot, value) in delta.storage().values() {
+        insert_slot_update_stmt.execute(params![
+            u64_to_value(account_id),
+            block_number,
+            slot,
+            value.to_bytes()
+        ])?;
+    }
+
+    for (&slot, map_delta) in delta.storage().maps() {
+        for (key, value) in map_delta.leaves() {
+            insert_storage_map_update_stmt.execute(params![
+                u64_to_value(account_id),
+                block_number,
+                slot,
+                key.to_bytes(),
+                value.to_bytes(),
+            ])?;
+        }
+    }
+
+    for (&faucet_id, &delta) in delta.vault().fungible().iter() {
+        insert_fungible_asset_delta_stmt.execute(params![
+            u64_to_value(account_id),
+            block_number,
+            u64_to_value(faucet_id.into()),
+            delta,
+        ])?;
+    }
+
+    for (&asset, action) in delta.vault().non_fungible().iter() {
+        let is_remove = match action {
+            NonFungibleDeltaAction::Add => 0,
+            NonFungibleDeltaAction::Remove => 1,
+        };
+        insert_non_fungible_asset_update_stmt.execute(params![
+            u64_to_value(account_id),
+            block_number,
+            asset.vault_key().to_bytes(),
+            is_remove,
+        ])?;
+    }
+
+    Ok(())
 }
 
 // NULLIFIER QUERIES
@@ -363,7 +605,7 @@ pub fn select_nullifiers_by_block_range(
     nullifier_prefixes: &[u32],
 ) -> Result<Vec<NullifierInfo>> {
     let nullifier_prefixes: Vec<Value> =
-        nullifier_prefixes.iter().copied().map(u32_to_value).collect();
+        nullifier_prefixes.iter().copied().map(Into::into).collect();
 
     let mut stmt = conn.prepare_cached(
         "
@@ -412,7 +654,7 @@ pub fn select_nullifiers_by_prefix(
     assert_eq!(prefix_len, 16, "Only 16-bit prefixes are supported");
 
     let nullifier_prefixes: Vec<Value> =
-        nullifier_prefixes.iter().copied().map(u32_to_value).collect();
+        nullifier_prefixes.iter().copied().map(Into::into).collect();
 
     let mut stmt = conn.prepare_cached(
         "
@@ -521,28 +763,19 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
 pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<usize> {
-    let mut stmt = transaction.prepare_cached(
-        "
-        INSERT INTO
-        notes
-        (
-            block_num,
-            batch_index,
-            note_index,
-            note_id,
-            note_type,
-            sender,
-            tag,
-            aux,
-            execution_hint,
-            merkle_path,
-            details
-        )
-        VALUES
-        (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
-        );",
-    )?;
+    let mut stmt = transaction.prepare_cached(insert_sql!(notes {
+        block_num,
+        batch_index,
+        note_index,
+        note_id,
+        note_type,
+        sender,
+        tag,
+        aux,
+        execution_hint,
+        merkle_path,
+        details,
+    }))?;
 
     let mut count = 0;
     for note in notes.iter() {
@@ -583,43 +816,10 @@ pub fn select_notes_since_block_by_tag_and_sender(
     account_ids: &[AccountId],
     block_num: BlockNumber,
 ) -> Result<Vec<NoteSyncRecord>> {
-    let mut stmt = conn.prepare_cached(
-        "
-        SELECT
-            block_num,
-            batch_index,
-            note_index,
-            note_id,
-            note_type,
-            sender,
-            tag,
-            aux,
-            execution_hint,
-            merkle_path
-        FROM
-            notes
-        WHERE
-            -- find the next block which contains at least one note with a matching tag or sender
-            block_num = (
-                SELECT
-                    block_num
-                FROM
-                    notes
-                WHERE
-                    (tag IN rarray(?1) OR sender IN rarray(?2)) AND
-                    block_num > ?3
-                ORDER BY
-                    block_num ASC
-                LIMIT
-                    1
-            ) AND
-            -- filter the block's notes and return only the ones matching the requested tags
-            -- or senders
-            (tag IN rarray(?1) OR sender IN rarray(?2));
-    ",
-    )?;
+    let mut stmt = conn
+        .prepare_cached(include_str!("queries/select_notes_since_block_by_tag_and_sender.sql"))?;
 
-    let tags: Vec<Value> = tags.iter().copied().map(u32_to_value).collect();
+    let tags: Vec<Value> = tags.iter().copied().map(Into::into).collect();
     let account_ids: Vec<Value> = account_ids.iter().copied().map(u64_to_value).collect();
     let mut rows = stmt.query(params![Rc::new(tags), Rc::new(account_ids), block_num])?;
 
@@ -848,7 +1048,7 @@ pub fn select_block_headers(
 ) -> Result<Vec<BlockHeader>> {
     let mut headers = Vec::with_capacity(blocks.len());
 
-    let blocks: Vec<Value> = blocks.iter().copied().map(u32_to_value).collect();
+    let blocks: Vec<Value> = blocks.iter().copied().map(Into::into).collect();
     let mut stmt = conn
         .prepare_cached("SELECT block_header FROM block_headers WHERE block_num IN rarray(?1);")?;
     let mut rows = stmt.query(params![Rc::new(blocks)])?;
@@ -1050,112 +1250,4 @@ pub fn apply_block(
     count += insert_transactions(transaction, block_header.block_num(), accounts)?;
     count += insert_nullifiers_for_block(transaction, nullifiers, block_header.block_num())?;
     Ok(count)
-}
-
-// UTILITIES
-// ================================================================================================
-
-/// Returns the high 16 bits of the provided nullifier.
-pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
-    (nullifier.most_significant_felt().as_int() >> 48) as u32
-}
-
-/// Checks if a table exists in the database.
-pub(crate) fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<bool> {
-    Ok(conn
-        .query_row(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $1",
-            params![table_name],
-            |_| Ok(()),
-        )
-        .optional()?
-        .is_some())
-}
-
-/// Returns the schema version of the database.
-pub(crate) fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
-    conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
-}
-
-/// Converts a `u64` into a [Value].
-///
-/// Sqlite uses `i64` as its internal representation format. Note that the `as` operator performs a
-/// lossless conversion from `u64` to `i64`.
-fn u64_to_value(v: u64) -> Value {
-    Value::Integer(v as i64)
-}
-
-/// Converts a `u32` into a [Value].
-///
-/// Sqlite uses `i64` as its internal representation format.
-fn u32_to_value(v: u32) -> Value {
-    let v: i64 = v.into();
-    Value::Integer(v)
-}
-
-/// Gets a `u64` value from the database.
-///
-/// Sqlite uses `i64` as its internal representation format, and so when retrieving
-/// we need to make sure we cast as `u64` to get the original value
-fn column_value_as_u64<I: rusqlite::RowIndex>(
-    row: &rusqlite::Row<'_>,
-    index: I,
-) -> rusqlite::Result<u64> {
-    let value: i64 = row.get(index)?;
-    Ok(value as u64)
-}
-
-/// Constructs `AccountSummary` from the row of `accounts` table.
-///
-/// Note: field ordering must be the same, as in `accounts` table!
-fn account_hash_update_from_row(row: &rusqlite::Row<'_>) -> Result<AccountSummary> {
-    let account_id = column_value_as_u64(row, 0)?;
-    let account_hash_data = row.get_ref(1)?.as_blob()?;
-    let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
-    let block_num = row.get(2)?;
-
-    Ok(AccountSummary {
-        account_id: account_id.try_into()?,
-        account_hash,
-        block_num,
-    })
-}
-
-/// Constructs `AccountInfo` from the row of `accounts` table.
-///
-/// Note: field ordering must be the same, as in `accounts` table!
-fn account_info_from_row(row: &rusqlite::Row<'_>) -> Result<AccountInfo> {
-    let update = account_hash_update_from_row(row)?;
-
-    let details = row.get_ref(3)?.as_blob_or_null()?;
-    let details = details.map(Account::read_from_bytes).transpose()?;
-
-    Ok(AccountInfo { summary: update, details })
-}
-
-/// Deserializes account and applies account delta.
-fn apply_delta(
-    account_id: u64,
-    value: &ValueRef<'_>,
-    delta: &AccountDelta,
-    final_state_hash: &RpoDigest,
-) -> Result<Account, DatabaseError> {
-    let account = value.as_blob_or_null()?;
-    let account = account.map(Account::read_from_bytes).transpose()?;
-
-    let Some(mut account) = account else {
-        return Err(DatabaseError::AccountNotOnChain(account_id));
-    };
-
-    account.apply_delta(delta)?;
-
-    let actual_hash = account.hash();
-    if &actual_hash != final_state_hash {
-        return Err(DatabaseError::AccountHashesMismatch {
-            calculated: actual_hash,
-            expected: *final_state_hash,
-        });
-    }
-
-    Ok(account)
 }
