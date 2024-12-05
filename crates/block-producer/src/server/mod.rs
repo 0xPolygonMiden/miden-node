@@ -106,27 +106,30 @@ impl BlockProducer {
         // any complete or fail, we can shutdown the rest (somewhat) gracefully.
         let mut tasks = tokio::task::JoinSet::new();
 
-        // TODO: improve the error situationship.
         let batch_builder_id = tasks
             .spawn({
                 let mempool = mempool.clone();
-                async { batch_builder.run(mempool).await }
+                async {
+                    batch_builder.run(mempool).await;
+                    Ok(())
+                }
             })
             .id();
         let block_builder_id = tasks
             .spawn({
                 let mempool = mempool.clone();
-                async { block_builder.run(mempool).await }
+                async {
+                    block_builder.run(mempool).await;
+                    Ok(())
+                }
             })
             .id();
-        let rpc_id = tasks
-            .spawn(async move {
-                BlockProducerRpcServer::new(mempool, store)
-                    .serve(rpc_listener)
-                    .await
-                    .expect("block-producer failed")
-            })
-            .id();
+        let rpc_id =
+            tasks
+                .spawn(async move {
+                    BlockProducerRpcServer::new(mempool, store).serve(rpc_listener).await
+                })
+                .id();
 
         let task_ids = HashMap::from([
             (batch_builder_id, "batch-builder"),
@@ -140,7 +143,7 @@ impl BlockProducer {
         let task_result = tasks.join_next_with_id().await.unwrap();
 
         let task_id = match &task_result {
-            Ok((id, ())) => *id,
+            Ok((id, _)) => *id,
             Err(err) => err.id(),
         };
         let task = task_ids.get(&task_id).unwrap_or(&"unknown");
@@ -150,7 +153,11 @@ impl BlockProducer {
 
         task_result
             .map_err(|source| BlockProducerError::JoinError { task, source })
-            .map(|(_, ())| Err(BlockProducerError::TaskFailedSuccesfully { task }))?
+            .map(|(_, result)| match result {
+                Ok(_) => Err(BlockProducerError::TaskFailedSuccesfully { task }),
+                Err(source) => Err(BlockProducerError::TonicTransportError { task, source }),
+            })
+            .and_then(|x| x)
     }
 }
 

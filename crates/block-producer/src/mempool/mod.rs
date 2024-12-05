@@ -18,7 +18,7 @@ use crate::{
 };
 
 mod batch_graph;
-mod dependency_graph;
+mod graph;
 mod inflight_state;
 mod transaction_graph;
 

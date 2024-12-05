@@ -23,10 +23,6 @@ pub(crate) mod prover;
 
 use self::prover::{block_witness::BlockWitness, BlockProver};
 
-// FIXME: reimplement the tests.
-// #[cfg(test)]
-// mod tests;
-
 // BLOCK BUILDER
 // =================================================================================================
 

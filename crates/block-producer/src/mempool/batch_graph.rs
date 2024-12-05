@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use miden_objects::transaction::TransactionId;
 
 use super::{
-    dependency_graph::{DependencyGraph, GraphError},
+    graph::{DependencyGraph, GraphError},
     BatchJobId, BlockBudget, BudgetStatus,
 };
 use crate::batch_builder::batch::TransactionBatch;
@@ -135,7 +135,7 @@ impl BatchGraph {
     ///
     /// # Returns
     ///
-    /// Returns all removes batches and their transactions.
+    /// Returns all removed batches and their transactions.
     ///
     /// # Errors
     ///
@@ -185,6 +185,8 @@ impl BatchGraph {
         &mut self,
         batch_ids: BTreeSet<BatchJobId>,
     ) -> Result<Vec<TransactionId>, GraphError<BatchJobId>> {
+        // This clone could be elided by moving this call to the end. This would lose the atomic
+        // property of this method though its unclear what value (if any) that has.
         self.inner.prune_processed(batch_ids.clone())?;
         let mut transactions = Vec::new();
 
@@ -224,12 +226,16 @@ impl BatchGraph {
         while let Some(batch_id) = self.inner.roots().first().copied() {
             // SAFETY: Since it was a root batch, it must definitely have a processed batch
             // associated with it.
-            let batch = self.inner.get(&batch_id).expect("root should be in graph").clone();
+            let batch = self.inner.get(&batch_id).expect("root should be in graph");
 
             // Adhere to block's budget.
-            if budget.check_then_subtract(&batch) == BudgetStatus::Exceeded {
+            if budget.check_then_subtract(batch) == BudgetStatus::Exceeded {
                 break;
             }
+
+            // Clone is required to avoid multiple borrows of self. We delay this clone until after
+            // the budget check, which is why this looks so out of place.
+            let batch = batch.clone();
 
             // SAFETY: This is definitely a root since we just selected it from the set of roots.
             self.inner.process_root(batch_id).expect("root should be processed");

@@ -25,6 +25,13 @@ pub enum BlockProducerError {
     /// A block-producer task panic'd.
     #[error("error joining {task} task")]
     JoinError { task: &'static str, source: JoinError },
+
+    /// A block-producer task reported a transport error.
+    #[error("task {task} had a transport error")]
+    TonicTransportError {
+        task: &'static str,
+        source: tonic::transport::Error,
+    },
 }
 
 // Transaction verification errors
@@ -132,6 +139,9 @@ pub enum BuildBatchError {
 
     #[error("Nothing actually went wrong, failure was injected on purpose")]
     InjectedFailure,
+
+    #[error("Batch proving task panic'd")]
+    JoinError(#[from] tokio::task::JoinError),
 }
 
 // Block prover errors
