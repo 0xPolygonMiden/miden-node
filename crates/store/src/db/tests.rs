@@ -509,7 +509,7 @@ fn test_sql_public_account_details_for_old_block() {
             )],
             block_num,
         )
-        .unwrap();
+            .unwrap();
 
         assert_eq!(inserted, 1, "One element must have been inserted");
 
@@ -529,7 +529,7 @@ fn test_sql_public_account_details_for_old_block() {
         NonFungibleAsset::new(
             &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![1, 2, 3]).unwrap(),
         )
-        .unwrap(),
+            .unwrap(),
     );
 
     let mut accounts = vec![];
@@ -554,7 +554,7 @@ fn test_sql_public_account_details_for_old_block() {
         )],
         1,
     )
-    .unwrap();
+        .unwrap();
 
     assert_eq!(inserted, 1, "One element must have been inserted");
 
@@ -569,7 +569,7 @@ fn test_sql_public_account_details_for_old_block() {
         NonFungibleAsset::new(
             &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![4, 5, 6]).unwrap(),
         )
-        .unwrap(),
+            .unwrap(),
     );
 
     let vault_delta = AccountVaultDelta::from_iters([nft2], [nft1]);
@@ -584,7 +584,7 @@ fn test_sql_public_account_details_for_old_block() {
         AccountVaultDelta::from_iters([nft1], []),
         Some(Felt::new(3)),
     )
-    .unwrap();
+        .unwrap();
 
     apply_delta_and_check(&mut conn, &mut accounts, &delta3, 3);
 }

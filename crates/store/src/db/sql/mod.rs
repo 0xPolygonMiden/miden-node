@@ -1,30 +1,27 @@
 //! Wrapper functions for SQL statements.
 
+#[macro_use]
 pub(crate) mod utils;
 
 use std::{
     borrow::Cow,
-    collections::{
-        btree_map::{Entry, OccupiedEntry},
-        BTreeMap, BTreeSet,
-    },
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
     rc::Rc,
 };
 
 use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
     accounts::{
-        delta::AccountUpdateDetails, Account, AccountCode, AccountDelta, AccountStorage,
-        AccountStorageDelta, AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta,
-        NonFungibleDeltaAction, StorageMap, StorageMapDelta, StorageSlot,
+        delta::AccountUpdateDetails, AccountDelta, AccountStorageDelta, AccountVaultDelta,
+        FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction, StorageMapDelta,
     },
-    assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset},
+    assets::NonFungibleAsset,
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
-    AccountError, BlockHeader, Digest, Felt, Word,
+    BlockHeader, Digest, Word,
 };
 use rusqlite::{params, types::Value, Connection, Transaction};
 
@@ -35,7 +32,7 @@ use super::{
 use crate::{
     db::sql::utils::{
         account_info_from_row, account_summary_from_row, apply_delta, column_value_as_u64,
-        get_nullifier_prefix, insert_sql, u64_to_value,
+        get_nullifier_prefix, u64_to_value,
     },
     errors::{DatabaseError, NoteSyncError, StateSyncError},
     types::{AccountId, BlockNumber},
@@ -445,7 +442,7 @@ pub fn compute_old_account_states(
                     .map_err(|err: AccountError| DatabaseError::DataCorrupted(err.to_string()))?,
                 amount,
             )
-            .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
+                .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
         ));
     }
 
@@ -504,7 +501,7 @@ pub fn compute_old_account_states(
     Ok(result)
 }
 
-/// Selects and merges account deltas by account ID and block range from the DB using the given
+/// Selects and merges account deltas by account id and block range from the DB using the given
 /// [Connection].
 ///
 /// # Note:
@@ -764,28 +761,41 @@ fn insert_account_delta(
     block_number: BlockNumber,
     delta: &AccountDelta,
 ) -> Result<()> {
-    let mut insert_acc_delta_stmt = transaction
-        .prepare_cached(&insert_sql("account_deltas", &["account_id", "block_num", "nonce"]))?;
+    let mut insert_acc_delta_stmt =
+        transaction.prepare_cached(insert_sql!(account_deltas { account_id, block_num, nonce }))?;
 
-    let mut insert_slot_update_stmt = transaction.prepare_cached(&insert_sql(
-        "account_storage_slot_updates",
-        &["account_id", "block_num", "slot", "value"],
-    ))?;
+    let mut insert_slot_update_stmt =
+        transaction.prepare_cached(insert_sql!(account_storage_slot_updates {
+            account_id,
+            block_num,
+            slot,
+            value,
+        }))?;
 
-    let mut insert_storage_map_update_stmt = transaction.prepare_cached(&insert_sql(
-        "account_storage_map_updates",
-        &["account_id", "block_num", "slot", "key", "value"],
-    ))?;
+    let mut insert_storage_map_update_stmt =
+        transaction.prepare_cached(insert_sql!(account_storage_map_updates {
+            account_id,
+            block_num,
+            slot,
+            key,
+            value,
+        }))?;
 
-    let mut insert_fungible_asset_delta_stmt = transaction.prepare_cached(&insert_sql(
-        "account_fungible_asset_deltas",
-        &["account_id", "block_num", "faucet_id", "delta"],
-    ))?;
+    let mut insert_fungible_asset_delta_stmt =
+        transaction.prepare_cached(insert_sql!(account_fungible_asset_deltas {
+            account_id,
+            block_num,
+            faucet_id,
+            delta,
+        }))?;
 
-    let mut insert_non_fungible_asset_update_stmt = transaction.prepare_cached(&insert_sql(
-        "account_non_fungible_asset_updates",
-        &["account_id", "block_num", "vault_key", "is_remove"],
-    ))?;
+    let mut insert_non_fungible_asset_update_stmt =
+        transaction.prepare_cached(insert_sql!(account_non_fungible_asset_updates {
+            account_id,
+            block_num,
+            vault_key,
+            is_remove,
+        }))?;
 
     insert_acc_delta_stmt.execute(params![
         u64_to_value(account_id),
@@ -1064,22 +1074,19 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
 pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<usize> {
-    let mut stmt = transaction.prepare_cached(&insert_sql(
-        "notes",
-        &[
-            "block_num",
-            "batch_index",
-            "note_index",
-            "note_id",
-            "note_type",
-            "sender",
-            "tag",
-            "aux",
-            "execution_hint",
-            "merkle_path",
-            "details",
-        ],
-    ))?;
+    let mut stmt = transaction.prepare_cached(insert_sql!(notes {
+        block_num,
+        batch_index,
+        note_index,
+        note_id,
+        note_type,
+        sender,
+        tag,
+        aux,
+        execution_hint,
+        merkle_path,
+        details,
+    }))?;
 
     let mut count = 0;
     for note in notes.iter() {

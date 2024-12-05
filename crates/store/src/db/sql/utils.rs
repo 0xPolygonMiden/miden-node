@@ -35,13 +35,35 @@ pub fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
     conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
 }
 
-/// Generates a simple insert SQL statement with parameters for the provided table and fields
-pub fn insert_sql(table: &str, fields: &[&str]) -> String {
-    format!(
-        "INSERT INTO {table} ({}) VALUES ({})",
-        fields.join(", "),
-        "?, ".repeat(fields.len()).trim_end_matches(", ")
-    )
+/// Auxiliary macro which substitutes `$src` token by `$dst` expression.
+macro_rules! subst {
+    ($src:tt, $dst:expr) => {
+        $dst
+    };
+}
+
+/// Generates a simple insert SQL statement with parameters for the provided table name and fields.
+///
+/// # Usage:
+///
+/// ```
+/// insert_sql!(users { id, first_name, last_name, age });
+/// ```
+/// which generates:
+/// "INSERT INTO users (id, first_name, last_name, age) VALUES (?, ?, ?, ?)"
+macro_rules! insert_sql {
+    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? }) => {
+        concat!(
+            stringify!(INSERT INTO $table),
+            " (",
+            stringify!($first_field),
+            $($(concat!(", ", stringify!($field))),+ ,)?
+            ") VALUES (",
+            subst!($first_field, "?"),
+            $($(subst!($field, ", ?")),+ ,)?
+            ")"
+        )
+    };
 }
 
 /// Converts a `u64` into a [Value].
