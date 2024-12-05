@@ -155,7 +155,7 @@ impl DefaultStore {
 
     /// Returns the latest block's header from the store.
     pub async fn latest_header(&self) -> Result<BlockHeader, String> {
-        // TODO: fixup the errors types.
+        // TODO: Consolidate the error types returned by the store (and its trait).
         let response = self
             .store
             .clone()

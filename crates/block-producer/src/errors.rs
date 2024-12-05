@@ -25,6 +25,13 @@ pub enum BlockProducerError {
     /// A block-producer task panic'd.
     #[error("error joining {task} task")]
     JoinError { task: &'static str, source: JoinError },
+
+    /// A block-producer task reported a transport error.
+    #[error("task {task} had a transport error")]
+    TonicTransportError {
+        task: &'static str,
+        source: tonic::transport::Error,
+    },
 }
 
 // Transaction verification errors
