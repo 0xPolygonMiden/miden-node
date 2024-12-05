@@ -274,7 +274,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetNotesByIdResponse { notes }))
     }
 
-    /// Returns a list of Note inclusion proofs for the specified NoteId's.
+    /// Returns a list of Note inclusion proofs for the specified note IDs.
     #[instrument(
         target = "miden-store",
         name = "store:get_note_inclusion_proofs",

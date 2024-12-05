@@ -3,9 +3,10 @@ package requests;
 
 import "account.proto";
 import "digest.proto";
-import "note.proto";
 
+// Applies changes of a new block to the DB and in-memory data structures.
 message ApplyBlockRequest {
+    // Block data encoded using Miden's native format.
     bytes block = 1;
 }
 
@@ -14,11 +15,13 @@ message CheckNullifiersByPrefixRequest {
     // Number of bits used for nullifier prefix. Currently the only supported value is 16.
     uint32 prefix_len = 1;
     // List of nullifiers to check. Each nullifier is specified by its prefix with length equal
-    // to prefix_len
+    // to `prefix_len`.
     repeated uint32 nullifiers = 2;
 }
 
+// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
 message CheckNullifiersRequest {
+    // List of nullifiers to return proofs for.
     repeated digest.Digest nullifiers = 1;
 }
 
@@ -27,9 +30,7 @@ message CheckNullifiersRequest {
 //
 // The Merkle path is an MMR proof for the block's leaf, based on the current chain length.
 message GetBlockHeaderByNumberRequest {
-    // The block number of the target block.
-    //
-    // If not provided, means latest known block.
+    // The block number of the target block. If not provided, means latest known block.
     optional uint32 block_num = 1;
     // Whether or not to return authentication data for the block header.
     optional bool include_mmr_proof = 2;
@@ -47,7 +48,6 @@ message SyncStateRequest {
     fixed32 block_num = 1;
 
     // Accounts' hash to include in the response.
-    //
     // An account hash will be included if-and-only-if it is the latest update. Meaning it is
     // possible there was an update to the account for the given range, but if it is not the latest,
     // it won't be included in the response.
@@ -74,6 +74,8 @@ message SyncNoteRequest {
     repeated fixed32 note_tags = 2;
 }
 
+// Returns data needed by the block producer to construct and prove the next block, including
+// account states, nullifiers, and unauthenticated notes.
 message GetBlockInputsRequest {
     // ID of the account against which a transaction is executed.
     repeated account.AccountId account_ids = 1;
@@ -83,31 +85,41 @@ message GetBlockInputsRequest {
     repeated digest.Digest unauthenticated_notes = 3;
 }
 
+// Returns the data needed by the block producer to check validity of an incoming transaction.
 message GetTransactionInputsRequest {
+    // ID of the account against which a transaction is executed.
     account.AccountId account_id = 1;
+    // Array of nullifiers for all notes consumed by a transaction.
     repeated digest.Digest nullifiers = 2;
+    // Array of unauthenticated note IDs to be checked for existence in the database.
     repeated digest.Digest unauthenticated_notes = 3;
 }
 
+// Submits proven transaction to the Miden network.
 message SubmitProvenTransactionRequest {
-    // Transaction encoded using miden's native format
+    // Transaction encoded using Miden's native format.
     bytes transaction = 1;
 }
 
+// Returns a list of notes matching the provided note IDs.
 message GetNotesByIdRequest {
-    // List of NoteId's to be queried from the database
+    // List of NoteId's to be queried from the database.
     repeated digest.Digest note_ids = 1;
 }
 
+// Returns a list of Note inclusion proofs for the specified Note IDs.
 message GetNoteAuthenticationInfoRequest {
-    // List of NoteId's to be queried from the database
+    // List of NoteId's to be queried from the database.
     repeated digest.Digest note_ids = 1;
 }
 
+// Lists all nullifiers of the current chain.
 message ListNullifiersRequest {}
 
+// Lists all accounts of the current chain.
 message ListAccountsRequest {}
 
+// Lists all notes of the current chain.
 message ListNotesRequest {}
 
 // Returns the latest state of an account with the specified ID.
@@ -116,6 +128,7 @@ message GetAccountDetailsRequest {
     account.AccountId account_id = 1;
 }
 
+// Retrieves block data by given block number.
 message GetBlockByNumberRequest {
     // The block number of the target block.
     fixed32 block_num = 1;
@@ -132,6 +145,7 @@ message GetAccountStateDeltaRequest {
     fixed32 to_block_num = 3;
 }
 
+// Returns the latest state proofs of accounts with the specified IDs.
 message GetAccountProofsRequest {
     // List of account IDs to get states.
     repeated account.AccountId account_ids = 1;

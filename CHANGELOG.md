@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.0 (TBD)
+
+### Changes
+
+- Added automatic generation of API reference docs (#542).
+
 ## v0.6.0 (2024-11-05)
 
 ### Enhancements
