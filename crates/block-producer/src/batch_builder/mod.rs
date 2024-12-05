@@ -58,12 +58,13 @@ impl BatchBuilder {
         let mut interval = tokio::time::interval(self.batch_interval);
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
-        let mut inflight = WorkerPool::new(self.simulated_proof_time, self.failure_rate);
+        let mut worker_pool =
+            WorkerPool::new(self.workers, self.simulated_proof_time, self.failure_rate);
 
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    if inflight.len() >= self.workers.get() {
+                    if !worker_pool.has_capacity() {
                         tracing::info!("All batch workers occupied.");
                         continue;
                     }
@@ -76,9 +77,9 @@ impl BatchBuilder {
                         continue;
                     };
 
-                    inflight.spawn(batch_id, transactions);
+                    worker_pool.spawn(batch_id, transactions);
                 },
-                result = inflight.join_next() => {
+                result = worker_pool.join_next() => {
                     let mut mempool = mempool.lock().await;
                     match result {
                         Err(err) => {
@@ -111,14 +112,21 @@ struct WorkerPool {
     in_progress: JoinSet<BatchResult>,
     simulated_proof_time: Range<Duration>,
     failure_rate: f32,
+    /// Maximum number of workers allowed.
+    capacity: NonZeroUsize,
 }
 
 impl WorkerPool {
-    fn new(simulated_proof_time: Range<Duration>, failure_rate: f32) -> Self {
+    fn new(
+        capacity: NonZeroUsize,
+        simulated_proof_time: Range<Duration>,
+        failure_rate: f32,
+    ) -> Self {
         Self {
             simulated_proof_time,
             failure_rate,
             in_progress: JoinSet::new(),
+            capacity,
         }
     }
 
@@ -131,8 +139,9 @@ impl WorkerPool {
         }
     }
 
-    fn len(&self) -> usize {
-        self.in_progress.len()
+    /// Returns `true` if there is a worker available.
+    fn has_capacity(&self) -> bool {
+        self.in_progress.len() < self.capacity.get()
     }
 
     fn spawn(&mut self, id: BatchJobId, transactions: Vec<AuthenticatedTransaction>) {
