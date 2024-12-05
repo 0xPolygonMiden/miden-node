@@ -109,13 +109,19 @@ impl BlockProducer {
         let batch_builder_id = tasks
             .spawn({
                 let mempool = mempool.clone();
-                async { Ok(batch_builder.run(mempool).await) }
+                async {
+                    batch_builder.run(mempool).await;
+                    Ok(())
+                }
             })
             .id();
         let block_builder_id = tasks
             .spawn({
                 let mempool = mempool.clone();
-                async { Ok(block_builder.run(mempool).await) }
+                async {
+                    block_builder.run(mempool).await;
+                    Ok(())
+                }
             })
             .id();
         let rpc_id =

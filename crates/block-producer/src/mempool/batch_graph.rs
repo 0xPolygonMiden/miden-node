@@ -227,7 +227,7 @@ impl BatchGraph {
             let batch = self.inner.get(&batch_id).expect("root should be in graph");
 
             // Adhere to block's budget.
-            if budget.check_then_subtract(&batch) == BudgetStatus::Exceeded {
+            if budget.check_then_subtract(batch) == BudgetStatus::Exceeded {
                 break;
             }
 
