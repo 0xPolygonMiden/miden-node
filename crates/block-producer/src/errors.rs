@@ -139,6 +139,9 @@ pub enum BuildBatchError {
 
     #[error("Nothing actually went wrong, failure was injected on purpose")]
     InjectedFailure,
+
+    #[error("Batch proving task panic'd")]
+    JoinError(#[from] tokio::task::JoinError),
 }
 
 // Block prover errors
