@@ -1,27 +1,29 @@
 //! Wrapper functions for SQL statements.
 
-#[macro_use]
 pub(crate) mod utils;
-
 use std::{
     borrow::Cow,
-    collections::{btree_map::Entry, BTreeMap, BTreeSet},
+    collections::{
+        btree_map::{Entry, OccupiedEntry},
+        BTreeMap, BTreeSet,
+    },
     rc::Rc,
 };
 
 use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
     accounts::{
-        delta::AccountUpdateDetails, AccountDelta, AccountStorageDelta, AccountVaultDelta,
-        FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction, StorageMapDelta,
+        delta::AccountUpdateDetails, Account, AccountCode, AccountDelta, AccountStorage,
+        AccountStorageDelta, AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta,
+        NonFungibleDeltaAction, StorageMap, StorageMapDelta, StorageSlot,
     },
-    assets::NonFungibleAsset,
+    assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset},
     block::{BlockAccountUpdate, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
-    BlockHeader, Digest, Word,
+    AccountError, BlockHeader, Digest, Felt, Word,
 };
 use rusqlite::{params, types::Value, Connection, Transaction};
 
@@ -32,11 +34,12 @@ use super::{
 use crate::{
     db::sql::utils::{
         account_info_from_row, account_summary_from_row, apply_delta, column_value_as_u64,
-        get_nullifier_prefix, u64_to_value,
+        get_nullifier_prefix, insert_sql, subst, u64_to_value,
     },
     errors::{DatabaseError, NoteSyncError, StateSyncError},
     types::{AccountId, BlockNumber},
 };
+
 // ACCOUNT QUERIES
 // ================================================================================================
 
@@ -442,7 +445,7 @@ pub fn compute_old_account_states(
                     .map_err(|err: AccountError| DatabaseError::DataCorrupted(err.to_string()))?,
                 amount,
             )
-                .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
+            .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
         ));
     }
 

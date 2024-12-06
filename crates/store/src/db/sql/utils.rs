@@ -42,13 +42,14 @@ macro_rules! subst {
     };
 }
 
+pub(crate) use subst;
+
 /// Generates a simple insert SQL statement with parameters for the provided table name and fields.
 ///
 /// # Usage:
 ///
-/// ```
-/// insert_sql!(users { id, first_name, last_name, age });
-/// ```
+/// `insert_sql!(users { id, first_name, last_name, age });`
+///
 /// which generates:
 /// "INSERT INTO users (id, first_name, last_name, age) VALUES (?, ?, ?, ?)"
 macro_rules! insert_sql {
@@ -65,6 +66,8 @@ macro_rules! insert_sql {
         )
     };
 }
+
+pub(crate) use insert_sql;
 
 /// Converts a `u64` into a [Value].
 ///
