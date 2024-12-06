@@ -135,7 +135,7 @@ impl BatchGraph {
     ///
     /// # Returns
     ///
-    /// Returns all removes batches and their transactions.
+    /// Returns all removed batches and their transactions.
     ///
     /// # Errors
     ///
@@ -185,6 +185,8 @@ impl BatchGraph {
         &mut self,
         batch_ids: BTreeSet<BatchJobId>,
     ) -> Result<Vec<TransactionId>, GraphError<BatchJobId>> {
+        // This clone could be elided by moving this call to the end. This would lose the atomic
+        // property of this method though its unclear what value (if any) that has.
         self.inner.prune_processed(batch_ids.clone())?;
         let mut transactions = Vec::new();
 
