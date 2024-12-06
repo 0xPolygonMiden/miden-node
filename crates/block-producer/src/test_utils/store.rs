@@ -160,7 +160,7 @@ impl MockStoreSuccessBuilder {
 }
 
 pub struct MockStoreSuccess {
-    /// Map account id -> account hash
+    /// Map account ID -> account hash
     pub accounts: Arc<RwLock<SimpleSmt<ACCOUNT_TREE_DEPTH>>>,
 
     /// Stores the nullifiers of the notes that were consumed
@@ -175,7 +175,7 @@ pub struct MockStoreSuccess {
     /// The number of times `apply_block()` was called
     pub num_apply_block_called: Arc<RwLock<u32>>,
 
-    /// Maps note id -> note inclusion proof for all created notes
+    /// Maps note ID -> note inclusion proof for all created notes
     pub notes: Arc<RwLock<BTreeMap<NoteId, NoteInclusionProof>>>,
 }
 

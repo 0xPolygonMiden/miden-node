@@ -191,7 +191,7 @@ impl FaucetClient {
         &self.data_store
     }
 
-    /// Returns the id of the faucet account.
+    /// Returns the ID of the faucet account.
     pub fn get_faucet_id(&self) -> AccountId {
         self.id
     }
