@@ -9,21 +9,19 @@ use miden_objects::{
     batches::BatchNoteTree,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
     notes::{NoteHeader, NoteId, Nullifier},
-    transaction::{InputNoteCommitment, OutputNote, TransactionId},
-    AccountDeltaError, Digest, MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH,
-    MAX_OUTPUT_NOTES_PER_BATCH,
+    transaction::{InputNoteCommitment, OutputNote, ProvenTransaction, TransactionId},
+    AccountDeltaError, Digest,
 };
 use tracing::instrument;
 
-use crate::{errors::BuildBatchError, ProvenTransaction};
+use crate::errors::BuildBatchError;
 
 pub type BatchId = Blake3Digest<32>;
 
 // TRANSACTION BATCH
 // ================================================================================================
 
-/// A batch of transactions that share a common proof. For any given account, at most 1 transaction
-/// in the batch must be addressing that account (issue: #186).
+/// A batch of transactions that share a common proof.
 ///
 /// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,13 +75,11 @@ impl TransactionBatch {
     /// for transforming unauthenticated notes into authenticated notes.
     ///
     /// # Errors
+    ///
     /// Returns an error if:
-    /// - The number of output notes across all transactions exceeds 4096.
     /// - There are duplicated output notes or unauthenticated notes found across all transactions
     ///   in the batch.
     /// - Hashes for corresponding input notes and output notes don't match.
-    ///
-    /// TODO: enforce limit on the number of created nullifiers.
     #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
     pub fn new(
         txs: Vec<ProvenTransaction>,
@@ -102,11 +98,7 @@ impl TransactionBatch {
                     vacant.insert(AccountUpdate::new(tx));
                 },
                 Entry::Occupied(occupied) => occupied.into_mut().merge_tx(tx).map_err(|error| {
-                    BuildBatchError::AccountUpdateError {
-                        account_id: tx.account_id(),
-                        error,
-                        txs: txs.clone(),
-                    }
+                    BuildBatchError::AccountUpdateError { account_id: tx.account_id(), error }
                 })?,
             };
 
@@ -114,13 +106,9 @@ impl TransactionBatch {
             for note in tx.get_unauthenticated_notes() {
                 let id = note.id();
                 if !unauthenticated_input_notes.insert(id) {
-                    return Err(BuildBatchError::DuplicateUnauthenticatedNote(id, txs.clone()));
+                    return Err(BuildBatchError::DuplicateUnauthenticatedNote(id));
                 }
             }
-        }
-
-        if updated_accounts.len() > MAX_ACCOUNTS_PER_BATCH {
-            return Err(BuildBatchError::TooManyAccountsInBatch(txs));
         }
 
         // Populate batch produced nullifiers and match output notes with corresponding
@@ -137,7 +125,7 @@ impl TransactionBatch {
             // Header is presented only for unauthenticated input notes.
             let input_note = match input_note.header() {
                 Some(input_note_header) => {
-                    if output_notes.remove_note(input_note_header, &txs)? {
+                    if output_notes.remove_note(input_note_header)? {
                         continue;
                     }
 
@@ -155,15 +143,7 @@ impl TransactionBatch {
             input_notes.push(input_note)
         }
 
-        if input_notes.len() > MAX_INPUT_NOTES_PER_BATCH {
-            return Err(BuildBatchError::TooManyInputNotes(input_notes.len(), txs));
-        }
-
         let output_notes = output_notes.into_notes();
-
-        if output_notes.len() > MAX_OUTPUT_NOTES_PER_BATCH {
-            return Err(BuildBatchError::TooManyNotesCreated(output_notes.len(), txs));
-        }
 
         // Build the output notes SMT.
         let output_notes_smt = BatchNoteTree::with_contiguous_leaves(
@@ -250,7 +230,7 @@ impl OutputNoteTracker {
         for tx in txs {
             for note in tx.output_notes().iter() {
                 if output_note_index.insert(note.id(), output_notes.len()).is_some() {
-                    return Err(BuildBatchError::DuplicateOutputNote(note.id(), txs.to_vec()));
+                    return Err(BuildBatchError::DuplicateOutputNote(note.id()));
                 }
                 output_notes.push(Some(note.clone()));
             }
@@ -259,11 +239,7 @@ impl OutputNoteTracker {
         Ok(Self { output_notes, output_note_index })
     }
 
-    pub fn remove_note(
-        &mut self,
-        input_note_header: &NoteHeader,
-        txs: &[ProvenTransaction],
-    ) -> Result<bool, BuildBatchError> {
+    pub fn remove_note(&mut self, input_note_header: &NoteHeader) -> Result<bool, BuildBatchError> {
         let id = input_note_header.id();
         if let Some(note_index) = self.output_note_index.remove(&id) {
             if let Some(output_note) = mem::take(&mut self.output_notes[note_index]) {
@@ -274,7 +250,6 @@ impl OutputNoteTracker {
                         id,
                         input_hash,
                         output_hash,
-                        txs: txs.to_vec(),
                     });
                 }
 
@@ -323,7 +298,7 @@ mod tests {
         ));
 
         match OutputNoteTracker::new(&txs) {
-            Err(BuildBatchError::DuplicateOutputNote(note_id, _)) => {
+            Err(BuildBatchError::DuplicateOutputNote(note_id)) => {
                 assert_eq!(note_id, duplicate_output_note.id())
             },
             res => panic!("Unexpected result: {res:?}"),
@@ -337,8 +312,8 @@ mod tests {
 
         let note_to_remove = mock_note(4);
 
-        assert!(tracker.remove_note(note_to_remove.header(), &txs).unwrap());
-        assert!(!tracker.remove_note(note_to_remove.header(), &txs).unwrap());
+        assert!(tracker.remove_note(note_to_remove.header()).unwrap());
+        assert!(!tracker.remove_note(note_to_remove.header()).unwrap());
 
         // Check that output notes are in the expected order and consumed note was removed
         assert_eq!(
@@ -359,7 +334,7 @@ mod tests {
         let duplicate_note = mock_note(5);
         txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
         match TransactionBatch::new(txs, Default::default()) {
-            Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id, _)) => {
+            Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id)) => {
                 assert_eq!(note_id, duplicate_note.id())
             },
             res => panic!("Unexpected result: {res:?}"),
