@@ -82,7 +82,7 @@ impl BatchBuilder {
                         continue;
                     };
 
-                    worker_pool.spawn(batch_id, transactions);
+                    worker_pool.spawn(batch_id, transactions).expect("Worker capacity was checked");
                 },
                 result = worker_pool.join_next() => {
                     let mut mempool = mempool.lock().await;
@@ -111,7 +111,9 @@ impl BatchBuilder {
 
 type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
 
-/// Wrapper around tokio's JoinSet that remains pending if the set is empty,
+/// Represents a pool of batch provers.
+///
+/// Effectively a wrapper around tokio's JoinSet that remains pending if the set is empty,
 /// instead of returning None.
 struct WorkerPool {
     in_progress: JoinSet<BatchResult>,
@@ -135,12 +137,18 @@ impl WorkerPool {
         }
     }
 
+    /// Returns the next batch proof result.
+    ///
+    /// Will return pending if there are no jobs in progress (unlike tokio's [JoinSet::join_next]
+    /// which returns an option).
     async fn join_next(&mut self) -> Result<BatchResult, tokio::task::JoinError> {
         if self.in_progress.is_empty() {
             std::future::pending().await
         } else {
-            // Cannot be None as its not empty.
-            self.in_progress.join_next().await.unwrap()
+            self.in_progress
+                .join_next()
+                .await
+                .expect("JoinSet::join_next must be Some as the set is not empty")
         }
     }
 
@@ -149,7 +157,21 @@ impl WorkerPool {
         self.in_progress.len() < self.capacity.get()
     }
 
-    fn spawn(&mut self, id: BatchJobId, transactions: Vec<AuthenticatedTransaction>) {
+    /// Spawns a new batch proving task on the worker pool.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no workers are available which can be checked using
+    /// [has_capacity](Self::has_capacity).
+    fn spawn(
+        &mut self,
+        id: BatchJobId,
+        transactions: Vec<AuthenticatedTransaction>,
+    ) -> Result<(), ()> {
+        if !self.has_capacity() {
+            return Err(());
+        }
+
         self.in_progress.spawn({
             // Select a random work duration from the given proof range.
             let simulated_proof_time =
@@ -176,6 +198,8 @@ impl WorkerPool {
                 Ok((id, batch))
             }
         });
+
+        Ok(())
     }
 
     #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
