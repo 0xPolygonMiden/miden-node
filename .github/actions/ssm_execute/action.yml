@@ -35,7 +35,7 @@ runs:
             --output text \
             --query "Command.CommandId")
         echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
-      continue-on-error: true
+      continue-on-error: false
 
     - name: Poll command status and retrieve live logs
       id: poll_output
