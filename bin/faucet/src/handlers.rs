@@ -61,7 +61,7 @@ pub async fn get_tokens(
 
     let mut client = state.client.lock().await;
 
-    // Receive and hex user account id
+    // Receive and hex user account ID
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
         .map_err(|err| HandlerError::BadRequest(err.to_string()))?;
 
