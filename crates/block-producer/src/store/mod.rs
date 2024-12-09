@@ -4,7 +4,6 @@ use std::{
     num::NonZeroU32,
 };
 
-use async_trait::async_trait;
 use itertools::Itertools;
 use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
@@ -31,31 +30,6 @@ use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
 use crate::{block::BlockInputs, COMPONENT};
-
-// STORE TRAIT
-// ================================================================================================
-
-#[async_trait]
-pub trait Store: ApplyBlock {
-    /// Returns information needed from the store to verify a given proven transaction.
-    async fn get_tx_inputs(
-        &self,
-        proven_tx: &ProvenTransaction,
-    ) -> Result<TransactionInputs, TxInputsError>;
-
-    /// Returns information needed from the store to build a block.
-    async fn get_block_inputs(
-        &self,
-        updated_accounts: impl Iterator<Item = AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, BlockInputsError>;
-}
-
-#[async_trait]
-pub trait ApplyBlock: Send + Sync + 'static {
-    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError>;
-}
 
 // TRANSACTION INPUTS
 // ================================================================================================
@@ -139,15 +113,18 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
     }
 }
 
-// DEFAULT STORE IMPLEMENTATION
+// STORE CLIENT
 // ================================================================================================
 
+/// Interface to the store's gRPC API.
+///
+/// Essentially just a thin wrapper around the generated gRPC client which improves type safety.
 #[derive(Clone)]
-pub struct DefaultStore {
+pub struct StoreClient {
     store: store_client::ApiClient<Channel>,
 }
 
-impl DefaultStore {
+impl StoreClient {
     /// TODO: this should probably take store connection string and create a connection internally
     pub fn new(store: store_client::ApiClient<Channel>) -> Self {
         Self { store }
@@ -166,29 +143,9 @@ impl DefaultStore {
 
         BlockHeader::try_from(response.block_header.unwrap()).map_err(|err| err.to_string())
     }
-}
 
-#[async_trait]
-impl ApplyBlock for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
-        let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
-
-        let _ = self
-            .store
-            .clone()
-            .apply_block(request)
-            .await
-            .map_err(|status| ApplyBlockError::GrpcClientError(status.message().to_string()))?;
-
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl Store for DefaultStore {
-    #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn get_tx_inputs(
+    pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
     ) -> Result<TransactionInputs, TxInputsError> {
@@ -230,7 +187,7 @@ impl Store for DefaultStore {
         Ok(tx_inputs)
     }
 
-    async fn get_block_inputs(
+    pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
@@ -250,6 +207,20 @@ impl Store for DefaultStore {
             .map_err(|err| BlockInputsError::GrpcClientError(err.message().to_string()))?
             .into_inner();
 
-        Ok(store_response.try_into()?)
+        store_response.try_into()
+    }
+
+    #[instrument(target = "miden-block-producer", skip_all, err)]
+    pub async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
+        let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
+
+        let _ = self
+            .store
+            .clone()
+            .apply_block(request)
+            .await
+            .map_err(|status| ApplyBlockError::GrpcClientError(status.message().to_string()))?;
+
+        Ok(())
     }
 }

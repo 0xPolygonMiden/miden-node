@@ -13,7 +13,6 @@ use crate::{
     batch_builder::TransactionBatch,
     block::BlockInputs,
     block_builder::prover::{block_witness::BlockWitness, BlockProver},
-    store::Store,
 };
 
 /// Constructs the block we expect to be built given the store state, and a set of transaction

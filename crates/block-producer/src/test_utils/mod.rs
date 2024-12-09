@@ -13,7 +13,7 @@ pub use proven_tx::{mock_proven_tx, MockProvenTxBuilder};
 
 mod store;
 
-pub use store::{MockStoreFailure, MockStoreSuccess, MockStoreSuccessBuilder};
+pub use store::{MockStoreSuccess, MockStoreSuccessBuilder};
 
 mod account;
 
