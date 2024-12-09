@@ -15,7 +15,7 @@ use crate::{
     batch_builder::batch::TransactionBatch,
     errors::BuildBlockError,
     mempool::SharedMempool,
-    store::{ApplyBlock, DefaultStore, Store},
+    store::{DefaultStore, Store},
     COMPONENT, SERVER_BLOCK_FREQUENCY,
 };
 

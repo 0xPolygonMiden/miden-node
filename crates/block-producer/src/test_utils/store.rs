@@ -19,9 +19,7 @@ use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
-    store::{
-        ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
-    },
+    store::{ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError},
     test_utils::block::{
         block_output_notes, flatten_output_notes, note_created_smt_from_note_batches,
     },
@@ -188,7 +186,7 @@ impl MockStoreSuccess {
 }
 
 #[async_trait]
-impl ApplyBlock for MockStoreSuccess {
+impl Store for MockStoreSuccess {
     async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from
         // going through while we're updating the store's data structure
@@ -240,10 +238,6 @@ impl ApplyBlock for MockStoreSuccess {
 
         Ok(())
     }
-}
-
-#[async_trait]
-impl Store for MockStoreSuccess {
     async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
@@ -357,14 +351,11 @@ impl Store for MockStoreSuccess {
 pub struct MockStoreFailure;
 
 #[async_trait]
-impl ApplyBlock for MockStoreFailure {
+impl Store for MockStoreFailure {
     async fn apply_block(&self, _block: &Block) -> Result<(), ApplyBlockError> {
         Err(ApplyBlockError::GrpcClientError(String::new()))
     }
-}
 
-#[async_trait]
-impl Store for MockStoreFailure {
     async fn get_tx_inputs(
         &self,
         _proven_tx: &ProvenTransaction,

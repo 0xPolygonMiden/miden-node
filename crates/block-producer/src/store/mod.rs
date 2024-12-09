@@ -36,7 +36,7 @@ use crate::{block::BlockInputs, COMPONENT};
 // ================================================================================================
 
 #[async_trait]
-pub trait Store: ApplyBlock {
+pub trait Store {
     /// Returns information needed from the store to verify a given proven transaction.
     async fn get_tx_inputs(
         &self,
@@ -50,10 +50,7 @@ pub trait Store: ApplyBlock {
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
         notes: impl Iterator<Item = &NoteId> + Send,
     ) -> Result<BlockInputs, BlockInputsError>;
-}
 
-#[async_trait]
-pub trait ApplyBlock: Send + Sync + 'static {
     async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError>;
 }
 
@@ -169,23 +166,6 @@ impl DefaultStore {
 }
 
 #[async_trait]
-impl ApplyBlock for DefaultStore {
-    #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
-        let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
-
-        let _ = self
-            .store
-            .clone()
-            .apply_block(request)
-            .await
-            .map_err(|status| ApplyBlockError::GrpcClientError(status.message().to_string()))?;
-
-        Ok(())
-    }
-}
-
-#[async_trait]
 impl Store for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
     async fn get_tx_inputs(
@@ -251,5 +231,19 @@ impl Store for DefaultStore {
             .into_inner();
 
         Ok(store_response.try_into()?)
+    }
+
+    #[instrument(target = "miden-block-producer", skip_all, err)]
+    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
+        let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
+
+        let _ = self
+            .store
+            .clone()
+            .apply_block(request)
+            .await
+            .map_err(|status| ApplyBlockError::GrpcClientError(status.message().to_string()))?;
+
+        Ok(())
     }
 }
