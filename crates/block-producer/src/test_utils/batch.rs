@@ -24,7 +24,7 @@ impl TransactionBatchConstructor for TransactionBatch {
             })
             .collect();
 
-        Self::new(txs, Default::default()).unwrap()
+        Self::new(&txs, Default::default()).unwrap()
     }
 
     fn from_txs(starting_account_index: u32, num_txs_in_batch: u64) -> Self {
@@ -36,6 +36,6 @@ impl TransactionBatchConstructor for TransactionBatch {
             })
             .collect();
 
-        Self::new(txs, Default::default()).unwrap()
+        Self::new(&txs, Default::default()).unwrap()
     }
 }
