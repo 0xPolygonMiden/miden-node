@@ -4,7 +4,6 @@ use std::{
     num::NonZeroU32,
 };
 
-use async_trait::async_trait;
 use itertools::Itertools;
 use miden_node_proto::{
     errors::{ConversionError, MissingFieldHelper},
@@ -31,28 +30,6 @@ use tracing::{debug, info, instrument};
 
 pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
 use crate::{block::BlockInputs, COMPONENT};
-
-// STORE TRAIT
-// ================================================================================================
-
-#[async_trait]
-pub trait Store {
-    /// Returns information needed from the store to verify a given proven transaction.
-    async fn get_tx_inputs(
-        &self,
-        proven_tx: &ProvenTransaction,
-    ) -> Result<TransactionInputs, TxInputsError>;
-
-    /// Returns information needed from the store to build a block.
-    async fn get_block_inputs(
-        &self,
-        updated_accounts: impl Iterator<Item = AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, BlockInputsError>;
-
-    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError>;
-}
 
 // TRANSACTION INPUTS
 // ================================================================================================
@@ -163,12 +140,9 @@ impl DefaultStore {
 
         BlockHeader::try_from(response.block_header.unwrap()).map_err(|err| err.to_string())
     }
-}
 
-#[async_trait]
-impl Store for DefaultStore {
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn get_tx_inputs(
+    pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
     ) -> Result<TransactionInputs, TxInputsError> {
@@ -210,7 +184,7 @@ impl Store for DefaultStore {
         Ok(tx_inputs)
     }
 
-    async fn get_block_inputs(
+    pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
@@ -234,7 +208,7 @@ impl Store for DefaultStore {
     }
 
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
+    pub async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
         let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 
         let _ = self

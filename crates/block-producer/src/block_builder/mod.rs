@@ -12,11 +12,8 @@ use tokio::time::Duration;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    batch_builder::batch::TransactionBatch,
-    errors::BuildBlockError,
-    mempool::SharedMempool,
-    store::{DefaultStore, Store},
-    COMPONENT, SERVER_BLOCK_FREQUENCY,
+    batch_builder::batch::TransactionBatch, errors::BuildBlockError, mempool::SharedMempool,
+    store::DefaultStore, COMPONENT, SERVER_BLOCK_FREQUENCY,
 };
 
 pub(crate) mod prover;

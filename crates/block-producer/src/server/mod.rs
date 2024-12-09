@@ -21,7 +21,7 @@ use crate::{
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, BlockNumber, Mempool, SharedMempool},
-    store::{DefaultStore, Store},
+    store::DefaultStore,
     COMPONENT, SERVER_MEMPOOL_STATE_RETENTION,
 };
 

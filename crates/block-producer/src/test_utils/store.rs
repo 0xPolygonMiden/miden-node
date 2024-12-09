@@ -4,7 +4,6 @@ use std::{
     ops::Not,
 };
 
-use async_trait::async_trait;
 use miden_node_proto::domain::{blocks::BlockInclusionProof, notes::NoteAuthenticationInfo};
 use miden_objects::{
     block::{Block, NoteBatch},
@@ -19,7 +18,7 @@ use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
-    store::{ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError},
+    store::{ApplyBlockError, BlockInputsError, TransactionInputs, TxInputsError},
     test_utils::block::{
         block_output_notes, flatten_output_notes, note_created_smt_from_note_batches,
     },
@@ -183,11 +182,8 @@ impl MockStoreSuccess {
 
         locked_accounts.root()
     }
-}
 
-#[async_trait]
-impl Store for MockStoreSuccess {
-    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
+    pub async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from
         // going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
@@ -238,7 +234,8 @@ impl Store for MockStoreSuccess {
 
         Ok(())
     }
-    async fn get_tx_inputs(
+
+    pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
     ) -> Result<TransactionInputs, TxInputsError> {
@@ -284,7 +281,7 @@ impl Store for MockStoreSuccess {
         })
     }
 
-    async fn get_block_inputs(
+    pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
@@ -344,31 +341,5 @@ impl Store for MockStoreSuccess {
             nullifiers,
             found_unauthenticated_notes,
         })
-    }
-}
-
-#[derive(Default)]
-pub struct MockStoreFailure;
-
-#[async_trait]
-impl Store for MockStoreFailure {
-    async fn apply_block(&self, _block: &Block) -> Result<(), ApplyBlockError> {
-        Err(ApplyBlockError::GrpcClientError(String::new()))
-    }
-
-    async fn get_tx_inputs(
-        &self,
-        _proven_tx: &ProvenTransaction,
-    ) -> Result<TransactionInputs, TxInputsError> {
-        Err(TxInputsError::Dummy)
-    }
-
-    async fn get_block_inputs(
-        &self,
-        _updated_accounts: impl Iterator<Item = AccountId> + Send,
-        _produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        _notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, BlockInputsError> {
-        Err(BlockInputsError::GrpcClientError(String::new()))
     }
 }
