@@ -113,15 +113,18 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
     }
 }
 
-// DEFAULT STORE IMPLEMENTATION
+// STORE CLIENT
 // ================================================================================================
 
+/// Interface to the store's gRPC API.
+///
+/// Essentially just a thin wrapper around the generated gRPC client which improves type safety.
 #[derive(Clone)]
-pub struct DefaultStore {
+pub struct StoreClient {
     store: store_client::ApiClient<Channel>,
 }
 
-impl DefaultStore {
+impl StoreClient {
     /// TODO: this should probably take store connection string and create a connection internally
     pub fn new(store: store_client::ApiClient<Channel>) -> Self {
         Self { store }

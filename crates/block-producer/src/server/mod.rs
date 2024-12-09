@@ -21,7 +21,7 @@ use crate::{
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, BlockNumber, Mempool, SharedMempool},
-    store::DefaultStore,
+    store::StoreClient,
     COMPONENT, SERVER_MEMPOOL_STATE_RETENTION,
 };
 
@@ -38,7 +38,7 @@ pub struct BlockProducer {
     block_budget: BlockBudget,
     state_retention: usize,
     rpc_listener: TcpListener,
-    store: DefaultStore,
+    store: StoreClient,
     chain_tip: BlockNumber,
 }
 
@@ -49,7 +49,7 @@ impl BlockProducer {
     pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
-        let store = DefaultStore::new(
+        let store = StoreClient::new(
             store_client::ApiClient::connect(config.store_url.to_string())
                 .await
                 .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
@@ -171,7 +171,7 @@ struct BlockProducerRpcServer {
     /// the block-producers usage of the mempool.
     mempool: Mutex<SharedMempool>,
 
-    store: DefaultStore,
+    store: StoreClient,
 }
 
 #[tonic::async_trait]
@@ -189,7 +189,7 @@ impl api_server::Api for BlockProducerRpcServer {
 }
 
 impl BlockProducerRpcServer {
-    pub fn new(mempool: SharedMempool, store: DefaultStore) -> Self {
+    pub fn new(mempool: SharedMempool, store: StoreClient) -> Self {
         Self { mempool: Mutex::new(mempool), store }
     }
 
