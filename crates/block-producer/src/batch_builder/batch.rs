@@ -280,7 +280,7 @@ mod tests {
     };
 
     #[test]
-    fn test_output_note_tracker_duplicate_output_notes() {
+    fn output_note_tracker_duplicate_output_notes() {
         let mut txs = mock_proven_txs();
 
         let result = OutputNoteTracker::new(&txs);
@@ -306,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn test_output_note_tracker_remove_in_place_consumed_note() {
+    fn output_note_tracker_remove_in_place_consumed_note() {
         let txs = mock_proven_txs();
         let mut tracker = OutputNoteTracker::new(&txs).unwrap();
 
@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_duplicate_unauthenticated_notes() {
+    fn duplicate_unauthenticated_notes() {
         let mut txs = mock_proven_txs();
         let duplicate_note = mock_note(5);
         txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
@@ -342,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn test_consume_notes_in_place() {
+    fn consume_notes_in_place() {
         let mut txs = mock_proven_txs();
         let note_to_consume = mock_note(3);
         txs.push(mock_proven_tx(
@@ -385,7 +385,7 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_unauthenticated_note_to_authenticated() {
+    fn convert_unauthenticated_note_to_authenticated() {
         let txs = mock_proven_txs();
         let found_unauthenticated_notes = BTreeMap::from_iter([(
             mock_note(5).id(),

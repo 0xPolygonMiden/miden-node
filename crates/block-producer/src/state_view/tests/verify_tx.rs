@@ -23,7 +23,7 @@ use crate::test_utils::{block::MockBlockBuilder, note::mock_note, MockStoreSucce
 /// notes all verify successfully
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_happy_path() {
+async fn verify_tx_happy_path() {
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(0, 3).unzip();
 
@@ -49,7 +49,7 @@ async fn test_verify_tx_happy_path() {
 /// In this test, all calls to `verify_tx()` are concurrent
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_happy_path_concurrent() {
+async fn verify_tx_happy_path_concurrent() {
     let (txs, accounts): (Vec<ProvenTransaction>, Vec<MockPrivateAccount>) =
         get_txs_and_accounts(0, 3).unzip();
 
@@ -79,7 +79,7 @@ async fn test_verify_tx_happy_path_concurrent() {
 /// Verifies requirement VT1
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_vt1() {
+async fn verify_tx_vt1() {
     let account = MockPrivateAccount::<3>::from(1);
 
     let store = Arc::new(
@@ -113,7 +113,7 @@ async fn test_verify_tx_vt1() {
 /// Verifies requirement VT2
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_vt2() {
+async fn verify_tx_vt2() {
     let account_not_in_store: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
     // Notice: account is not added to the store
@@ -137,7 +137,7 @@ async fn test_verify_tx_vt2() {
 /// Verifies requirement VT3
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_vt3() {
+async fn verify_tx_vt3() {
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(1);
 
     let nullifier_in_store = nullifier_by_index(0);
@@ -169,7 +169,7 @@ async fn test_verify_tx_vt3() {
 /// Verifies requirement VT4
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_vt4() {
+async fn verify_tx_vt4() {
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(1);
 
     let store = Arc::new(
@@ -196,7 +196,7 @@ async fn test_verify_tx_vt4() {
 /// Verifies requirement VT5
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_vt5() {
+async fn verify_tx_vt5() {
     let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(1);
     let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(2);
     let nullifier_in_both_txs = nullifier_by_index(0);
@@ -241,7 +241,7 @@ async fn test_verify_tx_vt5() {
 /// notes
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_dangling_note_found_in_inflight_notes() {
+async fn verify_tx_dangling_note_found_in_inflight_notes() {
     let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(1);
     let account_2: MockPrivateAccount<3> = MockPrivateAccount::from(2);
     let store = Arc::new(
@@ -282,7 +282,7 @@ async fn test_verify_tx_dangling_note_found_in_inflight_notes() {
 /// in-flight notes nor in the store
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_verify_tx_stored_unauthenticated_notes() {
+async fn verify_tx_stored_unauthenticated_notes() {
     let account_1: MockPrivateAccount<3> = MockPrivateAccount::from(1);
     let store = Arc::new(
         MockStoreSuccessBuilder::from_accounts(

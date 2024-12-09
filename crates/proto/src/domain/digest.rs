@@ -210,7 +210,7 @@ mod test {
     use crate::generated::digest::Digest;
 
     #[test]
-    fn test_hex_digest() {
+    fn hex_digest() {
         let digest = Digest {
             d0: 3488802789098113751,
             d1: 5271242459988994564,
@@ -229,7 +229,7 @@ mod test {
 
     proptest! {
         #[test]
-        fn test_encode_decode(
+        fn encode_decode(
             d0: u64,
             d1: u64,
             d2: u64,
