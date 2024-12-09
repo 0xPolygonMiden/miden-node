@@ -243,13 +243,7 @@ impl WorkerPool {
         info!(target: COMPONENT, num_txs, "Building a transaction batch");
         debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
 
-        // TODO: This is a deep clone which can be avoided by change batch building to using
-        // refs or arcs.
-        let txs = txs
-            .iter()
-            .map(AuthenticatedTransaction::raw_proven_transaction)
-            .cloned()
-            .collect();
+        let txs = txs.iter().map(AuthenticatedTransaction::raw_proven_transaction);
         // TODO: Found unauthenticated notes are no longer required.. potentially?
         let batch = TransactionBatch::new(txs, Default::default())?;
 

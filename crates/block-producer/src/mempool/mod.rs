@@ -418,11 +418,8 @@ mod tests {
         uut.batch_failed(child_batch_a);
         assert_eq!(uut, reference);
 
-        let proof = TransactionBatch::new(
-            vec![txs[2].raw_proven_transaction().clone()],
-            Default::default(),
-        )
-        .unwrap();
+        let proof =
+            TransactionBatch::new([txs[2].raw_proven_transaction()], Default::default()).unwrap();
         uut.batch_proved(child_batch_b, proof);
         assert_eq!(uut, reference);
     }
