@@ -4,12 +4,35 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerkleError, MmrError},
     notes::{NoteId, Nullifier},
-    transaction::{ProvenTransaction, TransactionId},
-    AccountDeltaError, Digest, TransactionInputError, MAX_ACCOUNTS_PER_BATCH,
-    MAX_BATCHES_PER_BLOCK, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
+    transaction::TransactionId,
+    AccountDeltaError, Digest, TransactionInputError,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
+use tokio::task::JoinError;
+
+use crate::mempool::BlockNumber;
+
+// Block-producer errors
+// =================================================================================================
+
+#[derive(Debug, Error)]
+pub enum BlockProducerError {
+    /// A block-producer task completed although it should have ran indefinitely.
+    #[error("task {task} completed unexpectedly")]
+    TaskFailedSuccesfully { task: &'static str },
+
+    /// A block-producer task panic'd.
+    #[error("error joining {task} task")]
+    JoinError { task: &'static str, source: JoinError },
+
+    /// A block-producer task reported a transport error.
+    #[error("task {task} had a transport error")]
+    TonicTransportError {
+        task: &'static str,
+        source: tonic::transport::Error,
+    },
+}
 
 // Transaction verification errors
 // =================================================================================================
@@ -26,6 +49,9 @@ pub enum VerifyTxError {
         "Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions: {0:?}"
     )]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
+
+    #[error("Output note IDs already used: {0:?}")]
+    OutputNotesAlreadyExist(Vec<NoteId>),
 
     /// The account's initial hash did not match the current account's hash
     #[error("Incorrect account's initial hash ({tx_initial_account_hash}, current: {})", format_opt(.current_account_hash.as_ref()))]
@@ -56,83 +82,72 @@ pub enum VerifyTxError {
 pub enum AddTransactionError {
     #[error("Transaction verification failed: {0}")]
     VerificationFailed(#[from] VerifyTxError),
+
+    #[error("Transaction input data is stale. Required data from {stale_limit} or newer, but inputs are from {input_block}.")]
+    StaleInputs {
+        input_block: BlockNumber,
+        stale_limit: BlockNumber,
+    },
+
+    #[error("Deserialization failed: {0}")]
+    DeserializationError(String),
+}
+
+impl From<AddTransactionError> for tonic::Status {
+    fn from(value: AddTransactionError) -> Self {
+        use AddTransactionError::*;
+        match value {
+            VerificationFailed(VerifyTxError::InputNotesAlreadyConsumed(_))
+            | VerificationFailed(VerifyTxError::UnauthenticatedNotesNotFound(_))
+            | VerificationFailed(VerifyTxError::OutputNotesAlreadyExist(_))
+            | VerificationFailed(VerifyTxError::IncorrectAccountInitialHash { .. })
+            | VerificationFailed(VerifyTxError::InvalidTransactionProof(_))
+            | DeserializationError(_) => Self::invalid_argument(value.to_string()),
+
+            // Internal errors which should not be communicated to the user.
+            VerificationFailed(VerifyTxError::TransactionInputError(_))
+            | VerificationFailed(VerifyTxError::StoreConnectionFailed(_))
+            | StaleInputs { .. } => Self::internal("Internal error"),
+        }
+    }
 }
 
 // Batch building errors
 // =================================================================================================
 
-/// Error that may happen while building a transaction batch.
-///
-/// These errors are returned from the batch builder to the transaction queue, instead of
-/// dropping the transactions, they are included into the error values, so that the transaction
-/// queue can re-queue them.
+/// Error encountered while building a batch.
 #[derive(Debug, Error)]
 pub enum BuildBatchError {
-    #[error("Too many input notes in the batch. Got: {0}, limit: {MAX_INPUT_NOTES_PER_BATCH}")]
-    TooManyInputNotes(usize, Vec<ProvenTransaction>),
-
-    #[error("Too many notes created in the batch. Got: {0}, limit: {MAX_OUTPUT_NOTES_PER_BATCH}")]
-    TooManyNotesCreated(usize, Vec<ProvenTransaction>),
-
-    #[error(
-        "Too many account updates in the batch. Got: {}, limit: {}",
-        .0.len(),
-        MAX_ACCOUNTS_PER_BATCH
-    )]
-    TooManyAccountsInBatch(Vec<ProvenTransaction>),
-
-    #[error("Failed to create notes SMT: {0}")]
-    NotesSmtError(MerkleError, Vec<ProvenTransaction>),
-
-    #[error("Failed to get note paths: {0}")]
-    NotePathsError(NotePathsError, Vec<ProvenTransaction>),
-
     #[error("Duplicated unauthenticated transaction input note ID in the batch: {0}")]
-    DuplicateUnauthenticatedNote(NoteId, Vec<ProvenTransaction>),
+    DuplicateUnauthenticatedNote(NoteId),
 
     #[error("Duplicated transaction output note ID in the batch: {0}")]
-    DuplicateOutputNote(NoteId, Vec<ProvenTransaction>),
-
-    #[error("Unauthenticated transaction notes not found in the store: {0:?}")]
-    UnauthenticatedNotesNotFound(Vec<NoteId>, Vec<ProvenTransaction>),
+    DuplicateOutputNote(NoteId),
 
     #[error("Note hashes mismatch for note {id}: (input: {input_hash}, output: {output_hash})")]
     NoteHashesMismatch {
         id: NoteId,
         input_hash: Digest,
         output_hash: Digest,
-        txs: Vec<ProvenTransaction>,
     },
 
     #[error("Failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {
         account_id: AccountId,
         error: AccountDeltaError,
-        txs: Vec<ProvenTransaction>,
     },
-}
 
-impl BuildBatchError {
-    pub fn into_transactions(self) -> Vec<ProvenTransaction> {
-        match self {
-            BuildBatchError::TooManyInputNotes(_, txs) => txs,
-            BuildBatchError::TooManyNotesCreated(_, txs) => txs,
-            BuildBatchError::TooManyAccountsInBatch(txs) => txs,
-            BuildBatchError::NotesSmtError(_, txs) => txs,
-            BuildBatchError::NotePathsError(_, txs) => txs,
-            BuildBatchError::DuplicateUnauthenticatedNote(_, txs) => txs,
-            BuildBatchError::DuplicateOutputNote(_, txs) => txs,
-            BuildBatchError::UnauthenticatedNotesNotFound(_, txs) => txs,
-            BuildBatchError::NoteHashesMismatch { txs, .. } => txs,
-            BuildBatchError::AccountUpdateError { txs, .. } => txs,
-        }
-    }
+    #[error("Nothing actually went wrong, failure was injected on purpose")]
+    InjectedFailure,
+
+    #[error("Batch proving task panic'd")]
+    JoinError(#[from] tokio::task::JoinError),
 }
 
 // Block prover errors
 // =================================================================================================
 
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum BlockProverError {
     #[error("Received invalid merkle path")]
     InvalidMerklePaths(MerkleError),
@@ -152,18 +167,6 @@ pub enum BlockInputsError {
     ConversionError(#[from] ConversionError),
     #[error("MmrPeaks error: {0}")]
     MmrPeaksError(#[from] MmrError),
-    #[error("gRPC client failed with error: {0}")]
-    GrpcClientError(String),
-}
-
-// Note paths errors
-// =================================================================================================
-
-#[allow(clippy::enum_variant_names)]
-#[derive(Debug, Error)]
-pub enum NotePathsError {
-    #[error("failed to parse protobuf message: {0}")]
-    ConversionError(#[from] ConversionError),
     #[error("gRPC client failed with error: {0}")]
     GrpcClientError(String),
 }
@@ -198,13 +201,13 @@ pub enum BuildBlockError {
     InconsistentNullifiers(Vec<Nullifier>),
     #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
-    #[error("too many batches in block. Got: {0}, max: {MAX_BATCHES_PER_BLOCK}")]
-    TooManyBatchesInBlock(usize),
-    #[error("Failed to merge transaction delta into account {account_id}: {error}")]
+    #[error("failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {
         account_id: AccountId,
         error: AccountDeltaError,
     },
+    #[error("nothing actually went wrong, failure was injected on purpose")]
+    InjectedFailure,
 }
 
 // Transaction inputs errors

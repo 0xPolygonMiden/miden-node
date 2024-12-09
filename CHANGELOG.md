@@ -6,6 +6,7 @@
 
 - Added `GetAccountProofs` endpoint (#506).
 - Support Https in endpoint configuration (#556).
+- Upgrade `block-producer` from FIFO queue to mempool dependency graph (#562).
 
 ### Changes
 

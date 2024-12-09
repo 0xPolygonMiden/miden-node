@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use itertools::Itertools;
 use miden_air::HashFunction;
 use miden_objects::{
     accounts::AccountId,
@@ -8,9 +9,11 @@ use miden_objects::{
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
 };
+use rand::Rng;
 use winterfell::Proof;
 
 use super::MockPrivateAccount;
+use crate::domain::transaction::AuthenticatedTransaction;
 
 pub struct MockProvenTxBuilder {
     account_id: AccountId,
@@ -27,6 +30,25 @@ impl MockProvenTxBuilder {
         let mock_account: MockPrivateAccount = account_index.into();
 
         Self::with_account(mock_account.id, mock_account.states[0], mock_account.states[1])
+    }
+
+    /// Generates 3 random, sequential transactions acting on the same account.
+    pub fn sequential() -> [AuthenticatedTransaction; 3] {
+        let mut rng = rand::thread_rng();
+        let mock_account: MockPrivateAccount<4> = rng.gen::<u32>().into();
+
+        (0..3)
+            .map(|i| {
+                Self::with_account(
+                    mock_account.id,
+                    mock_account.states[i],
+                    mock_account.states[i + 1],
+                )
+            })
+            .map(|tx| AuthenticatedTransaction::from_inner(tx.build()))
+            .collect_vec()
+            .try_into()
+            .expect("Sizes should match")
     }
 
     pub fn with_account(
