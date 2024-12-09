@@ -310,7 +310,9 @@ impl Mempool {
 
     /// Select batches for the next block.
     ///
-    /// May return an empty set if no batches are ready.
+    /// Note that the set of batches
+    /// - may be empty if none are available, and
+    /// - may contain dependencies and therefore the order must be maintained
     ///
     /// # Panics
     ///

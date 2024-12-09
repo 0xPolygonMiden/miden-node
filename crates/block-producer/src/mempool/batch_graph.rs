@@ -217,6 +217,9 @@ impl BatchGraph {
 
     /// Selects the next set of batches ready for inclusion in a block while adhering to the given
     /// budget.
+    ///
+    /// Note that batch order should be maintained to allow for inter-batch dependencies to be
+    /// correctly resolved.
     pub fn select_block(&mut self, mut budget: BlockBudget) -> Vec<(BatchJobId, TransactionBatch)> {
         let mut batches = Vec::with_capacity(budget.batches);
 
