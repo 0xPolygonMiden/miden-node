@@ -1,12 +1,10 @@
 //! Wrapper functions for SQL statements.
 
 pub(crate) mod utils;
+
 use std::{
     borrow::Cow,
-    collections::{
-        btree_map::{Entry, OccupiedEntry},
-        BTreeMap, BTreeSet,
-    },
+    collections::{btree_map, btree_map::Entry, BTreeMap, BTreeSet},
     rc::Rc,
 };
 
@@ -204,19 +202,6 @@ pub fn compute_old_account_states(
     account_ids: &[AccountId],
     block_number: BlockNumber,
 ) -> Result<Vec<Account>> {
-    fn find_account(
-        accounts: &mut BTreeMap<AccountId, AccountRecord>,
-        account_id: AccountId,
-    ) -> Result<OccupiedEntry<AccountId, AccountRecord>> {
-        let Entry::Occupied(found_account) = accounts.entry(account_id) else {
-            return Err(DatabaseError::DataCorrupted(format!(
-                "Account not found in DB: {account_id:x}"
-            )));
-        };
-
-        Ok(found_account)
-    }
-
     let mut select_last_states_stmt = conn.prepare_cached(
         "
         SELECT
@@ -349,10 +334,34 @@ pub fn compute_old_account_states(
         assets: Vec<Asset>,
     }
 
+    #[derive(Default)]
+    struct Accounts(BTreeMap<AccountId, AccountRecord>);
+
+    impl Accounts {
+        fn insert(&mut self, id: AccountId, account: AccountRecord) -> Option<AccountRecord> {
+            self.0.insert(id, account)
+        }
+
+        fn try_get_mut(&mut self, id: &AccountId) -> Result<&mut AccountRecord> {
+            self.0.get_mut(id).ok_or_else(|| {
+                DatabaseError::DataCorrupted(format!("Account not found in DB: {id:x}"))
+            })
+        }
+    }
+
+    impl IntoIterator for Accounts {
+        type Item = (AccountId, AccountRecord);
+        type IntoIter = btree_map::IntoIter<AccountId, AccountRecord>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            self.0.into_iter()
+        }
+    }
+
     let account_ids = Rc::new(account_ids.iter().copied().map(u64_to_value).collect::<Vec<_>>());
 
     // Gathering data from different tables to single accounts map.
-    let mut accounts = BTreeMap::new();
+    let mut accounts = Accounts::default();
 
     let mut rows = select_last_states_stmt.query(params![Rc::clone(&account_ids)])?;
     while let Some(row) = rows.next()? {
@@ -376,9 +385,9 @@ pub fn compute_old_account_states(
         select_latest_nonces_stmt.query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
         let account_id: AccountId = row.get(0)?;
-        let nonce: u64 = row.get(1)?;
-        find_account(&mut accounts, account_id)?.get_mut().nonce =
-            Some(nonce.try_into().map_err(DatabaseError::DataCorrupted)?);
+        let nonce = row.get::<_, u64>(1)?.try_into().map_err(DatabaseError::DataCorrupted)?;
+        let account = accounts.try_get_mut(&account_id)?;
+        account.nonce = Some(nonce);
     }
 
     let mut rows = select_latest_storage_slot_updates_stmt
@@ -389,15 +398,9 @@ pub fn compute_old_account_states(
         let value = row.get_ref(2)?.as_blob()?;
         let value = Word::read_from_bytes(value)?;
 
-        match find_account(&mut accounts, account_id)?.get_mut().storage.entry(slot) {
-            Entry::Vacant(entry) => {
-                entry.insert(StorageSlot::Value(value));
-            },
-            Entry::Occupied(_) => {
-                return Err(DatabaseError::DataCorrupted(format!(
-                    "Duplicate storage slot: {slot}"
-                )));
-            },
+        let account = accounts.try_get_mut(&account_id)?;
+        if account.storage.insert(slot, StorageSlot::Value(value)).is_some() {
+            return Err(DatabaseError::DataCorrupted(format!("Duplicate storage slot: {slot}")));
         }
     }
 
@@ -411,7 +414,8 @@ pub fn compute_old_account_states(
         let value = row.get_ref(3)?.as_blob()?;
         let value = Word::read_from_bytes(value)?;
 
-        match find_account(&mut accounts, account_id)?.get_mut().storage.entry(slot) {
+        let account = accounts.try_get_mut(&account_id)?;
+        match account.storage.entry(slot) {
             Entry::Vacant(entry) => {
                 entry.insert(StorageSlot::Map(
                     StorageMap::with_entries([(key, value)])
@@ -438,7 +442,8 @@ pub fn compute_old_account_states(
         let account_id: AccountId = row.get(0)?;
         let faucet_id: AccountId = row.get(1)?;
         let amount: u64 = row.get(2)?;
-        find_account(&mut accounts, account_id)?.get_mut().assets.push(Asset::Fungible(
+        let account = accounts.try_get_mut(&account_id)?;
+        account.assets.push(Asset::Fungible(
             FungibleAsset::new(
                 faucet_id
                     .try_into()
@@ -457,10 +462,8 @@ pub fn compute_old_account_states(
         let vault_key = Word::read_from_bytes(vault_key)?;
         let asset = NonFungibleAsset::try_from(vault_key)
             .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
-        find_account(&mut accounts, account_id)?
-            .get_mut()
-            .assets
-            .push(Asset::NonFungible(asset));
+        let account = accounts.try_get_mut(&account_id)?;
+        account.assets.push(Asset::NonFungible(asset));
     }
 
     // Converting gathered data to vector of `Account` structures.
