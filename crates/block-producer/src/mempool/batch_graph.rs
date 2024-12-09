@@ -217,11 +217,8 @@ impl BatchGraph {
 
     /// Selects the next set of batches ready for inclusion in a block while adhering to the given
     /// budget.
-    pub fn select_block(
-        &mut self,
-        mut budget: BlockBudget,
-    ) -> BTreeMap<BatchJobId, TransactionBatch> {
-        let mut batches = BTreeMap::new();
+    pub fn select_block(&mut self, mut budget: BlockBudget) -> Vec<(BatchJobId, TransactionBatch)> {
+        let mut batches = Vec::with_capacity(budget.batches);
 
         while let Some(batch_id) = self.inner.roots().first().copied() {
             // SAFETY: Since it was a root batch, it must definitely have a processed batch
@@ -240,7 +237,7 @@ impl BatchGraph {
             // SAFETY: This is definitely a root since we just selected it from the set of roots.
             self.inner.process_root(batch_id).expect("root should be processed");
 
-            batches.insert(batch_id, batch);
+            batches.push((batch_id, batch));
         }
 
         batches
