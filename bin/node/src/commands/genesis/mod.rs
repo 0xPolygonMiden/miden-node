@@ -189,11 +189,10 @@ mod tests {
     use miden_node_store::genesis::GenesisState;
     use miden_objects::{accounts::AccountData, utils::serde::Deserializable};
 
-    use super::make_genesis;
     use crate::DEFAULT_GENESIS_FILE_PATH;
 
     #[test]
-    fn test_make_genesis() {
+    fn make_genesis() {
         let genesis_inputs_file_path = PathBuf::from("genesis.toml");
 
         // node genesis configuration
@@ -217,7 +216,7 @@ mod tests {
             let genesis_dat_file_path = PathBuf::from(DEFAULT_GENESIS_FILE_PATH);
 
             //  run make_genesis to generate genesis.dat and accounts folder and files
-            make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
+            super::make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
 
             let a0_file_path = PathBuf::from("accounts/faucet.mac");
 

@@ -49,7 +49,7 @@ fn create_block(conn: &mut Connection, block_num: u32) {
 }
 
 #[test]
-fn test_sql_insert_nullifiers_for_block() {
+fn sql_insert_nullifiers_for_block() {
     let mut conn = create_db();
 
     let nullifiers = [num_to_nullifier(1 << 48)];
@@ -95,7 +95,7 @@ fn test_sql_insert_nullifiers_for_block() {
 }
 
 #[test]
-fn test_sql_insert_transactions() {
+fn sql_insert_transactions() {
     let mut conn = create_db();
 
     let count = insert_transactions(&mut conn);
@@ -104,7 +104,7 @@ fn test_sql_insert_transactions() {
 }
 
 #[test]
-fn test_sql_select_transactions() {
+fn sql_select_transactions() {
     fn query_transactions(conn: &mut Connection) -> Vec<TransactionSummary> {
         sql::select_transactions_by_accounts_and_block_range(conn, 0, 2, &[1]).unwrap()
     }
@@ -125,7 +125,7 @@ fn test_sql_select_transactions() {
 }
 
 #[test]
-fn test_sql_select_nullifiers() {
+fn sql_select_nullifiers() {
     let mut conn = create_db();
 
     let block_num = 1;
@@ -151,7 +151,7 @@ fn test_sql_select_nullifiers() {
 }
 
 #[test]
-fn test_sql_select_notes() {
+fn sql_select_notes() {
     let mut conn = create_db();
 
     let block_num = 1;
@@ -191,7 +191,7 @@ fn test_sql_select_notes() {
 }
 
 #[test]
-fn test_sql_select_notes_different_execution_hints() {
+fn sql_select_notes_different_execution_hints() {
     let mut conn = create_db();
 
     let block_num = 1;
@@ -278,7 +278,7 @@ fn test_sql_select_notes_different_execution_hints() {
 }
 
 #[test]
-fn test_sql_select_accounts() {
+fn sql_select_accounts() {
     let mut conn = create_db();
 
     let block_num = 1;
@@ -321,7 +321,7 @@ fn test_sql_select_accounts() {
 }
 
 #[test]
-fn test_sql_public_account_details() {
+fn sql_public_account_details() {
     let mut conn = create_db();
 
     create_block(&mut conn, 1);
@@ -472,7 +472,7 @@ fn test_sql_public_account_details() {
 }
 
 #[test]
-fn test_sql_select_nullifiers_by_block_range() {
+fn sql_select_nullifiers_by_block_range() {
     let mut conn = create_db();
 
     // test empty table
@@ -599,7 +599,7 @@ fn test_sql_select_nullifiers_by_block_range() {
 }
 
 #[test]
-fn test_select_nullifiers_by_prefix() {
+fn select_nullifiers_by_prefix() {
     let mut conn = create_db();
     const PREFIX_LEN: u32 = 16;
     // test empty table
@@ -704,7 +704,7 @@ fn test_select_nullifiers_by_prefix() {
 }
 
 #[test]
-fn test_db_block_header() {
+fn db_block_header() {
     let mut conn = create_db();
 
     // test querying empty table
@@ -776,7 +776,7 @@ fn test_db_block_header() {
 }
 
 #[test]
-fn test_db_account() {
+fn db_account() {
     let mut conn = create_db();
 
     let block_num = 1;
@@ -830,7 +830,7 @@ fn test_db_account() {
 }
 
 #[test]
-fn test_notes() {
+fn notes() {
     let mut conn = create_db();
 
     let block_num_1 = 1;

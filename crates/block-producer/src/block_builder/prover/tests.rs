@@ -38,7 +38,7 @@ use crate::{
 ///
 /// The store will contain accounts 1 & 2, while the transaction batches will contain 2 & 3.
 #[test]
-fn test_block_witness_validation_inconsistent_account_ids() {
+fn block_witness_validation_inconsistent_account_ids() {
     let account_id_1 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
     let account_id_2 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 1));
     let account_id_3 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 2));
@@ -97,7 +97,7 @@ fn test_block_witness_validation_inconsistent_account_ids() {
 ///
 /// Only account 1 will have a different state hash
 #[test]
-fn test_block_witness_validation_inconsistent_account_hashes() {
+fn block_witness_validation_inconsistent_account_hashes() {
     let account_id_1 =
         AccountId::new_unchecked(Felt::new(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN));
     let account_id_2 = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
@@ -178,7 +178,7 @@ fn test_block_witness_validation_inconsistent_account_hashes() {
 /// themselves: `[tx_x0, tx_y1], [tx_y0, tx_x1]`. This test ensures that the witness is
 /// produced correctly as if for a single batch: `[tx_x0, tx_x1, tx_y0, tx_y1]`.
 #[test]
-fn test_block_witness_multiple_batches_per_account() {
+fn block_witness_multiple_batches_per_account() {
     let x_account_id =
         AccountId::new_unchecked(Felt::new(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN));
     let y_account_id = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
@@ -274,7 +274,7 @@ fn test_block_witness_multiple_batches_per_account() {
 /// We assume an initial store with 5 accounts, and all will be updated.
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_compute_account_root_success() {
+async fn compute_account_root_success() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
@@ -374,7 +374,7 @@ async fn test_compute_account_root_success() {
 /// Test that the current account root is returned if the batches are empty
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_compute_account_root_empty_batches() {
+async fn compute_account_root_empty_batches() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
@@ -431,7 +431,7 @@ async fn test_compute_account_root_empty_batches() {
 /// contains no batches
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_compute_note_root_empty_batches_success() {
+async fn compute_note_root_empty_batches_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
@@ -463,7 +463,7 @@ async fn test_compute_note_root_empty_batches_success() {
 /// which contains at least 1 batch.
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_compute_note_root_empty_notes_success() {
+async fn compute_note_root_empty_notes_success() {
     // Set up store
     // ---------------------------------------------------------------------------------------------
 
@@ -498,7 +498,7 @@ async fn test_compute_note_root_empty_notes_success() {
 /// many batches.
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_compute_note_root_success() {
+async fn compute_note_root_success() {
     let account_ids = [
         AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER)),
         AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER + 1)),
@@ -605,7 +605,7 @@ async fn test_compute_note_root_success() {
 ///
 /// The transaction batches will contain nullifiers 1 & 2, while the store will contain 2 & 3.
 #[test]
-fn test_block_witness_validation_inconsistent_nullifiers() {
+fn block_witness_validation_inconsistent_nullifiers() {
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
@@ -684,7 +684,7 @@ fn test_block_witness_validation_inconsistent_nullifiers() {
 /// Tests that the block kernel returns the expected nullifier tree when no nullifiers are present
 /// in the transaction
 #[tokio::test]
-async fn test_compute_nullifier_root_empty_success() {
+async fn compute_nullifier_root_empty_success() {
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).build();
@@ -738,7 +738,7 @@ async fn test_compute_nullifier_root_empty_success() {
 /// Tests that the block kernel returns the expected nullifier tree when multiple nullifiers are
 /// present in the transaction
 #[tokio::test]
-async fn test_compute_nullifier_root_success() {
+async fn compute_nullifier_root_success() {
     let batches: Vec<TransactionBatch> = {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
@@ -810,7 +810,7 @@ async fn test_compute_nullifier_root_success() {
 /// Test that the chain mmr root is as expected if the batches are empty
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_compute_chain_mmr_root_empty_mmr() {
+async fn compute_chain_mmr_root_empty_mmr() {
     let store = MockStoreSuccessBuilder::from_batches(iter::empty()).build();
 
     let expected_block_header = build_expected_block_header(&store, &[]).await;
@@ -822,7 +822,7 @@ async fn test_compute_chain_mmr_root_empty_mmr() {
 /// add header to non-empty MMR (1 peak), and check that we get the expected commitment
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_compute_chain_mmr_root_mmr_1_peak() {
+async fn compute_chain_mmr_root_mmr_1_peak() {
     let initial_chain_mmr = {
         let mut mmr = Mmr::new();
         mmr.add(Digest::default());
@@ -843,7 +843,7 @@ async fn test_compute_chain_mmr_root_mmr_1_peak() {
 /// add header to an MMR with 17 peaks, and check that we get the expected commitment
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_compute_chain_mmr_root_mmr_17_peaks() {
+async fn compute_chain_mmr_root_mmr_17_peaks() {
     let initial_chain_mmr = {
         let mut mmr = Mmr::new();
         for _ in 0..(2_u32.pow(17) - 1) {

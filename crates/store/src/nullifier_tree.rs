@@ -90,7 +90,7 @@ mod tests {
     use super::NullifierTree;
 
     #[test]
-    fn test_leaf_value_encoding() {
+    fn leaf_value_encoding() {
         let block_num = 123;
         let nullifier_value = NullifierTree::block_num_to_leaf_value(block_num);
 
@@ -98,7 +98,7 @@ mod tests {
     }
 
     #[test]
-    fn test_leaf_value_decoding() {
+    fn leaf_value_decoding() {
         let block_num = 123;
         let nullifier_value = [Felt::from(block_num), ZERO, ZERO, ZERO];
         let decoded_block_num = NullifierTree::leaf_value_to_block_num(nullifier_value);
