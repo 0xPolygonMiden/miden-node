@@ -207,7 +207,7 @@ impl StoreClient {
             .map_err(|err| BlockInputsError::GrpcClientError(err.message().to_string()))?
             .into_inner();
 
-        Ok(store_response.try_into()?)
+        store_response.try_into()
     }
 
     #[instrument(target = "miden-block-producer", skip_all, err)]
