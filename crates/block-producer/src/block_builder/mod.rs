@@ -69,7 +69,6 @@ impl BlockBuilder {
             interval.tick().await;
 
             let (block_number, batches) = mempool.lock().await.select_block();
-            let batches = batches.into_iter().map(|(_, batch)| batch).collect::<Vec<_>>();
 
             let mut result = self.build_block(&batches).await;
             let proving_duration = rand::thread_rng().gen_range(self.simulated_proof_time.clone());

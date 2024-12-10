@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     mem,
 };
@@ -21,17 +22,25 @@ use crate::errors::BuildBatchError;
 // ================================================================================================
 
 /// Uniquely identifies a [TransactionBatch].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct BatchId(Blake3Digest<32>);
 
 impl BatchId {
     /// Calculates a batch ID from the given set of transactions.
-    pub fn compute(txs: impl Iterator<Item = TransactionId>) -> Self {
+    pub fn compute<T>(txs: impl Iterator<Item = T>) -> Self
+    where
+        T: Borrow<TransactionId>,
+    {
         let mut buf = Vec::with_capacity(32 * txs.size_hint().0);
         for tx in txs {
-            buf.extend_from_slice(&tx.as_bytes());
+            buf.extend_from_slice(&tx.borrow().as_bytes());
         }
         Self(Blake3_256::hash(&buf))
+    }
+
+    #[cfg(test)]
+    pub fn new(x: u64) -> Self {
+        Self(Blake3_256::hash(&x.to_le_bytes()))
     }
 }
 
@@ -200,8 +209,8 @@ impl TransactionBatch {
     // --------------------------------------------------------------------------------------------
 
     /// Returns the batch ID.
-    pub fn id(&self) -> &BatchId {
-        &self.id
+    pub fn id(&self) -> BatchId {
+        self.id
     }
 
     /// Returns an iterator over (account_id, init_state_hash) tuples for accounts that were
