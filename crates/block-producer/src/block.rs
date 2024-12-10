@@ -13,8 +13,6 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
-use crate::store::BlockInputsError;
-
 // BLOCK INPUTS
 // ================================================================================================
 
@@ -44,12 +42,12 @@ pub struct AccountWitness {
 }
 
 impl TryFrom<GetBlockInputsResponse> for BlockInputs {
-    type Error = BlockInputsError;
+    type Error = ConversionError;
 
     fn try_from(response: GetBlockInputsResponse) -> Result<Self, Self::Error> {
         let block_header: BlockHeader = response
             .block_header
-            .ok_or(GetBlockInputsResponse::missing_field(stringify!(block_header)))?
+            .ok_or(miden_node_proto::generated::block::BlockHeader::missing_field("block_header"))?
             .try_into()?;
 
         let chain_peaks = {

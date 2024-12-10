@@ -2,7 +2,7 @@ use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::{MerkleError, MmrError},
+    crypto::merkle::MerkleError,
     notes::{NoteId, Nullifier},
     transaction::TransactionId,
     AccountDeltaError, Digest, TransactionInputError,
@@ -65,7 +65,7 @@ pub enum VerifyTxError {
     /// TODO: Make this an "internal error". Q: Should we have a single `InternalError` enum for
     /// all internal errors that can occur across the system?
     #[error("Failed to retrieve transaction inputs from the store: {0}")]
-    StoreConnectionFailed(#[from] TxInputsError),
+    StoreConnectionFailed(#[from] StoreError),
 
     #[error("Transaction input error: {0}")]
     TransactionInputError(#[from] TransactionInputError),
@@ -157,29 +157,6 @@ pub enum BlockProverError {
     InvalidRootOutput(&'static str),
 }
 
-// Block inputs errors
-// =================================================================================================
-
-#[allow(clippy::enum_variant_names)]
-#[derive(Debug, Error)]
-pub enum BlockInputsError {
-    #[error("failed to parse protobuf message: {0}")]
-    ConversionError(#[from] ConversionError),
-    #[error("MmrPeaks error: {0}")]
-    MmrPeaksError(#[from] MmrError),
-    #[error("gRPC client failed with error: {0}")]
-    GrpcClientError(String),
-}
-
-// Block applying errors
-// =================================================================================================
-
-#[derive(Debug, Error)]
-pub enum ApplyBlockError {
-    #[error("gRPC client failed with error: {0}")]
-    GrpcClientError(String),
-}
-
 // Block building errors
 // =================================================================================================
 
@@ -188,9 +165,9 @@ pub enum BuildBlockError {
     #[error("failed to compute new block: {0}")]
     BlockProverFailed(#[from] BlockProverError),
     #[error("failed to apply block: {0}")]
-    ApplyBlockFailed(#[from] ApplyBlockError),
+    ApplyBlockFailed(#[source] StoreError),
     #[error("failed to get block inputs from store: {0}")]
-    GetBlockInputsFailed(#[from] BlockInputsError),
+    GetBlockInputsFailed(#[source] StoreError),
     #[error("store did not produce data for account: {0}")]
     MissingAccountInput(AccountId),
     #[error("store produced extra account data. Offending accounts: {0:?}")]
@@ -210,17 +187,16 @@ pub enum BuildBlockError {
     InjectedFailure,
 }
 
-// Transaction inputs errors
+// Store errors
 // =================================================================================================
 
+/// Errors returned by the [StoreClient](crate::store::StoreClient).
 #[derive(Debug, Error)]
-pub enum TxInputsError {
-    #[error("gRPC client failed with error: {0}")]
-    GrpcClientError(String),
+pub enum StoreError {
+    #[error("gRPC client error")]
+    GrpcClientError(#[from] tonic::Status),
     #[error("malformed response from store: {0}")]
     MalformedResponse(String),
-    #[error("failed to parse protobuf message: {0}")]
-    ConversionError(#[from] ConversionError),
-    #[error("dummy")]
-    Dummy,
+    #[error("failed to parse response")]
+    DeserializationError(#[from] ConversionError),
 }

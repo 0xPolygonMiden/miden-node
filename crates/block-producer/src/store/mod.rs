@@ -28,8 +28,7 @@ use miden_processor::crypto::RpoDigest;
 use tonic::transport::Channel;
 use tracing::{debug, info, instrument};
 
-pub use crate::errors::{ApplyBlockError, BlockInputsError, TxInputsError};
-use crate::{block::BlockInputs, COMPONENT};
+use crate::{block::BlockInputs, errors::StoreError, COMPONENT};
 
 // TRANSACTION INPUTS
 // ================================================================================================
@@ -121,34 +120,37 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
 /// Essentially just a thin wrapper around the generated gRPC client which improves type safety.
 #[derive(Clone)]
 pub struct StoreClient {
-    store: store_client::ApiClient<Channel>,
+    inner: store_client::ApiClient<Channel>,
 }
 
 impl StoreClient {
     /// TODO: this should probably take store connection string and create a connection internally
     pub fn new(store: store_client::ApiClient<Channel>) -> Self {
-        Self { store }
+        Self { inner: store }
     }
 
     /// Returns the latest block's header from the store.
-    pub async fn latest_header(&self) -> Result<BlockHeader, String> {
-        // TODO: Consolidate the error types returned by the store (and its trait).
+    #[instrument(target = "miden-block-producer", skip_all, err)]
+    pub async fn latest_header(&self) -> Result<BlockHeader, StoreError> {
         let response = self
-            .store
+            .inner
             .clone()
             .get_block_header_by_number(tonic::Request::new(Default::default()))
-            .await
-            .map_err(|err| err.to_string())?
-            .into_inner();
+            .await?
+            .into_inner()
+            .block_header
+            .ok_or(miden_node_proto::generated::block::BlockHeader::missing_field(
+                "block_header",
+            ))?;
 
-        BlockHeader::try_from(response.block_header.unwrap()).map_err(|err| err.to_string())
+        BlockHeader::try_from(response).map_err(Into::into)
     }
 
     #[instrument(target = "miden-block-producer", skip_all, err)]
     pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
-    ) -> Result<TransactionInputs, TxInputsError> {
+    ) -> Result<TransactionInputs, StoreError> {
         let message = GetTransactionInputsRequest {
             account_id: Some(proven_tx.account_id().into()),
             nullifiers: proven_tx.get_nullifiers().map(Into::into).collect(),
@@ -162,20 +164,14 @@ impl StoreClient {
         debug!(target: COMPONENT, ?message);
 
         let request = tonic::Request::new(message);
-        let response = self
-            .store
-            .clone()
-            .get_transaction_inputs(request)
-            .await
-            .map_err(|status| TxInputsError::GrpcClientError(status.message().to_string()))?
-            .into_inner();
+        let response = self.inner.clone().get_transaction_inputs(request).await?.into_inner();
 
         debug!(target: COMPONENT, ?response);
 
         let tx_inputs: TransactionInputs = response.try_into()?;
 
         if tx_inputs.account_id != proven_tx.account_id() {
-            return Err(TxInputsError::MalformedResponse(format!(
+            return Err(StoreError::MalformedResponse(format!(
                 "incorrect account id returned from store. Got: {}, expected: {}",
                 tx_inputs.account_id,
                 proven_tx.account_id()
@@ -187,40 +183,28 @@ impl StoreClient {
         Ok(tx_inputs)
     }
 
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, BlockInputsError> {
+    ) -> Result<BlockInputs, StoreError> {
         let request = tonic::Request::new(GetBlockInputsRequest {
             account_ids: updated_accounts.map(Into::into).collect(),
             nullifiers: produced_nullifiers.map(digest::Digest::from).collect(),
             unauthenticated_notes: notes.map(digest::Digest::from).collect(),
         });
 
-        let store_response = self
-            .store
-            .clone()
-            .get_block_inputs(request)
-            .await
-            .map_err(|err| BlockInputsError::GrpcClientError(err.message().to_string()))?
-            .into_inner();
+        let store_response = self.inner.clone().get_block_inputs(request).await?.into_inner();
 
-        store_response.try_into()
+        store_response.try_into().map_err(Into::into)
     }
 
     #[instrument(target = "miden-block-producer", skip_all, err)]
-    pub async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
+    pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
         let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 
-        let _ = self
-            .store
-            .clone()
-            .apply_block(request)
-            .await
-            .map_err(|status| ApplyBlockError::GrpcClientError(status.message().to_string()))?;
-
-        Ok(())
+        self.inner.clone().apply_block(request).await.map(|_| ()).map_err(Into::into)
     }
 }

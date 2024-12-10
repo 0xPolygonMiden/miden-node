@@ -135,7 +135,8 @@ impl BlockBuilder {
                 produced_nullifiers.iter(),
                 dangling_notes.iter(),
             )
-            .await?;
+            .await
+            .map_err(BuildBlockError::GetBlockInputsFailed)?;
 
         let missing_notes: Vec<_> = dangling_notes
             .difference(&block_inputs.found_unauthenticated_notes.note_ids())
@@ -160,7 +161,10 @@ impl BlockBuilder {
         info!(target: COMPONENT, block_num, %block_hash, "block built");
         debug!(target: COMPONENT, ?block);
 
-        self.store.apply_block(&block).await?;
+        self.store
+            .apply_block(&block)
+            .await
+            .map_err(BuildBlockError::ApplyBlockFailed)?;
 
         info!(target: COMPONENT, block_num, %block_hash, "block committed");
 
