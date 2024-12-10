@@ -144,7 +144,7 @@ impl StoreClient {
         BlockHeader::try_from(response.block_header.unwrap()).map_err(|err| err.to_string())
     }
 
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
@@ -210,7 +210,7 @@ impl StoreClient {
         store_response.try_into()
     }
 
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     pub async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
         let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 

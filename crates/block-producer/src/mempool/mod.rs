@@ -2,15 +2,17 @@ use std::{collections::BTreeSet, fmt::Display, sync::Arc};
 
 use batch_graph::BatchGraph;
 use inflight_state::InflightState;
+use miden_node_utils::formatting::format_blake3_digest;
 use miden_objects::{
     MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use tokio::sync::Mutex;
+use tracing::instrument;
 use transaction_graph::TransactionGraph;
 
 use crate::{
     batch_builder::batch::TransactionBatch, domain::transaction::AuthenticatedTransaction,
-    errors::AddTransactionError, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
+    errors::AddTransactionError, COMPONENT, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
 };
 
 mod batch_graph;
@@ -237,6 +239,7 @@ impl Mempool {
     /// # Errors
     ///
     /// Returns an error if the transaction's initial conditions don't match the current state.
+    #[instrument(target = COMPONENT, skip_all, fields(tx=%transaction.id()))]
     pub fn add_transaction(
         &mut self,
         transaction: AuthenticatedTransaction,
@@ -256,6 +259,7 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
+    #[instrument(target = COMPONENT, skip_all)]
     pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<AuthenticatedTransaction>)> {
         let (batch, parents) = self.transactions.select_batch(self.batch_budget);
         if batch.is_empty() {
@@ -276,6 +280,7 @@ impl Mempool {
     /// Drops the failed batch and all of its descendants.
     ///
     /// Transactions are placed back in the queue.
+    #[instrument(target = COMPONENT, skip_all, fields(batch))]
     pub fn batch_failed(&mut self, batch: BatchJobId) {
         // Batch may already have been removed as part of a parent batches failure.
         if !self.batches.contains(&batch) {
@@ -299,6 +304,7 @@ impl Mempool {
     }
 
     /// Marks a batch as proven if it exists.
+    #[instrument(target = COMPONENT, skip_all, fields(batch=%format_blake3_digest(batch.id())))]
     pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
         // Batch may have been removed as part of a parent batches failure.
         if !self.batches.contains(&batch_id) {
@@ -317,6 +323,7 @@ impl Mempool {
     /// # Panics
     ///
     /// Panics if there is already a block in flight.
+    #[instrument(target = COMPONENT, skip_all)]
     pub fn select_block(&mut self) -> (BlockNumber, Vec<(BatchJobId, TransactionBatch)>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
@@ -331,6 +338,7 @@ impl Mempool {
     /// # Panics
     ///
     /// Panics if blocks are completed out-of-order or if there is no block in flight.
+    #[instrument(target = COMPONENT, skip_all, fields(block_number))]
     pub fn block_committed(&mut self, block_number: BlockNumber) {
         assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
 
@@ -353,6 +361,7 @@ impl Mempool {
     ///
     /// Panics if there is no block in flight or if the block number does not match the current
     /// inflight block.
+    #[instrument(target = COMPONENT, skip_all, fields(block_number))]
     pub fn block_failed(&mut self, block_number: BlockNumber) {
         assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
 

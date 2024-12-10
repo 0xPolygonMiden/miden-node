@@ -234,7 +234,7 @@ impl WorkerPool {
         Ok(())
     }
 
-    #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
+    #[instrument(target = COMPONENT, skip_all, err, fields(batch_id))]
     fn build_batch(
         txs: Vec<AuthenticatedTransaction>,
     ) -> Result<TransactionBatch, BuildBatchError> {

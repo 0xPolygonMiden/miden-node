@@ -14,7 +14,7 @@ use miden_objects::{
 };
 use tracing::instrument;
 
-use crate::errors::BuildBatchError;
+use crate::{errors::BuildBatchError, COMPONENT};
 
 pub type BatchId = Blake3Digest<32>;
 
@@ -84,7 +84,7 @@ impl TransactionBatch {
     /// - There are duplicated output notes or unauthenticated notes found across all transactions
     ///   in the batch.
     /// - Hashes for corresponding input notes and output notes don't match.
-    #[instrument(target = "miden-block-producer", name = "new_batch", skip_all, err)]
+    #[instrument(target = COMPONENT, name = "new_batch", skip_all, err)]
     pub fn new<'a, I>(
         txs: impl IntoIterator<Item = &'a ProvenTransaction, IntoIter = I>,
         found_unauthenticated_notes: NoteAuthenticationInfo,
