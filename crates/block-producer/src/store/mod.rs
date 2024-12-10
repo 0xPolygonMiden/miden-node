@@ -131,6 +131,7 @@ impl StoreClient {
     }
 
     /// Returns the latest block's header from the store.
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     pub async fn latest_header(&self) -> Result<BlockHeader, String> {
         // TODO: Consolidate the error types returned by the store (and its trait).
         let response = self
@@ -187,6 +188,7 @@ impl StoreClient {
         Ok(tx_inputs)
     }
 
+    #[instrument(target = "miden-block-producer", skip_all, err)]
     pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
