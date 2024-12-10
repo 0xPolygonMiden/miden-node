@@ -1,12 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Enhancements
+
+- Support Https in endpoint configuration (#556).
+- Upgrade `block-producer` from FIFO queue to mempool dependency graph (#562).
+
 ## v0.6.0 (2024-11-05)
 
 ### Enhancements
 
 - Added `GetAccountProofs` endpoint (#506).
-- Support Https in endpoint configuration (#556).
-- Upgrade `block-producer` from FIFO queue to mempool dependency graph (#562).
 
 ### Changes
 
