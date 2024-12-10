@@ -18,7 +18,8 @@ use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
-    store::{ApplyBlockError, BlockInputsError, TransactionInputs, TxInputsError},
+    errors::StoreError,
+    store::TransactionInputs,
     test_utils::block::{
         block_output_notes, flatten_output_notes, note_created_smt_from_note_batches,
     },
@@ -183,7 +184,7 @@ impl MockStoreSuccess {
         locked_accounts.root()
     }
 
-    pub async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
+    pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from
         // going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
@@ -238,7 +239,7 @@ impl MockStoreSuccess {
     pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
-    ) -> Result<TransactionInputs, TxInputsError> {
+    ) -> Result<TransactionInputs, StoreError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
 
@@ -286,7 +287,7 @@ impl MockStoreSuccess {
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, BlockInputsError> {
+    ) -> Result<BlockInputs, StoreError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
 
