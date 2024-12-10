@@ -1,8 +1,4 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Display,
-    sync::Arc,
-};
+use std::{collections::BTreeSet, fmt::Display, sync::Arc};
 
 use batch_graph::BatchGraph;
 use inflight_state::InflightState;
@@ -314,16 +310,18 @@ impl Mempool {
 
     /// Select batches for the next block.
     ///
-    /// May return an empty set if no batches are ready.
+    /// Note that the set of batches
+    /// - may be empty if none are available, and
+    /// - may contain dependencies and therefore the order must be maintained
     ///
     /// # Panics
     ///
     /// Panics if there is already a block in flight.
-    pub fn select_block(&mut self) -> (BlockNumber, BTreeMap<BatchJobId, TransactionBatch>) {
+    pub fn select_block(&mut self) -> (BlockNumber, Vec<(BatchJobId, TransactionBatch)>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
         let batches = self.batches.select_block(self.block_budget);
-        self.block_in_progress = Some(batches.keys().cloned().collect());
+        self.block_in_progress = Some(batches.iter().map(|(id, _)| *id).collect());
 
         (self.chain_tip.next(), batches)
     }
