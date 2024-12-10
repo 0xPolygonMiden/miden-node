@@ -70,9 +70,13 @@ impl TransactionBatch {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a new [TransactionBatch] instantiated from the provided vector of proven
-    /// transactions. If a map of unauthenticated notes found in the store is provided, it is used
-    /// for transforming unauthenticated notes into authenticated notes.
+    /// Returns a new [TransactionBatch] built from the provided transactions. If a map of
+    /// unauthenticated notes found in the store is provided, it is used for transforming
+    /// unauthenticated notes into authenticated notes.
+    ///
+    /// The tx input takes an `IntoIterator` of a reference, which effectively allows for cheap
+    /// cloning of the iterator. Or put differently, we want something similar to `impl
+    /// Iterator<Item = ProvenTransaction> + Clone` which this provides.
     ///
     /// # Errors
     ///
