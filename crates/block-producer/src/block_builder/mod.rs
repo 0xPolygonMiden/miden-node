@@ -12,11 +12,8 @@ use tokio::time::Duration;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    batch_builder::batch::TransactionBatch,
-    errors::BuildBlockError,
-    mempool::SharedMempool,
-    store::{ApplyBlock, DefaultStore, Store},
-    COMPONENT, SERVER_BLOCK_FREQUENCY,
+    batch_builder::batch::TransactionBatch, errors::BuildBlockError, mempool::SharedMempool,
+    store::StoreClient, COMPONENT, SERVER_BLOCK_FREQUENCY,
 };
 
 pub(crate) mod prover;
@@ -36,12 +33,12 @@ pub struct BlockBuilder {
     /// Note: this _must_ be sign positive and less than 1.0.
     pub failure_rate: f32,
 
-    pub store: DefaultStore,
+    pub store: StoreClient,
     pub block_kernel: BlockProver,
 }
 
 impl BlockBuilder {
-    pub fn new(store: DefaultStore) -> Self {
+    pub fn new(store: StoreClient) -> Self {
         Self {
             block_interval: SERVER_BLOCK_FREQUENCY,
             // Note: The range cannot be empty.
