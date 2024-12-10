@@ -1607,10 +1607,10 @@ dependencies = [
 name = "miden-node-proto"
 version = "0.6.0"
 dependencies = [
+ "anyhow",
  "hex",
  "miden-node-utils",
  "miden-objects",
- "miette",
  "proptest",
  "prost",
  "prost-build",
@@ -1792,16 +1792,8 @@ version = "7.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4edc8853320c2a0dab800fbda86253c8938f6ea88510dc92c5f1ed20e794afc1"
 dependencies = [
- "backtrace",
- "backtrace-ext",
  "cfg-if",
  "miette-derive",
- "owo-colors",
- "supports-color",
- "supports-hyperlinks",
- "supports-unicode",
- "terminal_size",
- "textwrap",
  "thiserror 1.0.68",
  "unicode-width 0.1.14",
 ]
