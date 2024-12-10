@@ -59,7 +59,7 @@ impl RpcApi {
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:check_nullifiers",
         skip_all,
         ret(level = "debug"),
@@ -82,7 +82,7 @@ impl api_server::Api for RpcApi {
     }
 
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:check_nullifiers_by_prefix",
         skip_all,
         ret(level = "debug"),
@@ -98,7 +98,7 @@ impl api_server::Api for RpcApi {
     }
 
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:get_block_header_by_number",
         skip_all,
         ret(level = "debug"),
@@ -114,7 +114,7 @@ impl api_server::Api for RpcApi {
     }
 
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:sync_state",
         skip_all,
         ret(level = "debug"),
@@ -130,7 +130,7 @@ impl api_server::Api for RpcApi {
     }
 
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:sync_notes",
         skip_all,
         ret(level = "debug"),
@@ -146,7 +146,7 @@ impl api_server::Api for RpcApi {
     }
 
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:get_notes_by_id",
         skip_all,
         ret(level = "debug"),
@@ -167,7 +167,7 @@ impl api_server::Api for RpcApi {
         self.store.clone().get_notes_by_id(request).await
     }
 
-    #[instrument(target = "miden-rpc", name = "rpc:submit_proven_transaction", skip_all, err)]
+    #[instrument(target = COMPONENT, name = "rpc:submit_proven_transaction", skip_all, err)]
     async fn submit_proven_transaction(
         &self,
         request: Request<SubmitProvenTransactionRequest>,
@@ -190,7 +190,7 @@ impl api_server::Api for RpcApi {
 
     /// Returns details for public (public) account by id.
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:get_account_details",
         skip_all,
         ret(level = "debug"),
@@ -214,7 +214,7 @@ impl api_server::Api for RpcApi {
     }
 
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:get_block_by_number",
         skip_all,
         ret(level = "debug"),
@@ -232,7 +232,7 @@ impl api_server::Api for RpcApi {
     }
 
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:get_account_state_delta",
         skip_all,
         ret(level = "debug"),
@@ -250,7 +250,7 @@ impl api_server::Api for RpcApi {
     }
 
     #[instrument(
-        target = "miden-rpc",
+        target = COMPONENT,
         name = "rpc:get_account_proofs",
         skip_all,
         ret(level = "debug"),

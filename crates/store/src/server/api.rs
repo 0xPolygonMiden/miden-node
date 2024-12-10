@@ -59,7 +59,7 @@ impl api_server::Api for StoreApi {
     ///
     /// If the block number is not provided, block header for the latest block is returned.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_block_header_by_number",
         skip_all,
         ret(level = "debug"),
@@ -91,7 +91,7 @@ impl api_server::Api for StoreApi {
     /// This endpoint also returns Merkle authentication path for each requested nullifier which can
     /// be verified against the latest root of the nullifier database.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:check_nullifiers",
         skip_all,
         ret(level = "debug"),
@@ -115,7 +115,7 @@ impl api_server::Api for StoreApi {
     ///
     /// Currently the only supported prefix length is 16 bits.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:check_nullifiers_by_prefix",
         skip_all,
         ret(level = "debug"),
@@ -148,7 +148,7 @@ impl api_server::Api for StoreApi {
     /// Returns info which can be used by the client to sync up to the latest state of the chain
     /// for the objects the client is interested in.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:sync_state",
         skip_all,
         ret(level = "debug"),
@@ -212,7 +212,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns info which can be used by the client to sync note state.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:sync_notes",
         skip_all,
         ret(level = "debug"),
@@ -244,7 +244,7 @@ impl api_server::Api for StoreApi {
     ///
     /// If the list is empty or no Note matched the requested NoteId and empty list is returned.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_notes_by_id",
         skip_all,
         ret(level = "debug"),
@@ -276,7 +276,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns a list of Note inclusion proofs for the specified NoteId's.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_note_inclusion_proofs",
         skip_all,
         ret(level = "debug"),
@@ -312,7 +312,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns details for public (public) account by id.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_account_details",
         skip_all,
         ret(level = "debug"),
@@ -340,7 +340,7 @@ impl api_server::Api for StoreApi {
 
     /// Updates the local DB by inserting a new block header and the related data.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:apply_block",
         skip_all,
         ret(level = "debug"),
@@ -376,7 +376,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns data needed by the block producer to construct and prove the next block.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_block_inputs",
         skip_all,
         ret(level = "debug"),
@@ -402,7 +402,7 @@ impl api_server::Api for StoreApi {
     }
 
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_transaction_inputs",
         skip_all,
         ret(level = "debug"),
@@ -450,7 +450,7 @@ impl api_server::Api for StoreApi {
     }
 
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_block_by_number",
         skip_all,
         ret(level = "debug"),
@@ -470,7 +470,7 @@ impl api_server::Api for StoreApi {
     }
 
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_account_proofs",
         skip_all,
         ret(level = "debug"),
@@ -508,7 +508,7 @@ impl api_server::Api for StoreApi {
     }
 
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_account_state_delta",
         skip_all,
         ret(level = "debug"),
@@ -540,7 +540,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns a list of all nullifiers
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:list_nullifiers",
         skip_all,
         ret(level = "debug"),
@@ -563,7 +563,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns a list of all notes
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:list_notes",
         skip_all,
         ret(level = "debug"),
@@ -579,7 +579,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns a list of all accounts
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:list_accounts",
         skip_all,
         ret(level = "debug"),
@@ -607,7 +607,7 @@ fn invalid_argument<E: core::fmt::Display>(err: E) -> Status {
     Status::invalid_argument(err.to_string())
 }
 
-#[instrument(target = "miden-store", skip_all, err)]
+#[instrument(target = COMPONENT, skip_all, err)]
 fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Nullifier>, Status> {
     nullifiers
         .iter()
@@ -617,7 +617,7 @@ fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<N
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }
 
-#[instrument(target = "miden-store", skip_all, err)]
+#[instrument(target = COMPONENT, skip_all, err)]
 fn validate_notes(notes: &[generated::digest::Digest]) -> Result<Vec<NoteId>, Status> {
     notes
         .iter()
