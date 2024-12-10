@@ -121,13 +121,13 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
 /// Essentially just a thin wrapper around the generated gRPC client which improves type safety.
 #[derive(Clone)]
 pub struct StoreClient {
-    store: store_client::ApiClient<Channel>,
+    inner: store_client::ApiClient<Channel>,
 }
 
 impl StoreClient {
     /// TODO: this should probably take store connection string and create a connection internally
     pub fn new(store: store_client::ApiClient<Channel>) -> Self {
-        Self { store }
+        Self { inner: store }
     }
 
     /// Returns the latest block's header from the store.
@@ -135,7 +135,7 @@ impl StoreClient {
     pub async fn latest_header(&self) -> Result<BlockHeader, String> {
         // TODO: Consolidate the error types returned by the store (and its trait).
         let response = self
-            .store
+            .inner
             .clone()
             .get_block_header_by_number(tonic::Request::new(Default::default()))
             .await
@@ -164,7 +164,7 @@ impl StoreClient {
 
         let request = tonic::Request::new(message);
         let response = self
-            .store
+            .inner
             .clone()
             .get_transaction_inputs(request)
             .await
@@ -202,7 +202,7 @@ impl StoreClient {
         });
 
         let store_response = self
-            .store
+            .inner
             .clone()
             .get_block_inputs(request)
             .await
@@ -217,7 +217,7 @@ impl StoreClient {
         let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 
         let _ = self
-            .store
+            .inner
             .clone()
             .apply_block(request)
             .await
