@@ -4,6 +4,7 @@ use std::{
 };
 
 use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+use miden_node_utils::formatting::format_blake3_digest;
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, AccountId},
     batches::BatchNoteTree,
@@ -16,22 +17,32 @@ use tracing::instrument;
 
 use crate::errors::BuildBatchError;
 
-pub type BatchId = Blake3Digest<32>;
-
-// TRANSACTION BATCH
+// BATCH ID
 // ================================================================================================
 
-/// A batch of transactions that share a common proof.
-///
-/// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
+/// Uniquely identifies a [TransactionBatch].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TransactionBatch {
-    id: BatchId,
-    updated_accounts: BTreeMap<AccountId, AccountUpdate>,
-    input_notes: Vec<InputNoteCommitment>,
-    output_notes_smt: BatchNoteTree,
-    output_notes: Vec<OutputNote>,
+pub struct BatchId(Blake3Digest<32>);
+
+impl BatchId {
+    /// Calculates a batch ID from the given set of transactions.
+    pub fn compute(txs: impl Iterator<Item = TransactionId>) -> Self {
+        let mut buf = Vec::with_capacity(32 * txs.size_hint().0);
+        for tx in txs {
+            buf.extend_from_slice(&tx.as_bytes());
+        }
+        Self(Blake3_256::hash(&buf))
+    }
 }
+
+impl std::fmt::Display for BatchId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format_blake3_digest(self.0))
+    }
+}
+
+// ACCOUNT UPDATE
+// ================================================================================================
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountUpdate {
@@ -66,6 +77,21 @@ impl AccountUpdate {
     }
 }
 
+// TRANSACTION BATCH
+// ================================================================================================
+
+/// A batch of transactions that share a common proof.
+///
+/// Note: Until recursive proofs are available in the Miden VM, we don't include the common proof.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransactionBatch {
+    id: BatchId,
+    updated_accounts: BTreeMap<AccountId, AccountUpdate>,
+    input_notes: Vec<InputNoteCommitment>,
+    output_notes_smt: BatchNoteTree,
+    output_notes: Vec<OutputNote>,
+}
+
 impl TransactionBatch {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
@@ -93,7 +119,7 @@ impl TransactionBatch {
         I: Iterator<Item = &'a ProvenTransaction> + Clone,
     {
         let tx_iter = txs.into_iter();
-        let id = Self::compute_id(tx_iter.clone());
+        let id = BatchId::compute(tx_iter.clone().map(ProvenTransaction::id));
 
         // Populate batch output notes and updated accounts.
         let mut output_notes = OutputNoteTracker::new(tx_iter.clone())?;
@@ -174,8 +200,8 @@ impl TransactionBatch {
     // --------------------------------------------------------------------------------------------
 
     /// Returns the batch ID.
-    pub fn id(&self) -> BatchId {
-        self.id
+    pub fn id(&self) -> &BatchId {
+        &self.id
     }
 
     /// Returns an iterator over (account_id, init_state_hash) tuples for accounts that were
@@ -213,17 +239,6 @@ impl TransactionBatch {
     /// Returns output notes list.
     pub fn output_notes(&self) -> &Vec<OutputNote> {
         &self.output_notes
-    }
-
-    // HELPER FUNCTIONS
-    // --------------------------------------------------------------------------------------------
-
-    fn compute_id<'a>(txs: impl Iterator<Item = &'a ProvenTransaction>) -> BatchId {
-        let mut buf = Vec::with_capacity(32 * txs.size_hint().0);
-        for tx in txs {
-            buf.extend_from_slice(&tx.id().as_bytes());
-        }
-        Blake3_256::hash(&buf)
     }
 }
 

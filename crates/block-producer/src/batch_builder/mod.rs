@@ -12,7 +12,7 @@ use crate::{
 
 pub mod batch;
 pub use batch::TransactionBatch;
-use miden_node_utils::formatting::{format_array, format_blake3_digest};
+use miden_node_utils::formatting::format_array;
 
 use crate::errors::BuildBatchError;
 
@@ -247,7 +247,7 @@ impl WorkerPool {
         // TODO: Found unauthenticated notes are no longer required.. potentially?
         let batch = TransactionBatch::new(txs, Default::default())?;
 
-        Span::current().record("batch_id", format_blake3_digest(batch.id()));
+        Span::current().record("batch_id", batch.id().to_string());
         info!(target: COMPONENT, "Transaction batch built");
 
         Ok(batch)
