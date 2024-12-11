@@ -4,9 +4,9 @@ use miden_objects::transaction::TransactionId;
 
 use super::{
     graph::{DependencyGraph, GraphError},
-    BatchJobId, BlockBudget, BudgetStatus,
+    BlockBudget, BudgetStatus,
 };
-use crate::batch_builder::batch::TransactionBatch;
+use crate::batch_builder::batch::{BatchId, TransactionBatch};
 
 // BATCH GRAPH
 // ================================================================================================
@@ -53,19 +53,19 @@ use crate::batch_builder::batch::TransactionBatch;
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct BatchGraph {
     /// Tracks the interdependencies between batches.
-    inner: DependencyGraph<BatchJobId, TransactionBatch>,
+    inner: DependencyGraph<BatchId, TransactionBatch>,
 
     /// Maps each transaction to its batch, allowing for reverse lookups.
     ///
     /// Incoming batches are defined entirely in terms of transactions, including parent edges.
     /// This let's us transform these parent transactions into the relevant parent batches.
-    transactions: BTreeMap<TransactionId, BatchJobId>,
+    transactions: BTreeMap<TransactionId, BatchId>,
 
     /// Maps each batch to its transaction set.
     ///
     /// Required because the dependency graph is defined in terms of batches. This let's us
     /// translate between batches and their transactions when required.
-    batches: BTreeMap<BatchJobId, Vec<TransactionId>>,
+    batches: BTreeMap<BatchId, Vec<TransactionId>>,
 }
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
@@ -75,7 +75,7 @@ pub enum BatchInsertError {
     #[error("Unknown parent transaction {0}")]
     UnknownParentTransaction(TransactionId),
     #[error(transparent)]
-    GraphError(#[from] GraphError<BatchJobId>),
+    GraphError(#[from] GraphError<BatchId>),
 }
 
 impl BatchGraph {
@@ -85,6 +85,10 @@ impl BatchGraph {
     /// includes transactions within the same batch i.e. a transaction and parent transaction may
     /// both be in this batch.
     ///
+    /// # Returns
+    ///
+    /// The new batch's ID.
+    ///
     /// # Errors
     ///
     /// Returns an error if:
@@ -93,10 +97,9 @@ impl BatchGraph {
     ///   - any parent transactions are _not_ in the graph
     pub fn insert(
         &mut self,
-        id: BatchJobId,
         transactions: Vec<TransactionId>,
         mut parents: BTreeSet<TransactionId>,
-    ) -> Result<(), BatchInsertError> {
+    ) -> Result<BatchId, BatchInsertError> {
         let duplicates = transactions
             .iter()
             .filter(|tx| self.transactions.contains_key(tx))
@@ -121,6 +124,7 @@ impl BatchGraph {
             })
             .collect::<Result<_, _>>()?;
 
+        let id = BatchId::compute(transactions.iter());
         self.inner.insert_pending(id, parent_batches)?;
 
         for tx in transactions.iter().copied() {
@@ -128,7 +132,7 @@ impl BatchGraph {
         }
         self.batches.insert(id, transactions);
 
-        Ok(())
+        Ok(id)
     }
 
     /// Removes the batches and their descendants from the graph.
@@ -142,8 +146,8 @@ impl BatchGraph {
     /// Returns an error if any of the batches are not currently in the graph.
     pub fn remove_batches(
         &mut self,
-        batch_ids: BTreeSet<BatchJobId>,
-    ) -> Result<BTreeMap<BatchJobId, Vec<TransactionId>>, GraphError<BatchJobId>> {
+        batch_ids: BTreeSet<BatchId>,
+    ) -> Result<BTreeMap<BatchId, Vec<TransactionId>>, GraphError<BatchId>> {
         // This returns all descendent batches as well.
         let batch_ids = self.inner.purge_subgraphs(batch_ids)?;
 
@@ -183,8 +187,8 @@ impl BatchGraph {
     /// The last point implies that batches should be removed in block order.
     pub fn prune_committed(
         &mut self,
-        batch_ids: BTreeSet<BatchJobId>,
-    ) -> Result<Vec<TransactionId>, GraphError<BatchJobId>> {
+        batch_ids: BTreeSet<BatchId>,
+    ) -> Result<Vec<TransactionId>, GraphError<BatchId>> {
         // This clone could be elided by moving this call to the end. This would lose the atomic
         // property of this method though its unclear what value (if any) that has.
         self.inner.prune_processed(batch_ids.clone())?;
@@ -207,12 +211,8 @@ impl BatchGraph {
     /// # Errors
     ///
     /// Returns an error if the batch is not in the graph or if it was already previously proven.
-    pub fn submit_proof(
-        &mut self,
-        id: BatchJobId,
-        batch: TransactionBatch,
-    ) -> Result<(), GraphError<BatchJobId>> {
-        self.inner.promote_pending(id, batch)
+    pub fn submit_proof(&mut self, batch: TransactionBatch) -> Result<(), GraphError<BatchId>> {
+        self.inner.promote_pending(batch.id(), batch)
     }
 
     /// Selects the next set of batches ready for inclusion in a block while adhering to the given
@@ -220,7 +220,7 @@ impl BatchGraph {
     ///
     /// Note that batch order should be maintained to allow for inter-batch dependencies to be
     /// correctly resolved.
-    pub fn select_block(&mut self, mut budget: BlockBudget) -> Vec<(BatchJobId, TransactionBatch)> {
+    pub fn select_block(&mut self, mut budget: BlockBudget) -> Vec<TransactionBatch> {
         let mut batches = Vec::with_capacity(budget.batches);
 
         while let Some(batch_id) = self.inner.roots().first().copied() {
@@ -240,14 +240,14 @@ impl BatchGraph {
             // SAFETY: This is definitely a root since we just selected it from the set of roots.
             self.inner.process_root(batch_id).expect("root should be processed");
 
-            batches.push((batch_id, batch));
+            batches.push(batch);
         }
 
         batches
     }
 
     /// Returns `true` if the graph contains the given batch.
-    pub fn contains(&self, id: &BatchJobId) -> bool {
+    pub fn contains(&self, id: &BatchId) -> bool {
         self.batches.contains_key(id)
     }
 }
@@ -261,18 +261,6 @@ mod tests {
     // ================================================================================================
 
     #[test]
-    fn insert_rejects_duplicate_batch_ids() {
-        let id = BatchJobId::new(1);
-        let mut uut = BatchGraph::default();
-
-        uut.insert(id, Default::default(), Default::default()).unwrap();
-        let err = uut.insert(id, Default::default(), Default::default()).unwrap_err();
-        let expected = BatchInsertError::GraphError(GraphError::DuplicateKey(id));
-
-        assert_eq!(err, expected);
-    }
-
-    #[test]
     fn insert_rejects_duplicate_transactions() {
         let mut rng = Random::with_random_seed();
         let tx_dup = rng.draw_tx_id();
@@ -280,10 +268,8 @@ mod tests {
 
         let mut uut = BatchGraph::default();
 
-        uut.insert(BatchJobId::new(1), vec![tx_dup], Default::default()).unwrap();
-        let err = uut
-            .insert(BatchJobId::new(2), vec![tx_dup, tx_non_dup], Default::default())
-            .unwrap_err();
+        uut.insert(vec![tx_dup], Default::default()).unwrap();
+        let err = uut.insert(vec![tx_dup, tx_non_dup], Default::default()).unwrap_err();
         let expected = BatchInsertError::DuplicateTransactions([tx_dup].into());
 
         assert_eq!(err, expected);
@@ -297,7 +283,7 @@ mod tests {
 
         let mut uut = BatchGraph::default();
 
-        let err = uut.insert(BatchJobId::new(2), vec![tx], [missing].into()).unwrap_err();
+        let err = uut.insert(vec![tx], [missing].into()).unwrap_err();
         let expected = BatchInsertError::UnknownParentTransaction(missing);
 
         assert_eq!(err, expected);
@@ -311,7 +297,7 @@ mod tests {
         let child = rng.draw_tx_id();
 
         let mut uut = BatchGraph::default();
-        uut.insert(BatchJobId::new(2), vec![parent, child], [parent].into()).unwrap();
+        uut.insert(vec![parent, child], [parent].into()).unwrap();
     }
 
     // PURGE_SUBGRAPHS TESTS
@@ -326,16 +312,11 @@ mod tests {
         let child_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect::<Vec<_>>();
         let disjoint_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect();
 
-        let parent_batch_id = BatchJobId::new(0);
-        let child_batch_id = BatchJobId::new(1);
-        let disjoint_batch_id = BatchJobId::new(2);
-
         let mut uut = BatchGraph::default();
-        uut.insert(parent_batch_id, parent_batch_txs.clone(), Default::default())
-            .unwrap();
-        uut.insert(child_batch_id, child_batch_txs.clone(), [parent_batch_txs[0]].into())
-            .unwrap();
-        uut.insert(disjoint_batch_id, disjoint_batch_txs, Default::default()).unwrap();
+        let parent_batch_id = uut.insert(parent_batch_txs.clone(), Default::default()).unwrap();
+        let child_batch_id =
+            uut.insert(child_batch_txs.clone(), [parent_batch_txs[0]].into()).unwrap();
+        uut.insert(disjoint_batch_txs, Default::default()).unwrap();
 
         let result = uut.remove_batches([parent_batch_id].into()).unwrap();
         let expected =

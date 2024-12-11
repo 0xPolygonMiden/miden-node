@@ -9,34 +9,16 @@ use tokio::sync::Mutex;
 use transaction_graph::TransactionGraph;
 
 use crate::{
-    batch_builder::batch::TransactionBatch, domain::transaction::AuthenticatedTransaction,
-    errors::AddTransactionError, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
+    batch_builder::batch::{BatchId, TransactionBatch},
+    domain::transaction::AuthenticatedTransaction,
+    errors::AddTransactionError,
+    SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
 };
 
 mod batch_graph;
 mod graph;
 mod inflight_state;
 mod transaction_graph;
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BatchJobId(u64);
-
-impl Display for BatchJobId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl BatchJobId {
-    pub fn increment(&mut self) {
-        self.0 += 1;
-    }
-
-    #[cfg(test)]
-    pub fn new(value: u64) -> Self {
-        Self(value)
-    }
-}
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockNumber(u32);
@@ -186,14 +168,11 @@ pub struct Mempool {
     /// Inflight batches.
     batches: BatchGraph,
 
-    /// The next batches ID.
-    next_batch_id: BatchJobId,
-
     /// The current block height of the chain.
     chain_tip: BlockNumber,
 
     /// The current inflight block, if any.
-    block_in_progress: Option<BTreeSet<BatchJobId>>,
+    block_in_progress: Option<BTreeSet<BatchId>>,
 
     block_budget: BlockBudget,
     batch_budget: BatchBudget,
@@ -224,7 +203,6 @@ impl Mempool {
             block_in_progress: Default::default(),
             transactions: Default::default(),
             batches: Default::default(),
-            next_batch_id: Default::default(),
         }
     }
 
@@ -256,19 +234,14 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    pub fn select_batch(&mut self) -> Option<(BatchJobId, Vec<AuthenticatedTransaction>)> {
+    pub fn select_batch(&mut self) -> Option<(BatchId, Vec<AuthenticatedTransaction>)> {
         let (batch, parents) = self.transactions.select_batch(self.batch_budget);
         if batch.is_empty() {
             return None;
         }
-        let tx_ids = batch.iter().map(AuthenticatedTransaction::id).collect();
+        let tx_ids = batch.iter().map(AuthenticatedTransaction::id).collect::<Vec<_>>();
 
-        let batch_id = self.next_batch_id;
-        self.next_batch_id.increment();
-
-        self.batches
-            .insert(batch_id, tx_ids, parents)
-            .expect("Selected batch should insert");
+        let batch_id = self.batches.insert(tx_ids, parents).expect("Selected batch should insert");
 
         Some((batch_id, batch))
     }
@@ -276,7 +249,7 @@ impl Mempool {
     /// Drops the failed batch and all of its descendants.
     ///
     /// Transactions are placed back in the queue.
-    pub fn batch_failed(&mut self, batch: BatchJobId) {
+    pub fn batch_failed(&mut self, batch: BatchId) {
         // Batch may already have been removed as part of a parent batches failure.
         if !self.batches.contains(&batch) {
             return;
@@ -299,13 +272,13 @@ impl Mempool {
     }
 
     /// Marks a batch as proven if it exists.
-    pub fn batch_proved(&mut self, batch_id: BatchJobId, batch: TransactionBatch) {
+    pub fn batch_proved(&mut self, batch: TransactionBatch) {
         // Batch may have been removed as part of a parent batches failure.
-        if !self.batches.contains(&batch_id) {
+        if !self.batches.contains(&batch.id()) {
             return;
         }
 
-        self.batches.submit_proof(batch_id, batch).expect("Batch proof should submit");
+        self.batches.submit_proof(batch).expect("Batch proof should submit");
     }
 
     /// Select batches for the next block.
@@ -317,11 +290,11 @@ impl Mempool {
     /// # Panics
     ///
     /// Panics if there is already a block in flight.
-    pub fn select_block(&mut self) -> (BlockNumber, Vec<(BatchJobId, TransactionBatch)>) {
+    pub fn select_block(&mut self) -> (BlockNumber, Vec<TransactionBatch>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
         let batches = self.batches.select_block(self.block_budget);
-        self.block_in_progress = Some(batches.iter().map(|(id, _)| *id).collect());
+        self.block_in_progress = Some(batches.iter().map(TransactionBatch::id).collect());
 
         (self.chain_tip.next(), batches)
     }
@@ -405,7 +378,7 @@ mod tests {
         assert_eq!(batch_txs, vec![txs[1].clone()]);
 
         uut.add_transaction(txs[2].clone()).unwrap();
-        let (child_batch_b, batch_txs) = uut.select_batch().unwrap();
+        let (_, batch_txs) = uut.select_batch().unwrap();
         assert_eq!(batch_txs, vec![txs[2].clone()]);
 
         // Child batch jobs are now dangling.
@@ -418,7 +391,7 @@ mod tests {
 
         let proof =
             TransactionBatch::new([txs[2].raw_proven_transaction()], Default::default()).unwrap();
-        uut.batch_proved(child_batch_b, proof);
+        uut.batch_proved(proof);
         assert_eq!(uut, reference);
     }
 
@@ -444,8 +417,6 @@ mod tests {
         reference.select_batch().unwrap();
         reference.add_transaction(txs[1].clone()).unwrap();
         reference.add_transaction(txs[2].clone()).unwrap();
-        reference.next_batch_id.increment();
-        reference.next_batch_id.increment();
 
         assert_eq!(uut, reference);
     }

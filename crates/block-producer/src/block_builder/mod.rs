@@ -1,6 +1,6 @@
 use std::{collections::BTreeSet, ops::Range};
 
-use miden_node_utils::formatting::{format_array, format_blake3_digest};
+use miden_node_utils::formatting::format_array;
 use miden_objects::{
     accounts::AccountId,
     block::Block,
@@ -69,7 +69,6 @@ impl BlockBuilder {
             interval.tick().await;
 
             let (block_number, batches) = mempool.lock().await.select_block();
-            let batches = batches.into_iter().map(|(_, batch)| batch).collect::<Vec<_>>();
 
             let mut result = self.build_block(&batches).await;
             let proving_duration = rand::thread_rng().gen_range(self.simulated_proof_time.clone());
@@ -96,7 +95,7 @@ impl BlockBuilder {
         info!(
             target: COMPONENT,
             num_batches = batches.len(),
-            batches = %format_array(batches.iter().map(|batch| format_blake3_digest(batch.id()))),
+            batches = %format_array(batches.iter().map(|batch| batch.id())),
         );
 
         let updated_account_set: BTreeSet<AccountId> = batches
