@@ -138,7 +138,7 @@ async fn main() -> anyhow::Result<()> {
             let current_dir =
                 std::env::current_dir().context("Failed to open current directory")?;
 
-            let mut rng = ChaCha20Rng::from_seed(rand::random());
+            let mut rng = ChaCha20Rng::from_seed(rand::rngs::OsRng);
 
             let secret = SecretKey::with_rng(&mut get_rpo_random_coin(&mut rng));
 
