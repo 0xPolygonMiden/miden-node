@@ -130,7 +130,7 @@ impl StoreClient {
     }
 
     /// Returns the latest block's header from the store.
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     pub async fn latest_header(&self) -> Result<BlockHeader, StoreError> {
         let response = self
             .inner
@@ -146,7 +146,7 @@ impl StoreClient {
         BlockHeader::try_from(response).map_err(Into::into)
     }
 
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
@@ -183,7 +183,7 @@ impl StoreClient {
         Ok(tx_inputs)
     }
 
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
@@ -201,7 +201,7 @@ impl StoreClient {
         store_response.try_into().map_err(Into::into)
     }
 
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
         let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 

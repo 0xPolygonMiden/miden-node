@@ -201,7 +201,7 @@ impl BlockProducerRpcServer {
     }
 
     #[instrument(
-        target = "miden-block-producer",
+        target = COMPONENT,
         name = "block_producer:submit_proven_transaction",
         skip_all,
         err

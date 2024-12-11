@@ -90,7 +90,7 @@ impl BlockBuilder {
         }
     }
 
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
         info!(
             target: COMPONENT,
