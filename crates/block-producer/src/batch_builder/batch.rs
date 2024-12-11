@@ -37,11 +37,6 @@ impl BatchId {
         }
         Self(Blake3_256::hash(&buf))
     }
-
-    #[cfg(test)]
-    pub fn new(x: u64) -> Self {
-        Self(Blake3_256::hash(&x.to_le_bytes()))
-    }
 }
 
 impl std::fmt::Display for BatchId {

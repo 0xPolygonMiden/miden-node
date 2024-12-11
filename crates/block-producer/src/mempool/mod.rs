@@ -240,11 +240,8 @@ impl Mempool {
             return None;
         }
         let tx_ids = batch.iter().map(AuthenticatedTransaction::id).collect::<Vec<_>>();
-        let batch_id = BatchId::compute(tx_ids.iter());
 
-        self.batches
-            .insert(batch_id, tx_ids, parents)
-            .expect("Selected batch should insert");
+        let batch_id = self.batches.insert(tx_ids, parents).expect("Selected batch should insert");
 
         Some((batch_id, batch))
     }

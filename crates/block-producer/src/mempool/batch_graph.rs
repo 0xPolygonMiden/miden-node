@@ -85,6 +85,10 @@ impl BatchGraph {
     /// includes transactions within the same batch i.e. a transaction and parent transaction may
     /// both be in this batch.
     ///
+    /// # Returns
+    ///
+    /// The new batch's ID.
+    ///
     /// # Errors
     ///
     /// Returns an error if:
@@ -93,10 +97,9 @@ impl BatchGraph {
     ///   - any parent transactions are _not_ in the graph
     pub fn insert(
         &mut self,
-        id: BatchId,
         transactions: Vec<TransactionId>,
         mut parents: BTreeSet<TransactionId>,
-    ) -> Result<(), BatchInsertError> {
+    ) -> Result<BatchId, BatchInsertError> {
         let duplicates = transactions
             .iter()
             .filter(|tx| self.transactions.contains_key(tx))
@@ -121,6 +124,7 @@ impl BatchGraph {
             })
             .collect::<Result<_, _>>()?;
 
+        let id = BatchId::compute(transactions.iter());
         self.inner.insert_pending(id, parent_batches)?;
 
         for tx in transactions.iter().copied() {
@@ -128,7 +132,7 @@ impl BatchGraph {
         }
         self.batches.insert(id, transactions);
 
-        Ok(())
+        Ok(id)
     }
 
     /// Removes the batches and their descendants from the graph.
@@ -257,18 +261,6 @@ mod tests {
     // ================================================================================================
 
     #[test]
-    fn insert_rejects_duplicate_batch_ids() {
-        let id = BatchId::new(1);
-        let mut uut = BatchGraph::default();
-
-        uut.insert(id, Default::default(), Default::default()).unwrap();
-        let err = uut.insert(id, Default::default(), Default::default()).unwrap_err();
-        let expected = BatchInsertError::GraphError(GraphError::DuplicateKey(id));
-
-        assert_eq!(err, expected);
-    }
-
-    #[test]
     fn insert_rejects_duplicate_transactions() {
         let mut rng = Random::with_random_seed();
         let tx_dup = rng.draw_tx_id();
@@ -276,10 +268,8 @@ mod tests {
 
         let mut uut = BatchGraph::default();
 
-        uut.insert(BatchId::new(1), vec![tx_dup], Default::default()).unwrap();
-        let err = uut
-            .insert(BatchId::new(2), vec![tx_dup, tx_non_dup], Default::default())
-            .unwrap_err();
+        uut.insert(vec![tx_dup], Default::default()).unwrap();
+        let err = uut.insert(vec![tx_dup, tx_non_dup], Default::default()).unwrap_err();
         let expected = BatchInsertError::DuplicateTransactions([tx_dup].into());
 
         assert_eq!(err, expected);
@@ -293,7 +283,7 @@ mod tests {
 
         let mut uut = BatchGraph::default();
 
-        let err = uut.insert(BatchId::new(2), vec![tx], [missing].into()).unwrap_err();
+        let err = uut.insert(vec![tx], [missing].into()).unwrap_err();
         let expected = BatchInsertError::UnknownParentTransaction(missing);
 
         assert_eq!(err, expected);
@@ -307,7 +297,7 @@ mod tests {
         let child = rng.draw_tx_id();
 
         let mut uut = BatchGraph::default();
-        uut.insert(BatchId::new(2), vec![parent, child], [parent].into()).unwrap();
+        uut.insert(vec![parent, child], [parent].into()).unwrap();
     }
 
     // PURGE_SUBGRAPHS TESTS
@@ -322,16 +312,11 @@ mod tests {
         let child_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect::<Vec<_>>();
         let disjoint_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect();
 
-        let parent_batch_id = BatchId::new(0);
-        let child_batch_id = BatchId::new(1);
-        let disjoint_batch_id = BatchId::new(2);
-
         let mut uut = BatchGraph::default();
-        uut.insert(parent_batch_id, parent_batch_txs.clone(), Default::default())
-            .unwrap();
-        uut.insert(child_batch_id, child_batch_txs.clone(), [parent_batch_txs[0]].into())
-            .unwrap();
-        uut.insert(disjoint_batch_id, disjoint_batch_txs, Default::default()).unwrap();
+        let parent_batch_id = uut.insert(parent_batch_txs.clone(), Default::default()).unwrap();
+        let child_batch_id =
+            uut.insert(child_batch_txs.clone(), [parent_batch_txs[0]].into()).unwrap();
+        uut.insert(disjoint_batch_txs, Default::default()).unwrap();
 
         let result = uut.remove_batches([parent_batch_id].into()).unwrap();
         let expected =
