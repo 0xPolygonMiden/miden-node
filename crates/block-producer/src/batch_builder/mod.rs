@@ -1,18 +1,18 @@
 use std::{num::NonZeroUsize, ops::Range, time::Duration};
 
+use batch::BatchId;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
-    domain::transaction::AuthenticatedTransaction,
-    mempool::{BatchJobId, SharedMempool},
-    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
+    domain::transaction::AuthenticatedTransaction, mempool::SharedMempool, COMPONENT,
+    SERVER_BUILD_BATCH_FREQUENCY,
 };
 
 pub mod batch;
 pub use batch::TransactionBatch;
-use miden_node_utils::formatting::{format_array, format_blake3_digest};
+use miden_node_utils::formatting::format_array;
 
 use crate::errors::BuildBatchError;
 
@@ -91,8 +91,8 @@ impl BatchBuilder {
                             tracing::warn!(%batch_id, %err, "Batch job failed.");
                             mempool.batch_failed(batch_id);
                         },
-                        Ok((batch_id, batch)) => {
-                            mempool.batch_proved(batch_id, batch);
+                        Ok(batch) => {
+                            mempool.batch_proved(batch);
                         }
                     }
                 }
@@ -104,7 +104,7 @@ impl BatchBuilder {
 // BATCH WORKER
 // ================================================================================================
 
-type BatchResult = Result<(BatchJobId, TransactionBatch), (BatchJobId, BuildBatchError)>;
+type BatchResult = Result<TransactionBatch, (BatchId, BuildBatchError)>;
 
 /// Represents a pool of batch provers.
 ///
@@ -121,7 +121,7 @@ struct WorkerPool {
     /// This allows us to map panic'd tasks to the job ID. Uses [Vec] because the task ID does not
     /// implement [Ord]. Given that the expected capacity is relatively low, this has no real
     /// impact beyond ergonomics.
-    task_map: Vec<(tokio::task::Id, BatchJobId)>,
+    task_map: Vec<(tokio::task::Id, BatchId)>,
 }
 
 impl WorkerPool {
@@ -171,10 +171,10 @@ impl WorkerPool {
         // Cleanup task mapping by removing the result's task. This is inefficient but does not
         // matter as the capacity is expected to be low.
         let job_id = match &result {
-            Ok((id, _)) => id,
-            Err((id, _)) => id,
+            Ok(batch) => batch.id(),
+            Err((id, _)) => *id,
         };
-        self.task_map.retain(|(_, elem_job_id)| elem_job_id != job_id);
+        self.task_map.retain(|(_, elem_job_id)| *elem_job_id != job_id);
 
         result
     }
@@ -192,7 +192,7 @@ impl WorkerPool {
     /// [has_capacity](Self::has_capacity).
     fn spawn(
         &mut self,
-        id: BatchJobId,
+        id: BatchId,
         transactions: Vec<AuthenticatedTransaction>,
     ) -> Result<(), ()> {
         if !self.has_capacity() {
@@ -224,7 +224,7 @@ impl WorkerPool {
 
                     tracing::debug!("Batch proof completed.");
 
-                    Ok((id, batch))
+                    Ok(batch)
                 }
             })
             .id();
@@ -247,7 +247,7 @@ impl WorkerPool {
         // TODO: Found unauthenticated notes are no longer required.. potentially?
         let batch = TransactionBatch::new(txs, Default::default())?;
 
-        Span::current().record("batch_id", format_blake3_digest(batch.id()));
+        Span::current().record("batch_id", batch.id().to_string());
         info!(target: COMPONENT, "Transaction batch built");
 
         Ok(batch)
