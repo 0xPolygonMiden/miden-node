@@ -167,6 +167,26 @@ impl BatchGraph {
         Ok(batches)
     }
 
+    /// Remove all batches associated with the given transactions (and their descendents).
+    ///
+    /// Transactions not currently associated with a batch are allowed, but have no impact.
+    ///
+    /// # Returns
+    ///
+    /// Returns all removed batches and their transactions.
+    ///
+    /// Unlike [remove_batches](Self::remove_batches), this has no error condition as batches are
+    /// derived internally.
+    pub fn remove_transactions<'a>(
+        &mut self,
+        txs: impl Iterator<Item = &'a TransactionId>,
+    ) -> BTreeMap<BatchId, Vec<TransactionId>> {
+        let batches = txs.filter_map(|tx| self.transactions.get(tx)).copied().collect();
+
+        self.remove_batches(batches)
+            .expect("batches must exist as they have been taken from internal map")
+    }
+
     /// Removes the set of committed batches from the graph.
     ///
     /// The batches _must_ have been previously selected for inclusion in a block using
@@ -249,6 +269,12 @@ impl BatchGraph {
     /// Returns `true` if the graph contains the given batch.
     pub fn contains(&self, id: &BatchId) -> bool {
         self.batches.contains_key(id)
+    }
+
+    /// Returns the transactions associated with the given batch, otherwise returns `None` if the
+    /// batch does not exist.
+    pub fn get_transactions(&self, id: &BatchId) -> Option<&[TransactionId]> {
+        self.batches.get(id).map(Vec::as_slice)
     }
 }
 
