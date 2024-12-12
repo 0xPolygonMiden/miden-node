@@ -120,6 +120,10 @@ impl AuthenticatedTransaction {
     pub fn raw_proven_transaction(&self) -> &ProvenTransaction {
         &self.inner
     }
+
+    pub fn expires_at(&self) -> BlockNumber {
+        BlockNumber::new(self.inner.expiration_block_num())
+    }
 }
 
 #[cfg(test)]

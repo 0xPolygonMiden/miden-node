@@ -123,6 +123,14 @@ impl InflightState {
     }
 
     fn verify_transaction(&self, tx: &AuthenticatedTransaction) -> Result<(), AddTransactionError> {
+        // Check that the transaction hasn't already expired.
+        if tx.expires_at() <= self.chain_tip {
+            return Err(AddTransactionError::Expired {
+                expired_at: tx.expires_at(),
+                chain_tip: self.chain_tip,
+            });
+        }
+
         // The mempool retains recently committed blocks, in addition to the state that is currently
         // inflight. This overlap with the committed state allows us to verify incoming
         // transactions against the current state (committed + inflight). Transactions are
@@ -361,6 +369,26 @@ mod tests {
         note::{mock_note, mock_output_note},
         MockProvenTxBuilder,
     };
+
+    #[test]
+    fn rejects_expired_transaction() {
+        let chain_tip = BlockNumber::new(123);
+        let mut uut = InflightState::new(chain_tip, 5);
+
+        let expired = MockProvenTxBuilder::with_account_index(0)
+            .expiration_block_num(chain_tip.into_inner())
+            .build();
+        let expired = AuthenticatedTransaction::from_inner(expired)
+            .with_authentication_height(chain_tip.into_inner());
+
+        let err = uut.add_transaction(&expired).unwrap_err();
+        assert_matches!(
+            err,
+            AddTransactionError::Expired {
+                expired_at: e_expired, chain_tip: e_chain_tip
+            } if e_expired == chain_tip && e_chain_tip == chain_tip
+        );
+    }
 
     #[test]
     fn rejects_duplicate_nullifiers() {
