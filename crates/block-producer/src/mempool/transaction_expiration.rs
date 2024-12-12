@@ -33,9 +33,9 @@ impl TransactionExpirations {
     /// Unknown transactions are ignored.
     pub fn remove<'a>(&mut self, txs: impl Iterator<Item = &'a TransactionId>) {
         for tx in txs {
-            if let Some(block) = self.by_tx.remove(&tx) {
+            if let Some(block) = self.by_tx.remove(tx) {
                 let Entry::Occupied(entry) = self.by_block.entry(block).and_modify(|x| {
-                    x.remove(&tx);
+                    x.remove(tx);
                 }) else {
                     panic!("block entry must exist as this is a bidirectional mapping");
                 };
