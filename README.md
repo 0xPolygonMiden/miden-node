@@ -127,7 +127,7 @@ Next, bootstrap the chain by generating the genesis data:
 
 ```sh
 miden-node make-genesis \
-  --input-path  <CONFIG>/genesis.toml \
+  --inputs-path  <CONFIG>/genesis.toml \
   --output-path <STORAGE>/genesis.dat
 ```
 
