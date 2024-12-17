@@ -2,7 +2,7 @@
 
 The **Block producer** receives transactions from the RPC component, processes them, creates block containing those transactions before sending created blocks to the store. 
 
-**Block Producer** is one of components of the [Miden node](..). 
+**Block Producer** is one of the components of the [Miden node](..). 
 
 ## Architecture
 
@@ -21,7 +21,7 @@ Here is a brief description of supported methods.
 
 ### SubmitProvenTransaction
 
-Submits proven transaction to the Miden network.
+Submits a proven transaction to the Miden network.
 
 **Parameters**
 
