@@ -188,7 +188,7 @@ impl BlockWitness {
                 for (idx, (account_id, account_update)) in self.updated_accounts.iter().enumerate()
                 {
                     account_data.extend(account_update.final_state_hash);
-                    account_data.push(account_id.first_felt().into());
+                    account_data.push(account_id.first_felt());
 
                     let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
                     num_accounts_updated = idx + 1;

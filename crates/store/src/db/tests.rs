@@ -296,8 +296,8 @@ fn sql_select_accounts() {
     // test multiple entries
     let mut state = vec![];
     for i in 0..10u128 {
-        let account_id = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN
-            + (((i << 80) + 0b1111100000) as u128);
+        let account_id =
+            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN + ((i << 80) + 0b1111100000);
         let account_hash = num_to_rpo_digest(i as u64);
         state.push(AccountInfo {
             summary: AccountSummary {
@@ -379,7 +379,7 @@ fn sql_public_account_details() {
 
     create_block(&mut conn, 2);
 
-    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 2).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id(), 1, 2).unwrap();
 
     assert_eq!(read_delta, None);
 
@@ -427,7 +427,7 @@ fn sql_public_account_details() {
     assert_eq!(account_read.nonce(), account.nonce());
     assert_eq!(account_read.storage(), account.storage());
 
-    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 2).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id(), 1, 2).unwrap();
     assert_eq!(read_delta.as_ref(), Some(&delta2));
 
     create_block(&mut conn, 3);
@@ -470,7 +470,7 @@ fn sql_public_account_details() {
     assert_eq!(account_read.vault(), account.vault());
     assert_eq!(account_read.nonce(), account.nonce());
 
-    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 3).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id(), 1, 3).unwrap();
 
     delta2.merge(delta3).unwrap();
 
@@ -790,7 +790,7 @@ fn db_account() {
 
     // test empty table
     let account_ids: Vec<AccountId> =
-        vec![ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, 1, 2, 3, 4, 5]
+        [ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, 1, 2, 3, 4, 5]
             .iter()
             .map(|acc_id| (*acc_id).try_into().unwrap())
             .collect();

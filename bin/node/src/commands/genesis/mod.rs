@@ -3,16 +3,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Context, Result};
 pub use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
-use miden_lib::AuthScheme;
+use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin};
 use miden_objects::{
     accounts::{Account, AccountData, AccountIdAnchor, AuthSecretKey},
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
+    Felt, ONE,
 };
+use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use tracing::info;
 
