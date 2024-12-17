@@ -4,8 +4,7 @@ use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    utils::Serializable,
-    Digest,
+    utils::{Deserializable, Serializable}, Digest,
 };
 
 use crate::{
@@ -24,7 +23,11 @@ use crate::{
 
 impl Display for AccountIdPb {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("0x{:x}", self.id))
+        write!(f, "0x")?;
+        for byte in &self.id {
+            write!(f, "{:02x}", byte)?;
+        }
+        Ok(())
     }
 }
 
@@ -37,12 +40,6 @@ impl Debug for AccountIdPb {
 // INTO PROTO ACCOUNT ID
 // ------------------------------------------------------------------------------------------------
 
-impl From<u64> for AccountIdPb {
-    fn from(value: u64) -> Self {
-        AccountIdPb { id: value }
-    }
-}
-
 impl From<&AccountId> for AccountIdPb {
     fn from(account_id: &AccountId) -> Self {
         (*account_id).into()
@@ -51,24 +48,18 @@ impl From<&AccountId> for AccountIdPb {
 
 impl From<AccountId> for AccountIdPb {
     fn from(account_id: AccountId) -> Self {
-        Self { id: account_id.into() }
+        Self { id: account_id.to_bytes() }
     }
 }
 
 // FROM PROTO ACCOUNT ID
 // ------------------------------------------------------------------------------------------------
 
-impl From<AccountIdPb> for u64 {
-    fn from(value: AccountIdPb) -> Self {
-        value.id
-    }
-}
-
 impl TryFrom<AccountIdPb> for AccountId {
     type Error = ConversionError;
 
     fn try_from(account_id: AccountIdPb) -> Result<Self, Self::Error> {
-        account_id.id.try_into().map_err(|_| ConversionError::NotAValidFelt)
+        AccountId::read_from_bytes(&account_id.id).map_err(|_| ConversionError::NotAValidFelt)
     }
 }
 

@@ -14,16 +14,7 @@ use axum::{
 };
 use clap::{Parser, Subcommand};
 use http::HeaderValue;
-use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
-use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
-use miden_objects::{
-    accounts::{AccountData, AccountStorageMode, AuthSecretKey},
-    assets::TokenSymbol,
-    crypto::dsa::rpo_falcon512::SecretKey,
-    Felt,
-};
-use rand::Rng;
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use miden_node_utils::{config::load_config, version::LongVersion};
 use state::FaucetState;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
@@ -133,36 +124,38 @@ async fn main() -> anyhow::Result<()> {
             decimals,
             max_supply,
         } => {
-            println!("Generating new faucet account. This may take a few minutes...");
+            todo!();
+            // println!("Generating new faucet account. This may take a few minutes...");
 
-            let current_dir =
-                std::env::current_dir().context("Failed to open current directory")?;
+            // let current_dir =
+            //     std::env::current_dir().context("Failed to open current directory")?;
 
-            let mut rng = ChaCha20Rng::from_seed(rand::random());
+            // let mut rng = ChaCha20Rng::from_seed(rand::random());
 
-            let secret = SecretKey::with_rng(&mut get_rpo_random_coin(&mut rng));
+            // let secret = SecretKey::with_rng(&mut get_rpo_random_coin(&mut rng));
 
-            let (account, account_seed) = create_basic_fungible_faucet(
-                rng.gen(),
-                TokenSymbol::try_from(token_symbol.as_str())
-                    .context("Failed to parse token symbol")?,
-                *decimals,
-                Felt::try_from(*max_supply)
-                    .expect("max supply value is greater than or equal to the field modulus"),
-                AccountStorageMode::Public,
-                AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
-            )
-            .context("Failed to create basic fungible faucet account")?;
+            // let (account, account_seed) = create_basic_fungible_faucet(
+            //     rng.gen(),
+            //     TokenSymbol::try_from(token_symbol.as_str())
+            //         .context("Failed to parse token symbol")?,
+            //     *decimals,
+            //     Felt::try_from(*max_supply)
+            //         .expect("max supply value is greater than or equal to the field modulus"),
+            //     AccountStorageMode::Public,
+            //     AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
+            // )
+            // .context("Failed to create basic fungible faucet account")?;
 
-            let account_data =
-                AccountData::new(account, Some(account_seed), AuthSecretKey::RpoFalcon512(secret));
+            // let account_data =
+            //     AccountData::new(account, Some(account_seed),
+            // AuthSecretKey::RpoFalcon512(secret));
 
-            let output_path = current_dir.join(output_path);
-            account_data
-                .write(&output_path)
-                .context("Failed to write account data to file")?;
+            // let output_path = current_dir.join(output_path);
+            // account_data
+            //     .write(&output_path)
+            //     .context("Failed to write account data to file")?;
 
-            println!("Faucet account file successfully created at: {output_path:?}");
+            // println!("Faucet account file successfully created at: {output_path:?}");
         },
 
         Command::Init { config_path, faucet_account_path } => {

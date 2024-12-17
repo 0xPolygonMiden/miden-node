@@ -15,9 +15,9 @@ use miden_node_proto::{
     generated::responses::{AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse},
     AccountInputRecord, NullifierWitness,
 };
-use miden_node_utils::formatting::{format_account_id, format_array};
+use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::{AccountDelta, AccountHeader},
+    accounts::{AccountDelta, AccountHeader, AccountId},
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
@@ -45,7 +45,7 @@ use crate::{
         StateSyncError,
     },
     nullifier_tree::NullifierTree,
-    types::{AccountId, BlockNumber},
+    types::BlockNumber,
     COMPONENT,
 };
 // STRUCTURES
@@ -254,7 +254,7 @@ impl State {
             let account_tree_update = inner.account_tree.compute_mutations(
                 block.updated_accounts().iter().map(|update| {
                     (
-                        LeafIndex::new_max_depth(update.account_id().into()),
+                        LeafIndex::new_max_depth(update.account_id().prefix().into()),
                         update.new_state_hash().into(),
                     )
                 }),
@@ -604,12 +604,8 @@ impl State {
             .cloned()
             .map(|account_id| {
                 let ValuePath { value: account_hash, path: proof } =
-                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
-                Ok(AccountInputRecord {
-                    account_id: account_id.try_into()?,
-                    account_hash,
-                    proof,
-                })
+                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id.prefix().into()));
+                Ok(AccountInputRecord { account_id, account_hash, proof })
             })
             .collect::<Result<_, AccountError>>()?;
 
@@ -642,11 +638,14 @@ impl State {
         nullifiers: &[Nullifier],
         unauthenticated_notes: Vec<NoteId>,
     ) -> Result<TransactionInputs, DatabaseError> {
-        info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
+        info!(target: COMPONENT, account_id = %account_id.to_string(), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
 
-        let account_hash = inner.account_tree.open(&LeafIndex::new_max_depth(account_id)).value;
+        let account_hash = inner
+            .account_tree
+            .open(&LeafIndex::new_max_depth(account_id.prefix().into()))
+            .value;
 
         let nullifiers = nullifiers
             .iter()
@@ -742,7 +741,7 @@ impl State {
         let responses = account_ids
             .into_iter()
             .map(|account_id| {
-                let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
+                let acc_leaf_idx = LeafIndex::new_max_depth(account_id.prefix().into());
                 let opening = inner_state.account_tree.open(&acc_leaf_idx);
                 let state_header = state_headers.get(&account_id).cloned();
 
@@ -823,13 +822,12 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
 async fn load_accounts(
     db: &mut Db,
 ) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
-    let account_data: Vec<_> = db
-        .select_all_account_hashes()
-        .await?
-        .into_iter()
-        .map(|(id, account_hash)| (id, account_hash.into()))
-        .collect();
+    let mut smt = SimpleSmt::<ACCOUNT_TREE_DEPTH>::new().unwrap();
+    let values = db.select_all_account_hashes().await?;
 
-    SimpleSmt::with_leaves(account_data)
-        .map_err(StateInitializationError::FailedToCreateAccountsTree)
+    for (acc_id, hash_update) in values {
+        smt.insert(acc_id.into(), hash_update.into());
+    }
+
+    Ok(smt)
 }

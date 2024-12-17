@@ -16,7 +16,7 @@ use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 use tonic::Status;
 
-use crate::types::{AccountId, BlockNumber};
+use crate::types::BlockNumber;
 
 // INTERNAL ERRORS
 // =================================================================================================
@@ -72,11 +72,11 @@ pub enum DatabaseError {
         calculated: RpoDigest,
     },
     #[error("Account {0} not found in the database")]
-    AccountNotFoundInDb(AccountId),
+    AccountNotFoundInDb(miden_objects::accounts::AccountId),
     #[error("Accounts {0:?} not found in the database")]
-    AccountsNotFoundInDb(Vec<AccountId>),
+    AccountsNotFoundInDb(Vec<miden_objects::accounts::AccountId>),
     #[error("Account {0} is not on the chain")]
-    AccountNotOnChain(AccountId),
+    AccountNotOnChain(miden_objects::accounts::AccountId),
     #[error("Block {0} not found in the database")]
     BlockNotFoundInDb(BlockNumber),
     #[error("Data corrupted: {0}")]
