@@ -35,7 +35,7 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
 
     fn generate(init_seed: [u8; 32], new_account: bool) -> Self {
         let account_seed = AccountId::compute_account_seed(
-            [10; 32],
+            init_seed,
             AccountType::RegularAccountUpdatableCode,
             AccountStorageMode::Private,
             AccountIdVersion::VERSION_0,

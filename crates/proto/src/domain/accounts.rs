@@ -4,7 +4,8 @@ use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    utils::{Deserializable, Serializable}, Digest,
+    utils::{Deserializable, Serializable},
+    Digest,
 };
 
 use crate::{

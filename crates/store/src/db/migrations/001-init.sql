@@ -98,7 +98,7 @@ CREATE TABLE
 (
     account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
-    faucet_id   INTEGER NOT NULL,
+    faucet_id   BLOB NOT NULL,
     delta       INTEGER NOT NULL,
 
     PRIMARY KEY (account_id, block_num, faucet_id),
@@ -135,7 +135,7 @@ CREATE TABLE
     transactions
 (
     transaction_id BLOB    NOT NULL,
-    account_id     INTEGER NOT NULL,
+    account_id     BLOB    NOT NULL,
     block_num      INTEGER NOT NULL,
 
     PRIMARY KEY (transaction_id),

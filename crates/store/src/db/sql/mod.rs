@@ -360,8 +360,7 @@ pub fn select_account_delta(
     ])?;
     while let Some(row) = rows.next()? {
         let vault_key_data = row.get_ref(1)?.as_blob()?;
-        let vault_key = Word::read_from_bytes(vault_key_data)?;
-        let asset = NonFungibleAsset::try_from(vault_key)
+        let asset = NonFungibleAsset::read_from_bytes(vault_key_data)
             .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
         let action: usize = row.get(2)?;
         match action {
@@ -537,10 +536,12 @@ fn insert_account_delta(
             NonFungibleDeltaAction::Add => 0,
             NonFungibleDeltaAction::Remove => 1,
         };
+        // let serialized = asset.to_bytes();
+        // let deserialized = NonFungibleAsset::read_from_bytes(bytes)
         insert_non_fungible_asset_update_stmt.execute(params![
             account_id.to_bytes(),
             block_number,
-            asset.vault_key().to_bytes(),
+            asset.to_bytes(),
             is_remove,
         ])?;
     }
@@ -736,7 +737,7 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
 
         let note_type = row.get::<_, u8>(4)?.try_into()?;
-        let sender = AccountId::read_from_bytes(row.get_ref(4)?.as_blob()?)?;
+        let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;

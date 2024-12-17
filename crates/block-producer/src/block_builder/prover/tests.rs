@@ -37,8 +37,8 @@ use crate::{
 #[test]
 fn block_witness_validation_inconsistent_account_ids() {
     let account_id_1 = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
-    let account_id_2 = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + 1).unwrap();
-    let account_id_3 = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + 2).unwrap();
+    let account_id_2 = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + (1 << 80)).unwrap();
+    let account_id_3 = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + (2 << 80)).unwrap();
 
     let block_inputs_from_store: BlockInputs = {
         let block_header = BlockHeader::mock(0, None, None, &[], Default::default());
@@ -272,10 +272,10 @@ async fn compute_account_root_success() {
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
         AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + 1).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + 2).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + 3).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + 4).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + (1 << 80)).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + (2 << 80)).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + (3 << 80)).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + (4 << 80)).unwrap(),
     ];
 
     let account_initial_states = [
@@ -371,11 +371,11 @@ async fn compute_account_root_empty_batches() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
-        AccountId::new_unchecked([Felt::ZERO, Felt::new(0b0000_0000_0000_0000u64)]),
-        AccountId::new_unchecked([Felt::ZERO, Felt::new(0b1111_0000_0000_0000u64)]),
-        AccountId::new_unchecked([Felt::ZERO, Felt::new(0b1111_1111_0000_0000u64)]),
-        AccountId::new_unchecked([Felt::ZERO, Felt::new(0b1111_1111_1111_0000u64)]),
-        AccountId::new_unchecked([Felt::ZERO, Felt::new(0b1111_1111_1111_1111u64)]),
+        AccountId::new_unchecked([Felt::new(0b0000_0000_0000_0000u64), Felt::ZERO]),
+        AccountId::new_unchecked([Felt::new(0b1000_0000_0000_0000u64), Felt::ZERO]),
+        AccountId::new_unchecked([Felt::new(0b1100_0000_0000_0000u64), Felt::ZERO]),
+        AccountId::new_unchecked([Felt::new(0b1110_0000_0000_0000u64), Felt::ZERO]),
+        AccountId::new_unchecked([Felt::new(0b1111_0000_0000_0000u64), Felt::ZERO]),
     ];
 
     let account_initial_states = [

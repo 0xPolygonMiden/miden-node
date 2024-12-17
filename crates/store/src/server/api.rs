@@ -37,7 +37,8 @@ use miden_objects::{
     block::Block,
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, Nullifier},
-    utils::{Deserializable, Serializable}, Felt, ZERO,
+    utils::{Deserializable, Serializable},
+    Felt, ZERO,
 };
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};

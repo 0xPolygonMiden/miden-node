@@ -106,8 +106,13 @@ fn sql_insert_transactions() {
 #[test]
 fn sql_select_transactions() {
     fn query_transactions(conn: &mut Connection) -> Vec<TransactionSummary> {
-        sql::select_transactions_by_accounts_and_block_range(conn, 0, 2, &[1.try_into().unwrap()])
-            .unwrap()
+        sql::select_transactions_by_accounts_and_block_range(
+            conn,
+            0,
+            2,
+            &[AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap()],
+        )
+        .unwrap()
     }
 
     let mut conn = create_db();
@@ -292,7 +297,7 @@ fn sql_select_accounts() {
     let mut state = vec![];
     for i in 0..10u128 {
         let account_id = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN
-            + (((i << 64) + 0b1111100000) as u128);
+            + (((i << 80) + 0b1111100000) as u128);
         let account_hash = num_to_rpo_digest(i as u64);
         state.push(AccountInfo {
             summary: AccountSummary {
@@ -977,7 +982,10 @@ fn insert_transactions(conn: &mut Connection) -> usize {
     let count = sql::insert_transactions(
         &transaction,
         block_num,
-        &[mock_block_account_update(AccountId::new_unchecked([Felt::ZERO, Felt::ONE]), 1)],
+        &[mock_block_account_update(
+            AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap(),
+            1,
+        )],
     )
     .unwrap();
     transaction.commit().unwrap();

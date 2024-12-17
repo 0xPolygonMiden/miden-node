@@ -9,7 +9,8 @@ use miden_lib::AuthScheme;
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin};
 use miden_objects::{
-    accounts::{Account, AuthSecretKey},
+    accounts::{Account, AccountData, AccountIdAnchor, AuthSecretKey},
+    assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
 };
 use rand_chacha::ChaCha20Rng;
@@ -92,73 +93,78 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
 ///
 /// This function also writes the account data files into the default accounts directory.
 fn create_accounts(
-    _accounts: &[AccountInput],
-    _accounts_path: impl AsRef<Path>,
-    _force: &bool,
+    accounts: &[AccountInput],
+    accounts_path: impl AsRef<Path>,
+    force: &bool,
 ) -> Result<Vec<Account>> {
-    todo!();
-    // if accounts_path.as_ref().try_exists()? {
-    //     if !force {
-    //         bail!(
-    //             "Failed to create accounts directory because it already exists. \
-    //             Use the --force flag to overwrite."
-    //         );
-    //     }
-    //     fs::remove_dir_all(&accounts_path).context("Failed to remove accounts directory")?;
-    // }
+    if accounts_path.as_ref().try_exists()? {
+        if !force {
+            bail!(
+                "Failed to create accounts directory because it already exists. \
+                Use the --force flag to overwrite."
+            );
+        }
+        fs::remove_dir_all(&accounts_path).context("Failed to remove accounts directory")?;
+    }
 
-    // fs::create_dir_all(&accounts_path).context("Failed to create accounts directory")?;
+    fs::create_dir_all(&accounts_path).context("Failed to create accounts directory")?;
 
-    // let mut final_accounts = Vec::new();
-    // let mut faucet_count = 0;
-    // let mut rng = ChaCha20Rng::from_seed(rand::random());
+    let mut final_accounts = Vec::new();
+    let mut faucet_count = 0;
+    let mut rng = ChaCha20Rng::from_seed(rand::random());
 
-    // for account in accounts {
-    //     // build offchain account data from account inputs
-    //     let (mut account_data, name) = match account {
-    //         AccountInput::BasicFungibleFaucet(inputs) => {
-    //             info!("Creating fungible faucet account...");
-    //             let (auth_scheme, auth_secret_key) = gen_auth_keys(inputs.auth_scheme, &mut
-    // rng)?;
+    for account in accounts {
+        // build offchain account data from account inputs
+        let (mut account_data, name) = match account {
+            AccountInput::BasicFungibleFaucet(inputs) => {
+                info!("Creating fungible faucet account...");
+                let (auth_scheme, auth_secret_key) = gen_auth_keys(inputs.auth_scheme, &mut rng)?;
 
-    //             let storage_mode = inputs.storage_mode.as_str().try_into()?;
-    //             let (account, account_seed) = create_basic_fungible_faucet(
-    //                 rng.gen(),
-    //                 TokenSymbol::try_from(inputs.token_symbol.as_str())?,
-    //                 inputs.decimals,
-    //                 Felt::try_from(inputs.max_supply)
-    //                     .expect("max supply value is greater than or equal to the field
-    // modulus"),                 storage_mode,
-    //                 auth_scheme,
-    //             )?;
+                let storage_mode = inputs.storage_mode.as_str().try_into()?;
+                let (account, account_seed) = create_basic_fungible_faucet(
+                    rng.gen(),
+                    AccountIdAnchor::new_unchecked(0, Default::default()),
+                    TokenSymbol::try_from(inputs.token_symbol.as_str())?,
+                    inputs.decimals,
+                    Felt::try_from(inputs.max_supply).expect(
+                        "max supply value is greater than or equal to the field
+    modulus",
+                    ),
+                    storage_mode,
+                    auth_scheme,
+                )?;
 
-    //             let name = format!(
-    //                 "faucet{}",
-    //                 (faucet_count > 0).then(|| faucet_count.to_string()).unwrap_or_default()
-    //             );
-    //             faucet_count += 1;
+                let name = format!(
+                    "faucet{}",
+                    (faucet_count > 0).then(|| faucet_count.to_string()).unwrap_or_default()
+                );
+                faucet_count += 1;
 
-    //             (AccountData::new(account, Some(account_seed), auth_secret_key), name)
-    //         },
-    //     };
+                (AccountData::new(account, Some(account_seed), auth_secret_key), name)
+            },
+        };
 
-    //     // write account data to file
-    //     let path = accounts_path.as_ref().join(format!("{name}.mac"));
+        // write account data to file
+        let path = accounts_path.as_ref().join(format!("{name}.mac"));
 
-    //     if !force && matches!(path.try_exists(), Ok(true)) {
-    //         bail!("Failed to generate account file {} because it already exists. Use the --force
-    // flag to overwrite.", path.display());     }
+        if !force && matches!(path.try_exists(), Ok(true)) {
+            bail!(
+                "Failed to generate account file {} because it already exists. Use the --force
+    flag to overwrite.",
+                path.display()
+            );
+        }
 
-    //     account_data.account.set_nonce(ONE)?;
+        account_data.account.set_nonce(ONE)?;
 
-    //     account_data.write(&path)?;
+        account_data.write(&path)?;
 
-    //     info!("Account \"{name}\" has successfully been saved to: {}", path.display());
+        info!("Account \"{name}\" has successfully been saved to: {}", path.display());
 
-    //     final_accounts.push(account_data.account);
-    // }
+        final_accounts.push(account_data.account);
+    }
 
-    // Ok(final_accounts)
+    Ok(final_accounts)
 }
 
 fn gen_auth_keys(
@@ -190,7 +196,7 @@ mod tests {
 
     use crate::DEFAULT_GENESIS_FILE_PATH;
 
-    //#[test]
+    #[test]
     fn make_genesis() {
         let genesis_inputs_file_path = PathBuf::from("genesis.toml");
 
