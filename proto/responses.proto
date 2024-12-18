@@ -126,7 +126,7 @@ message NullifierTransactionInputRecord {
 message GetTransactionInputsResponse {
     AccountTransactionInputRecord account_state = 1;
     repeated NullifierTransactionInputRecord nullifiers = 2;
-    repeated digest.Digest missing_unauthenticated_notes = 3;
+    repeated digest.Digest found_unauthenticated_notes = 3;
     fixed32 block_height = 4;
 }
 

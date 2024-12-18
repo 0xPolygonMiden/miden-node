@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::{Display, Formatter},
     num::NonZeroU32,
 };
@@ -44,9 +44,11 @@ pub struct TransactionInputs {
     ///
     /// We use NonZeroU32 as the wire format uses 0 to encode none.
     pub nullifiers: BTreeMap<Nullifier, Option<NonZeroU32>>,
-    /// List of unauthenticated notes that were not found in the store
-    pub missing_unauthenticated_notes: Vec<NoteId>,
-    /// The current block height
+    /// Unauthenticated notes which are present in the store.
+    ///
+    /// These are notes which were committed _after_ the transaction was created.
+    pub found_unauthenticated_notes: BTreeSet<NoteId>,
+    /// The current block height.
     pub current_block_height: u32,
 }
 
@@ -94,11 +96,11 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             nullifiers.insert(nullifier, NonZeroU32::new(nullifier_record.block_num));
         }
 
-        let missing_unauthenticated_notes = response
-            .missing_unauthenticated_notes
+        let found_unauthenticated_notes = response
+            .found_unauthenticated_notes
             .into_iter()
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
-            .collect::<Result<Vec<_>, ConversionError>>()?;
+            .collect::<Result<_, ConversionError>>()?;
 
         let current_block_height = response.block_height;
 
@@ -106,8 +108,8 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             account_id,
             account_hash,
             nullifiers,
-            missing_unauthenticated_notes,
             current_block_height,
+            found_unauthenticated_notes,
         })
     }
 }

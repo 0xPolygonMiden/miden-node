@@ -7,6 +7,10 @@
 - Support Https in endpoint configuration (#556).
 - Upgrade `block-producer` from FIFO queue to mempool dependency graph (#562).
 
+### Changes
+
+- [BREAKING] Inverted `TransactionInputs.missing_unauthenticated_notes` to `found_missing_notes` (#509). 
+
 ## v0.6.0 (2024-11-05)
 
 ### Enhancements

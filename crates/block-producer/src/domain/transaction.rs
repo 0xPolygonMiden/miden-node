@@ -56,16 +56,9 @@ impl AuthenticatedTransaction {
             return Err(VerifyTxError::InputNotesAlreadyConsumed(nullifiers_already_spent));
         }
 
-        // Invert the missing notes; i.e. we now know the rest were actually found.
-        let authenticated_notes = tx
-            .get_unauthenticated_notes()
-            .map(|header| header.id())
-            .filter(|note_id| !inputs.missing_unauthenticated_notes.contains(note_id))
-            .collect();
-
         Ok(AuthenticatedTransaction {
             inner: Arc::new(tx),
-            notes_authenticated_by_store: authenticated_notes,
+            notes_authenticated_by_store: inputs.found_unauthenticated_notes,
             authentication_height: BlockNumber::new(inputs.current_block_height),
             store_account_state: inputs.account_hash,
         })
@@ -137,10 +130,7 @@ impl AuthenticatedTransaction {
             account_id: inner.account_id(),
             account_hash: store_account_state,
             nullifiers: inner.get_nullifiers().map(|nullifier| (nullifier, None)).collect(),
-            missing_unauthenticated_notes: inner
-                .get_unauthenticated_notes()
-                .map(|header| header.id())
-                .collect(),
+            found_unauthenticated_notes: Default::default(),
             current_block_height: Default::default(),
         };
         // SAFETY: nullifiers were set to None aka are definitely unspent.
