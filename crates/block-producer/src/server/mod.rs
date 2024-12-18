@@ -109,8 +109,9 @@ impl BlockProducer {
         let batch_builder_id = tasks
             .spawn({
                 let mempool = mempool.clone();
+                let store = store.clone();
                 async {
-                    batch_builder.run(mempool).await;
+                    batch_builder.run(mempool, store).await;
                     Ok(())
                 }
             })

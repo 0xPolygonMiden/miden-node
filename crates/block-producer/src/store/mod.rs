@@ -6,10 +6,14 @@ use std::{
 
 use itertools::Itertools;
 use miden_node_proto::{
+    domain::notes::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
-        requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
+        requests::{
+            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
+            GetTransactionInputsRequest,
+        },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
@@ -199,6 +203,26 @@ impl StoreClient {
         let store_response = self.inner.clone().get_block_inputs(request).await?.into_inner();
 
         store_response.try_into().map_err(Into::into)
+    }
+
+    #[instrument(target = COMPONENT, skip_all, err)]
+    pub async fn get_batch_inputs(
+        &self,
+        notes: impl Iterator<Item = NoteId> + Send,
+    ) -> Result<NoteAuthenticationInfo, StoreError> {
+        let request = tonic::Request::new(GetNoteAuthenticationInfoRequest {
+            note_ids: notes.map(digest::Digest::from).collect(),
+        });
+
+        let store_response =
+            self.inner.clone().get_note_authentication_info(request).await?.into_inner();
+
+        let note_authentication_info = store_response
+            .proofs
+            .ok_or(GetTransactionInputsResponse::missing_field("proofs"))?
+            .try_into()?;
+
+        Ok(note_authentication_info)
     }
 
     #[instrument(target = COMPONENT, skip_all, err)]

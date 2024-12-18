@@ -142,6 +142,9 @@ pub enum BuildBatchError {
 
     #[error("Batch proving task panic'd")]
     JoinError(#[from] tokio::task::JoinError),
+
+    #[error("Fetching inputs from store failed")]
+    StoreError(#[from] StoreError),
 }
 
 // Block prover errors

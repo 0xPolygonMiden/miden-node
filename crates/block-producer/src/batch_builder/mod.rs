@@ -1,13 +1,14 @@
 use std::{num::NonZeroUsize, ops::Range, time::Duration};
 
 use batch::BatchId;
+use miden_node_proto::domain::notes::NoteAuthenticationInfo;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
-    domain::transaction::AuthenticatedTransaction, mempool::SharedMempool, COMPONENT,
-    SERVER_BUILD_BATCH_FREQUENCY,
+    domain::transaction::AuthenticatedTransaction, mempool::SharedMempool, store::StoreClient,
+    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
 };
 
 pub mod batch;
@@ -54,7 +55,7 @@ impl BatchBuilder {
     /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.
     /// A batch is skipped if there are no available workers, or if there are no transactions
     /// available to batch.
-    pub async fn run(self, mempool: SharedMempool) {
+    pub async fn run(self, mempool: SharedMempool, store: StoreClient) {
         assert!(
             self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
             "Failure rate must be a percentage"
@@ -64,7 +65,7 @@ impl BatchBuilder {
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
         let mut worker_pool =
-            WorkerPool::new(self.workers, self.simulated_proof_time, self.failure_rate);
+            WorkerPool::new(self.workers, self.simulated_proof_time, self.failure_rate, store);
 
         loop {
             tokio::select! {
@@ -122,6 +123,7 @@ struct WorkerPool {
     /// implement [Ord]. Given that the expected capacity is relatively low, this has no real
     /// impact beyond ergonomics.
     task_map: Vec<(tokio::task::Id, BatchId)>,
+    store: StoreClient,
 }
 
 impl WorkerPool {
@@ -129,11 +131,13 @@ impl WorkerPool {
         capacity: NonZeroUsize,
         simulated_proof_time: Range<Duration>,
         failure_rate: f32,
+        store: StoreClient,
     ) -> Self {
         Self {
             simulated_proof_time,
             failure_rate,
             capacity,
+            store,
             in_progress: JoinSet::default(),
             task_map: Default::default(),
         }
@@ -210,11 +214,18 @@ impl WorkerPool {
                 //
                 // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
                 let failed = rand::thread_rng().gen::<f32>() < self.failure_rate;
+                let store = self.store.clone();
 
                 async move {
                     tracing::debug!("Begin proving batch.");
 
-                    let batch = Self::build_batch(transactions).map_err(|err| (id, err))?;
+                    let inputs = store
+                        .get_batch_inputs(
+                            transactions.iter().flat_map(|tx| tx.unauthenticated_notes()),
+                        )
+                        .await
+                        .map_err(|err| (id, err.into()))?;
+                    let batch = Self::build_batch(transactions, inputs).map_err(|err| (id, err))?;
 
                     tokio::time::sleep(simulated_proof_time).await;
                     if failed {
@@ -237,6 +248,7 @@ impl WorkerPool {
     #[instrument(target = COMPONENT, skip_all, err, fields(batch_id))]
     fn build_batch(
         txs: Vec<AuthenticatedTransaction>,
+        inputs: NoteAuthenticationInfo,
     ) -> Result<TransactionBatch, BuildBatchError> {
         let num_txs = txs.len();
 
@@ -244,8 +256,7 @@ impl WorkerPool {
         debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
 
         let txs = txs.iter().map(AuthenticatedTransaction::raw_proven_transaction);
-        // TODO: Found unauthenticated notes are no longer required.. potentially?
-        let batch = TransactionBatch::new(txs, Default::default())?;
+        let batch = TransactionBatch::new(txs, inputs)?;
 
         Span::current().record("batch_id", batch.id().to_string());
         info!(target: COMPONENT, "Transaction batch built");
