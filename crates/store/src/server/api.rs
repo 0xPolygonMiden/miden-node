@@ -440,8 +440,8 @@ impl api_server::Api for StoreApi {
                     block_num: nullifier.block_num,
                 })
                 .collect(),
-            missing_unauthenticated_notes: tx_inputs
-                .missing_unauthenticated_notes
+            found_unauthenticated_notes: tx_inputs
+                .found_unauthenticated_notes
                 .into_iter()
                 .map(Into::into)
                 .collect(),
