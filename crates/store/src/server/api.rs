@@ -337,7 +337,9 @@ impl api_server::Api for StoreApi {
                     .account_id
                     .ok_or(invalid_argument("Account missing id"))?
                     .try_into()
-                    .unwrap(), // TODO: remove this unwrap
+                    .map_err(|err| {
+                        Status::invalid_argument(format!("Invalid account ID: {}", err))
+                    })?,
             )
             .await?;
 
@@ -544,7 +546,9 @@ impl api_server::Api for StoreApi {
                     .account_id
                     .ok_or(invalid_argument("account_id is missing"))?
                     .try_into()
-                    .unwrap(), // TODO: Remove this unwrap
+                    .map_err(|err| {
+                        Status::invalid_argument(format!("Invalid account ID: {}", err))
+                    })?,
                 request.from_block_num,
                 request.to_block_num,
             )

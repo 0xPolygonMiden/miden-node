@@ -128,10 +128,8 @@ fn create_accounts(
                     AccountIdAnchor::new_unchecked(0, EMPTY_WORD.into()),
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
-                    Felt::try_from(inputs.max_supply).expect(
-                        "max supply value is greater than or equal to the field
-    modulus",
-                    ),
+                    Felt::try_from(inputs.max_supply)
+                        .expect("max supply value is greater than or equal to the field modulus"),
                     storage_mode,
                     auth_scheme,
                 )?;
@@ -150,11 +148,7 @@ fn create_accounts(
         let path = accounts_path.as_ref().join(format!("{name}.mac"));
 
         if !force && matches!(path.try_exists(), Ok(true)) {
-            bail!(
-                "Failed to generate account file {} because it already exists. Use the --force
-    flag to overwrite.",
-                path.display()
-            );
+            bail!("Failed to generate account file {} because it already exists. Use the --force flag to overwrite.", path.display());
         }
 
         account_data.account.set_nonce(ONE)?;

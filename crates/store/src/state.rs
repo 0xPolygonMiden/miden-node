@@ -822,12 +822,13 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
 async fn load_accounts(
     db: &mut Db,
 ) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
-    let mut smt = SimpleSmt::<ACCOUNT_TREE_DEPTH>::new().unwrap();
-    let values = db.select_all_account_hashes().await?;
+    let account_data: Vec<_> = db
+        .select_all_account_hashes()
+        .await?
+        .into_iter()
+        .map(|(id, account_hash)| (id.prefix().into(), account_hash.into()))
+        .collect();
 
-    for (acc_id, hash_update) in values {
-        smt.insert(acc_id.into(), hash_update.into());
-    }
-
-    Ok(smt)
+    SimpleSmt::with_leaves(account_data)
+        .map_err(StateInitializationError::FailedToCreateAccountsTree)
 }

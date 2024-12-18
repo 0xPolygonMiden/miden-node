@@ -46,17 +46,10 @@ impl GenesisState {
             })
             .collect();
 
-        // let account_smt: SimpleSmt<ACCOUNT_TREE_DEPTH> = SimpleSmt::with_leaves(
-        //     accounts
-        //         .iter()
-        //         .map(|update| (update.account_id().into(), update.new_state_hash().into())),
-        // )?;
-
-        let mut account_smt =
-            SimpleSmt::<ACCOUNT_TREE_DEPTH>::new().expect("depth too big for SimpleSmt");
-        for update in accounts.iter() {
-            account_smt.insert(update.account_id().into(), update.new_state_hash().into());
-        }
+        let account_smt: SimpleSmt<ACCOUNT_TREE_DEPTH> =
+            SimpleSmt::with_leaves(accounts.iter().map(|update| {
+                (update.account_id().prefix().into(), update.new_state_hash().into())
+            }))?;
 
         let header = BlockHeader::new(
             self.version,

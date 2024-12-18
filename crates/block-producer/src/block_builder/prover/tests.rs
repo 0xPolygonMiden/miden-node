@@ -494,8 +494,8 @@ async fn compute_note_root_empty_notes_success() {
 async fn compute_note_root_success() {
     let account_ids = [
         AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + 1).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + 2).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + (1 << 80)).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER + (2 << 80)).unwrap(),
     ];
 
     let notes_created: Vec<NoteHeader> = [

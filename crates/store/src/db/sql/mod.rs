@@ -536,8 +536,6 @@ fn insert_account_delta(
             NonFungibleDeltaAction::Add => 0,
             NonFungibleDeltaAction::Remove => 1,
         };
-        // let serialized = asset.to_bytes();
-        // let deserialized = NonFungibleAsset::read_from_bytes(bytes)
         insert_non_fungible_asset_update_stmt.execute(params![
             account_id.to_bytes(),
             block_number,
