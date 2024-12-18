@@ -12,7 +12,7 @@ use miden_objects::{
     accounts::{Account, AccountData, AccountIdAnchor, AuthSecretKey},
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
-    Felt, ONE,
+    Felt, EMPTY_WORD, ONE,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -125,7 +125,7 @@ fn create_accounts(
                 let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
                     rng.gen(),
-                    AccountIdAnchor::new_unchecked(0, Default::default()),
+                    AccountIdAnchor::new_unchecked(0, EMPTY_WORD.into()),
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
                     Felt::try_from(inputs.max_supply).expect(
