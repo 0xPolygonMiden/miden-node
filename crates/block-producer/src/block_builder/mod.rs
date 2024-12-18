@@ -63,7 +63,7 @@ impl BlockBuilder {
         );
 
         let mut interval = tokio::time::interval(self.block_interval);
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Burst);
 
         loop {
             interval.tick().await;
