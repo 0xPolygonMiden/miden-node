@@ -13,6 +13,7 @@ use axum::{
     Router,
 };
 use clap::{Parser, Subcommand};
+use client::initialize_faucet_client;
 use http::HeaderValue;
 use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
@@ -22,8 +23,8 @@ use miden_objects::{
     crypto::dsa::rpo_falcon512::SecretKey,
     Felt,
 };
-use rand::Rng;
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 use state::FaucetState;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
@@ -61,6 +62,8 @@ pub enum Command {
 
     /// Create a new public faucet account and save to the specified file
     CreateFaucetAccount {
+        #[arg(short, long, value_name = "FILE", default_value = FAUCET_CONFIG_FILE_PATH)]
+        config_path: PathBuf,
         #[arg(short, long, value_name = "FILE", default_value = DEFAULT_FAUCET_ACCOUNT_PATH)]
         output_path: PathBuf,
         #[arg(short, long)]
@@ -128,12 +131,18 @@ async fn main() -> anyhow::Result<()> {
         },
 
         Command::CreateFaucetAccount {
+            config_path,
             output_path,
             token_symbol,
             decimals,
             max_supply,
         } => {
             println!("Generating new faucet account. This may take a few minutes...");
+
+            let config: FaucetConfig =
+                load_config(config_path).context("Failed to load configuration file")?;
+
+            let (_, root_block_header, _) = initialize_faucet_client(&config).await?;
 
             let current_dir =
                 std::env::current_dir().context("Failed to open current directory")?;
@@ -144,6 +153,7 @@ async fn main() -> anyhow::Result<()> {
 
             let (account, account_seed) = create_basic_fungible_faucet(
                 rng.gen(),
+                (&root_block_header).try_into().context("Failed to create anchor block")?,
                 TokenSymbol::try_from(token_symbol.as_str())
                     .context("Failed to parse token symbol")?,
                 *decimals,

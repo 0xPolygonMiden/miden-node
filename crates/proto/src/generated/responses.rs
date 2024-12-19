@@ -114,7 +114,7 @@ pub struct GetBlockInputsResponse {
     >,
 }
 /// An account returned as a response to the GetTransactionInputs
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountTransactionInputRecord {
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,

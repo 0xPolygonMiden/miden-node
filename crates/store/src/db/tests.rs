@@ -2,18 +2,18 @@ use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::accounts::AccountSummary;
 use miden_objects::{
     accounts::{
-        account_id::testing::{
-            ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
-            ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
-        },
-        delta::AccountUpdateDetails,
-        Account, AccountBuilder, AccountComponent, AccountDelta, AccountId, AccountStorageDelta,
-        AccountStorageMode, AccountType, AccountVaultDelta, StorageSlot,
+        delta::AccountUpdateDetails, Account, AccountBuilder, AccountComponent, AccountDelta,
+        AccountId, AccountStorageDelta, AccountStorageMode, AccountType, AccountVaultDelta,
+        StorageSlot,
     },
     assets::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
+    testing::account_id::{
+        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
+        ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+    },
     BlockHeader, Felt, FieldElement, Word, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
@@ -106,7 +106,13 @@ fn sql_insert_transactions() {
 #[test]
 fn sql_select_transactions() {
     fn query_transactions(conn: &mut Connection) -> Vec<TransactionSummary> {
-        sql::select_transactions_by_accounts_and_block_range(conn, 0, 2, &[1]).unwrap()
+        sql::select_transactions_by_accounts_and_block_range(
+            conn,
+            0,
+            2,
+            &[AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap()],
+        )
+        .unwrap()
     }
 
     let mut conn = create_db();
@@ -260,7 +266,7 @@ fn sql_select_notes_different_execution_hints() {
             ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
             NoteType::Public,
             2.into(),
-            NoteExecutionHint::after_block(12),
+            NoteExecutionHint::after_block(12).unwrap(),
             Default::default(),
         )
         .unwrap(),
@@ -274,7 +280,7 @@ fn sql_select_notes_different_execution_hints() {
     assert_eq!(res.unwrap(), 1, "One element must have been inserted");
     transaction.commit().unwrap();
     let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(2).into()]).unwrap()[0];
-    assert_eq!(note.metadata.execution_hint(), NoteExecutionHint::after_block(12));
+    assert_eq!(note.metadata.execution_hint(), NoteExecutionHint::after_block(12).unwrap());
 }
 
 #[test]
@@ -289,16 +295,15 @@ fn sql_select_accounts() {
     assert!(accounts.is_empty());
     // test multiple entries
     let mut state = vec![];
-    for i in 0..10 {
-        let account_id =
-            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN + (i << 32) + 0b1111100000;
-        let account_hash = num_to_rpo_digest(i);
+    for i in 0..10u8 {
+        let account_id = AccountId::new_dummy(
+            [i; 15],
+            AccountType::RegularAccountImmutableCode,
+            miden_objects::accounts::AccountStorageMode::Private,
+        );
+        let account_hash = num_to_rpo_digest(i as u64);
         state.push(AccountInfo {
-            summary: AccountSummary {
-                account_id: account_id.try_into().unwrap(),
-                account_hash,
-                block_num,
-            },
+            summary: AccountSummary { account_id, account_hash, block_num },
             details: None,
         });
 
@@ -306,7 +311,7 @@ fn sql_select_accounts() {
         let res = sql::upsert_accounts(
             &transaction,
             &[BlockAccountUpdate::new(
-                account_id.try_into().unwrap(),
+                account_id,
                 account_hash,
                 AccountUpdateDetails::Private,
                 vec![],
@@ -332,7 +337,7 @@ fn sql_public_account_details() {
 
     let nft1 = Asset::NonFungible(
         NonFungibleAsset::new(
-            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![1, 2, 3]).unwrap(),
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id.prefix(), vec![1, 2, 3]).unwrap(),
         )
         .unwrap(),
     );
@@ -373,7 +378,7 @@ fn sql_public_account_details() {
 
     create_block(&mut conn, 2);
 
-    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 2).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id(), 1, 2).unwrap();
 
     assert_eq!(read_delta, None);
 
@@ -382,7 +387,7 @@ fn sql_public_account_details() {
 
     let nft2 = Asset::NonFungible(
         NonFungibleAsset::new(
-            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![4, 5, 6]).unwrap(),
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id.prefix(), vec![4, 5, 6]).unwrap(),
         )
         .unwrap(),
     );
@@ -421,7 +426,7 @@ fn sql_public_account_details() {
     assert_eq!(account_read.nonce(), account.nonce());
     assert_eq!(account_read.storage(), account.storage());
 
-    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 2).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id(), 1, 2).unwrap();
     assert_eq!(read_delta.as_ref(), Some(&delta2));
 
     create_block(&mut conn, 3);
@@ -464,7 +469,7 @@ fn sql_public_account_details() {
     assert_eq!(account_read.vault(), account.vault());
     assert_eq!(account_read.nonce(), account.nonce());
 
-    let read_delta = sql::select_account_delta(&mut conn, account.id().into(), 1, 3).unwrap();
+    let read_delta = sql::select_account_delta(&mut conn, account.id(), 1, 3).unwrap();
 
     delta2.merge(delta3).unwrap();
 
@@ -783,7 +788,11 @@ fn db_account() {
     create_block(&mut conn, block_num);
 
     // test empty table
-    let account_ids = vec![ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, 1, 2, 3, 4, 5];
+    let account_ids: Vec<AccountId> =
+        [ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, 1, 2, 3, 4, 5]
+            .iter()
+            .map(|acc_id| (*acc_id).try_into().unwrap())
+            .collect();
     let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
     assert!(res.is_empty());
 
@@ -824,8 +833,13 @@ fn db_account() {
     assert!(res.is_empty());
 
     // test query with unknown accounts
-    let res = sql::select_accounts_by_block_range(&mut conn, block_num + 1, u32::MAX, &[6, 7, 8])
-        .unwrap();
+    let res = sql::select_accounts_by_block_range(
+        &mut conn,
+        block_num + 1,
+        u32::MAX,
+        &[6.try_into().unwrap(), 7.try_into().unwrap(), 8.try_into().unwrap()],
+    )
+    .unwrap();
     assert!(res.is_empty());
 }
 
@@ -848,7 +862,7 @@ fn notes() {
     let note_index = BlockNoteIndex::new(0, 2).unwrap();
     let note_id = num_to_rpo_digest(3);
     let tag = 5u32;
-    let sender = AccountId::new_unchecked(Felt::new(ACCOUNT_ID_OFF_CHAIN_SENDER));
+    let sender = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
     let note_metadata =
         NoteMetadata::new(sender, NoteType::Public, tag.into(), NoteExecutionHint::none(), ZERO)
             .unwrap();
@@ -967,7 +981,10 @@ fn insert_transactions(conn: &mut Connection) -> usize {
     let count = sql::insert_transactions(
         &transaction,
         block_num,
-        &[mock_block_account_update(AccountId::new_unchecked(Felt::ONE), 1)],
+        &[mock_block_account_update(
+            AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap(),
+            1,
+        )],
     )
     .unwrap();
     transaction.commit().unwrap();

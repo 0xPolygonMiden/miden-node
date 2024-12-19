@@ -4,7 +4,7 @@ pub struct TransactionId {
     #[prost(message, optional, tag = "1")]
     pub id: ::core::option::Option<super::digest::Digest>,
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TransactionSummary {
     #[prost(message, optional, tag = "1")]
     pub transaction_id: ::core::option::Option<TransactionId>,

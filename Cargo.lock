@@ -1502,12 +1502,13 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-account-id-refactor#50be8f579f7440fcf4f00fc21cd576fa4d72fb3e"
 dependencies = [
  "miden-assembly",
  "miden-objects",
  "miden-stdlib",
  "regex",
+ "thiserror 2.0.3",
  "walkdir",
 ]
 
@@ -1687,7 +1688,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-account-id-refactor#50be8f579f7440fcf4f00fc21cd576fa4d72fb3e"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -1761,7 +1762,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#bc91c604862e2c6013b21eb989a3640d30cce25b"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-account-id-refactor#50be8f579f7440fcf4f00fc21cd576fa4d72fb3e"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -1771,6 +1772,7 @@ dependencies = [
  "miden-verifier",
  "rand",
  "rand_chacha",
+ "thiserror 2.0.3",
  "winter-maybe-async",
 ]
 

@@ -9,13 +9,13 @@ use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin};
 use miden_objects::{
-    accounts::{Account, AccountData, AuthSecretKey},
+    accounts::{Account, AccountData, AccountIdAnchor, AuthSecretKey},
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
-    Felt, ONE,
+    Felt, EMPTY_WORD, ONE,
 };
-use rand::Rng;
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 use tracing::info;
 
 mod inputs;
@@ -125,6 +125,7 @@ fn create_accounts(
                 let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
                     rng.gen(),
+                    AccountIdAnchor::new_unchecked(0, EMPTY_WORD.into()),
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
                     Felt::try_from(inputs.max_supply)

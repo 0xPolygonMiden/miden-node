@@ -10,7 +10,7 @@ use miden_node_proto::{
     generated::note::{Note as NotePb, NoteSyncRecord as NoteSyncRecordPb},
 };
 use miden_objects::{
-    accounts::AccountDelta,
+    accounts::{AccountDelta, AccountId},
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
@@ -28,7 +28,7 @@ use crate::{
     db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
-    types::{AccountId, BlockNumber},
+    types::BlockNumber,
     COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 

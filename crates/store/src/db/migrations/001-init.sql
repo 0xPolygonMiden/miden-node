@@ -28,7 +28,7 @@ CREATE TABLE
     note_index     INTEGER NOT NULL, -- Index of note in batch, starting from 0
     note_id        BLOB    NOT NULL,
     note_type      INTEGER NOT NULL, -- 1-Public (0b01), 2-Private (0b10), 3-Encrypted (0b11)
-    sender         INTEGER NOT NULL,
+    sender         BLOB NOT NULL,
     tag            INTEGER NOT NULL,
     aux            INTEGER NOT NULL,
     execution_hint INTEGER NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE
 CREATE TABLE
     accounts
 (
-    account_id   INTEGER NOT NULL,
+    account_id   BLOB NOT NULL,
     account_hash BLOB    NOT NULL,
     block_num    INTEGER NOT NULL,
     details      BLOB,
@@ -59,7 +59,7 @@ CREATE TABLE
 CREATE TABLE
     account_deltas
 (
-    account_id  INTEGER NOT NULL,
+    account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
     nonce       INTEGER NOT NULL,
 
@@ -71,7 +71,7 @@ CREATE TABLE
 CREATE TABLE
     account_storage_slot_updates
 (
-    account_id  INTEGER NOT NULL,
+    account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
     slot        INTEGER NOT NULL,
     value       BLOB    NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE
 CREATE TABLE
     account_storage_map_updates
 (
-    account_id  INTEGER NOT NULL,
+    account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
     slot        INTEGER NOT NULL,
     key         BLOB    NOT NULL,
@@ -96,9 +96,9 @@ CREATE TABLE
 CREATE TABLE
     account_fungible_asset_deltas
 (
-    account_id  INTEGER NOT NULL,
+    account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
-    faucet_id   INTEGER NOT NULL,
+    faucet_id   BLOB NOT NULL,
     delta       INTEGER NOT NULL,
 
     PRIMARY KEY (account_id, block_num, faucet_id),
@@ -108,7 +108,7 @@ CREATE TABLE
 CREATE TABLE
     account_non_fungible_asset_updates
 (
-    account_id  INTEGER NOT NULL,
+    account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
     vault_key   BLOB NOT NULL,
     is_remove   INTEGER NOT NULL, -- 0 - add, 1 - remove
@@ -135,7 +135,7 @@ CREATE TABLE
     transactions
 (
     transaction_id BLOB    NOT NULL,
-    account_id     INTEGER NOT NULL,
+    account_id     BLOB    NOT NULL,
     block_num      INTEGER NOT NULL,
 
     PRIMARY KEY (transaction_id),
