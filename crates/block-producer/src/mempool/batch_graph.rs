@@ -177,7 +177,7 @@ impl BatchGraph {
     ///
     /// Unlike [remove_batches](Self::remove_batches), this has no error condition as batches are
     /// derived internally.
-    pub fn remove_transactions<'a>(
+    pub fn remove_batches_with_transactions<'a>(
         &mut self,
         txs: impl Iterator<Item = &'a TransactionId>,
     ) -> BTreeMap<BatchId, Vec<TransactionId>> {

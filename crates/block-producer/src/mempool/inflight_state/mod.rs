@@ -57,6 +57,12 @@ pub struct InflightState {
 
     /// The latest committed block height.
     chain_tip: BlockNumber,
+
+    /// Number of blocks to allow between chain tip and a transaction's expiration block height
+    /// before rejecting it.
+    ///
+    /// A new transaction is rejected if its expiration block is this close to the chain tip.
+    expiration_slack: BlockNumber,
 }
 
 /// A summary of a transaction's impact on the state.
@@ -83,10 +89,15 @@ impl Delta {
 impl InflightState {
     /// Creates an [InflightState] which will retain committed state for the given
     /// amount of blocks before pruning them.
-    pub fn new(chain_tip: BlockNumber, num_retained_blocks: usize) -> Self {
+    pub fn new(
+        chain_tip: BlockNumber,
+        num_retained_blocks: usize,
+        expiration_slack: BlockNumber,
+    ) -> Self {
         Self {
             num_retained_blocks,
             chain_tip,
+            expiration_slack,
             accounts: Default::default(),
             nullifiers: Default::default(),
             output_notes: Default::default(),
@@ -124,7 +135,7 @@ impl InflightState {
 
     fn verify_transaction(&self, tx: &AuthenticatedTransaction) -> Result<(), AddTransactionError> {
         // Check that the transaction hasn't already expired.
-        if tx.expires_at() <= self.chain_tip {
+        if tx.expires_at() + self.expiration_slack <= self.chain_tip {
             return Err(AddTransactionError::Expired {
                 expired_at: tx.expires_at(),
                 chain_tip: self.chain_tip,
@@ -373,10 +384,40 @@ mod tests {
     #[test]
     fn rejects_expired_transaction() {
         let chain_tip = BlockNumber::new(123);
-        let mut uut = InflightState::new(chain_tip, 5);
+        let mut uut = InflightState::new(chain_tip, 5, BlockNumber::new(0));
 
         let expired = MockProvenTxBuilder::with_account_index(0)
             .expiration_block_num(chain_tip.into_inner())
+            .build();
+        let expired = AuthenticatedTransaction::from_inner(expired)
+            .with_authentication_height(chain_tip.into_inner());
+
+        let err = uut.add_transaction(&expired).unwrap_err();
+        assert_matches!(
+            err,
+            AddTransactionError::Expired {
+                expired_at: e_expired, chain_tip: e_chain_tip
+            } if e_expired == chain_tip && e_chain_tip == chain_tip
+        );
+    }
+
+    /// Ensures that the specified expiration slack is adhered to.
+    #[test]
+    fn expiration_slack_is_respected() {
+        let slack = BlockNumber::new(3);
+        let chain_tip = BlockNumber::new(123);
+        let mut uut = InflightState::new(chain_tip, 5, slack);
+
+        let unexpired = MockProvenTxBuilder::with_account_index(0)
+            .expiration_block_num(BlockNumber::new(120).into_inner())
+            .build();
+        let unexpired = AuthenticatedTransaction::from_inner(unexpired)
+            .with_authentication_height(chain_tip.into_inner());
+
+        uut.add_transaction(&unexpired).unwrap();
+
+        let expired = MockProvenTxBuilder::with_account_index(0)
+            .expiration_block_num(BlockNumber::new(122).into_inner())
             .build();
         let expired = AuthenticatedTransaction::from_inner(expired)
             .with_authentication_height(chain_tip.into_inner());
@@ -407,7 +448,7 @@ mod tests {
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
-        let mut uut = InflightState::new(BlockNumber::default(), 1);
+        let mut uut = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1)).unwrap();
 
@@ -434,7 +475,7 @@ mod tests {
             .output_notes(vec![note.clone()])
             .build();
 
-        let mut uut = InflightState::new(BlockNumber::default(), 1);
+        let mut uut = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
 
         let err = uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1)).unwrap_err();
@@ -454,7 +495,7 @@ mod tests {
 
         let tx = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
 
-        let mut uut = InflightState::new(BlockNumber::default(), 1);
+        let mut uut = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
         let err = uut
             .add_transaction(&AuthenticatedTransaction::from_inner(tx).with_store_state(states[2]))
             .unwrap_err();
@@ -476,7 +517,7 @@ mod tests {
         let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
         let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2]).build();
 
-        let mut uut = InflightState::new(BlockNumber::default(), 1);
+        let mut uut = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1).with_empty_store_state())
             .unwrap();
@@ -493,7 +534,7 @@ mod tests {
         )
         .build();
 
-        let mut uut = InflightState::new(BlockNumber::default(), 1);
+        let mut uut = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx).with_empty_store_state())
             .unwrap();
     }
@@ -506,7 +547,7 @@ mod tests {
         let tx0 = MockProvenTxBuilder::with_account(account, states[0], states[1]).build();
         let tx1 = MockProvenTxBuilder::with_account(account, states[1], states[2]).build();
 
-        let mut uut = InflightState::new(BlockNumber::default(), 1);
+        let mut uut = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
 
         // Feed in an old state via input. This should be ignored, and the previous tx's final
@@ -532,7 +573,7 @@ mod tests {
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
-        let mut uut = InflightState::new(BlockNumber::default(), 1);
+        let mut uut = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0.clone())).unwrap();
         uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1.clone())).unwrap();
 
@@ -563,7 +604,7 @@ mod tests {
             .unauthenticated_notes(vec![mock_note(note_seed)])
             .build();
 
-        let mut uut = InflightState::new(BlockNumber::default(), 1);
+        let mut uut = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
         uut.add_transaction(&tx0.clone()).unwrap();
         uut.add_transaction(&tx1.clone()).unwrap();
 
@@ -605,7 +646,7 @@ mod tests {
         for i in 0..states.len() {
             // Insert all txs and then revert the last `i` of them.
             // This should match only inserting the first `N-i` of them.
-            let mut reverted = InflightState::new(BlockNumber::default(), 1);
+            let mut reverted = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
             for (idx, tx) in txs.iter().enumerate() {
                 reverted.add_transaction(tx).unwrap_or_else(|err| {
                     panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
@@ -615,7 +656,7 @@ mod tests {
                 txs.iter().rev().take(i).rev().map(AuthenticatedTransaction::id).collect(),
             );
 
-            let mut inserted = InflightState::new(BlockNumber::default(), 1);
+            let mut inserted = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
             for (idx, tx) in txs.iter().rev().skip(i).rev().enumerate() {
                 inserted.add_transaction(tx).unwrap_or_else(|err| {
                     panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
@@ -659,7 +700,7 @@ mod tests {
             // This should match only inserting the final `N-i` transactions.
             // Note: we force all committed state to immedietely be pruned by setting
             // it to zero.
-            let mut committed = InflightState::new(BlockNumber::default(), 0);
+            let mut committed = InflightState::new(BlockNumber::default(), 0, BlockNumber::new(0));
             for (idx, tx) in txs.iter().enumerate() {
                 committed.add_transaction(tx).unwrap_or_else(|err| {
                     panic!("Inserting tx #{idx} in iteration {i} should succeed: {err}")
@@ -667,7 +708,7 @@ mod tests {
             }
             committed.commit_block(txs.iter().take(i).map(AuthenticatedTransaction::id));
 
-            let mut inserted = InflightState::new(BlockNumber::new(1), 0);
+            let mut inserted = InflightState::new(BlockNumber::new(1), 0, BlockNumber::new(0));
             for (idx, tx) in txs.iter().skip(i).enumerate() {
                 // We need to adjust the height since we are effectively at block "1" now.
                 let tx = tx.clone().with_authentication_height(1);
