@@ -295,16 +295,15 @@ fn sql_select_accounts() {
     assert!(accounts.is_empty());
     // test multiple entries
     let mut state = vec![];
-    for i in 0..10u128 {
-        let account_id =
-            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN + ((i << 80) + 0b1111100000);
+    for i in 0..10u8 {
+        let account_id = AccountId::new_dummy(
+            [i; 15],
+            AccountType::RegularAccountImmutableCode,
+            miden_objects::accounts::AccountStorageMode::Private,
+        );
         let account_hash = num_to_rpo_digest(i as u64);
         state.push(AccountInfo {
-            summary: AccountSummary {
-                account_id: account_id.try_into().unwrap(),
-                account_hash,
-                block_num,
-            },
+            summary: AccountSummary { account_id, account_hash, block_num },
             details: None,
         });
 
@@ -312,7 +311,7 @@ fn sql_select_accounts() {
         let res = sql::upsert_accounts(
             &transaction,
             &[BlockAccountUpdate::new(
-                account_id.try_into().unwrap(),
+                account_id,
                 account_hash,
                 AccountUpdateDetails::Private,
                 vec![],
