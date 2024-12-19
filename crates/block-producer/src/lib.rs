@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use mempool::BlockNumber;
+
 #[cfg(test)]
 pub mod test_utils;
 
@@ -37,6 +39,12 @@ const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
 /// This determines the grace period incoming transactions have between fetching their input from
 /// the store and verification in the mempool.
 const SERVER_MEMPOOL_STATE_RETENTION: usize = 5;
+
+/// Transactions are rejected by the mempool if there is less than this amount of blocks between the
+/// chain tip and the transaction's expiration block.
+///
+/// This rejects transactions which would likely expire before making it into a block.
+const SERVER_MEMPOOL_EXPIRATION_SLACK: BlockNumber = BlockNumber::new(2);
 
 const _: () = assert!(
     SERVER_MAX_BATCHES_PER_BLOCK <= miden_objects::MAX_BATCHES_PER_BLOCK,

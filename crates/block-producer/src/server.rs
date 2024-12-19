@@ -22,7 +22,7 @@ use crate::{
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, BlockNumber, Mempool, SharedMempool},
     store::StoreClient,
-    COMPONENT, SERVER_MEMPOOL_STATE_RETENTION,
+    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,
@@ -37,6 +37,7 @@ pub struct BlockProducer {
     batch_budget: BatchBudget,
     block_budget: BlockBudget,
     state_retention: usize,
+    expiration_slack: BlockNumber,
     rpc_listener: TcpListener,
     store: StoreClient,
     chain_tip: BlockNumber,
@@ -78,6 +79,7 @@ impl BlockProducer {
             batch_budget: Default::default(),
             block_budget: Default::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
+            expiration_slack: SERVER_MEMPOOL_EXPIRATION_SLACK,
             store,
             rpc_listener,
             chain_tip,
@@ -94,9 +96,16 @@ impl BlockProducer {
             rpc_listener,
             store,
             chain_tip,
+            expiration_slack,
         } = self;
 
-        let mempool = Mempool::shared(chain_tip, batch_budget, block_budget, state_retention);
+        let mempool = Mempool::shared(
+            chain_tip,
+            batch_budget,
+            block_budget,
+            state_retention,
+            expiration_slack,
+        );
 
         // Spawn rpc server and batch and block provers.
         //
