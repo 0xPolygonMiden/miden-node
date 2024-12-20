@@ -1,7 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     num::NonZeroU32,
-    ops::Not,
 };
 
 use miden_node_proto::domain::{blocks::BlockInclusionProof, notes::NoteAuthenticationInfo};
@@ -266,11 +265,11 @@ impl MockStoreSuccess {
             .collect();
 
         let locked_notes = self.notes.read().await;
-        let missing_unauthenticated_notes = proven_tx
+        let found_unauthenticated_notes = proven_tx
             .get_unauthenticated_notes()
             .filter_map(|header| {
                 let id = header.id();
-                locked_notes.contains_key(&id).not().then_some(id)
+                locked_notes.contains_key(&id).then_some(id)
             })
             .collect();
 
@@ -278,7 +277,7 @@ impl MockStoreSuccess {
             account_id: proven_tx.account_id(),
             account_hash,
             nullifiers,
-            missing_unauthenticated_notes,
+            found_unauthenticated_notes,
             current_block_height: 0,
         })
     }

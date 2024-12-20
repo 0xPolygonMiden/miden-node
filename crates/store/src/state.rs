@@ -86,7 +86,7 @@ impl From<BlockInputs> for GetBlockInputsResponse {
 pub struct TransactionInputs {
     pub account_hash: RpoDigest,
     pub nullifiers: Vec<NullifierInfo>,
-    pub missing_unauthenticated_notes: Vec<NoteId>,
+    pub found_unauthenticated_notes: BTreeSet<NoteId>,
 }
 
 /// Container for state that needs to be updated atomically.
@@ -658,16 +658,10 @@ impl State {
         let found_unauthenticated_notes =
             self.db.select_note_ids(unauthenticated_notes.clone()).await?;
 
-        let missing_unauthenticated_notes = unauthenticated_notes
-            .iter()
-            .filter(|note_id| !found_unauthenticated_notes.contains(note_id))
-            .copied()
-            .collect();
-
         Ok(TransactionInputs {
             account_hash,
             nullifiers,
-            missing_unauthenticated_notes,
+            found_unauthenticated_notes,
         })
     }
 

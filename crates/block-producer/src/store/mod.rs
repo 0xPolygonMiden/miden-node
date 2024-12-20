@@ -1,15 +1,19 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::{Display, Formatter},
     num::NonZeroU32,
 };
 
 use itertools::Itertools;
 use miden_node_proto::{
+    domain::notes::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
-        requests::{ApplyBlockRequest, GetBlockInputsRequest, GetTransactionInputsRequest},
+        requests::{
+            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
+            GetTransactionInputsRequest,
+        },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
@@ -44,9 +48,11 @@ pub struct TransactionInputs {
     ///
     /// We use NonZeroU32 as the wire format uses 0 to encode none.
     pub nullifiers: BTreeMap<Nullifier, Option<NonZeroU32>>,
-    /// List of unauthenticated notes that were not found in the store
-    pub missing_unauthenticated_notes: Vec<NoteId>,
-    /// The current block height
+    /// Unauthenticated notes which are present in the store.
+    ///
+    /// These are notes which were committed _after_ the transaction was created.
+    pub found_unauthenticated_notes: BTreeSet<NoteId>,
+    /// The current block height.
     pub current_block_height: u32,
 }
 
@@ -94,11 +100,11 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             nullifiers.insert(nullifier, NonZeroU32::new(nullifier_record.block_num));
         }
 
-        let missing_unauthenticated_notes = response
-            .missing_unauthenticated_notes
+        let found_unauthenticated_notes = response
+            .found_unauthenticated_notes
             .into_iter()
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
-            .collect::<Result<Vec<_>, ConversionError>>()?;
+            .collect::<Result<_, ConversionError>>()?;
 
         let current_block_height = response.block_height;
 
@@ -106,8 +112,8 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             account_id,
             account_hash,
             nullifiers,
-            missing_unauthenticated_notes,
             current_block_height,
+            found_unauthenticated_notes,
         })
     }
 }
@@ -199,6 +205,26 @@ impl StoreClient {
         let store_response = self.inner.clone().get_block_inputs(request).await?.into_inner();
 
         store_response.try_into().map_err(Into::into)
+    }
+
+    #[instrument(target = COMPONENT, skip_all, err)]
+    pub async fn get_batch_inputs(
+        &self,
+        notes: impl Iterator<Item = NoteId> + Send,
+    ) -> Result<NoteAuthenticationInfo, StoreError> {
+        let request = tonic::Request::new(GetNoteAuthenticationInfoRequest {
+            note_ids: notes.map(digest::Digest::from).collect(),
+        });
+
+        let store_response =
+            self.inner.clone().get_note_authentication_info(request).await?.into_inner();
+
+        let note_authentication_info = store_response
+            .proofs
+            .ok_or(GetTransactionInputsResponse::missing_field("proofs"))?
+            .try_into()?;
+
+        Ok(note_authentication_info)
     }
 
     #[instrument(target = COMPONENT, skip_all, err)]

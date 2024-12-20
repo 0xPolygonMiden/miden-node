@@ -138,7 +138,7 @@ pub struct GetTransactionInputsResponse {
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierTransactionInputRecord>,
     #[prost(message, repeated, tag = "3")]
-    pub missing_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
     #[prost(fixed32, tag = "4")]
     pub block_height: u32,
 }
