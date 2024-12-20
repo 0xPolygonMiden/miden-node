@@ -92,10 +92,10 @@ pub enum AddTransactionError {
     #[error("Deserialization failed: {0}")]
     DeserializationError(String),
 
-    #[error("Transaction expired at {expired_at} and chain tip is {chain_tip}")]
+    #[error("Transaction expired at {expired_at} but the limit was {limit}")]
     Expired {
         expired_at: BlockNumber,
-        chain_tip: BlockNumber,
+        limit: BlockNumber,
     },
 }
 

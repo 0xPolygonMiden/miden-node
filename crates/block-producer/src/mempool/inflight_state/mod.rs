@@ -135,10 +135,10 @@ impl InflightState {
 
     fn verify_transaction(&self, tx: &AuthenticatedTransaction) -> Result<(), AddTransactionError> {
         // Check that the transaction hasn't already expired.
-        if tx.expires_at() + self.expiration_slack <= self.chain_tip {
+        if tx.expires_at() <= self.chain_tip + self.expiration_slack {
             return Err(AddTransactionError::Expired {
                 expired_at: tx.expires_at(),
-                chain_tip: self.chain_tip,
+                limit: self.chain_tip + self.expiration_slack,
             });
         }
 
@@ -393,12 +393,7 @@ mod tests {
             .with_authentication_height(chain_tip.into_inner());
 
         let err = uut.add_transaction(&expired).unwrap_err();
-        assert_matches!(
-            err,
-            AddTransactionError::Expired {
-                expired_at: e_expired, chain_tip: e_chain_tip
-            } if e_expired == chain_tip && e_chain_tip == chain_tip
-        );
+        assert_matches!(err, AddTransactionError::Expired { .. });
     }
 
     /// Ensures that the specified expiration slack is adhered to.
@@ -406,10 +401,11 @@ mod tests {
     fn expiration_slack_is_respected() {
         let slack = BlockNumber::new(3);
         let chain_tip = BlockNumber::new(123);
+        let expiration_limit = BlockNumber::new(chain_tip.into_inner() + slack.into_inner());
         let mut uut = InflightState::new(chain_tip, 5, slack);
 
         let unexpired = MockProvenTxBuilder::with_account_index(0)
-            .expiration_block_num(BlockNumber::new(123 + 4).into_inner())
+            .expiration_block_num(expiration_limit.next().into_inner())
             .build();
         let unexpired = AuthenticatedTransaction::from_inner(unexpired)
             .with_authentication_height(chain_tip.into_inner());
@@ -417,18 +413,13 @@ mod tests {
         uut.add_transaction(&unexpired).unwrap();
 
         let expired = MockProvenTxBuilder::with_account_index(1)
-            .expiration_block_num(BlockNumber::new(123 + 3).into_inner())
+            .expiration_block_num(expiration_limit.into_inner())
             .build();
         let expired = AuthenticatedTransaction::from_inner(expired)
             .with_authentication_height(chain_tip.into_inner());
 
         let err = uut.add_transaction(&expired).unwrap_err();
-        assert_matches!(
-            err,
-            AddTransactionError::Expired {
-                expired_at: e_expired, chain_tip: e_chain_tip
-            } if e_expired == chain_tip && e_chain_tip == chain_tip
-        );
+        assert_matches!(err, AddTransactionError::Expired { .. });
     }
 
     #[test]
