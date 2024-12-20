@@ -639,7 +639,7 @@ fn validate_account_ids(
         .cloned()
         .map(AccountId::try_from)
         .collect::<Result<_, ConversionError>>()
-        .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
+        .map_err(|_| invalid_argument("Byte array is not a valid AccountId"))
 }
 
 #[instrument(target = COMPONENT, skip_all, err)]

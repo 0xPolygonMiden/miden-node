@@ -86,6 +86,7 @@ pub fn column_value_as_u64<I: rusqlite::RowIndex>(
     Ok(value as u64)
 }
 
+/// Gets a blob value from the database and tries to deserialize it into the necessary type.
 pub fn read_from_blob_column<I, T>(row: &rusqlite::Row<'_>, index: I) -> rusqlite::Result<T>
 where
     I: rusqlite::RowIndex + Copy + Into<usize>,

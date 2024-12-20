@@ -3,8 +3,8 @@
 #[prost(skip_debug)]
 pub struct AccountId {
     /// A miden account is defined with a little bit of proof-of-work, the id itself is defined as
-    /// the first word of a hash digest. For this reason account ids can be considered as random
-    /// values, because of that the encoding below uses fixed 64 bits, instead of zig-zag encoding.
+    /// the first two words of a hash digest. For this reason account ids can be considered as random
+    /// values. The id is encoded into a 16 byte array.
     #[prost(bytes = "vec", tag = "1")]
     pub id: ::prost::alloc::vec::Vec<u8>,
 }
