@@ -125,6 +125,9 @@ fn create_accounts(
                 let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
                     rng.gen(),
+                    // SAFETY: The anchor epoch is valid as it's less than u16::MAX and a multiple
+                    // of 2^EPOCH_LENGTH_EXPONENT. The anchor block hash is empty to indicate that
+                    // it's a genesis account.
                     AccountIdAnchor::new_unchecked(0, EMPTY_WORD.into()),
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,

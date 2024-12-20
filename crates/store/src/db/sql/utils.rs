@@ -106,7 +106,7 @@ where
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
-    let account_id = AccountId::read_from_bytes(row.get_ref(0)?.as_blob()?)?;
+    let account_id = read_from_blob_column(row, 0)?;
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
     let block_num = row.get(2)?;

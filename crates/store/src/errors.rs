@@ -2,6 +2,7 @@ use std::io;
 
 use deadpool_sqlite::PoolError;
 use miden_objects::{
+    accounts::AccountId,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{MerkleError, MmrError},
@@ -72,11 +73,11 @@ pub enum DatabaseError {
         calculated: RpoDigest,
     },
     #[error("Account {0} not found in the database")]
-    AccountNotFoundInDb(miden_objects::accounts::AccountId),
+    AccountNotFoundInDb(AccountId),
     #[error("Accounts {0:?} not found in the database")]
-    AccountsNotFoundInDb(Vec<miden_objects::accounts::AccountId>),
+    AccountsNotFoundInDb(Vec<AccountId>),
     #[error("Account {0} is not on the chain")]
-    AccountNotOnChain(miden_objects::accounts::AccountId),
+    AccountNotOnChain(AccountId),
     #[error("Block {0} not found in the database")]
     BlockNotFoundInDb(BlockNumber),
     #[error("Data corrupted: {0}")]
