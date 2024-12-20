@@ -6,6 +6,7 @@
 
 - Support Https in endpoint configuration (#556).
 - Upgrade `block-producer` from FIFO queue to mempool dependency graph (#562).
+- Support transaction expiration (#582).
 
 ### Changes
 
