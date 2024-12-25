@@ -1,12 +1,15 @@
 use std::{collections::BTreeSet, fmt::Display, sync::Arc};
 
 use batch_graph::BatchGraph;
+use graph::GraphError;
 use inflight_state::InflightState;
 use miden_objects::{
-    MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
+    transaction::TransactionId, MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH,
+    MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use tokio::sync::Mutex;
 use tracing::instrument;
+use transaction_expiration::TransactionExpirations;
 use transaction_graph::TransactionGraph;
 
 use crate::{
@@ -19,7 +22,11 @@ use crate::{
 mod batch_graph;
 mod graph;
 mod inflight_state;
+mod transaction_expiration;
 mod transaction_graph;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockNumber(u32);
@@ -30,8 +37,16 @@ impl Display for BlockNumber {
     }
 }
 
+impl std::ops::Add<Self> for BlockNumber {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        BlockNumber::new(self.0 + rhs.0)
+    }
+}
+
 impl BlockNumber {
-    pub fn new(x: u32) -> Self {
+    pub const fn new(x: u32) -> Self {
         Self(x)
     }
 
@@ -52,6 +67,10 @@ impl BlockNumber {
 
     pub fn checked_sub(&self, rhs: Self) -> Option<Self> {
         self.0.checked_sub(rhs.0).map(Self)
+    }
+
+    pub fn into_inner(self) -> u32 {
+        self.0
     }
 }
 
@@ -166,6 +185,13 @@ pub struct Mempool {
     /// Inflight transactions.
     transactions: TransactionGraph,
 
+    /// Tracks inflight transaction expirations.
+    ///
+    /// This is used to identify inflight transactions that have become invalid once their
+    /// expiration block constraint has been violated. This occurs naturally as blocks get
+    /// committed and the chain grows.
+    expirations: TransactionExpirations,
+
     /// Inflight batches.
     batches: BatchGraph,
 
@@ -186,8 +212,15 @@ impl Mempool {
         batch_budget: BatchBudget,
         block_budget: BlockBudget,
         state_retention: usize,
+        expiration_slack: BlockNumber,
     ) -> SharedMempool {
-        Arc::new(Mutex::new(Self::new(chain_tip, batch_budget, block_budget, state_retention)))
+        Arc::new(Mutex::new(Self::new(
+            chain_tip,
+            batch_budget,
+            block_budget,
+            state_retention,
+            expiration_slack,
+        )))
     }
 
     fn new(
@@ -195,15 +228,17 @@ impl Mempool {
         batch_budget: BatchBudget,
         block_budget: BlockBudget,
         state_retention: usize,
+        expiration_slack: BlockNumber,
     ) -> Mempool {
         Self {
             chain_tip,
             batch_budget,
             block_budget,
-            state: InflightState::new(chain_tip, state_retention),
+            state: InflightState::new(chain_tip, state_retention, expiration_slack),
             block_in_progress: Default::default(),
             transactions: Default::default(),
             batches: Default::default(),
+            expirations: Default::default(),
         }
     }
 
@@ -223,6 +258,8 @@ impl Mempool {
     ) -> Result<u32, AddTransactionError> {
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction)?;
+
+        self.expirations.insert(transaction.id(), transaction.expires_at());
 
         self.transactions
             .insert(transaction, parents)
@@ -321,10 +358,17 @@ impl Mempool {
             .commit_transactions(&transactions)
             .expect("Transaction graph malformed");
 
+        // Remove the committed transactions from expiration tracking.
+        self.expirations.remove(transactions.iter());
+
         // Inform inflight state about committed data.
         self.state.commit_block(transactions);
-
         self.chain_tip.increment();
+
+        // Revert expired transactions and their descendents.
+        let expired = self.expirations.get(block_number);
+        self.revert_transactions(expired.into_iter().collect())
+            .expect("expired transactions must be part of the mempool");
     }
 
     /// Block and all of its contents and dependents are purged from the mempool.
@@ -339,93 +383,61 @@ impl Mempool {
 
         let batches = self.block_in_progress.take().expect("No block in progress to be failed");
 
-        // Remove all transactions from the graphs.
-        let purged = self.batches.remove_batches(batches).expect("Batch should be removed");
-        let transactions = purged.into_values().flatten().collect();
-
-        let transactions = self
-            .transactions
-            .remove_transactions(transactions)
-            .expect("Failed transactions should be removed");
-
-        // Rollback state.
-        self.state.revert_transactions(transactions);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-    use crate::test_utils::MockProvenTxBuilder;
-
-    impl Mempool {
-        fn for_tests() -> Self {
-            Self::new(BlockNumber::new(0), Default::default(), Default::default(), 5)
-        }
+        // Revert all transactions. This is the nuclear (but simplest) solution.
+        //
+        // We currently don't have a way of determining why this block failed so take the safe route
+        // and just nuke all associated transactions.
+        //
+        // TODO: improve this strategy, e.g. count txn failures (as well as in e.g. batch failures),
+        // and only revert upon exceeding some threshold.
+        let txs = batches
+            .into_iter()
+            .flat_map(|batch_id| {
+                self.batches
+                    .get_transactions(&batch_id)
+                    .expect("batch from a block must be in the mempool")
+            })
+            .copied()
+            .collect();
+        self.revert_transactions(txs)
+            .expect("transactions from a block must be part of the mempool");
     }
 
-    // BATCH REVERSION TESTS
-    // ================================================================================================
+    /// Reverts the given transactions and their descendents from the mempool.
+    ///
+    /// This includes removing them from the transaction and batch graphs, as well as cleaning up
+    /// their inflight state and expiration mappings.
+    ///
+    /// Transactions that were in reverted batches but that are disjoint from the reverted
+    /// transactions (i.e. not descendents) are requeued and _not_ reverted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any transaction was not in the transaction graph i.e. if the transaction
+    /// is unknown.
+    fn revert_transactions(
+        &mut self,
+        txs: Vec<TransactionId>,
+    ) -> Result<(), GraphError<TransactionId>> {
+        // Revert all transactions and their descendents, and their associated batches.
+        let reverted = self.transactions.remove_transactions(txs)?;
+        let batches_reverted = self.batches.remove_batches_with_transactions(reverted.iter());
 
-    #[test]
-    fn children_of_reverted_batches_are_ignored() {
-        // Batches are proved concurrently. This makes it possible for a child job to complete after
-        // the parent has been reverted (and therefore reverting the child job). Such a child job
-        // should be ignored.
-        let txs = MockProvenTxBuilder::sequential();
+        // Requeue transactions that are disjoint from the reverted set, but were part of the
+        // reverted batches.
+        let to_requeue = batches_reverted
+            .into_values()
+            .flatten()
+            .filter(|tx| !reverted.contains(tx))
+            .collect();
+        self.transactions
+            .requeue_transactions(to_requeue)
+            .expect("transactions from batches must be requeueable");
 
-        let mut uut = Mempool::for_tests();
-        uut.add_transaction(txs[0].clone()).unwrap();
-        let (parent_batch, batch_txs) = uut.select_batch().unwrap();
-        assert_eq!(batch_txs, vec![txs[0].clone()]);
+        // Cleanup state.
+        self.expirations.remove(reverted.iter());
+        self.state.revert_transactions(reverted);
 
-        uut.add_transaction(txs[1].clone()).unwrap();
-        let (child_batch_a, batch_txs) = uut.select_batch().unwrap();
-        assert_eq!(batch_txs, vec![txs[1].clone()]);
-
-        uut.add_transaction(txs[2].clone()).unwrap();
-        let (_, batch_txs) = uut.select_batch().unwrap();
-        assert_eq!(batch_txs, vec![txs[2].clone()]);
-
-        // Child batch jobs are now dangling.
-        uut.batch_failed(parent_batch);
-        let reference = uut.clone();
-
-        // Success or failure of the child job should effectively do nothing.
-        uut.batch_failed(child_batch_a);
-        assert_eq!(uut, reference);
-
-        let proof =
-            TransactionBatch::new([txs[2].raw_proven_transaction()], Default::default()).unwrap();
-        uut.batch_proved(proof);
-        assert_eq!(uut, reference);
-    }
-
-    #[test]
-    fn reverted_batch_transactions_are_requeued() {
-        let txs = MockProvenTxBuilder::sequential();
-
-        let mut uut = Mempool::for_tests();
-        uut.add_transaction(txs[0].clone()).unwrap();
-        uut.select_batch().unwrap();
-
-        uut.add_transaction(txs[1].clone()).unwrap();
-        let (failed_batch, _) = uut.select_batch().unwrap();
-
-        uut.add_transaction(txs[2].clone()).unwrap();
-        uut.select_batch().unwrap();
-
-        // Middle batch failed, so it and its child transaction should be re-entered into the queue.
-        uut.batch_failed(failed_batch);
-
-        let mut reference = Mempool::for_tests();
-        reference.add_transaction(txs[0].clone()).unwrap();
-        reference.select_batch().unwrap();
-        reference.add_transaction(txs[1].clone()).unwrap();
-        reference.add_transaction(txs[2].clone()).unwrap();
-
-        assert_eq!(uut, reference);
+        Ok(())
     }
 }

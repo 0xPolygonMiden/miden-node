@@ -91,6 +91,12 @@ pub enum AddTransactionError {
 
     #[error("Deserialization failed: {0}")]
     DeserializationError(String),
+
+    #[error("Transaction expired at {expired_at} but the limit was {limit}")]
+    Expired {
+        expired_at: BlockNumber,
+        limit: BlockNumber,
+    },
 }
 
 impl From<AddTransactionError> for tonic::Status {
@@ -102,6 +108,7 @@ impl From<AddTransactionError> for tonic::Status {
             | VerificationFailed(VerifyTxError::OutputNotesAlreadyExist(_))
             | VerificationFailed(VerifyTxError::IncorrectAccountInitialHash { .. })
             | VerificationFailed(VerifyTxError::InvalidTransactionProof(_))
+            | Expired { .. }
             | DeserializationError(_) => Self::invalid_argument(value.to_string()),
 
             // Internal errors which should not be communicated to the user.
