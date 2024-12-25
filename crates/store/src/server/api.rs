@@ -1,6 +1,5 @@
 use std::{collections::BTreeSet, sync::Arc};
 
-use miden_lib::utils::DeserializationError;
 use miden_node_proto::{
     convert,
     domain::{accounts::AccountInfo, notes::NoteAuthenticationInfo},
@@ -162,12 +161,7 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<SyncStateResponse>, Status> {
         let request = request.into_inner();
 
-        let account_ids: Vec<AccountId> = request
-            .account_ids
-            .iter()
-            .map(|e| AccountId::read_from_bytes(&e.id))
-            .collect::<Result<_, DeserializationError>>()
-            .map_err(|err| Status::invalid_argument(format!("Invalid Account IDs: {}", err)))?;
+        let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
 
         let (state, delta) = self
             .state
@@ -330,18 +324,8 @@ impl api_server::Api for StoreApi {
         request: Request<GetAccountDetailsRequest>,
     ) -> Result<Response<GetAccountDetailsResponse>, Status> {
         let request = request.into_inner();
-        let account_info: AccountInfo = self
-            .state
-            .get_account_details(
-                request
-                    .account_id
-                    .ok_or(invalid_argument("Account missing id"))?
-                    .try_into()
-                    .map_err(|err| {
-                        Status::invalid_argument(format!("Invalid account ID: {}", err))
-                    })?,
-            )
-            .await?;
+        let account_id = read_account_id(request.account_id)?;
+        let account_info: AccountInfo = self.state.get_account_details(account_id).await?;
 
         Ok(Response::new(GetAccountDetailsResponse {
             details: Some((&account_info).into()),
@@ -402,7 +386,7 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let account_ids = validate_account_ids(&request.account_ids)?;
+        let account_ids = read_account_ids(&request.account_ids)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
         let unauthenticated_notes = unauthenticated_notes.into_iter().collect();
 
@@ -429,10 +413,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let account_id = AccountId::read_from_bytes(
-            &request.account_id.ok_or(invalid_argument("`account_id` missing"))?.id,
-        )
-        .map_err(|err| Status::invalid_argument(format!("Invalid account ID: {}", err)))?;
+        let account_id = read_account_id(request.account_id)?;
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
@@ -506,8 +487,7 @@ impl api_server::Api for StoreApi {
         debug!(target: COMPONENT, ?request);
 
         let include_headers = request.include_headers.unwrap_or_default();
-        let account_ids: Vec<AccountId> = try_convert(request.account_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid account ID: {}", err)))?;
+        let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
         let request_code_commitments: BTreeSet<RpoDigest> = try_convert(request.code_commitments)
             .map_err(|err| {
             Status::invalid_argument(format!("Invalid code commitment: {}", err))
@@ -539,19 +519,10 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
+        let account_id = read_account_id(request.account_id)?;
         let delta = self
             .state
-            .get_account_state_delta(
-                request
-                    .account_id
-                    .ok_or(invalid_argument("account_id is missing"))?
-                    .try_into()
-                    .map_err(|err| {
-                        Status::invalid_argument(format!("Invalid account ID: {}", err))
-                    })?,
-                request.from_block_num,
-                request.to_block_num,
-            )
+            .get_account_state_delta(account_id, request.from_block_num, request.to_block_num)
             .await?
             .map(|delta| delta.to_bytes());
 
@@ -630,8 +601,14 @@ fn invalid_argument<E: core::fmt::Display>(err: E) -> Status {
     Status::invalid_argument(err.to_string())
 }
 
+fn read_account_id(id: Option<generated::account::AccountId>) -> Result<AccountId, Status> {
+    id.ok_or(invalid_argument("missing account ID"))?
+        .try_into()
+        .map_err(|err| invalid_argument(format!("invalid account ID: {}", err)))
+}
+
 #[instrument(target = COMPONENT, skip_all, err)]
-fn validate_account_ids(
+fn read_account_ids(
     account_ids: &[generated::account::AccountId],
 ) -> Result<Vec<AccountId>, Status> {
     account_ids
