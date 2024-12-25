@@ -2,9 +2,8 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 #[prost(skip_debug)]
 pub struct AccountId {
-    /// A miden account is defined with a little bit of proof-of-work, the id itself is defined as
-    /// the first two words of a hash digest. For this reason account ids can be considered as random
-    /// values. The id is encoded into a 16 byte array.
+    /// A Miden account ID is a 120-bit value derived from the commitments to account code and
+    /// storage, and a random user-provided seed.
     #[prost(bytes = "vec", tag = "1")]
     pub id: ::prost::alloc::vec::Vec<u8>,
 }
