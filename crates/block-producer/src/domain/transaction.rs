@@ -25,7 +25,7 @@ pub struct AuthenticatedTransaction {
     /// This does not necessarily have to match the transaction's initial state
     /// as this may still be modified by inflight transactions.
     store_account_state: Option<Digest>,
-    /// Unauthenticates notes that have now been authenticated by the store
+    /// Unauthenticated notes that have now been authenticated by the store
     /// [inputs](TransactionInputs).
     ///
     /// In other words, notes which were unauthenticated at the time the transaction was proven,
@@ -38,7 +38,7 @@ pub struct AuthenticatedTransaction {
 impl AuthenticatedTransaction {
     /// Verifies the transaction against the inputs, enforcing that all nullifiers are unspent.
     ///
-    /// __No__ proof verification is peformed. The caller takes responsibility for ensuring
+    /// __No__ proof verification is performed. The caller takes responsibility for ensuring
     /// that the proof is valid.
     ///
     /// # Errors
