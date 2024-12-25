@@ -12,7 +12,7 @@ use miden_objects::{
     accounts::{Account, AccountData, AccountIdAnchor, AuthSecretKey},
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
-    Felt, EMPTY_WORD, ONE,
+    Felt, ONE,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -116,7 +116,7 @@ fn create_accounts(
     let mut rng = ChaCha20Rng::from_seed(rand::random());
 
     for account in accounts {
-        // build offchain account data from account inputs
+        // build account data from account inputs
         let (mut account_data, name) = match account {
             AccountInput::BasicFungibleFaucet(inputs) => {
                 info!("Creating fungible faucet account...");
@@ -125,10 +125,7 @@ fn create_accounts(
                 let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
                     rng.gen(),
-                    // SAFETY: The anchor epoch is valid as it's less than u16::MAX and a multiple
-                    // of 2^EPOCH_LENGTH_EXPONENT. The anchor block hash is empty to indicate that
-                    // it's a genesis account.
-                    AccountIdAnchor::new_unchecked(0, EMPTY_WORD.into()),
+                    AccountIdAnchor::PRE_GENESIS,
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
                     Felt::try_from(inputs.max_supply)
