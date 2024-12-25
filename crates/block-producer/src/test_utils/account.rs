@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops::Not, sync::LazyLock};
 
 use miden_objects::{
-    accounts::{get_account_seed, AccountStorageMode, AccountType},
+    accounts::{AccountIdAnchor, AccountIdVersion, AccountStorageMode, AccountType},
     Hasher,
 };
 
@@ -34,17 +34,25 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
     }
 
     fn generate(init_seed: [u8; 32], new_account: bool) -> Self {
-        let account_seed = get_account_seed(
+        let account_seed = AccountId::compute_account_seed(
             init_seed,
             AccountType::RegularAccountUpdatableCode,
             AccountStorageMode::Private,
+            AccountIdVersion::VERSION_0,
+            Digest::default(),
             Digest::default(),
             Digest::default(),
         )
         .unwrap();
 
         Self::new(
-            AccountId::new(account_seed, Digest::default(), Digest::default()).unwrap(),
+            AccountId::new(
+                account_seed,
+                AccountIdAnchor::PRE_GENESIS,
+                Digest::default(),
+                Digest::default(),
+            )
+            .unwrap(),
             new_account.not().then(|| Hasher::hash(&init_seed)).unwrap_or_default(),
         )
     }

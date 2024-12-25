@@ -42,7 +42,7 @@ impl MockStoreSuccessBuilder {
             let accounts = batches_iter
                 .clone()
                 .flat_map(TransactionBatch::account_initial_states)
-                .map(|(account_id, hash)| (account_id.into(), hash.into()));
+                .map(|(account_id, hash)| (account_id.prefix().into(), hash.into()));
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
@@ -57,7 +57,8 @@ impl MockStoreSuccessBuilder {
 
     pub fn from_accounts(accounts: impl Iterator<Item = (AccountId, Digest)>) -> Self {
         let accounts_smt = {
-            let accounts = accounts.map(|(account_id, hash)| (account_id.into(), hash.into()));
+            let accounts =
+                accounts.map(|(account_id, hash)| (account_id.prefix().into(), hash.into()));
 
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };

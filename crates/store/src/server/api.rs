@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, sync::Arc};
 
 use miden_node_proto::{
     convert,
-    domain::notes::NoteAuthenticationInfo,
+    domain::{accounts::AccountInfo, notes::NoteAuthenticationInfo},
     errors::ConversionError,
     generated::{
         self,
@@ -32,6 +32,7 @@ use miden_node_proto::{
     try_convert,
 };
 use miden_objects::{
+    accounts::AccountId,
     block::Block,
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, Nullifier},
@@ -41,7 +42,7 @@ use miden_objects::{
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, types::AccountId, COMPONENT};
+use crate::{state::State, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -160,7 +161,7 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<SyncStateResponse>, Status> {
         let request = request.into_inner();
 
-        let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
+        let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
 
         let (state, delta) = self
             .state
@@ -323,12 +324,8 @@ impl api_server::Api for StoreApi {
         request: Request<GetAccountDetailsRequest>,
     ) -> Result<Response<GetAccountDetailsResponse>, Status> {
         let request = request.into_inner();
-        let account_info = self
-            .state
-            .get_account_details(
-                request.account_id.ok_or(invalid_argument("Account missing id"))?.into(),
-            )
-            .await?;
+        let account_id = read_account_id(request.account_id)?;
+        let account_info: AccountInfo = self.state.get_account_details(account_id).await?;
 
         Ok(Response::new(GetAccountDetailsResponse {
             details: Some((&account_info).into()),
@@ -389,7 +386,7 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
+        let account_ids = read_account_ids(&request.account_ids)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
         let unauthenticated_notes = unauthenticated_notes.into_iter().collect();
 
@@ -416,7 +413,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let account_id = request.account_id.ok_or(invalid_argument("`account_id` missing"))?.id;
+        let account_id = read_account_id(request.account_id)?;
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
@@ -490,7 +487,7 @@ impl api_server::Api for StoreApi {
         debug!(target: COMPONENT, ?request);
 
         let include_headers = request.include_headers.unwrap_or_default();
-        let account_ids: Vec<u64> = convert(request.account_ids);
+        let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
         let request_code_commitments: BTreeSet<RpoDigest> = try_convert(request.code_commitments)
             .map_err(|err| {
             Status::invalid_argument(format!("Invalid code commitment: {}", err))
@@ -522,13 +519,10 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
+        let account_id = read_account_id(request.account_id)?;
         let delta = self
             .state
-            .get_account_state_delta(
-                request.account_id.ok_or(invalid_argument("account_id is missing"))?.id,
-                request.from_block_num,
-                request.to_block_num,
-            )
+            .get_account_state_delta(account_id, request.from_block_num, request.to_block_num)
             .await?
             .map(|delta| delta.to_bytes());
 
@@ -605,6 +599,24 @@ fn internal_error<E: core::fmt::Display>(err: E) -> Status {
 /// Formats an "Invalid argument" error
 fn invalid_argument<E: core::fmt::Display>(err: E) -> Status {
     Status::invalid_argument(err.to_string())
+}
+
+fn read_account_id(id: Option<generated::account::AccountId>) -> Result<AccountId, Status> {
+    id.ok_or(invalid_argument("missing account ID"))?
+        .try_into()
+        .map_err(|err| invalid_argument(format!("invalid account ID: {}", err)))
+}
+
+#[instrument(target = COMPONENT, skip_all, err)]
+fn read_account_ids(
+    account_ids: &[generated::account::AccountId],
+) -> Result<Vec<AccountId>, Status> {
+    account_ids
+        .iter()
+        .cloned()
+        .map(AccountId::try_from)
+        .collect::<Result<_, ConversionError>>()
+        .map_err(|_| invalid_argument("Byte array is not a valid AccountId"))
 }
 
 #[instrument(target = COMPONENT, skip_all, err)]

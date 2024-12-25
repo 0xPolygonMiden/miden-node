@@ -1,6 +1,6 @@
 use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
 use miden_objects::{
-    accounts::{Account, AccountDelta},
+    accounts::{Account, AccountDelta, AccountId},
     crypto::hash::rpo::RpoDigest,
     notes::Nullifier,
     utils::Deserializable,
@@ -86,20 +86,33 @@ pub fn column_value_as_u64<I: rusqlite::RowIndex>(
     Ok(value as u64)
 }
 
+/// Gets a blob value from the database and tries to deserialize it into the necessary type.
+pub fn read_from_blob_column<I, T>(row: &rusqlite::Row<'_>, index: I) -> rusqlite::Result<T>
+where
+    I: rusqlite::RowIndex + Copy + Into<usize>,
+    T: Deserializable,
+{
+    let value = row.get_ref(index)?.as_blob()?;
+
+    T::read_from_bytes(value).map_err(|err| {
+        rusqlite::Error::FromSqlConversionFailure(
+            index.into(),
+            rusqlite::types::Type::Blob,
+            Box::new(err),
+        )
+    })
+}
+
 /// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
-    let account_id = column_value_as_u64(row, 0)?;
+    let account_id = read_from_blob_column(row, 0)?;
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
     let block_num = row.get(2)?;
 
-    Ok(AccountSummary {
-        account_id: account_id.try_into()?,
-        account_hash,
-        block_num,
-    })
+    Ok(AccountSummary { account_id, account_hash, block_num })
 }
 
 /// Constructs `AccountInfo` from the row of `accounts` table.
@@ -116,7 +129,7 @@ pub fn account_info_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<Accou
 
 /// Deserializes account and applies account delta.
 pub fn apply_delta(
-    account_id: u64,
+    account_id: AccountId,
     value: &ValueRef<'_>,
     delta: &AccountDelta,
     final_state_hash: &RpoDigest,

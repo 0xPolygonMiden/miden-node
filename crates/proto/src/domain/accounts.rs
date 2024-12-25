@@ -4,17 +4,14 @@ use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    utils::Serializable,
+    utils::{Deserializable, Serializable},
     Digest,
 };
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
     generated::{
-        account::{
-            AccountHeader as AccountHeaderPb, AccountId as AccountIdPb,
-            AccountInfo as AccountInfoPb, AccountSummary as AccountSummaryPb,
-        },
+        account as proto,
         responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
 };
@@ -22,13 +19,17 @@ use crate::{
 // ACCOUNT ID
 // ================================================================================================
 
-impl Display for AccountIdPb {
+impl Display for proto::AccountId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("0x{:x}", self.id))
+        write!(f, "0x")?;
+        for byte in &self.id {
+            write!(f, "{:02x}", byte)?;
+        }
+        Ok(())
     }
 }
 
-impl Debug for AccountIdPb {
+impl Debug for proto::AccountId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
@@ -37,38 +38,26 @@ impl Debug for AccountIdPb {
 // INTO PROTO ACCOUNT ID
 // ------------------------------------------------------------------------------------------------
 
-impl From<u64> for AccountIdPb {
-    fn from(value: u64) -> Self {
-        AccountIdPb { id: value }
-    }
-}
-
-impl From<&AccountId> for AccountIdPb {
+impl From<&AccountId> for proto::AccountId {
     fn from(account_id: &AccountId) -> Self {
         (*account_id).into()
     }
 }
 
-impl From<AccountId> for AccountIdPb {
+impl From<AccountId> for proto::AccountId {
     fn from(account_id: AccountId) -> Self {
-        Self { id: account_id.into() }
+        Self { id: account_id.to_bytes() }
     }
 }
 
 // FROM PROTO ACCOUNT ID
 // ------------------------------------------------------------------------------------------------
 
-impl From<AccountIdPb> for u64 {
-    fn from(value: AccountIdPb) -> Self {
-        value.id
-    }
-}
-
-impl TryFrom<AccountIdPb> for AccountId {
+impl TryFrom<proto::AccountId> for AccountId {
     type Error = ConversionError;
 
-    fn try_from(account_id: AccountIdPb) -> Result<Self, Self::Error> {
-        account_id.id.try_into().map_err(|_| ConversionError::NotAValidFelt)
+    fn try_from(account_id: proto::AccountId) -> Result<Self, Self::Error> {
+        AccountId::read_from_bytes(&account_id.id).map_err(|_| ConversionError::NotAValidFelt)
     }
 }
 
@@ -82,7 +71,7 @@ pub struct AccountSummary {
     pub block_num: u32,
 }
 
-impl From<&AccountSummary> for AccountSummaryPb {
+impl From<&AccountSummary> for proto::AccountSummary {
     fn from(update: &AccountSummary) -> Self {
         Self {
             account_id: Some(update.account_id.into()),
@@ -98,7 +87,7 @@ pub struct AccountInfo {
     pub details: Option<Account>,
 }
 
-impl From<&AccountInfo> for AccountInfoPb {
+impl From<&AccountInfo> for proto::AccountInfo {
     fn from(AccountInfo { summary, details }: &AccountInfo) -> Self {
         Self {
             summary: Some(summary.into()),
@@ -180,7 +169,7 @@ impl From<AccountState> for AccountTransactionInputRecord {
     }
 }
 
-impl From<AccountHeader> for AccountHeaderPb {
+impl From<AccountHeader> for proto::AccountHeader {
     fn from(from: AccountHeader) -> Self {
         Self {
             vault_root: Some(from.vault_root().into()),

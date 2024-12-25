@@ -15,9 +15,9 @@ use miden_node_proto::{
     generated::responses::{AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse},
     AccountInputRecord, NullifierWitness,
 };
-use miden_node_utils::formatting::{format_account_id, format_array};
+use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::{AccountDelta, AccountHeader},
+    accounts::{AccountDelta, AccountHeader, AccountId},
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
@@ -45,7 +45,7 @@ use crate::{
         StateSyncError,
     },
     nullifier_tree::NullifierTree,
-    types::{AccountId, BlockNumber},
+    types::BlockNumber,
     COMPONENT,
 };
 // STRUCTURES
@@ -254,7 +254,7 @@ impl State {
             let account_tree_update = inner.account_tree.compute_mutations(
                 block.updated_accounts().iter().map(|update| {
                     (
-                        LeafIndex::new_max_depth(update.account_id().into()),
+                        LeafIndex::new_max_depth(update.account_id().prefix().into()),
                         update.new_state_hash().into(),
                     )
                 }),
@@ -604,12 +604,8 @@ impl State {
             .cloned()
             .map(|account_id| {
                 let ValuePath { value: account_hash, path: proof } =
-                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
-                Ok(AccountInputRecord {
-                    account_id: account_id.try_into()?,
-                    account_hash,
-                    proof,
-                })
+                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id.prefix().into()));
+                Ok(AccountInputRecord { account_id, account_hash, proof })
             })
             .collect::<Result<_, AccountError>>()?;
 
@@ -642,11 +638,14 @@ impl State {
         nullifiers: &[Nullifier],
         unauthenticated_notes: Vec<NoteId>,
     ) -> Result<TransactionInputs, DatabaseError> {
-        info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
+        info!(target: COMPONENT, account_id = %account_id.to_string(), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
 
-        let account_hash = inner.account_tree.open(&LeafIndex::new_max_depth(account_id)).value;
+        let account_hash = inner
+            .account_tree
+            .open(&LeafIndex::new_max_depth(account_id.prefix().into()))
+            .value;
 
         let nullifiers = nullifiers
             .iter()
@@ -705,7 +704,7 @@ impl State {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
 
             if account_ids.len() > infos.len() {
-                let found_ids = infos.iter().map(|info| info.summary.account_id.into()).collect();
+                let found_ids = infos.iter().map(|info| info.summary.account_id).collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
                     BTreeSet::from_iter(account_ids).difference(&found_ids).copied().collect(),
                 ));
@@ -716,7 +715,7 @@ impl State {
                 .filter_map(|info| {
                     info.details.map(|details| {
                         (
-                            info.summary.account_id.into(),
+                            info.summary.account_id,
                             AccountStateHeader {
                                 header: Some(AccountHeader::from(&details).into()),
                                 storage_header: details.storage().get_header().to_bytes(),
@@ -736,7 +735,7 @@ impl State {
         let responses = account_ids
             .into_iter()
             .map(|account_id| {
-                let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
+                let acc_leaf_idx = LeafIndex::new_max_depth(account_id.prefix().into());
                 let opening = inner_state.account_tree.open(&acc_leaf_idx);
                 let state_header = state_headers.get(&account_id).cloned();
 
@@ -821,7 +820,7 @@ async fn load_accounts(
         .select_all_account_hashes()
         .await?
         .into_iter()
-        .map(|(id, account_hash)| (id, account_hash.into()))
+        .map(|(id, account_hash)| (id.prefix().into(), account_hash.into()))
         .collect();
 
     SimpleSmt::with_leaves(account_data)
