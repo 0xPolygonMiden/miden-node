@@ -48,7 +48,7 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
         Self::new(
             AccountId::new(
                 account_seed,
-                AccountIdAnchor::new_unchecked(0u16, Digest::default()),
+                AccountIdAnchor::PRE_GENESIS,
                 Digest::default(),
                 Digest::default(),
             )
