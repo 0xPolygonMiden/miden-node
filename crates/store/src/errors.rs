@@ -2,6 +2,7 @@ use std::io;
 
 use deadpool_sqlite::PoolError;
 use miden_objects::{
+    accounts::AccountId,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{MerkleError, MmrError},
@@ -16,7 +17,7 @@ use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 use tonic::Status;
 
-use crate::types::{AccountId, BlockNumber};
+use crate::types::BlockNumber;
 
 // INTERNAL ERRORS
 // =================================================================================================

@@ -22,7 +22,7 @@ Here is a brief description of supported methods.
 
 ### CheckNullifiers
 
-Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Trees
+Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
 
 **Parameters:**
 

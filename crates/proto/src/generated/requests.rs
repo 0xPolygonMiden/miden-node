@@ -122,7 +122,7 @@ pub struct ListAccountsRequest {}
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListNotesRequest {}
 /// Returns the latest state of an account with the specified ID.
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsRequest {
     /// Account ID to get details.
     #[prost(message, optional, tag = "1")]
@@ -136,7 +136,7 @@ pub struct GetBlockByNumberRequest {
 }
 /// Returns delta of the account states in the range from `from_block_num` (exclusive) to
 /// `to_block_num` (inclusive).
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountStateDeltaRequest {
     /// ID of the account for which the delta is requested.
     #[prost(message, optional, tag = "1")]

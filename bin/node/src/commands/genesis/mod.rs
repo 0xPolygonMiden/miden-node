@@ -9,13 +9,13 @@ use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin};
 use miden_objects::{
-    accounts::{Account, AccountData, AuthSecretKey},
+    accounts::{Account, AccountData, AccountIdAnchor, AuthSecretKey},
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
     Felt, ONE,
 };
-use rand::Rng;
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 use tracing::info;
 
 mod inputs;
@@ -116,7 +116,7 @@ fn create_accounts(
     let mut rng = ChaCha20Rng::from_seed(rand::random());
 
     for account in accounts {
-        // build offchain account data from account inputs
+        // build account data from account inputs
         let (mut account_data, name) = match account {
             AccountInput::BasicFungibleFaucet(inputs) => {
                 info!("Creating fungible faucet account...");
@@ -125,6 +125,7 @@ fn create_accounts(
                 let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
                     rng.gen(),
+                    AccountIdAnchor::PRE_GENESIS,
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
                     Felt::try_from(inputs.max_supply)
@@ -189,11 +190,10 @@ mod tests {
     use miden_node_store::genesis::GenesisState;
     use miden_objects::{accounts::AccountData, utils::serde::Deserializable};
 
-    use super::make_genesis;
     use crate::DEFAULT_GENESIS_FILE_PATH;
 
     #[test]
-    fn test_make_genesis() {
+    fn make_genesis() {
         let genesis_inputs_file_path = PathBuf::from("genesis.toml");
 
         // node genesis configuration
@@ -217,7 +217,7 @@ mod tests {
             let genesis_dat_file_path = PathBuf::from(DEFAULT_GENESIS_FILE_PATH);
 
             //  run make_genesis to generate genesis.dat and accounts folder and files
-            make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
+            super::make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
 
             let a0_file_path = PathBuf::from("accounts/faucet.mac");
 

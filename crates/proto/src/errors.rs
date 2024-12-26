@@ -26,6 +26,8 @@ pub enum ConversionError {
         entity: &'static str,
         field_name: &'static str,
     },
+    #[error("MMR error: {0}")]
+    MmrError(#[from] miden_objects::crypto::merkle::MmrError),
 }
 
 pub trait MissingFieldHelper {

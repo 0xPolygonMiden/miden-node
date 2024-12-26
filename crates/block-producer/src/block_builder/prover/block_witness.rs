@@ -11,10 +11,9 @@ use miden_objects::{
 };
 
 use crate::{
-    batch_builder::batch::AccountUpdate,
+    batch_builder::{batch::AccountUpdate, TransactionBatch},
     block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
-    TransactionBatch,
 };
 
 // BLOCK WITNESS
@@ -36,9 +35,9 @@ impl BlockWitness {
         mut block_inputs: BlockInputs,
         batches: &[TransactionBatch],
     ) -> Result<(Self, Vec<BlockAccountUpdate>), BuildBlockError> {
-        if batches.len() > MAX_BATCHES_PER_BLOCK {
-            return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
-        }
+        // This limit should be enforced by the mempool.
+        assert!(batches.len() <= MAX_BATCHES_PER_BLOCK);
+
         Self::validate_nullifiers(&block_inputs, batches)?;
 
         let batch_created_notes_roots = batches
@@ -189,7 +188,7 @@ impl BlockWitness {
                 for (idx, (account_id, account_update)) in self.updated_accounts.iter().enumerate()
                 {
                     account_data.extend(account_update.final_state_hash);
-                    account_data.push((*account_id).into());
+                    account_data.push(account_id.first_felt());
 
                     let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
                     num_accounts_updated = idx + 1;
@@ -266,7 +265,7 @@ impl BlockWitness {
             merkle_store
                 .add_merkle_paths(self.updated_accounts.into_iter().map(
                     |(account_id, AccountUpdateWitness { initial_state_hash, proof, .. })| {
-                        (u64::from(account_id), initial_state_hash, proof)
+                        (account_id.prefix().into(), initial_state_hash, proof)
                     },
                 ))
                 .map_err(BlockProverError::InvalidMerklePaths)?;

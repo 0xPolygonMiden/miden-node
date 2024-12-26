@@ -16,7 +16,7 @@ use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 /// Tests requirement AB1
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_apply_block_ab1() {
+async fn apply_block_ab1() {
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
     let store = Arc::new(
@@ -57,7 +57,7 @@ async fn test_apply_block_ab1() {
 /// Tests requirement AB2
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_apply_block_ab2() {
+async fn apply_block_ab2() {
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
@@ -113,7 +113,7 @@ async fn test_apply_block_ab2() {
 /// Tests requirement AB3
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_apply_block_ab3() {
+async fn apply_block_ab3() {
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(

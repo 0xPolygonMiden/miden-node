@@ -1,202 +1,266 @@
-use std::{cmp::min, collections::BTreeSet, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, ops::Range, time::Duration};
 
-use async_trait::async_trait;
-use miden_objects::{notes::NoteId, transaction::OutputNote};
-use tokio::time;
+use batch::BatchId;
+use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+use rand::Rng;
+use tokio::{task::JoinSet, time};
 use tracing::{debug, info, instrument, Span};
 
-use crate::{block_builder::BlockBuilder, ProvenTransaction, SharedRwVec, COMPONENT};
-
-#[cfg(test)]
-mod tests;
+use crate::{
+    domain::transaction::AuthenticatedTransaction, mempool::SharedMempool, store::StoreClient,
+    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
+};
 
 pub mod batch;
 pub use batch::TransactionBatch;
-use miden_node_utils::formatting::{format_array, format_blake3_digest};
+use miden_node_utils::formatting::format_array;
 
-use crate::{errors::BuildBatchError, store::Store};
+use crate::errors::BuildBatchError;
 
 // BATCH BUILDER
 // ================================================================================================
 
-/// Abstraction over batch proving of transactions.
+/// Builds [TransactionBatch] from sets of transactions.
 ///
-/// Transactions are aggregated into batches prior to being added to blocks. This trait abstracts
-/// over this responsibility. The trait's goal is to be implementation agnostic, allowing for
-/// multiple implementations, e.g.:
-///
-/// - in-process cpu based prover
-/// - out-of-process gpu based prover
-/// - distributed prover on another machine
-#[async_trait]
-pub trait BatchBuilder: Send + Sync + 'static {
-    /// Start proving of a new batch.
-    async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError>;
+/// Transaction sets are pulled from the [Mempool] at a configurable interval, and passed to a pool
+/// of provers for proof generation. Proving is currently unimplemented and is instead simulated via
+/// the given proof time and failure rate.
+pub struct BatchBuilder {
+    pub batch_interval: Duration,
+    pub workers: NonZeroUsize,
+    /// Used to simulate batch proving by sleeping for a random duration selected from this range.
+    pub simulated_proof_time: Range<Duration>,
+    /// Simulated block failure rate as a percentage.
+    ///
+    /// Note: this _must_ be sign positive and less than 1.0.
+    pub failure_rate: f32,
 }
 
-// DEFAULT BATCH BUILDER
-// ================================================================================================
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DefaultBatchBuilderOptions {
-    /// The frequency at which blocks are created
-    pub block_frequency: Duration,
-
-    /// Maximum number of batches in any given block
-    pub max_batches_per_block: usize,
-}
-
-pub struct DefaultBatchBuilder<S, BB> {
-    store: Arc<S>,
-
-    block_builder: Arc<BB>,
-
-    options: DefaultBatchBuilderOptions,
-
-    /// Batches ready to be included in a block
-    ready_batches: SharedRwVec<TransactionBatch>,
-}
-
-impl<S, BB> DefaultBatchBuilder<S, BB>
-where
-    S: Store,
-    BB: BlockBuilder,
-{
-    // CONSTRUCTOR
-    // --------------------------------------------------------------------------------------------
-    /// Returns an new [BatchBuilder] instantiated with the provided [BlockBuilder] and the
-    /// specified options.
-    pub fn new(store: Arc<S>, block_builder: Arc<BB>, options: DefaultBatchBuilderOptions) -> Self {
+impl Default for BatchBuilder {
+    fn default() -> Self {
         Self {
-            store,
-            block_builder,
-            options,
-            ready_batches: Default::default(),
+            batch_interval: SERVER_BUILD_BATCH_FREQUENCY,
+            // SAFETY: 2 is non-zero so this always succeeds.
+            workers: 2.try_into().unwrap(),
+            // Note: The range cannot be empty.
+            simulated_proof_time: Duration::ZERO..Duration::from_millis(1),
+            failure_rate: 0.0,
         }
     }
+}
 
-    // BATCH BUILDER STARTER
-    // --------------------------------------------------------------------------------------------
-    pub async fn run(self: Arc<Self>) {
-        let mut interval = time::interval(self.options.block_frequency);
+impl BatchBuilder {
+    /// Starts the [BatchBuilder], creating and proving batches at the configured interval.
+    ///
+    /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.
+    /// A batch is skipped if there are no available workers, or if there are no transactions
+    /// available to batch.
+    pub async fn run(self, mempool: SharedMempool, store: StoreClient) {
+        assert!(
+            self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
+            "Failure rate must be a percentage"
+        );
 
-        info!(target: COMPONENT, period_ms = interval.period().as_millis(), "Batch builder started");
+        let mut interval = tokio::time::interval(self.batch_interval);
+        interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+        let mut worker_pool =
+            WorkerPool::new(self.workers, self.simulated_proof_time, self.failure_rate, store);
 
         loop {
-            interval.tick().await;
-            self.try_build_block().await;
+            tokio::select! {
+                _ = interval.tick() => {
+                    if !worker_pool.has_capacity() {
+                        tracing::info!("All batch workers occupied.");
+                        continue;
+                    }
+
+                    // Transactions available?
+                    let Some((batch_id, transactions)) =
+                        mempool.lock().await.select_batch()
+                    else {
+                        tracing::info!("No transactions available for batch.");
+                        continue;
+                    };
+
+                    worker_pool.spawn(batch_id, transactions).expect("Worker capacity was checked");
+                },
+                result = worker_pool.join_next() => {
+                    let mut mempool = mempool.lock().await;
+                    match result {
+                        Err((batch_id, err)) => {
+                            tracing::warn!(%batch_id, %err, "Batch job failed.");
+                            mempool.batch_failed(batch_id);
+                        },
+                        Ok(batch) => {
+                            mempool.batch_proved(batch);
+                        }
+                    }
+                }
+            }
         }
-    }
-
-    // HELPER METHODS
-    // --------------------------------------------------------------------------------------------
-
-    /// Note that we call `build_block()` regardless of whether the `ready_batches` queue is empty.
-    /// A call to an empty `build_block()` indicates that an empty block should be created.
-    #[instrument(target = "miden-block-producer", skip_all)]
-    async fn try_build_block(&self) {
-        let mut batches_in_block: Vec<TransactionBatch> = {
-            let mut locked_ready_batches = self.ready_batches.write().await;
-
-            let num_batches_in_block =
-                min(self.options.max_batches_per_block, locked_ready_batches.len());
-
-            locked_ready_batches.drain(..num_batches_in_block).collect()
-        };
-
-        match self.block_builder.build_block(&batches_in_block).await {
-            Ok(_) => {
-                // block successfully built, do nothing
-            },
-            Err(_) => {
-                // Block building failed; add back the batches at the end of the queue
-                self.ready_batches.write().await.append(&mut batches_in_block);
-            },
-        }
-    }
-
-    /// Returns a list of IDs for unauthenticated notes which are not output notes of any ready
-    /// transaction batch or the candidate batch itself.
-    async fn find_dangling_notes(&self, txs: &[ProvenTransaction]) -> Vec<NoteId> {
-        // TODO: We can optimize this by looking at the notes created in the previous batches
-
-        // build a set of output notes from all ready batches and the candidate batch
-        let mut all_output_notes: BTreeSet<NoteId> = txs
-            .iter()
-            .flat_map(|tx| tx.output_notes().iter().map(OutputNote::id))
-            .chain(
-                self.ready_batches
-                    .read()
-                    .await
-                    .iter()
-                    .flat_map(|batch| batch.output_notes().iter().map(OutputNote::id)),
-            )
-            .collect();
-
-        // from the list of unauthenticated notes in the candidate batch, filter out any note
-        // which is also an output note either in any of the ready batches or in the candidate
-        // batch itself
-        txs.iter()
-            .flat_map(|tx| tx.get_unauthenticated_notes().map(|note| note.id()))
-            .filter(|note_id| !all_output_notes.remove(note_id))
-            .collect()
     }
 }
 
-#[async_trait]
-impl<S, BB> BatchBuilder for DefaultBatchBuilder<S, BB>
-where
-    S: Store,
-    BB: BlockBuilder,
-{
-    #[instrument(target = "miden-block-producer", skip_all, err, fields(batch_id))]
-    async fn build_batch(&self, txs: Vec<ProvenTransaction>) -> Result<(), BuildBatchError> {
+// BATCH WORKER
+// ================================================================================================
+
+type BatchResult = Result<TransactionBatch, (BatchId, BuildBatchError)>;
+
+/// Represents a pool of batch provers.
+///
+/// Effectively a wrapper around tokio's JoinSet that remains pending if the set is empty,
+/// instead of returning None.
+struct WorkerPool {
+    in_progress: JoinSet<BatchResult>,
+    simulated_proof_time: Range<Duration>,
+    failure_rate: f32,
+    /// Maximum number of workers allowed.
+    capacity: NonZeroUsize,
+    /// Maps spawned tasks to their job ID.
+    ///
+    /// This allows us to map panic'd tasks to the job ID. Uses [Vec] because the task ID does not
+    /// implement [Ord]. Given that the expected capacity is relatively low, this has no real
+    /// impact beyond ergonomics.
+    task_map: Vec<(tokio::task::Id, BatchId)>,
+    store: StoreClient,
+}
+
+impl WorkerPool {
+    fn new(
+        capacity: NonZeroUsize,
+        simulated_proof_time: Range<Duration>,
+        failure_rate: f32,
+        store: StoreClient,
+    ) -> Self {
+        Self {
+            simulated_proof_time,
+            failure_rate,
+            capacity,
+            store,
+            in_progress: JoinSet::default(),
+            task_map: Default::default(),
+        }
+    }
+
+    /// Returns the next batch proof result.
+    ///
+    /// Will return pending if there are no jobs in progress (unlike tokio's [JoinSet::join_next]
+    /// which returns an option).
+    async fn join_next(&mut self) -> BatchResult {
+        if self.in_progress.is_empty() {
+            return std::future::pending().await;
+        }
+
+        let result = self
+            .in_progress
+            .join_next()
+            .await
+            .expect("JoinSet::join_next must be Some as the set is not empty")
+            .map_err(|join_err| {
+                // Map task ID to job ID as otherwise the caller can't tell which batch failed.
+                //
+                // Note that the mapping cleanup happens lower down.
+                let batch_id = self
+                    .task_map
+                    .iter()
+                    .find(|(task_id, _)| &join_err.id() == task_id)
+                    .expect("Task ID should be in the task map")
+                    .1;
+
+                (batch_id, join_err.into())
+            })
+            .and_then(|x| x);
+
+        // Cleanup task mapping by removing the result's task. This is inefficient but does not
+        // matter as the capacity is expected to be low.
+        let job_id = match &result {
+            Ok(batch) => batch.id(),
+            Err((id, _)) => *id,
+        };
+        self.task_map.retain(|(_, elem_job_id)| *elem_job_id != job_id);
+
+        result
+    }
+
+    /// Returns `true` if there is a worker available.
+    fn has_capacity(&self) -> bool {
+        self.in_progress.len() < self.capacity.get()
+    }
+
+    /// Spawns a new batch proving task on the worker pool.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no workers are available which can be checked using
+    /// [has_capacity](Self::has_capacity).
+    fn spawn(
+        &mut self,
+        id: BatchId,
+        transactions: Vec<AuthenticatedTransaction>,
+    ) -> Result<(), ()> {
+        if !self.has_capacity() {
+            return Err(());
+        }
+
+        let task_id = self
+            .in_progress
+            .spawn({
+                // Select a random work duration from the given proof range.
+                let simulated_proof_time =
+                    rand::thread_rng().gen_range(self.simulated_proof_time.clone());
+
+                // Randomly fail batches at the configured rate.
+                //
+                // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
+                let failed = rand::thread_rng().gen::<f32>() < self.failure_rate;
+                let store = self.store.clone();
+
+                async move {
+                    tracing::debug!("Begin proving batch.");
+
+                    let inputs = store
+                        .get_batch_inputs(
+                            transactions.iter().flat_map(|tx| tx.unauthenticated_notes()),
+                        )
+                        .await
+                        .map_err(|err| (id, err.into()))?;
+                    let batch = Self::build_batch(transactions, inputs).map_err(|err| (id, err))?;
+
+                    tokio::time::sleep(simulated_proof_time).await;
+                    if failed {
+                        tracing::debug!("Batch proof failure injected.");
+                        return Err((id, BuildBatchError::InjectedFailure));
+                    }
+
+                    tracing::debug!("Batch proof completed.");
+
+                    Ok(batch)
+                }
+            })
+            .id();
+
+        self.task_map.push((task_id, id));
+
+        Ok(())
+    }
+
+    #[instrument(target = COMPONENT, skip_all, err, fields(batch_id))]
+    fn build_batch(
+        txs: Vec<AuthenticatedTransaction>,
+        inputs: NoteAuthenticationInfo,
+    ) -> Result<TransactionBatch, BuildBatchError> {
         let num_txs = txs.len();
 
         info!(target: COMPONENT, num_txs, "Building a transaction batch");
         debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
 
-        // make sure that all unauthenticated notes in the transactions of the proposed batch
-        // have been either created in any of the ready batches (or the batch itself) or are
-        // already in the store
-        //
-        // TODO: this can be optimized by first computing dangling notes of the batch itself,
-        //       and only then checking against the other ready batches
-        let dangling_notes = self.find_dangling_notes(&txs).await;
-        let found_unauthenticated_notes = match dangling_notes.is_empty() {
-            true => Default::default(),
-            false => {
-                let stored_notes =
-                    match self.store.get_note_authentication_info(dangling_notes.iter()).await {
-                        Ok(stored_notes) => stored_notes,
-                        Err(err) => return Err(BuildBatchError::NotePathsError(err, txs)),
-                    };
-                let missing_notes: Vec<_> = dangling_notes
-                    .into_iter()
-                    .filter(|note_id| !stored_notes.contains_note(note_id))
-                    .collect();
+        let txs = txs.iter().map(AuthenticatedTransaction::raw_proven_transaction);
+        let batch = TransactionBatch::new(txs, inputs)?;
 
-                if !missing_notes.is_empty() {
-                    return Err(BuildBatchError::UnauthenticatedNotesNotFound(missing_notes, txs));
-                }
-
-                stored_notes
-            },
-        };
-
-        let batch = TransactionBatch::new(txs, found_unauthenticated_notes)?;
-
+        Span::current().record("batch_id", batch.id().to_string());
         info!(target: COMPONENT, "Transaction batch built");
-        Span::current().record("batch_id", format_blake3_digest(batch.id()));
 
-        let num_batches = {
-            let mut write_guard = self.ready_batches.write().await;
-            write_guard.push(batch);
-            write_guard.len()
-        };
-
-        info!(target: COMPONENT, num_batches, "Transaction batch added to the batch queue");
-
-        Ok(())
+        Ok(batch)
     }
 }

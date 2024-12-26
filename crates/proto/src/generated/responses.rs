@@ -114,7 +114,7 @@ pub struct GetBlockInputsResponse {
     >,
 }
 /// An account returned as a response to the GetTransactionInputs
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountTransactionInputRecord {
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,
@@ -138,7 +138,7 @@ pub struct GetTransactionInputsResponse {
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierTransactionInputRecord>,
     #[prost(message, repeated, tag = "3")]
-    pub missing_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    pub found_unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
     #[prost(fixed32, tag = "4")]
     pub block_height: u32,
 }

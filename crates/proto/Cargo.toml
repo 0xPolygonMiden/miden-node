@@ -23,7 +23,7 @@ tonic = { workspace = true }
 proptest = { version = "1.5" }
 
 [build-dependencies]
-miette = { version = "7.2", features = ["fancy"] }
+anyhow = { version = "1.0" }
 prost = { workspace = true }
 prost-build = { version = "0.13" }
 protox = { version = "0.7" }

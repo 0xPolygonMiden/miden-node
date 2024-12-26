@@ -1,11 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Enhancements
+
+- Support Https in endpoint configuration (#556).
+- Upgrade `block-producer` from FIFO queue to mempool dependency graph (#562).
+- Support transaction expiration (#582).
+
+### Changes
+
+- [BREAKING] Added support for new two `Felt` account ID (#591).
+- [BREAKING] Inverted `TransactionInputs.missing_unauthenticated_notes` to `found_missing_notes` (#509).
+
 ## v0.6.0 (2024-11-05)
 
 ### Enhancements
 
 - Added `GetAccountProofs` endpoint (#506).
-- Support Https in endpoint configuration (#556).
 
 ### Changes
 

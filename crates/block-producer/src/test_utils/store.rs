@@ -1,30 +1,27 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     num::NonZeroU32,
-    ops::Not,
 };
 
-use async_trait::async_trait;
 use miden_node_proto::domain::{blocks::BlockInclusionProof, notes::NoteAuthenticationInfo};
 use miden_objects::{
     block::{Block, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::{NoteId, NoteInclusionProof, Nullifier},
+    transaction::ProvenTransaction,
     BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
+use tokio::sync::RwLock;
 
 use super::*;
 use crate::{
     batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
-    errors::NotePathsError,
-    store::{
-        ApplyBlock, ApplyBlockError, BlockInputsError, Store, TransactionInputs, TxInputsError,
-    },
+    errors::StoreError,
+    store::TransactionInputs,
     test_utils::block::{
         block_output_notes, flatten_output_notes, note_created_smt_from_note_batches,
     },
-    ProvenTransaction,
 };
 
 /// Builds a [`MockStoreSuccess`]
@@ -45,7 +42,7 @@ impl MockStoreSuccessBuilder {
             let accounts = batches_iter
                 .clone()
                 .flat_map(TransactionBatch::account_initial_states)
-                .map(|(account_id, hash)| (account_id.into(), hash.into()));
+                .map(|(account_id, hash)| (account_id.prefix().into(), hash.into()));
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
@@ -60,7 +57,8 @@ impl MockStoreSuccessBuilder {
 
     pub fn from_accounts(accounts: impl Iterator<Item = (AccountId, Digest)>) -> Self {
         let accounts_smt = {
-            let accounts = accounts.map(|(account_id, hash)| (account_id.into(), hash.into()));
+            let accounts =
+                accounts.map(|(account_id, hash)| (account_id.prefix().into(), hash.into()));
 
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
@@ -185,11 +183,8 @@ impl MockStoreSuccess {
 
         locked_accounts.root()
     }
-}
 
-#[async_trait]
-impl ApplyBlock for MockStoreSuccess {
-    async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
+    pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from
         // going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
@@ -240,14 +235,11 @@ impl ApplyBlock for MockStoreSuccess {
 
         Ok(())
     }
-}
 
-#[async_trait]
-impl Store for MockStoreSuccess {
-    async fn get_tx_inputs(
+    pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
-    ) -> Result<TransactionInputs, TxInputsError> {
+    ) -> Result<TransactionInputs, StoreError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
 
@@ -273,11 +265,11 @@ impl Store for MockStoreSuccess {
             .collect();
 
         let locked_notes = self.notes.read().await;
-        let missing_unauthenticated_notes = proven_tx
+        let found_unauthenticated_notes = proven_tx
             .get_unauthenticated_notes()
             .filter_map(|header| {
                 let id = header.id();
-                locked_notes.contains_key(&id).not().then_some(id)
+                locked_notes.contains_key(&id).then_some(id)
             })
             .collect();
 
@@ -285,17 +277,17 @@ impl Store for MockStoreSuccess {
             account_id: proven_tx.account_id(),
             account_hash,
             nullifiers,
-            missing_unauthenticated_notes,
+            found_unauthenticated_notes,
             current_block_height: 0,
         })
     }
 
-    async fn get_block_inputs(
+    pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
         produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
         notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, BlockInputsError> {
+    ) -> Result<BlockInputs, StoreError> {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
 
@@ -350,74 +342,5 @@ impl Store for MockStoreSuccess {
             nullifiers,
             found_unauthenticated_notes,
         })
-    }
-
-    async fn get_note_authentication_info(
-        &self,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<NoteAuthenticationInfo, NotePathsError> {
-        let locked_notes = self.notes.read().await;
-        let locked_headers = self.block_headers.read().await;
-        let locked_chain_mmr = self.chain_mmr.read().await;
-
-        let note_proofs = notes
-            .filter_map(|id| locked_notes.get(id).map(|proof| (*id, proof.clone())))
-            .collect::<BTreeMap<_, _>>();
-
-        let latest_header =
-            *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
-        let chain_length = latest_header.block_num();
-
-        let block_proofs = note_proofs
-            .values()
-            .map(|note_proof| {
-                let block_num = note_proof.location().block_num();
-                let block_header = *locked_headers.get(&block_num).unwrap();
-                let mmr_path = locked_chain_mmr
-                    .open_at(block_num as usize, latest_header.block_num() as usize)
-                    .unwrap()
-                    .merkle_path;
-
-                BlockInclusionProof { block_header, mmr_path, chain_length }
-            })
-            .collect();
-
-        Ok(NoteAuthenticationInfo { block_proofs, note_proofs })
-    }
-}
-
-#[derive(Default)]
-pub struct MockStoreFailure;
-
-#[async_trait]
-impl ApplyBlock for MockStoreFailure {
-    async fn apply_block(&self, _block: &Block) -> Result<(), ApplyBlockError> {
-        Err(ApplyBlockError::GrpcClientError(String::new()))
-    }
-}
-
-#[async_trait]
-impl Store for MockStoreFailure {
-    async fn get_tx_inputs(
-        &self,
-        _proven_tx: &ProvenTransaction,
-    ) -> Result<TransactionInputs, TxInputsError> {
-        Err(TxInputsError::Dummy)
-    }
-
-    async fn get_block_inputs(
-        &self,
-        _updated_accounts: impl Iterator<Item = AccountId> + Send,
-        _produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        _notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, BlockInputsError> {
-        Err(BlockInputsError::GrpcClientError(String::new()))
-    }
-
-    async fn get_note_authentication_info(
-        &self,
-        _notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<NoteAuthenticationInfo, NotePathsError> {
-        Err(NotePathsError::GrpcClientError(String::new()))
     }
 }

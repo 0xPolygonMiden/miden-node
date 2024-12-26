@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, sync::Arc};
 
 use miden_node_proto::{
     convert,
-    domain::notes::NoteAuthenticationInfo,
+    domain::{accounts::AccountInfo, notes::NoteAuthenticationInfo},
     errors::ConversionError,
     generated::{
         self,
@@ -32,6 +32,7 @@ use miden_node_proto::{
     try_convert,
 };
 use miden_objects::{
+    accounts::AccountId,
     block::Block,
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, Nullifier},
@@ -41,7 +42,7 @@ use miden_objects::{
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, types::AccountId, COMPONENT};
+use crate::{state::State, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -59,7 +60,7 @@ impl api_server::Api for StoreApi {
     ///
     /// If the block number is not provided, block header for the latest block is returned.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_block_header_by_number",
         skip_all,
         ret(level = "debug"),
@@ -91,7 +92,7 @@ impl api_server::Api for StoreApi {
     /// This endpoint also returns Merkle authentication path for each requested nullifier which can
     /// be verified against the latest root of the nullifier database.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:check_nullifiers",
         skip_all,
         ret(level = "debug"),
@@ -115,7 +116,7 @@ impl api_server::Api for StoreApi {
     ///
     /// Currently the only supported prefix length is 16 bits.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:check_nullifiers_by_prefix",
         skip_all,
         ret(level = "debug"),
@@ -148,7 +149,7 @@ impl api_server::Api for StoreApi {
     /// Returns info which can be used by the client to sync up to the latest state of the chain
     /// for the objects the client is interested in.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:sync_state",
         skip_all,
         ret(level = "debug"),
@@ -160,7 +161,7 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<SyncStateResponse>, Status> {
         let request = request.into_inner();
 
-        let account_ids: Vec<u64> = request.account_ids.iter().map(|e| e.id).collect();
+        let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
 
         let (state, delta) = self
             .state
@@ -212,7 +213,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns info which can be used by the client to sync note state.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:sync_notes",
         skip_all,
         ret(level = "debug"),
@@ -244,7 +245,7 @@ impl api_server::Api for StoreApi {
     ///
     /// If the list is empty or no Note matched the requested NoteId and empty list is returned.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_notes_by_id",
         skip_all,
         ret(level = "debug"),
@@ -276,7 +277,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns a list of Note inclusion proofs for the specified NoteId's.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_note_inclusion_proofs",
         skip_all,
         ret(level = "debug"),
@@ -312,7 +313,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns details for public account by ID.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_account_details",
         skip_all,
         ret(level = "debug"),
@@ -323,12 +324,8 @@ impl api_server::Api for StoreApi {
         request: Request<GetAccountDetailsRequest>,
     ) -> Result<Response<GetAccountDetailsResponse>, Status> {
         let request = request.into_inner();
-        let account_info = self
-            .state
-            .get_account_details(
-                request.account_id.ok_or(invalid_argument("Account missing id"))?.into(),
-            )
-            .await?;
+        let account_id = read_account_id(request.account_id)?;
+        let account_info: AccountInfo = self.state.get_account_details(account_id).await?;
 
         Ok(Response::new(GetAccountDetailsResponse {
             details: Some((&account_info).into()),
@@ -340,7 +337,7 @@ impl api_server::Api for StoreApi {
 
     /// Updates the local DB by inserting a new block header and the related data.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:apply_block",
         skip_all,
         ret(level = "debug"),
@@ -376,7 +373,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns data needed by the block producer to construct and prove the next block.
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_block_inputs",
         skip_all,
         ret(level = "debug"),
@@ -389,7 +386,7 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
-        let account_ids: Vec<AccountId> = request.account_ids.iter().map(|e| e.id).collect();
+        let account_ids = read_account_ids(&request.account_ids)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
         let unauthenticated_notes = unauthenticated_notes.into_iter().collect();
 
@@ -402,7 +399,7 @@ impl api_server::Api for StoreApi {
     }
 
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_transaction_inputs",
         skip_all,
         ret(level = "debug"),
@@ -416,7 +413,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let account_id = request.account_id.ok_or(invalid_argument("`account_id` missing"))?.id;
+        let account_id = read_account_id(request.account_id)?;
         let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
 
@@ -440,8 +437,8 @@ impl api_server::Api for StoreApi {
                     block_num: nullifier.block_num,
                 })
                 .collect(),
-            missing_unauthenticated_notes: tx_inputs
-                .missing_unauthenticated_notes
+            found_unauthenticated_notes: tx_inputs
+                .found_unauthenticated_notes
                 .into_iter()
                 .map(Into::into)
                 .collect(),
@@ -450,7 +447,7 @@ impl api_server::Api for StoreApi {
     }
 
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_block_by_number",
         skip_all,
         ret(level = "debug"),
@@ -470,7 +467,7 @@ impl api_server::Api for StoreApi {
     }
 
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_account_proofs",
         skip_all,
         ret(level = "debug"),
@@ -490,7 +487,7 @@ impl api_server::Api for StoreApi {
         debug!(target: COMPONENT, ?request);
 
         let include_headers = request.include_headers.unwrap_or_default();
-        let account_ids: Vec<u64> = convert(request.account_ids);
+        let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
         let request_code_commitments: BTreeSet<RpoDigest> = try_convert(request.code_commitments)
             .map_err(|err| {
             Status::invalid_argument(format!("Invalid code commitment: {}", err))
@@ -508,7 +505,7 @@ impl api_server::Api for StoreApi {
     }
 
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:get_account_state_delta",
         skip_all,
         ret(level = "debug"),
@@ -522,13 +519,10 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
+        let account_id = read_account_id(request.account_id)?;
         let delta = self
             .state
-            .get_account_state_delta(
-                request.account_id.ok_or(invalid_argument("account_id is missing"))?.id,
-                request.from_block_num,
-                request.to_block_num,
-            )
+            .get_account_state_delta(account_id, request.from_block_num, request.to_block_num)
             .await?
             .map(|delta| delta.to_bytes());
 
@@ -540,7 +534,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns a list of all nullifiers
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:list_nullifiers",
         skip_all,
         ret(level = "debug"),
@@ -563,7 +557,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns a list of all notes
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:list_notes",
         skip_all,
         ret(level = "debug"),
@@ -579,7 +573,7 @@ impl api_server::Api for StoreApi {
 
     /// Returns a list of all accounts
     #[instrument(
-        target = "miden-store",
+        target = COMPONENT,
         name = "store:list_accounts",
         skip_all,
         ret(level = "debug"),
@@ -607,7 +601,25 @@ fn invalid_argument<E: core::fmt::Display>(err: E) -> Status {
     Status::invalid_argument(err.to_string())
 }
 
-#[instrument(target = "miden-store", skip_all, err)]
+fn read_account_id(id: Option<generated::account::AccountId>) -> Result<AccountId, Status> {
+    id.ok_or(invalid_argument("missing account ID"))?
+        .try_into()
+        .map_err(|err| invalid_argument(format!("invalid account ID: {}", err)))
+}
+
+#[instrument(target = COMPONENT, skip_all, err)]
+fn read_account_ids(
+    account_ids: &[generated::account::AccountId],
+) -> Result<Vec<AccountId>, Status> {
+    account_ids
+        .iter()
+        .cloned()
+        .map(AccountId::try_from)
+        .collect::<Result<_, ConversionError>>()
+        .map_err(|_| invalid_argument("Byte array is not a valid AccountId"))
+}
+
+#[instrument(target = COMPONENT, skip_all, err)]
 fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Nullifier>, Status> {
     nullifiers
         .iter()
@@ -617,7 +629,7 @@ fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<N
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
 }
 
-#[instrument(target = "miden-store", skip_all, err)]
+#[instrument(target = COMPONENT, skip_all, err)]
 fn validate_notes(notes: &[generated::digest::Digest]) -> Result<Vec<NoteId>, Status> {
     notes
         .iter()

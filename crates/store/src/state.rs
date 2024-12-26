@@ -15,9 +15,9 @@ use miden_node_proto::{
     generated::responses::{AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse},
     AccountInputRecord, NullifierWitness,
 };
-use miden_node_utils::formatting::{format_account_id, format_array};
+use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::{AccountDelta, AccountHeader},
+    accounts::{AccountDelta, AccountHeader, AccountId},
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
@@ -45,7 +45,7 @@ use crate::{
         StateSyncError,
     },
     nullifier_tree::NullifierTree,
-    types::{AccountId, BlockNumber},
+    types::BlockNumber,
     COMPONENT,
 };
 // STRUCTURES
@@ -86,7 +86,7 @@ impl From<BlockInputs> for GetBlockInputsResponse {
 pub struct TransactionInputs {
     pub account_hash: RpoDigest,
     pub nullifiers: Vec<NullifierInfo>,
-    pub missing_unauthenticated_notes: Vec<NoteId>,
+    pub found_unauthenticated_notes: BTreeSet<NoteId>,
 }
 
 /// Container for state that needs to be updated atomically.
@@ -126,7 +126,7 @@ pub struct State {
 
 impl State {
     /// Loads the state from the `db`.
-    #[instrument(target = "miden-store", skip_all)]
+    #[instrument(target = COMPONENT, skip_all)]
     pub async fn load(
         mut db: Db,
         block_store: Arc<BlockStore>,
@@ -167,7 +167,7 @@ impl State {
     /// - the in-memory structures are updated, including the latest block pointer and the lock is
     ///   released.
     // TODO: This span is logged in a root span, we should connect it to the parent span.
-    #[instrument(target = "miden-store", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     pub async fn apply_block(&self, block: Block) -> Result<(), ApplyBlockError> {
         let _lock = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
 
@@ -254,7 +254,7 @@ impl State {
             let account_tree_update = inner.account_tree.compute_mutations(
                 block.updated_accounts().iter().map(|update| {
                     (
-                        LeafIndex::new_max_depth(update.account_id().into()),
+                        LeafIndex::new_max_depth(update.account_id().prefix().into()),
                         update.new_state_hash().into(),
                     )
                 }),
@@ -377,7 +377,7 @@ impl State {
     ///
     /// If [None] is given as the value of `block_num`, the data for the latest [BlockHeader] is
     /// returned.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn get_block_header(
         &self,
         block_num: Option<BlockNumber>,
@@ -410,7 +410,7 @@ impl State {
     /// tree.
     ///
     /// Note: these proofs are invalidated once the nullifier tree is modified, i.e. on a new block.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"))]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"))]
     pub async fn check_nullifiers(&self, nullifiers: &[Nullifier]) -> Vec<SmtProof> {
         let inner = self.inner.read().await;
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
@@ -502,7 +502,7 @@ impl State {
     ///   with any matches tags.
     /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is interested in,
     ///   results will include nullifiers matching prefixes produced in the given block range.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
@@ -552,7 +552,7 @@ impl State {
     /// - `block_num`: The last block *known* by the client, updates start from the next block.
     /// - `note_tags`: The tags the client is interested in, resulting notes are restricted to the
     ///   first block containing a matching note.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn sync_notes(
         &self,
         block_num: BlockNumber,
@@ -604,12 +604,8 @@ impl State {
             .cloned()
             .map(|account_id| {
                 let ValuePath { value: account_hash, path: proof } =
-                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id));
-                Ok(AccountInputRecord {
-                    account_id: account_id.try_into()?,
-                    account_hash,
-                    proof,
-                })
+                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id.prefix().into()));
+                Ok(AccountInputRecord { account_id, account_hash, proof })
             })
             .collect::<Result<_, AccountError>>()?;
 
@@ -635,18 +631,21 @@ impl State {
     }
 
     /// Returns data needed by the block producer to verify transactions validity.
-    #[instrument(target = "miden-store", skip_all, ret)]
+    #[instrument(target = COMPONENT, skip_all, ret)]
     pub async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
         nullifiers: &[Nullifier],
         unauthenticated_notes: Vec<NoteId>,
     ) -> Result<TransactionInputs, DatabaseError> {
-        info!(target: COMPONENT, account_id = %format_account_id(account_id), nullifiers = %format_array(nullifiers));
+        info!(target: COMPONENT, account_id = %account_id.to_string(), nullifiers = %format_array(nullifiers));
 
         let inner = self.inner.read().await;
 
-        let account_hash = inner.account_tree.open(&LeafIndex::new_max_depth(account_id)).value;
+        let account_hash = inner
+            .account_tree
+            .open(&LeafIndex::new_max_depth(account_id.prefix().into()))
+            .value;
 
         let nullifiers = nullifiers
             .iter()
@@ -659,16 +658,10 @@ impl State {
         let found_unauthenticated_notes =
             self.db.select_note_ids(unauthenticated_notes.clone()).await?;
 
-        let missing_unauthenticated_notes = unauthenticated_notes
-            .iter()
-            .filter(|note_id| !found_unauthenticated_notes.contains(note_id))
-            .copied()
-            .collect();
-
         Ok(TransactionInputs {
             account_hash,
             nullifiers,
-            missing_unauthenticated_notes,
+            found_unauthenticated_notes,
         })
     }
 
@@ -711,7 +704,7 @@ impl State {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
 
             if account_ids.len() > infos.len() {
-                let found_ids = infos.iter().map(|info| info.summary.account_id.into()).collect();
+                let found_ids = infos.iter().map(|info| info.summary.account_id).collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
                     BTreeSet::from_iter(account_ids).difference(&found_ids).copied().collect(),
                 ));
@@ -722,7 +715,7 @@ impl State {
                 .filter_map(|info| {
                     info.details.map(|details| {
                         (
-                            info.summary.account_id.into(),
+                            info.summary.account_id,
                             AccountStateHeader {
                                 header: Some(AccountHeader::from(&details).into()),
                                 storage_header: details.storage().get_header().to_bytes(),
@@ -742,7 +735,7 @@ impl State {
         let responses = account_ids
             .into_iter()
             .map(|account_id| {
-                let acc_leaf_idx = LeafIndex::new_max_depth(account_id);
+                let acc_leaf_idx = LeafIndex::new_max_depth(account_id.prefix().into());
                 let opening = inner_state.account_tree.open(&acc_leaf_idx);
                 let state_header = state_headers.get(&account_id).cloned();
 
@@ -792,7 +785,7 @@ impl State {
 // UTILITIES
 // ================================================================================================
 
-#[instrument(target = "miden-store", skip_all)]
+#[instrument(target = COMPONENT, skip_all)]
 async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitializationError> {
     let nullifiers = db.select_all_nullifiers().await?;
     let len = nullifiers.len();
@@ -811,7 +804,7 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitiali
     Ok(nullifier_tree)
 }
 
-#[instrument(target = "miden-store", skip_all)]
+#[instrument(target = COMPONENT, skip_all)]
 async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
     let block_hashes: Vec<RpoDigest> =
         db.select_all_block_headers().await?.iter().map(BlockHeader::hash).collect();
@@ -819,7 +812,7 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
     Ok(block_hashes.into())
 }
 
-#[instrument(target = "miden-store", skip_all)]
+#[instrument(target = COMPONENT, skip_all)]
 async fn load_accounts(
     db: &mut Db,
 ) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
@@ -827,7 +820,7 @@ async fn load_accounts(
         .select_all_account_hashes()
         .await?
         .into_iter()
-        .map(|(id, account_hash)| (id, account_hash.into()))
+        .map(|(id, account_hash)| (id.prefix().into(), account_hash.into()))
         .collect();
 
     SimpleSmt::with_leaves(account_data)

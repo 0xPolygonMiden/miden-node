@@ -10,7 +10,7 @@ use miden_node_proto::{
     generated::note::{Note as NotePb, NoteSyncRecord as NoteSyncRecordPb},
 };
 use miden_objects::{
-    accounts::AccountDelta,
+    accounts::{AccountDelta, AccountId},
     block::{Block, BlockNoteIndex},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
@@ -28,7 +28,7 @@ use crate::{
     db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
-    types::{AccountId, BlockNumber},
+    types::BlockNumber,
     COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
@@ -132,7 +132,7 @@ impl Db {
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
     // TODO: This span is logged in a root span, we should connect it to the parent one.
-    #[instrument(target = "miden-store", skip_all)]
+    #[instrument(target = COMPONENT, skip_all)]
     pub async fn setup(
         config: StoreConfig,
         block_store: Arc<BlockStore>,
@@ -199,7 +199,7 @@ impl Db {
     }
 
     /// Loads all the nullifiers from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_all_nullifiers(&self) -> Result<Vec<(Nullifier, BlockNumber)>> {
         self.pool
             .get()
@@ -212,7 +212,7 @@ impl Db {
     }
 
     /// Loads the nullifiers that match the prefixes from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_nullifiers_by_prefix(
         &self,
         prefix_len: u32,
@@ -233,7 +233,7 @@ impl Db {
     }
 
     /// Loads all the notes from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_all_notes(&self) -> Result<Vec<NoteRecord>> {
         self.pool.get().await?.interact(sql::select_all_notes).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select notes task failed: {err}"))
@@ -241,7 +241,7 @@ impl Db {
     }
 
     /// Loads all the accounts from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_all_accounts(&self) -> Result<Vec<AccountInfo>> {
         self.pool.get().await?.interact(sql::select_all_accounts).await.map_err(|err| {
             DatabaseError::InteractError(format!("Select accounts task failed: {err}"))
@@ -251,7 +251,7 @@ impl Db {
     /// Search for a [BlockHeader] from the database by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_block_header_by_block_num(
         &self,
         block_number: Option<BlockNumber>,
@@ -267,7 +267,7 @@ impl Db {
     }
 
     /// Loads multiple block headers from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_block_headers(&self, blocks: Vec<BlockNumber>) -> Result<Vec<BlockHeader>> {
         self.pool
             .get()
@@ -282,7 +282,7 @@ impl Db {
     }
 
     /// Loads all the block headers from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_all_block_headers(&self) -> Result<Vec<BlockHeader>> {
         self.pool
             .get()
@@ -295,7 +295,7 @@ impl Db {
     }
 
     /// Loads all the account hashes from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_all_account_hashes(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
         self.pool
             .get()
@@ -308,7 +308,7 @@ impl Db {
     }
 
     /// Loads public account details from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_account(&self, id: AccountId) -> Result<AccountInfo> {
         self.pool
             .get()
@@ -321,7 +321,7 @@ impl Db {
     }
 
     /// Loads public accounts details from the DB.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_accounts_by_ids(
         &self,
         account_ids: Vec<AccountId>,
@@ -336,7 +336,7 @@ impl Db {
             })?
     }
 
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn get_state_sync(
         &self,
         block_num: BlockNumber,
@@ -357,7 +357,7 @@ impl Db {
             })?
     }
 
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn get_note_sync(
         &self,
         block_num: BlockNumber,
@@ -375,7 +375,7 @@ impl Db {
     }
 
     /// Loads all the Note's matching a certain NoteId from the database.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_notes_by_id(&self, note_ids: Vec<NoteId>) -> Result<Vec<NoteRecord>> {
         self.pool
             .get()
@@ -388,7 +388,7 @@ impl Db {
     }
 
     /// Loads inclusion proofs for notes matching the given IDs.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_note_inclusion_proofs(
         &self,
         note_ids: BTreeSet<NoteId>,
@@ -406,7 +406,7 @@ impl Db {
     }
 
     /// Loads all note IDs matching a certain NoteId from the database.
-    #[instrument(target = "miden-store", skip_all, ret(level = "debug"), err)]
+    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_note_ids(&self, note_ids: Vec<NoteId>) -> Result<BTreeSet<NoteId>> {
         self.select_notes_by_id(note_ids)
             .await
@@ -418,7 +418,7 @@ impl Db {
     /// `allow_acquire` and `acquire_done` are used to synchronize writes to the DB with writes to
     /// the in-memory trees. Further details available on [super::state::State::apply_block].
     // TODO: This span is logged in a root span, we should connect it to the parent one.
-    #[instrument(target = "miden-store", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     pub async fn apply_block(
         &self,
         allow_acquire: oneshot::Sender<()>,
@@ -485,7 +485,7 @@ impl Db {
     /// If the database is empty, generates and stores the genesis block. Otherwise, it ensures that
     /// the genesis block in the database is consistent with the genesis block data in the
     /// genesis JSON file.
-    #[instrument(target = "miden-store", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     async fn ensure_genesis_block(
         &self,
         genesis_filepath: &str,
