@@ -19,7 +19,10 @@ use miden_objects::{
 use rusqlite::{vtab::array, Connection};
 
 use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
-use crate::db::{migrations::apply_migrations, TransactionSummary};
+use crate::{
+    db::{migrations::apply_migrations, TransactionSummary},
+    types::BlockNumber,
+};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -480,7 +483,7 @@ fn sql_public_account_details() {
 fn test_sql_public_account_details_for_old_block() {
     fn compare_accounts(conn: &mut Connection, block_num: BlockNumber, expected: &[Account]) {
         for i in 1..=block_num {
-            let account_read = sql::compute_old_account_states(conn, &[expected[0].id().into()], i)
+            let account_read = sql::compute_old_account_states(conn, &[expected[0].id()], i)
                 .unwrap()
                 .pop()
                 .unwrap();
@@ -529,7 +532,7 @@ fn test_sql_public_account_details_for_old_block() {
 
     let nft1 = Asset::NonFungible(
         NonFungibleAsset::new(
-            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![1, 2, 3]).unwrap(),
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id.prefix(), vec![1, 2, 3]).unwrap(),
         )
         .unwrap(),
     );
@@ -569,7 +572,7 @@ fn test_sql_public_account_details_for_old_block() {
 
     let nft2 = Asset::NonFungible(
         NonFungibleAsset::new(
-            &NonFungibleAssetDetails::new(non_fungible_faucet_id, vec![4, 5, 6]).unwrap(),
+            &NonFungibleAssetDetails::new(non_fungible_faucet_id.prefix(), vec![4, 5, 6]).unwrap(),
         )
         .unwrap(),
     );
