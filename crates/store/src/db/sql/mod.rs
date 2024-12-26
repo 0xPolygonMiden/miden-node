@@ -258,9 +258,9 @@ pub fn compute_old_account_states(
                 FROM account_storage_slot_updates b
                 WHERE
                     a.account_id = b.account_id AND
+                    a.slot = b.slot AND
                     b.block_num <= ?2 AND
-                    a.block_num < b.block_num AND
-                    a.slot = b.slot
+                    a.block_num < b.block_num
             )
         ORDER BY
             account_id
@@ -281,10 +281,10 @@ pub fn compute_old_account_states(
                 FROM account_storage_map_updates b
                 WHERE
                     a.account_id = b.account_id AND
-                    b.block_num <= ?2 AND
-                    a.block_num < b.block_num AND
                     a.slot = b.slot AND
-                    a.key = b.key
+                    a.key = b.key AND
+                    b.block_num <= ?2 AND
+                    a.block_num < b.block_num
             )
         ORDER BY
             account_id
@@ -325,8 +325,8 @@ pub fn compute_old_account_states(
                 WHERE
                     a.account_id = b.account_id AND
                     b.is_remove = 1 AND
-                    b.block_num <= ?2 AND
                     a.vault_key = b.vault_key AND
+                    b.block_num <= ?2 AND
                     a.block_num < b.block_num
             )
         ORDER BY
