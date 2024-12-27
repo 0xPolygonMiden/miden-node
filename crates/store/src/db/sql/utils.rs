@@ -4,6 +4,7 @@ use miden_objects::{
     crypto::hash::rpo::RpoDigest,
     notes::Nullifier,
     utils::Deserializable,
+    Felt,
 };
 use rusqlite::{
     params,
@@ -103,14 +104,29 @@ where
     })
 }
 
+pub fn read_account_id_from_columns(
+    row: &rusqlite::Row<'_>,
+    prefix_index: usize,
+    suffix_index: usize,
+) -> crate::db::Result<AccountId> {
+    let prefix: Felt = column_value_as_u64(row, prefix_index)?
+        .try_into()
+        .map_err(DatabaseError::InvalidFelt)?;
+    let suffix: Felt = column_value_as_u64(row, suffix_index)?
+        .try_into()
+        .map_err(DatabaseError::InvalidFelt)?;
+
+    Ok(AccountId::try_from([prefix, suffix])?)
+}
+
 /// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
-    let account_id = read_from_blob_column(row, 0)?;
-    let account_hash_data = row.get_ref(1)?.as_blob()?;
+    let account_id = read_account_id_from_columns(row, 0, 1)?;
+    let account_hash_data = row.get_ref(2)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
-    let block_num = row.get(2)?;
+    let block_num = row.get(3)?;
 
     Ok(AccountSummary { account_id, account_hash, block_num })
 }
@@ -121,7 +137,7 @@ pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<Ac
 pub fn account_info_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountInfo> {
     let update = account_summary_from_row(row)?;
 
-    let details = row.get_ref(3)?.as_blob_or_null()?;
+    let details = row.get_ref(4)?.as_blob_or_null()?;
     let details = details.map(Account::read_from_bytes).transpose()?;
 
     Ok(AccountInfo { summary: update, details })
