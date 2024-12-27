@@ -5,7 +5,8 @@ SELECT
     note_index,
     note_id,
     note_type,
-    sender,
+    sender_id_prefix,
+    sender_id_suffix,
     tag,
     aux,
     execution_hint,
@@ -20,10 +21,10 @@ WHERE
         FROM
             notes
         WHERE
-            (tag IN rarray(?1) OR sender IN rarray(?2)) AND
+            (tag IN rarray(?1) OR sender_id_prefix IN rarray(?2)) AND
             block_num > ?3
         ORDER BY
             block_num ASC
     LIMIT 1) AND
     -- filter the block's notes and return only the ones matching the requested tags or senders
-    (tag IN rarray(?1) OR sender IN rarray(?2))
+    (tag IN rarray(?1) OR sender_id_prefix IN rarray(?2))
