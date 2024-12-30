@@ -171,7 +171,7 @@ impl InflightState {
         let expected = tx.account_update().init_state_hash();
 
         // Ensure that the account ID prefix is unique. If the account is new, then the
-        // account hash is zero.
+        // account hash is zero ie default.
         if expected == Digest::default() && current.is_some() {
             return Err(
                 VerifyTxError::AccountIdPrefixAlreadyExists(tx.account_id().prefix()).into()
