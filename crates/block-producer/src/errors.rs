@@ -1,7 +1,7 @@
 use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountId, AccountIdPrefix},
     crypto::merkle::MerkleError,
     notes::{NoteId, Nullifier},
     transaction::TransactionId,
@@ -39,6 +39,10 @@ pub enum BlockProducerError {
 
 #[derive(Debug, Error)]
 pub enum VerifyTxError {
+    /// The account ID prefix already exists
+    #[error("Account ID prefix already exists: {0}")]
+    AccountIdPrefixAlreadyExists(AccountIdPrefix),
+
     /// Another transaction already consumed the notes with given nullifiers
     #[error("Input notes with given nullifiers were already consumed by another transaction")]
     InputNotesAlreadyConsumed(Vec<Nullifier>),
@@ -103,7 +107,8 @@ impl From<AddTransactionError> for tonic::Status {
     fn from(value: AddTransactionError) -> Self {
         use AddTransactionError::*;
         match value {
-            VerificationFailed(VerifyTxError::InputNotesAlreadyConsumed(_))
+            VerificationFailed(VerifyTxError::AccountIdPrefixAlreadyExists(_))
+            | VerificationFailed(VerifyTxError::InputNotesAlreadyConsumed(_))
             | VerificationFailed(VerifyTxError::UnauthenticatedNotesNotFound(_))
             | VerificationFailed(VerifyTxError::OutputNotesAlreadyExist(_))
             | VerificationFailed(VerifyTxError::IncorrectAccountInitialHash { .. })

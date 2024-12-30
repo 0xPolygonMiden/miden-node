@@ -10,6 +10,7 @@
 
 ### Changes
 
+- Added check for unique account ID prefixes (#604).
 - [BREAKING] Added support for new two `Felt` account ID (#591).
 - [BREAKING] Inverted `TransactionInputs.missing_unauthenticated_notes` to `found_missing_notes` (#509).
 
