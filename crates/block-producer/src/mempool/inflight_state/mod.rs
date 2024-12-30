@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountId, AccountIdPrefix},
     notes::{NoteId, Nullifier},
     transaction::TransactionId,
+    Digest,
 };
 
 use crate::{
@@ -30,7 +31,7 @@ pub struct InflightState {
     /// Account states from inflight transactions.
     ///
     /// Accounts which are empty are immediately pruned.
-    accounts: BTreeMap<AccountId, InflightAccountState>,
+    accounts: BTreeMap<AccountIdPrefix, InflightAccountState>,
 
     /// Nullifiers produced by the input notes of inflight transactions.
     nullifiers: BTreeSet<Nullifier>,
@@ -163,11 +164,19 @@ impl InflightState {
         // Ensure current account state is correct.
         let current = self
             .accounts
-            .get(&tx.account_id())
+            .get(&tx.account_id().prefix())
             .and_then(|account_state| account_state.current_state())
             .copied()
             .or(tx.store_account_state());
         let expected = tx.account_update().init_state_hash();
+
+        // Ensure that the account ID prefix is unique. If the account is new, then the
+        // account hash is zero.
+        if expected == Digest::default() && current.is_some() {
+            return Err(
+                VerifyTxError::AccountIdPrefixAlreadyExists(tx.account_id().prefix()).into()
+            );
+        }
 
         // SAFETY: a new accounts state is set to zero ie default.
         if expected != current.unwrap_or_default() {
@@ -222,7 +231,7 @@ impl InflightState {
         self.transaction_deltas.insert(tx.id(), Delta::new(tx));
         let account_parent = self
             .accounts
-            .entry(tx.account_id())
+            .entry(tx.account_id().prefix())
             .or_default()
             .insert(tx.account_update().final_state_hash(), tx.id());
 
@@ -254,10 +263,10 @@ impl InflightState {
             let delta = self.transaction_deltas.remove(&tx).expect("Transaction delta must exist");
 
             // SAFETY: Since the delta exists, so must the account.
-            let account_status = self.accounts.get_mut(&delta.account).unwrap().revert(1);
+            let account_status = self.accounts.get_mut(&delta.account.prefix()).unwrap().revert(1);
             // Prune empty accounts.
             if account_status.is_empty() {
-                self.accounts.remove(&delta.account);
+                self.accounts.remove(&delta.account.prefix());
             }
 
             for nullifier in delta.nullifiers {
@@ -287,7 +296,7 @@ impl InflightState {
             let delta = self.transaction_deltas.remove(&tx).expect("Transaction delta must exist");
 
             // SAFETY: Since the delta exists, so must the account.
-            self.accounts.get_mut(&delta.account).unwrap().commit(1);
+            self.accounts.get_mut(&delta.account.prefix()).unwrap().commit(1);
 
             for note in &delta.output_notes {
                 self.output_notes.get_mut(note).expect("Output note must exist").commit();
@@ -317,11 +326,11 @@ impl InflightState {
 
         for (_, delta) in block {
             // SAFETY: Since the delta exists, so must the account.
-            let status = self.accounts.get_mut(&delta.account).unwrap().prune_committed(1);
+            let status = self.accounts.get_mut(&delta.account.prefix()).unwrap().prune_committed(1);
 
             // Prune empty accounts.
             if status.is_empty() {
-                self.accounts.remove(&delta.account);
+                self.accounts.remove(&delta.account.prefix());
             }
 
             for nullifier in delta.nullifiers {
@@ -372,7 +381,7 @@ impl OutputNoteState {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use miden_objects::Digest;
+    use miden_objects::{Digest, ZERO};
 
     use super::*;
     use crate::test_utils::{
@@ -497,6 +506,38 @@ mod tests {
                 tx_initial_account_hash: init_state,
                 current_account_hash: current_state,
             }) if init_state == states[0] && current_state == states[2].into()
+        );
+    }
+
+    #[test]
+    fn rejects_account_prefix_collision() {
+        let account_id = mock_account_id(1);
+
+        let tx0 = MockProvenTxBuilder::with_account(
+            account_id,
+            [0u8, 0, 0, 0].into(),
+            [1u8, 0, 0, 0].into(),
+        )
+        .build();
+
+        // Different account ID, but same prefix
+        let matching_prefix_id = AccountId::new_unchecked([account_id.prefix().into(), ZERO]);
+        let tx1 = MockProvenTxBuilder::with_account(
+            matching_prefix_id,
+            [0u8, 0, 0, 0].into(),
+            [1u8, 0, 0, 0].into(),
+        )
+        .build();
+
+        let mut uut = InflightState::new(BlockNumber::default(), 1, BlockNumber::new(0));
+        uut.add_transaction(&AuthenticatedTransaction::from_inner(tx0)).unwrap();
+
+        let err = uut.add_transaction(&AuthenticatedTransaction::from_inner(tx1)).unwrap_err();
+
+        assert_matches!(
+            err,
+            AddTransactionError::VerificationFailed(VerifyTxError::AccountIdPrefixAlreadyExists(prefix))
+            if prefix == account_id.prefix()
         );
     }
 
