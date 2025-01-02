@@ -12,6 +12,7 @@
 
 - [BREAKING] Added support for new two `Felt` account ID (#591).
 - [BREAKING] Inverted `TransactionInputs.missing_unauthenticated_notes` to `found_missing_notes` (#509).
+- [BREAKING] Added way of querying account storage map state on `GetAccountProofs` endpoint (#598).
 
 ## v0.6.0 (2024-11-05)
 

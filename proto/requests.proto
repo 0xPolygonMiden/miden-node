@@ -132,11 +132,33 @@ message GetAccountStateDeltaRequest {
     fixed32 to_block_num = 3;
 }
 
+// Request message to get account proofs.
 message GetAccountProofsRequest {
-    // List of account IDs to get states.
-    repeated account.AccountId account_ids = 1;
-    // Optional flag to include header and account code in the response. `false` by default.
+    // Represents per-account requests where each account ID has its own list of 
+    // (storage_slot_index, map_keys) pairs.
+    message AccountRequest {
+        // The account ID for this request.
+        account.AccountId account_id = 1;
+
+        // List of storage requests for this account.
+        repeated StorageRequest storage_requests = 2;
+    }
+
+    // Represents a storage slot index and the associated map keys.
+    message StorageRequest {
+        // Storage slot index ([0..255])
+        uint32 storage_slot_index = 1;
+
+        // A list of map keys (Digests) associated with this storage slot.
+        repeated digest.Digest map_keys = 2;
+    }
+
+    // A list of account requests, including map keys + values.
+    repeated AccountRequest account_requests = 1;
+
+    // Optional flag to include header and account code in the response. False by default.
     optional bool include_headers = 2;
+
     // Account code commitments corresponding to the last-known `AccountCode` for requested 
     // accounts. Responses will include only the ones that are not known to the caller.
     // These are not associated with a specific account but rather, they will be matched against

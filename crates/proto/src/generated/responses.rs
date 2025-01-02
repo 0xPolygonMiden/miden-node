@@ -227,8 +227,21 @@ pub struct AccountStateHeader {
     /// Values of all account storage slots (max 255).
     #[prost(bytes = "vec", tag = "2")]
     pub storage_header: ::prost::alloc::vec::Vec<u8>,
-    /// Account code, returned only when none of the request's code commitments match with the
-    /// current one.
+    /// Account code, returned only when none of the request's code commitments match
+    /// the current one.
     #[prost(bytes = "vec", optional, tag = "3")]
     pub account_code: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// Storage slots information for this account
+    #[prost(message, repeated, tag = "4")]
+    pub storage_slots: ::prost::alloc::vec::Vec<StorageSlotMapProof>,
+}
+/// Represents a single storage slot with the reuqested keys and their respective values.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StorageSlotMapProof {
+    /// The storage slot index (\[0..255\]).
+    #[prost(uint32, tag = "1")]
+    pub storage_slot: u32,
+    /// Merkle proof of the map value
+    #[prost(bytes = "vec", tag = "2")]
+    pub smt_proof: ::prost::alloc::vec::Vec<u8>,
 }

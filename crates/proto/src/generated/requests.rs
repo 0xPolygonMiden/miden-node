@@ -148,12 +148,15 @@ pub struct GetAccountStateDeltaRequest {
     #[prost(fixed32, tag = "3")]
     pub to_block_num: u32,
 }
+/// Request message to get account proofs.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountProofsRequest {
-    /// List of account IDs to get states.
+    /// A list of account requests, including map keys + values.
     #[prost(message, repeated, tag = "1")]
-    pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Optional flag to include header and account code in the response. `false` by default.
+    pub account_requests: ::prost::alloc::vec::Vec<
+        get_account_proofs_request::AccountRequest,
+    >,
+    /// Optional flag to include header and account code in the response. False by default.
     #[prost(bool, optional, tag = "2")]
     pub include_headers: ::core::option::Option<bool>,
     /// Account code commitments corresponding to the last-known `AccountCode` for requested
@@ -162,4 +165,28 @@ pub struct GetAccountProofsRequest {
     /// all requested accounts.
     #[prost(message, repeated, tag = "3")]
     pub code_commitments: ::prost::alloc::vec::Vec<super::digest::Digest>,
+}
+/// Nested message and enum types in `GetAccountProofsRequest`.
+pub mod get_account_proofs_request {
+    /// Represents per-account requests where each account ID has its own list of
+    /// (storage_slot_index, map_keys) pairs.
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct AccountRequest {
+        /// The account ID for this request.
+        #[prost(message, optional, tag = "1")]
+        pub account_id: ::core::option::Option<super::super::account::AccountId>,
+        /// List of storage requests for this account.
+        #[prost(message, repeated, tag = "2")]
+        pub storage_requests: ::prost::alloc::vec::Vec<StorageRequest>,
+    }
+    /// Represents a storage slot index and the associated map keys.
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct StorageRequest {
+        /// Storage slot index (\[0..255\])
+        #[prost(uint32, tag = "1")]
+        pub storage_slot_index: u32,
+        /// A list of map keys (Digests) associated with this storage slot.
+        #[prost(message, repeated, tag = "2")]
+        pub map_keys: ::prost::alloc::vec::Vec<super::super::digest::Digest>,
+    }
 }

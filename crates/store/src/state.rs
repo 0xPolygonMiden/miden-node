@@ -5,19 +5,24 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
-    ops::Not,
     sync::Arc,
 };
 
 use miden_node_proto::{
     convert,
-    domain::{accounts::AccountInfo, blocks::BlockInclusionProof, notes::NoteAuthenticationInfo},
-    generated::responses::{AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse},
+    domain::{
+        accounts::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
+        blocks::BlockInclusionProof,
+        notes::NoteAuthenticationInfo,
+    },
+    generated::responses::{
+        AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse, StorageSlotMapProof,
+    },
     AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::{AccountDelta, AccountHeader, AccountId},
+    accounts::{AccountDelta, AccountHeader, AccountId, StorageSlot},
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
@@ -689,7 +694,7 @@ impl State {
     /// Returns account proofs with optional account and storage headers.
     pub async fn get_account_proofs(
         &self,
-        account_ids: Vec<AccountId>,
+        account_requests: Vec<AccountProofRequest>,
         request_code_commitments: BTreeSet<RpoDigest>,
         include_headers: bool,
     ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
@@ -698,11 +703,13 @@ impl State {
         // because changing one of them would lead to inconsistent state.
         let inner_state = self.inner.read().await;
 
+        let account_ids: Vec<AccountId> =
+            account_requests.iter().map(|req| req.account_id).collect();
+
         let state_headers = if !include_headers {
             BTreeMap::<AccountId, AccountStateHeader>::default()
         } else {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
-
             if account_ids.len() > infos.len() {
                 let found_ids = infos.iter().map(|info| info.summary.account_id).collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
@@ -710,26 +717,58 @@ impl State {
                 ));
             }
 
-            infos
-                .into_iter()
-                .filter_map(|info| {
-                    info.details.map(|details| {
-                        (
-                            info.summary.account_id,
-                            AccountStateHeader {
-                                header: Some(AccountHeader::from(&details).into()),
-                                storage_header: details.storage().get_header().to_bytes(),
-                                // Only include account code if the request did not contain it
-                                // (known by the caller)
-                                account_code: request_code_commitments
-                                    .contains(&details.code().commitment())
-                                    .not()
-                                    .then_some(details.code().to_bytes()),
-                            },
-                        )
-                    })
-                })
-                .collect()
+            let mut headers_map = BTreeMap::new();
+
+            for account_info in infos {
+                if let Some(details) = account_info.details {
+                    let request =
+                        match account_requests.iter().find(|req| req.account_id == details.id()) {
+                            Some(r) => r,
+                            None => panic!(),
+                        };
+
+                    let mut storage_slot_map_keys = Vec::new();
+
+                    for StorageMapKeysProof { storage_index, storage_keys } in
+                        &request.storage_requests
+                    {
+                        if let Some(StorageSlot::Map(storage_map)) =
+                            details.storage().slots().get(*storage_index as usize)
+                        {
+                            for map_key in storage_keys {
+                                let proof = storage_map.open(map_key);
+
+                                let slot_map_key = StorageSlotMapProof {
+                                    storage_slot: *storage_index as u32,
+                                    smt_proof: proof.to_bytes(),
+                                };
+                                storage_slot_map_keys.push(slot_map_key);
+                            }
+                        }
+                        // TODO: else error?
+                    }
+
+                    // Only return code for commitments that the user did not know according ot
+                    // the request
+                    let maybe_account_code =
+                        if !request_code_commitments.contains(&details.code().commitment()) {
+                            Some(details.code().to_bytes())
+                        } else {
+                            None
+                        };
+
+                    let state_header = AccountStateHeader {
+                        header: Some(AccountHeader::from(&details).into()),
+                        storage_header: details.storage().get_header().to_bytes(),
+                        account_code: maybe_account_code,
+                        storage_slots: storage_slot_map_keys,
+                    };
+
+                    headers_map.insert(account_info.summary.account_id, state_header);
+                }
+            }
+
+            headers_map
         };
 
         let responses = account_ids
@@ -737,6 +776,7 @@ impl State {
             .map(|account_id| {
                 let acc_leaf_idx = LeafIndex::new_max_depth(account_id.prefix().into());
                 let opening = inner_state.account_tree.open(&acc_leaf_idx);
+
                 let state_header = state_headers.get(&account_id).cloned();
 
                 AccountProofsResponse {

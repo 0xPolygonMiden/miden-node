@@ -195,9 +195,23 @@ message AccountProofsResponse {
 message AccountStateHeader {
     // Account header.
     account.AccountHeader header = 1;
+
     // Values of all account storage slots (max 255).
     bytes storage_header = 2;
-    // Account code, returned only when none of the request's code commitments match with the
-    // current one.
+
+    // Account code, returned only when none of the request's code commitments match
+    // the current one.
     optional bytes account_code = 3;
+
+    // Storage slots information for this account
+    repeated StorageSlotMapProof storage_slots = 4;
+}
+
+// Represents a single storage slot with the reuqested keys and their respective values.
+message StorageSlotMapProof {
+    // The storage slot index ([0..255]).
+    uint32 storage_slot = 1;
+
+    // Merkle proof of the map value
+    bytes smt_proof = 2;
 }
