@@ -17,29 +17,24 @@ runs:
           echo "sha=$(git show-ref --hash --verify 'refs/remotes/origin/${{ inputs.gitref }}')" >> $GITHUB_OUTPUT
         elif git show-ref -q --verify "refs/tags/${{ inputs.gitref }}" 2>/dev/null; then
           echo "sha=$(git show-ref --hash --verify 'refs/tags/${{ inputs.gitref }}')" >> $GITHUB_OUTPUT
-        elif git rev-parse --verify "${{ inputs.gitreff }}^{commit}" >/dev/null 2>&1; then
+        elif git rev-parse --verify "${{ inputs.gitref }}^{commit}" >/dev/null 2>&1; then
           echo "sha=$(git rev-parse --verify '${{ inputs.gitref }}^{commit}')" >> $GITHUB_OUTPUT
         else
-          echo "::error Unknown git reference type"
+          echo "::error:: Unknown git reference type"
           exit 1
         fi
 
     - name: Create package directories
       shell: bash
       run: |
-        mkdir -p \
-          packaging/deb/miden-node/DEBIAN \
-          packaging/deb/miden-node/usr/bin\
-          packaging/deb/miden-node/lib/systemd/system\
-          packaging/deb/miden-node/etc/opt/miden-node\
-          packaging/deb/miden-node/opt/miden-node
-
-        mkdir -p \
-          packaging/deb/miden-faucet/DEBIAN \
-          packaging/deb/miden-faucet/usr/bin\
-          packaging/deb/miden-faucet/lib/systemd/system\
-          packaging/deb/miden-faucet/etc/opt/miden-faucet\
-          packaging/deb/miden-faucet/opt/miden-faucet
+        for pkg in miden-node miden-faucet; do
+          mkdir -p \
+            packaging/deb/$pkg/DEBIAN \
+            packaging/deb/$pkg/usr/bin \
+            packaging/deb/$pkg/lib/systemd/system \
+            packaging/deb/$pkg/etc/opt/$pkg \
+            packaging/deb/$pkg/opt/$pkg
+        done
 
     # These have to be downloaded as the current repo source isn't necessarily the target git reference.
     - name: Copy package install scripts
