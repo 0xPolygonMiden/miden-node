@@ -20,7 +20,7 @@ runs:
         elif git rev-parse --verify "${{ inputs.gitref }}^{commit}" >/dev/null 2>&1; then
           echo "sha=$(git rev-parse --verify '${{ inputs.gitref }}^{commit}')" >> $GITHUB_OUTPUT
         else
-          echo "::error:: Unknown git reference type"
+          echo "::error::Unknown git reference type"
           exit 1
         fi
 
