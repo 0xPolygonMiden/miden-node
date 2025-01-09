@@ -208,137 +208,44 @@ pub fn compute_old_account_states(
     conn: &mut Connection,
     account_ids: &[AccountId],
     block_number: BlockNumber,
+    latest_block_number: BlockNumber,
 ) -> Result<Vec<Account>> {
-    let mut select_last_states_stmt = conn.prepare_cached(
-        "
-        SELECT
-            account_id, details
-        FROM
-            accounts
-        WHERE
-            account_id IN rarray(?1)
-        ORDER BY
-            account_id
-        ",
-    )?;
-
-    let mut select_latest_nonces_stmt = conn.prepare_cached(
-        "
-        SELECT
-            account_id, nonce
-        FROM
-            account_deltas a
-        WHERE
-            account_id IN rarray(?1) AND
-            block_num <= ?2 AND
-            NOT EXISTS(
-                SELECT 1
-                FROM account_deltas b
-                WHERE
-                    a.account_id = b.account_id AND
-                    b.block_num <= ?2 AND
-                    a.block_num < b.block_num
-            )
-        ORDER BY
-            account_id
-        ",
-    )?;
-
-    let mut select_latest_storage_slot_updates_stmt = conn.prepare_cached(
-        "
-        SELECT
-            account_id, slot, value
-        FROM
-            account_storage_slot_updates a
-        WHERE
-            account_id IN rarray(?1) AND
-            block_num <= ?2 AND
-            NOT EXISTS(
-                SELECT 1
-                FROM account_storage_slot_updates b
-                WHERE
-                    a.account_id = b.account_id AND
-                    a.slot = b.slot AND
-                    b.block_num <= ?2 AND
-                    a.block_num < b.block_num
-            )
-        ORDER BY
-            account_id
-        ",
-    )?;
-
-    let mut select_latest_storage_map_updates_stmt = conn.prepare_cached(
-        "
-        SELECT
-            account_id, slot, key, value
-        FROM
-            account_storage_map_updates a
-        WHERE
-            account_id IN rarray(?1) AND
-            block_num <= ?2 AND
-            NOT EXISTS(
-                SELECT 1
-                FROM account_storage_map_updates b
-                WHERE
-                    a.account_id = b.account_id AND
-                    a.slot = b.slot AND
-                    a.key = b.key AND
-                    b.block_num <= ?2 AND
-                    a.block_num < b.block_num
-            )
-        ORDER BY
-            account_id
-        ",
-    )?;
-
-    let mut select_fungible_asset_deltas_stmt = conn.prepare_cached(
-        "
-        SELECT
-            account_id, faucet_id, SUM(delta) AS value
-        FROM
-            account_fungible_asset_deltas
-        WHERE
-            account_id IN rarray(?1) AND
-            block_num <= ?2
-        GROUP BY
-            account_id, faucet_id
-        HAVING
-            value != 0
-        ORDER BY
-            account_id
-        ",
-    )?;
-
-    let mut select_latest_non_fungible_assets_stmt = conn.prepare_cached(
-        "
-        SELECT
-            account_id, vault_key
-        FROM
-            account_non_fungible_asset_updates a
-        WHERE
-            account_id IN rarray(?1) AND
-            block_num <= ?2 AND
-            is_remove = 0 AND
-            NOT EXISTS(
-                SELECT 1
-                FROM account_non_fungible_asset_updates b
-                WHERE
-                    a.account_id = b.account_id AND
-                    b.is_remove = 1 AND
-                    a.vault_key = b.vault_key AND
-                    b.block_num <= ?2 AND
-                    a.block_num < b.block_num
-            )
-        ORDER BY
-            account_id
-        ",
-    )?;
-
     struct AccountRecord {
         code: AccountCode,
         nonce: Option<Felt>,
         storage: BTreeMap<u8, StorageSlot>,
-        assets: Vec<Asset>,
+        vault: AssetVault,
+    }
+
+    impl AccountRecord {
+        fn into_account(self, account_id: AccountId) -> Result<Account> {
+            let slots: Vec<_> = self
+                .storage
+                .into_iter()
+                .enumerate()
+                .map(|(expected_slot, (slot, value))| {
+                    if expected_slot != slot as usize {
+                        return Err(DatabaseError::DataCorrupted(format!(
+                            "Missing value for storage slot {expected_slot}, got {slot}"
+                        )));
+                    }
+
+                    Ok(value)
+                })
+                .collect::<Result<_>>()?;
+
+            let storage = AccountStorage::new(slots)?;
+
+            Ok(Account::from_parts(
+                account_id,
+                self.vault,
+                storage,
+                self.code,
+                self.nonce.ok_or(DatabaseError::DataCorrupted(format!(
+                    "Missing nonce for account: {account_id}"
+                )))?,
+            ))
+        }
     }
 
     #[derive(Default)]
@@ -368,27 +275,49 @@ pub fn compute_old_account_states(
     let account_ids =
         Rc::new(account_ids.iter().map(|id| id.to_bytes().into()).collect::<Vec<Value>>());
 
-    // Gathering data from different tables to single accounts map.
+    // Gathering data from different tables to a single accounts map.
     let mut accounts = Accounts::default();
 
-    let mut rows = select_last_states_stmt.query(params![Rc::clone(&account_ids)])?;
+    let mut select_latest_states_stmt = conn.prepare_cached(
+        "
+        SELECT account_id, details
+        FROM accounts
+        WHERE account_id IN rarray(?1)
+        ORDER BY account_id",
+    )?;
+    let mut rows = select_latest_states_stmt.query(params![Rc::clone(&account_ids)])?;
     while let Some(row) = rows.next()? {
-        let account_id: AccountId = read_from_blob_column(row, 0)?;
         let account_details = row.get_ref(1)?.as_blob_or_null()?;
         if let Some(details) = account_details {
             let details = Account::read_from_bytes(details)?;
+            let (account_id, vault, _storage, code, _nonce) = details.into_parts();
             accounts.insert(
                 account_id,
                 AccountRecord {
-                    code: details.code().clone(),
+                    code,
                     nonce: None,
                     storage: BTreeMap::new(),
-                    assets: vec![],
+                    vault,
                 },
             );
         }
     }
 
+    let mut select_latest_nonces_stmt = conn.prepare_cached(
+        "
+        SELECT account_id, nonce
+        FROM account_deltas a
+        WHERE
+            account_id IN rarray(?1) AND
+            block_num = (
+                SELECT MAX(block_num)
+                FROM account_deltas b
+                WHERE
+                    b.block_num <= ?2 AND
+                    a.account_id = b.account_id
+            )
+        ORDER BY account_id",
+    )?;
     let mut rows =
         select_latest_nonces_stmt.query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
@@ -398,7 +327,23 @@ pub fn compute_old_account_states(
         account.nonce = Some(nonce);
     }
 
-    let mut rows = select_latest_storage_slot_updates_stmt
+    let mut select_latest_storage_slot_values_stmt = conn.prepare_cached(
+        "
+        SELECT account_id, slot, value
+        FROM account_storage_slot_updates a
+        WHERE
+            account_id IN rarray(?1) AND
+            block_num = (
+                SELECT MAX(block_num)
+                FROM account_storage_slot_updates b
+                WHERE
+                    b.block_num <= ?2 AND
+                    a.account_id = b.account_id AND
+                    a.slot = b.slot
+            )
+        ORDER BY account_id",
+    )?;
+    let mut rows = select_latest_storage_slot_values_stmt
         .query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
         let account_id: AccountId = read_from_blob_column(row, 0)?;
@@ -411,6 +356,23 @@ pub fn compute_old_account_states(
         }
     }
 
+    let mut select_latest_storage_map_updates_stmt = conn.prepare_cached(
+        "
+        SELECT account_id, slot, key, value
+        FROM account_storage_map_updates a
+        WHERE
+            account_id IN rarray(?1) AND
+            block_num = (
+                SELECT MAX(block_num)
+                FROM account_storage_map_updates b
+                WHERE
+                    b.block_num <= ?2 AND
+                    a.account_id = b.account_id AND
+                    a.slot = b.slot AND
+                    a.key = b.key
+            )
+        ORDER BY account_id",
+    )?;
     let mut rows = select_latest_storage_map_updates_stmt
         .query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
@@ -430,8 +392,7 @@ pub fn compute_old_account_states(
             Entry::Occupied(mut entry) => match entry.get_mut() {
                 StorageSlot::Value(_) => {
                     return Err(DatabaseError::DataCorrupted(format!(
-                        "Conflicting storage slot: {slot}, expected map, but actually \
-                                    value"
+                        "Conflicting storage slot: {slot}, expected map, but actually value"
                     )))
                 },
                 StorageSlot::Map(map) => {
@@ -441,62 +402,68 @@ pub fn compute_old_account_states(
         }
     }
 
-    let mut rows =
-        select_fungible_asset_deltas_stmt.query(params![Rc::clone(&account_ids), block_number])?;
+    let mut select_fungible_asset_deltas_stmt = conn.prepare_cached(
+        "
+        SELECT account_id, faucet_id, SUM(delta) AS delta
+        FROM account_fungible_asset_deltas
+        WHERE account_id IN rarray(?1) AND (block_num BETWEEN ?2 + 1 AND ?3)
+        GROUP BY account_id, faucet_id
+        HAVING delta != 0
+        ORDER BY account_id",
+    )?;
+    let mut rows = select_fungible_asset_deltas_stmt.query(params![
+        Rc::clone(&account_ids),
+        block_number,
+        latest_block_number,
+    ])?;
     while let Some(row) = rows.next()? {
         let account_id = read_from_blob_column(row, 0)?;
         let faucet_id = read_from_blob_column(row, 1)?;
-        let amount: u64 = row.get(2)?;
+        let amount: i64 = row.get(2)?;
         let account = accounts.try_get_mut(&account_id)?;
-        account.assets.push(Asset::Fungible(
-            FungibleAsset::new(faucet_id, amount)
+        let asset = Asset::Fungible(
+            FungibleAsset::new(faucet_id, amount.unsigned_abs())
                 .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
-        ));
+        );
+        if amount < 0 {
+            account.vault.add_asset(asset)
+        } else {
+            account.vault.remove_asset(asset)
+        }
+        .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
     }
 
-    let mut rows = select_latest_non_fungible_assets_stmt
-        .query(params![Rc::clone(&account_ids), block_number])?;
+    let mut select_latest_non_fungible_assets_stmt = conn.prepare_cached(
+        "
+        SELECT account_id, vault_key, is_remove, block_num
+        FROM account_non_fungible_asset_updates
+        WHERE account_id IN rarray(?1) AND (block_num BETWEEN ?2 + 1 AND ?3)
+        ORDER BY account_id, block_num DESC",
+    )?;
+    let mut rows = select_latest_non_fungible_assets_stmt.query(params![
+        Rc::clone(&account_ids),
+        block_number,
+        latest_block_number,
+    ])?;
     while let Some(row) = rows.next()? {
         let account_id = read_from_blob_column(row, 0)?;
         let asset = read_from_blob_column(row, 1)?;
+        let is_remove: bool = row.get(2)?;
         let account = accounts.try_get_mut(&account_id)?;
-        account.assets.push(Asset::NonFungible(asset));
+
+        let asset = Asset::NonFungible(asset);
+        if is_remove {
+            account.vault.add_asset(asset)
+        } else {
+            account.vault.remove_asset(asset)
+        }
+        .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
     }
 
     // Converting gathered data to vector of `Account` structures.
     let mut result = Vec::with_capacity(account_ids.len());
     for (account_id, record) in accounts {
-        let slots: Vec<_> = record
-            .storage
-            .into_iter()
-            .enumerate()
-            .map(|(expected_slot, (slot, value))| {
-                if expected_slot != slot as usize {
-                    return Err(DatabaseError::DataCorrupted(format!(
-                        "Missing value for storage slot {expected_slot}, got {slot}"
-                    )));
-                }
-
-                Ok(value)
-            })
-            .collect::<Result<_>>()?;
-
-        let storage = AccountStorage::new(slots)?;
-        let vault = AssetVault::new(&record.assets).map_err(|err| {
-            DatabaseError::DataCorrupted(format!("Invalid assets for account {account_id}: {err}"))
-        })?;
-
-        let account = Account::from_parts(
-            account_id,
-            vault,
-            storage,
-            record.code,
-            record.nonce.ok_or(DatabaseError::DataCorrupted(format!(
-                "Missing nonce for account: {account_id}"
-            )))?,
-        );
-
-        result.push(account);
+        result.push(record.into_account(account_id)?);
     }
 
     Ok(result)

@@ -483,10 +483,11 @@ fn sql_public_account_details() {
 fn test_sql_public_account_details_for_old_block() {
     fn compare_accounts(conn: &mut Connection, block_num: BlockNumber, expected: &[Account]) {
         for i in 1..=block_num {
-            let account_read = sql::compute_old_account_states(conn, &[expected[0].id()], i)
-                .unwrap()
-                .pop()
-                .unwrap();
+            let account_read =
+                sql::compute_old_account_states(conn, &[expected[0].id()], i, block_num)
+                    .unwrap()
+                    .pop()
+                    .unwrap();
             assert_eq!(account_read, expected[i as usize - 1]);
         }
     }
