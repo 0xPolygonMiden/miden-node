@@ -212,18 +212,28 @@ pub fn compute_old_account_states(
     struct Accounts(BTreeMap<AccountId, Account>);
 
     impl Accounts {
-        fn insert(&mut self, id: AccountId, account: Account) -> Option<Account> {
-            self.0.insert(id, account)
-        }
-
         fn try_get_mut(&mut self, id: &AccountId) -> Result<&mut Account> {
             self.0.get_mut(id).ok_or_else(|| {
                 DatabaseError::DataCorrupted(format!("Account not found in DB: {id}"))
             })
         }
 
-        fn into_accounts(self) -> impl Iterator<Item = Account> {
-            self.0.into_values()
+        fn update_asset(
+            &mut self,
+            account_id: &AccountId,
+            asset: Asset,
+            is_remove: bool,
+        ) -> Result<()> {
+            let account = self.try_get_mut(account_id)?;
+
+            if is_remove {
+                account.vault_mut().remove_asset(asset)
+            } else {
+                account.vault_mut().add_asset(asset)
+            }
+            .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
+
+            Ok(())
         }
     }
 
@@ -235,22 +245,24 @@ pub fn compute_old_account_states(
     // Fence for possible situation, if new deltas were added during subsequent requests
     let mut latest_block_number: BlockNumber = 0;
 
-    let mut select_nonces_with_latest_states_stmt = conn.prepare_cached(
+    // We select states with possible nonce updates in order to (re)construct `Account` with final
+    // nonce, since we're not able to decrease nonce in `Account`.
+    let mut select_latest_states_stmt = conn.prepare_cached(
         "
-        SELECT a.account_id, a.block_num, a.details, d.nonce 
-        FROM accounts a LEFT JOIN account_deltas d ON 
-            a.account_id = d.account_id AND 
+        SELECT a.account_id, a.block_num, a.details, d.nonce
+        FROM accounts a LEFT JOIN account_deltas d ON
+            a.account_id = d.account_id AND
             d.block_num = (
                 SELECT MAX(block_num)
                 FROM account_deltas
                 WHERE
                     block_num <= ?2 AND
-                    account_id = a.account_id 
+                    account_id = a.account_id
             )
         WHERE a.account_id IN rarray(?1)",
     )?;
-    let mut rows = select_nonces_with_latest_states_stmt
-        .query(params![Rc::clone(&account_ids), block_number])?;
+    let mut rows =
+        select_latest_states_stmt.query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
         let account_details = row.get_ref(2)?.as_blob_or_null()?;
         if let Some(details) = account_details {
@@ -260,6 +272,8 @@ pub fn compute_old_account_states(
             }
             let account = Account::read_from_bytes(details)?;
             let old_nonce = row.get::<_, Option<u64>>(3)?;
+
+            // If there is updated (old) nonce, reconstruct loaded details with the nonce.
             let (id, account) = if let Some(old_nonce) = old_nonce {
                 let (id, vault, storage, code, _nonce) = account.into_parts();
                 let nonce = old_nonce.try_into().map_err(DatabaseError::DataCorrupted)?;
@@ -269,7 +283,7 @@ pub fn compute_old_account_states(
                 (read_from_blob_column(row, 0)?, account)
             };
 
-            accounts.insert(id, account);
+            accounts.0.insert(id, account);
         }
     }
 
@@ -318,10 +332,10 @@ pub fn compute_old_account_states(
             old.block_num = (
                 SELECT MAX(block_num)
                 FROM account_storage_map_updates
-                WHERE 
-                    block_num <= ?2 AND 
-                    account_id = old.account_id AND 
-                    slot = old.slot AND 
+                WHERE
+                    block_num <= ?2 AND
+                    account_id = old.account_id AND
+                    slot = old.slot AND
                     key = old.key
             )
         WHERE
@@ -333,7 +347,7 @@ pub fn compute_old_account_states(
                     (block_num BETWEEN ?2 + 1 AND ?3) AND
                     new.account_id = account_id AND
                     new.slot = slot AND
-                    new.key = key  
+                    new.key = key
             )",
     )?;
     let mut rows = select_storage_map_updates_stmt.query(params![
@@ -367,17 +381,11 @@ pub fn compute_old_account_states(
         let account_id = read_from_blob_column(row, 0)?;
         let faucet_id = read_from_blob_column(row, 1)?;
         let amount: i64 = row.get(2)?;
-        let account = accounts.try_get_mut(&account_id)?;
         let asset = Asset::Fungible(
             FungibleAsset::new(faucet_id, amount.unsigned_abs())
                 .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?,
         );
-        if amount < 0 {
-            account.vault_mut().add_asset(asset)
-        } else {
-            account.vault_mut().remove_asset(asset)
-        }
-        .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
+        accounts.update_asset(&account_id, asset, amount >= 0)?; // Inverse logic
     }
 
     let mut select_latest_non_fungible_assets_stmt = conn.prepare_cached(
@@ -395,20 +403,12 @@ pub fn compute_old_account_states(
     while let Some(row) = rows.next()? {
         let account_id = read_from_blob_column(row, 0)?;
         let asset = read_from_blob_column(row, 1)?;
-        let is_remove: bool = row.get(2)?;
-        let account = accounts.try_get_mut(&account_id)?;
-
-        let asset = Asset::NonFungible(asset);
-        if is_remove {
-            account.vault_mut().add_asset(asset)
-        } else {
-            account.vault_mut().remove_asset(asset)
-        }
-        .map_err(|err| DatabaseError::DataCorrupted(err.to_string()))?;
+        let is_remove: bool = !row.get(2)?; // Inverse logic
+        accounts.update_asset(&account_id, Asset::NonFungible(asset), is_remove)?;
     }
 
     // Converting gathered data to vector of `Account` structures.
-    Ok(accounts.into_accounts().collect())
+    Ok(accounts.0.into_values().collect())
 }
 
 /// Selects and merges account deltas by account id and block range from the DB using the given
