@@ -203,7 +203,7 @@ pub fn select_accounts_by_ids(
 /// # Returns
 ///
 /// Account states vector, or an error.
-#[allow(dead_code)] // TODO: remove once the function is used
+#[expect(dead_code)] // TODO: remove once the function is used
 pub fn compute_old_account_states(
     conn: &mut Connection,
     account_ids: &[AccountId],
