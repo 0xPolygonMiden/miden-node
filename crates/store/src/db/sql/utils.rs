@@ -106,6 +106,29 @@ where
     })
 }
 
+/// Gets an optional (nullable) blob value from the database and tries to deserialize it into
+/// the necessary type.
+pub fn read_nullable_from_blob_column<I, T>(
+    row: &rusqlite::Row<'_>,
+    index: I,
+) -> rusqlite::Result<Option<T>>
+where
+    I: rusqlite::RowIndex + Copy + Into<usize>,
+    T: Deserializable,
+{
+    row.get_ref(index)?
+        .as_blob_or_null()?
+        .map(|value| T::read_from_bytes(value))
+        .transpose()
+        .map_err(|err| {
+            rusqlite::Error::FromSqlConversionFailure(
+                index.into(),
+                rusqlite::types::Type::Blob,
+                Box::new(err),
+            )
+        })
+}
+
 /// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
