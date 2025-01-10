@@ -12,6 +12,7 @@
 
 - [BREAKING] Added support for new two `Felt` account ID (#591).
 - [BREAKING] Inverted `TransactionInputs.missing_unauthenticated_notes` to `found_missing_notes` (#509).
+- [BREAKING] Remove store's `ListXXX` endpoints which were intended for test purposes (#608).
 
 ## v0.6.0 (2024-11-05)
 

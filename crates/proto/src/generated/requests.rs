@@ -115,12 +115,6 @@ pub struct GetNoteAuthenticationInfoRequest {
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ListNullifiersRequest {}
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ListAccountsRequest {}
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ListNotesRequest {}
 /// Returns the latest state of an account with the specified ID.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsRequest {
