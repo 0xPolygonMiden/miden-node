@@ -159,7 +159,8 @@ pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<Ac
     account_info_from_row(row)
 }
 
-/// Select the latest accounts' details filtered by IDs from the DB using the given [Connection].
+/// Select the latest accounts summary (with optional details for public accounts) filtered by IDs
+/// from the DB using the given [Connection].
 ///
 /// # Returns
 ///
@@ -197,7 +198,7 @@ pub fn select_accounts_by_ids(
     Ok(result)
 }
 
-/// Computes account states for the particular block number using the given [Connection].
+/// Computes public account states for the particular block number using the given [Connection].
 ///
 /// # Returns
 ///
@@ -237,13 +238,24 @@ pub fn compute_old_account_states(
         }
     }
 
-    let account_ids =
-        Rc::new(account_ids.iter().map(|id| id.to_bytes().into()).collect::<Vec<Value>>());
+    let account_ids = Rc::new(
+        account_ids
+            .iter()
+            .map(|id| {
+                if !id.is_public() {
+                    return Err(DatabaseError::AccountNotOnChain(*id));
+                }
+                Ok(id.to_bytes().into())
+            })
+            .collect::<Result<Vec<Value>>>()?,
+    );
 
     // Gathering data from different tables to a single accounts map.
     let mut accounts = Accounts::default();
     // Fence for possible situation, if new deltas were added during subsequent requests
     let mut latest_block_number: BlockNumber = 0;
+
+    // *** Query latest states with calculated nonces ***
 
     // We select states with possible nonce updates in order to (re)construct `Account` with final
     // nonce, since we're not able to decrease nonce in `Account`.
@@ -287,6 +299,8 @@ pub fn compute_old_account_states(
         }
     }
 
+    // *** Query and apply storage slot updates to the latest state ***
+
     let mut select_storage_slot_updates_stmt = conn.prepare_cached(
         "
         SELECT new.account_id, new.slot, old.value
@@ -321,6 +335,8 @@ pub fn compute_old_account_states(
         let account = accounts.try_get_mut(&account_id)?;
         account.storage_mut().set_item(slot, value)?;
     }
+
+    // *** Query and apply storage map updates to the latest state ***
 
     let mut select_storage_map_updates_stmt = conn.prepare_cached(
         "
@@ -364,6 +380,8 @@ pub fn compute_old_account_states(
         account.storage_mut().set_map_item(slot, key, value)?;
     }
 
+    // *** Query and add/subtract fungible asset updates to the latest state ***
+
     let mut select_fungible_asset_deltas_stmt = conn.prepare_cached(
         "
         SELECT account_id, faucet_id, SUM(delta) AS delta
@@ -387,6 +405,8 @@ pub fn compute_old_account_states(
         );
         accounts.update_asset(&account_id, asset, amount >= 0)?; // Inverse logic
     }
+
+    // *** Query and add/remove non-fungible asset updates to the latest state ***
 
     let mut select_latest_non_fungible_assets_stmt = conn.prepare_cached(
         "

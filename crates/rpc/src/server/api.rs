@@ -188,7 +188,7 @@ impl api_server::Api for RpcApi {
         self.block_producer.clone().submit_proven_transaction(request).await
     }
 
-    /// Returns details for public account by ID.
+    /// Returns account summary (with optional details for public account) by ID.
     #[instrument(
         target = COMPONENT,
         name = "rpc:get_account_details",
