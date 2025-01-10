@@ -5,19 +5,19 @@ use miden_objects::{
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
-    generated::{digest::Digest, responses::NullifierBlockInputRecord},
+    generated as proto,
 };
 
 // FROM NULLIFIER
 // ================================================================================================
 
-impl From<&Nullifier> for Digest {
+impl From<&Nullifier> for proto::digest::Digest {
     fn from(value: &Nullifier) -> Self {
         (*value).inner().into()
     }
 }
 
-impl From<Nullifier> for Digest {
+impl From<Nullifier> for proto::digest::Digest {
     fn from(value: Nullifier) -> Self {
         value.inner().into()
     }
@@ -26,10 +26,10 @@ impl From<Nullifier> for Digest {
 // INTO NULLIFIER
 // ================================================================================================
 
-impl TryFrom<Digest> for Nullifier {
+impl TryFrom<proto::digest::Digest> for Nullifier {
     type Error = ConversionError;
 
-    fn try_from(value: Digest) -> Result<Self, Self::Error> {
+    fn try_from(value: proto::digest::Digest) -> Result<Self, Self::Error> {
         let digest: RpoDigest = value.try_into()?;
         Ok(digest.into())
     }
@@ -44,24 +44,30 @@ pub struct NullifierWitness {
     pub proof: SmtProof,
 }
 
-impl TryFrom<NullifierBlockInputRecord> for NullifierWitness {
+impl TryFrom<proto::responses::NullifierBlockInputRecord> for NullifierWitness {
     type Error = ConversionError;
 
-    fn try_from(nullifier_input_record: NullifierBlockInputRecord) -> Result<Self, Self::Error> {
+    fn try_from(
+        nullifier_input_record: proto::responses::NullifierBlockInputRecord,
+    ) -> Result<Self, Self::Error> {
         Ok(Self {
             nullifier: nullifier_input_record
                 .nullifier
-                .ok_or(NullifierBlockInputRecord::missing_field(stringify!(nullifier)))?
+                .ok_or(proto::responses::NullifierBlockInputRecord::missing_field(stringify!(
+                    nullifier
+                )))?
                 .try_into()?,
             proof: nullifier_input_record
                 .opening
-                .ok_or(NullifierBlockInputRecord::missing_field(stringify!(opening)))?
+                .ok_or(proto::responses::NullifierBlockInputRecord::missing_field(stringify!(
+                    opening
+                )))?
                 .try_into()?,
         })
     }
 }
 
-impl From<NullifierWitness> for NullifierBlockInputRecord {
+impl From<NullifierWitness> for proto::responses::NullifierBlockInputRecord {
     fn from(value: NullifierWitness) -> Self {
         Self {
             nullifier: Some(value.nullifier.into()),
