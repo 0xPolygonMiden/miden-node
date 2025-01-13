@@ -22,7 +22,7 @@ pub fn subscriber() -> impl Subscriber + core::fmt::Debug {
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
             // axum logs rejections from built-in extracts on the trace level, so we enable this
             // manually.
-            format!("{}=info,axum::rejection=trace", env!("CARGO_CRATE_NAME")).into()
+            "info,axum::rejection=trace".into()
         }))
         .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
         .finish()
@@ -37,7 +37,7 @@ pub fn subscriber() -> impl Subscriber + core::fmt::Debug {
         EnvFilter::try_from_default_env().unwrap_or_else(|_| {
             // axum logs rejections from built-in extracts on the trace level, so we enable this
             // manually.
-            format!("{}=info,axum::rejection=trace", env!("CARGO_CRATE_NAME")).into()
+            "info,axum::rejection=trace".into()
         }),
     )
 }
