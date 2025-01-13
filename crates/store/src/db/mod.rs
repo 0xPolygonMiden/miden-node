@@ -7,7 +7,7 @@ use std::{
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
     domain::accounts::{AccountInfo, AccountSummary},
-    generated::note::{Note as NotePb, NoteSyncRecord as NoteSyncRecordPb},
+    generated::note as proto,
 };
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
@@ -68,7 +68,7 @@ pub struct NoteRecord {
     pub merkle_path: MerklePath,
 }
 
-impl From<NoteRecord> for NotePb {
+impl From<NoteRecord> for proto::Note {
     fn from(note: NoteRecord) -> Self {
         Self {
             block_num: note.block_num,
@@ -105,7 +105,7 @@ pub struct NoteSyncRecord {
     pub merkle_path: MerklePath,
 }
 
-impl From<NoteSyncRecord> for NoteSyncRecordPb {
+impl From<NoteSyncRecord> for proto::NoteSyncRecord {
     fn from(note: NoteSyncRecord) -> Self {
         Self {
             note_index: note.note_index.leaf_index_value().into(),
@@ -230,22 +230,6 @@ impl Db {
                     "Select nullifiers by prefix task failed: {err}"
                 ))
             })?
-    }
-
-    /// Loads all the notes from the DB.
-    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_all_notes(&self) -> Result<Vec<NoteRecord>> {
-        self.pool.get().await?.interact(sql::select_all_notes).await.map_err(|err| {
-            DatabaseError::InteractError(format!("Select notes task failed: {err}"))
-        })?
-    }
-
-    /// Loads all the accounts from the DB.
-    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_all_accounts(&self) -> Result<Vec<AccountInfo>> {
-        self.pool.get().await?.interact(sql::select_all_accounts).await.map_err(|err| {
-            DatabaseError::InteractError(format!("Select accounts task failed: {err}"))
-        })?
     }
 
     /// Search for a [BlockHeader] from the database by its `block_num`.

@@ -160,24 +160,6 @@ pub struct GetNoteAuthenticationInfoResponse {
     pub proofs: ::core::option::Option<super::note::NoteAuthenticationInfo>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ListNullifiersResponse {
-    /// Lists all nullifiers of the current chain
-    #[prost(message, repeated, tag = "1")]
-    pub nullifiers: ::prost::alloc::vec::Vec<super::smt::SmtLeafEntry>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ListAccountsResponse {
-    /// Lists all accounts of the current chain
-    #[prost(message, repeated, tag = "1")]
-    pub accounts: ::prost::alloc::vec::Vec<super::account::AccountInfo>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ListNotesResponse {
-    /// Lists all notes of the current chain
-    #[prost(message, repeated, tag = "1")]
-    pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsResponse {
     /// Account info (with details for public accounts)
     #[prost(message, optional, tag = "1")]
@@ -233,7 +215,7 @@ pub struct AccountStateHeader {
     pub account_code: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     /// Storage slots information for this account
     #[prost(message, repeated, tag = "4")]
-    pub storage_slots: ::prost::alloc::vec::Vec<StorageSlotMapProof>,
+    pub storage_maps: ::prost::alloc::vec::Vec<StorageSlotMapProof>,
 }
 /// Represents a single storage slot with the reuqested keys and their respective values.
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -115,12 +115,6 @@ pub struct GetNoteAuthenticationInfoRequest {
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ListNullifiersRequest {}
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ListAccountsRequest {}
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ListNotesRequest {}
 /// Returns the latest state of an account with the specified ID.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsRequest {
@@ -156,7 +150,8 @@ pub struct GetAccountProofsRequest {
     pub account_requests: ::prost::alloc::vec::Vec<
         get_account_proofs_request::AccountRequest,
     >,
-    /// Optional flag to include header and account code in the response. False by default.
+    /// Optional flag to include account headers and account code in the response. If false, storage
+    /// requests are also ignored. False by default.
     #[prost(bool, optional, tag = "2")]
     pub include_headers: ::core::option::Option<bool>,
     /// Account code commitments corresponding to the last-known `AccountCode` for requested

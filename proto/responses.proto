@@ -144,21 +144,6 @@ message GetNoteAuthenticationInfoResponse {
     note.NoteAuthenticationInfo proofs = 1;
 }
 
-message ListNullifiersResponse {
-    // Lists all nullifiers of the current chain
-    repeated smt.SmtLeafEntry nullifiers = 1;
-}
-
-message ListAccountsResponse {
-    // Lists all accounts of the current chain
-    repeated account.AccountInfo accounts = 1;
-}
-
-message ListNotesResponse {
-    // Lists all notes of the current chain
-    repeated note.Note notes = 1;
-}
-
 message GetAccountDetailsResponse {
     // Account info (with details for public accounts)
     account.AccountInfo details = 1;
@@ -204,7 +189,7 @@ message AccountStateHeader {
     optional bytes account_code = 3;
 
     // Storage slots information for this account
-    repeated StorageSlotMapProof storage_slots = 4;
+    repeated StorageSlotMapProof storage_maps = 4;
 }
 
 // Represents a single storage slot with the reuqested keys and their respective values.

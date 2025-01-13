@@ -2,6 +2,8 @@
 
 The **Store** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in
 the store, the node does not consider it to be part of the chain.
+Incoming requests to the store are trusted because they are validated in the RPC component.
+
 **Store** is one of components of the [Miden node](..).
 
 ## Architecture
@@ -16,7 +18,7 @@ The Store can be installed and run as part of [Miden node](../README.md#installi
 
 ## API
 
-The **Store** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file.
+The **Store** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file. 
 Here is a brief description of supported methods.
 
 ### ApplyBlock
@@ -156,44 +158,6 @@ contains excessive notes and nullifiers, client can make additional filtering of
 - `notes`: `[NoteSyncRecord]` – a list of all notes together with the Merkle paths from `response.block_header.note_root`.
 - `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
     - Each `NullifierUpdate` consists of the `nullifier` and `block_num` the block number in which the note corresponding to that nullifier was consumed.
-
-## Methods for testing purposes
-
-### ListNullifiers
-
-Lists all nullifiers of the current chain.
-
-**Parameters**
-
-This request doesn't have any parameters.
-
-**Returns**
-
-- `nullifiers`: `[NullifierLeaf]` – lists of all nullifiers of the current chain.
-
-### ListAccounts
-
-Lists all accounts of the current chain.
-
-**Parameters**
-
-This request doesn't have any parameters.
-
-**Returns**
-
-- `accounts`: `[AccountInfo]` – list of all accounts of the current chain.
-
-### ListNotes
-
-Lists all notes of the current chain.
-
-**Parameters**
-
-This request doesn't have any parameters.
-
-**Returns**
-
-- `notes`: `[Note]` – list of all notes of the current chain.
 
 ## License
 

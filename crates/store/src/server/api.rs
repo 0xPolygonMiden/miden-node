@@ -16,19 +16,16 @@ use miden_node_proto::{
             GetAccountDetailsRequest, GetAccountProofsRequest, GetAccountStateDeltaRequest,
             GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
             GetNoteAuthenticationInfoRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
-            ListAccountsRequest, ListNotesRequest, ListNullifiersRequest, SyncNoteRequest,
-            SyncStateRequest,
+            SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
             GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
             GetBlockInputsResponse, GetNoteAuthenticationInfoResponse, GetNotesByIdResponse,
-            GetTransactionInputsResponse, ListAccountsResponse, ListNotesResponse,
-            ListNullifiersResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            GetTransactionInputsResponse, NullifierTransactionInputRecord, NullifierUpdate,
             SyncNoteResponse, SyncStateResponse,
         },
-        smt::SmtLeafEntry,
         store::api_server,
         transaction::TransactionSummary,
     },
@@ -40,7 +37,6 @@ use miden_objects::{
     crypto::hash::rpo::RpoDigest,
     notes::{NoteId, Nullifier},
     utils::{Deserializable, Serializable},
-    Felt, ZERO,
 };
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
@@ -530,64 +526,6 @@ impl api_server::Api for StoreApi {
             .map(|delta| delta.to_bytes());
 
         Ok(Response::new(GetAccountStateDeltaResponse { delta }))
-    }
-
-    // TESTING ENDPOINTS
-    // --------------------------------------------------------------------------------------------
-
-    /// Returns a list of all nullifiers
-    #[instrument(
-        target = COMPONENT,
-        name = "store:list_nullifiers",
-        skip_all,
-        ret(level = "debug"),
-        err
-    )]
-    async fn list_nullifiers(
-        &self,
-        _request: Request<ListNullifiersRequest>,
-    ) -> Result<Response<ListNullifiersResponse>, Status> {
-        let raw_nullifiers = self.state.list_nullifiers().await?;
-        let nullifiers = raw_nullifiers
-            .into_iter()
-            .map(|(key, block_num)| SmtLeafEntry {
-                key: Some(key.into()),
-                value: Some([Felt::from(block_num), ZERO, ZERO, ZERO].into()),
-            })
-            .collect();
-        Ok(Response::new(ListNullifiersResponse { nullifiers }))
-    }
-
-    /// Returns a list of all notes
-    #[instrument(
-        target = COMPONENT,
-        name = "store:list_notes",
-        skip_all,
-        ret(level = "debug"),
-        err
-    )]
-    async fn list_notes(
-        &self,
-        _request: Request<ListNotesRequest>,
-    ) -> Result<Response<ListNotesResponse>, Status> {
-        let notes = self.state.list_notes().await?.into_iter().map(Into::into).collect();
-        Ok(Response::new(ListNotesResponse { notes }))
-    }
-
-    /// Returns a list of all accounts
-    #[instrument(
-        target = COMPONENT,
-        name = "store:list_accounts",
-        skip_all,
-        ret(level = "debug"),
-        err
-    )]
-    async fn list_accounts(
-        &self,
-        _request: Request<ListAccountsRequest>,
-    ) -> Result<Response<ListAccountsResponse>, Status> {
-        let accounts = self.state.list_accounts().await?.iter().map(Into::into).collect();
-        Ok(Response::new(ListAccountsResponse { accounts }))
     }
 }
 

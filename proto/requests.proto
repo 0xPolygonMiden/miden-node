@@ -104,12 +104,6 @@ message GetNoteAuthenticationInfoRequest {
     repeated digest.Digest note_ids = 1;
 }
 
-message ListNullifiersRequest {}
-
-message ListAccountsRequest {}
-
-message ListNotesRequest {}
-
 // Returns the latest state of an account with the specified ID.
 message GetAccountDetailsRequest {
     // Account ID to get details.
@@ -156,7 +150,8 @@ message GetAccountProofsRequest {
     // A list of account requests, including map keys + values.
     repeated AccountRequest account_requests = 1;
 
-    // Optional flag to include header and account code in the response. False by default.
+    // Optional flag to include account headers and account code in the response. If false, storage
+    // requests are also ignored. False by default.
     optional bool include_headers = 2;
 
     // Account code commitments corresponding to the last-known `AccountCode` for requested 
