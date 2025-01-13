@@ -11,13 +11,19 @@ use std::{
 
 use miden_node_proto::{
     convert,
-    domain::{accounts::AccountInfo, blocks::BlockInclusionProof, notes::NoteAuthenticationInfo},
-    generated::responses::{AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse},
+    domain::{
+        accounts::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
+        blocks::BlockInclusionProof,
+        notes::NoteAuthenticationInfo,
+    },
+    generated::responses::{
+        AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse, StorageSlotMapProof,
+    },
     AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::{AccountDelta, AccountHeader, AccountId},
+    accounts::{AccountDelta, AccountHeader, AccountId, StorageSlot},
     block::Block,
     crypto::{
         hash::rpo::RpoDigest,
@@ -673,8 +679,8 @@ impl State {
     /// Returns account proofs with optional account and storage headers.
     pub async fn get_account_proofs(
         &self,
-        account_ids: Vec<AccountId>,
-        request_code_commitments: BTreeSet<RpoDigest>,
+        account_requests: Vec<AccountProofRequest>,
+        known_code_commitments: BTreeSet<RpoDigest>,
         include_headers: bool,
     ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
         // Lock inner state for the whole operation. We need to hold this lock to prevent the
@@ -682,11 +688,13 @@ impl State {
         // because changing one of them would lead to inconsistent state.
         let inner_state = self.inner.read().await;
 
+        let account_ids: Vec<AccountId> =
+            account_requests.iter().map(|req| req.account_id).collect();
+
         let state_headers = if !include_headers {
             BTreeMap::<AccountId, AccountStateHeader>::default()
         } else {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
-
             if account_ids.len() > infos.len() {
                 let found_ids = infos.iter().map(|info| info.summary.account_id).collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
@@ -694,26 +702,56 @@ impl State {
                 ));
             }
 
-            infos
-                .into_iter()
-                .filter_map(|info| {
-                    info.details.map(|details| {
-                        (
-                            info.summary.account_id,
-                            AccountStateHeader {
-                                header: Some(AccountHeader::from(&details).into()),
-                                storage_header: details.storage().get_header().to_bytes(),
-                                // Only include account code if the request did not contain it
-                                // (known by the caller)
-                                account_code: request_code_commitments
-                                    .contains(&details.code().commitment())
-                                    .not()
-                                    .then_some(details.code().to_bytes()),
-                            },
-                        )
-                    })
-                })
-                .collect()
+            let mut headers_map = BTreeMap::new();
+
+            // Iterate and build state headers for public accounts
+            for request in account_requests {
+                let account_info = infos
+                    .iter()
+                    .find(|info| info.summary.account_id == request.account_id)
+                    .expect("retrieved accounts were validated against request");
+
+                if let Some(details) = &account_info.details {
+                    let mut storage_slot_map_keys = Vec::new();
+
+                    for StorageMapKeysProof { storage_index, storage_keys } in
+                        &request.storage_requests
+                    {
+                        if let Some(StorageSlot::Map(storage_map)) =
+                            details.storage().slots().get(*storage_index as usize)
+                        {
+                            for map_key in storage_keys {
+                                let proof = storage_map.open(map_key);
+
+                                let slot_map_key = StorageSlotMapProof {
+                                    storage_slot: *storage_index as u32,
+                                    smt_proof: proof.to_bytes(),
+                                };
+                                storage_slot_map_keys.push(slot_map_key);
+                            }
+                        } else {
+                            return Err(AccountError::StorageSlotNotMap(*storage_index).into());
+                        }
+                    }
+
+                    // Only include unknown account codes
+                    let account_code = known_code_commitments
+                        .contains(&details.code().commitment())
+                        .not()
+                        .then(|| details.code().to_bytes());
+
+                    let state_header = AccountStateHeader {
+                        header: Some(AccountHeader::from(details).into()),
+                        storage_header: details.storage().get_header().to_bytes(),
+                        account_code,
+                        storage_maps: storage_slot_map_keys,
+                    };
+
+                    headers_map.insert(account_info.summary.account_id, state_header);
+                }
+            }
+
+            headers_map
         };
 
         let responses = account_ids

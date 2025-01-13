@@ -8,6 +8,7 @@ use miden_objects::{
     Digest,
 };
 
+use super::try_convert;
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
     generated as proto,
@@ -90,6 +91,60 @@ impl From<&AccountInfo> for proto::account::AccountInfo {
             summary: Some(summary.into()),
             details: details.as_ref().map(|account| account.to_bytes()),
         }
+    }
+}
+
+// ACCOUNT STORAGE REQUEST
+// ================================================================================================
+
+/// Represents a request for an account proof alongside specific storage data.
+pub struct AccountProofRequest {
+    pub account_id: AccountId,
+    pub storage_requests: Vec<StorageMapKeysProof>,
+}
+
+impl TryInto<AccountProofRequest> for proto::requests::get_account_proofs_request::AccountRequest {
+    type Error = ConversionError;
+
+    fn try_into(self) -> Result<AccountProofRequest, Self::Error> {
+        let proto::requests::get_account_proofs_request::AccountRequest {
+            account_id,
+            storage_requests,
+        } = self;
+
+        Ok(AccountProofRequest {
+            account_id: account_id
+                .clone()
+                .ok_or(proto::requests::get_account_proofs_request::AccountRequest::missing_field(
+                    stringify!(account_id),
+                ))?
+                .try_into()?,
+            storage_requests: try_convert(storage_requests)?,
+        })
+    }
+}
+
+/// Represents a request for an account's storage map values and its proof of existence.
+pub struct StorageMapKeysProof {
+    /// Index of the storage map
+    pub storage_index: u8,
+    /// List of requested keys in the map
+    pub storage_keys: Vec<Digest>,
+}
+
+impl TryInto<StorageMapKeysProof> for proto::requests::get_account_proofs_request::StorageRequest {
+    type Error = ConversionError;
+
+    fn try_into(self) -> Result<StorageMapKeysProof, Self::Error> {
+        let proto::requests::get_account_proofs_request::StorageRequest {
+            storage_slot_index,
+            map_keys,
+        } = self;
+
+        Ok(StorageMapKeysProof {
+            storage_index: storage_slot_index.try_into()?,
+            storage_keys: try_convert(map_keys)?,
+        })
     }
 }
 

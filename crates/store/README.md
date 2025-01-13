@@ -2,6 +2,8 @@
 
 The **Store** maintains the state of the chain. It serves as the "source of truth" for the chain - i.e., if it is not in
 the store, the node does not consider it to be part of the chain.
+Incoming requests to the store are trusted because they are validated in the RPC component.
+
 **Store** is one of components of the [Miden node](..).
 
 ## Architecture
@@ -16,7 +18,7 @@ The Store can be installed and run as part of [Miden node](../README.md#installi
 
 ## API
 
-The **Store** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file.
+The **Store** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file. 
 Here is a brief description of supported methods.
 
 ### ApplyBlock
