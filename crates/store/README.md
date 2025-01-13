@@ -157,44 +157,6 @@ contains excessive notes and nullifiers, client can make additional filtering of
 - `nullifiers`: `[NullifierUpdate]` – a list of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
     - Each `NullifierUpdate` consists of the `nullifier` and `block_num` the block number in which the note corresponding to that nullifier was consumed.
 
-## Methods for testing purposes
-
-### ListNullifiers
-
-Lists all nullifiers of the current chain.
-
-**Parameters**
-
-This request doesn't have any parameters.
-
-**Returns**
-
-- `nullifiers`: `[NullifierLeaf]` – lists of all nullifiers of the current chain.
-
-### ListAccounts
-
-Lists all accounts of the current chain.
-
-**Parameters**
-
-This request doesn't have any parameters.
-
-**Returns**
-
-- `accounts`: `[AccountInfo]` – list of all accounts of the current chain.
-
-### ListNotes
-
-Lists all notes of the current chain.
-
-**Parameters**
-
-This request doesn't have any parameters.
-
-**Returns**
-
-- `notes`: `[Note]` – list of all notes of the current chain.
-
 ## License
 
 This project is [MIT licensed](../../LICENSE).

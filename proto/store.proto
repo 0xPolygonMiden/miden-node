@@ -20,9 +20,6 @@ service Api {
     rpc GetNoteAuthenticationInfo(requests.GetNoteAuthenticationInfoRequest) returns (responses.GetNoteAuthenticationInfoResponse) {}
     rpc GetNotesById(requests.GetNotesByIdRequest) returns (responses.GetNotesByIdResponse) {}
     rpc GetTransactionInputs(requests.GetTransactionInputsRequest) returns (responses.GetTransactionInputsResponse) {}
-    rpc ListAccounts(requests.ListAccountsRequest) returns (responses.ListAccountsResponse) {}
-    rpc ListNotes(requests.ListNotesRequest) returns (responses.ListNotesResponse) {}
-    rpc ListNullifiers(requests.ListNullifiersRequest) returns (responses.ListNullifiersResponse) {}
     rpc SyncNotes(requests.SyncNoteRequest) returns (responses.SyncNoteResponse) {}
     rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
 }

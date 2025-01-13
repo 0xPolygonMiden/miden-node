@@ -47,6 +47,7 @@ use crate::{
 /// # Returns
 ///
 /// A vector with accounts, or an error.
+#[cfg(test)]
 pub fn select_all_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
     let mut stmt = conn.prepare_cached(
         "
@@ -700,6 +701,7 @@ pub fn select_nullifiers_by_prefix(
 /// # Returns
 ///
 /// A vector with notes, or an error.
+#[cfg(test)]
 pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
     let mut stmt = conn.prepare_cached(
         "

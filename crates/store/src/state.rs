@@ -665,22 +665,6 @@ impl State {
         })
     }
 
-    /// Lists all known nullifiers with their inclusion blocks, intended for testing.
-    pub async fn list_nullifiers(&self) -> Result<Vec<(Nullifier, u32)>, DatabaseError> {
-        self.db.select_all_nullifiers().await
-    }
-
-    /// Lists all known accounts, with their ids, latest state hash, and block at which the account
-    /// was last modified, intended for testing.
-    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, DatabaseError> {
-        self.db.select_all_accounts().await
-    }
-
-    /// Lists all known notes, intended for testing.
-    pub async fn list_notes(&self) -> Result<Vec<NoteRecord>, DatabaseError> {
-        self.db.select_all_notes().await
-    }
-
     /// Returns details for public (on-chain) account.
     pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await

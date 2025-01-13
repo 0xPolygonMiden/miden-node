@@ -232,22 +232,6 @@ impl Db {
             })?
     }
 
-    /// Loads all the notes from the DB.
-    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_all_notes(&self) -> Result<Vec<NoteRecord>> {
-        self.pool.get().await?.interact(sql::select_all_notes).await.map_err(|err| {
-            DatabaseError::InteractError(format!("Select notes task failed: {err}"))
-        })?
-    }
-
-    /// Loads all the accounts from the DB.
-    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_all_accounts(&self) -> Result<Vec<AccountInfo>> {
-        self.pool.get().await?.interact(sql::select_all_accounts).await.map_err(|err| {
-            DatabaseError::InteractError(format!("Select accounts task failed: {err}"))
-        })?
-    }
-
     /// Search for a [BlockHeader] from the database by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
