@@ -9,20 +9,17 @@ use crate::{
     convert,
     domain::blocks::BlockInclusionProof,
     errors::{ConversionError, MissingFieldHelper},
-    generated::note::{
-        NoteAuthenticationInfo as NoteAuthenticationInfoProto,
-        NoteInclusionInBlockProof as NoteInclusionInBlockProofPb, NoteMetadata as NoteMetadataPb,
-    },
+    generated::note as proto,
     try_convert,
 };
 
-impl TryFrom<NoteMetadataPb> for NoteMetadata {
+impl TryFrom<proto::NoteMetadata> for NoteMetadata {
     type Error = ConversionError;
 
-    fn try_from(value: NoteMetadataPb) -> Result<Self, Self::Error> {
+    fn try_from(value: proto::NoteMetadata) -> Result<Self, Self::Error> {
         let sender = value
             .sender
-            .ok_or_else(|| NoteMetadataPb::missing_field(stringify!(sender)))?
+            .ok_or_else(|| proto::NoteMetadata::missing_field(stringify!(sender)))?
             .try_into()?;
         let note_type = NoteType::try_from(value.note_type as u64)?;
         let tag = NoteTag::from(value.tag);
@@ -35,7 +32,7 @@ impl TryFrom<NoteMetadataPb> for NoteMetadata {
     }
 }
 
-impl From<NoteMetadata> for NoteMetadataPb {
+impl From<NoteMetadata> for proto::NoteMetadata {
     fn from(val: NoteMetadata) -> Self {
         let sender = Some(val.sender().into());
         let note_type = val.note_type() as u32;
@@ -43,7 +40,7 @@ impl From<NoteMetadata> for NoteMetadataPb {
         let execution_hint: u64 = val.execution_hint().into();
         let aux = val.aux().into();
 
-        crate::generated::note::NoteMetadata {
+        proto::NoteMetadata {
             sender,
             note_type,
             tag,
@@ -53,7 +50,7 @@ impl From<NoteMetadata> for NoteMetadataPb {
     }
 }
 
-impl From<(&NoteId, &NoteInclusionProof)> for NoteInclusionInBlockProofPb {
+impl From<(&NoteId, &NoteInclusionProof)> for proto::NoteInclusionInBlockProof {
     fn from((note_id, proof): (&NoteId, &NoteInclusionProof)) -> Self {
         Self {
             note_id: Some(note_id.into()),
@@ -64,18 +61,18 @@ impl From<(&NoteId, &NoteInclusionProof)> for NoteInclusionInBlockProofPb {
     }
 }
 
-impl TryFrom<&NoteInclusionInBlockProofPb> for (NoteId, NoteInclusionProof) {
+impl TryFrom<&proto::NoteInclusionInBlockProof> for (NoteId, NoteInclusionProof) {
     type Error = ConversionError;
 
     fn try_from(
-        proof: &NoteInclusionInBlockProofPb,
+        proof: &proto::NoteInclusionInBlockProof,
     ) -> Result<(NoteId, NoteInclusionProof), Self::Error> {
         Ok((
             Digest::try_from(
                 proof
                     .note_id
                     .as_ref()
-                    .ok_or(NoteInclusionInBlockProofPb::missing_field(stringify!(note_id)))?,
+                    .ok_or(proto::NoteInclusionInBlockProof::missing_field(stringify!(note_id)))?,
             )?
             .into(),
             NoteInclusionProof::new(
@@ -84,7 +81,9 @@ impl TryFrom<&NoteInclusionInBlockProofPb> for (NoteId, NoteInclusionProof) {
                 proof
                     .merkle_path
                     .as_ref()
-                    .ok_or(NoteInclusionInBlockProofPb::missing_field(stringify!(merkle_path)))?
+                    .ok_or(proto::NoteInclusionInBlockProof::missing_field(stringify!(
+                        merkle_path
+                    )))?
                     .try_into()?,
             )?,
         ))
@@ -107,7 +106,7 @@ impl NoteAuthenticationInfo {
     }
 }
 
-impl From<NoteAuthenticationInfo> for NoteAuthenticationInfoProto {
+impl From<NoteAuthenticationInfo> for proto::NoteAuthenticationInfo {
     fn from(value: NoteAuthenticationInfo) -> Self {
         Self {
             note_proofs: convert(&value.note_proofs),
@@ -116,10 +115,10 @@ impl From<NoteAuthenticationInfo> for NoteAuthenticationInfoProto {
     }
 }
 
-impl TryFrom<NoteAuthenticationInfoProto> for NoteAuthenticationInfo {
+impl TryFrom<proto::NoteAuthenticationInfo> for NoteAuthenticationInfo {
     type Error = ConversionError;
 
-    fn try_from(value: NoteAuthenticationInfoProto) -> Result<Self, Self::Error> {
+    fn try_from(value: proto::NoteAuthenticationInfo) -> Result<Self, Self::Error> {
         let result = Self {
             block_proofs: try_convert(value.block_proofs)?,
             note_proofs: try_convert(&value.note_proofs)?,

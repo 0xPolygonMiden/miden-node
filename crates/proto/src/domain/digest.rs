@@ -207,23 +207,23 @@ mod test {
     use hex::{FromHex, ToHex};
     use proptest::prelude::*;
 
-    use crate::generated::digest::Digest;
+    use crate::generated::digest as proto;
 
     #[test]
     fn hex_digest() {
-        let digest = Digest {
+        let digest = proto::Digest {
             d0: 3488802789098113751,
             d1: 5271242459988994564,
             d2: 17816570245237064784,
             d3: 10910963388447438895,
         };
         let encoded: String = ToHex::encode_hex(&digest);
-        let round_trip: Result<Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
+        let round_trip: Result<proto::Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
         assert_eq!(digest, round_trip.unwrap());
 
-        let digest = Digest { d0: 0, d1: 0, d2: 0, d3: 0 };
+        let digest = proto::Digest { d0: 0, d1: 0, d2: 0, d3: 0 };
         let encoded: String = ToHex::encode_hex(&digest);
-        let round_trip: Result<Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
+        let round_trip: Result<proto::Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
         assert_eq!(digest, round_trip.unwrap());
     }
 
@@ -235,9 +235,9 @@ mod test {
             d2: u64,
             d3: u64,
         ) {
-            let digest = Digest { d0, d1, d2, d3 };
+            let digest = proto::Digest { d0, d1, d2, d3 };
             let encoded: String = ToHex::encode_hex(&digest);
-            let round_trip: Result<Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
+            let round_trip: Result<proto::Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
             assert_eq!(digest, round_trip.unwrap());
         }
     }

@@ -7,7 +7,7 @@ use std::{
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
     domain::accounts::{AccountInfo, AccountSummary},
-    generated::note::{Note as NotePb, NoteSyncRecord as NoteSyncRecordPb},
+    generated::note as proto,
 };
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
@@ -68,7 +68,7 @@ pub struct NoteRecord {
     pub merkle_path: MerklePath,
 }
 
-impl From<NoteRecord> for NotePb {
+impl From<NoteRecord> for proto::Note {
     fn from(note: NoteRecord) -> Self {
         Self {
             block_num: note.block_num,
@@ -105,7 +105,7 @@ pub struct NoteSyncRecord {
     pub merkle_path: MerklePath,
 }
 
-impl From<NoteSyncRecord> for NoteSyncRecordPb {
+impl From<NoteSyncRecord> for proto::NoteSyncRecord {
     fn from(note: NoteSyncRecord) -> Self {
         Self {
             note_index: note.note_index.leaf_index_value().into(),
