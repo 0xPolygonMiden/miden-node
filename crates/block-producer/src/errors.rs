@@ -40,21 +40,23 @@ pub enum BlockProducerError {
 #[derive(Debug, Error)]
 pub enum VerifyTxError {
     /// Another transaction already consumed the notes with given nullifiers
-    #[error("Input notes with given nullifiers were already consumed by another transaction")]
+    #[error(
+        "input notes with given nullifiers were already consumed by another transaction: {0:?}"
+    )]
     InputNotesAlreadyConsumed(Vec<Nullifier>),
 
     /// Unauthenticated transaction notes were not found in the store or in outputs of in-flight
     /// transactions
     #[error(
-        "Unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions: {0:?}"
+        "unauthenticated transaction notes were not found in the store or in outputs of in-flight transactions: {0:?}"
     )]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
 
-    #[error("Output note IDs already used: {0:?}")]
+    #[error("output note IDs already used: {0:?}")]
     OutputNotesAlreadyExist(Vec<NoteId>),
 
     /// The account's initial hash did not match the current account's hash
-    #[error("Incorrect account's initial hash ({tx_initial_account_hash}, current: {})", format_opt(.current_account_hash.as_ref()))]
+    #[error("incorrect account's initial hash ({tx_initial_account_hash}, current: {})", format_opt(.current_account_hash.as_ref()))]
     IncorrectAccountInitialHash {
         tx_initial_account_hash: Digest,
         current_account_hash: Option<Digest>,
@@ -64,14 +66,14 @@ pub enum VerifyTxError {
     ///
     /// TODO: Make this an "internal error". Q: Should we have a single `InternalError` enum for
     /// all internal errors that can occur across the system?
-    #[error("Failed to retrieve transaction inputs from the store: {0}")]
+    #[error("failed to retrieve transaction inputs from the store")]
     StoreConnectionFailed(#[from] StoreError),
 
-    #[error("Transaction input error: {0}")]
+    #[error("transaction input error")]
     TransactionInputError(#[from] TransactionInputError),
 
     /// Failed to verify the transaction execution proof
-    #[error("Invalid transaction proof error for transaction: {0}")]
+    #[error("invalid transaction proof error for transaction: {0}")]
     InvalidTransactionProof(TransactionId),
 }
 
@@ -80,19 +82,19 @@ pub enum VerifyTxError {
 
 #[derive(Debug, Error)]
 pub enum AddTransactionError {
-    #[error("Transaction verification failed: {0}")]
+    #[error("transaction verification failed")]
     VerificationFailed(#[from] VerifyTxError),
 
-    #[error("Transaction input data is stale. Required data from {stale_limit} or newer, but inputs are from {input_block}.")]
+    #[error("transaction input data is stale. Required data from {stale_limit} or newer, but inputs are from {input_block}")]
     StaleInputs {
         input_block: BlockNumber,
         stale_limit: BlockNumber,
     },
 
-    #[error("Deserialization failed: {0}")]
+    #[error("deserialization failed: {0}")]
     DeserializationError(String),
 
-    #[error("Transaction expired at {expired_at} but the limit was {limit}")]
+    #[error("transaction expired at {expired_at} but the limit was {limit}")]
     Expired {
         expired_at: BlockNumber,
         limit: BlockNumber,
@@ -125,32 +127,32 @@ impl From<AddTransactionError> for tonic::Status {
 /// Error encountered while building a batch.
 #[derive(Debug, Error)]
 pub enum BuildBatchError {
-    #[error("Duplicated unauthenticated transaction input note ID in the batch: {0}")]
+    #[error("duplicated unauthenticated transaction input note ID in the batch: {0}")]
     DuplicateUnauthenticatedNote(NoteId),
 
-    #[error("Duplicated transaction output note ID in the batch: {0}")]
+    #[error("duplicated transaction output note ID in the batch: {0}")]
     DuplicateOutputNote(NoteId),
 
-    #[error("Note hashes mismatch for note {id}: (input: {input_hash}, output: {output_hash})")]
+    #[error("note hashes mismatch for note {id}: (input: {input_hash}, output: {output_hash})")]
     NoteHashesMismatch {
         id: NoteId,
         input_hash: Digest,
         output_hash: Digest,
     },
 
-    #[error("Failed to merge transaction delta into account {account_id}: {error}")]
+    #[error("failed to merge transaction delta into account {account_id}: {error}")]
     AccountUpdateError {
         account_id: AccountId,
         error: AccountDeltaError,
     },
 
-    #[error("Nothing actually went wrong, failure was injected on purpose")]
+    #[error("nothing actually went wrong, failure was injected on purpose")]
     InjectedFailure,
 
-    #[error("Batch proving task panic'd")]
+    #[error("batch proving task panic'd")]
     JoinError(#[from] tokio::task::JoinError),
 
-    #[error("Fetching inputs from store failed")]
+    #[error("fetching inputs from store failed")]
     StoreError(#[from] StoreError),
 }
 
@@ -159,11 +161,11 @@ pub enum BuildBatchError {
 
 #[derive(Debug, Error)]
 pub enum BlockProverError {
-    #[error("Received invalid merkle path")]
+    #[error("received invalid merkle path")]
     InvalidMerklePaths(MerkleError),
-    #[error("Program execution failed")]
+    #[error("program execution failed")]
     ProgramExecutionFailed(ExecutionError),
-    #[error("Failed to retrieve {0} root from stack outputs")]
+    #[error("failed to retrieve {0} root from stack outputs")]
     InvalidRootOutput(&'static str),
 }
 
@@ -172,11 +174,11 @@ pub enum BlockProverError {
 
 #[derive(Debug, Error)]
 pub enum BuildBlockError {
-    #[error("failed to compute new block: {0}")]
+    #[error("failed to compute new block")]
     BlockProverFailed(#[from] BlockProverError),
-    #[error("failed to apply block: {0}")]
+    #[error("failed to apply block")]
     ApplyBlockFailed(#[source] StoreError),
-    #[error("failed to get block inputs from store: {0}")]
+    #[error("failed to get block inputs from store")]
     GetBlockInputsFailed(#[source] StoreError),
     #[error("store did not produce data for account: {0}")]
     MissingAccountInput(AccountId),
