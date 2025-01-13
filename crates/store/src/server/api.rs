@@ -311,7 +311,7 @@ impl api_server::Api for StoreApi {
         }))
     }
 
-    /// Returns details for public (public) account by id.
+    /// Returns account summary (with optional details for public account) by ID.
     #[instrument(
         target = COMPONENT,
         name = "store:get_account_details",

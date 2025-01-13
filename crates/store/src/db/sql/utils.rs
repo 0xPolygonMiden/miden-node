@@ -42,13 +42,14 @@ macro_rules! subst {
     };
 }
 
+pub(crate) use subst;
+
 /// Generates a simple insert SQL statement with parameters for the provided table name and fields.
 ///
 /// # Usage:
 ///
-/// ```
-/// insert_sql!(users { id, first_name, last_name, age });
-/// ```
+/// `insert_sql!(users { id, first_name, last_name, age });`
+///
 /// which generates:
 /// "INSERT INTO users (id, first_name, last_name, age) VALUES (?, ?, ?, ?)"
 macro_rules! insert_sql {
@@ -65,6 +66,8 @@ macro_rules! insert_sql {
         )
     };
 }
+
+pub(crate) use insert_sql;
 
 /// Converts a `u64` into a [Value].
 ///
@@ -101,6 +104,29 @@ where
             Box::new(err),
         )
     })
+}
+
+/// Gets an optional (nullable) blob value from the database and tries to deserialize it into
+/// the necessary type.
+pub fn read_nullable_from_blob_column<I, T>(
+    row: &rusqlite::Row<'_>,
+    index: I,
+) -> rusqlite::Result<Option<T>>
+where
+    I: rusqlite::RowIndex + Copy + Into<usize>,
+    T: Deserializable,
+{
+    row.get_ref(index)?
+        .as_blob_or_null()?
+        .map(|value| T::read_from_bytes(value))
+        .transpose()
+        .map_err(|err| {
+            rusqlite::Error::FromSqlConversionFailure(
+                index.into(),
+                rusqlite::types::Type::Blob,
+                Box::new(err),
+            )
+        })
 }
 
 /// Constructs `AccountSummary` from the row of `accounts` table.

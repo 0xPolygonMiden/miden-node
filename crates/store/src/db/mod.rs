@@ -320,7 +320,8 @@ impl Db {
             })?
     }
 
-    /// Loads public accounts details from the DB.
+    /// Loads the latest accounts summary (with optional details for public accounts) filtered by
+    /// IDs from the DB.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn select_accounts_by_ids(
         &self,
