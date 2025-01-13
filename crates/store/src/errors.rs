@@ -77,7 +77,7 @@ pub enum DatabaseError {
     #[error("accounts {0:?} not found")]
     AccountsNotFoundInDb(Vec<AccountId>),
     #[error("account {0} is not on the chain")]
-    AccountNotOnChain(AccountId),
+    AccountNotPublic(AccountId),
     #[error("block {0} not found")]
     BlockNotFoundInDb(BlockNumber),
     #[error("data corrupted: {0}")]
@@ -98,7 +98,7 @@ impl From<DatabaseError> for Status {
         match err {
             DatabaseError::AccountNotFoundInDb(_)
             | DatabaseError::AccountsNotFoundInDb(_)
-            | DatabaseError::AccountNotOnChain(_)
+            | DatabaseError::AccountNotPublic(_)
             | DatabaseError::BlockNotFoundInDb(_) => Status::not_found(err.to_string()),
 
             _ => Status::internal(err.to_string()),
