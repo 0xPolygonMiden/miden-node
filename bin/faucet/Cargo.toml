@@ -11,11 +11,6 @@ authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
-[features]
-# Makes `make-genesis` subcommand run faster. Is only suitable for testing.
-# INFO: Make sure that all your components have matching features for them to function.
-testing = ["miden-objects/testing", "miden-lib/testing"]
-
 [dependencies]
 anyhow = "1.0"
 axum = { version = "0.7", features = ["tokio"] }
