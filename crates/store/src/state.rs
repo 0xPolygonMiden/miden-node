@@ -175,7 +175,7 @@ impl State {
 
         let tx_hash = block.compute_tx_hash();
         if header.tx_hash() != tx_hash {
-            return Err(InvalidBlockError::InvalidTxHash {
+            return Err(InvalidBlockError::InvalidBlockTxHash {
                 expected: tx_hash,
                 actual: header.tx_hash(),
             }

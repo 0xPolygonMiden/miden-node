@@ -5,7 +5,7 @@ use miden_objects::{
     crypto::merkle::MerkleError,
     notes::{NoteId, Nullifier},
     transaction::TransactionId,
-    AccountDeltaError, Digest, TransactionInputError,
+    AccountDeltaError, Digest,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
@@ -69,9 +69,6 @@ pub enum VerifyTxError {
     #[error("failed to retrieve transaction inputs from the store")]
     StoreConnectionFailed(#[from] StoreError),
 
-    #[error("transaction input error")]
-    TransactionInputError(#[from] TransactionInputError),
-
     /// Failed to verify the transaction execution proof
     #[error("invalid transaction proof error for transaction: {0}")]
     InvalidTransactionProof(TransactionId),
@@ -85,16 +82,18 @@ pub enum AddTransactionError {
     #[error("transaction verification failed")]
     VerificationFailed(#[from] VerifyTxError),
 
-    #[error("transaction input data is stale. Required data from {stale_limit} or newer, but inputs are from {input_block}")]
+    #[error("transaction input data from block {input_block} is rejected as stale because it is older than the limit of {stale_limit}")]
     StaleInputs {
         input_block: BlockNumber,
         stale_limit: BlockNumber,
     },
 
-    #[error("deserialization failed: {0}")]
-    DeserializationError(String),
+    #[error("transaction deserialization failed")]
+    TransactionDeserializationFailed(#[source] miden_objects::utils::DeserializationError),
 
-    #[error("transaction expired at {expired_at} but the limit was {limit}")]
+    #[error(
+        "transaction expired at block height {expired_at} but the block height limit was {limit}"
+    )]
     Expired {
         expired_at: BlockNumber,
         limit: BlockNumber,
@@ -111,12 +110,12 @@ impl From<AddTransactionError> for tonic::Status {
             | VerificationFailed(VerifyTxError::IncorrectAccountInitialHash { .. })
             | VerificationFailed(VerifyTxError::InvalidTransactionProof(_))
             | Expired { .. }
-            | DeserializationError(_) => Self::invalid_argument(value.to_string()),
+            | TransactionDeserializationFailed(_) => Self::invalid_argument(value.to_string()),
 
             // Internal errors which should not be communicated to the user.
-            VerificationFailed(VerifyTxError::TransactionInputError(_))
-            | VerificationFailed(VerifyTxError::StoreConnectionFailed(_))
-            | StaleInputs { .. } => Self::internal("Internal error"),
+            VerificationFailed(VerifyTxError::StoreConnectionFailed(_)) | StaleInputs { .. } => {
+                Self::internal("Internal error")
+            },
         }
     }
 }
@@ -140,20 +139,22 @@ pub enum BuildBatchError {
         output_hash: Digest,
     },
 
-    #[error("failed to merge transaction delta into account {account_id}: {error}")]
+    #[error("failed to merge transaction delta into account {account_id}")]
     AccountUpdateError {
         account_id: AccountId,
-        error: AccountDeltaError,
+        source: AccountDeltaError,
     },
 
+    /// We sometimes randomly inject errors into the batch building process to test our failure
+    /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]
     InjectedFailure,
 
     #[error("batch proving task panic'd")]
     JoinError(#[from] tokio::task::JoinError),
 
-    #[error("fetching inputs from store failed")]
-    StoreError(#[from] StoreError),
+    #[error("failed to fetch batch inputs from store")]
+    FetchBatchInputsFailed(#[source] StoreError),
 }
 
 // Block prover errors
@@ -162,9 +163,9 @@ pub enum BuildBatchError {
 #[derive(Debug, Error)]
 pub enum BlockProverError {
     #[error("received invalid merkle path")]
-    InvalidMerklePaths(MerkleError),
+    InvalidMerklePaths(#[source] MerkleError),
     #[error("program execution failed")]
-    ProgramExecutionFailed(ExecutionError),
+    ProgramExecutionFailed(#[source] ExecutionError),
     #[error("failed to retrieve {0} root from stack outputs")]
     InvalidRootOutput(&'static str),
 }
@@ -176,25 +177,29 @@ pub enum BlockProverError {
 pub enum BuildBlockError {
     #[error("failed to compute new block")]
     BlockProverFailed(#[from] BlockProverError),
-    #[error("failed to apply block")]
-    ApplyBlockFailed(#[source] StoreError),
+    #[error("failed to apply block to store")]
+    StoreApplyBlockFailed(#[source] StoreError),
     #[error("failed to get block inputs from store")]
     GetBlockInputsFailed(#[source] StoreError),
-    #[error("store did not produce data for account: {0}")]
+    #[error("block inputs from store did not contain data for account {0}")]
     MissingAccountInput(AccountId),
-    #[error("store produced extra account data. Offending accounts: {0:?}")]
+    #[error("block inputs from store contained extra data for accounts {0:?}")]
     ExtraStoreData(Vec<AccountId>),
-    #[error("no matching state transition found for account {0}. Current account state is {1}, remaining updates: {2:?}")]
+    #[error("account {0} with state {1} cannot transaction to remaining states {2:?}")]
     InconsistentAccountStateTransition(AccountId, Digest, Vec<Digest>),
-    #[error("transaction batches and store don't produce the same nullifiers. Offending nullifiers: {0:?}")]
+    #[error(
+        "block inputs from store and transaction batches produced different nullifiers: {0:?}"
+    )]
     InconsistentNullifiers(Vec<Nullifier>),
     #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
     UnauthenticatedNotesNotFound(Vec<NoteId>),
-    #[error("failed to merge transaction delta into account {account_id}: {error}")]
+    #[error("failed to merge transaction delta into account {account_id}")]
     AccountUpdateError {
         account_id: AccountId,
-        error: AccountDeltaError,
+        source: AccountDeltaError,
     },
+    /// We sometimes randomly inject errors into the batch building process to test our failure
+    /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]
     InjectedFailure,
 }

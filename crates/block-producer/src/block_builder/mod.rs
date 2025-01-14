@@ -166,7 +166,7 @@ impl BlockBuilder {
         self.store
             .apply_block(&block)
             .await
-            .map_err(BuildBlockError::ApplyBlockFailed)?;
+            .map_err(BuildBlockError::StoreApplyBlockFailed)?;
 
         info!(target: COMPONENT, block_num, %block_hash, "block committed");
 

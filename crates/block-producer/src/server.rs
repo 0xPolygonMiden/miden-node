@@ -223,7 +223,7 @@ impl BlockProducerRpcServer {
         debug!(target: COMPONENT, ?request);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
-            .map_err(|err| AddTransactionError::DeserializationError(err.to_string()))?;
+            .map_err(AddTransactionError::TransactionDeserializationFailed)?;
 
         let tx_id = tx.id();
 

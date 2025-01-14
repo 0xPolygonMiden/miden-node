@@ -56,14 +56,17 @@ pub async fn get_tokens(
 
     // Check that the amount is in the asset amount options
     if !state.config.asset_amount_options.contains(&req.asset_amount) {
-        return Err(HandlerError::BadRequest("invalid asset amount".to_string()));
+        return Err(HandlerError::InvalidAssetAmount {
+            requested: req.asset_amount,
+            options: state.config.asset_amount_options.clone(),
+        });
     }
 
     let mut client = state.client.lock().await;
 
     // Receive and hex user account id
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
-        .map_err(|err| HandlerError::BadRequest(err.to_string()))?;
+        .map_err(HandlerError::AccountIdDeserializationError)?;
 
     // Execute transaction
     info!(target: COMPONENT, "Executing mint transaction for account.");

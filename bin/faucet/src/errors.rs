@@ -4,6 +4,7 @@ use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
+use miden_objects::AccountError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -23,24 +24,28 @@ pub enum HandlerError {
     #[error("internal error")]
     Internal(#[from] anyhow::Error),
 
-    #[error("bad request: {0}")]
-    BadRequest(String),
+    #[error("account ID deserialization failed")]
+    AccountIdDeserializationError(#[source] AccountError),
+
+    #[error("invalid asset amount {requested} requested, valid options are {options:?}")]
+    InvalidAssetAmount { requested: u64, options: Vec<u64> },
 }
 
 impl HandlerError {
     fn status_code(&self) -> StatusCode {
         match *self {
-            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::InvalidAssetAmount { .. } | Self::AccountIdDeserializationError(_) => {
+                StatusCode::BAD_REQUEST
+            },
             Self::ClientError(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
-    fn message(&self) -> String {
+    fn message(self) -> String {
         match self {
-            Self::BadRequest(msg) => msg,
-            Self::ClientError(_) | Self::Internal(_) => "Internal error",
+            Self::ClientError(_) | Self::Internal(_) => "Internal error".to_string(),
+            other => format!("{:#}", anyhow::Error::new(other)),
         }
-        .to_string()
     }
 }
 

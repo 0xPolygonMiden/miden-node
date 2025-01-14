@@ -224,7 +224,7 @@ impl WorkerPool {
                             transactions.iter().flat_map(|tx| tx.unauthenticated_notes()),
                         )
                         .await
-                        .map_err(|err| (id, err.into()))?;
+                        .map_err(|err| (id, BuildBatchError::FetchBatchInputsFailed(err)))?;
                     let batch = Self::build_batch(transactions, inputs).map_err(|err| (id, err))?;
 
                     tokio::time::sleep(simulated_proof_time).await;

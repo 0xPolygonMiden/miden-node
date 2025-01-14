@@ -476,10 +476,10 @@ impl Db {
         block_store: Arc<BlockStore>,
     ) -> Result<(), GenesisError> {
         let genesis_block = {
-            let file_contents = fs::read(genesis_filepath).map_err(|error| {
+            let file_contents = fs::read(genesis_filepath).map_err(|source| {
                 GenesisError::FailedToReadGenesisFile {
                     genesis_filepath: genesis_filepath.to_string(),
-                    error,
+                    source,
                 }
             })?;
 
@@ -535,7 +535,7 @@ impl Db {
                         Ok(())
                     })
                     .await
-                    .map_err(|err| GenesisError::ApplyBlockFailed(err.to_string()))??;
+                    .map_err(GenesisError::ApplyBlockFailed)??;
             },
         }
 

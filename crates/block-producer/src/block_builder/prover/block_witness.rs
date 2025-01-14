@@ -89,8 +89,8 @@ impl BlockWitness {
 
                 details = Some(match details {
                     None => update.details,
-                    Some(details) => details.merge(update.details).map_err(|err| {
-                        BuildBlockError::AccountUpdateError { account_id, error: err }
+                    Some(details) => details.merge(update.details).map_err(|source| {
+                        BuildBlockError::AccountUpdateError { account_id, source }
                     })?,
                 });
             }

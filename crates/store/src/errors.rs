@@ -1,6 +1,6 @@
 use std::io;
 
-use deadpool_sqlite::PoolError;
+use deadpool_sqlite::{InteractError, PoolError};
 use miden_objects::{
     accounts::AccountId,
     crypto::{
@@ -24,13 +24,11 @@ use crate::types::BlockNumber;
 
 #[derive(Debug, Error)]
 pub enum NullifierTreeError {
-    #[error("merkle error")]
-    MerkleError(#[from] MerkleError),
-    #[error("nullifier {nullifier} for block #{block_num} already exists in the nullifier tree")]
-    NullifierAlreadyExists {
-        nullifier: Nullifier,
-        block_num: BlockNumber,
-    },
+    #[error("failed to create nullifier tree")]
+    CreationFailed(#[source] MerkleError),
+
+    #[error("failed to mutate nullifier tree")]
+    MutationFailed(#[source] MerkleError),
 }
 
 // DATABASE ERRORS
@@ -150,12 +148,12 @@ pub enum GenesisError {
 
     // OTHER ERRORS
     // ---------------------------------------------------------------------------------------------
-    #[error("apply block failed: {0}")]
-    ApplyBlockFailed(String),
-    #[error("failed to read genesis file \"{genesis_filepath}\": {error}")]
+    #[error("apply block failed")]
+    ApplyBlockFailed(#[source] InteractError),
+    #[error("failed to read genesis file \"{genesis_filepath}\"")]
     FailedToReadGenesisFile {
         genesis_filepath: String,
-        error: io::Error,
+        source: io::Error,
     },
     #[error("block header in store doesn't match block header in genesis file. Expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}")]
     GenesisBlockHeaderMismatch {
@@ -172,8 +170,8 @@ pub enum InvalidBlockError {
     DuplicatedNullifiers(Vec<Nullifier>),
     #[error("invalid output note type: {0:?}")]
     InvalidOutputNoteType(Box<OutputNote>),
-    #[error("invalid tx hash: expected {expected}, but got {actual}")]
-    InvalidTxHash { expected: RpoDigest, actual: RpoDigest },
+    #[error("invalid block tx hash: expected {expected}, but got {actual}")]
+    InvalidBlockTxHash { expected: RpoDigest, actual: RpoDigest },
     #[error("received invalid account tree root")]
     NewBlockInvalidAccountRoot,
     #[error("new block number must be 1 greater than the current block number")]
