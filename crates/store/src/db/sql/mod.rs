@@ -252,16 +252,15 @@ pub fn compute_old_account_states(
 
     // Gathering data from different tables to a single accounts map.
     let mut accounts = Accounts::default();
-    // Fence for possible situation, if new deltas were added during subsequent requests
-    let mut latest_block_number: BlockNumber = 0;
+    let transaction = conn.transaction()?;
 
     // *** Query latest states with calculated nonces ***
 
     // We select states with possible nonce updates in order to (re)construct `Account` with final
     // nonce, since we're not able to decrease nonce in `Account`.
-    let mut select_latest_states_stmt = conn.prepare_cached(
+    let mut select_latest_states_stmt = transaction.prepare_cached(
         "
-        SELECT a.account_id, a.block_num, a.details, d.nonce
+        SELECT a.account_id, a.details, d.nonce
         FROM accounts a LEFT JOIN account_deltas d ON
             a.account_id = d.account_id AND
             d.block_num = (
@@ -276,14 +275,10 @@ pub fn compute_old_account_states(
     let mut rows =
         select_latest_states_stmt.query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
-        let account_details = row.get_ref(2)?.as_blob_or_null()?;
+        let account_details = row.get_ref(1)?.as_blob_or_null()?;
         if let Some(details) = account_details {
-            let block_number: BlockNumber = row.get(1)?;
-            if block_number > latest_block_number {
-                latest_block_number = block_number;
-            }
             let account = Account::read_from_bytes(details)?;
-            let old_nonce = row.get::<_, Option<u64>>(3)?;
+            let old_nonce = row.get::<_, Option<u64>>(2)?;
 
             // If there is updated (old) nonce, reconstruct loaded details with the nonce.
             let (id, account) = if let Some(old_nonce) = old_nonce {
@@ -301,7 +296,7 @@ pub fn compute_old_account_states(
 
     // *** Query and apply storage slot updates to the latest state ***
 
-    let mut select_storage_slot_updates_stmt = conn.prepare_cached(
+    let mut select_storage_slot_updates_stmt = transaction.prepare_cached(
         "
         SELECT new.account_id, new.slot, old.value
         FROM account_storage_slot_updates new LEFT JOIN account_storage_slot_updates old ON
@@ -318,16 +313,13 @@ pub fn compute_old_account_states(
                 SELECT MIN(block_num)
                 FROM account_storage_slot_updates
                 WHERE
-                    (block_num BETWEEN ?2 + 1 AND ?3) AND
+                    block_num > ?2 AND
                     new.account_id = account_id AND
                     new.slot = slot
             )",
     )?;
-    let mut rows = select_storage_slot_updates_stmt.query(params![
-        Rc::clone(&account_ids),
-        block_number,
-        latest_block_number,
-    ])?;
+    let mut rows =
+        select_storage_slot_updates_stmt.query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
         let account_id: AccountId = read_from_blob_column(row, 0)?;
         let slot: u8 = row.get(1)?;
@@ -338,7 +330,7 @@ pub fn compute_old_account_states(
 
     // *** Query and apply storage map updates to the latest state ***
 
-    let mut select_storage_map_updates_stmt = conn.prepare_cached(
+    let mut select_storage_map_updates_stmt = transaction.prepare_cached(
         "
         SELECT new.account_id, new.slot, new.key, old.value
         FROM account_storage_map_updates new LEFT JOIN account_storage_map_updates old ON
@@ -360,17 +352,14 @@ pub fn compute_old_account_states(
                 SELECT MIN(block_num)
                 FROM account_storage_map_updates
                 WHERE
-                    (block_num BETWEEN ?2 + 1 AND ?3) AND
+                    block_num > ?2 AND
                     new.account_id = account_id AND
                     new.slot = slot AND
                     new.key = key
             )",
     )?;
-    let mut rows = select_storage_map_updates_stmt.query(params![
-        Rc::clone(&account_ids),
-        block_number,
-        latest_block_number,
-    ])?;
+    let mut rows =
+        select_storage_map_updates_stmt.query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
         let account_id: AccountId = read_from_blob_column(row, 0)?;
         let slot: u8 = row.get(1)?;
@@ -382,19 +371,16 @@ pub fn compute_old_account_states(
 
     // *** Query and add/subtract fungible asset updates to the latest state ***
 
-    let mut select_fungible_asset_deltas_stmt = conn.prepare_cached(
+    let mut select_fungible_asset_deltas_stmt = transaction.prepare_cached(
         "
         SELECT account_id, faucet_id, SUM(delta) AS delta
         FROM account_fungible_asset_deltas
-        WHERE account_id IN rarray(?1) AND (block_num BETWEEN ?2 + 1 AND ?3)
+        WHERE account_id IN rarray(?1) AND block_num > ?2
         GROUP BY account_id, faucet_id
         HAVING delta != 0",
     )?;
-    let mut rows = select_fungible_asset_deltas_stmt.query(params![
-        Rc::clone(&account_ids),
-        block_number,
-        latest_block_number,
-    ])?;
+    let mut rows =
+        select_fungible_asset_deltas_stmt.query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
         let account_id = read_from_blob_column(row, 0)?;
         let faucet_id = read_from_blob_column(row, 1)?;
@@ -408,18 +394,15 @@ pub fn compute_old_account_states(
 
     // *** Query and add/remove non-fungible asset updates to the latest state ***
 
-    let mut select_latest_non_fungible_assets_stmt = conn.prepare_cached(
+    let mut select_latest_non_fungible_assets_stmt = transaction.prepare_cached(
         "
         SELECT account_id, vault_key, is_remove, block_num
         FROM account_non_fungible_asset_updates
-        WHERE account_id IN rarray(?1) AND (block_num BETWEEN ?2 + 1 AND ?3)
+        WHERE account_id IN rarray(?1) AND block_num > ?2
         ORDER BY account_id, block_num DESC",
     )?;
-    let mut rows = select_latest_non_fungible_assets_stmt.query(params![
-        Rc::clone(&account_ids),
-        block_number,
-        latest_block_number,
-    ])?;
+    let mut rows = select_latest_non_fungible_assets_stmt
+        .query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
         let account_id = read_from_blob_column(row, 0)?;
         let asset = read_from_blob_column(row, 1)?;
