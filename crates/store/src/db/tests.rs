@@ -947,7 +947,7 @@ fn notes() {
     let note_0 = res[0].clone();
     let note_1 = res[1].clone();
     assert_eq!(note_0.details, Some(vec![1, 2, 3]));
-    assert_eq!(note_1.details, None)
+    assert_eq!(note_1.details, None);
 }
 
 // UTILITIES

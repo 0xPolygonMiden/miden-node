@@ -66,7 +66,7 @@ pub fn select_all_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
 
     let mut accounts = vec![];
     while let Some(row) = rows.next()? {
-        accounts.push(account_info_from_row(row)?)
+        accounts.push(account_info_from_row(row)?);
     }
     Ok(accounts)
 }
@@ -131,7 +131,7 @@ pub fn select_accounts_by_block_range(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        result.push(account_summary_from_row(row)?)
+        result.push(account_summary_from_row(row)?);
     }
 
     Ok(result)
@@ -195,7 +195,7 @@ pub fn select_accounts_by_ids(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        result.push(account_info_from_row(row)?)
+        result.push(account_info_from_row(row)?);
     }
 
     Ok(result)
@@ -573,7 +573,7 @@ pub fn insert_nullifiers_for_block(
     let mut count = 0;
     for nullifier in nullifiers.iter() {
         count +=
-            stmt.execute(params![nullifier.to_bytes(), get_nullifier_prefix(nullifier), block_num])?
+            stmt.execute(params![nullifier.to_bytes(), get_nullifier_prefix(nullifier), block_num])?;
     }
     Ok(count)
 }
@@ -753,7 +753,7 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             metadata,
             details,
             merkle_path,
-        })
+        });
     }
     Ok(notes)
 }
@@ -924,7 +924,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
             note_id: note_id.into(),
             metadata,
             merkle_path,
-        })
+        });
     }
 
     Ok(notes)
@@ -1106,7 +1106,7 @@ pub fn insert_transactions(
         let account_id = update.account_id();
         for transaction_id in update.transactions() {
             count +=
-                stmt.execute(params![transaction_id.to_bytes(), account_id.to_bytes(), block_num])?
+                stmt.execute(params![transaction_id.to_bytes(), account_id.to_bytes(), block_num])?;
         }
     }
     Ok(count)

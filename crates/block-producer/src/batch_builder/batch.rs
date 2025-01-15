@@ -138,7 +138,7 @@ impl TransactionBatch {
                 Entry::Occupied(occupied) => {
                     occupied.into_mut().merge_tx(tx).map_err(|source| {
                         BuildBatchError::AccountUpdateError { account_id: tx.account_id(), source }
-                    })?
+                    })?;
                 },
             };
 
@@ -181,7 +181,7 @@ impl TransactionBatch {
                     },
                     None => input_note.clone(),
                 };
-                input_notes.push(input_note)
+                input_notes.push(input_note);
             }
         }
 
@@ -330,7 +330,7 @@ mod tests {
 
         match OutputNoteTracker::new(txs.iter()) {
             Err(BuildBatchError::DuplicateOutputNote(note_id)) => {
-                assert_eq!(note_id, duplicate_output_note.id())
+                assert_eq!(note_id, duplicate_output_note.id());
             },
             res => panic!("Unexpected result: {res:?}"),
         }
@@ -366,7 +366,7 @@ mod tests {
         txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
         match TransactionBatch::new(&txs, Default::default()) {
             Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id)) => {
-                assert_eq!(note_id, duplicate_note.id())
+                assert_eq!(note_id, duplicate_note.id());
             },
             res => panic!("Unexpected result: {res:?}"),
         }
