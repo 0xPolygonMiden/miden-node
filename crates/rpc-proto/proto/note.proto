@@ -6,7 +6,7 @@ import "block.proto";
 import "digest.proto";
 import "merkle.proto";
 
-// Represents a note metadata.
+// Represents a note's metadata.
 message NoteMetadata {
     // The sender of the note.
     account.AccountId sender = 1;
