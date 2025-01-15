@@ -179,7 +179,7 @@ fn sql_select_notes() {
                 NoteType::Public,
                 i.into(),
                 NoteExecutionHint::none(),
-                Default::default(),
+                Felt::default(),
             )
             .unwrap(),
             details: Some(vec![1, 2, 3]),
@@ -219,7 +219,7 @@ fn sql_select_notes_different_execution_hints() {
             NoteType::Public,
             0.into(),
             NoteExecutionHint::none(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details: Some(vec![1, 2, 3]),
@@ -243,7 +243,7 @@ fn sql_select_notes_different_execution_hints() {
             NoteType::Public,
             1.into(),
             NoteExecutionHint::always(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details: Some(vec![1, 2, 3]),
@@ -267,7 +267,7 @@ fn sql_select_notes_different_execution_hints() {
             NoteType::Public,
             2.into(),
             NoteExecutionHint::after_block(12).unwrap(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details: Some(vec![1, 2, 3]),
@@ -881,7 +881,7 @@ fn notes() {
             NoteType::Public,
             tag.into(),
             NoteExecutionHint::none(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details,

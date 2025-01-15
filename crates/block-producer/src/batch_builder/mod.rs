@@ -139,7 +139,7 @@ impl WorkerPool {
             capacity,
             store,
             in_progress: JoinSet::default(),
-            task_map: Default::default(),
+            task_map: Vec::default(),
         }
     }
 

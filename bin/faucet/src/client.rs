@@ -137,7 +137,7 @@ impl FaucetClient {
             target_account_id,
             vec![asset.into()],
             note_type,
-            Default::default(),
+            Felt::default(),
             &mut self.rng,
         )
         .context("Failed to create P2ID note")?;

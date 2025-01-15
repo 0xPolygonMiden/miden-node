@@ -1,3 +1,4 @@
+use miden_node_proto::domain::notes::NoteAuthenticationInfo;
 use pretty_assertions::assert_eq;
 
 use super::*;
@@ -7,10 +8,10 @@ impl Mempool {
     fn for_tests() -> Self {
         Self::new(
             BlockNumber::new(0),
-            Default::default(),
-            Default::default(),
+            BatchBudget::default(),
+            BlockBudget::default(),
             5,
-            Default::default(),
+            BlockNumber::default(),
         )
     }
 }
@@ -47,7 +48,8 @@ fn children_of_failed_batches_are_ignored() {
     assert_eq!(uut, reference);
 
     let proof =
-        TransactionBatch::new([txs[2].raw_proven_transaction()], Default::default()).unwrap();
+        TransactionBatch::new([txs[2].raw_proven_transaction()], NoteAuthenticationInfo::default())
+            .unwrap();
     uut.batch_proved(proof);
     assert_eq!(uut, reference);
 }
@@ -93,7 +95,11 @@ fn block_commit_reverts_expired_txns() {
     uut.add_transaction(tx_to_commit.clone()).unwrap();
     uut.select_batch().unwrap();
     uut.batch_proved(
-        TransactionBatch::new([tx_to_commit.raw_proven_transaction()], Default::default()).unwrap(),
+        TransactionBatch::new(
+            [tx_to_commit.raw_proven_transaction()],
+            NoteAuthenticationInfo::default(),
+        )
+        .unwrap(),
     );
     let (block, _) = uut.select_block();
     // A reverted transaction behaves as if it never existed, the current state is the expected
@@ -163,8 +169,11 @@ fn block_failure_reverts_its_transactions() {
     uut.add_transaction(reverted_txs[0].clone()).unwrap();
     uut.select_batch().unwrap();
     uut.batch_proved(
-        TransactionBatch::new([reverted_txs[0].raw_proven_transaction()], Default::default())
-            .unwrap(),
+        TransactionBatch::new(
+            [reverted_txs[0].raw_proven_transaction()],
+            NoteAuthenticationInfo::default(),
+        )
+        .unwrap(),
     );
 
     // Block 1 will contain just the first batch.

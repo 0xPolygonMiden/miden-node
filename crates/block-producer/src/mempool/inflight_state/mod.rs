@@ -98,11 +98,11 @@ impl InflightState {
             num_retained_blocks,
             chain_tip,
             expiration_slack,
-            accounts: Default::default(),
-            nullifiers: Default::default(),
-            output_notes: Default::default(),
-            transaction_deltas: Default::default(),
-            committed_blocks: Default::default(),
+            accounts: BTreeMap::default(),
+            nullifiers: BTreeSet::default(),
+            output_notes: BTreeMap::default(),
+            transaction_deltas: BTreeMap::default(),
+            committed_blocks: VecDeque::default(),
         }
     }
 

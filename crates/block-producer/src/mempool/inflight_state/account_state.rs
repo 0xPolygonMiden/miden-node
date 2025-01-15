@@ -276,7 +276,7 @@ mod tests {
         uut.commit(N);
         let _ = uut.prune_committed(N);
 
-        assert_eq!(uut, Default::default());
+        assert_eq!(uut, InflightAccountState::default());
     }
 
     #[test]
@@ -290,7 +290,7 @@ mod tests {
 
         let _ = uut.revert(N);
 
-        assert_eq!(uut, Default::default());
+        assert_eq!(uut, InflightAccountState::default());
     }
 
     #[test]

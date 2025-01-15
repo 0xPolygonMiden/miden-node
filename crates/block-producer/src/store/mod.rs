@@ -11,8 +11,8 @@ use miden_node_proto::{
     generated::{
         digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetTransactionInputsRequest,
+            ApplyBlockRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNoteAuthenticationInfoRequest, GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
@@ -141,7 +141,9 @@ impl StoreClient {
         let response = self
             .inner
             .clone()
-            .get_block_header_by_number(tonic::Request::new(Default::default()))
+            .get_block_header_by_number(tonic::Request::new(
+                GetBlockHeaderByNumberRequest::default(),
+            ))
             .await?
             .into_inner()
             .block_header

@@ -1,3 +1,5 @@
+use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+
 use crate::{batch_builder::TransactionBatch, test_utils::MockProvenTxBuilder};
 
 pub trait TransactionBatchConstructor {
@@ -24,7 +26,7 @@ impl TransactionBatchConstructor for TransactionBatch {
             })
             .collect();
 
-        Self::new(&txs, Default::default()).unwrap()
+        Self::new(&txs, NoteAuthenticationInfo::default()).unwrap()
     }
 
     fn from_txs(starting_account_index: u32, num_txs_in_batch: u64) -> Self {
@@ -36,6 +38,6 @@ impl TransactionBatchConstructor for TransactionBatch {
             })
             .collect();
 
-        Self::new(&txs, Default::default()).unwrap()
+        Self::new(&txs, NoteAuthenticationInfo::default()).unwrap()
     }
 }

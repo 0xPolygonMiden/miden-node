@@ -108,12 +108,12 @@ pub enum GraphError<K> {
 impl<K, V> Default for DependencyGraph<K, V> {
     fn default() -> Self {
         Self {
-            vertices: Default::default(),
-            pending: Default::default(),
-            parents: Default::default(),
-            children: Default::default(),
-            roots: Default::default(),
-            processed: Default::default(),
+            vertices: BTreeMap::default(),
+            pending: BTreeSet::default(),
+            parents: BTreeMap::default(),
+            children: BTreeMap::default(),
+            roots: BTreeSet::default(),
+            processed: BTreeSet::default(),
         }
     }
 }
@@ -146,7 +146,7 @@ impl<K: Ord + Copy + Display + Debug, V: Clone> DependencyGraph<K, V> {
         }
         self.pending.insert(key);
         self.parents.insert(key, parents);
-        self.children.insert(key, Default::default());
+        self.children.insert(key, BTreeSet::default());
 
         Ok(())
     }

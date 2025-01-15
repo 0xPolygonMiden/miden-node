@@ -151,7 +151,7 @@ impl MockStoreSuccessBuilder {
                 initial_block_header.block_num(),
                 initial_block_header,
             )]))),
-            num_apply_block_called: Default::default(),
+            num_apply_block_called: Arc::default(),
             notes: Arc::new(RwLock::new(notes)),
         }
     }

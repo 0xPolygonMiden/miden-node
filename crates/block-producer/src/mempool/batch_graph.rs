@@ -294,8 +294,8 @@ mod tests {
 
         let mut uut = BatchGraph::default();
 
-        uut.insert(vec![tx_dup], Default::default()).unwrap();
-        let err = uut.insert(vec![tx_dup, tx_non_dup], Default::default()).unwrap_err();
+        uut.insert(vec![tx_dup], BTreeSet::default()).unwrap();
+        let err = uut.insert(vec![tx_dup, tx_non_dup], BTreeSet::default()).unwrap_err();
         let expected = BatchInsertError::DuplicateTransactions([tx_dup].into());
 
         assert_eq!(err, expected);
@@ -339,10 +339,10 @@ mod tests {
         let disjoint_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect();
 
         let mut uut = BatchGraph::default();
-        let parent_batch_id = uut.insert(parent_batch_txs.clone(), Default::default()).unwrap();
+        let parent_batch_id = uut.insert(parent_batch_txs.clone(), BTreeSet::default()).unwrap();
         let child_batch_id =
             uut.insert(child_batch_txs.clone(), [parent_batch_txs[0]].into()).unwrap();
-        uut.insert(disjoint_batch_txs, Default::default()).unwrap();
+        uut.insert(disjoint_batch_txs, BTreeSet::default()).unwrap();
 
         let result = uut.remove_batches([parent_batch_id].into()).unwrap();
         let expected =

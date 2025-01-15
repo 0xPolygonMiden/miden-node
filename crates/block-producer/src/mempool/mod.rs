@@ -234,10 +234,10 @@ impl Mempool {
             batch_budget,
             block_budget,
             state: InflightState::new(chain_tip, state_retention, expiration_slack),
-            block_in_progress: Default::default(),
-            transactions: Default::default(),
-            batches: Default::default(),
-            expirations: Default::default(),
+            block_in_progress: None,
+            transactions: TransactionGraph::default(),
+            batches: BatchGraph::default(),
+            expirations: TransactionExpirations::default(),
         }
     }
 

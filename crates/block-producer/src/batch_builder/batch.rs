@@ -364,7 +364,7 @@ mod tests {
         let mut txs = mock_proven_txs();
         let duplicate_note = mock_note(5);
         txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
-        match TransactionBatch::new(&txs, Default::default()) {
+        match TransactionBatch::new(&txs, NoteAuthenticationInfo::default()) {
             Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id)) => {
                 assert_eq!(note_id, duplicate_note.id());
             },
@@ -382,7 +382,7 @@ mod tests {
             vec![mock_output_note(9), mock_output_note(10)],
         ));
 
-        let batch = TransactionBatch::new(&txs, Default::default()).unwrap();
+        let batch = TransactionBatch::new(&txs, NoteAuthenticationInfo::default()).unwrap();
 
         // One of the unauthenticated notes must be removed from the batch due to the consumption
         // of the corresponding output note
@@ -424,7 +424,7 @@ mod tests {
         )]);
         let found_unauthenticated_notes = NoteAuthenticationInfo {
             note_proofs: found_unauthenticated_notes,
-            block_proofs: Default::default(),
+            block_proofs: Vec::default(),
         };
         let batch = TransactionBatch::new(&txs, found_unauthenticated_notes).unwrap();
 
