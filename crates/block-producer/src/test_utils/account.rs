@@ -38,7 +38,7 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
             init_seed,
             AccountType::RegularAccountUpdatableCode,
             AccountStorageMode::Private,
-            AccountIdVersion::VERSION_0,
+            AccountIdVersion::Version0,
             Digest::default(),
             Digest::default(),
             Digest::default(),
@@ -49,6 +49,7 @@ impl<const NUM_STATES: usize> MockPrivateAccount<NUM_STATES> {
             AccountId::new(
                 account_seed,
                 AccountIdAnchor::PRE_GENESIS,
+                AccountIdVersion::Version0,
                 Digest::default(),
                 Digest::default(),
             )
