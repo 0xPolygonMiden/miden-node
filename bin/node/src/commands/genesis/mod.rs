@@ -38,7 +38,7 @@ const DEFAULT_ACCOUNTS_DIR: &str = "accounts/";
 /// This function returns a `Result` type. On successful creation of the genesis file, it returns
 /// `Ok(())`. If it fails at any point, due to issues like file existence checks or read/write
 /// operations, it returns an `Err` with a detailed error message.
-pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) -> Result<()> {
+pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: bool) -> Result<()> {
     let inputs_path = Path::new(inputs_path);
     let output_path = Path::new(output_path);
 
@@ -97,7 +97,7 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
 fn create_accounts(
     accounts: &[AccountInput],
     accounts_path: impl AsRef<Path>,
-    force: &bool,
+    force: bool,
 ) -> Result<Vec<Account>> {
     if accounts_path.as_ref().try_exists()? {
         if !force {
@@ -217,7 +217,7 @@ mod tests {
             let genesis_dat_file_path = PathBuf::from(DEFAULT_GENESIS_FILE_PATH);
 
             //  run make_genesis to generate genesis.dat and accounts folder and files
-            super::make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
+            super::make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, true).unwrap();
 
             let a0_file_path = PathBuf::from("accounts/faucet.mac");
 

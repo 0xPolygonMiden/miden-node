@@ -128,8 +128,8 @@ pub enum AccountStatus {
 }
 
 impl AccountStatus {
-    pub fn is_empty(&self) -> bool {
-        *self == Self::Empty
+    pub fn is_empty(self) -> bool {
+        self == Self::Empty
     }
 }
 

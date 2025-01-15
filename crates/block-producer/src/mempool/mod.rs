@@ -50,14 +50,13 @@ impl BlockNumber {
         Self(x)
     }
 
-    pub fn next(&self) -> Self {
-        let mut ret = *self;
-        ret.increment();
+    pub fn next(mut self) -> Self {
+        self.increment();
 
-        ret
+        self
     }
 
-    pub fn prev(&self) -> Option<Self> {
+    pub fn prev(self) -> Option<Self> {
         self.checked_sub(Self(1))
     }
 
@@ -65,7 +64,7 @@ impl BlockNumber {
         self.0 += 1;
     }
 
-    pub fn checked_sub(&self, rhs: Self) -> Option<Self> {
+    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
         self.0.checked_sub(rhs.0).map(Self)
     }
 

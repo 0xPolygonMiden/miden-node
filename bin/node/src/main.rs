@@ -121,7 +121,7 @@ async fn main() -> anyhow::Result<()> {
             },
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {
-            commands::make_genesis(inputs_path, output_path, force)
+            commands::make_genesis(inputs_path, output_path, *force)
         },
         Command::Init { config_path, genesis_path } => {
             let current_dir = std::env::current_dir()
