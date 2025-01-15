@@ -28,8 +28,8 @@ jobs:
 
       - name: Building for amd64
         run: |
-          cargo build --release --locked --features testing --bin miden-node
-          cargo build --release --locked --features testing --bin miden-faucet
+          cargo build --release --locked --bin miden-node
+          cargo build --release --locked --bin miden-faucet
 
       - name: create package directories
         run: |

@@ -93,12 +93,6 @@ cargo install --locked --git https://github.com/0xPolygonMiden/miden-node miden-
 
 More information on the various options can be found [here](https://doc.rust-lang.org/cargo/commands/cargo-install.html#install-options).
 
-> [!TIP]
-> Miden account generation uses a proof-of-work puzzle to prevent DoS attacks. These puzzles can be quite expensive, especially for test purposes. You can lower the difficulty of the puzzle by appending `--features testing` to the `cargo install ..` invocation. For example:
-> ```sh
-> cargo install miden-node --locked --features testing
-> ```
-
 ### Verify installation
 
 You can verify the installation by checking the node's version:

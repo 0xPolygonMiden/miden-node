@@ -15,6 +15,7 @@
 - [BREAKING] Inverted `TransactionInputs.missing_unauthenticated_notes` to `found_missing_notes` (#509).
 - [BREAKING] Remove store's `ListXXX` endpoints which were intended for test purposes (#608).
 - [BREAKING] Added support for storage maps on `GetAccountProofs` endpoint (#598).
+- [BREAKING] Removed the `testing` feature (#619).
 
 ## v0.6.0 (2024-11-05)
 

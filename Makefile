@@ -73,14 +73,6 @@ install-node: ## Installs node
 install-faucet: ## Installs faucet
 	${BUILD_PROTO} cargo install --path bin/faucet --locked
 
-.PHONY: install-node-testing
-install-node-testing: ## Installs node with testing feature enabled
-	${BUILD_PROTO} cargo install --features testing --path bin/node --locked
-
-.PHONY: install-faucet-testing
-install-faucet-testing: ## Installs faucet with testing feature enabled
-	${BUILD_PROTO} cargo install --features testing --path bin/faucet --locked
-
 # --- docker --------------------------------------------------------------------------------------
 
 .PHONY: docker-build-node
