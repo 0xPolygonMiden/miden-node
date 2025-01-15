@@ -130,7 +130,7 @@ async fn main() -> anyhow::Result<()> {
             let config = current_dir.join(config_path);
             let genesis = current_dir.join(genesis_path);
 
-            init_config_files(config, genesis)
+            init_config_files(&config, &genesis)
         },
     }
 }

@@ -256,7 +256,7 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_block_headers(conn, blocks))
+            .interact(move |conn| sql::select_block_headers(conn, &blocks))
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(

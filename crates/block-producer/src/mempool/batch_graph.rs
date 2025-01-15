@@ -207,14 +207,14 @@ impl BatchGraph {
     /// The last point implies that batches should be removed in block order.
     pub fn prune_committed(
         &mut self,
-        batch_ids: BTreeSet<BatchId>,
+        batch_ids: &BTreeSet<BatchId>,
     ) -> Result<Vec<TransactionId>, GraphError<BatchId>> {
         // This clone could be elided by moving this call to the end. This would lose the atomic
         // property of this method though its unclear what value (if any) that has.
         self.inner.prune_processed(batch_ids.clone())?;
         let mut transactions = Vec::new();
 
-        for batch_id in &batch_ids {
+        for batch_id in batch_ids {
             transactions.extend(self.batches.remove(batch_id).into_iter().flatten());
         }
 

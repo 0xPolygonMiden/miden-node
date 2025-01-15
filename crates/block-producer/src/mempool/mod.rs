@@ -352,7 +352,8 @@ impl Mempool {
 
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
-        let transactions = self.batches.prune_committed(batches).expect("Batches failed to commit");
+        let transactions =
+            self.batches.prune_committed(&batches).expect("Batches failed to commit");
         self.transactions
             .commit_transactions(&transactions)
             .expect("Transaction graph malformed");

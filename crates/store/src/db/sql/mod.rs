@@ -572,8 +572,11 @@ pub fn insert_nullifiers_for_block(
 
     let mut count = 0;
     for nullifier in nullifiers.iter() {
-        count +=
-            stmt.execute(params![nullifier.to_bytes(), get_nullifier_prefix(nullifier), block_num])?;
+        count += stmt.execute(params![
+            nullifier.to_bytes(),
+            get_nullifier_prefix(nullifier),
+            block_num
+        ])?;
     }
     Ok(count)
 }
@@ -1043,7 +1046,7 @@ pub fn select_block_header_by_block_num(
 /// A vector of [`BlockHeader`] or an error.
 pub fn select_block_headers(
     conn: &mut Connection,
-    blocks: Vec<BlockNumber>,
+    blocks: &[BlockNumber],
 ) -> Result<Vec<BlockHeader>> {
     let mut headers = Vec::with_capacity(blocks.len());
 
