@@ -260,7 +260,7 @@ impl<K: Ord + Copy + Display + Debug, V: Clone> DependencyGraph<K, V> {
         // No parent may be left dangling i.e. all parents must be part of this prune set.
         let dangling = keys
             .iter()
-            .flat_map(|key| self.parents.get(key))
+            .filter_map(|key| self.parents.get(key))
             .flatten()
             .filter(|parent| !keys.contains(parent))
             .copied()
