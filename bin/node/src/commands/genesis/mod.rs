@@ -235,7 +235,7 @@ mod tests {
             let genesis_state = GenesisState::read_from_bytes(&genesis_file_contents).unwrap();
 
             // build supposed genesis_state
-            let supposed_genesis_state = GenesisState::new(vec![a0.account], 1, 1672531200);
+            let supposed_genesis_state = GenesisState::new(vec![a0.account], 1, 1_672_531_200);
 
             // assert that both genesis_state(s) are eq
             assert_eq!(genesis_state, supposed_genesis_state);
