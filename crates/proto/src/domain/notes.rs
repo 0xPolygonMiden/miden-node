@@ -21,7 +21,7 @@ impl TryFrom<proto::NoteMetadata> for NoteMetadata {
             .sender
             .ok_or_else(|| proto::NoteMetadata::missing_field(stringify!(sender)))?
             .try_into()?;
-        let note_type = NoteType::try_from(value.note_type as u64)?;
+        let note_type = NoteType::try_from(u64::from(value.note_type))?;
         let tag = NoteTag::from(value.tag);
 
         let execution_hint = NoteExecutionHint::try_from(value.execution_hint)?;

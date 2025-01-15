@@ -52,7 +52,6 @@ tracing-subscriber = { version = "0.3", features = ["fmt",  "json",  "env-filter
 # Pedantic lints are set to a lower priority (default = 0) to allow individual lints in the group to be selectively
 # allowed.
 pedantic = { level = "warn", priority = -1 }
-cast_lossless = "allow"
 cast_possible_truncation = "allow"
 cast_possible_wrap = "allow"
 cast_sign_loss = "allow"

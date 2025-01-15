@@ -724,7 +724,7 @@ impl State {
                                 let proof = storage_map.open(map_key);
 
                                 let slot_map_key = StorageSlotMapProof {
-                                    storage_slot: *storage_index as u32,
+                                    storage_slot: u32::from(*storage_index),
                                     smt_proof: proof.to_bytes(),
                                 };
                                 storage_slot_map_keys.push(slot_map_key);

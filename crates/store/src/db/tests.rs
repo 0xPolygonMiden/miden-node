@@ -173,7 +173,7 @@ fn sql_select_notes() {
         let note = NoteRecord {
             block_num,
             note_index: BlockNoteIndex::new(0, i as usize).unwrap(),
-            note_id: num_to_rpo_digest(i as u64),
+            note_id: num_to_rpo_digest(u64::from(i)),
             metadata: NoteMetadata::new(
                 ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
                 NoteType::Public,
@@ -301,7 +301,7 @@ fn sql_select_accounts() {
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         );
-        let account_hash = num_to_rpo_digest(i as u64);
+        let account_hash = num_to_rpo_digest(u64::from(i));
         state.push(AccountInfo {
             summary: AccountSummary { account_id, account_hash, block_num },
             details: None,
