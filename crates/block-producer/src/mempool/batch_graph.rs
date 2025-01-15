@@ -111,9 +111,9 @@ impl BatchGraph {
 
         // Reverse lookup parent batch IDs. Take care to allow for parent transactions within this
         // batch i.e. internal dependencies.
-        transactions.iter().for_each(|tx| {
+        for tx in &transactions {
             parents.remove(tx);
-        });
+        }
         let parent_batches = parents
             .into_iter()
             .map(|tx| {
