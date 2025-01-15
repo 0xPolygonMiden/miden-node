@@ -265,11 +265,17 @@ impl api_server::Api for RpcApi {
 
         debug!(target: COMPONENT, ?request);
 
-        if request.account_ids.len() > MAX_NUM_FOREIGN_ACCOUNTS as usize {
+        if request.account_requests.len() > MAX_NUM_FOREIGN_ACCOUNTS as usize {
             return Err(Status::invalid_argument(format!(
                 "Too many accounts requested: {}, limit: {MAX_NUM_FOREIGN_ACCOUNTS}",
-                request.account_ids.len()
+                request.account_requests.len()
             )));
+        }
+
+        if request.account_requests.len() < request.code_commitments.len() {
+            return Err(Status::invalid_argument(
+                "The number of code commitments should not exceed the number of requested accounts.",
+            ));
         }
 
         self.store.clone().get_account_proofs(request).await
