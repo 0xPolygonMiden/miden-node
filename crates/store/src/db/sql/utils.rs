@@ -138,7 +138,7 @@ pub fn apply_delta(
     let account = account.map(Account::read_from_bytes).transpose()?;
 
     let Some(mut account) = account else {
-        return Err(DatabaseError::AccountNotOnChain(account_id));
+        return Err(DatabaseError::AccountNotPublic(account_id));
     };
 
     account.apply_delta(delta)?;

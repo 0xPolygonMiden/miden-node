@@ -29,12 +29,7 @@ use rand::{random, rngs::StdRng};
 use tonic::transport::Channel;
 use tracing::info;
 
-use crate::{
-    config::FaucetConfig,
-    errors::{ClientError, ImplError},
-    store::FaucetDataStore,
-    COMPONENT,
-};
+use crate::{config::FaucetConfig, errors::ClientError, store::FaucetDataStore, COMPONENT};
 
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");
@@ -255,7 +250,6 @@ async fn request_account_state(
         account_info.details.context("Account details field is empty")?;
 
     Account::read_from_bytes(&faucet_account_state_bytes)
-        .map_err(ImplError)
         .context("Failed to deserialize faucet account")
         .map_err(Into::into)
 }

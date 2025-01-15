@@ -22,7 +22,7 @@ impl NullifierTree {
             (nullifier.inner(), Self::block_num_to_leaf_value(block_num))
         });
 
-        let inner = Smt::with_entries(leaves)?;
+        let inner = Smt::with_entries(leaves).map_err(NullifierTreeError::CreationFailed)?;
 
         Ok(Self(inner))
     }
@@ -63,7 +63,7 @@ impl NullifierTree {
         &mut self,
         mutations: MutationSet<SMT_DEPTH, RpoDigest, Word>,
     ) -> Result<(), NullifierTreeError> {
-        self.0.apply_mutations(mutations).map_err(Into::into)
+        self.0.apply_mutations(mutations).map_err(NullifierTreeError::MutationFailed)
     }
 
     // HELPER FUNCTIONS

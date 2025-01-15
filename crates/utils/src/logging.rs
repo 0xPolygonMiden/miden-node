@@ -1,8 +1,5 @@
 use anyhow::Result;
-use tracing::{
-    level_filters::LevelFilter,
-    subscriber::{self, Subscriber},
-};
+use tracing::subscriber::{self, Subscriber};
 use tracing_subscriber::EnvFilter;
 
 pub fn setup_logging() -> Result<()> {
@@ -22,11 +19,11 @@ pub fn subscriber() -> impl Subscriber + core::fmt::Debug {
         .with_file(true)
         .with_line_number(true)
         .with_target(true)
-        .with_env_filter(
-            EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            // axum logs rejections from built-in extracts on the trace level, so we enable this
+            // manually.
+            "info,axum::rejection=trace".into()
+        }))
         .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
         .finish()
 }
@@ -37,8 +34,10 @@ pub fn subscriber() -> impl Subscriber + core::fmt::Debug {
     pub use tracing_subscriber::{layer::SubscriberExt, Registry};
 
     Registry::default().with(ForestLayer::default()).with(
-        EnvFilter::builder()
-            .with_default_directive(LevelFilter::INFO.into())
-            .from_env_lossy(),
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            // axum logs rejections from built-in extracts on the trace level, so we enable this
+            // manually.
+            "info,axum::rejection=trace".into()
+        }),
     )
 }

@@ -135,9 +135,11 @@ impl TransactionBatch {
                 Entry::Vacant(vacant) => {
                     vacant.insert(AccountUpdate::new(tx));
                 },
-                Entry::Occupied(occupied) => occupied.into_mut().merge_tx(tx).map_err(|error| {
-                    BuildBatchError::AccountUpdateError { account_id: tx.account_id(), error }
-                })?,
+                Entry::Occupied(occupied) => {
+                    occupied.into_mut().merge_tx(tx).map_err(|source| {
+                        BuildBatchError::AccountUpdateError { account_id: tx.account_id(), source }
+                    })?
+                },
             };
 
             // Check unauthenticated input notes for duplicates:

@@ -1,6 +1,6 @@
 use anyhow::Context;
 use axum::{
-    extract::{Path, State},
+    extract::State,
     http::{Response, StatusCode},
     response::IntoResponse,
     Json,
@@ -56,14 +56,17 @@ pub async fn get_tokens(
 
     // Check that the amount is in the asset amount options
     if !state.config.asset_amount_options.contains(&req.asset_amount) {
-        return Err(HandlerError::BadRequest("Invalid asset amount".to_string()));
+        return Err(HandlerError::InvalidAssetAmount {
+            requested: req.asset_amount,
+            options: state.config.asset_amount_options.clone(),
+        });
     }
 
     let mut client = state.client.lock().await;
 
     // Receive and hex user account id
     let target_account_id = AccountId::from_hex(req.account_id.as_str())
-        .map_err(|err| HandlerError::BadRequest(err.to_string()))?;
+        .map_err(HandlerError::AccountIdDeserializationError)?;
 
     // Execute transaction
     info!(target: COMPONENT, "Executing mint transaction for account.");
@@ -114,16 +117,9 @@ pub async fn get_tokens(
 }
 
 pub async fn get_index(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
-    get_static_file(state, Path("index.html".to_string())).await
-}
+    info!(target: COMPONENT, "Serving `index.html`");
 
-pub async fn get_static_file(
-    State(state): State<FaucetState>,
-    Path(path): Path<String>,
-) -> Result<impl IntoResponse, HandlerError> {
-    info!(target: COMPONENT, path, "Serving static file");
-
-    let static_file = state.static_files.get(path.as_str()).ok_or(HandlerError::NotFound(path))?;
+    let static_file = state.static_files.get("index.html").expect("index.html should be bundled");
 
     Response::builder()
         .status(StatusCode::OK)

@@ -82,25 +82,25 @@ where
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum GraphError<K> {
-    #[error("Node {0} already exists")]
+    #[error("node {0} already exists")]
     DuplicateKey(K),
 
-    #[error("Parents not found: {0:?}")]
+    #[error("parents not found: {0:?}")]
     MissingParents(BTreeSet<K>),
 
-    #[error("Nodes not found: {0:?}")]
+    #[error("nodes not found: {0:?}")]
     UnknownNodes(BTreeSet<K>),
 
-    #[error("Nodes were not yet processed: {0:?}")]
+    #[error("nodes were not yet processed: {0:?}")]
     UnprocessedNodes(BTreeSet<K>),
 
-    #[error("Nodes would be left dangling: {0:?}")]
+    #[error("nodes would be left dangling: {0:?}")]
     DanglingNodes(BTreeSet<K>),
 
-    #[error("Node {0} is not a root node")]
+    #[error("node {0} is not a root node")]
     InvalidRootNode(K),
 
-    #[error("Node {0} is not a pending node")]
+    #[error("node {0} is not a pending node")]
     InvalidPendingNode(K),
 }
 
