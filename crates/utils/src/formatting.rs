@@ -14,7 +14,7 @@ pub fn format_account_id(id: u64) -> String {
 }
 
 pub fn format_opt<T: Display>(opt: Option<&T>) -> String {
-    opt.map(ToString::to_string).unwrap_or("None".to_owned())
+    opt.map_or("None".to_owned(), ToString::to_string)
 }
 
 pub fn format_input_notes(notes: &InputNotes<InputNoteCommitment>) -> String {
