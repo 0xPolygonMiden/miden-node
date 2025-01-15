@@ -1756,6 +1756,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "miden-stress-test"
+version = "0.6.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "itertools 0.13.0",
+ "miden-lib",
+ "miden-node-block-producer",
+ "miden-node-proto",
+ "miden-node-store",
+ "miden-node-utils",
+ "miden-objects",
+ "miden-processor",
+ "miden-stdlib",
+ "miden-tx",
+ "rand",
+ "rand_chacha",
+ "serde",
+ "thiserror 2.0.9",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tracing",
+]
+
+[[package]]
 name = "miden-thiserror"
 version = "1.0.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"

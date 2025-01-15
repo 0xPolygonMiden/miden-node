@@ -1,0 +1,33 @@
+[package]
+name = "miden-stress-test"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+exclude.workspace = true
+readme.workspace = true
+
+[dependencies]
+async-trait = { version = "0.1" }
+anyhow = "1.0"
+itertools = { version = "0.13" }
+miden-lib = { workspace = true }
+miden-node-proto = { workspace = true }
+miden-node-utils = { workspace = true }
+miden-objects = { workspace = true }
+miden-processor = { workspace = true }
+miden-stdlib = { workspace = true }
+miden-tx = { workspace = true }
+miden-node-block-producer = { workspace = true }
+miden-node-store = { workspace = true }
+rand = { version = "0.8" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
+tokio-stream = { workspace = true, features = ["net"] }
+tonic = { workspace = true }
+tracing = { workspace = true }
+rand_chacha = "0.3"

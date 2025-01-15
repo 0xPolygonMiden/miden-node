@@ -119,7 +119,6 @@ impl AuthenticatedTransaction {
     }
 }
 
-#[cfg(test)]
 impl AuthenticatedTransaction {
     //! Builder methods intended for easier test setup.
 

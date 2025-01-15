@@ -2,11 +2,10 @@ use std::time::Duration;
 
 use mempool::BlockNumber;
 
-#[cfg(test)]
 pub mod test_utils;
 
-mod batch_builder;
-mod block_builder;
+pub mod batch_builder;
+pub mod block_builder;
 mod domain;
 mod errors;
 mod mempool;

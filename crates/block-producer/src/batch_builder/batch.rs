@@ -212,7 +212,6 @@ impl TransactionBatch {
 
     /// Returns an iterator over (account_id, init_state_hash) tuples for accounts that were
     /// modified in this transaction batch.
-    #[cfg(test)]
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
         self.updated_accounts
             .iter()

@@ -94,7 +94,7 @@ impl BlockBuilder {
     }
 
     #[instrument(target = COMPONENT, skip_all, err)]
-    async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
+    pub async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
         info!(
             target: COMPONENT,
             num_batches = batches.len(),
