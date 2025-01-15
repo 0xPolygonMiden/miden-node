@@ -21,7 +21,7 @@ use crate::{errors::BuildBatchError, COMPONENT};
 // BATCH ID
 // ================================================================================================
 
-/// Uniquely identifies a [TransactionBatch].
+/// Uniquely identifies a [`TransactionBatch`].
 #[derive(Debug, Copy, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct BatchId(Blake3Digest<32>);
 
@@ -210,7 +210,7 @@ impl TransactionBatch {
         self.id
     }
 
-    /// Returns an iterator over (account_id, init_state_hash) tuples for accounts that were
+    /// Returns an iterator over (`account_id`, `init_state_hash`) tuples for accounts that were
     /// modified in this transaction batch.
     #[cfg(test)]
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
@@ -219,7 +219,7 @@ impl TransactionBatch {
             .map(|(&account_id, update)| (account_id, update.init_state))
     }
 
-    /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
+    /// Returns an iterator over (`account_id`, details, `new_state_hash`) tuples for accounts that were
     /// modified in this transaction batch.
     pub fn updated_accounts(&self) -> impl Iterator<Item = (&AccountId, &AccountUpdate)> + '_ {
         self.updated_accounts.iter()

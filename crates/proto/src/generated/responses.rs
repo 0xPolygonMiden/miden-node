@@ -75,7 +75,7 @@ pub struct SyncNoteResponse {
     #[prost(message, repeated, tag = "4")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
 }
-/// An account returned as a response to the GetBlockInputs
+/// An account returned as a response to the `GetBlockInputs`
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountBlockInputRecord {
     #[prost(message, optional, tag = "1")]
@@ -85,7 +85,7 @@ pub struct AccountBlockInputRecord {
     #[prost(message, optional, tag = "3")]
     pub proof: ::core::option::Option<super::merkle::MerklePath>,
 }
-/// A nullifier returned as a response to the GetBlockInputs
+/// A nullifier returned as a response to the `GetBlockInputs`
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NullifierBlockInputRecord {
     #[prost(message, optional, tag = "1")]
@@ -113,7 +113,7 @@ pub struct GetBlockInputsResponse {
         super::note::NoteAuthenticationInfo,
     >,
 }
-/// An account returned as a response to the GetTransactionInputs
+/// An account returned as a response to the `GetTransactionInputs`
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountTransactionInputRecord {
     #[prost(message, optional, tag = "1")]
@@ -122,7 +122,7 @@ pub struct AccountTransactionInputRecord {
     #[prost(message, optional, tag = "2")]
     pub account_hash: ::core::option::Option<super::digest::Digest>,
 }
-/// A nullifier returned as a response to the GetTransactionInputs
+/// A nullifier returned as a response to the `GetTransactionInputs`
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct NullifierTransactionInputRecord {
     #[prost(message, optional, tag = "1")]

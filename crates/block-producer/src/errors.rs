@@ -207,7 +207,7 @@ pub enum BuildBlockError {
 // Store errors
 // =================================================================================================
 
-/// Errors returned by the [StoreClient](crate::store::StoreClient).
+/// Errors returned by the [`StoreClient`](crate::store::StoreClient).
 #[derive(Debug, Error)]
 pub enum StoreError {
     #[error("gRPC client error")]

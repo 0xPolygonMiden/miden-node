@@ -99,7 +99,7 @@ impl InflightAccountState {
         self.emptiness()
     }
 
-    /// This is essentially `is_empty` with the additional benefit that [AccountStatus] is marked
+    /// This is essentially `is_empty` with the additional benefit that [`AccountStatus`] is marked
     /// as `#[must_use]`, forcing callers to handle empty accounts (which should be pruned).
     fn emptiness(&self) -> AccountStatus {
         if self.states.is_empty() {
@@ -115,15 +115,15 @@ impl InflightAccountState {
     }
 }
 
-/// Describes the emptiness of an [InflightAccountState].
+/// Describes the emptiness of an [`InflightAccountState`].
 ///
 /// Is marked as `#[must_use]` so that callers handle prune empty accounts.
 #[must_use]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AccountStatus {
-    /// [InflightAccountState] contains no state and should be pruned.
+    /// [`InflightAccountState`] contains no state and should be pruned.
     Empty,
-    /// [InflightAccountState] contains state and should be kept.
+    /// [`InflightAccountState`] contains state and should be kept.
     NonEmpty,
 }
 

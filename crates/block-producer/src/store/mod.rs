@@ -46,7 +46,7 @@ pub struct TransactionInputs {
     pub account_hash: Option<Digest>,
     /// Maps each consumed notes' nullifier to block number, where the note is consumed.
     ///
-    /// We use NonZeroU32 as the wire format uses 0 to encode none.
+    /// We use `NonZeroU32` as the wire format uses 0 to encode none.
     pub nullifiers: BTreeMap<Nullifier, Option<NonZeroU32>>,
     /// Unauthenticated notes which are present in the store.
     ///

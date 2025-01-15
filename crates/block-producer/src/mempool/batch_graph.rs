@@ -175,7 +175,7 @@ impl BatchGraph {
     ///
     /// Returns all removed batches and their transactions.
     ///
-    /// Unlike [remove_batches](Self::remove_batches), this has no error condition as batches are
+    /// Unlike [`remove_batches`](Self::remove_batches), this has no error condition as batches are
     /// derived internally.
     pub fn remove_batches_with_transactions<'a>(
         &mut self,

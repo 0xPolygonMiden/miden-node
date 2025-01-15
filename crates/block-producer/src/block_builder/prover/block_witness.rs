@@ -23,7 +23,7 @@ use crate::{
 #[derive(Debug, PartialEq)]
 pub struct BlockWitness {
     pub(super) updated_accounts: Vec<(AccountId, AccountUpdateWitness)>,
-    /// (batch_index, created_notes_root) for batches that contain notes
+    /// (`batch_index`, `created_notes_root`) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
     pub(super) produced_nullifiers: BTreeMap<Nullifier, SmtProof>,
     pub(super) chain_peaks: MmrPeaks,

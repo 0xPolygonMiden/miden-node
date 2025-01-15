@@ -48,7 +48,7 @@ impl BlockBuilder {
             store,
         }
     }
-    /// Starts the [BlockBuilder], infinitely producing blocks at the configured interval.
+    /// Starts the [`BlockBuilder`], infinitely producing blocks at the configured interval.
     ///
     /// Block production is sequential and consists of
     ///

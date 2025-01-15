@@ -8,7 +8,7 @@ use protox::prost::Message;
 
 /// Generates Rust protobuf bindings from .proto files in the root directory.
 ///
-/// This is done only if BUILD_PROTO environment variable is set to `1` to avoid running the script
+/// This is done only if `BUILD_PROTO` environment variable is set to `1` to avoid running the script
 /// on crates.io where repo-level .proto files are not available.
 fn main() -> anyhow::Result<()> {
     println!("cargo::rerun-if-changed=../../proto");

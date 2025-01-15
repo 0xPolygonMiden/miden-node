@@ -422,10 +422,10 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
-    /// Queries a list of [NoteRecord] from the database.
+    /// Queries a list of [`NoteRecord`] from the database.
     ///
-    /// If the provided list of [NoteId] given is empty or no [NoteRecord] matches the provided
-    /// [NoteId] an empty list is returned.
+    /// If the provided list of [`NoteId`] given is empty or no [`NoteRecord`] matches the provided
+    /// [`NoteId`] an empty list is returned.
     pub async fn get_notes_by_id(
         &self,
         note_ids: Vec<NoteId>,

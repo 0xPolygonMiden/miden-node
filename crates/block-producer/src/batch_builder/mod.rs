@@ -20,7 +20,7 @@ use crate::errors::BuildBatchError;
 // BATCH BUILDER
 // ================================================================================================
 
-/// Builds [TransactionBatch] from sets of transactions.
+/// Builds [`TransactionBatch`] from sets of transactions.
 ///
 /// Transaction sets are pulled from the [Mempool] at a configurable interval, and passed to a pool
 /// of provers for proof generation. Proving is currently unimplemented and is instead simulated via
@@ -50,7 +50,7 @@ impl Default for BatchBuilder {
 }
 
 impl BatchBuilder {
-    /// Starts the [BatchBuilder], creating and proving batches at the configured interval.
+    /// Starts the [`BatchBuilder`], creating and proving batches at the configured interval.
     ///
     /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.
     /// A batch is skipped if there are no available workers, or if there are no transactions
@@ -109,7 +109,7 @@ type BatchResult = Result<TransactionBatch, (BatchId, BuildBatchError)>;
 
 /// Represents a pool of batch provers.
 ///
-/// Effectively a wrapper around tokio's JoinSet that remains pending if the set is empty,
+/// Effectively a wrapper around tokio's `JoinSet` that remains pending if the set is empty,
 /// instead of returning None.
 struct WorkerPool {
     in_progress: JoinSet<BatchResult>,
@@ -145,7 +145,7 @@ impl WorkerPool {
 
     /// Returns the next batch proof result.
     ///
-    /// Will return pending if there are no jobs in progress (unlike tokio's [JoinSet::join_next]
+    /// Will return pending if there are no jobs in progress (unlike tokio's [`JoinSet::join_next`]
     /// which returns an option).
     async fn join_next(&mut self) -> BatchResult {
         if self.in_progress.is_empty() {
@@ -193,7 +193,7 @@ impl WorkerPool {
     /// # Errors
     ///
     /// Returns an error if no workers are available which can be checked using
-    /// [has_capacity](Self::has_capacity).
+    /// [`has_capacity`](Self::has_capacity).
     fn spawn(
         &mut self,
         id: BatchId,

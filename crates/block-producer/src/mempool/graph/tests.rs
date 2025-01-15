@@ -41,7 +41,7 @@ impl TestGraph {
         self.promote(self.pending.clone()).unwrap();
     }
 
-    /// Calls process_root until all nodes have been processed.
+    /// Calls `process_root` until all nodes have been processed.
     fn process_all(&mut self) {
         while let Some(root) = self.roots().first().copied() {
             // SAFETY: this is definitely a root since we just took it from there :)

@@ -93,12 +93,12 @@ pub fn select_all_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId
     Ok(result)
 }
 
-/// Select [AccountSummary] from the DB using the given [Connection], given that the account
+/// Select [`AccountSummary`] from the DB using the given [Connection], given that the account
 /// update was done between `(block_start, block_end]`.
 ///
 /// # Returns
 ///
-/// The vector of [AccountSummary] with the matching accounts.
+/// The vector of [`AccountSummary`] with the matching accounts.
 pub fn select_accounts_by_block_range(
     conn: &mut Connection,
     block_start: BlockNumber,
@@ -606,7 +606,7 @@ pub fn select_all_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, Bl
 ///
 /// # Returns
 ///
-/// A vector of [NullifierInfo] with the nullifiers and the block height at which they were
+/// A vector of [`NullifierInfo`] with the nullifiers and the block height at which they were
 /// created, or an error.
 pub fn select_nullifiers_by_block_range(
     conn: &mut Connection,
@@ -654,7 +654,7 @@ pub fn select_nullifiers_by_block_range(
 ///
 /// # Returns
 ///
-/// A vector of [NullifierInfo] with the nullifiers and the block height at which they were
+/// A vector of [`NullifierInfo`] with the nullifiers and the block height at which they were
 /// created, or an error.
 pub fn select_nullifiers_by_prefix(
     conn: &mut Connection,
@@ -866,7 +866,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     Ok(res)
 }
 
-/// Select Note's matching the NoteId using the given [Connection].
+/// Select Note's matching the `NoteId` using the given [Connection].
 ///
 /// # Returns
 ///
@@ -930,7 +930,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
     Ok(notes)
 }
 
-/// Select note inclusion proofs matching the NoteId, using the given [Connection].
+/// Select note inclusion proofs matching the `NoteId`, using the given [Connection].
 ///
 /// # Returns
 ///
@@ -985,7 +985,7 @@ pub fn select_note_inclusion_proofs(
 // BLOCK CHAIN QUERIES
 // ================================================================================================
 
-/// Insert a [BlockHeader] to the DB using the given [Transaction].
+/// Insert a [`BlockHeader`] to the DB using the given [Transaction].
 ///
 /// # Returns
 ///
@@ -1001,7 +1001,7 @@ pub fn insert_block_header(transaction: &Transaction, block_header: &BlockHeader
     Ok(stmt.execute(params![block_header.block_num(), block_header.to_bytes()])?)
 }
 
-/// Select a [BlockHeader] from the DB by its `block_num` using the given [Connection].
+/// Select a [`BlockHeader`] from the DB by its `block_num` using the given [Connection].
 ///
 /// # Returns
 ///
@@ -1043,7 +1043,7 @@ pub fn select_block_header_by_block_num(
 ///
 /// # Returns
 ///
-/// A vector of [BlockHeader] or an error.
+/// A vector of [`BlockHeader`] or an error.
 pub fn select_block_headers(
     conn: &mut Connection,
     blocks: Vec<BlockNumber>,
@@ -1068,7 +1068,7 @@ pub fn select_block_headers(
 ///
 /// # Returns
 ///
-/// A vector of [BlockHeader] or an error.
+/// A vector of [`BlockHeader`] or an error.
 pub fn select_all_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
     let mut stmt =
         conn.prepare_cached("SELECT block_header FROM block_headers ORDER BY block_num ASC;")?;
@@ -1120,7 +1120,7 @@ pub fn insert_transactions(
 ///
 /// # Returns
 ///
-/// The vector of [RpoDigest] with the transaction IDs.
+/// The vector of [`RpoDigest`] with the transaction IDs.
 pub fn select_transactions_by_accounts_and_block_range(
     conn: &mut Connection,
     block_start: BlockNumber,

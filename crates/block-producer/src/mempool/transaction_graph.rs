@@ -53,7 +53,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::insert_pending].
+    /// Follows the error conditions of [`DependencyGraph::insert_pending`].
     pub fn insert(
         &mut self,
         transaction: AuthenticatedTransaction,
@@ -73,8 +73,8 @@ impl TransactionGraph {
     /// Note: this may emit empty batches.
     ///
     /// See also:
-    ///   - [Self::requeue_transactions]
-    ///   - [Self::commit_transactions]
+    ///   - [`Self::requeue_transactions`]
+    ///   - [`Self::commit_transactions`]
     pub fn select_batch(
         &mut self,
         mut budget: BatchBudget,
@@ -109,7 +109,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::revert_subgraphs].
+    /// Follows the error conditions of [`DependencyGraph::revert_subgraphs`].
     pub fn requeue_transactions(
         &mut self,
         transactions: BTreeSet<TransactionId>,
@@ -121,7 +121,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::prune_processed].
+    /// Follows the error conditions of [`DependencyGraph::prune_processed`].
     pub fn commit_transactions(
         &mut self,
         tx_ids: &[TransactionId],
@@ -138,7 +138,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::purge_subgraphs].
+    /// Follows the error conditions of [`DependencyGraph::purge_subgraphs`].
     pub fn remove_transactions(
         &mut self,
         transactions: Vec<TransactionId>,

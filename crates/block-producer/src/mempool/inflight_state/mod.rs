@@ -87,7 +87,7 @@ impl Delta {
 }
 
 impl InflightState {
-    /// Creates an [InflightState] which will retain committed state for the given
+    /// Creates an [`InflightState`] which will retain committed state for the given
     /// amount of blocks before pruning them.
     pub fn new(
         chain_tip: BlockNumber,

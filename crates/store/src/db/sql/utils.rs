@@ -50,7 +50,7 @@ macro_rules! subst {
 /// insert_sql!(users { id, first_name, last_name, age });
 /// ```
 /// which generates:
-/// "INSERT INTO users (id, first_name, last_name, age) VALUES (?, ?, ?, ?)"
+/// "INSERT INTO users (id, `first_name`, `last_name`, age) VALUES (?, ?, ?, ?)"
 macro_rules! insert_sql {
     ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? }) => {
         concat!(

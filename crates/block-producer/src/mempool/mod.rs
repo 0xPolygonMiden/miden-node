@@ -125,8 +125,8 @@ impl Default for BlockBudget {
 impl BatchBudget {
     /// Attempts to consume the transaction's resources from the budget.
     ///
-    /// Returns [BudgetStatus::Exceeded] if the transaction would exceed the remaining budget,
-    /// otherwise returns [BudgetStatus::Ok] and subtracts the resources from the budger.
+    /// Returns [`BudgetStatus::Exceeded`] if the transaction would exceed the remaining budget,
+    /// otherwise returns [`BudgetStatus::Ok`] and subtracts the resources from the budger.
     #[must_use]
     fn check_then_subtract(&mut self, tx: &AuthenticatedTransaction) -> BudgetStatus {
         // This type assertion reminds us to update the account check if we ever support multiple
@@ -157,8 +157,8 @@ impl BatchBudget {
 impl BlockBudget {
     /// Attempts to consume the batch's resources from the budget.
     ///
-    /// Returns [BudgetStatus::Exceeded] if the batch would exceed the remaining budget,
-    /// otherwise returns [BudgetStatus::Ok].
+    /// Returns [`BudgetStatus::Exceeded`] if the batch would exceed the remaining budget,
+    /// otherwise returns [`BudgetStatus::Ok`].
     #[must_use]
     fn check_then_subtract(&mut self, _batch: &TransactionBatch) -> BudgetStatus {
         if self.batches == 0 {
@@ -206,7 +206,7 @@ pub struct Mempool {
 }
 
 impl Mempool {
-    /// Creates a new [SharedMempool] with the provided configuration.
+    /// Creates a new [`SharedMempool`] with the provided configuration.
     pub fn shared(
         chain_tip: BlockNumber,
         batch_budget: BatchBudget,

@@ -15,9 +15,9 @@ const DOC_COMMENT: &str =
 // BUILD SCRIPT
 // ================================================================================================
 
-/// Copies .proto files to the local directory and re-builds src/proto_files.rs file.
+/// Copies .proto files to the local directory and re-builds `src/proto_files.rs` file.
 ///
-/// This is done only if BUILD_PROTO environment variable is set to `1` to avoid running the script
+/// This is done only if `BUILD_PROTO` environment variable is set to `1` to avoid running the script
 /// on crates.io where repo-level .proto files are not available.
 fn main() -> io::Result<()> {
     println!("cargo::rerun-if-changed=../../proto");
