@@ -63,14 +63,8 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: bool) -
         return Err(anyhow!("Failed to open {} file.", inputs_path.display()));
     }
 
-    let parent_path = match output_path.parent() {
-        Some(path) => path,
-        None => {
-            return Err(anyhow!(
-                "There has been an error processing output_path: {}",
-                output_path.display()
-            ))
-        },
+    let Some(parent_path) = output_path.parent() else {
+        anyhow::bail!("There has been an error processing output_path: {}", output_path.display());
     };
 
     let genesis_input: GenesisInput = load_config(inputs_path).map_err(|err| {
