@@ -120,7 +120,7 @@ fn create_accounts(
         let (mut account_data, name) = match account {
             AccountInput::BasicFungibleFaucet(inputs) => {
                 info!("Creating fungible faucet account...");
-                let (auth_scheme, auth_secret_key) = gen_auth_keys(inputs.auth_scheme, &mut rng)?;
+                let (auth_scheme, auth_secret_key) = gen_auth_keys(inputs.auth_scheme, &mut rng);
 
                 let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
@@ -166,15 +166,15 @@ fn create_accounts(
 fn gen_auth_keys(
     auth_scheme_input: AuthSchemeInput,
     rng: &mut ChaCha20Rng,
-) -> Result<(AuthScheme, AuthSecretKey)> {
+) -> (AuthScheme, AuthSecretKey) {
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
             let secret = SecretKey::with_rng(&mut get_rpo_random_coin(rng));
 
-            Ok((
+            (
                 AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
                 AuthSecretKey::RpoFalcon512(secret),
-            ))
+            )
         },
     }
 }

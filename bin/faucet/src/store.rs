@@ -8,8 +8,6 @@ use miden_objects::{
 };
 use miden_tx::{DataStore, DataStoreError};
 
-use crate::errors::HandlerError;
-
 pub struct FaucetDataStore {
     faucet_account: Mutex<Account>,
     /// Optional initial seed used for faucet account creation.
@@ -42,10 +40,8 @@ impl FaucetDataStore {
     }
 
     /// Updates the stored faucet account with the new one.
-    pub fn update_faucet_state(&self, new_faucet_state: Account) -> Result<(), HandlerError> {
+    pub fn update_faucet_state(&self, new_faucet_state: Account) {
         *self.faucet_account.lock().expect("Poisoned lock") = new_faucet_state;
-
-        Ok(())
     }
 }
 

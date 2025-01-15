@@ -86,7 +86,7 @@ pub async fn get_tokens(
     let block_height = client.prove_and_submit_transaction(executed_tx).await?;
 
     // Update data store with the new faucet state
-    client.data_store().update_faucet_state(faucet_account)?;
+    client.data_store().update_faucet_state(faucet_account);
 
     let note_id: NoteId = created_note.id();
     let note_details =
