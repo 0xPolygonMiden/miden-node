@@ -1012,18 +1012,15 @@ pub fn select_block_header_by_block_num(
     block_number: Option<BlockNumber>,
 ) -> Result<Option<BlockHeader>> {
     let mut stmt;
-    let mut rows = match block_number {
-        Some(block_number) => {
-            stmt =
-                conn.prepare_cached("SELECT block_header FROM block_headers WHERE block_num = ?1")?;
-            stmt.query([block_number])?
-        },
-        None => {
-            stmt = conn.prepare_cached(
-                "SELECT block_header FROM block_headers ORDER BY block_num DESC LIMIT 1",
-            )?;
-            stmt.query([])?
-        },
+    let mut rows = if let Some(block_number) = block_number {
+        stmt =
+            conn.prepare_cached("SELECT block_header FROM block_headers WHERE block_num = ?1")?;
+        stmt.query([block_number])?
+    } else {
+        stmt = conn.prepare_cached(
+            "SELECT block_header FROM block_headers ORDER BY block_num DESC LIMIT 1",
+        )?;
+        stmt.query([])?
     };
 
     match rows.next()? {
