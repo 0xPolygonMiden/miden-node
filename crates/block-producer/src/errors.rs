@@ -102,22 +102,22 @@ pub enum AddTransactionError {
 
 impl From<AddTransactionError> for tonic::Status {
     fn from(value: AddTransactionError) -> Self {
-        use AddTransactionError::*;
         match value {
-            VerificationFailed(
+            AddTransactionError::VerificationFailed(
                 VerifyTxError::InputNotesAlreadyConsumed(_)
                 | VerifyTxError::UnauthenticatedNotesNotFound(_)
                 | VerifyTxError::OutputNotesAlreadyExist(_)
                 | VerifyTxError::IncorrectAccountInitialHash { .. }
                 | VerifyTxError::InvalidTransactionProof(_),
             )
-            | Expired { .. }
-            | TransactionDeserializationFailed(_) => Self::invalid_argument(value.to_string()),
+            | AddTransactionError::Expired { .. }
+            | AddTransactionError::TransactionDeserializationFailed(_) => {
+                Self::invalid_argument(value.to_string())
+            },
 
             // Internal errors which should not be communicated to the user.
-            VerificationFailed(VerifyTxError::StoreConnectionFailed(_)) | StaleInputs { .. } => {
-                Self::internal("Internal error")
-            },
+            AddTransactionError::VerificationFailed(VerifyTxError::StoreConnectionFailed(_))
+            | AddTransactionError::StaleInputs { .. } => Self::internal("Internal error"),
         }
     }
 }
