@@ -57,37 +57,36 @@ async fn main() {
     let faucet_id = new_faucet.id();
 
     // The amount of blocks to create and process.
-    const BATCHES_PER_BLOCK: usize = 4;
-    const N_BLOCKS: usize = 250_000;
-    // 250_000 blocks * 4 batches/block * 1 accounts/batch = 1_000_000 accounts
-    // Each batch contains 2 txs: one to create a note and another to consume it.
+    const BATCHES_PER_BLOCK: usize = 16;
+    const TRANSACTIONS_PER_BATCH: usize = 16;
+    const N_BLOCKS: usize = 7814; // to create 1M acc => 7814 blocks * 16 batches/block * 16 txs/batch * 0.5 acc/tx
 
     for block_num in 0..N_BLOCKS {
         let mut batches = Vec::with_capacity(BATCHES_PER_BLOCK);
         for _ in 0..BATCHES_PER_BLOCK {
-            // Create wallet
-            let (new_account, _) = AccountBuilder::new()
-                .init_seed(init_seed)
-                .anchor(AccountIdAnchor::PRE_GENESIS)
-                .account_type(AccountType::RegularAccountImmutableCode)
-                .storage_mode(AccountStorageMode::Private)
-                .with_component(RpoFalcon512::new(key_pair.public_key()))
-                .with_component(BasicWallet)
-                .build()
-                .unwrap();
-            let account_id = new_account.id();
+            let mut batch = Vec::with_capacity(TRANSACTIONS_PER_BATCH);
+            for _ in 0..TRANSACTIONS_PER_BATCH / 2 {
+                // Create wallet
+                let (new_account, _) = AccountBuilder::new()
+                    .init_seed(init_seed)
+                    .anchor(AccountIdAnchor::PRE_GENESIS)
+                    .account_type(AccountType::RegularAccountImmutableCode)
+                    .storage_mode(AccountStorageMode::Private)
+                    .with_component(RpoFalcon512::new(key_pair.public_key()))
+                    .with_component(BasicWallet)
+                    .build()
+                    .unwrap();
+                let account_id = new_account.id();
 
-            // Create note
-            let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
-            let coin_seed: [u64; 4] = rand::thread_rng().gen();
-            let rng: RpoRandomCoin = RpoRandomCoin::new(coin_seed.map(Felt::new));
-            let note = NoteBuilder::new(faucet_id, rng)
-                .add_assets(vec![asset.clone()])
-                .build(&TransactionKernel::assembler())
-                .unwrap();
+                // Create note
+                let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
+                let coin_seed: [u64; 4] = rand::thread_rng().gen();
+                let rng: RpoRandomCoin = RpoRandomCoin::new(coin_seed.map(Felt::new));
+                let note = NoteBuilder::new(faucet_id, rng)
+                    .add_assets(vec![asset.clone()])
+                    .build(&TransactionKernel::assembler())
+                    .unwrap();
 
-            let batch = {
-                // First tx: create the note
                 let create_notes_tx = MockProvenTxBuilder::with_account(
                     faucet_id,
                     Digest::default(),
@@ -96,7 +95,8 @@ async fn main() {
                 .output_notes(vec![OutputNote::Full(note.clone())])
                 .build();
 
-                // Second tx: consume the note
+                batch.push(create_notes_tx);
+
                 let consume_notes_txs = MockProvenTxBuilder::with_account(
                     account_id,
                     Digest::default(),
@@ -105,9 +105,11 @@ async fn main() {
                 .unauthenticated_notes(vec![note])
                 .build();
 
-                TransactionBatch::new([&create_notes_tx, &consume_notes_txs], Default::default())
-                    .unwrap()
-            };
+                batch.push(consume_notes_txs);
+            }
+            let batch = TransactionBatch::new(batch.iter().collect::<Vec<_>>(), Default::default())
+                .unwrap();
+
             batches.push(batch);
         }
         println!("Building block {}...", block_num);
