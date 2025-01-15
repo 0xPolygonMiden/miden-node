@@ -8,7 +8,7 @@ import "merkle.proto";
 
 // Represents a note's metadata.
 message NoteMetadata {
-    // The sender of the note.
+    // The account which sent the note.
     account.AccountId sender = 1;
 
     // The type of the note (0b01 = public, 0b10 = private, 0b11 = encrypted).
