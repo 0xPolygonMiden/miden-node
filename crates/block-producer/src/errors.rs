@@ -104,11 +104,13 @@ impl From<AddTransactionError> for tonic::Status {
     fn from(value: AddTransactionError) -> Self {
         use AddTransactionError::*;
         match value {
-            VerificationFailed(VerifyTxError::InputNotesAlreadyConsumed(_))
-            | VerificationFailed(VerifyTxError::UnauthenticatedNotesNotFound(_))
-            | VerificationFailed(VerifyTxError::OutputNotesAlreadyExist(_))
-            | VerificationFailed(VerifyTxError::IncorrectAccountInitialHash { .. })
-            | VerificationFailed(VerifyTxError::InvalidTransactionProof(_))
+            VerificationFailed(
+                VerifyTxError::InputNotesAlreadyConsumed(_)
+                | VerifyTxError::UnauthenticatedNotesNotFound(_)
+                | VerifyTxError::OutputNotesAlreadyExist(_)
+                | VerifyTxError::IncorrectAccountInitialHash { .. }
+                | VerifyTxError::InvalidTransactionProof(_),
+            )
             | Expired { .. }
             | TransactionDeserializationFailed(_) => Self::invalid_argument(value.to_string()),
 
