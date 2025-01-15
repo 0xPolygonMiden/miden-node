@@ -290,10 +290,10 @@ impl State {
                 let details = match note {
                     OutputNote::Full(note) => Some(note.to_bytes()),
                     OutputNote::Header(_) => None,
-                    note => {
+                    note @ OutputNote::Partial(_) => {
                         return Err(InvalidBlockError::InvalidOutputNoteType(Box::new(
                             note.clone(),
-                        )))
+                        )));
                     },
                 };
 
