@@ -162,7 +162,7 @@ impl api_server::Api for RpcApi {
         let note_ids = request.get_ref().note_ids.clone();
 
         let _: Vec<RpoDigest> = try_convert(note_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
 
         self.store.clone().get_notes_by_id(request).await
     }

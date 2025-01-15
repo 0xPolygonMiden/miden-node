@@ -43,7 +43,7 @@ pub fn format_map<'a, K: Display + 'a, V: Display + 'a>(
     if map_str.is_empty() {
         "None".to_owned()
     } else {
-        format!("{{ {} }}", map_str)
+        format!("{{ {map_str} }}")
     }
 }
 
@@ -52,7 +52,7 @@ pub fn format_array(list: impl IntoIterator<Item = impl Display>) -> String {
     if comma_separated.is_empty() {
         "None".to_owned()
     } else {
-        format!("[{}]", comma_separated)
+        format!("[{comma_separated}]")
     }
 }
 

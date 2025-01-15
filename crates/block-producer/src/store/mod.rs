@@ -67,7 +67,7 @@ impl Display for TransactionInputs {
         let nullifiers = if nullifiers.is_empty() {
             "None".to_owned()
         } else {
-            format!("{{ {} }}", nullifiers)
+            format!("{{ {nullifiers} }}")
         };
 
         f.write_fmt(format_args!(
