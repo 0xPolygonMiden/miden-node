@@ -868,7 +868,7 @@ fn notes() {
             .unwrap();
 
     let values = [(note_index, note_id.into(), note_metadata)];
-    let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
+    let notes_db = BlockNoteTree::with_entries(values.iter().copied()).unwrap();
     let details = Some(vec![1, 2, 3]);
     let merkle_path = notes_db.get_note_path(note_index);
 

@@ -50,7 +50,7 @@ impl AuthenticatedTransaction {
     ) -> Result<AuthenticatedTransaction, VerifyTxError> {
         let nullifiers_already_spent = tx
             .get_nullifiers()
-            .filter(|nullifier| inputs.nullifiers.get(nullifier).cloned().flatten().is_some())
+            .filter(|nullifier| inputs.nullifiers.get(nullifier).copied().flatten().is_some())
             .collect::<Vec<_>>();
         if !nullifiers_already_spent.is_empty() {
             return Err(VerifyTxError::InputNotesAlreadyConsumed(nullifiers_already_spent));
@@ -105,7 +105,7 @@ impl AuthenticatedTransaction {
     pub fn unauthenticated_notes(&self) -> impl Iterator<Item = NoteId> + '_ {
         self.inner
             .get_unauthenticated_notes()
-            .cloned()
+            .copied()
             .map(|header| header.id())
             .filter(|note_id| !self.notes_authenticated_by_store.contains(note_id))
     }

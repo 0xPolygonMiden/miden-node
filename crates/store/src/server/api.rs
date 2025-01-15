@@ -564,7 +564,7 @@ fn read_account_ids(
 fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Nullifier>, Status> {
     nullifiers
         .iter()
-        .cloned()
+        .copied()
         .map(TryInto::try_into)
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))

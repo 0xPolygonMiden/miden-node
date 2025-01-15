@@ -84,7 +84,7 @@ impl TransactionGraph {
         let mut batch = Vec::with_capacity(budget.transactions);
         let mut parents = BTreeSet::new();
 
-        while let Some(root) = self.inner.roots().first().cloned() {
+        while let Some(root) = self.inner.roots().first().copied() {
             // SAFETY: Since it was a root batch, it must definitely have a processed batch
             // associated with it.
             let tx = self.inner.get(&root).unwrap().clone();
@@ -127,7 +127,7 @@ impl TransactionGraph {
         tx_ids: &[TransactionId],
     ) -> Result<(), GraphError<TransactionId>> {
         // TODO: revisit this api.
-        let tx_ids = tx_ids.iter().cloned().collect();
+        let tx_ids = tx_ids.iter().copied().collect();
         self.inner.prune_processed(tx_ids)?;
         Ok(())
     }

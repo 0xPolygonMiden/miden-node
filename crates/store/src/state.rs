@@ -233,7 +233,7 @@ impl State {
                 .nullifiers()
                 .iter()
                 .filter(|&n| inner.nullifier_tree.get_block_num(n).is_some())
-                .cloned()
+                .copied()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
                 return Err(InvalidBlockError::DuplicatedNullifiers(duplicate_nullifiers).into());
@@ -607,7 +607,7 @@ impl State {
             })?;
         let account_states = account_ids
             .iter()
-            .cloned()
+            .copied()
             .map(|account_id| {
                 let ValuePath { value: account_hash, path: proof } =
                     inner.account_tree.open(&LeafIndex::new_max_depth(account_id.prefix().into()));
