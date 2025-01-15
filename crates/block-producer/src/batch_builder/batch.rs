@@ -219,8 +219,8 @@ impl TransactionBatch {
             .map(|(&account_id, update)| (account_id, update.init_state))
     }
 
-    /// Returns an iterator over (`account_id`, details, `new_state_hash`) tuples for accounts that were
-    /// modified in this transaction batch.
+    /// Returns an iterator over (`account_id`, details, `new_state_hash`) tuples for accounts that
+    /// were modified in this transaction batch.
     pub fn updated_accounts(&self) -> impl Iterator<Item = (&AccountId, &AccountUpdate)> + '_ {
         self.updated_accounts.iter()
     }
