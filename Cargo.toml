@@ -46,3 +46,5 @@ tokio-stream = { version = "0.1" }
 tonic = { version = "0.12" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["fmt",  "json",  "env-filter"] }
+
+[workspace.lints.clippy]
