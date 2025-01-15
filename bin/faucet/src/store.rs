@@ -42,7 +42,7 @@ impl FaucetDataStore {
     }
 
     /// Updates the stored faucet account with the new one.
-    pub async fn update_faucet_state(&self, new_faucet_state: Account) -> Result<(), HandlerError> {
+    pub fn update_faucet_state(&self, new_faucet_state: Account) -> Result<(), HandlerError> {
         *self.faucet_account.lock().expect("Poisoned lock") = new_faucet_state;
 
         Ok(())
