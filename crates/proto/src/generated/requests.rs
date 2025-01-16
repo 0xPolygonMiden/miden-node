@@ -11,7 +11,7 @@ pub struct CheckNullifiersByPrefixRequest {
     #[prost(uint32, tag = "1")]
     pub prefix_len: u32,
     /// List of nullifiers to check. Each nullifier is specified by its prefix with length equal
-    /// to `prefix_len`
+    /// to prefix_len
     #[prost(uint32, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
 }
@@ -105,13 +105,13 @@ pub struct SubmitProvenTransactionRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNotesByIdRequest {
-    /// List of `NoteId`'s to be queried from the database
+    /// List of NoteId's to be queried from the database
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNoteAuthenticationInfoRequest {
-    /// List of `NoteId`'s to be queried from the database
+    /// List of NoteId's to be queried from the database
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
@@ -164,7 +164,7 @@ pub struct GetAccountProofsRequest {
 /// Nested message and enum types in `GetAccountProofsRequest`.
 pub mod get_account_proofs_request {
     /// Represents per-account requests where each account ID has its own list of
-    /// (`storage_slot_index`, `map_keys`) pairs.
+    /// (storage_slot_index, map_keys) pairs.
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct AccountRequest {
         /// The account ID for this request.
