@@ -15,7 +15,7 @@ message AccountSummary {
     // The account ID.
     AccountId account_id = 1;
 
-    // The latest account hash, zero hash if the account doesn't exist.
+    // The current account hash or zero if the account does not exist.
     digest.Digest account_hash = 2;
 
     // Merkle path to verify the account's inclusion in the MMR.
