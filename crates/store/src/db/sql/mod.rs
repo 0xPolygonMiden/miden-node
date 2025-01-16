@@ -214,9 +214,7 @@ pub fn compute_old_account_states(
 
     impl Accounts {
         fn try_get_mut(&mut self, id: &AccountId) -> Result<&mut Account> {
-            self.0.get_mut(id).ok_or_else(|| {
-                DatabaseError::DataCorrupted(format!("Account not found in DB: {id}"))
-            })
+            self.0.get_mut(id).ok_or_else(|| DatabaseError::AccountNotFoundInDb(*id))
         }
 
         fn update_asset(
@@ -276,22 +274,26 @@ pub fn compute_old_account_states(
         select_latest_states_stmt.query(params![Rc::clone(&account_ids), block_number])?;
     while let Some(row) = rows.next()? {
         let account_details = row.get_ref(1)?.as_blob_or_null()?;
-        if let Some(details) = account_details {
-            let account = Account::read_from_bytes(details)?;
-            let old_nonce = row.get::<_, Option<u64>>(2)?;
+        let id = read_from_blob_column(row, 0)?;
+        let details = account_details.ok_or_else(|| {
+            DatabaseError::DataCorrupted(format!(
+                "No details for public account {id} in the database"
+            ))
+        })?;
+        let account = Account::read_from_bytes(details)?;
+        let old_nonce = row.get::<_, Option<u64>>(2)?;
 
-            // If there is updated (old) nonce, reconstruct loaded details with the nonce.
-            let (id, account) = if let Some(old_nonce) = old_nonce {
-                let (id, vault, storage, code, _nonce) = account.into_parts();
-                let nonce = old_nonce.try_into().map_err(DatabaseError::DataCorrupted)?;
+        // If there is updated (old) nonce, reconstruct loaded details with the nonce.
+        let account = if let Some(old_nonce) = old_nonce {
+            let (id, vault, storage, code, _nonce) = account.into_parts();
+            let nonce = old_nonce.try_into().map_err(DatabaseError::DataCorrupted)?;
 
-                (id, Account::from_parts(id, vault, storage, code, nonce))
-            } else {
-                (read_from_blob_column(row, 0)?, account)
-            };
+            Account::from_parts(id, vault, storage, code, nonce)
+        } else {
+            account
+        };
 
-            accounts.0.insert(id, account);
-        }
+        accounts.0.insert(id, account);
     }
 
     // *** Query and apply storage slot updates to the latest state ***
