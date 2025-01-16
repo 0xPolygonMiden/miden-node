@@ -33,7 +33,7 @@ use crate::{
 /// components.
 pub struct BlockProducer {
     batch_builder: BatchBuilder,
-    pub block_builder: BlockBuilder,
+    block_builder: BlockBuilder,
     batch_budget: BatchBudget,
     block_budget: BlockBudget,
     state_retention: usize,

@@ -4,9 +4,10 @@ use miden_lib::{
     transaction::TransactionKernel,
 };
 use miden_node_block_producer::{
-    batch_builder::TransactionBatch, config::BlockProducerConfig, server::BlockProducer,
+    batch_builder::TransactionBatch, block_builder::BlockBuilder, store::StoreClient,
     test_utils::MockProvenTxBuilder,
 };
+use miden_node_proto::generated::store::api_client::ApiClient;
 use miden_node_store::{config::StoreConfig, server::Store};
 use miden_objects::{
     accounts::{AccountBuilder, AccountIdAnchor, AccountStorageMode, AccountType},
@@ -22,20 +23,17 @@ use tokio::task::JoinSet;
 
 #[tokio::main]
 async fn main() {
-    let block_producer_config = BlockProducerConfig::default();
     let store_config = StoreConfig::default();
     let mut join_set = JoinSet::new();
 
     // Start store
-    let store = Store::init(store_config).await.context("Loading store").unwrap();
+    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
     let _ = join_set.spawn(async move { store.serve().await.context("Serving store") }).id();
 
-    // Start block-producer
-    // TODO: is the full the BlockProducer needed? we should instantiate only a BlockBuilder
-    let block_producer = BlockProducer::init(block_producer_config)
-        .await
-        .context("Loading block-producer")
-        .unwrap();
+    // Start block builder
+    let store_client =
+        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
+    let block_builder = BlockBuilder::new(store_client);
 
     println!("Creating new faucet account...");
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
@@ -112,6 +110,6 @@ async fn main() {
         }
         println!("Building block {}...", block_num);
         // Inserts the block into the store sending it via StoreClient (RPC)
-        block_producer.block_builder.build_block(&batches).await.unwrap();
+        block_builder.build_block(&batches).await.unwrap();
     }
 }
