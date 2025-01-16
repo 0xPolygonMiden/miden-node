@@ -112,8 +112,8 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             account_id,
             account_hash,
             nullifiers,
-            current_block_height,
             found_unauthenticated_notes,
+            current_block_height,
         })
     }
 }

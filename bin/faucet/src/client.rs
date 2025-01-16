@@ -111,7 +111,7 @@ impl FaucetClient {
         let coin_seed: [u64; 4] = random();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-        Ok(Self { data_store, rpc_api, executor, id, rng })
+        Ok(Self { rpc_api, executor, data_store, id, rng })
     }
 
     /// Executes a mint transaction for the target account.
