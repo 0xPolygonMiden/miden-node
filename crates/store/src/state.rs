@@ -691,7 +691,7 @@ impl State {
         let account_ids: Vec<AccountId> =
             account_requests.iter().map(|req| req.account_id).collect();
 
-        let state_headers = if !include_headers {
+        let state_headers = if include_headers.not() {
             BTreeMap::<AccountId, AccountStateHeader>::default()
         } else {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;

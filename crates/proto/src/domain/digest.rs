@@ -159,19 +159,19 @@ impl TryFrom<proto::Digest> for [Felt; 4] {
     type Error = ConversionError;
 
     fn try_from(value: proto::Digest) -> Result<Self, Self::Error> {
-        if ![value.d0, value.d1, value.d2, value.d3]
+        if [value.d0, value.d1, value.d2, value.d3]
             .iter()
-            .all(|v| *v < <Felt as StarkField>::MODULUS)
+            .any(|v| *v >= <Felt as StarkField>::MODULUS)
         {
-            Err(ConversionError::NotAValidFelt)
-        } else {
-            Ok([
-                Felt::new(value.d0),
-                Felt::new(value.d1),
-                Felt::new(value.d2),
-                Felt::new(value.d3),
-            ])
+            return Err(ConversionError::NotAValidFelt);
         }
+
+        Ok([
+            Felt::new(value.d0),
+            Felt::new(value.d1),
+            Felt::new(value.d2),
+            Felt::new(value.d3),
+        ])
     }
 }
 
