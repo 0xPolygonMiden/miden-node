@@ -17,19 +17,8 @@ The Block Producer can be installed and run as part of [Miden node](../README.md
 ## API
 
 The **Block Producer** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file. 
-Here is a brief description of supported methods.
 
-### SubmitProvenTransaction
-
-Submits proven transaction to the Miden network.
-
-**Parameters**
-
-* `transaction`: `bytes` - transaction encoded using Miden's native format.
-
-**Returns**
-
-This method doesn't return any data.
+Full API documentation located [here](../../docs/api.md).
 
 ## License
 This project is [MIT licensed](../../LICENSE).
