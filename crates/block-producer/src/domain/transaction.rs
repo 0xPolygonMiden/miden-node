@@ -89,7 +89,7 @@ impl AuthenticatedTransaction {
     }
 
     pub fn output_notes(&self) -> impl Iterator<Item = NoteId> + '_ {
-        self.inner.output_notes().iter().map(|note| note.id())
+        self.inner.output_notes().iter().map(miden_objects::transaction::OutputNote::id)
     }
 
     pub fn output_note_count(&self) -> usize {

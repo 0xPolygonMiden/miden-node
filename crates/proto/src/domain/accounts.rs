@@ -89,7 +89,7 @@ impl From<&AccountInfo> for proto::account::AccountInfo {
     fn from(AccountInfo { summary, details }: &AccountInfo) -> Self {
         Self {
             summary: Some(summary.into()),
-            details: details.as_ref().map(|account| account.to_bytes()),
+            details: details.as_ref().map(miden_objects::utils::Serializable::to_bytes),
         }
     }
 }

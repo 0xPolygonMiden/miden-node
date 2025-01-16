@@ -788,7 +788,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
 
     let mut count = 0;
     for note in notes {
-        let details = note.details.as_ref().map(|details| details.to_bytes());
+        let details = note.details.as_ref().map(miden_objects::utils::Serializable::to_bytes);
         count += stmt.execute(params![
             note.block_num,
             note.note_index.batch_idx(),

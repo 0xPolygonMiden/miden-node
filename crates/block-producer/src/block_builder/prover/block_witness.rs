@@ -11,7 +11,7 @@ use miden_objects::{
 };
 
 use crate::{
-    batch_builder::{batch::AccountUpdate, TransactionBatch},
+    batch_builder::batch::{AccountUpdate, TransactionBatch},
     block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
 };
@@ -162,7 +162,7 @@ impl BlockWitness {
             block_inputs.nullifiers.keys().copied().collect();
 
         let produced_nullifiers_from_batches: BTreeSet<Nullifier> =
-            batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+            batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
         if produced_nullifiers_from_store == produced_nullifiers_from_batches {
             Ok(())
@@ -218,8 +218,7 @@ impl BlockWitness {
                 let empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
                 advice_stack.extend(*empty_root);
 
-                for (batch_index, batch_created_notes_root) in &self.batch_created_notes_roots
-                {
+                for (batch_index, batch_created_notes_root) in &self.batch_created_notes_roots {
                     advice_stack.extend(batch_created_notes_root.iter());
 
                     let batch_index = Felt::try_from(*batch_index as u64)

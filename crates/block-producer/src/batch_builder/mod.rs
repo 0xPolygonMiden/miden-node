@@ -221,7 +221,9 @@ impl WorkerPool {
 
                     let inputs = store
                         .get_batch_inputs(
-                            transactions.iter().flat_map(|tx| tx.unauthenticated_notes()),
+                            transactions
+                                .iter()
+                                .flat_map(AuthenticatedTransaction::unauthenticated_notes),
                         )
                         .await
                         .map_err(|err| (id, BuildBatchError::FetchBatchInputsFailed(err)))?;

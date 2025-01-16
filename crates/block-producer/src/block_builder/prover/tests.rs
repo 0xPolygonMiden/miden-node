@@ -19,7 +19,7 @@ use miden_objects::{
 use self::block_witness::AccountUpdateWitness;
 use super::*;
 use crate::{
-    batch_builder::TransactionBatch,
+    batch_builder::batch::TransactionBatch,
     block::{AccountWitness, BlockInputs},
     test_utils::{
         block::{build_actual_block_header, build_expected_block_header, MockBlockBuilder},
@@ -695,7 +695,7 @@ fn block_witness_validation_inconsistent_nullifiers() {
 
         let accounts = batches
             .iter()
-            .flat_map(|batch| batch.account_initial_states())
+            .flat_map(TransactionBatch::account_initial_states)
             .map(|(account_id, hash)| {
                 (account_id, AccountWitness { hash, proof: MerklePath::default() })
             })
@@ -765,7 +765,7 @@ async fn compute_nullifier_root_empty_success() {
 
     let account_ids: Vec<AccountId> = batches
         .iter()
-        .flat_map(|batch| batch.account_initial_states())
+        .flat_map(TransactionBatch::account_initial_states)
         .map(|(account_id, _)| account_id)
         .collect();
 
@@ -819,7 +819,7 @@ async fn compute_nullifier_root_success() {
 
     let account_ids: Vec<AccountId> = batches
         .iter()
-        .flat_map(|batch| batch.account_initial_states())
+        .flat_map(TransactionBatch::account_initial_states)
         .map(|(account_id, _)| account_id)
         .collect();
 
