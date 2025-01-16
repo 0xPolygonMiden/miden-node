@@ -70,11 +70,11 @@ Retrieves block data by given block number.
 
 **Returns:**
 
-- `block`: `Block` – block data encoded in Miden native format.
+- `block`: `Block` – block data encoded using [winter_utils::Serializable](https://github.com/facebook/winterfell/blob/main/utils/core/src/serde/mod.rs#L26) implementation for [miden_objects::block::Block](https://github.com/0xPolygonMiden/miden-base/blob/main/objects/src/block/mod.rs#L43).
 
 ### GetBlockInputs
 
-Returns data needed by the block producer to construct and prove the next block.
+Returns data required to prove the next block.
 
 **Parameters**
 
@@ -90,12 +90,12 @@ Returns data needed by the block producer to construct and prove the next block.
 
 ### GetTransactionInputs
 
-Returns the data needed by the block producer to check validity of an incoming transaction.
+Returns data required to validate a new transaction.
 
 **Parameters**
 
 - `account_id`: `AccountId` – ID of the account against which a transaction is executed.
-- `nullifiers`: `[Digest]` – array of nullifiers for all notes consumed by a transaction.
+- `nullifiers`: `[Digest]` – set of nullifiers consumed by this transaction.
 
 **Returns**
 

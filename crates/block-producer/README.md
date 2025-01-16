@@ -25,7 +25,7 @@ Submits proven transaction to the Miden network.
 
 **Parameters**
 
-* `transaction`: `bytes` - transaction encoded using Miden's native format.
+* `transaction`: `bytes` - transaction encoded using [winter_utils::Serializable](https://github.com/facebook/winterfell/blob/main/utils/core/src/serde/mod.rs#L26) implementation for [miden_objects::transaction::proven_tx::ProvenTransaction](https://github.com/0xPolygonMiden/miden-base/blob/main/objects/src/transaction/proven_tx.rs#L22).
 
 **Returns**
 
