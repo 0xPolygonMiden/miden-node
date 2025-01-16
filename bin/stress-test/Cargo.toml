@@ -31,3 +31,4 @@ tokio-stream = { workspace = true, features = ["net"] }
 tonic = { workspace = true }
 tracing = { workspace = true }
 rand_chacha = "0.3"
+rayon = "1.10.0"
