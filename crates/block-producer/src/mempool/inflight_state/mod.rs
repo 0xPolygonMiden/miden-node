@@ -283,7 +283,7 @@ impl InflightState {
     /// Panics if any transactions is not part of the uncommitted state.
     pub fn commit_block(&mut self, txs: impl IntoIterator<Item = TransactionId>) {
         let mut block_deltas = BTreeMap::new();
-        for tx in txs.into_iter() {
+        for tx in txs {
             let delta = self.transaction_deltas.remove(&tx).expect("Transaction delta must exist");
 
             // SAFETY: Since the delta exists, so must the account.
