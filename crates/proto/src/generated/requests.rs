@@ -2,7 +2,8 @@
 /// Applies changes of a new block to the DB and in-memory data structures.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyBlockRequest {
-    /// Block data encoded using Miden's native format.
+    /// Block data encoded using \[winter_utils::Serializable\] implementation for
+    /// \[miden_objects::block::Block\].
     #[prost(bytes = "vec", tag = "1")]
     pub block: ::prost::alloc::vec::Vec<u8>,
 }
@@ -30,7 +31,7 @@ pub struct CheckNullifiersRequest {
 /// The Merkle path is an MMR proof for the block's leaf, based on the current chain length.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetBlockHeaderByNumberRequest {
-    /// The block number of the target block. If not provided, means latest known block.
+    /// The target block height, defaults to latest if not provided.
     #[prost(uint32, optional, tag = "1")]
     pub block_num: ::core::option::Option<u32>,
     /// Whether or not to return authentication data for the block header.
@@ -50,6 +51,7 @@ pub struct SyncStateRequest {
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
     /// Accounts' hash to include in the response.
+    ///
     /// An account hash will be included if-and-only-if it is the latest update. Meaning it is
     /// possible there was an update to the account for the given range, but if it is not the latest,
     /// it won't be included in the response.
@@ -77,51 +79,54 @@ pub struct SyncNoteRequest {
     #[prost(fixed32, repeated, tag = "2")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
 }
-/// Returns data needed by the block producer to construct and prove the next block, including
-/// account states, nullifiers, and unauthenticated notes.
+/// Returns data required to prove the next block.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockInputsRequest {
     /// ID of the account against which a transaction is executed.
     #[prost(message, repeated, tag = "1")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Array of nullifiers for all notes consumed by a transaction.
+    /// Set of nullifiers consumed by this transaction.
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
     /// Array of note IDs to be checked for existence in the database.
     #[prost(message, repeated, tag = "3")]
     pub unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
-/// Returns the data needed by the block producer to check validity of an incoming transaction.
+/// Returns data required to validate a new transaction.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetTransactionInputsRequest {
     /// ID of the account against which a transaction is executed.
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,
-    /// Array of nullifiers for all notes consumed by a transaction.
+    /// Set of nullifiers consumed by this transaction.
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
-    /// Array of unauthenticated note IDs to be checked for existence in the database.
+    /// Set of unauthenticated notes to check for existence on-chain.
+    ///
+    /// These are notes which were not on-chain at the state the transaction was proven,
+    /// but could by now be present.
     #[prost(message, repeated, tag = "3")]
     pub unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 /// Submits proven transaction to the Miden network.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubmitProvenTransactionRequest {
-    /// Transaction encoded using Miden's native format.
+    /// Transaction encoded using \[winter_utils::Serializable\] implementation for
+    /// \[miden_objects::transaction::proven_tx::ProvenTransaction\].
     #[prost(bytes = "vec", tag = "1")]
     pub transaction: ::prost::alloc::vec::Vec<u8>,
 }
 /// Returns a list of notes matching the provided note IDs.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNotesByIdRequest {
-    /// List of NoteId's to be queried from the database.
+    /// List of notes to be queried from the database.
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
 /// Returns a list of Note inclusion proofs for the specified Note IDs.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNoteAuthenticationInfoRequest {
-    /// List of NoteId's to be queried from the database.
+    /// List of notes to be queried from the database.
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
@@ -153,7 +158,7 @@ pub struct GetAccountStateDeltaRequest {
     #[prost(fixed32, tag = "3")]
     pub to_block_num: u32,
 }
-/// Returns the latest state proofs of accounts with the specified IDs.
+/// Returns the latest state proofs of the specified accounts.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountProofsRequest {
     /// A list of account requests, including map keys + values.

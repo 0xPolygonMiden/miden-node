@@ -15,10 +15,12 @@ message NoteMetadata {
     uint32 note_type = 2;
 
     // A value which can be used by the recipient(s) to identify notes intended for them.
+    //
+    // See `miden_objects::notes::note_tag` for more info.
     fixed32 tag = 3;
 
-    // Specifies when a note is ready to be consumed:
-    // (6 least significant bits - hint identifier (tag), bits 6 to 38 - Hint payload).
+    // Specifies when a note is ready to be consumed.
+    //
     // See `miden_objects::notes::execution_hint` for more info.
     fixed64 execution_hint = 4;
 
@@ -37,20 +39,21 @@ message Note {
     // The ID of the note.
     digest.Digest note_id = 3;
 
-    // The note metadata.
+    // The note's metadata.
     NoteMetadata metadata = 4;
 
-    // The note inclusion proof in the block.
+    // The note's inclusion proof in the block.
     merkle.MerklePath merkle_path = 5;
 
-    // This field will be present when the note is public.
-    // details contain the `Note` in a serialized format.
+    // Serialized details of the public note (empty for private notes).
     optional bytes details = 6;
 }
 
-// Represents proof of a note's inclusion in a block.
+// Represents a proof of note's inclusion in a block.
+//
+// Does not include proof of the block's inclusion in the chain.
 message NoteInclusionInBlockProof {
-    // The ID of the note.
+    // A unique identifier of the note which is a 32-byte commitment to the underlying note data.
     digest.Digest note_id = 1;
 
     // The block number in which the note was created.
@@ -59,7 +62,7 @@ message NoteInclusionInBlockProof {
     // The index of the note in the block.
     uint32 note_index_in_block = 3;
 
-    // The note inclusion proof in the block.
+    // The note's inclusion proof in the block.
     merkle.MerklePath merkle_path = 4;
 }
 
@@ -68,13 +71,13 @@ message NoteSyncRecord {
     // The index of the note.
     uint32 note_index = 1;
 
-    // The ID of the note.
+    // A unique identifier of the note which is a 32-byte commitment to the underlying note data.
     digest.Digest note_id = 2;
 
-    // The note metadata.
+    // The note's metadata.
     NoteMetadata metadata = 3;
 
-    // The note inclusion proof in the block.
+    // The note's inclusion proof in the block.
     merkle.MerklePath merkle_path = 4;
 }
 

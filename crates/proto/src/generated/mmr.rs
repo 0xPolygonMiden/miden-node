@@ -2,7 +2,7 @@
 /// Represents an MMR delta.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MmrDelta {
-    /// The number of trees in the forest (latest block number + 1).
+    /// The number of leaf nodes in the MMR.
     #[prost(uint64, tag = "1")]
     pub forest: u64,
     /// New and changed MMR peaks.

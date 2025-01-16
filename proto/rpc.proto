@@ -15,7 +15,7 @@ service Api {
     // Returns the latest state of an account with the specified ID.
     rpc GetAccountDetails(requests.GetAccountDetailsRequest) returns (responses.GetAccountDetailsResponse) {}
 
-    // Returns the latest state proofs of accounts with the specified IDs.
+    // Returns the latest state proofs of the specified accounts.
     rpc GetAccountProofs(requests.GetAccountProofsRequest) returns (responses.GetAccountProofsResponse) {}
 
     // Returns delta of the account states in the range from `from_block_num` (exclusive) to

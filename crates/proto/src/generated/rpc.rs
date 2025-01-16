@@ -167,7 +167,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountDetails"));
             self.inner.unary(req, path, codec).await
         }
-        /// Returns the latest state proofs of accounts with the specified IDs.
+        /// Returns the latest state proofs of the specified accounts.
         pub async fn get_account_proofs(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -422,7 +422,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountDetailsResponse>,
             tonic::Status,
         >;
-        /// Returns the latest state proofs of accounts with the specified IDs.
+        /// Returns the latest state proofs of the specified accounts.
         async fn get_account_proofs(
             &self,
             request: tonic::Request<super::super::requests::GetAccountProofsRequest>,

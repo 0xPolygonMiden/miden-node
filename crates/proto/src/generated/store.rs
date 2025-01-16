@@ -192,7 +192,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetAccountDetails"));
             self.inner.unary(req, path, codec).await
         }
-        /// Returns the latest state proofs of accounts with the specified IDs.
+        /// Returns the latest state proofs of the specified accounts.
         pub async fn get_account_proofs(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -302,8 +302,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetBlockHeaderByNumber"));
             self.inner.unary(req, path, codec).await
         }
-        /// Returns data needed by the block producer to construct and prove the next block, including
-        /// account states, nullifiers, and unauthenticated notes.
+        /// Returns data required to prove the next block.
         pub async fn get_block_inputs(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -376,7 +375,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "GetNotesById"));
             self.inner.unary(req, path, codec).await
         }
-        /// Returns the data needed by the block producer to check validity of an incoming transaction.
+        /// Returns data required to validate a new transaction.
         pub async fn get_transaction_inputs(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -513,7 +512,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountDetailsResponse>,
             tonic::Status,
         >;
-        /// Returns the latest state proofs of accounts with the specified IDs.
+        /// Returns the latest state proofs of the specified accounts.
         async fn get_account_proofs(
             &self,
             request: tonic::Request<super::super::requests::GetAccountProofsRequest>,
@@ -549,8 +548,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
         >;
-        /// Returns data needed by the block producer to construct and prove the next block, including
-        /// account states, nullifiers, and unauthenticated notes.
+        /// Returns data required to prove the next block.
         async fn get_block_inputs(
             &self,
             request: tonic::Request<super::super::requests::GetBlockInputsRequest>,
@@ -576,7 +574,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetNotesByIdResponse>,
             tonic::Status,
         >;
-        /// Returns the data needed by the block producer to check validity of an incoming transaction.
+        /// Returns data required to validate a new transaction.
         async fn get_transaction_inputs(
             &self,
             request: tonic::Request<super::super::requests::GetTransactionInputsRequest>,

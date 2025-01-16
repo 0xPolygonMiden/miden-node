@@ -12,13 +12,13 @@ message TransactionId {
 
 // Represents a transaction summary.
 message TransactionSummary {
-    // The transaction ID.
+    // A unique 32-byte identifier of a transaction.
     TransactionId transaction_id = 1;
 
-    // The block number.
+    // The block number in which the transaction was executed.
     fixed32 block_num = 2;
 
-    // The account ID.
+    // The ID of the account affected by the transaction.
     account.AccountId account_id = 3;
 }
 

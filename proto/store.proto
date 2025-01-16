@@ -20,7 +20,7 @@ service Api {
     // Returns the latest state of an account with the specified ID.
     rpc GetAccountDetails(requests.GetAccountDetailsRequest) returns (responses.GetAccountDetailsResponse) {}
 
-    // Returns the latest state proofs of accounts with the specified IDs.
+    // Returns the latest state proofs of the specified accounts.
     rpc GetAccountProofs(requests.GetAccountProofsRequest) returns (responses.GetAccountProofsResponse) {}
 
     // Returns delta of the account states in the range from `from_block_num` (exclusive) to
@@ -34,8 +34,7 @@ service Api {
     // and current chain length to authenticate the block's inclusion.
     rpc GetBlockHeaderByNumber(requests.GetBlockHeaderByNumberRequest) returns (responses.GetBlockHeaderByNumberResponse) {}
 
-    // Returns data needed by the block producer to construct and prove the next block, including
-    // account states, nullifiers, and unauthenticated notes.
+    // Returns data required to prove the next block.
     rpc GetBlockInputs(requests.GetBlockInputsRequest) returns (responses.GetBlockInputsResponse) {}
 
     // Returns a list of Note inclusion proofs for the specified Note IDs.
@@ -44,7 +43,7 @@ service Api {
     // Returns a list of notes matching the provided note IDs.
     rpc GetNotesById(requests.GetNotesByIdRequest) returns (responses.GetNotesByIdResponse) {}
 
-    // Returns the data needed by the block producer to check validity of an incoming transaction.
+    // Returns data required to validate a new transaction.
     rpc GetTransactionInputs(requests.GetTransactionInputsRequest) returns (responses.GetTransactionInputsResponse) {}
 
     // Note synchronization request.

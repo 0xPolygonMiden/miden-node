@@ -9,13 +9,13 @@ pub struct TransactionId {
 /// Represents a transaction summary.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TransactionSummary {
-    /// The transaction ID.
+    /// A unique 32-byte identifier of a transaction.
     #[prost(message, optional, tag = "1")]
     pub transaction_id: ::core::option::Option<TransactionId>,
-    /// The block number.
+    /// The block number in which the transaction was executed.
     #[prost(fixed32, tag = "2")]
     pub block_num: u32,
-    /// The account ID.
+    /// The ID of the account affected by the transaction.
     #[prost(message, optional, tag = "3")]
     pub account_id: ::core::option::Option<super::account::AccountId>,
 }

@@ -195,14 +195,16 @@ pub struct GetAccountDetailsResponse {
 /// Represents the result of getting block by number.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockByNumberResponse {
-    /// The requested `Block` data encoded using Miden native format.
+    /// The requested block data encoded using \[winter_utils::Serializable\] implementation for
+    /// \[miden_objects::block::Block\].
     #[prost(bytes = "vec", optional, tag = "1")]
     pub block: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
 /// Represents the result of getting account state delta.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountStateDeltaResponse {
-    /// The calculated `AccountStateDelta` encoded using Miden native format.
+    /// The calculated account delta encoded using \[winter_utils::Serializable\] implementation
+    /// for \[miden_objects::accounts::delta::AccountDelta\].
     #[prost(bytes = "vec", optional, tag = "1")]
     pub delta: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

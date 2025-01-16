@@ -4,9 +4,11 @@ package account;
 import "digest.proto";
 
 // An account ID.
+//
+// A Miden account ID is a 120-bit value derived from the commitments to account code and storage,
+// and a random user-provided seed.
 message AccountId {
-    // A Miden account ID is a 120-bit value derived from the commitments to account code and
-    // storage, and a random user-provided seed.
+    // An account ID.
     bytes id = 1;
 }
 
@@ -18,7 +20,7 @@ message AccountSummary {
     // The current account hash or zero if the account does not exist.
     digest.Digest account_hash = 2;
 
-    // Merkle path to verify the account's inclusion in the MMR.
+    // Block number at which the summary was made.
     uint32 block_num = 3;
 }
 
@@ -27,7 +29,8 @@ message AccountInfo {
     // Account summary.
     AccountSummary summary = 1;
 
-    // Account details encoded using Miden native format.
+    // Account details encoded using [winter_utils::Serializable] implementation for
+    // [miden_objects::accounts::Account].
     optional bytes details = 2;
 }
 

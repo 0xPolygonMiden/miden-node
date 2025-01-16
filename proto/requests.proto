@@ -6,7 +6,8 @@ import "digest.proto";
 
 // Applies changes of a new block to the DB and in-memory data structures.
 message ApplyBlockRequest {
-    // Block data encoded using Miden's native format.
+    // Block data encoded using [winter_utils::Serializable] implementation for
+    // [miden_objects::block::Block].
     bytes block = 1;
 }
 
@@ -30,7 +31,7 @@ message CheckNullifiersRequest {
 //
 // The Merkle path is an MMR proof for the block's leaf, based on the current chain length.
 message GetBlockHeaderByNumberRequest {
-    // The block number of the target block. If not provided, means latest known block.
+    // The target block height, defaults to latest if not provided.
     optional uint32 block_num = 1;
     // Whether or not to return authentication data for the block header.
     optional bool include_mmr_proof = 2;
@@ -48,6 +49,7 @@ message SyncStateRequest {
     fixed32 block_num = 1;
 
     // Accounts' hash to include in the response.
+    //
     // An account hash will be included if-and-only-if it is the latest update. Meaning it is
     // possible there was an update to the account for the given range, but if it is not the latest,
     // it won't be included in the response.
@@ -74,42 +76,45 @@ message SyncNoteRequest {
     repeated fixed32 note_tags = 2;
 }
 
-// Returns data needed by the block producer to construct and prove the next block, including
-// account states, nullifiers, and unauthenticated notes.
+// Returns data required to prove the next block.
 message GetBlockInputsRequest {
     // ID of the account against which a transaction is executed.
     repeated account.AccountId account_ids = 1;
-    // Array of nullifiers for all notes consumed by a transaction.
+    // Set of nullifiers consumed by this transaction.
     repeated digest.Digest nullifiers = 2;
     // Array of note IDs to be checked for existence in the database.
     repeated digest.Digest unauthenticated_notes = 3;
 }
 
-// Returns the data needed by the block producer to check validity of an incoming transaction.
+// Returns data required to validate a new transaction.
 message GetTransactionInputsRequest {
     // ID of the account against which a transaction is executed.
     account.AccountId account_id = 1;
-    // Array of nullifiers for all notes consumed by a transaction.
+    // Set of nullifiers consumed by this transaction.
     repeated digest.Digest nullifiers = 2;
-    // Array of unauthenticated note IDs to be checked for existence in the database.
+    // Set of unauthenticated notes to check for existence on-chain.
+    //
+    // These are notes which were not on-chain at the state the transaction was proven,
+    // but could by now be present.
     repeated digest.Digest unauthenticated_notes = 3;
 }
 
 // Submits proven transaction to the Miden network.
 message SubmitProvenTransactionRequest {
-    // Transaction encoded using Miden's native format.
+    // Transaction encoded using [winter_utils::Serializable] implementation for
+    // [miden_objects::transaction::proven_tx::ProvenTransaction].
     bytes transaction = 1;
 }
 
 // Returns a list of notes matching the provided note IDs.
 message GetNotesByIdRequest {
-    // List of NoteId's to be queried from the database.
+    // List of notes to be queried from the database.
     repeated digest.Digest note_ids = 1;
 }
 
 // Returns a list of Note inclusion proofs for the specified Note IDs.
 message GetNoteAuthenticationInfoRequest {
-    // List of NoteId's to be queried from the database.
+    // List of notes to be queried from the database.
     repeated digest.Digest note_ids = 1;
 }
 
@@ -136,7 +141,7 @@ message GetAccountStateDeltaRequest {
     fixed32 to_block_num = 3;
 }
 
-// Returns the latest state proofs of accounts with the specified IDs.
+// Returns the latest state proofs of the specified accounts.
 message GetAccountProofsRequest {
     // Represents per-account requests where each account ID has its own list of
     // (storage_slot_index, map_keys) pairs.

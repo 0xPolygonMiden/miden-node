@@ -187,13 +187,15 @@ message GetAccountDetailsResponse {
 
 // Represents the result of getting block by number.
 message GetBlockByNumberResponse {
-    // The requested `Block` data encoded using Miden native format.
+    // The requested block data encoded using [winter_utils::Serializable] implementation for
+    // [miden_objects::block::Block].
     optional bytes block = 1;
 }
 
 // Represents the result of getting account state delta.
 message GetAccountStateDeltaResponse {
-    // The calculated `AccountStateDelta` encoded using Miden native format.
+    // The calculated account delta encoded using [winter_utils::Serializable] implementation
+    // for [miden_objects::accounts::delta::AccountDelta].
     optional bytes delta = 1;
 }
 
