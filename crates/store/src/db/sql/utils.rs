@@ -73,7 +73,7 @@ macro_rules! insert_sql {
 pub fn u64_to_value(v: u64) -> Value {
     #[allow(
         clippy::cast_possible_wrap,
-        reason = "Wrap is valid so we can store u64 in sqlite which only accepts i64"
+        reason = "We store u64 as i64 as sqlite only allows the latter."
     )]
     Value::Integer(v as i64)
 }
@@ -87,6 +87,10 @@ pub fn column_value_as_u64<I: rusqlite::RowIndex>(
     index: I,
 ) -> rusqlite::Result<u64> {
     let value: i64 = row.get(index)?;
+    #[allow(
+        clippy::cast_sign_loss,
+        reason = "We store u64 as i64 as sqlite only allows the latter."
+    )]
     Ok(value as u64)
 }
 

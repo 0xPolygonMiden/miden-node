@@ -53,7 +53,6 @@ tracing-subscriber = { version = "0.3", features = ["fmt",  "json",  "env-filter
 # allowed.
 pedantic = { level = "warn", priority = -1 }
 cast_possible_truncation = "allow"     # Overly many instances especially regarding indices.
-cast_sign_loss = "allow"
 large_types_passed_by_value = "allow"  # Triggered by BlockHeader being Copy + 334 bytes.
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
