@@ -45,7 +45,7 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
     //
     // Map all outcomes to an error, and provide component context.
     let (id, err) = match component_result {
-        Ok((id, Ok(_))) => (id, Err(anyhow::anyhow!("Component completed unexpectedly"))),
+        Ok((id, Ok(()))) => (id, Err(anyhow::anyhow!("Component completed unexpectedly"))),
         Ok((id, Err(err))) => (id, Err(err)),
         Err(join_err) => (join_err.id(), Err(join_err).context("Joining component task")),
     };
