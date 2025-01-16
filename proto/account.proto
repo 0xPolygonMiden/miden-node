@@ -3,16 +3,17 @@ package account;
 
 import "digest.proto";
 
-// An account ID.
+// Uniquely identifies a specific account.
 //
 // A Miden account ID is a 120-bit value derived from the commitments to account code and storage,
 // and a random user-provided seed.
 message AccountId {
-    // An account ID.
+    // 15 bytes (120 bits) encoded using [winter_utils::Serializable] implementation for
+    // [miden_objects::accounts::account_id::AccountId].
     bytes id = 1;
 }
 
-// A summary of an account.
+// The state of an account at a specific block height.
 message AccountSummary {
     // The account ID.
     AccountId account_id = 1;
