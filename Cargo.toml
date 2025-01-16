@@ -59,4 +59,3 @@ missing_panics_doc = "allow"
 module_name_repetitions = "allow"      # Many triggers, and is a stylistic choice.
 must_use_candidate = "allow"           # This marks many fn's which isn't helpful.
 should_panic_without_expect = "allow"
-too_many_lines = "allow"

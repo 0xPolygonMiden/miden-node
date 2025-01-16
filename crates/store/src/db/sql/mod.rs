@@ -211,6 +211,7 @@ pub fn select_accounts_by_ids(
 /// # Returns
 ///
 /// The resulting account delta, or an error.
+#[allow(clippy::too_many_lines, reason = "mostly just formatted sql text")]
 pub fn select_account_delta(
     conn: &mut Connection,
     account_id: AccountId,

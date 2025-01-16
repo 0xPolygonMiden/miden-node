@@ -1,4 +1,5 @@
 #![allow(clippy::similar_names, reason = "naming dummy test values is hard")]
+#![allow(clippy::too_many_lines, reason = "test code can be long")]
 
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::accounts::AccountSummary;
