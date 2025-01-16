@@ -3,8 +3,8 @@ use miden_node_proto::domain::accounts::AccountSummary;
 use miden_objects::{
     accounts::{
         delta::AccountUpdateDetails, Account, AccountBuilder, AccountComponent, AccountDelta,
-        AccountId, AccountStorageDelta, AccountStorageMode, AccountType, AccountVaultDelta,
-        StorageSlot,
+        AccountId, AccountIdVersion, AccountStorageDelta, AccountStorageMode, AccountType,
+        AccountVaultDelta, StorageSlot,
     },
     assets::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
@@ -296,8 +296,9 @@ fn sql_select_accounts() {
     // test multiple entries
     let mut state = vec![];
     for i in 0..10u8 {
-        let account_id = AccountId::new_dummy(
+        let account_id = AccountId::dummy(
             [i; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         );
@@ -1021,8 +1022,7 @@ fn mock_account_code_and_storage(
     .unwrap()
     .with_supported_type(account_type);
 
-    AccountBuilder::new()
-        .init_seed([0; 32])
+    AccountBuilder::new([0; 32])
         .account_type(account_type)
         .storage_mode(storage_mode)
         .with_assets(assets)

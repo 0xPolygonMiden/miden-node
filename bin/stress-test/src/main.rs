@@ -42,8 +42,7 @@ async fn main() {
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
     let key_pair = SecretKey::with_rng(&mut rng);
     let init_seed = [0_u8; 32];
-    let (new_faucet, _seed) = AccountBuilder::new()
-        .init_seed(init_seed)
+    let (new_faucet, _seed) = AccountBuilder::new(init_seed)
         .anchor(AccountIdAnchor::PRE_GENESIS)
         .account_type(AccountType::FungibleFaucet)
         .storage_mode(AccountStorageMode::Private)
@@ -67,8 +66,7 @@ async fn main() {
             let mut batch = Vec::with_capacity(TRANSACTIONS_PER_BATCH);
             for _ in 0..TRANSACTIONS_PER_BATCH / 2 {
                 // Create wallet
-                let (new_account, _) = AccountBuilder::new()
-                    .init_seed(init_seed)
+                let (new_account, _) = AccountBuilder::new(init_seed)
                     .anchor(AccountIdAnchor::PRE_GENESIS)
                     .account_type(AccountType::RegularAccountImmutableCode)
                     .storage_mode(AccountStorageMode::Private)

@@ -2,7 +2,9 @@ use std::{collections::BTreeMap, iter};
 
 use assert_matches::assert_matches;
 use miden_objects::{
-    accounts::{delta::AccountUpdateDetails, AccountId, AccountStorageMode, AccountType},
+    accounts::{
+        delta::AccountUpdateDetails, AccountId, AccountIdVersion, AccountStorageMode, AccountType,
+    },
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
     crypto::merkle::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, Smt, SmtLeaf, SmtProof, SMT_DEPTH,
@@ -35,18 +37,21 @@ use crate::{
 /// The store will contain accounts 1 & 2, while the transaction batches will contain 2 & 3.
 #[test]
 fn block_witness_validation_inconsistent_account_ids() {
-    let account_id_1 = AccountId::new_dummy(
+    let account_id_1 = AccountId::dummy(
         [0; 15],
+        AccountIdVersion::Version0,
         AccountType::RegularAccountImmutableCode,
         miden_objects::accounts::AccountStorageMode::Private,
     );
-    let account_id_2 = AccountId::new_dummy(
+    let account_id_2 = AccountId::dummy(
         [1; 15],
+        AccountIdVersion::Version0,
         AccountType::RegularAccountImmutableCode,
         miden_objects::accounts::AccountStorageMode::Private,
     );
-    let account_id_3 = AccountId::new_dummy(
+    let account_id_3 = AccountId::dummy(
         [2; 15],
+        AccountIdVersion::Version0,
         AccountType::RegularAccountImmutableCode,
         miden_objects::accounts::AccountStorageMode::Private,
     );
@@ -282,28 +287,33 @@ async fn compute_account_root_success() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
-        AccountId::new_dummy(
+        AccountId::dummy(
             [0; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [1; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [2; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [3; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [4; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         ),
@@ -402,28 +412,33 @@ async fn compute_account_root_empty_batches() {
     // Set up account states
     // ---------------------------------------------------------------------------------------------
     let account_ids = [
-        AccountId::new_dummy(
+        AccountId::dummy(
             [0; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [1; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [2; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [3; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [4; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             AccountStorageMode::Private,
         ),
@@ -544,18 +559,21 @@ async fn compute_note_root_empty_notes_success() {
 #[miden_node_test_macro::enable_logging]
 async fn compute_note_root_success() {
     let account_ids = [
-        AccountId::new_dummy(
+        AccountId::dummy(
             [0; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [1; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         ),
-        AccountId::new_dummy(
+        AccountId::dummy(
             [2; 15],
+            AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         ),
