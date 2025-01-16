@@ -631,6 +631,7 @@ async fn compute_note_root_success() {
     // The current logic is hardcoded to a depth of 6
     // Specifically, we assume the block has up to 2^6 batches, and each batch up to 2^10 created
     // notes, where each note is stored at depth 10 in the batch tree.
+    #[allow(clippy::items_after_statements, reason = "assert belongs to this section")]
     const _: () = assert!(BLOCK_NOTE_TREE_DEPTH - BATCH_NOTE_TREE_DEPTH == 6);
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second

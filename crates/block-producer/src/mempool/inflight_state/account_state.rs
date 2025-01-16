@@ -221,9 +221,9 @@ mod tests {
 
     #[test]
     fn reverted_txs_are_nonextant() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
         const REVERT: usize = 2;
+        let mut rng = Random::with_random_seed();
 
         let states = (0..N).map(|_| (rng.draw_digest(), rng.draw_tx_id())).collect::<Vec<_>>();
 
@@ -243,9 +243,9 @@ mod tests {
 
     #[test]
     fn pruned_txs_are_nonextant() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
         const PRUNE: usize = 2;
+        let mut rng = Random::with_random_seed();
 
         let states = (0..N).map(|_| (rng.draw_digest(), rng.draw_tx_id())).collect::<Vec<_>>();
 
@@ -266,8 +266,8 @@ mod tests {
 
     #[test]
     fn is_empty_after_full_commit_and_prune() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
+        let mut rng = Random::with_random_seed();
         let mut uut = InflightAccountState::default();
         for _ in 0..N {
             uut.insert(rng.draw_digest(), rng.draw_tx_id());
@@ -296,8 +296,8 @@ mod tests {
     #[test]
     #[should_panic]
     fn revert_panics_on_out_of_bounds() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
+        let mut rng = Random::with_random_seed();
         let mut uut = InflightAccountState::default();
         for _ in 0..N {
             uut.insert(rng.draw_digest(), rng.draw_tx_id());
@@ -310,8 +310,8 @@ mod tests {
     #[test]
     #[should_panic]
     fn commit_panics_on_out_of_bounds() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
+        let mut rng = Random::with_random_seed();
         let mut uut = InflightAccountState::default();
         for _ in 0..N {
             uut.insert(rng.draw_digest(), rng.draw_tx_id());

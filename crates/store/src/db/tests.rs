@@ -605,8 +605,8 @@ fn sql_select_nullifiers_by_block_range() {
 
 #[test]
 fn select_nullifiers_by_prefix() {
-    let mut conn = create_db();
     const PREFIX_LEN: u32 = 16;
+    let mut conn = create_db();
     // test empty table
     let nullifiers = sql::select_nullifiers_by_prefix(&mut conn, PREFIX_LEN, &[]).unwrap();
     assert!(nullifiers.is_empty());
