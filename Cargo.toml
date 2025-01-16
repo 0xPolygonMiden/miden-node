@@ -55,9 +55,9 @@ pedantic = { level = "warn", priority = -1 }
 cast_possible_truncation = "allow"
 cast_possible_wrap = "allow"
 cast_sign_loss = "allow"
-checked_conversions = "allow"
 if_not_else = "allow"
 inconsistent_struct_constructor = "allow"
+# triggered by BlockHeader being Copy + 334 bytes.
 large_types_passed_by_value = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
