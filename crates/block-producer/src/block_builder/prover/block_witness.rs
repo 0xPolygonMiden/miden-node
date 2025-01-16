@@ -218,7 +218,7 @@ impl BlockWitness {
                 let empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
                 advice_stack.extend(*empty_root);
 
-                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter()
+                for (batch_index, batch_created_notes_root) in &self.batch_created_notes_roots
                 {
                     advice_stack.extend(batch_created_notes_root.iter());
 

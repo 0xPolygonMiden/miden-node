@@ -72,7 +72,7 @@ impl api_server::Api for RpcApi {
         debug!(target: COMPONENT, request = ?request.get_ref());
 
         // validate all the nullifiers from the user request
-        for nullifier in request.get_ref().nullifiers.iter() {
+        for nullifier in &request.get_ref().nullifiers {
             let _: Digest = nullifier
                 .try_into()
                 .or(Err(Status::invalid_argument("Digest field is not in the modulus range")))?;

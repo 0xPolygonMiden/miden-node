@@ -403,7 +403,7 @@ pub fn upsert_accounts(
         transaction.prepare_cached("SELECT details FROM accounts WHERE account_id = ?1;")?;
 
     let mut count = 0;
-    for update in accounts.iter() {
+    for update in accounts {
         let account_id = update.account_id();
         let (full_account, insert_delta) = match update.details() {
             AccountUpdateDetails::Private => (None, None),
@@ -571,7 +571,7 @@ pub fn insert_nullifiers_for_block(
     )?;
 
     let mut count = 0;
-    for nullifier in nullifiers.iter() {
+    for nullifier in nullifiers {
         count += stmt.execute(params![
             nullifier.to_bytes(),
             get_nullifier_prefix(nullifier),
@@ -787,7 +787,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
     }))?;
 
     let mut count = 0;
-    for note in notes.iter() {
+    for note in notes {
         let details = note.details.as_ref().map(|details| details.to_bytes());
         count += stmt.execute(params![
             note.block_num,
