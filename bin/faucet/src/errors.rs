@@ -4,7 +4,7 @@ use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
-use miden_objects::AccountError;
+use miden_objects::AccountIdError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -25,7 +25,7 @@ pub enum HandlerError {
     Internal(#[from] anyhow::Error),
 
     #[error("account ID deserialization failed")]
-    AccountIdDeserializationError(#[source] AccountError),
+    AccountIdDeserializationError(#[source] AccountIdError),
 
     #[error("invalid asset amount {requested} requested, valid options are {options:?}")]
     InvalidAssetAmount { requested: u64, options: Vec<u64> },
