@@ -71,6 +71,10 @@ macro_rules! insert_sql {
 /// Sqlite uses `i64` as its internal representation format. Note that the `as` operator performs a
 /// lossless conversion from `u64` to `i64`.
 pub fn u64_to_value(v: u64) -> Value {
+    #[allow(
+        clippy::cast_possible_wrap,
+        reason = "Wrap is valid so we can store u64 in sqlite which only accepts i64"
+    )]
     Value::Integer(v as i64)
 }
 
