@@ -7,31 +7,39 @@ use miden_node_block_producer::{
     batch_builder::TransactionBatch, block_builder::BlockBuilder, store::StoreClient,
     test_utils::MockProvenTxBuilder,
 };
-use miden_node_proto::generated::store::api_client::ApiClient;
+use miden_node_proto::generated::{
+    account as proto, requests::SyncStateRequest, store::api_client::ApiClient,
+};
 use miden_node_store::{config::StoreConfig, server::Store};
 use miden_objects::{
     accounts::{AccountBuilder, AccountIdAnchor, AccountStorageMode, AccountType},
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
+    notes::{NoteExecutionMode, NoteTag},
     testing::notes::NoteBuilder,
     transaction::OutputNote,
     Digest, Felt,
 };
 use miden_processor::crypto::RpoRandomCoin;
+use miden_tx::utils::hex_to_bytes;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon::prelude::*;
 use std::sync::mpsc::channel;
-use tokio::task::{self, JoinSet};
+use tokio::task;
 
 #[tokio::main]
 async fn main() {
-    let store_config = StoreConfig::default();
-    let mut join_set = JoinSet::new();
+    let store_config = StoreConfig {
+        database_filepath: "./loaded-store.sqlite3".into(),
+        genesis_filepath: "./genesis.dat".into(),
+        blockstore_dir: "./loaded-blocks".into(),
+        ..Default::default()
+    };
 
     // Start store
     let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
-    let _ = join_set.spawn(async move { store.serve().await.context("Serving store") }).id();
+    task::spawn(async move { store.serve().await.context("Serving store") });
 
     // Start block builder
     let store_client =
@@ -86,7 +94,7 @@ async fn main() {
     // Parallel account grinding and batch generation
     (0..N_ACCOUNTS)
         .into_par_iter()
-        .map(|_| {
+        .map(|i| {
             let (new_account, _) = AccountBuilder::new(init_seed)
                 .anchor(AccountIdAnchor::PRE_GENESIS)
                 .account_type(AccountType::RegularAccountImmutableCode)
@@ -95,9 +103,12 @@ async fn main() {
                 .with_component(BasicWallet)
                 .build()
                 .unwrap();
-            new_account.id()
+            if i == 0 {
+                println!("Created new account: {}", new_account.id());
+            }
+            (i, new_account.id())
         })
-        .map(|account_id| {
+        .map(|(i, account_id)| {
             let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
             let coin_seed: [u64; 4] = rand::thread_rng().gen();
             let rng: RpoRandomCoin = RpoRandomCoin::new(coin_seed.map(Felt::new));
@@ -105,6 +116,9 @@ async fn main() {
                 .add_assets(vec![asset.clone()])
                 .build(&TransactionKernel::assembler())
                 .unwrap();
+            if i == 0 {
+                println!("Created new note: {}", note.id());
+            }
 
             let create_notes_tx =
                 MockProvenTxBuilder::with_account(faucet_id, Digest::default(), Digest::default())
@@ -127,4 +141,38 @@ async fn main() {
     drop(batch_sender);
 
     db_task.await.unwrap();
+}
+
+#[tokio::test]
+async fn sync_response_time() {
+    let store_config = StoreConfig {
+        database_filepath: "./loaded-store.sqlite3".into(),
+        ..Default::default()
+    };
+
+    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
+    task::spawn(async move { store.serve().await.context("Serving store") });
+
+    // Send sync request and measure performance
+    let start = std::time::Instant::now();
+    let sync_request = SyncStateRequest {
+        block_num: 78,
+        note_tags: vec![u32::from(
+            NoteTag::from_account_id(
+                hex_to_bytes("0xa85900e629b678800000a88b6b7a3f").unwrap().try_into().unwrap(),
+                NoteExecutionMode::Local,
+            )
+            .unwrap(),
+        )],
+        account_ids: vec![proto::AccountId {
+            id: Vec::<u8>::from("0xa85900e629b678800000a88b6b7a3f"),
+        }],
+        nullifiers: vec![],
+    };
+
+    let client = ApiClient::connect(store_config.endpoint.to_string()).await.unwrap();
+    client.clone().sync_state(tonic::Request::new(sync_request)).await.unwrap();
+
+    let elapsed = start.elapsed();
+    println!("Sync request took: {:?}", elapsed);
 }

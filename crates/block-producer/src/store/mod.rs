@@ -126,7 +126,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
 /// Essentially just a thin wrapper around the generated gRPC client which improves type safety.
 #[derive(Clone)]
 pub struct StoreClient {
-    inner: store_client::ApiClient<Channel>,
+    pub inner: store_client::ApiClient<Channel>,
 }
 
 impl StoreClient {
