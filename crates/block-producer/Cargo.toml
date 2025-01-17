@@ -11,6 +11,9 @@ authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [features]
 tracing-forest = ["miden-node-utils/tracing-forest"]
 testing = []

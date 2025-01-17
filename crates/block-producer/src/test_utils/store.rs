@@ -73,24 +73,28 @@ impl MockStoreSuccessBuilder {
         }
     }
 
+    #[must_use]
     pub fn initial_notes<'a>(mut self, notes: impl Iterator<Item = &'a NoteBatch> + Clone) -> Self {
         self.notes = Some(notes.cloned().collect());
 
         self
     }
 
+    #[must_use]
     pub fn initial_nullifiers(mut self, nullifiers: BTreeSet<Digest>) -> Self {
         self.produced_nullifiers = Some(nullifiers);
 
         self
     }
 
+    #[must_use]
     pub fn initial_chain_mmr(mut self, chain_mmr: Mmr) -> Self {
         self.chain_mmr = Some(chain_mmr);
 
         self
     }
 
+    #[must_use]
     pub fn initial_block_num(mut self, block_num: u32) -> Self {
         self.block_num = Some(block_num);
 
@@ -152,7 +156,7 @@ impl MockStoreSuccessBuilder {
                 initial_block_header.block_num(),
                 initial_block_header,
             )]))),
-            num_apply_block_called: Default::default(),
+            num_apply_block_called: Arc::default(),
             notes: Arc::new(RwLock::new(notes)),
         }
     }

@@ -68,6 +68,14 @@ jobs:
       - name: check rust versions
         run: ./scripts/check-rust-version.sh
 
+  unused_deps:
+    name: check for unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: machete
+        uses: bnjbvr/cargo-machete@main
+
   proto:
     name: proto check
     runs-on: ubuntu-latest

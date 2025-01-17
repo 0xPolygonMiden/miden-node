@@ -74,7 +74,7 @@ impl GenesisState {
 
 impl Serializable for GenesisState {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        assert!(self.accounts.len() <= u64::MAX as usize, "too many accounts in GenesisState");
+        assert!(u64::try_from(self.accounts.len()).is_ok(), "too many accounts in GenesisState");
         target.write_usize(self.accounts.len());
         target.write_many(&self.accounts);
 

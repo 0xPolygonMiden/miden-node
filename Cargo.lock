@@ -1485,7 +1485,6 @@ dependencies = [
  "anyhow",
  "axum",
  "clap",
- "figment",
  "http",
  "http-body-util",
  "miden-lib",
@@ -1590,7 +1589,6 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

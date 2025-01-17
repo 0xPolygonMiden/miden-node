@@ -31,6 +31,6 @@ impl FaucetState {
 
         info!(target: COMPONENT, account_id = %id, "Faucet initialization successful");
 
-        Ok(FaucetState { client, id, config, static_files })
+        Ok(FaucetState { id, client, config, static_files })
     }
 }

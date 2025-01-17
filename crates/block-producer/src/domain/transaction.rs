@@ -50,7 +50,7 @@ impl AuthenticatedTransaction {
     ) -> Result<AuthenticatedTransaction, VerifyTxError> {
         let nullifiers_already_spent = tx
             .get_nullifiers()
-            .filter(|nullifier| inputs.nullifiers.get(nullifier).cloned().flatten().is_some())
+            .filter(|nullifier| inputs.nullifiers.get(nullifier).copied().flatten().is_some())
             .collect::<Vec<_>>();
         if !nullifiers_already_spent.is_empty() {
             return Err(VerifyTxError::InputNotesAlreadyConsumed(nullifiers_already_spent));
@@ -89,7 +89,7 @@ impl AuthenticatedTransaction {
     }
 
     pub fn output_notes(&self) -> impl Iterator<Item = NoteId> + '_ {
-        self.inner.output_notes().iter().map(|note| note.id())
+        self.inner.output_notes().iter().map(miden_objects::transaction::OutputNote::id)
     }
 
     pub fn output_note_count(&self) -> usize {
@@ -105,7 +105,7 @@ impl AuthenticatedTransaction {
     pub fn unauthenticated_notes(&self) -> impl Iterator<Item = NoteId> + '_ {
         self.inner
             .get_unauthenticated_notes()
-            .cloned()
+            .copied()
             .map(|header| header.id())
             .filter(|note_id| !self.notes_authenticated_by_store.contains(note_id))
     }
@@ -134,8 +134,8 @@ impl AuthenticatedTransaction {
             account_id: inner.account_id(),
             account_hash: store_account_state,
             nullifiers: inner.get_nullifiers().map(|nullifier| (nullifier, None)).collect(),
-            found_unauthenticated_notes: Default::default(),
-            current_block_height: Default::default(),
+            found_unauthenticated_notes: BTreeSet::default(),
+            current_block_height: 0,
         };
         // SAFETY: nullifiers were set to None aka are definitely unspent.
         Self::new(inner, inputs).unwrap()

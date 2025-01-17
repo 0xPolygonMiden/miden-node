@@ -50,14 +50,13 @@ impl BlockNumber {
         Self(x)
     }
 
-    pub fn next(&self) -> Self {
-        let mut ret = *self;
-        ret.increment();
+    pub fn next(mut self) -> Self {
+        self.increment();
 
-        ret
+        self
     }
 
-    pub fn prev(&self) -> Option<Self> {
+    pub fn prev(self) -> Option<Self> {
         self.checked_sub(Self(1))
     }
 
@@ -65,7 +64,7 @@ impl BlockNumber {
         self.0 += 1;
     }
 
-    pub fn checked_sub(&self, rhs: Self) -> Option<Self> {
+    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
         self.0.checked_sub(rhs.0).map(Self)
     }
 
@@ -125,14 +124,14 @@ impl Default for BlockBudget {
 impl BatchBudget {
     /// Attempts to consume the transaction's resources from the budget.
     ///
-    /// Returns [BudgetStatus::Exceeded] if the transaction would exceed the remaining budget,
-    /// otherwise returns [BudgetStatus::Ok] and subtracts the resources from the budger.
+    /// Returns [`BudgetStatus::Exceeded`] if the transaction would exceed the remaining budget,
+    /// otherwise returns [`BudgetStatus::Ok`] and subtracts the resources from the budger.
     #[must_use]
     fn check_then_subtract(&mut self, tx: &AuthenticatedTransaction) -> BudgetStatus {
         // This type assertion reminds us to update the account check if we ever support multiple
         // account updates per tx.
-        let _: miden_objects::accounts::AccountId = tx.account_update().account_id();
         const ACCOUNT_UPDATES_PER_TX: usize = 1;
+        let _: miden_objects::accounts::AccountId = tx.account_update().account_id();
 
         let output_notes = tx.output_note_count();
         let input_notes = tx.input_note_count();
@@ -157,8 +156,8 @@ impl BatchBudget {
 impl BlockBudget {
     /// Attempts to consume the batch's resources from the budget.
     ///
-    /// Returns [BudgetStatus::Exceeded] if the batch would exceed the remaining budget,
-    /// otherwise returns [BudgetStatus::Ok].
+    /// Returns [`BudgetStatus::Exceeded`] if the batch would exceed the remaining budget,
+    /// otherwise returns [`BudgetStatus::Ok`].
     #[must_use]
     fn check_then_subtract(&mut self, _batch: &TransactionBatch) -> BudgetStatus {
         if self.batches == 0 {
@@ -206,7 +205,7 @@ pub struct Mempool {
 }
 
 impl Mempool {
-    /// Creates a new [SharedMempool] with the provided configuration.
+    /// Creates a new [`SharedMempool`] with the provided configuration.
     pub fn shared(
         chain_tip: BlockNumber,
         batch_budget: BatchBudget,
@@ -235,10 +234,10 @@ impl Mempool {
             batch_budget,
             block_budget,
             state: InflightState::new(chain_tip, state_retention, expiration_slack),
-            block_in_progress: Default::default(),
-            transactions: Default::default(),
-            batches: Default::default(),
-            expirations: Default::default(),
+            block_in_progress: None,
+            transactions: TransactionGraph::default(),
+            batches: BatchGraph::default(),
+            expirations: TransactionExpirations::default(),
         }
     }
 
@@ -353,7 +352,8 @@ impl Mempool {
 
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
-        let transactions = self.batches.prune_committed(batches).expect("Batches failed to commit");
+        let transactions =
+            self.batches.prune_committed(&batches).expect("Batches failed to commit");
         self.transactions
             .commit_transactions(&transactions)
             .expect("Transaction graph malformed");

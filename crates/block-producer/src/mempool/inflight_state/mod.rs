@@ -87,7 +87,7 @@ impl Delta {
 }
 
 impl InflightState {
-    /// Creates an [InflightState] which will retain committed state for the given
+    /// Creates an [`InflightState`] which will retain committed state for the given
     /// amount of blocks before pruning them.
     pub fn new(
         chain_tip: BlockNumber,
@@ -98,11 +98,11 @@ impl InflightState {
             num_retained_blocks,
             chain_tip,
             expiration_slack,
-            accounts: Default::default(),
-            nullifiers: Default::default(),
-            output_notes: Default::default(),
-            transaction_deltas: Default::default(),
-            committed_blocks: Default::default(),
+            accounts: BTreeMap::default(),
+            nullifiers: BTreeSet::default(),
+            output_notes: BTreeMap::default(),
+            transaction_deltas: BTreeMap::default(),
+            committed_blocks: VecDeque::default(),
         }
     }
 
@@ -283,7 +283,7 @@ impl InflightState {
     /// Panics if any transactions is not part of the uncommitted state.
     pub fn commit_block(&mut self, txs: impl IntoIterator<Item = TransactionId>) {
         let mut block_deltas = BTreeMap::new();
-        for tx in txs.into_iter() {
+        for tx in txs {
             let delta = self.transaction_deltas.remove(&tx).expect("Transaction delta must exist");
 
             // SAFETY: Since the delta exists, so must the account.

@@ -67,30 +67,35 @@ impl MockProvenTxBuilder {
         }
     }
 
+    #[must_use]
     pub fn unauthenticated_notes(mut self, notes: Vec<Note>) -> Self {
         self.input_notes = Some(notes.into_iter().map(InputNote::unauthenticated).collect());
 
         self
     }
 
+    #[must_use]
     pub fn nullifiers(mut self, nullifiers: Vec<Nullifier>) -> Self {
         self.nullifiers = Some(nullifiers);
 
         self
     }
 
+    #[must_use]
     pub fn expiration_block_num(mut self, expiration_block_num: u32) -> Self {
         self.expiration_block_num = expiration_block_num;
 
         self
     }
 
+    #[must_use]
     pub fn output_notes(mut self, notes: Vec<OutputNote>) -> Self {
         self.output_notes = Some(notes);
 
         self
     }
 
+    #[must_use]
     pub fn nullifiers_range(self, range: Range<u64>) -> Self {
         let nullifiers = range
             .map(|index| {
@@ -103,6 +108,7 @@ impl MockProvenTxBuilder {
         self.nullifiers(nullifiers)
     }
 
+    #[must_use]
     pub fn private_notes_created_range(self, range: Range<u64>) -> Self {
         let notes = range
             .map(|note_index| {

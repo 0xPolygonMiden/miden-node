@@ -11,6 +11,9 @@ authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }

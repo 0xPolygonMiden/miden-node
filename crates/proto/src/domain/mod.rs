@@ -15,7 +15,7 @@ where
     From: Into<To>,
     R: FromIterator<To>,
 {
-    from.into_iter().map(|e| e.into()).collect()
+    from.into_iter().map(Into::into).collect()
 }
 
 pub fn try_convert<T, E, From, To, R>(from: T) -> Result<R, E>
@@ -24,5 +24,5 @@ where
     From: TryInto<To, Error = E>,
     R: FromIterator<To>,
 {
-    from.into_iter().map(|e| e.try_into()).collect()
+    from.into_iter().map(TryInto::try_into).collect()
 }
