@@ -13,6 +13,7 @@ repository.workspace = true
 
 [features]
 tracing-forest = ["miden-node-utils/tracing-forest"]
+testing = []
 
 [dependencies]
 async-trait = { version = "0.1" }

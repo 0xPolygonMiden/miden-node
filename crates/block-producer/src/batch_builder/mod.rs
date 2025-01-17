@@ -22,9 +22,9 @@ use crate::errors::BuildBatchError;
 
 /// Builds [TransactionBatch] from sets of transactions.
 ///
-/// Transaction sets are pulled from the [Mempool] at a configurable interval, and passed to a pool
-/// of provers for proof generation. Proving is currently unimplemented and is instead simulated via
-/// the given proof time and failure rate.
+/// Transaction sets are pulled from the mempool at a configurable interval, and passed to
+/// a pool of provers for proof generation. Proving is currently unimplemented and is instead
+/// simulated via the given proof time and failure rate.
 pub struct BatchBuilder {
     pub batch_interval: Duration,
     pub workers: NonZeroUsize,

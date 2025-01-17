@@ -16,6 +16,8 @@
 - [BREAKING] Remove store's `ListXXX` endpoints which were intended for test purposes (#608).
 - [BREAKING] Added support for storage maps on `GetAccountProofs` endpoint (#598).
 - [BREAKING] Removed the `testing` feature (#619).
+- Added stress test binary with seed-store command (#621).
+
 
 ## v0.6.0 (2024-11-05)
 

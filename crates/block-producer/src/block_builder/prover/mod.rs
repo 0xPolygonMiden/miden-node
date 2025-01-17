@@ -28,8 +28,14 @@ mod tests;
 const BLOCK_KERNEL_MASM: &str = include_str!("asm/block_kernel.masm");
 
 #[derive(Debug)]
-pub(crate) struct BlockProver {
+pub struct BlockProver {
     kernel: Program,
+}
+
+impl Default for BlockProver {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BlockProver {

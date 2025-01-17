@@ -1,11 +1,9 @@
 use std::{collections::HashMap, ops::Not, sync::LazyLock};
 
 use miden_objects::{
-    accounts::{AccountIdAnchor, AccountIdVersion, AccountStorageMode, AccountType},
-    Hasher,
+    accounts::{AccountId, AccountIdAnchor, AccountIdVersion, AccountStorageMode, AccountType},
+    Digest, Hasher,
 };
-
-use super::*;
 
 pub static MOCK_ACCOUNTS: LazyLock<std::sync::Mutex<HashMap<u32, (AccountId, Digest)>>> =
     LazyLock::new(Default::default);

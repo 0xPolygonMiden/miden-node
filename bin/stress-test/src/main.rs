@@ -1,4 +1,11 @@
+use std::{
+    path::{Path, PathBuf},
+    sync::mpsc::channel,
+    time::{Duration, Instant},
+};
+
 use anyhow::Context;
+use clap::{Parser, Subcommand};
 use miden_lib::{
     accounts::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
     transaction::TransactionKernel,
@@ -7,33 +14,63 @@ use miden_node_block_producer::{
     batch_builder::TransactionBatch, block_builder::BlockBuilder, store::StoreClient,
     test_utils::MockProvenTxBuilder,
 };
-use miden_node_proto::generated::{
-    account as proto, requests::SyncStateRequest, store::api_client::ApiClient,
-};
+use miden_node_proto::generated::store::api_client::ApiClient;
 use miden_node_store::{config::StoreConfig, server::Store};
 use miden_objects::{
     accounts::{AccountBuilder, AccountIdAnchor, AccountStorageMode, AccountType},
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
-    notes::{NoteExecutionMode, NoteTag},
     testing::notes::NoteBuilder,
     transaction::OutputNote,
     Digest, Felt,
 };
 use miden_processor::crypto::RpoRandomCoin;
-use miden_tx::utils::hex_to_bytes;
 use rand::Rng;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon::prelude::*;
-use std::sync::mpsc::channel;
+use rayon::{
+    iter::{IntoParallelIterator, ParallelIterator},
+    prelude::*,
+};
 use tokio::task;
+
+#[derive(Parser)]
+#[command(version)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+#[derive(Subcommand)]
+pub enum Command {
+    SeedStore {
+        #[arg(short, long, value_name = "DUMP_FILE", default_value = "./miden-store.sqlite3")]
+        dump_file: PathBuf,
+
+        #[arg(short, long, value_name = "ACCOUNTS_NUMBER")]
+        accounts_number: usize,
+
+        #[arg(short, long, value_name = "GENESIS_FILE")]
+        genesis_file: PathBuf,
+    },
+}
+
+const BATCHES_PER_BLOCK: usize = 16;
+const TRANSACTIONS_PER_BATCH: usize = 16;
 
 #[tokio::main]
 async fn main() {
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Command::SeedStore { dump_file, accounts_number, genesis_file } => {
+            seed_store(dump_file, *accounts_number, genesis_file).await;
+        },
+    }
+}
+
+async fn seed_store(dump_file: &Path, accounts_number: usize, genesis_file: &Path) {
     let store_config = StoreConfig {
-        database_filepath: "./loaded-store.sqlite3".into(),
-        genesis_filepath: "./genesis.dat".into(),
-        blockstore_dir: "./loaded-blocks".into(),
+        database_filepath: dump_file.to_path_buf(),
+        genesis_filepath: genesis_file.to_path_buf(),
         ..Default::default()
     };
 
@@ -64,37 +101,49 @@ async fn main() {
         .unwrap();
     let faucet_id = new_faucet.id();
 
-    const BATCHES_PER_BLOCK: usize = 16;
-    const TRANSACTIONS_PER_BATCH: usize = 16;
-    const N_BLOCKS: usize = 7814; // to create 1M acc => 7814 blocks * 16 batches/block * 16 txs/batch * 0.5 acc/tx
-    const N_ACCOUNTS: usize = N_BLOCKS * BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH / 2;
-
     let (batch_sender, batch_receiver) = channel::<TransactionBatch>();
+
+    println!("Inserting blocks...");
+    let load_start = Instant::now();
 
     // Spawn a task for block building
     let db_task = task::spawn(async move {
         let mut current_block: Vec<TransactionBatch> = Vec::with_capacity(BATCHES_PER_BLOCK);
-        let mut i = 0;
+        let mut insertion_times = Vec::new();
         while let Ok(batch) = batch_receiver.recv() {
             current_block.push(batch);
 
             if current_block.len() == BATCHES_PER_BLOCK {
-                println!("Building block {}...", i);
+                let start = Instant::now();
                 block_builder.build_block(&current_block).await.unwrap();
+                insertion_times.push(start.elapsed());
                 current_block.clear();
-                i += 1;
             }
         }
 
         if !current_block.is_empty() {
+            let start = Instant::now();
             block_builder.build_block(&current_block).await.unwrap();
+            insertion_times.push(start.elapsed());
         }
+
+        // Print insertion times
+        let insertions = insertion_times.len() as u32;
+        println!("Inserted {} blocks", insertions);
+
+        if insertions == 0 {
+            return;
+        }
+
+        let total_time: Duration = insertion_times.iter().sum();
+        let avg_time = total_time / insertions;
+        println!("Average insertion time: {} ms", avg_time.as_millis());
     });
 
     // Parallel account grinding and batch generation
-    (0..N_ACCOUNTS)
+    (0..accounts_number)
         .into_par_iter()
-        .map(|i| {
+        .map(|_| {
             let (new_account, _) = AccountBuilder::new(init_seed)
                 .anchor(AccountIdAnchor::PRE_GENESIS)
                 .account_type(AccountType::RegularAccountImmutableCode)
@@ -103,22 +152,16 @@ async fn main() {
                 .with_component(BasicWallet)
                 .build()
                 .unwrap();
-            if i == 0 {
-                println!("Created new account: {}", new_account.id());
-            }
-            (i, new_account.id())
+            new_account.id()
         })
-        .map(|(i, account_id)| {
+        .map(|account_id| {
             let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
             let coin_seed: [u64; 4] = rand::thread_rng().gen();
             let rng: RpoRandomCoin = RpoRandomCoin::new(coin_seed.map(Felt::new));
             let note = NoteBuilder::new(faucet_id, rng)
-                .add_assets(vec![asset.clone()])
+                .add_assets(vec![asset])
                 .build(&TransactionKernel::assembler())
                 .unwrap();
-            if i == 0 {
-                println!("Created new note: {}", note.id());
-            }
 
             let create_notes_tx =
                 MockProvenTxBuilder::with_account(faucet_id, Digest::default(), Digest::default())
@@ -141,38 +184,5 @@ async fn main() {
     drop(batch_sender);
 
     db_task.await.unwrap();
-}
-
-#[tokio::test]
-async fn sync_response_time() {
-    let store_config = StoreConfig {
-        database_filepath: "./loaded-store.sqlite3".into(),
-        ..Default::default()
-    };
-
-    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
-    task::spawn(async move { store.serve().await.context("Serving store") });
-
-    // Send sync request and measure performance
-    let start = std::time::Instant::now();
-    let sync_request = SyncStateRequest {
-        block_num: 78,
-        note_tags: vec![u32::from(
-            NoteTag::from_account_id(
-                hex_to_bytes("0xa85900e629b678800000a88b6b7a3f").unwrap().try_into().unwrap(),
-                NoteExecutionMode::Local,
-            )
-            .unwrap(),
-        )],
-        account_ids: vec![proto::AccountId {
-            id: Vec::<u8>::from("0xa85900e629b678800000a88b6b7a3f"),
-        }],
-        nullifiers: vec![],
-    };
-
-    let client = ApiClient::connect(store_config.endpoint.to_string()).await.unwrap();
-    client.clone().sync_state(tonic::Request::new(sync_request)).await.unwrap();
-
-    let elapsed = start.elapsed();
-    println!("Sync request took: {:?}", elapsed);
+    println!("Store loaded in {:?} seconds", load_start.elapsed().as_secs());
 }

@@ -1765,26 +1765,16 @@ name = "miden-stress-test"
 version = "0.6.0"
 dependencies = [
  "anyhow",
- "async-trait",
- "itertools 0.13.0",
+ "clap",
  "miden-lib",
  "miden-node-block-producer",
  "miden-node-proto",
  "miden-node-store",
- "miden-node-utils",
  "miden-objects",
  "miden-processor",
- "miden-stdlib",
- "miden-tx",
  "rand",
- "rand_chacha",
  "rayon",
- "serde",
- "thiserror 2.0.11",
  "tokio",
- "tokio-stream",
- "tonic",
- "tracing",
 ]
 
 [[package]]

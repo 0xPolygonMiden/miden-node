@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use mempool::BlockNumber;
 
+#[cfg(any(test, feature = "testing"))]
 pub mod test_utils;
 
 pub mod batch_builder;
