@@ -212,10 +212,10 @@ mod test {
     #[test]
     fn hex_digest() {
         let digest = proto::Digest {
-            d0: 3_488_802_789_098_113_751,
-            d1: 5_271_242_459_988_994_564,
-            d2: 17_816_570_245_237_064_784,
-            d3: 10_910_963_388_447_438_895,
+            d0: 0x306A_B7A6_F795_CAD7,
+            d1: 0x4927_3716_D099_AA04,
+            d2: 0xF741_2C3D_E726_4450,
+            d3: 0x976B_8764_9DB3_B82F,
         };
         let encoded: String = ToHex::encode_hex(&digest);
         let round_trip: Result<proto::Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());
