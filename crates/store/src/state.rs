@@ -352,7 +352,7 @@ impl State {
             // the DB transaction
             inform_acquire_done
                 .send(())
-                .map_err(|()| ApplyBlockError::DbUpdateTaskFailed("Receiver was dropped".into()))?;
+                .map_err(|_| ApplyBlockError::DbUpdateTaskFailed("Receiver was dropped".into()))?;
 
             // TODO: shutdown #91
             // Await for successful commit of the DB transaction. If the commit fails, we mustn't

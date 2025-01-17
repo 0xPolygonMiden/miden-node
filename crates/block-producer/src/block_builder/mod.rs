@@ -87,7 +87,7 @@ impl BlockBuilder {
 
             let mut mempool = mempool.lock().await;
             match result {
-                Ok(()) => mempool.block_committed(block_number),
+                Ok(_) => mempool.block_committed(block_number),
                 Err(_) => mempool.block_failed(block_number),
             }
         }
