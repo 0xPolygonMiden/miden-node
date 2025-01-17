@@ -5,7 +5,7 @@ use miden_objects::{
     accounts::AccountId,
     block::Block,
     notes::{NoteHeader, Nullifier},
-    transaction::InputNoteCommitment,
+    transaction::{InputNoteCommitment, OutputNote},
 };
 use rand::Rng;
 use tokio::time::Duration;
@@ -48,7 +48,7 @@ impl BlockBuilder {
             store,
         }
     }
-    /// Starts the [BlockBuilder], infinitely producing blocks at the configured interval.
+    /// Starts the [`BlockBuilder`], infinitely producing blocks at the configured interval.
     ///
     /// Block production is sequential and consists of
     ///
@@ -98,7 +98,7 @@ impl BlockBuilder {
         info!(
             target: COMPONENT,
             num_batches = batches.len(),
-            batches = %format_array(batches.iter().map(|batch| batch.id())),
+            batches = %format_array(batches.iter().map(TransactionBatch::id)),
         );
 
         let updated_account_set: BTreeSet<AccountId> = batches
@@ -114,10 +114,8 @@ impl BlockBuilder {
             batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
         // Populate set of output notes from all batches
-        let output_notes_set: BTreeSet<_> = output_notes
-            .iter()
-            .flat_map(|batch| batch.iter().map(|note| note.id()))
-            .collect();
+        let output_notes_set: BTreeSet<_> =
+            output_notes.iter().flat_map(|batch| batch.iter().map(OutputNote::id)).collect();
 
         // Build a set of unauthenticated input notes for this block which do not have a matching
         // output note produced in this block

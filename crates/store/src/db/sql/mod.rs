@@ -66,7 +66,7 @@ pub fn select_all_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
 
     let mut accounts = vec![];
     while let Some(row) = rows.next()? {
-        accounts.push(account_info_from_row(row)?)
+        accounts.push(account_info_from_row(row)?);
     }
     Ok(accounts)
 }
@@ -93,12 +93,12 @@ pub fn select_all_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId
     Ok(result)
 }
 
-/// Select [AccountSummary] from the DB using the given [Connection], given that the account
+/// Select [`AccountSummary`] from the DB using the given [Connection], given that the account
 /// update was done between `(block_start, block_end]`.
 ///
 /// # Returns
 ///
-/// The vector of [AccountSummary] with the matching accounts.
+/// The vector of [`AccountSummary`] with the matching accounts.
 pub fn select_accounts_by_block_range(
     conn: &mut Connection,
     block_start: BlockNumber,
@@ -131,7 +131,7 @@ pub fn select_accounts_by_block_range(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        result.push(account_summary_from_row(row)?)
+        result.push(account_summary_from_row(row)?);
     }
 
     Ok(result)
@@ -195,7 +195,7 @@ pub fn select_accounts_by_ids(
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
-        result.push(account_info_from_row(row)?)
+        result.push(account_info_from_row(row)?);
     }
 
     Ok(result)
@@ -211,6 +211,7 @@ pub fn select_accounts_by_ids(
 /// # Returns
 ///
 /// The resulting account delta, or an error.
+#[allow(clippy::too_many_lines, reason = "mostly just formatted sql text")]
 pub fn select_account_delta(
     conn: &mut Connection,
     account_id: AccountId,
@@ -403,7 +404,7 @@ pub fn upsert_accounts(
         transaction.prepare_cached("SELECT details FROM accounts WHERE account_id = ?1;")?;
 
     let mut count = 0;
-    for update in accounts.iter() {
+    for update in accounts {
         let account_id = update.account_id();
         let (full_account, insert_delta) = match update.details() {
             AccountUpdateDetails::Private => (None, None),
@@ -571,9 +572,12 @@ pub fn insert_nullifiers_for_block(
     )?;
 
     let mut count = 0;
-    for nullifier in nullifiers.iter() {
-        count +=
-            stmt.execute(params![nullifier.to_bytes(), get_nullifier_prefix(nullifier), block_num])?
+    for nullifier in nullifiers {
+        count += stmt.execute(params![
+            nullifier.to_bytes(),
+            get_nullifier_prefix(nullifier),
+            block_num
+        ])?;
     }
     Ok(count)
 }
@@ -606,7 +610,7 @@ pub fn select_all_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, Bl
 ///
 /// # Returns
 ///
-/// A vector of [NullifierInfo] with the nullifiers and the block height at which they were
+/// A vector of [`NullifierInfo`] with the nullifiers and the block height at which they were
 /// created, or an error.
 pub fn select_nullifiers_by_block_range(
     conn: &mut Connection,
@@ -654,7 +658,7 @@ pub fn select_nullifiers_by_block_range(
 ///
 /// # Returns
 ///
-/// A vector of [NullifierInfo] with the nullifiers and the block height at which they were
+/// A vector of [`NullifierInfo`] with the nullifiers and the block height at which they were
 /// created, or an error.
 pub fn select_nullifiers_by_prefix(
     conn: &mut Connection,
@@ -753,7 +757,7 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             metadata,
             details,
             merkle_path,
-        })
+        });
     }
     Ok(notes)
 }
@@ -784,8 +788,8 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
     }))?;
 
     let mut count = 0;
-    for note in notes.iter() {
-        let details = note.details.as_ref().map(|details| details.to_bytes());
+    for note in notes {
+        let details = note.details.as_ref().map(miden_objects::utils::Serializable::to_bytes);
         count += stmt.execute(params![
             note.block_num,
             note.note_index.batch_idx(),
@@ -866,7 +870,7 @@ pub fn select_notes_since_block_by_tag_and_sender(
     Ok(res)
 }
 
-/// Select Note's matching the NoteId using the given [Connection].
+/// Select Note's matching the `NoteId` using the given [Connection].
 ///
 /// # Returns
 ///
@@ -924,13 +928,13 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
             note_id: note_id.into(),
             metadata,
             merkle_path,
-        })
+        });
     }
 
     Ok(notes)
 }
 
-/// Select note inclusion proofs matching the NoteId, using the given [Connection].
+/// Select note inclusion proofs matching the `NoteId`, using the given [Connection].
 ///
 /// # Returns
 ///
@@ -985,7 +989,7 @@ pub fn select_note_inclusion_proofs(
 // BLOCK CHAIN QUERIES
 // ================================================================================================
 
-/// Insert a [BlockHeader] to the DB using the given [Transaction].
+/// Insert a [`BlockHeader`] to the DB using the given [Transaction].
 ///
 /// # Returns
 ///
@@ -1001,7 +1005,7 @@ pub fn insert_block_header(transaction: &Transaction, block_header: &BlockHeader
     Ok(stmt.execute(params![block_header.block_num(), block_header.to_bytes()])?)
 }
 
-/// Select a [BlockHeader] from the DB by its `block_num` using the given [Connection].
+/// Select a [`BlockHeader`] from the DB by its `block_num` using the given [Connection].
 ///
 /// # Returns
 ///
@@ -1012,18 +1016,15 @@ pub fn select_block_header_by_block_num(
     block_number: Option<BlockNumber>,
 ) -> Result<Option<BlockHeader>> {
     let mut stmt;
-    let mut rows = match block_number {
-        Some(block_number) => {
-            stmt =
-                conn.prepare_cached("SELECT block_header FROM block_headers WHERE block_num = ?1")?;
-            stmt.query([block_number])?
-        },
-        None => {
-            stmt = conn.prepare_cached(
-                "SELECT block_header FROM block_headers ORDER BY block_num DESC LIMIT 1",
-            )?;
-            stmt.query([])?
-        },
+    let mut rows = if let Some(block_number) = block_number {
+        stmt =
+            conn.prepare_cached("SELECT block_header FROM block_headers WHERE block_num = ?1")?;
+        stmt.query([block_number])?
+    } else {
+        stmt = conn.prepare_cached(
+            "SELECT block_header FROM block_headers ORDER BY block_num DESC LIMIT 1",
+        )?;
+        stmt.query([])?
     };
 
     match rows.next()? {
@@ -1043,10 +1044,10 @@ pub fn select_block_header_by_block_num(
 ///
 /// # Returns
 ///
-/// A vector of [BlockHeader] or an error.
+/// A vector of [`BlockHeader`] or an error.
 pub fn select_block_headers(
     conn: &mut Connection,
-    blocks: Vec<BlockNumber>,
+    blocks: &[BlockNumber],
 ) -> Result<Vec<BlockHeader>> {
     let mut headers = Vec::with_capacity(blocks.len());
 
@@ -1068,7 +1069,7 @@ pub fn select_block_headers(
 ///
 /// # Returns
 ///
-/// A vector of [BlockHeader] or an error.
+/// A vector of [`BlockHeader`] or an error.
 pub fn select_all_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
     let mut stmt =
         conn.prepare_cached("SELECT block_header FROM block_headers ORDER BY block_num ASC;")?;
@@ -1109,7 +1110,7 @@ pub fn insert_transactions(
         let account_id = update.account_id();
         for transaction_id in update.transactions() {
             count +=
-                stmt.execute(params![transaction_id.to_bytes(), account_id.to_bytes(), block_num])?
+                stmt.execute(params![transaction_id.to_bytes(), account_id.to_bytes(), block_num])?;
         }
     }
     Ok(count)
@@ -1120,7 +1121,7 @@ pub fn insert_transactions(
 ///
 /// # Returns
 ///
-/// The vector of [RpoDigest] with the transaction IDs.
+/// The vector of [`RpoDigest`] with the transaction IDs.
 pub fn select_transactions_by_accounts_and_block_range(
     conn: &mut Connection,
     block_start: BlockNumber,

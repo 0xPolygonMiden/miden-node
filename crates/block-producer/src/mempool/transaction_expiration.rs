@@ -65,7 +65,7 @@ mod tests {
         uut.insert(tx, block);
         uut.remove(std::iter::once(&tx));
 
-        assert_eq!(uut, Default::default());
+        assert_eq!(uut, TransactionExpirations::default());
     }
 
     #[test]

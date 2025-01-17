@@ -233,7 +233,7 @@ impl State {
                 .nullifiers()
                 .iter()
                 .filter(|&n| inner.nullifier_tree.get_block_num(n).is_some())
-                .cloned()
+                .copied()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
                 return Err(InvalidBlockError::DuplicatedNullifiers(duplicate_nullifiers).into());
@@ -290,10 +290,10 @@ impl State {
                 let details = match note {
                     OutputNote::Full(note) => Some(note.to_bytes()),
                     OutputNote::Header(_) => None,
-                    note => {
+                    note @ OutputNote::Partial(_) => {
                         return Err(InvalidBlockError::InvalidOutputNoteType(Box::new(
                             note.clone(),
-                        )))
+                        )));
                     },
                 };
 
@@ -422,10 +422,10 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
-    /// Queries a list of [NoteRecord] from the database.
+    /// Queries a list of [`NoteRecord`] from the database.
     ///
-    /// If the provided list of [NoteId] given is empty or no [NoteRecord] matches the provided
-    /// [NoteId] an empty list is returned.
+    /// If the provided list of [`NoteId`] given is empty or no [`NoteRecord`] matches the provided
+    /// [`NoteId`] an empty list is returned.
     pub async fn get_notes_by_id(
         &self,
         note_ids: Vec<NoteId>,
@@ -607,7 +607,7 @@ impl State {
             })?;
         let account_states = account_ids
             .iter()
-            .cloned()
+            .copied()
             .map(|account_id| {
                 let ValuePath { value: account_hash, path: proof } =
                     inner.account_tree.open(&LeafIndex::new_max_depth(account_id.prefix().into()));
@@ -691,7 +691,7 @@ impl State {
         let account_ids: Vec<AccountId> =
             account_requests.iter().map(|req| req.account_id).collect();
 
-        let state_headers = if !include_headers {
+        let state_headers = if include_headers.not() {
             BTreeMap::<AccountId, AccountStateHeader>::default()
         } else {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
@@ -724,7 +724,7 @@ impl State {
                                 let proof = storage_map.open(map_key);
 
                                 let slot_map_key = StorageSlotMapProof {
-                                    storage_slot: *storage_index as u32,
+                                    storage_slot: u32::from(*storage_index),
                                     smt_proof: proof.to_bytes(),
                                 };
                                 storage_slot_map_keys.push(slot_map_key);

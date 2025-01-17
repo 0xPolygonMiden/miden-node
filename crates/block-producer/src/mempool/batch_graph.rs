@@ -111,9 +111,9 @@ impl BatchGraph {
 
         // Reverse lookup parent batch IDs. Take care to allow for parent transactions within this
         // batch i.e. internal dependencies.
-        transactions.iter().for_each(|tx| {
+        for tx in &transactions {
             parents.remove(tx);
-        });
+        }
         let parent_batches = parents
             .into_iter()
             .map(|tx| {
@@ -175,7 +175,7 @@ impl BatchGraph {
     ///
     /// Returns all removed batches and their transactions.
     ///
-    /// Unlike [remove_batches](Self::remove_batches), this has no error condition as batches are
+    /// Unlike [`remove_batches`](Self::remove_batches), this has no error condition as batches are
     /// derived internally.
     pub fn remove_batches_with_transactions<'a>(
         &mut self,
@@ -207,14 +207,14 @@ impl BatchGraph {
     /// The last point implies that batches should be removed in block order.
     pub fn prune_committed(
         &mut self,
-        batch_ids: BTreeSet<BatchId>,
+        batch_ids: &BTreeSet<BatchId>,
     ) -> Result<Vec<TransactionId>, GraphError<BatchId>> {
         // This clone could be elided by moving this call to the end. This would lose the atomic
         // property of this method though its unclear what value (if any) that has.
         self.inner.prune_processed(batch_ids.clone())?;
         let mut transactions = Vec::new();
 
-        for batch_id in &batch_ids {
+        for batch_id in batch_ids {
             transactions.extend(self.batches.remove(batch_id).into_iter().flatten());
         }
 
@@ -294,8 +294,8 @@ mod tests {
 
         let mut uut = BatchGraph::default();
 
-        uut.insert(vec![tx_dup], Default::default()).unwrap();
-        let err = uut.insert(vec![tx_dup, tx_non_dup], Default::default()).unwrap_err();
+        uut.insert(vec![tx_dup], BTreeSet::default()).unwrap();
+        let err = uut.insert(vec![tx_dup, tx_non_dup], BTreeSet::default()).unwrap_err();
         let expected = BatchInsertError::DuplicateTransactions([tx_dup].into());
 
         assert_eq!(err, expected);
@@ -339,10 +339,10 @@ mod tests {
         let disjoint_batch_txs = (0..5).map(|_| rng.draw_tx_id()).collect();
 
         let mut uut = BatchGraph::default();
-        let parent_batch_id = uut.insert(parent_batch_txs.clone(), Default::default()).unwrap();
+        let parent_batch_id = uut.insert(parent_batch_txs.clone(), BTreeSet::default()).unwrap();
         let child_batch_id =
             uut.insert(child_batch_txs.clone(), [parent_batch_txs[0]].into()).unwrap();
-        uut.insert(disjoint_batch_txs, Default::default()).unwrap();
+        uut.insert(disjoint_batch_txs, BTreeSet::default()).unwrap();
 
         let result = uut.remove_batches([parent_batch_id].into()).unwrap();
         let expected =

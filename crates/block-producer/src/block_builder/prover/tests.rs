@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, iter};
 
 use assert_matches::assert_matches;
+use miden_node_proto::domain::notes::NoteAuthenticationInfo;
 use miden_objects::{
     accounts::{
         delta::AccountUpdateDetails, AccountId, AccountIdVersion, AccountStorageMode, AccountType,
@@ -20,7 +21,7 @@ use miden_objects::{
 use self::block_witness::AccountUpdateWitness;
 use super::*;
 use crate::{
-    batch_builder::TransactionBatch,
+    batch_builder::batch::TransactionBatch,
     block::{AccountWitness, BlockInputs},
     test_utils::{
         block::{build_actual_block_header, build_expected_block_header, MockBlockBuilder},
@@ -57,7 +58,7 @@ fn block_witness_validation_inconsistent_account_ids() {
     );
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = BlockHeader::mock(0, None, None, &[], Default::default());
+        let block_header = BlockHeader::mock(0, None, None, &[], Digest::default());
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let accounts = BTreeMap::from_iter(vec![
@@ -69,8 +70,8 @@ fn block_witness_validation_inconsistent_account_ids() {
             block_header,
             chain_peaks,
             accounts,
-            nullifiers: Default::default(),
-            found_unauthenticated_notes: Default::default(),
+            nullifiers: BTreeMap::default(),
+            found_unauthenticated_notes: NoteAuthenticationInfo::default(),
         }
     };
 
@@ -83,7 +84,7 @@ fn block_witness_validation_inconsistent_account_ids() {
             )
             .build();
 
-            TransactionBatch::new([&tx], Default::default()).unwrap()
+            TransactionBatch::new([&tx], NoteAuthenticationInfo::default()).unwrap()
         };
 
         let batch_2 = {
@@ -94,7 +95,7 @@ fn block_witness_validation_inconsistent_account_ids() {
             )
             .build();
 
-            TransactionBatch::new([&tx], Default::default()).unwrap()
+            TransactionBatch::new([&tx], NoteAuthenticationInfo::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -121,7 +122,7 @@ fn block_witness_validation_inconsistent_account_hashes() {
         Digest::new([Felt::new(4u64), Felt::new(3u64), Felt::new(2u64), Felt::new(1u64)]);
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = BlockHeader::mock(0, None, None, &[], Default::default());
+        let block_header = BlockHeader::mock(0, None, None, &[], Digest::default());
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let accounts = BTreeMap::from_iter(vec![
@@ -129,18 +130,18 @@ fn block_witness_validation_inconsistent_account_hashes() {
                 account_id_1,
                 AccountWitness {
                     hash: account_1_hash_store,
-                    proof: Default::default(),
+                    proof: MerklePath::default(),
                 },
             ),
-            (account_id_2, Default::default()),
+            (account_id_2, AccountWitness::default()),
         ]);
 
         BlockInputs {
             block_header,
             chain_peaks,
             accounts,
-            nullifiers: Default::default(),
-            found_unauthenticated_notes: Default::default(),
+            nullifiers: BTreeMap::default(),
+            found_unauthenticated_notes: NoteAuthenticationInfo::default(),
         }
     };
 
@@ -152,7 +153,7 @@ fn block_witness_validation_inconsistent_account_hashes() {
                 Digest::default(),
             )
             .build()],
-            Default::default(),
+            NoteAuthenticationInfo::default(),
         )
         .unwrap();
         let batch_2 = TransactionBatch::new(
@@ -162,7 +163,7 @@ fn block_witness_validation_inconsistent_account_hashes() {
                 Digest::default(),
             )
             .build()],
-            Default::default(),
+            NoteAuthenticationInfo::default(),
         )
         .unwrap();
 
@@ -224,7 +225,7 @@ fn block_witness_multiple_batches_per_account() {
     )]);
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = BlockHeader::mock(0, None, None, &[], Default::default());
+        let block_header = BlockHeader::mock(0, None, None, &[], Digest::default());
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let x_witness = AccountWitness {
@@ -241,14 +242,18 @@ fn block_witness_multiple_batches_per_account() {
             block_header,
             chain_peaks,
             accounts,
-            nullifiers: Default::default(),
-            found_unauthenticated_notes: Default::default(),
+            nullifiers: BTreeMap::default(),
+            found_unauthenticated_notes: NoteAuthenticationInfo::default(),
         }
     };
 
     let batches = {
-        let batch_1 = TransactionBatch::new([&x_txs[0], &y_txs[1]], Default::default()).unwrap();
-        let batch_2 = TransactionBatch::new([&y_txs[0], &x_txs[1]], Default::default()).unwrap();
+        let batch_1 =
+            TransactionBatch::new([&x_txs[0], &y_txs[1]], NoteAuthenticationInfo::default())
+                .unwrap();
+        let batch_2 =
+            TransactionBatch::new([&y_txs[0], &x_txs[1]], NoteAuthenticationInfo::default())
+                .unwrap();
 
         vec![batch_1, batch_2]
     };
@@ -369,8 +374,8 @@ async fn compute_account_root_success() {
             })
             .collect();
 
-        let batch_1 = TransactionBatch::new(&txs[..2], Default::default()).unwrap();
-        let batch_2 = TransactionBatch::new(&txs[2..], Default::default()).unwrap();
+        let batch_1 = TransactionBatch::new(&txs[..2], NoteAuthenticationInfo::default()).unwrap();
+        let batch_2 = TransactionBatch::new(&txs[2..], NoteAuthenticationInfo::default()).unwrap();
 
         vec![batch_1, batch_2]
     };
@@ -538,7 +543,7 @@ async fn compute_note_root_empty_notes_success() {
         .unwrap();
 
     let batches: Vec<TransactionBatch> = {
-        let batch = TransactionBatch::new(vec![], Default::default()).unwrap();
+        let batch = TransactionBatch::new(vec![], NoteAuthenticationInfo::default()).unwrap();
         vec![batch]
     };
 
@@ -627,8 +632,8 @@ async fn compute_note_root_success() {
             })
             .collect();
 
-        let batch_1 = TransactionBatch::new(&txs[..2], Default::default()).unwrap();
-        let batch_2 = TransactionBatch::new(&txs[2..], Default::default()).unwrap();
+        let batch_1 = TransactionBatch::new(&txs[..2], NoteAuthenticationInfo::default()).unwrap();
+        let batch_2 = TransactionBatch::new(&txs[2..], NoteAuthenticationInfo::default()).unwrap();
 
         vec![batch_1, batch_2]
     };
@@ -644,6 +649,7 @@ async fn compute_note_root_success() {
     // The current logic is hardcoded to a depth of 6
     // Specifically, we assume the block has up to 2^6 batches, and each batch up to 2^10 created
     // notes, where each note is stored at depth 10 in the batch tree.
+    #[allow(clippy::items_after_statements, reason = "assert belongs to this section")]
     const _: () = assert!(BLOCK_NOTE_TREE_DEPTH - BATCH_NOTE_TREE_DEPTH == 6);
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second
@@ -684,13 +690,13 @@ fn block_witness_validation_inconsistent_nullifiers() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
-            TransactionBatch::new([&tx], Default::default()).unwrap()
+            TransactionBatch::new([&tx], NoteAuthenticationInfo::default()).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
-            TransactionBatch::new([&tx], Default::default()).unwrap()
+            TransactionBatch::new([&tx], NoteAuthenticationInfo::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -702,12 +708,12 @@ fn block_witness_validation_inconsistent_nullifiers() {
         Nullifier::from([101_u32.into(), 102_u32.into(), 103_u32.into(), 104_u32.into()]);
 
     let block_inputs_from_store: BlockInputs = {
-        let block_header = BlockHeader::mock(0, None, None, &[], Default::default());
+        let block_header = BlockHeader::mock(0, None, None, &[], Digest::default());
         let chain_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
 
         let accounts = batches
             .iter()
-            .flat_map(|batch| batch.account_initial_states())
+            .flat_map(TransactionBatch::account_initial_states)
             .map(|(account_id, hash)| {
                 (account_id, AccountWitness { hash, proof: MerklePath::default() })
             })
@@ -741,7 +747,7 @@ fn block_witness_validation_inconsistent_nullifiers() {
             chain_peaks,
             accounts,
             nullifiers,
-            found_unauthenticated_notes: Default::default(),
+            found_unauthenticated_notes: NoteAuthenticationInfo::default(),
         }
     };
 
@@ -763,13 +769,13 @@ async fn compute_nullifier_root_empty_success() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).build();
 
-            TransactionBatch::new([&tx], Default::default()).unwrap()
+            TransactionBatch::new([&tx], NoteAuthenticationInfo::default()).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).build();
 
-            TransactionBatch::new([&tx], Default::default()).unwrap()
+            TransactionBatch::new([&tx], NoteAuthenticationInfo::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -777,7 +783,7 @@ async fn compute_nullifier_root_empty_success() {
 
     let account_ids: Vec<AccountId> = batches
         .iter()
-        .flat_map(|batch| batch.account_initial_states())
+        .flat_map(TransactionBatch::account_initial_states)
         .map(|(account_id, _)| account_id)
         .collect();
 
@@ -817,13 +823,13 @@ async fn compute_nullifier_root_success() {
         let batch_1 = {
             let tx = MockProvenTxBuilder::with_account_index(0).nullifiers_range(0..1).build();
 
-            TransactionBatch::new([&tx], Default::default()).unwrap()
+            TransactionBatch::new([&tx], NoteAuthenticationInfo::default()).unwrap()
         };
 
         let batch_2 = {
             let tx = MockProvenTxBuilder::with_account_index(1).nullifiers_range(1..2).build();
 
-            TransactionBatch::new([&tx], Default::default()).unwrap()
+            TransactionBatch::new([&tx], NoteAuthenticationInfo::default()).unwrap()
         };
 
         vec![batch_1, batch_2]
@@ -831,7 +837,7 @@ async fn compute_nullifier_root_success() {
 
     let account_ids: Vec<AccountId> = batches
         .iter()
-        .flat_map(|batch| batch.account_initial_states())
+        .flat_map(TransactionBatch::account_initial_states)
         .map(|(account_id, _)| account_id)
         .collect();
 

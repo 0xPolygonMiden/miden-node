@@ -11,8 +11,8 @@ use miden_node_proto::{
     generated::{
         digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetTransactionInputsRequest,
+            ApplyBlockRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNoteAuthenticationInfoRequest, GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
@@ -46,7 +46,7 @@ pub struct TransactionInputs {
     pub account_hash: Option<Digest>,
     /// Maps each consumed notes' nullifier to block number, where the note is consumed.
     ///
-    /// We use NonZeroU32 as the wire format uses 0 to encode none.
+    /// We use `NonZeroU32` as the wire format uses 0 to encode none.
     pub nullifiers: BTreeMap<Nullifier, Option<NonZeroU32>>,
     /// Unauthenticated notes which are present in the store.
     ///
@@ -67,7 +67,7 @@ impl Display for TransactionInputs {
         let nullifiers = if nullifiers.is_empty() {
             "None".to_owned()
         } else {
-            format!("{{ {} }}", nullifiers)
+            format!("{{ {nullifiers} }}")
         };
 
         f.write_fmt(format_args!(
@@ -112,8 +112,8 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             account_id,
             account_hash,
             nullifiers,
-            current_block_height,
             found_unauthenticated_notes,
+            current_block_height,
         })
     }
 }
@@ -141,7 +141,9 @@ impl StoreClient {
         let response = self
             .inner
             .clone()
-            .get_block_header_by_number(tonic::Request::new(Default::default()))
+            .get_block_header_by_number(tonic::Request::new(
+                GetBlockHeaderByNumberRequest::default(),
+            ))
             .await?
             .into_inner()
             .block_header

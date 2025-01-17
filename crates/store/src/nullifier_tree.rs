@@ -94,7 +94,7 @@ mod tests {
         let block_num = 123;
         let nullifier_value = NullifierTree::block_num_to_leaf_value(block_num);
 
-        assert_eq!(nullifier_value, [Felt::from(block_num), ZERO, ZERO, ZERO])
+        assert_eq!(nullifier_value, [Felt::from(block_num), ZERO, ZERO, ZERO]);
     }
 
     #[test]

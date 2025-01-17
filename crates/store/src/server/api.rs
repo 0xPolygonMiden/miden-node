@@ -259,7 +259,7 @@ impl api_server::Api for StoreApi {
         let note_ids = request.into_inner().note_ids;
 
         let note_ids: Vec<RpoDigest> = try_convert(note_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
 
         let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
 
@@ -291,7 +291,7 @@ impl api_server::Api for StoreApi {
         let note_ids = request.into_inner().note_ids;
 
         let note_ids: Vec<RpoDigest> = try_convert(note_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
 
         let note_ids = note_ids.into_iter().map(From::from).collect();
 
@@ -485,11 +485,11 @@ impl api_server::Api for StoreApi {
 
         let include_headers = include_headers.unwrap_or_default();
         let request_code_commitments: BTreeSet<RpoDigest> = try_convert(code_commitments)
-            .map_err(|err| Status::invalid_argument(format!("Invalid code commitment: {}", err)))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid code commitment: {err}")))?;
 
         let account_requests: Vec<AccountProofRequest> =
             try_convert(account_requests).map_err(|err| {
-                Status::invalid_argument(format!("Invalid account proofs request: {}", err))
+                Status::invalid_argument(format!("Invalid account proofs request: {err}"))
             })?;
 
         let (block_num, infos) = self
@@ -545,7 +545,7 @@ fn invalid_argument<E: core::fmt::Display>(err: E) -> Status {
 fn read_account_id(id: Option<generated::account::AccountId>) -> Result<AccountId, Status> {
     id.ok_or(invalid_argument("missing account ID"))?
         .try_into()
-        .map_err(|err| invalid_argument(format!("invalid account ID: {}", err)))
+        .map_err(|err| invalid_argument(format!("invalid account ID: {err}")))
 }
 
 #[instrument(target = COMPONENT, skip_all, err)]
@@ -564,7 +564,7 @@ fn read_account_ids(
 fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Nullifier>, Status> {
     nullifiers
         .iter()
-        .cloned()
+        .copied()
         .map(TryInto::try_into)
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))

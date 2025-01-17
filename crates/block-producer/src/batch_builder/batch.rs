@@ -21,7 +21,7 @@ use crate::{errors::BuildBatchError, COMPONENT};
 // BATCH ID
 // ================================================================================================
 
-/// Uniquely identifies a [TransactionBatch].
+/// Uniquely identifies a [`TransactionBatch`].
 #[derive(Debug, Copy, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct BatchId(Blake3Digest<32>);
 
@@ -138,7 +138,7 @@ impl TransactionBatch {
                 Entry::Occupied(occupied) => {
                     occupied.into_mut().merge_tx(tx).map_err(|source| {
                         BuildBatchError::AccountUpdateError { account_id: tx.account_id(), source }
-                    })?
+                    })?;
                 },
             };
 
@@ -181,7 +181,7 @@ impl TransactionBatch {
                     },
                     None => input_note.clone(),
                 };
-                input_notes.push(input_note)
+                input_notes.push(input_note);
             }
         }
 
@@ -210,7 +210,7 @@ impl TransactionBatch {
         self.id
     }
 
-    /// Returns an iterator over (account_id, init_state_hash) tuples for accounts that were
+    /// Returns an iterator over (`account_id`, `init_state_hash`) tuples for accounts that were
     /// modified in this transaction batch.
     #[cfg(test)]
     pub fn account_initial_states(&self) -> impl Iterator<Item = (AccountId, Digest)> + '_ {
@@ -219,8 +219,8 @@ impl TransactionBatch {
             .map(|(&account_id, update)| (account_id, update.init_state))
     }
 
-    /// Returns an iterator over (account_id, details, new_state_hash) tuples for accounts that were
-    /// modified in this transaction batch.
+    /// Returns an iterator over (`account_id`, details, `new_state_hash`) tuples for accounts that
+    /// were modified in this transaction batch.
     pub fn updated_accounts(&self) -> impl Iterator<Item = (&AccountId, &AccountUpdate)> + '_ {
         self.updated_accounts.iter()
     }
@@ -330,7 +330,7 @@ mod tests {
 
         match OutputNoteTracker::new(txs.iter()) {
             Err(BuildBatchError::DuplicateOutputNote(note_id)) => {
-                assert_eq!(note_id, duplicate_output_note.id())
+                assert_eq!(note_id, duplicate_output_note.id());
             },
             res => panic!("Unexpected result: {res:?}"),
         }
@@ -364,9 +364,9 @@ mod tests {
         let mut txs = mock_proven_txs();
         let duplicate_note = mock_note(5);
         txs.push(mock_proven_tx(4, vec![duplicate_note.clone()], vec![mock_output_note(9)]));
-        match TransactionBatch::new(&txs, Default::default()) {
+        match TransactionBatch::new(&txs, NoteAuthenticationInfo::default()) {
             Err(BuildBatchError::DuplicateUnauthenticatedNote(note_id)) => {
-                assert_eq!(note_id, duplicate_note.id())
+                assert_eq!(note_id, duplicate_note.id());
             },
             res => panic!("Unexpected result: {res:?}"),
         }
@@ -382,7 +382,7 @@ mod tests {
             vec![mock_output_note(9), mock_output_note(10)],
         ));
 
-        let batch = TransactionBatch::new(&txs, Default::default()).unwrap();
+        let batch = TransactionBatch::new(&txs, NoteAuthenticationInfo::default()).unwrap();
 
         // One of the unauthenticated notes must be removed from the batch due to the consumption
         // of the corresponding output note
@@ -424,7 +424,7 @@ mod tests {
         )]);
         let found_unauthenticated_notes = NoteAuthenticationInfo {
             note_proofs: found_unauthenticated_notes,
-            block_proofs: Default::default(),
+            block_proofs: Vec::default(),
         };
         let batch = TransactionBatch::new(&txs, found_unauthenticated_notes).unwrap();
 

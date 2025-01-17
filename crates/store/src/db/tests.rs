@@ -1,3 +1,6 @@
+#![allow(clippy::similar_names, reason = "naming dummy test values is hard")]
+#![allow(clippy::too_many_lines, reason = "test code can be long")]
+
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::accounts::AccountSummary;
 use miden_objects::{
@@ -173,13 +176,13 @@ fn sql_select_notes() {
         let note = NoteRecord {
             block_num,
             note_index: BlockNoteIndex::new(0, i as usize).unwrap(),
-            note_id: num_to_rpo_digest(i as u64),
+            note_id: num_to_rpo_digest(u64::from(i)),
             metadata: NoteMetadata::new(
                 ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
                 NoteType::Public,
                 i.into(),
                 NoteExecutionHint::none(),
-                Default::default(),
+                Felt::default(),
             )
             .unwrap(),
             details: Some(vec![1, 2, 3]),
@@ -219,7 +222,7 @@ fn sql_select_notes_different_execution_hints() {
             NoteType::Public,
             0.into(),
             NoteExecutionHint::none(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details: Some(vec![1, 2, 3]),
@@ -243,7 +246,7 @@ fn sql_select_notes_different_execution_hints() {
             NoteType::Public,
             1.into(),
             NoteExecutionHint::always(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details: Some(vec![1, 2, 3]),
@@ -267,7 +270,7 @@ fn sql_select_notes_different_execution_hints() {
             NoteType::Public,
             2.into(),
             NoteExecutionHint::after_block(12).unwrap(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details: Some(vec![1, 2, 3]),
@@ -302,7 +305,7 @@ fn sql_select_accounts() {
             AccountType::RegularAccountImmutableCode,
             miden_objects::accounts::AccountStorageMode::Private,
         );
-        let account_hash = num_to_rpo_digest(i as u64);
+        let account_hash = num_to_rpo_digest(u64::from(i));
         state.push(AccountInfo {
             summary: AccountSummary { account_id, account_hash, block_num },
             details: None,
@@ -606,8 +609,8 @@ fn sql_select_nullifiers_by_block_range() {
 
 #[test]
 fn select_nullifiers_by_prefix() {
-    let mut conn = create_db();
     const PREFIX_LEN: u32 = 16;
+    let mut conn = create_db();
     // test empty table
     let nullifiers = sql::select_nullifiers_by_prefix(&mut conn, PREFIX_LEN, &[]).unwrap();
     assert!(nullifiers.is_empty());
@@ -869,7 +872,7 @@ fn notes() {
             .unwrap();
 
     let values = [(note_index, note_id.into(), note_metadata)];
-    let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
+    let notes_db = BlockNoteTree::with_entries(values.iter().copied()).unwrap();
     let details = Some(vec![1, 2, 3]);
     let merkle_path = notes_db.get_note_path(note_index);
 
@@ -882,7 +885,7 @@ fn notes() {
             NoteType::Public,
             tag.into(),
             NoteExecutionHint::none(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details,
@@ -948,7 +951,7 @@ fn notes() {
     let note_0 = res[0].clone();
     let note_1 = res[1].clone();
     assert_eq!(note_0.details, Some(vec![1, 2, 3]));
-    assert_eq!(note_1.details, None)
+    assert_eq!(note_1.details, None);
 }
 
 // UTILITIES

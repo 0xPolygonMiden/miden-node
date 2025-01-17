@@ -21,7 +21,7 @@ impl Display for proto::account::AccountId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "0x")?;
         for byte in &self.id {
-            write!(f, "{:02x}", byte)?;
+            write!(f, "{byte:02x}")?;
         }
         Ok(())
     }
@@ -89,7 +89,7 @@ impl From<&AccountInfo> for proto::account::AccountInfo {
     fn from(AccountInfo { summary, details }: &AccountInfo) -> Self {
         Self {
             summary: Some(summary.into()),
-            details: details.as_ref().map(|account| account.to_bytes()),
+            details: details.as_ref().map(miden_objects::utils::Serializable::to_bytes),
         }
     }
 }
