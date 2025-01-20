@@ -73,6 +73,10 @@ install-node: ## Installs node
 install-faucet: ## Installs faucet
 	${BUILD_PROTO} cargo install --path bin/faucet --locked
 
+.PHONY: install-stress-test
+install-stress-test: ## Installs faucet
+	${BUILD_PROTO} cargo install --path bin/stress-test --locked
+
 # --- docker --------------------------------------------------------------------------------------
 
 .PHONY: docker-build-node
