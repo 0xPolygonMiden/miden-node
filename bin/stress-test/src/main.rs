@@ -22,7 +22,7 @@ use miden_objects::{
     crypto::dsa::rpo_falcon512::SecretKey,
     testing::notes::NoteBuilder,
     transaction::OutputNote,
-    Digest, Felt,
+    BlockHeader, Digest, Felt,
 };
 use miden_processor::crypto::RpoRandomCoin;
 use rand::Rng;
@@ -67,13 +67,14 @@ async fn main() {
     }
 }
 
-async fn create_faucet() -> AccountId {
+async fn create_faucet(anchor_block: &BlockHeader) -> AccountId {
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
     let key_pair = SecretKey::with_rng(&mut rng);
     let init_seed = [0_u8; 32];
+
     let (new_faucet, _seed) = AccountBuilder::new(init_seed)
-        .anchor(AccountIdAnchor::PRE_GENESIS)
+        .anchor(anchor_block.try_into().unwrap())
         .account_type(AccountType::FungibleFaucet)
         .storage_mode(AccountStorageMode::Private)
         .with_component(RpoFalcon512::new(key_pair.public_key()))
@@ -91,6 +92,7 @@ async fn build_tx_batches(
     accounts_number: usize,
     faucet_id: AccountId,
     batch_sender: Sender<TransactionBatch>,
+    anchor_block: &BlockHeader,
 ) {
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
@@ -102,7 +104,7 @@ async fn build_tx_batches(
         .map(|index| {
             let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
             let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
-                .anchor(AccountIdAnchor::PRE_GENESIS)
+                .anchor(anchor_block.try_into().unwrap())
                 .account_type(AccountType::RegularAccountImmutableCode)
                 .storage_mode(AccountStorageMode::Private)
                 .with_component(RpoFalcon512::new(key_pair.public_key()))
@@ -154,10 +156,13 @@ async fn seed_store(dump_file: &Path, accounts_number: usize, genesis_file: &Pat
     // Start block builder
     let store_client =
         StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
+
+    let genesis_header = store_client.latest_header().await.unwrap();
+
     let block_builder = BlockBuilder::new(store_client);
 
     println!("Creating new faucet account...");
-    let faucet_id = create_faucet().await;
+    let faucet_id = create_faucet(&genesis_header).await;
 
     let (batch_sender, batch_receiver) = channel::<TransactionBatch>();
 
@@ -198,7 +203,7 @@ async fn seed_store(dump_file: &Path, accounts_number: usize, genesis_file: &Pat
         println!("Average insertion time: {} ms", avg_time.as_millis());
     });
 
-    build_tx_batches(accounts_number, faucet_id, batch_sender).await;
+    build_tx_batches(accounts_number, faucet_id, batch_sender, &genesis_header).await;
 
     db_task.await.unwrap();
     println!("Store loaded in {:?} seconds", load_start.elapsed().as_secs());
