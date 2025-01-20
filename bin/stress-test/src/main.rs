@@ -99,9 +99,9 @@ async fn build_tx_batches(
 
     (0..accounts_number)
         .into_par_iter()
-        .map(|_| {
-            let init_seed = [0_u8; 32];
-            let (new_account, _) = AccountBuilder::new(init_seed)
+        .map(|index| {
+            let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
+            let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
                 .anchor(AccountIdAnchor::PRE_GENESIS)
                 .account_type(AccountType::RegularAccountImmutableCode)
                 .storage_mode(AccountStorageMode::Private)
