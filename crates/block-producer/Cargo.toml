@@ -34,7 +34,7 @@ tonic = { workspace = true }
 tracing = { workspace = true }
 miden-air = { workspace = true }
 winterfell = { version = "0.10" }
-miden-objects = { workspace = true, features = ["testing"] }
+miden-objects = { workspace = true }
 rand_chacha = { version = "0.3", default-features = false }
 miden-lib = { workspace = true, features = ["testing"] }
 miden-node-test-macro = { path = "../test-macro" }
