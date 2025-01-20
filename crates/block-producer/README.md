@@ -12,9 +12,13 @@ For more information on the installation and operation of this component, please
 
 The full gRPC API can be found [here](../../proto/block_producer.proto).
 
+---
+
 ### SubmitProvenTransaction
 
 Submits proven transaction to the Miden network.
+
+---
 
 ## License
 This project is [MIT licensed](../../LICENSE).
