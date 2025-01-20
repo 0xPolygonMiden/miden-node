@@ -31,5 +31,10 @@ Submits proven transaction to the Miden network.
 
 This method doesn't return any data.
 
+## Crate Features
+
+- `tracing-forest`: sets logging using tracing-forest. Disabled by default.
+- `testing`: includes testing util functions to mock block-producer behaviour, meant to be used during development and not on production. Disabled by default.
+
 ## License
 This project is [MIT licensed](../../LICENSE).
