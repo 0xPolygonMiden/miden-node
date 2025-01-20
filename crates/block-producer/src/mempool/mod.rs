@@ -293,7 +293,7 @@ impl Mempool {
         let batches = self.batches.select_block(self.block_budget);
         self.block_in_progress = Some(batches.iter().map(TransactionBatch::id).collect());
 
-        (self.chain_tip + 1, batches)
+        (self.chain_tip.child(), batches)
     }
 
     /// Notify the pool that the block was successfully completed.
@@ -303,7 +303,7 @@ impl Mempool {
     /// Panics if blocks are completed out-of-order or if there is no block in flight.
     #[instrument(target = COMPONENT, skip_all, fields(block_number))]
     pub fn block_committed(&mut self, block_number: BlockNumber) {
-        assert_eq!(block_number, self.chain_tip + 1, "Blocks must be submitted sequentially");
+        assert_eq!(block_number, self.chain_tip.child(), "Blocks must be submitted sequentially");
 
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
@@ -318,7 +318,7 @@ impl Mempool {
 
         // Inform inflight state about committed data.
         self.state.commit_block(transactions);
-        self.chain_tip = self.chain_tip + 1;
+        self.chain_tip = self.chain_tip.child();
 
         // Revert expired transactions and their descendents.
         let expired = self.expirations.get(block_number);
@@ -334,7 +334,7 @@ impl Mempool {
     /// inflight block.
     #[instrument(target = COMPONENT, skip_all, fields(block_number))]
     pub fn block_failed(&mut self, block_number: BlockNumber) {
-        assert_eq!(block_number, self.chain_tip + 1, "Blocks must be submitted sequentially");
+        assert_eq!(block_number, self.chain_tip.child(), "Blocks must be submitted sequentially");
 
         let batches = self.block_in_progress.take().expect("No block in progress to be failed");
 

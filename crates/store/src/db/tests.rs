@@ -928,7 +928,7 @@ fn notes() {
         &mut conn,
         &[tag],
         &[],
-        block_num_1.checked_sub(1).unwrap(),
+        block_num_1.parent().unwrap(),
     )
     .unwrap();
     assert_eq!(res, vec![note.clone().into()]);
@@ -955,7 +955,7 @@ fn notes() {
         &mut conn,
         &[tag],
         &[],
-        block_num_1.checked_sub(1).unwrap(),
+        block_num_1.parent().unwrap(),
     )
     .unwrap();
     assert_eq!(res, vec![note.clone().into()]);

@@ -293,7 +293,7 @@ impl InflightState {
 
         self.committed_blocks.push_back(block_deltas);
         self.prune_block();
-        self.chain_tip = self.chain_tip + 1;
+        self.chain_tip = self.chain_tip.child();
     }
 
     /// Prunes the state from the oldest committed block _IFF_ there are more than the number we
