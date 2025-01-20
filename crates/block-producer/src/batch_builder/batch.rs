@@ -420,7 +420,7 @@ mod tests {
         let txs = mock_proven_txs();
         let found_unauthenticated_notes = BTreeMap::from_iter([(
             mock_note(5).id(),
-            NoteInclusionProof::new(0, 0, MerklePath::default()).unwrap(),
+            NoteInclusionProof::new(0.into(), 0, MerklePath::default()).unwrap(),
         )]);
         let found_unauthenticated_notes = NoteAuthenticationInfo {
             note_proofs: found_unauthenticated_notes,

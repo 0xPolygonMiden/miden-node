@@ -55,7 +55,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             // what is currently in the chain MMR (i.e., chain MMR with block_num = 1 has 2 leave);
             // this is because GetBlockInputs returns the state of the chain MMR as of one block
             // ago so that block_header.chain_root matches the hash of MMR peaks.
-            let num_leaves = block_header.block_num() as usize;
+            let num_leaves = block_header.block_num().as_usize();
 
             MmrPeaks::new(
                 num_leaves,

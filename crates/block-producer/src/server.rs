@@ -8,7 +8,9 @@ use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
 };
-use miden_objects::{transaction::ProvenTransaction, utils::serde::Deserializable};
+use miden_objects::{
+    block::BlockNumber, transaction::ProvenTransaction, utils::serde::Deserializable,
+};
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
@@ -20,7 +22,7 @@ use crate::{
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
-    mempool::{BatchBudget, BlockBudget, BlockNumber, Mempool, SharedMempool},
+    mempool::{BatchBudget, BlockBudget, Mempool, SharedMempool},
     store::StoreClient,
     COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
 };
@@ -37,7 +39,7 @@ pub struct BlockProducer {
     batch_budget: BatchBudget,
     block_budget: BlockBudget,
     state_retention: usize,
-    expiration_slack: BlockNumber,
+    expiration_slack: u32,
     rpc_listener: TcpListener,
     store: StoreClient,
     chain_tip: BlockNumber,
@@ -60,7 +62,7 @@ impl BlockProducer {
             .latest_header()
             .await
             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
-        let chain_tip = BlockNumber::new(latest_header.block_num());
+        let chain_tip = latest_header.block_num();
 
         let rpc_listener = config
             .endpoint
@@ -245,12 +247,8 @@ impl BlockProducerRpcServer {
         // SAFETY: we assume that the rpc component has verified the transaction proof already.
         let tx = AuthenticatedTransaction::new(tx, inputs)?;
 
-        self.mempool
-            .lock()
-            .await
-            .lock()
-            .await
-            .add_transaction(tx)
-            .map(|block_height| SubmitProvenTransactionResponse { block_height })
+        self.mempool.lock().await.lock().await.add_transaction(tx).map(|block_height| {
+            SubmitProvenTransactionResponse { block_height: block_height.as_u32() }
+        })
     }
 }

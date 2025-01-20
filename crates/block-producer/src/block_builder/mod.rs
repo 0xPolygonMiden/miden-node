@@ -149,7 +149,6 @@ impl BlockBuilder {
         let (block_header_witness, updated_accounts) = BlockWitness::new(block_inputs, batches)?;
 
         let new_block_header = self.block_kernel.prove(block_header_witness)?;
-        let block_num = new_block_header.block_num();
 
         // TODO: return an error?
         let block =
@@ -157,6 +156,7 @@ impl BlockBuilder {
                 .expect("invalid block components");
 
         let block_hash = block.hash();
+        let block_num = new_block_header.block_num().as_u32();
 
         info!(target: COMPONENT, block_num, %block_hash, "block built");
         debug!(target: COMPONENT, ?block);

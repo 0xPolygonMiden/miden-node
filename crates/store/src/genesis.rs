@@ -54,7 +54,7 @@ impl GenesisState {
         let header = BlockHeader::new(
             self.version,
             Digest::default(),
-            GENESIS_BLOCK,
+            GENESIS_BLOCK.into(),
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             Smt::default().root(),

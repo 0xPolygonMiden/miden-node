@@ -24,7 +24,7 @@ use miden_node_proto::{
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
     accounts::{AccountDelta, AccountHeader, AccountId, StorageSlot},
-    block::Block,
+    block::{Block, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{
@@ -51,7 +51,6 @@ use crate::{
         StateSyncError,
     },
     nullifier_tree::NullifierTree,
-    types::BlockNumber,
     COMPONENT,
 };
 // STRUCTURES
@@ -105,9 +104,11 @@ struct InnerState {
 impl InnerState {
     /// Returns the latest block number.
     fn latest_block_num(&self) -> BlockNumber {
-        (self.chain_mmr.forest() - 1)
+        let block_number: u32 = (self.chain_mmr.forest() - 1)
             .try_into()
-            .expect("chain_mmr always has, at least, the genesis block")
+            .expect("chain_mmr always has, at least, the genesis block");
+
+        block_number.into()
     }
 }
 
@@ -374,7 +375,7 @@ impl State {
             inner.chain_mmr.add(block_hash);
         }
 
-        info!(%block_hash, block_num, COMPONENT, "apply_block successful");
+        info!(%block_hash, block_num = block_num.as_u32(), COMPONENT, "apply_block successful");
 
         Ok(())
     }
@@ -393,7 +394,7 @@ impl State {
         if let Some(header) = block_header {
             let mmr_proof = if include_mmr_proof {
                 let inner = self.inner.read().await;
-                let mmr_proof = inner.chain_mmr.open(header.block_num() as usize)?;
+                let mmr_proof = inner.chain_mmr.open(header.block_num().as_usize())?;
                 Some(mmr_proof)
             } else {
                 None
@@ -464,16 +465,16 @@ impl State {
             let paths = blocks
                 .iter()
                 .map(|&block_num| {
-                    let proof = state.chain_mmr.open(block_num as usize)?.merkle_path;
+                    let proof = state.chain_mmr.open(block_num.as_usize())?.merkle_path;
 
                     Ok::<_, MmrError>((block_num, proof))
                 })
                 .collect::<Result<BTreeMap<_, _>, MmrError>>()?;
 
-            let chain_length = BlockNumber::try_from(chain_length)
-                .expect("Forest is a chain length so should fit into block number");
+            let chain_length = u32::try_from(chain_length)
+                .expect("Forest is a chain length so should fit into a u32");
 
-            (chain_length, paths)
+            (chain_length.into(), paths)
         };
 
         let headers = self.db.select_block_headers(blocks).await?;
@@ -525,7 +526,10 @@ impl State {
 
         let delta = if block_num == state_sync.block_header.block_num() {
             // The client is in sync with the chain tip.
-            MmrDelta { forest: block_num as usize, data: vec![] }
+            MmrDelta {
+                forest: block_num.as_usize(),
+                data: vec![],
+            }
         } else {
             // Important notes about the boundary conditions:
             //
@@ -536,8 +540,8 @@ impl State {
             // - Mmr::get_delta is inclusive, whereas the sync_state request block_num is defined to
             //   be
             // exclusive, so the from_forest has to be adjusted with a +1
-            let from_forest = (block_num + 1) as usize;
-            let to_forest = state_sync.block_header.block_num() as usize;
+            let from_forest = (block_num + 1).as_usize();
+            let to_forest = state_sync.block_header.block_num().as_usize();
             inner
                 .chain_mmr
                 .get_delta(from_forest, to_forest)
@@ -568,7 +572,7 @@ impl State {
 
         let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
 
-        let mmr_proof = inner.chain_mmr.open(note_sync.block_header.block_num() as usize)?;
+        let mmr_proof = inner.chain_mmr.open(note_sync.block_header.block_num().as_usize())?;
 
         Ok((note_sync, mmr_proof))
     }
@@ -589,7 +593,7 @@ impl State {
             .ok_or(GetBlockInputsError::DbBlockHeaderEmpty)?;
 
         // sanity check
-        if inner.chain_mmr.forest() != latest.block_num() as usize + 1 {
+        if inner.chain_mmr.forest() != latest.block_num().as_usize() + 1 {
             return Err(GetBlockInputsError::IncorrectChainMmrForestNumber {
                 forest: inner.chain_mmr.forest(),
                 block_num: latest.block_num(),
@@ -599,9 +603,9 @@ impl State {
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
         let chain_peaks =
-            inner.chain_mmr.peaks_at(latest.block_num() as usize).map_err(|error| {
+            inner.chain_mmr.peaks_at(latest.block_num().as_usize()).map_err(|error| {
                 GetBlockInputsError::FailedToGetMmrPeaksForForest {
-                    forest: latest.block_num() as usize,
+                    forest: latest.block_num().as_usize(),
                     error,
                 }
             })?;

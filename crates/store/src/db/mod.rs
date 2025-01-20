@@ -11,7 +11,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
-    block::{Block, BlockNoteIndex},
+    block::{Block, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
@@ -28,7 +28,6 @@ use crate::{
     db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
-    types::BlockNumber,
     COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
@@ -71,7 +70,7 @@ pub struct NoteRecord {
 impl From<NoteRecord> for proto::Note {
     fn from(note: NoteRecord) -> Self {
         Self {
-            block_num: note.block_num,
+            block_num: note.block_num.as_u32(),
             note_index: note.note_index.leaf_index_value().into(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
@@ -490,7 +489,7 @@ impl Db {
         };
 
         let maybe_block_header_in_store = self
-            .select_block_header_by_block_num(Some(GENESIS_BLOCK))
+            .select_block_header_by_block_num(Some(GENESIS_BLOCK.into()))
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
@@ -527,7 +526,7 @@ impl Db {
                             genesis_block.updated_accounts(),
                         )?;
 
-                        block_store.save_block_blocking(0, &genesis_block.to_bytes())?;
+                        block_store.save_block_blocking(0.into(), &genesis_block.to_bytes())?;
 
                         transaction.commit()?;
 

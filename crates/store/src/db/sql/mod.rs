@@ -17,7 +17,7 @@ use miden_objects::{
         StorageMapDelta,
     },
     assets::NonFungibleAsset,
-    block::{BlockAccountUpdate, BlockNoteIndex},
+    block::{BlockAccountUpdate, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
@@ -25,7 +25,7 @@ use miden_objects::{
     BlockHeader, Digest, Word,
 };
 use rusqlite::{params, types::Value, Connection, Transaction};
-use utils::read_from_blob_column;
+use utils::{read_block_number, read_from_blob_column};
 
 use super::{
     NoteRecord, NoteSyncRecord, NoteSyncUpdate, NullifierInfo, Result, StateSyncUpdate,
@@ -37,7 +37,6 @@ use crate::{
         get_nullifier_prefix, u64_to_value,
     },
     errors::{DatabaseError, NoteSyncError, StateSyncError},
-    types::BlockNumber,
 };
 // ACCOUNT QUERIES
 // ================================================================================================
@@ -127,7 +126,8 @@ pub fn select_accounts_by_block_range(
         .copied()
         .map(|account_id| account_id.to_bytes().into())
         .collect();
-    let mut rows = stmt.query(params![block_start, block_end, Rc::new(account_ids)])?;
+    let mut rows =
+        stmt.query(params![block_start.as_u32(), block_end.as_u32(), Rc::new(account_ids)])?;
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
@@ -309,15 +309,20 @@ pub fn select_account_delta(
 
     let account_id = account_id.to_bytes();
     let nonce = match select_nonce_stmt
-        .query_row(params![account_id, block_start, block_end], |row| row.get::<_, u64>(0))
-    {
+        .query_row(params![account_id, block_start.as_u32(), block_end.as_u32()], |row| {
+            row.get::<_, u64>(0)
+        }) {
         Ok(nonce) => nonce.try_into().map_err(DatabaseError::InvalidFelt)?,
         Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
         Err(e) => return Err(e.into()),
     };
 
     let mut storage_scalars = BTreeMap::new();
-    let mut rows = select_slot_updates_stmt.query(params![account_id, block_start, block_end])?;
+    let mut rows = select_slot_updates_stmt.query(params![
+        account_id,
+        block_start.as_u32(),
+        block_end.as_u32()
+    ])?;
     while let Some(row) = rows.next()? {
         let slot = row.get(0)?;
         let value_data = row.get_ref(1)?.as_blob()?;
@@ -326,8 +331,11 @@ pub fn select_account_delta(
     }
 
     let mut storage_maps = BTreeMap::new();
-    let mut rows =
-        select_storage_map_updates_stmt.query(params![account_id, block_start, block_end])?;
+    let mut rows = select_storage_map_updates_stmt.query(params![
+        account_id,
+        block_start.as_u32(),
+        block_end.as_u32()
+    ])?;
     while let Some(row) = rows.next()? {
         let slot = row.get(0)?;
         let key_data = row.get_ref(1)?.as_blob()?;
@@ -346,8 +354,11 @@ pub fn select_account_delta(
     }
 
     let mut fungible = BTreeMap::new();
-    let mut rows =
-        select_fungible_asset_deltas_stmt.query(params![account_id, block_start, block_end])?;
+    let mut rows = select_fungible_asset_deltas_stmt.query(params![
+        account_id,
+        block_start.as_u32(),
+        block_end.as_u32()
+    ])?;
     while let Some(row) = rows.next()? {
         let faucet_id: AccountId = read_from_blob_column(row, 0)?;
         let value = row.get(1)?;
@@ -357,8 +368,8 @@ pub fn select_account_delta(
     let mut non_fungible_delta = NonFungibleAssetDelta::default();
     let mut rows = select_non_fungible_asset_updates_stmt.query(params![
         account_id,
-        block_start,
-        block_end
+        block_start.as_u32(),
+        block_end.as_u32()
     ])?;
     while let Some(row) = rows.next()? {
         let vault_key_data = row.get_ref(1)?.as_blob()?;
@@ -438,7 +449,7 @@ pub fn upsert_accounts(
         let inserted = upsert_stmt.execute(params![
             account_id.to_bytes(),
             update.new_state_hash().to_bytes(),
-            block_num,
+            block_num.as_u32(),
             full_account.as_ref().map(|account| account.to_bytes()),
         ])?;
 
@@ -499,14 +510,14 @@ fn insert_account_delta(
 
     insert_acc_delta_stmt.execute(params![
         account_id.to_bytes(),
-        block_number,
+        block_number.as_u32(),
         delta.nonce().map(Into::<u64>::into).unwrap_or_default()
     ])?;
 
     for (&slot, value) in delta.storage().values() {
         insert_slot_update_stmt.execute(params![
             account_id.to_bytes(),
-            block_number,
+            block_number.as_u32(),
             slot,
             value.to_bytes()
         ])?;
@@ -516,7 +527,7 @@ fn insert_account_delta(
         for (key, value) in map_delta.leaves() {
             insert_storage_map_update_stmt.execute(params![
                 account_id.to_bytes(),
-                block_number,
+                block_number.as_u32(),
                 slot,
                 key.to_bytes(),
                 value.to_bytes(),
@@ -527,7 +538,7 @@ fn insert_account_delta(
     for (&faucet_id, &delta) in delta.vault().fungible().iter() {
         insert_fungible_asset_delta_stmt.execute(params![
             account_id.to_bytes(),
-            block_number,
+            block_number.as_u32(),
             faucet_id.to_bytes(),
             delta,
         ])?;
@@ -540,7 +551,7 @@ fn insert_account_delta(
         };
         insert_non_fungible_asset_update_stmt.execute(params![
             account_id.to_bytes(),
-            block_number,
+            block_number.as_u32(),
             asset.to_bytes(),
             is_remove,
         ])?;
@@ -576,7 +587,7 @@ pub fn insert_nullifiers_for_block(
         count += stmt.execute(params![
             nullifier.to_bytes(),
             get_nullifier_prefix(nullifier),
-            block_num
+            block_num.as_u32()
         ])?;
     }
     Ok(count)
@@ -596,7 +607,7 @@ pub fn select_all_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, Bl
     while let Some(row) = rows.next()? {
         let nullifier_data = row.get_ref(0)?.as_blob()?;
         let nullifier = Nullifier::read_from_bytes(nullifier_data)?;
-        let block_number = row.get(1)?;
+        let block_number = read_block_number(row, 1)?;
         result.push((nullifier, block_number));
     }
     Ok(result)
@@ -637,14 +648,15 @@ pub fn select_nullifiers_by_block_range(
     ",
     )?;
 
-    let mut rows = stmt.query(params![block_start, block_end, Rc::new(nullifier_prefixes)])?;
+    let mut rows =
+        stmt.query(params![block_start.as_u32(), block_end.as_u32(), Rc::new(nullifier_prefixes)])?;
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
         let nullifier_data = row.get_ref(0)?.as_blob()?;
         let nullifier = Nullifier::read_from_bytes(nullifier_data)?;
-        let block_num = row.get(1)?;
-        result.push(NullifierInfo { nullifier, block_num });
+        let block_num: u32 = row.get(1)?;
+        result.push(NullifierInfo { nullifier, block_num: block_num.into() });
     }
     Ok(result)
 }
@@ -690,7 +702,7 @@ pub fn select_nullifiers_by_prefix(
     while let Some(row) = rows.next()? {
         let nullifier_data = row.get_ref(0)?.as_blob()?;
         let nullifier = Nullifier::read_from_bytes(nullifier_data)?;
-        let block_num = row.get(1)?;
+        let block_num = read_block_number(row, 1)?;
         result.push(NullifierInfo { nullifier, block_num });
     }
     Ok(result)
@@ -751,7 +763,7 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
 
         notes.push(NoteRecord {
-            block_num: row.get(0)?,
+            block_num: read_block_number(row, 0)?,
             note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
             note_id,
             metadata,
@@ -791,7 +803,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
     for note in notes {
         let details = note.details.as_ref().map(miden_objects::utils::Serializable::to_bytes);
         count += stmt.execute(params![
-            note.block_num,
+            note.block_num.as_u32(),
             note.note_index.batch_idx(),
             note.note_index.note_idx_in_batch(),
             note.note_id.to_bytes(),
@@ -835,11 +847,11 @@ pub fn select_notes_since_block_by_tag_and_sender(
         .copied()
         .map(|account_id| account_id.to_bytes().into())
         .collect();
-    let mut rows = stmt.query(params![Rc::new(tags), Rc::new(account_ids), block_num])?;
+    let mut rows = stmt.query(params![Rc::new(tags), Rc::new(account_ids), block_num.as_u32()])?;
 
     let mut res = Vec::new();
     while let Some(row) = rows.next()? {
-        let block_num = row.get(0)?;
+        let block_num = read_block_number(row, 0)?;
         let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
         let note_id = read_from_blob_column(row, 3)?;
         let note_type = row.get::<_, u8>(4)?;
@@ -922,7 +934,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
             NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
 
         notes.push(NoteRecord {
-            block_num: row.get(0)?,
+            block_num: read_block_number(row, 0)?,
             note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
             details,
             note_id: note_id.into(),
@@ -966,7 +978,7 @@ pub fn select_note_inclusion_proofs(
     let mut result = BTreeMap::new();
     let mut rows = select_notes_stmt.query(params![Rc::new(note_ids)])?;
     while let Some(row) = rows.next()? {
-        let block_num = row.get(0)?;
+        let block_num: u32 = row.get(0)?;
 
         let note_id_data = row.get_ref(1)?.as_blob()?;
         let note_id = NoteId::read_from_bytes(note_id_data)?;
@@ -978,7 +990,7 @@ pub fn select_note_inclusion_proofs(
         let merkle_path_data = row.get_ref(4)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
 
-        let proof = NoteInclusionProof::new(block_num, node_index_in_block, merkle_path)?;
+        let proof = NoteInclusionProof::new(block_num.into(), node_index_in_block, merkle_path)?;
 
         result.insert(note_id, proof);
     }
@@ -1002,7 +1014,7 @@ pub fn select_note_inclusion_proofs(
 pub fn insert_block_header(transaction: &Transaction, block_header: &BlockHeader) -> Result<usize> {
     let mut stmt = transaction
         .prepare_cached("INSERT INTO block_headers (block_num, block_header) VALUES (?1, ?2);")?;
-    Ok(stmt.execute(params![block_header.block_num(), block_header.to_bytes()])?)
+    Ok(stmt.execute(params![block_header.block_num().as_u32(), block_header.to_bytes()])?)
 }
 
 /// Select a [`BlockHeader`] from the DB by its `block_num` using the given [Connection].
@@ -1019,7 +1031,7 @@ pub fn select_block_header_by_block_num(
     let mut rows = if let Some(block_number) = block_number {
         stmt =
             conn.prepare_cached("SELECT block_header FROM block_headers WHERE block_num = ?1")?;
-        stmt.query([block_number])?
+        stmt.query([block_number.as_u32()])?
     } else {
         stmt = conn.prepare_cached(
             "SELECT block_header FROM block_headers ORDER BY block_num DESC LIMIT 1",
@@ -1051,7 +1063,7 @@ pub fn select_block_headers(
 ) -> Result<Vec<BlockHeader>> {
     let mut headers = Vec::with_capacity(blocks.len());
 
-    let blocks: Vec<Value> = blocks.iter().copied().map(Into::into).collect();
+    let blocks: Vec<Value> = blocks.iter().copied().map(|b| b.as_u32().into()).collect();
     let mut stmt = conn
         .prepare_cached("SELECT block_header FROM block_headers WHERE block_num IN rarray(?1);")?;
     let mut rows = stmt.query(params![Rc::new(blocks)])?;
@@ -1109,8 +1121,11 @@ pub fn insert_transactions(
     for update in accounts {
         let account_id = update.account_id();
         for transaction_id in update.transactions() {
-            count +=
-                stmt.execute(params![transaction_id.to_bytes(), account_id.to_bytes(), block_num])?;
+            count += stmt.execute(params![
+                transaction_id.to_bytes(),
+                account_id.to_bytes(),
+                block_num.as_u32()
+            ])?;
         }
     }
     Ok(count)
@@ -1151,12 +1166,13 @@ pub fn select_transactions_by_accounts_and_block_range(
     ",
     )?;
 
-    let mut rows = stmt.query(params![block_start, block_end, Rc::new(account_ids)])?;
+    let mut rows =
+        stmt.query(params![block_start.as_u32(), block_end.as_u32(), Rc::new(account_ids)])?;
 
     let mut result = vec![];
     while let Some(row) = rows.next()? {
         let account_id = read_from_blob_column(row, 0)?;
-        let block_num = row.get(1)?;
+        let block_num = read_block_number(row, 1)?;
         let transaction_id_data = row.get_ref(2)?.as_blob()?;
         let transaction_id = TransactionId::read_from_bytes(transaction_id_data)?;
 
