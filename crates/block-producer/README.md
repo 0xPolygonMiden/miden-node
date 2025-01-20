@@ -1,35 +1,20 @@
 # Miden block producer
 
-The **Block producer** receives transactions from the RPC component, processes them, creates block containing those transactions before sending created blocks to the store. 
+Contains code definining the [Miden node's block-producer](/README.md#architecture) component. It is responsible for
+ordering transactions into blocks and submitting these for inclusion in the blockchain.
 
-**Block Producer** is one of components of the [Miden node](..). 
+It serves a small [rRPC](htts://grpc.io) API which the node's RPC component uses to submit new transactions. In turn,
+the `block-producer` uses the store's gRPC API to submit blocks and query chain state.
 
-## Architecture
-
-`TODO`
-
-## Usage
-
-### Installing the Block Producer
-
-The Block Producer can be installed and run as part of [Miden node](../README.md#installing-the-node). 
+For more information on the installation and operation of this component, please see the [node's readme](/README.md).
 
 ## API
 
-The **Block Producer** serves connections using the [gRPC protocol](https://grpc.io) on a port, set in the previously mentioned configuration file. 
-Here is a brief description of supported methods.
+The full gRPC API can be found [here](../../proto/block_producer.proto).
 
 ### SubmitProvenTransaction
 
 Submits proven transaction to the Miden network.
-
-**Parameters**
-
-* `transaction`: `bytes` - transaction encoded using [winter_utils::Serializable](https://github.com/facebook/winterfell/blob/main/utils/core/src/serde/mod.rs#L26) implementation for [miden_objects::transaction::proven_tx::ProvenTransaction](https://github.com/0xPolygonMiden/miden-base/blob/main/objects/src/transaction/proven_tx.rs#L22).
-
-**Returns**
-
-This method doesn't return any data.
 
 ## License
 This project is [MIT licensed](../../LICENSE).
