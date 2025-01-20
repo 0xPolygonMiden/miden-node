@@ -126,7 +126,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
 /// Essentially just a thin wrapper around the generated gRPC client which improves type safety.
 #[derive(Clone)]
 pub struct StoreClient {
-    pub inner: store_client::ApiClient<Channel>,
+    inner: store_client::ApiClient<Channel>,
 }
 
 impl StoreClient {
@@ -235,4 +235,9 @@ impl StoreClient {
 
         self.inner.clone().apply_block(request).await.map(|_| ()).map_err(Into::into)
     }
+
+    // #[cfg(feature = "testing")]
+    // pub async fn inner(&mut self) -> &mut store_client::ApiClient<Channel> {
+    //     &mut self.inner
+    // }
 }
