@@ -21,6 +21,7 @@ use crate::{
 
 type Update = MutationSet<ACCOUNT_TREE_DEPTH, LeafIndex<ACCOUNT_TREE_DEPTH>, Word>;
 
+/// Account SMT with storage of reverse updates for recent blocks
 pub struct AccountTree {
     accounts: SimpleSmt<ACCOUNT_TREE_DEPTH>,
     update_storage: UpdateStorage,
@@ -51,12 +52,17 @@ impl AccountTree {
         &mut self.update_storage
     }
 
+    /// Computes opening for the given account state for the specified block number.
+    /// It traverses over updated nodes in reverse updates from the root down to the leaf, filling
+    /// items in Merkle path, from the given block up to the most recent update, if needed. If there
+    /// is no updates left, remaining nodes are got from the current accounts SMT.   
     #[expect(dead_code)]
     pub fn compute_opening(
         &self,
         account_id: &AccountId,
         block_num: BlockNumber,
     ) -> Result<ValuePath, DatabaseError> {
+        /// Structure for filling of mutable Merkle path
         struct MutableMerklePath(Vec<RpoDigest>);
 
         impl MutableMerklePath {
@@ -88,8 +94,13 @@ impl AccountTree {
         let Some(mut update_index) = self.update_storage.update_index(block_num) else {
             return Ok(self.accounts.open(&leaf_index));
         };
+
         let mut node_index = NodeIndex::root();
         let mut path = MutableMerklePath::new(self.update_storage.get(update_index).root());
+
+        // Begin filling path from reverse updates, starting from the root of update for the given
+        // block number, moving down through the way to the account's leaf. If it finds an empty
+        // subtree (i.e. no leaves were updated), goes to the next reverse update.
         while node_index.depth() < ACCOUNT_TREE_DEPTH {
             match self.update_storage.get(update_index).node_mutations().get(&node_index) {
                 None | Some(NodeMutation::Removal) => {
@@ -110,7 +121,21 @@ impl AccountTree {
             }
         }
 
-        while node_index.depth() < ACCOUNT_TREE_DEPTH {
+        // If we went down to the leaf, construct and return opening using the current update leaf.
+        if node_index.depth() == ACCOUNT_TREE_DEPTH {
+            let Some(leaf) = self.update_storage.get(update_index).new_pairs().get(&leaf_index)
+            else {
+                return Err(DatabaseError::DataCorrupted(format!(
+                    "No new pair for leaf {leaf_index:?} in update #{update_index}"
+                )));
+            };
+
+            return Ok(ValuePath::new(leaf.into(), path.into_merkle_path()));
+        }
+
+        // If no updates left, but the path was not yet completed, we need to fill remaining path
+        // part from the current account's SMT.
+        loop {
             if Self::is_in_left_subtree(account_id_prefix, node_index) {
                 node_index = node_index.left_child();
             } else {
@@ -128,14 +153,6 @@ impl AccountTree {
                 path.update_item(node_index.depth(), node);
             }
         }
-
-        let Some(leaf) = self.update_storage.get(update_index).new_pairs().get(&leaf_index) else {
-            return Err(DatabaseError::DataCorrupted(format!(
-                "No new pair for leaf {leaf_index:?} in update #{update_index}"
-            )));
-        };
-
-        Ok(ValuePath::new(leaf.into(), path.into_merkle_path()))
     }
 
     #[instrument(target = COMPONENT, skip_all)]
