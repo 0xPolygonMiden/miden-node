@@ -1674,6 +1674,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "miden-node-stress-test"
+version = "0.6.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "miden-lib",
+ "miden-node-block-producer",
+ "miden-node-proto",
+ "miden-node-store",
+ "miden-objects",
+ "miden-processor",
+ "rand",
+ "rayon",
+ "tokio",
+]
+
+[[package]]
 name = "miden-node-test-macro"
 version = "0.1.0"
 dependencies = [
@@ -1756,23 +1773,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09948fda011d044273d1bbc56669da410ee3167f96bf1ad9885c946cfbed5757"
 dependencies = [
  "miden-assembly",
-]
-
-[[package]]
-name = "miden-stress-test"
-version = "0.6.0"
-dependencies = [
- "anyhow",
- "clap",
- "miden-lib",
- "miden-node-block-producer",
- "miden-node-proto",
- "miden-node-store",
- "miden-objects",
- "miden-processor",
- "rand",
- "rayon",
- "tokio",
 ]
 
 [[package]]

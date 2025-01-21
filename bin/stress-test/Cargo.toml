@@ -1,5 +1,5 @@
 [package]
-name = "miden-stress-test"
+name = "miden-node-stress-test"
 description = "Miden stress test binary"
 keywords = ["miden", "stress-test"]
 edition.workspace = true
