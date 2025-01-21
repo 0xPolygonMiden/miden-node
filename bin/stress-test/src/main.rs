@@ -21,18 +21,18 @@ use miden_objects::{
     assets::{Asset, FungibleAsset, TokenSymbol},
     block::BlockHeader,
     crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
-    notes::Note,
+    notes::{Note, NoteInclusionProof},
     testing::notes::NoteBuilder,
     transaction::OutputNote,
     Digest, Felt, MAX_OUTPUT_NOTES_PER_BATCH,
 };
-use miden_processor::crypto::RpoRandomCoin;
+use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
 use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
     prelude::*,
 };
-use tokio::{runtime::Runtime, task};
+use tokio::task;
 
 #[derive(Parser)]
 #[command(version)]
@@ -191,7 +191,6 @@ fn generate_account_batches(
     notes: &[Note],
     batch_sender: Sender<TransactionBatch>,
     genesis_header: &BlockHeader,
-    store_client: StoreClient,
 ) {
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
@@ -205,20 +204,13 @@ fn generate_account_batches(
             (index, account_id)
         })
         .map(|(index, account_id)| {
-            let note = notes.get(index).unwrap();
+            let note = notes.get(index).unwrap().clone();
 
-            let inclusion_proof = Runtime::new().unwrap().block_on(async {
-                let inclusion_proofs = store_client
-                    .get_batch_inputs(vec![note.id()].into_iter())
-                    .await
-                    .unwrap()
-                    .note_proofs;
-
-                inclusion_proofs.get(&note.id()).unwrap().clone()
-            });
+            let path = MerklePath::new(vec![]);
+            let inclusion_proof = NoteInclusionProof::new(0.into(), 0, path).unwrap();
 
             MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
-                .authenticated_notes(vec![(note.clone(), inclusion_proof.clone())])
+                .authenticated_notes(vec![(note, inclusion_proof)])
                 .build()
         })
         .chunks(TRANSACTIONS_PER_BATCH)
@@ -271,9 +263,7 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
 
     // Create accounts to consume the notes
     println!("Creating accounts and consuming notes...");
-    let store_client =
-        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
-    generate_account_batches(num_accounts, &notes, batch_sender, &genesis_header, store_client);
+    generate_account_batches(num_accounts, &notes, batch_sender, &genesis_header);
     let (insertion_time, num_insertions) = db_task.await.unwrap();
     println!(
         "Consumed notes: inserted {} blocks with avg insertion time {} ms",
