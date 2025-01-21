@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    sync::mpsc::{channel, Sender},
+    sync::mpsc::channel,
     time::{Duration, Instant},
 };
 
@@ -17,7 +17,7 @@ use miden_node_block_producer::{
 use miden_node_proto::generated::store::api_client::ApiClient;
 use miden_node_store::{config::StoreConfig, server::Store};
 use miden_objects::{
-    accounts::{AccountBuilder, AccountId, AccountIdAnchor, AccountStorageMode, AccountType},
+    accounts::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
     testing::notes::NoteBuilder,
@@ -45,8 +45,8 @@ pub enum Command {
         #[arg(short, long, value_name = "DUMP_FILE", default_value = "./miden-store.sqlite3")]
         dump_file: PathBuf,
 
-        #[arg(short, long, value_name = "ACCOUNTS_NUMBER")]
-        accounts_number: usize,
+        #[arg(short, long, value_name = "NUM_ACCOUNTS")]
+        num_accounts: usize,
 
         #[arg(short, long, value_name = "GENESIS_FILE")]
         genesis_file: PathBuf,
@@ -61,8 +61,8 @@ async fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::SeedStore { dump_file, accounts_number, genesis_file } => {
-            seed_store(dump_file, *accounts_number, genesis_file).await;
+        Command::SeedStore { dump_file, num_accounts, genesis_file } => {
+            seed_store(dump_file, *num_accounts, genesis_file).await;
         },
     }
 }
@@ -87,7 +87,7 @@ async fn create_faucet(anchor_block: &BlockHeader) -> AccountId {
     new_faucet.id()
 }
 
-async fn seed_store(dump_file: &Path, accounts_number: usize, genesis_file: &Path) {
+async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) {
     let store_config = StoreConfig {
         database_filepath: dump_file.to_path_buf(),
         genesis_filepath: genesis_file.to_path_buf(),
@@ -159,7 +159,7 @@ async fn seed_store(dump_file: &Path, accounts_number: usize, genesis_file: &Pat
     let mut notes = vec![];
     let mut create_note_txs = vec![];
     println!("Creating notes...");
-    for _ in 0..accounts_number {
+    for _ in 0..num_accounts {
         let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
         let coin_seed: [u64; 4] = rand::thread_rng().gen();
         let rng: RpoRandomCoin = RpoRandomCoin::new(coin_seed.map(Felt::new));
@@ -198,7 +198,7 @@ async fn seed_store(dump_file: &Path, accounts_number: usize, genesis_file: &Pat
 
     // Create all accounts and consume txs
     println!("Creating accounts and consuming notes...");
-    (0..accounts_number)
+    (0..num_accounts)
         .into_par_iter()
         .map(|index| {
             let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
