@@ -12,6 +12,7 @@ For more information on the installation and operation of this component, please
 The full gRPC method definitions can be found in the [rpc-proto](../rpc-proto/README.md) crate.
 
 <!--toc:start-->
+
 - [CheckNullifiers](#checknullifiers)
 - [CheckNullifiersByPrefix](#checknullifiersbyprefix)
 - [GetAccountDetails](#getaccountdetails)
@@ -23,19 +24,22 @@ The full gRPC method definitions can be found in the [rpc-proto](../rpc-proto/RE
 - [SubmitProvenTransaction](#submitproventransaction)
 - [SyncNotes](#syncnotes)
 - [SyncState](#syncstate)
+
 <!--toc:end-->
 
 ---
 
 ### CheckNullifiers
 
-Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
+Returns a nullifier proof for each of the requested nullifiers.
 
 ---
 
 ### CheckNullifiersByPrefix
 
 Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
+
+Only 16-bit prefixes are supported at this time.
 
 ---
 
@@ -59,7 +63,7 @@ Returns delta of the account states in the range from `from_block_num` (exclusiv
 
 ### GetBlockByNumber
 
-Retrieves block data by given block number.
+Returns raw block data for the specified block number.
 
 ---
 
@@ -84,10 +88,15 @@ Submits proven transaction to the Miden network.
 
 ### SyncNotes
 
-Note synchronization request.
+Returns info which can be used by the client to sync up to the tip of chain for the notes they are interested in.
 
-Specifies note tags that client is interested in. The server will return the first block which contains a note matching
-`note_tags` or the chain tip.
+Client specifies the `note_tags` they are interested in, and the block height from which to search for new for matching
+notes for. The request will then return the next block containing any note matching the provided tags.
+
+The response includes each note's metadata and inclusion proof.
+
+A basic note sync can be implemented by repeatedly requesting the previous response's block until reaching the tip of
+the chain.
 
 ---
 
