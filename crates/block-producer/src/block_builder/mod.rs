@@ -149,7 +149,6 @@ impl BlockBuilder {
         let (block_header_witness, updated_accounts) = BlockWitness::new(block_inputs, batches)?;
 
         let new_block_header = self.block_kernel.prove(block_header_witness)?;
-        let block_num = new_block_header.block_num();
 
         // TODO: return an error?
         let block =
@@ -157,8 +156,9 @@ impl BlockBuilder {
                 .expect("invalid block components");
 
         let block_hash = block.hash();
+        let block_num = new_block_header.block_num();
 
-        info!(target: COMPONENT, block_num, %block_hash, "block built");
+        info!(target: COMPONENT, %block_num, %block_hash, "block built");
         debug!(target: COMPONENT, ?block);
 
         self.store
@@ -166,7 +166,7 @@ impl BlockBuilder {
             .await
             .map_err(BuildBlockError::StoreApplyBlockFailed)?;
 
-        info!(target: COMPONENT, block_num, %block_hash, "block committed");
+        info!(target: COMPONENT, %block_num, %block_hash, "block committed");
 
         Ok(())
     }

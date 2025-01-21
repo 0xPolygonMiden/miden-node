@@ -19,10 +19,11 @@ use miden_node_store::{config::StoreConfig, server::Store};
 use miden_objects::{
     accounts::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
     assets::{Asset, FungibleAsset, TokenSymbol},
+    block::BlockHeader,
     crypto::dsa::rpo_falcon512::SecretKey,
     testing::notes::NoteBuilder,
     transaction::OutputNote,
-    BlockHeader, Digest, Felt,
+    Digest, Felt,
 };
 use miden_processor::crypto::RpoRandomCoin;
 use rand::Rng;

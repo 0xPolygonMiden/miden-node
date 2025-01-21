@@ -7,11 +7,11 @@ use std::{
 use miden_node_proto::domain::{blocks::BlockInclusionProof, notes::NoteAuthenticationInfo};
 use miden_objects::{
     accounts::AccountId,
-    block::{Block, NoteBatch},
+    block::{Block, BlockHeader, BlockNumber, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::{NoteId, NoteInclusionProof, Nullifier},
     transaction::ProvenTransaction,
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
+    Digest, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 use tokio::sync::RwLock;
 
@@ -32,7 +32,7 @@ pub struct MockStoreSuccessBuilder {
     notes: Option<Vec<NoteBatch>>,
     produced_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
-    block_num: Option<u32>,
+    block_num: Option<BlockNumber>,
 }
 
 impl MockStoreSuccessBuilder {
@@ -95,14 +95,14 @@ impl MockStoreSuccessBuilder {
     }
 
     #[must_use]
-    pub fn initial_block_num(mut self, block_num: u32) -> Self {
+    pub fn initial_block_num(mut self, block_num: BlockNumber) -> Self {
         self.block_num = Some(block_num);
 
         self
     }
 
     pub fn build(self) -> MockStoreSuccess {
-        let block_num = self.block_num.unwrap_or(1);
+        let block_num = self.block_num.unwrap_or(1.into());
         let accounts_smt = self.accounts.unwrap_or(SimpleSmt::new().unwrap());
         let notes = self.notes.unwrap_or_default();
         let block_note_tree = note_created_smt_from_note_batches(notes.iter());
@@ -173,7 +173,7 @@ pub struct MockStoreSuccess {
     pub chain_mmr: Arc<RwLock<Mmr>>,
 
     /// The chains block headers.
-    pub block_headers: Arc<RwLock<BTreeMap<u32, BlockHeader>>>,
+    pub block_headers: Arc<RwLock<BTreeMap<BlockNumber, BlockHeader>>>,
 
     /// The number of times `apply_block()` was called
     pub num_apply_block_called: Arc<RwLock<u32>>,
@@ -283,7 +283,7 @@ impl MockStoreSuccess {
             account_hash,
             nullifiers,
             found_unauthenticated_notes,
-            current_block_height: 0,
+            current_block_height: 0.into(),
         })
     }
 
@@ -332,7 +332,7 @@ impl MockStoreSuccess {
             .map(|note_proof| {
                 let block_num = note_proof.location().block_num();
                 let block_header = *locked_headers.get(&block_num).unwrap();
-                let mmr_path = locked_chain_mmr.open(block_num as usize).unwrap().merkle_path;
+                let mmr_path = locked_chain_mmr.open(block_num.as_usize()).unwrap().merkle_path;
 
                 BlockInclusionProof { block_header, mmr_path, chain_length }
             })

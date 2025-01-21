@@ -4,6 +4,7 @@ use itertools::Itertools;
 use miden_air::HashFunction;
 use miden_objects::{
     accounts::AccountId,
+    block::BlockNumber,
     notes::{
         Note, NoteExecutionHint, NoteHeader, NoteInclusionProof, NoteMetadata, NoteType, Nullifier,
     },
@@ -21,7 +22,7 @@ pub struct MockProvenTxBuilder {
     account_id: AccountId,
     initial_account_hash: Digest,
     final_account_hash: Digest,
-    expiration_block_num: u32,
+    expiration_block_num: BlockNumber,
     output_notes: Option<Vec<OutputNote>>,
     input_notes: Option<Vec<InputNote>>,
     nullifiers: Option<Vec<Nullifier>>,
@@ -62,7 +63,7 @@ impl MockProvenTxBuilder {
             account_id,
             initial_account_hash,
             final_account_hash,
-            expiration_block_num: u32::MAX,
+            expiration_block_num: u32::MAX.into(),
             output_notes: None,
             input_notes: None,
             nullifiers: None,
@@ -96,7 +97,7 @@ impl MockProvenTxBuilder {
     }
 
     #[must_use]
-    pub fn expiration_block_num(mut self, expiration_block_num: u32) -> Self {
+    pub fn expiration_block_num(mut self, expiration_block_num: BlockNumber) -> Self {
         self.expiration_block_num = expiration_block_num;
 
         self

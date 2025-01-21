@@ -1,10 +1,10 @@
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{delta::AccountUpdateDetails, Account},
-    block::{Block, BlockAccountUpdate},
+    block::{Block, BlockAccountUpdate, BlockHeader, BlockNumber},
     crypto::merkle::{EmptySubtreeRoots, MmrPeaks, SimpleSmt, Smt},
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH, BLOCK_NOTE_TREE_DEPTH, GENESIS_BLOCK,
+    Digest, ACCOUNT_TREE_DEPTH, BLOCK_NOTE_TREE_DEPTH,
 };
 
 use crate::errors::GenesisError;
@@ -54,7 +54,7 @@ impl GenesisState {
         let header = BlockHeader::new(
             self.version,
             Digest::default(),
-            GENESIS_BLOCK,
+            BlockNumber::GENESIS,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             Smt::default().root(),

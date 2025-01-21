@@ -2,9 +2,10 @@ use std::sync::Mutex;
 
 use miden_objects::{
     accounts::{Account, AccountId},
+    block::{BlockHeader, BlockNumber},
     notes::NoteId,
     transaction::{ChainMmr, InputNotes, TransactionInputs},
-    BlockHeader, Word,
+    Word,
 };
 use miden_tx::{DataStore, DataStoreError};
 
@@ -49,7 +50,7 @@ impl DataStore for FaucetDataStore {
     fn get_transaction_inputs(
         &self,
         account_id: AccountId,
-        _block_ref: u32,
+        _block_ref: BlockNumber,
         _notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         let account = self.faucet_account.lock().expect("Poisoned lock");

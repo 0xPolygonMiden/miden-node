@@ -1,7 +1,5 @@
 use std::time::Duration;
 
-use mempool::BlockNumber;
-
 #[cfg(any(test, feature = "testing"))]
 pub mod test_utils;
 
@@ -44,7 +42,7 @@ const SERVER_MEMPOOL_STATE_RETENTION: usize = 5;
 /// chain tip and the transaction's expiration block.
 ///
 /// This rejects transactions which would likely expire before making it into a block.
-const SERVER_MEMPOOL_EXPIRATION_SLACK: BlockNumber = BlockNumber::new(2);
+const SERVER_MEMPOOL_EXPIRATION_SLACK: u32 = 2;
 
 const _: () = assert!(
     SERVER_MAX_BATCHES_PER_BLOCK <= miden_objects::MAX_BATCHES_PER_BLOCK,

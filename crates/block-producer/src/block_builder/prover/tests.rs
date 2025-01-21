@@ -6,7 +6,7 @@ use miden_objects::{
     accounts::{
         delta::AccountUpdateDetails, AccountId, AccountIdVersion, AccountStorageMode, AccountType,
     },
-    block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
+    block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree, BlockNumber},
     crypto::merkle::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, Smt, SmtLeaf, SmtProof, SMT_DEPTH,
     },
@@ -848,7 +848,7 @@ async fn compute_nullifier_root_success() {
 
     // Set up store
     // ---------------------------------------------------------------------------------------------
-    let initial_block_num = 42;
+    let initial_block_num = BlockNumber::from(42);
 
     let store = MockStoreSuccessBuilder::from_batches(batches.iter())
         .initial_block_num(initial_block_num)
