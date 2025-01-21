@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    sync::mpsc::channel,
+    sync::mpsc::{channel, Receiver, Sender},
     time::{Duration, Instant},
 };
 
@@ -20,10 +20,11 @@ use miden_objects::{
     accounts::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
     assets::{Asset, FungibleAsset, TokenSymbol},
     block::BlockHeader,
-    crypto::dsa::rpo_falcon512::SecretKey,
+    crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
+    notes::Note,
     testing::notes::NoteBuilder,
     transaction::OutputNote,
-    Digest, Felt,
+    Digest, Felt, MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use miden_processor::crypto::RpoRandomCoin;
 use rand::Rng;
@@ -31,7 +32,7 @@ use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
     prelude::*,
 };
-use tokio::task;
+use tokio::{runtime::Runtime, task};
 
 #[derive(Parser)]
 #[command(version)]
@@ -56,7 +57,13 @@ pub enum Command {
 
 const BATCHES_PER_BLOCK: usize = 16;
 const TRANSACTIONS_PER_BATCH: usize = 16;
+const NOTES_PER_TRANSACTION: usize = MAX_OUTPUT_NOTES_PER_BATCH / TRANSACTIONS_PER_BATCH;
 
+/// Create and store blocks into the store. Create a given number of accounts, where each account
+/// consumes a note created from a faucet. The cli accepts the following parameters:
+/// - `dump_file`: Path to the store database file.
+/// - `num_accounts`: Number of accounts to create.
+/// - `genesis_file`: Path to the genesis file of the store.
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -68,7 +75,8 @@ async fn main() {
     }
 }
 
-async fn create_faucet(anchor_block: &BlockHeader) -> AccountId {
+/// Create a new faucet account with a given anchor block.
+fn create_faucet(anchor_block: &BlockHeader) -> AccountId {
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
     let key_pair = SecretKey::with_rng(&mut rng);
@@ -88,134 +96,127 @@ async fn create_faucet(anchor_block: &BlockHeader) -> AccountId {
     new_faucet.id()
 }
 
-async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) {
-    let store_config = StoreConfig {
-        database_filepath: dump_file.to_path_buf(),
-        genesis_filepath: genesis_file.to_path_buf(),
-        ..Default::default()
-    };
+/// Create a new note with a single fungible asset.
+fn create_note(faucet_id: AccountId) -> Note {
+    let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
+    let coin_seed: [u64; 4] = rand::thread_rng().gen();
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+    NoteBuilder::new(faucet_id, rng)
+        .add_assets(vec![asset])
+        .build(&TransactionKernel::assembler())
+        .unwrap()
+}
 
-    // Start store
-    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
-    task::spawn(async move { store.serve().await.context("Serving store") });
+/// Create a new account with a given public key and anchor block. Generates the seed from the given
+/// index.
+fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: usize) -> AccountId {
+    let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
+    let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
+        .anchor(anchor_block.try_into().unwrap())
+        .account_type(AccountType::RegularAccountImmutableCode)
+        .storage_mode(AccountStorageMode::Private)
+        .with_component(RpoFalcon512::new(public_key))
+        .with_component(BasicWallet)
+        .build()
+        .unwrap();
+    new_account.id()
+}
 
-    // Start block builder
-    let store_client =
-        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
-
-    let genesis_header = store_client.latest_header().await.unwrap();
-
+/// Build blocks from transaction batches. Each new block contains [`BATCHES_PER_BLOCK`] batches.
+/// Returns the total time spent on inserting blocks to the store and the number of inserted blocks.
+async fn build_blocks(
+    batch_receiver: Receiver<TransactionBatch>,
+    store_client: StoreClient,
+) -> (Duration, u32) {
     let block_builder = BlockBuilder::new(store_client);
 
-    println!("Creating new faucet account...");
-    let faucet_id = create_faucet(&genesis_header).await;
+    let mut current_block: Vec<TransactionBatch> = Vec::with_capacity(BATCHES_PER_BLOCK);
+    let mut insertion_times = Vec::new();
+    while let Ok(batch) = batch_receiver.recv() {
+        current_block.push(batch);
 
-    let (batch_sender, batch_receiver) = channel::<TransactionBatch>();
-    let (msg_sender, msg_receiver) = channel::<u8>();
-
-    println!("Inserting blocks...");
-    let load_start = Instant::now();
-
-    // Spawn a task for block building
-    let db_task = task::spawn(async move {
-        let mut current_block: Vec<TransactionBatch> = Vec::with_capacity(BATCHES_PER_BLOCK);
-        let mut insertion_times = Vec::new();
-        while let Ok(batch) = batch_receiver.recv() {
-            current_block.push(batch);
-
-            if current_block.len() == BATCHES_PER_BLOCK {
-                let start = Instant::now();
-                block_builder.build_block(&current_block).await.unwrap();
-                msg_sender.send(1).unwrap();
-                insertion_times.push(start.elapsed());
-                current_block.clear();
-            }
-        }
-
-        if !current_block.is_empty() {
+        if current_block.len() == BATCHES_PER_BLOCK {
             let start = Instant::now();
             block_builder.build_block(&current_block).await.unwrap();
             insertion_times.push(start.elapsed());
+            current_block.clear();
         }
+    }
 
-        // Print insertion times
-        let insertions = insertion_times.len() as u32;
-        println!("Inserted {} blocks", insertions);
+    if !current_block.is_empty() {
+        let start = Instant::now();
+        block_builder.build_block(&current_block).await.unwrap();
+        insertion_times.push(start.elapsed());
+    }
 
-        if insertions == 0 {
-            return;
-        }
+    let num_insertions = insertion_times.len() as u32;
+    let insertion_time: Duration = insertion_times.iter().sum();
+    (insertion_time, num_insertions)
+}
 
-        let total_time: Duration = insertion_times.iter().sum();
-        let avg_time = total_time / insertions;
-        println!("Average insertion time: {} ms", avg_time.as_millis());
-    });
+/// Create a given number of notes and group them into transactions and batches.
+/// The batches are sent to the block builder.
+fn generate_note_batches(
+    num_notes: usize,
+    faucet_id: AccountId,
+    batch_sender: Sender<TransactionBatch>,
+) -> Vec<Note> {
+    let notes: Vec<Note> = (0..num_notes).into_par_iter().map(|_| create_note(faucet_id)).collect();
 
+    notes
+        .clone()
+        .into_par_iter()
+        .chunks(NOTES_PER_TRANSACTION)
+        .map(|note_chunk| {
+            MockProvenTxBuilder::with_account(faucet_id, Digest::default(), Digest::default())
+                .output_notes(
+                    note_chunk.iter().map(|note| OutputNote::Full(note.clone())).collect(),
+                )
+                .build()
+        })
+        .chunks(TRANSACTIONS_PER_BATCH)
+        .for_each_with(batch_sender.clone(), |sender, txs| {
+            let batch =
+                TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
+            sender.send(batch).unwrap()
+        });
+
+    notes
+}
+
+/// Grinds accounts, and for each one create a transaction that consumes a note.
+/// Groups the created transactions into batches and sends them to the block builder.
+fn generate_account_batches(
+    num_accounts: usize,
+    notes: &[Note],
+    batch_sender: Sender<TransactionBatch>,
+    genesis_header: &BlockHeader,
+    store_client: StoreClient,
+) {
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-    // Re-uing the same key for all accounts to avoid Falcon key generation overhead
+    // Re-using the same key for all accounts to avoid Falcon key generation overhead
     let key_pair = SecretKey::with_rng(&mut rng);
 
-    // Create notes and build blocks
-    let mut notes = vec![];
-    let mut create_note_txs = vec![];
-    println!("Creating notes...");
-    for _ in 0..num_accounts {
-        let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
-        let coin_seed: [u64; 4] = rand::thread_rng().gen();
-        let rng: RpoRandomCoin = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let note = NoteBuilder::new(faucet_id, rng)
-            .add_assets(vec![asset])
-            .build(&TransactionKernel::assembler())
-            .unwrap();
-
-        notes.push(note.clone());
-
-        let create_notes_tx =
-            MockProvenTxBuilder::with_account(faucet_id, Digest::default(), Digest::default())
-                .output_notes(vec![OutputNote::Full(note)])
-                .build();
-
-        create_note_txs.push(create_notes_tx);
-    }
-
-    for txs in create_note_txs.chunks(TRANSACTIONS_PER_BATCH) {
-        let batch =
-            TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
-        batch_sender.send(batch).unwrap()
-    }
-
-    // TODO: use BlockNoteTree to get inclusion proofs of all notes
-    let store_client =
-        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
-
-    msg_receiver.recv().unwrap();
-    println!("Getting inclusion proofs...");
-    let inclusion_proofs = store_client
-        .get_batch_inputs(notes.iter().map(|note| note.id()))
-        .await
-        .unwrap()
-        .note_proofs;
-
-    // Create all accounts and consume txs
-    println!("Creating accounts and consuming notes...");
     (0..num_accounts)
         .into_par_iter()
         .map(|index| {
-            let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
-            let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
-                .anchor((&genesis_header).try_into().unwrap())
-                .account_type(AccountType::RegularAccountImmutableCode)
-                .storage_mode(AccountStorageMode::Private)
-                .with_component(RpoFalcon512::new(key_pair.public_key()))
-                .with_component(BasicWallet)
-                .build()
-                .unwrap();
-            (index, new_account.id())
+            let account_id = create_account(genesis_header, key_pair.public_key(), index);
+            (index, account_id)
         })
         .map(|(index, account_id)| {
             let note = notes.get(index).unwrap();
-            let inclusion_proof = inclusion_proofs.get(&note.id()).unwrap();
+
+            let inclusion_proof = Runtime::new().unwrap().block_on(async {
+                let inclusion_proofs = store_client
+                    .get_batch_inputs(vec![note.id()].into_iter())
+                    .await
+                    .unwrap()
+                    .note_proofs;
+
+                inclusion_proofs.get(&note.id()).unwrap().clone()
+            });
+
             MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
                 .authenticated_notes(vec![(note.clone(), inclusion_proof.clone())])
                 .build()
@@ -226,8 +227,59 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
                 TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
             sender.send(batch).unwrap()
         });
+}
 
-    drop(batch_sender);
-    db_task.await.unwrap();
-    println!("Store loaded in {:?} seconds", load_start.elapsed().as_secs());
+/// Seed the store with a given number of accounts.
+async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) {
+    let store_config = StoreConfig {
+        database_filepath: dump_file.to_path_buf(),
+        genesis_filepath: genesis_file.to_path_buf(),
+        ..Default::default()
+    };
+
+    // Start store
+    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
+    task::spawn(async move { store.serve().await.context("Serving store") });
+    let start = Instant::now();
+
+    // Create faucet
+    println!("Creating new faucet account...");
+    let store_client =
+        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
+    let genesis_header = store_client.latest_header().await.unwrap();
+    let faucet_id = create_faucet(&genesis_header);
+
+    // Spawn first block builder task
+    let (batch_sender, batch_receiver) = channel::<TransactionBatch>();
+    let db_task = task::spawn(build_blocks(batch_receiver, store_client));
+
+    // Create notes
+    println!("Creating notes...");
+    let notes = generate_note_batches(num_accounts, faucet_id, batch_sender);
+    let (insertion_time, num_insertions) = db_task.await.unwrap();
+    println!(
+        "Created notes: inserted {} blocks with avg insertion time {} ms",
+        num_insertions,
+        (insertion_time / num_insertions).as_millis()
+    );
+
+    // Spawn second block builder task
+    let store_client =
+        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
+    let (batch_sender, batch_receiver) = channel::<TransactionBatch>();
+    let db_task = task::spawn(build_blocks(batch_receiver, store_client));
+
+    // Create accounts to consume the notes
+    println!("Creating accounts and consuming notes...");
+    let store_client =
+        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
+    generate_account_batches(num_accounts, &notes, batch_sender, &genesis_header, store_client);
+    let (insertion_time, num_insertions) = db_task.await.unwrap();
+    println!(
+        "Consumed notes: inserted {} blocks with avg insertion time {} ms",
+        num_insertions,
+        (insertion_time / num_insertions).as_millis()
+    );
+
+    println!("Store loaded in {:.3} seconds", start.elapsed().as_secs_f64());
 }
