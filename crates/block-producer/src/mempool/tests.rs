@@ -1,4 +1,5 @@
 use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+use miden_objects::block::BlockNumber;
 use pretty_assertions::assert_eq;
 
 use super::*;
@@ -7,11 +8,11 @@ use crate::test_utils::MockProvenTxBuilder;
 impl Mempool {
     fn for_tests() -> Self {
         Self::new(
-            BlockNumber::new(0),
+            BlockNumber::GENESIS,
             BatchBudget::default(),
             BlockBudget::default(),
             5,
-            BlockNumber::default(),
+            u32::default(),
         )
     }
 }
@@ -107,9 +108,8 @@ fn block_commit_reverts_expired_txns() {
     let mut reference = uut.clone();
 
     // Add a new transaction which will expire when the pending block is committed.
-    let tx_to_revert = MockProvenTxBuilder::with_account_index(1)
-        .expiration_block_num(block.into_inner())
-        .build();
+    let tx_to_revert =
+        MockProvenTxBuilder::with_account_index(1).expiration_block_num(block).build();
     let tx_to_revert = AuthenticatedTransaction::from_inner(tx_to_revert);
     uut.add_transaction(tx_to_revert).unwrap();
 
@@ -136,13 +136,13 @@ fn blocks_must_be_committed_sequentially() {
     let mut uut = Mempool::for_tests();
 
     let (block, _) = uut.select_block();
-    uut.block_committed(block.next());
+    uut.block_committed(block + 1);
 }
 
 #[test]
 #[should_panic]
 fn block_commitment_is_rejected_if_no_block_is_in_flight() {
-    Mempool::for_tests().block_committed(BlockNumber::new(1));
+    Mempool::for_tests().block_committed(BlockNumber::from(1));
 }
 
 #[test]

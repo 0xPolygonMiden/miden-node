@@ -22,11 +22,11 @@ use miden_node_proto::{
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
-    block::Block,
+    block::{Block, BlockHeader, BlockNumber},
     notes::{NoteId, Nullifier},
     transaction::ProvenTransaction,
     utils::Serializable,
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_processor::crypto::RpoDigest;
 use tonic::transport::Channel;
@@ -53,7 +53,7 @@ pub struct TransactionInputs {
     /// These are notes which were committed _after_ the transaction was created.
     pub found_unauthenticated_notes: BTreeSet<NoteId>,
     /// The current block height.
-    pub current_block_height: u32,
+    pub current_block_height: BlockNumber,
 }
 
 impl Display for TransactionInputs {
@@ -106,7 +106,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
             .collect::<Result<_, ConversionError>>()?;
 
-        let current_block_height = response.block_height;
+        let current_block_height = response.block_height.into();
 
         Ok(Self {
             account_id,

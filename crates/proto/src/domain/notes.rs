@@ -54,7 +54,7 @@ impl From<(&NoteId, &NoteInclusionProof)> for proto::NoteInclusionInBlockProof {
     fn from((note_id, proof): (&NoteId, &NoteInclusionProof)) -> Self {
         Self {
             note_id: Some(note_id.into()),
-            block_num: proof.location().block_num(),
+            block_num: proof.location().block_num().as_u32(),
             note_index_in_block: proof.location().node_index_in_block().into(),
             merkle_path: Some(Into::into(proof.note_path())),
         }
@@ -76,7 +76,7 @@ impl TryFrom<&proto::NoteInclusionInBlockProof> for (NoteId, NoteInclusionProof)
             )?
             .into(),
             NoteInclusionProof::new(
-                proof.block_num,
+                proof.block_num.into(),
                 proof.note_index_in_block.try_into()?,
                 proof
                     .merkle_path

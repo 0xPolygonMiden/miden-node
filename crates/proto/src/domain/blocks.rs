@@ -1,4 +1,7 @@
-use miden_objects::{crypto::merkle::MerklePath, BlockHeader};
+use miden_objects::{
+    block::{BlockHeader, BlockNumber},
+    crypto::merkle::MerklePath,
+};
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
@@ -13,7 +16,7 @@ impl From<&BlockHeader> for proto::BlockHeader {
         Self {
             version: header.version(),
             prev_hash: Some(header.prev_hash().into()),
-            block_num: header.block_num(),
+            block_num: header.block_num().as_u32(),
             chain_root: Some(header.chain_root().into()),
             account_root: Some(header.account_root().into()),
             nullifier_root: Some(header.nullifier_root().into()),
@@ -50,7 +53,7 @@ impl TryFrom<proto::BlockHeader> for BlockHeader {
                 .prev_hash
                 .ok_or(proto::BlockHeader::missing_field(stringify!(prev_hash)))?
                 .try_into()?,
-            value.block_num,
+            value.block_num.into(),
             value
                 .chain_root
                 .ok_or(proto::BlockHeader::missing_field(stringify!(chain_root)))?
@@ -89,7 +92,7 @@ impl TryFrom<proto::BlockHeader> for BlockHeader {
 pub struct BlockInclusionProof {
     pub block_header: BlockHeader,
     pub mmr_path: MerklePath,
-    pub chain_length: u32,
+    pub chain_length: BlockNumber,
 }
 
 impl From<BlockInclusionProof> for proto::BlockInclusionProof {
@@ -97,7 +100,7 @@ impl From<BlockInclusionProof> for proto::BlockInclusionProof {
         Self {
             block_header: Some(value.block_header.into()),
             mmr_path: Some((&value.mmr_path).into()),
-            chain_length: value.chain_length,
+            chain_length: value.chain_length.as_u32(),
         }
     }
 }
@@ -115,7 +118,7 @@ impl TryFrom<proto::BlockInclusionProof> for BlockInclusionProof {
                 .mmr_path
                 .ok_or(proto::BlockInclusionProof::missing_field("mmr_path"))?)
                 .try_into()?,
-            chain_length: value.chain_length,
+            chain_length: value.chain_length.into(),
         };
 
         Ok(result)

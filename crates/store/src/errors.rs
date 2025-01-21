@@ -3,6 +3,7 @@ use std::io;
 use deadpool_sqlite::{InteractError, PoolError};
 use miden_objects::{
     accounts::AccountId,
+    block::{BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{MerkleError, MmrError},
@@ -10,14 +11,12 @@ use miden_objects::{
     },
     notes::Nullifier,
     transaction::OutputNote,
-    AccountDeltaError, AccountError, BlockError, BlockHeader, NoteError,
+    AccountDeltaError, AccountError, BlockError, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 use tonic::Status;
-
-use crate::types::BlockNumber;
 
 // INTERNAL ERRORS
 // =================================================================================================
@@ -240,7 +239,7 @@ pub enum GetBlockInputsError {
     #[error("failed to get MMR peaks for forest ({forest}): {error}")]
     FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
     #[error("chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {forest}, block num: {block_num}")]
-    IncorrectChainMmrForestNumber { forest: usize, block_num: u32 },
+    IncorrectChainMmrForestNumber { forest: usize, block_num: BlockNumber },
     #[error("note inclusion proof MMR error")]
     NoteInclusionMmr(#[from] MmrError),
 }

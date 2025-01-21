@@ -1,7 +1,11 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use miden_lib::transaction::TransactionKernel;
-use miden_objects::{assembly::Assembler, block::compute_tx_hash, BlockHeader, Digest};
+use miden_objects::{
+    assembly::Assembler,
+    block::{compute_tx_hash, BlockHeader},
+    Digest,
+};
 use miden_processor::{execute, DefaultHost, ExecutionOptions, MemAdviceProvider, Program};
 use miden_stdlib::StdLibrary;
 

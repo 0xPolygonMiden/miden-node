@@ -11,6 +11,7 @@ use miden_node_proto::generated::{
 use miden_objects::{
     accounts::{Account, AccountData, AccountId, AuthSecretKey},
     assets::FungibleAsset,
+    block::{BlockHeader, BlockNumber},
     crypto::{
         merkle::{MmrPeaks, PartialMmr},
         rand::RpoRandomCoin,
@@ -19,7 +20,7 @@ use miden_objects::{
     transaction::{ChainMmr, ExecutedTransaction, TransactionArgs, TransactionScript},
     utils::Deserializable,
     vm::AdviceMap,
-    BlockHeader, Felt,
+    Felt,
 };
 use miden_tx::{
     auth::BasicAuthenticator, utils::Serializable, LocalTransactionProver, ProvingOptions,
@@ -146,7 +147,7 @@ impl FaucetClient {
 
         let executed_tx = self
             .executor
-            .execute_transaction(self.id, 0, &[], transaction_args)
+            .execute_transaction(self.id, 0.into(), &[], transaction_args)
             .context("Failed to execute transaction")?;
 
         Ok((executed_tx, output_note))
@@ -156,7 +157,7 @@ impl FaucetClient {
     pub async fn prove_and_submit_transaction(
         &mut self,
         executed_tx: ExecutedTransaction,
-    ) -> Result<u32, ClientError> {
+    ) -> Result<BlockNumber, ClientError> {
         // Prepare request with proven transaction.
         // This is needed to be in a separated code block in order to release reference to avoid
         // borrow checker error.
@@ -178,7 +179,7 @@ impl FaucetClient {
             .await
             .context("Failed to submit proven transaction")?;
 
-        Ok(response.into_inner().block_height)
+        Ok(response.into_inner().block_height.into())
     }
 
     /// Returns a reference to the data store.

@@ -2,6 +2,7 @@ use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
+    block::BlockNumber,
     crypto::merkle::MerkleError,
     notes::{NoteId, Nullifier},
     transaction::TransactionId,
@@ -10,8 +11,6 @@ use miden_objects::{
 use miden_processor::ExecutionError;
 use thiserror::Error;
 use tokio::task::JoinError;
-
-use crate::mempool::BlockNumber;
 
 // Block-producer errors
 // =================================================================================================

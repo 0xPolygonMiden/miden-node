@@ -2,12 +2,13 @@ use std::{collections::BTreeSet, sync::Arc};
 
 use miden_objects::{
     accounts::AccountId,
+    block::BlockNumber,
     notes::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId, TxAccountUpdate},
     Digest,
 };
 
-use crate::{errors::VerifyTxError, mempool::BlockNumber, store::TransactionInputs};
+use crate::{errors::VerifyTxError, store::TransactionInputs};
 
 /// A transaction who's proof has been verified, and which has been authenticated against the store.
 ///
@@ -59,7 +60,7 @@ impl AuthenticatedTransaction {
         Ok(AuthenticatedTransaction {
             inner: Arc::new(tx),
             notes_authenticated_by_store: inputs.found_unauthenticated_notes,
-            authentication_height: BlockNumber::new(inputs.current_block_height),
+            authentication_height: inputs.current_block_height,
             store_account_state: inputs.account_hash,
         })
     }
@@ -115,7 +116,7 @@ impl AuthenticatedTransaction {
     }
 
     pub fn expires_at(&self) -> BlockNumber {
-        BlockNumber::new(self.inner.expiration_block_num())
+        self.inner.expiration_block_num()
     }
 }
 
@@ -135,15 +136,15 @@ impl AuthenticatedTransaction {
             account_hash: store_account_state,
             nullifiers: inner.get_nullifiers().map(|nullifier| (nullifier, None)).collect(),
             found_unauthenticated_notes: BTreeSet::default(),
-            current_block_height: 0,
+            current_block_height: 0.into(),
         };
         // SAFETY: nullifiers were set to None aka are definitely unspent.
         Self::new(inner, inputs).unwrap()
     }
 
     /// Overrides the authentication height with the given value.
-    pub fn with_authentication_height(mut self, height: u32) -> Self {
-        self.authentication_height = BlockNumber::new(height);
+    pub fn with_authentication_height(mut self, height: BlockNumber) -> Self {
+        self.authentication_height = height;
         self
     }
 

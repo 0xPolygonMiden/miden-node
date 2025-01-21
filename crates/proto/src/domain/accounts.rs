@@ -3,6 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
+    block::BlockNumber,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     utils::{Deserializable, Serializable},
     Digest,
@@ -66,7 +67,7 @@ impl TryFrom<proto::account::AccountId> for AccountId {
 pub struct AccountSummary {
     pub account_id: AccountId,
     pub account_hash: RpoDigest,
-    pub block_num: u32,
+    pub block_num: BlockNumber,
 }
 
 impl From<&AccountSummary> for proto::account::AccountSummary {
@@ -74,7 +75,7 @@ impl From<&AccountSummary> for proto::account::AccountSummary {
         Self {
             account_id: Some(update.account_id.into()),
             account_hash: Some(update.account_hash.into()),
-            block_num: update.block_num,
+            block_num: update.block_num.as_u32(),
         }
     }
 }
