@@ -1,3 +1,4 @@
+mod account_tree;
 mod blocks;
 pub mod config;
 pub mod db;

@@ -1,0 +1,19 @@
+[block_producer]
+verify_tx_proofs = true
+
+[block_producer.endpoint]
+host = "localhost"
+port = 48046
+
+[rpc.endpoint]
+host = "0.0.0.0"
+port = 57291
+
+[store]
+database_filepath = "./miden-store.sqlite3"
+genesis_filepath = "./genesis.dat"
+blockstore_dir = "./blocks"
+
+[store.endpoint]
+host = "localhost"
+port = 28943
