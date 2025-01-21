@@ -8,7 +8,7 @@ use crate::test_utils::MockProvenTxBuilder;
 impl Mempool {
     fn for_tests() -> Self {
         Self::new(
-            BlockNumber::from(0),
+            BlockNumber::GENESIS,
             BatchBudget::default(),
             BlockBudget::default(),
             5,

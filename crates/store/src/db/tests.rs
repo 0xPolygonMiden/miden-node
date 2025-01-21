@@ -10,14 +10,14 @@ use miden_objects::{
         AccountVaultDelta, StorageSlot,
     },
     assets::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
-    block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree, BlockNumber},
+    block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
     testing::account_id::{
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
         ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     },
-    BlockHeader, Felt, FieldElement, Word, ZERO,
+    Felt, FieldElement, Word, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 

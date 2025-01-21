@@ -24,7 +24,7 @@ use miden_node_proto::{
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
     accounts::{AccountDelta, AccountHeader, AccountId, StorageSlot},
-    block::{Block, BlockNumber},
+    block::{Block, BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{
@@ -34,7 +34,7 @@ use miden_objects::{
     notes::{NoteId, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
-    AccountError, BlockHeader, ACCOUNT_TREE_DEPTH,
+    AccountError, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},

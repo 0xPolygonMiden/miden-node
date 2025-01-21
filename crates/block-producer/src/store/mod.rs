@@ -22,11 +22,11 @@ use miden_node_proto::{
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
     accounts::AccountId,
-    block::{Block, BlockNumber},
+    block::{Block, BlockHeader, BlockNumber},
     notes::{NoteId, Nullifier},
     transaction::ProvenTransaction,
     utils::Serializable,
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_processor::crypto::RpoDigest;
 use tonic::transport::Channel;

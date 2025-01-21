@@ -2,10 +2,10 @@ use std::sync::Mutex;
 
 use miden_objects::{
     accounts::{Account, AccountId},
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     notes::NoteId,
     transaction::{ChainMmr, InputNotes, TransactionInputs},
-    BlockHeader, Word,
+    Word,
 };
 use miden_tx::{DataStore, DataStoreError};
 

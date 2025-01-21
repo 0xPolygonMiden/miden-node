@@ -11,12 +11,11 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
-    block::{Block, BlockNoteIndex, BlockNumber},
+    block::{Block, BlockHeader, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
     utils::Serializable,
-    BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
@@ -489,7 +488,7 @@ impl Db {
         };
 
         let maybe_block_header_in_store = self
-            .select_block_header_by_block_num(Some(GENESIS_BLOCK.into()))
+            .select_block_header_by_block_num(Some(BlockNumber::GENESIS))
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 

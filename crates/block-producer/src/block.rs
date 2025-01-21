@@ -8,9 +8,10 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::AccountId,
+    block::BlockHeader,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
     notes::Nullifier,
-    BlockHeader, Digest,
+    Digest,
 };
 
 // BLOCK INPUTS

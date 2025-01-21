@@ -1,11 +1,11 @@
 use std::iter;
 
 use miden_objects::{
-    block::{Block, BlockAccountUpdate, BlockNoteIndex, BlockNoteTree, NoteBatch},
+    block::{Block, BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt},
     notes::Nullifier,
     transaction::OutputNote,
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH,
+    Digest, ACCOUNT_TREE_DEPTH,
 };
 
 use super::MockStoreSuccess;

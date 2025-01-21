@@ -17,12 +17,12 @@ use miden_objects::{
         StorageMapDelta,
     },
     assets::NonFungibleAsset,
-    block::{BlockAccountUpdate, BlockNoteIndex, BlockNumber},
+    block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
-    BlockHeader, Digest, Word,
+    Digest, Word,
 };
 use rusqlite::{params, types::Value, Connection, Transaction};
 use utils::{read_block_number, read_from_blob_column};

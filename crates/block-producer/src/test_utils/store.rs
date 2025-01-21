@@ -5,11 +5,11 @@ use std::{
 
 use miden_node_proto::domain::{blocks::BlockInclusionProof, notes::NoteAuthenticationInfo};
 use miden_objects::{
-    block::{Block, BlockNumber, NoteBatch},
+    block::{Block, BlockHeader, BlockNumber, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     notes::{NoteId, NoteInclusionProof, Nullifier},
     transaction::ProvenTransaction,
-    BlockHeader, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
+    ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 use tokio::sync::RwLock;
 

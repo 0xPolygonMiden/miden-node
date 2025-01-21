@@ -3,7 +3,7 @@ use std::io;
 use deadpool_sqlite::{InteractError, PoolError};
 use miden_objects::{
     accounts::AccountId,
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{MerkleError, MmrError},
@@ -11,7 +11,7 @@ use miden_objects::{
     },
     notes::Nullifier,
     transaction::OutputNote,
-    AccountDeltaError, AccountError, BlockError, BlockHeader, NoteError,
+    AccountDeltaError, AccountError, BlockError, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;

@@ -11,7 +11,7 @@ use miden_node_proto::generated::{
 use miden_objects::{
     accounts::{Account, AccountData, AccountId, AuthSecretKey},
     assets::FungibleAsset,
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::{
         merkle::{MmrPeaks, PartialMmr},
         rand::RpoRandomCoin,
@@ -20,7 +20,7 @@ use miden_objects::{
     transaction::{ChainMmr, ExecutedTransaction, TransactionArgs, TransactionScript},
     utils::Deserializable,
     vm::AdviceMap,
-    BlockHeader, Felt,
+    Felt,
 };
 use miden_tx::{
     auth::BasicAuthenticator, utils::Serializable, LocalTransactionProver, ProvingOptions,

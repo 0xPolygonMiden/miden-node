@@ -1,4 +1,7 @@
-use miden_objects::{block::BlockNumber, crypto::merkle::MerklePath, BlockHeader};
+use miden_objects::{
+    block::{BlockHeader, BlockNumber},
+    crypto::merkle::MerklePath,
+};
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
