@@ -16,11 +16,11 @@ readme.workspace = true
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive", "string"] }
 miden-lib = { workspace = true }
+miden-node-block-producer = { workspace = true, features = ["testing"]}
 miden-node-proto = { workspace = true }
+miden-node-store = { workspace = true }
 miden-objects = { workspace = true }
 miden-processor = { workspace = true }
-miden-node-block-producer = { workspace = true, features = ["testing"]}
-miden-node-store = { workspace = true }
 rand = { version = "0.8" }
+rayon = "1.10"
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
-rayon = "1.10.0"
