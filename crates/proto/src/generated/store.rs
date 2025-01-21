@@ -112,7 +112,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "ApplyBlock"));
             self.inner.unary(req, path, codec).await
         }
-        /// Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
+        /// Returns a nullifier proof for each of the requested nullifiers.
         pub async fn check_nullifiers(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -139,6 +139,8 @@ pub mod api_client {
             self.inner.unary(req, path, codec).await
         }
         /// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
+        ///
+        /// Note that only 16-bit prefixes are supported at this time.
         pub async fn check_nullifiers_by_prefix(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -247,7 +249,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetAccountStateDelta"));
             self.inner.unary(req, path, codec).await
         }
-        /// Retrieves block data by given block number.
+        /// Returns raw block data for the specified block number.
         pub async fn get_block_by_number(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -402,10 +404,15 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetTransactionInputs"));
             self.inner.unary(req, path, codec).await
         }
-        /// Note synchronization request.
+        /// Returns info which can be used by the client to sync up to the tip of chain for the notes they are interested in.
         ///
-        /// Specifies note tags that client is interested in. The server will return the first block which
-        /// contains a note matching `note_tags` or the chain tip.
+        /// Client specifies the `note_tags` they are interested in, and the block height from which to search for new for
+        /// matching notes for. The request will then return the next block containing any note matching the provided tags.
+        ///
+        /// The response includes each note's metadata and inclusion proof.
+        ///
+        /// A basic note sync can be implemented by repeatedly requesting the previous response's block until reaching the
+        /// tip of the chain.
         pub async fn sync_notes(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncNoteRequest>,
@@ -486,7 +493,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::ApplyBlockResponse>,
             tonic::Status,
         >;
-        /// Gets a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
+        /// Returns a nullifier proof for each of the requested nullifiers.
         async fn check_nullifiers(
             &self,
             request: tonic::Request<super::super::requests::CheckNullifiersRequest>,
@@ -495,6 +502,8 @@ pub mod api_server {
             tonic::Status,
         >;
         /// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
+        ///
+        /// Note that only 16-bit prefixes are supported at this time.
         async fn check_nullifiers_by_prefix(
             &self,
             request: tonic::Request<
@@ -529,7 +538,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountStateDeltaResponse>,
             tonic::Status,
         >;
-        /// Retrieves block data by given block number.
+        /// Returns raw block data for the specified block number.
         async fn get_block_by_number(
             &self,
             request: tonic::Request<super::super::requests::GetBlockByNumberRequest>,
@@ -582,10 +591,15 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetTransactionInputsResponse>,
             tonic::Status,
         >;
-        /// Note synchronization request.
+        /// Returns info which can be used by the client to sync up to the tip of chain for the notes they are interested in.
         ///
-        /// Specifies note tags that client is interested in. The server will return the first block which
-        /// contains a note matching `note_tags` or the chain tip.
+        /// Client specifies the `note_tags` they are interested in, and the block height from which to search for new for
+        /// matching notes for. The request will then return the next block containing any note matching the provided tags.
+        ///
+        /// The response includes each note's metadata and inclusion proof.
+        ///
+        /// A basic note sync can be implemented by repeatedly requesting the previous response's block until reaching the
+        /// tip of the chain.
         async fn sync_notes(
             &self,
             request: tonic::Request<super::super::requests::SyncNoteRequest>,
