@@ -20,7 +20,7 @@ message CheckNullifiersByPrefixRequest {
     repeated uint32 nullifiers = 2;
 }
 
-// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
+// Returns a nullifier proof for each of the requested nullifiers.
 message CheckNullifiersRequest {
     // List of nullifiers to return proofs for.
     repeated digest.Digest nullifiers = 1;

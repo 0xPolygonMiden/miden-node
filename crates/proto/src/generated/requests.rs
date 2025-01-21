@@ -18,7 +18,7 @@ pub struct CheckNullifiersByPrefixRequest {
     #[prost(uint32, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
 }
-/// Get a list of proofs for given nullifier hashes, each proof as a sparse Merkle Tree.
+/// Returns a nullifier proof for each of the requested nullifiers.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersRequest {
     /// List of nullifiers to return proofs for.
