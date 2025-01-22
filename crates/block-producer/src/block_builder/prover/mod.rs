@@ -88,17 +88,17 @@ impl BlockProver {
         witness: BlockWitness,
     ) -> Result<(Digest, Digest, Digest, Digest), BlockProverError> {
         let (advice_inputs, stack_inputs) = witness.into_program_inputs()?;
-        let host = {
+        let mut host = {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
 
             let mut host = DefaultHost::new(advice_provider);
-            host.load_mast_forest(StdLibrary::default().mast_forest().clone());
+            let _ = host.load_mast_forest(StdLibrary::default().mast_forest().clone());
 
             host
         };
 
         let execution_output =
-            execute(&self.kernel, stack_inputs, host, ExecutionOptions::default())
+            execute(&self.kernel, stack_inputs, &mut host, ExecutionOptions::default())
                 .map_err(BlockProverError::ProgramExecutionFailed)?;
 
         let new_account_root = execution_output
