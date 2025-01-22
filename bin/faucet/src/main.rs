@@ -1,6 +1,6 @@
 mod client;
 mod config;
-mod errors;
+mod error;
 mod handlers;
 mod state;
 mod store;
@@ -15,11 +15,11 @@ use axum::{
 use clap::{Parser, Subcommand};
 use client::initialize_faucet_client;
 use http::HeaderValue;
-use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
+use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
 use miden_objects::{
-    accounts::{AccountData, AccountStorageMode, AuthSecretKey},
-    assets::TokenSymbol,
+    account::{AccountData, AccountStorageMode, AuthSecretKey},
+    asset::TokenSymbol,
     crypto::dsa::rpo_falcon512::SecretKey,
     Felt,
 };

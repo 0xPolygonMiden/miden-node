@@ -1,10 +1,10 @@
 use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::BlockNumber,
     crypto::merkle::MerkleError,
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     transaction::TransactionId,
     AccountDeltaError, Digest,
 };

@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use hex::{FromHex, ToHex};
-use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
+use miden_objects::{note::NoteId, Digest, Felt, StarkField};
 
 use crate::{errors::ConversionError, generated::digest as proto};
 

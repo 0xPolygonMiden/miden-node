@@ -3,9 +3,9 @@ use std::ops::Range;
 use itertools::Itertools;
 use miden_air::HashFunction;
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::BlockNumber,
-    notes::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
+    note::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
     transaction::{InputNote, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,

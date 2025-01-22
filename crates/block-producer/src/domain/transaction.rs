@@ -1,9 +1,9 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::BlockNumber,
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId, TxAccountUpdate},
     Digest,
 };

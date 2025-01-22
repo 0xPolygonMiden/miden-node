@@ -13,7 +13,7 @@
 use std::iter;
 
 use assert_matches::assert_matches;
-use miden_objects::notes::Note;
+use miden_objects::note::Note;
 use tokio::task::JoinSet;
 
 use super::*;

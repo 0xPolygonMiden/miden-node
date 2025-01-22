@@ -1,16 +1,16 @@
 use std::collections::BTreeMap;
 
 use miden_node_proto::{
-    domain::notes::NoteAuthenticationInfo,
+    domain::note::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::BlockHeader,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes::Nullifier,
+    note::Nullifier,
     Digest,
 };
 

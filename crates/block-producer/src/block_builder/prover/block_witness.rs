@@ -1,10 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
-    accounts::{delta::AccountUpdateDetails, AccountId},
+    account::{delta::AccountUpdateDetails, AccountId},
     block::{BlockAccountUpdate, BlockHeader},
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
-    notes::Nullifier,
+    note::Nullifier,
     transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
     Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,

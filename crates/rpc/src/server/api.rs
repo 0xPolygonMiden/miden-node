@@ -19,7 +19,7 @@ use miden_node_proto::{
     try_convert,
 };
 use miden_objects::{
-    accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
+    account::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
     utils::serde::Deserializable, Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;

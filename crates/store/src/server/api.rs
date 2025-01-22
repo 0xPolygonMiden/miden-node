@@ -3,8 +3,8 @@ use std::{collections::BTreeSet, sync::Arc};
 use miden_node_proto::{
     convert,
     domain::{
-        accounts::{AccountInfo, AccountProofRequest},
-        notes::NoteAuthenticationInfo,
+        account::{AccountInfo, AccountProofRequest},
+        note::NoteAuthenticationInfo,
     },
     errors::ConversionError,
     generated::{
@@ -32,10 +32,10 @@ use miden_node_proto::{
     try_convert,
 };
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::{Block, BlockNumber},
     crypto::hash::rpo::RpoDigest,
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     utils::{Deserializable, Serializable},
 };
 use tonic::{Request, Response, Status};

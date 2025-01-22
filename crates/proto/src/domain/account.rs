@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId},
+    account::{Account, AccountHeader, AccountId},
     block::BlockNumber,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     utils::{Deserializable, Serializable},

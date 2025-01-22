@@ -3,7 +3,7 @@ use std::iter;
 use miden_objects::{
     block::{Block, BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt},
-    notes::Nullifier,
+    note::Nullifier,
     transaction::OutputNote,
     Digest, ACCOUNT_TREE_DEPTH,
 };

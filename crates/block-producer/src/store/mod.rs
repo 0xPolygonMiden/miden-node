@@ -6,7 +6,7 @@ use std::{
 
 use itertools::Itertools;
 use miden_node_proto::{
-    domain::notes::NoteAuthenticationInfo,
+    domain::note::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
@@ -21,9 +21,9 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::{Block, BlockHeader, BlockNumber},
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     transaction::ProvenTransaction,
     utils::Serializable,
     Digest,

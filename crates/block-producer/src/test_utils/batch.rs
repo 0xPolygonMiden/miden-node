@@ -1,4 +1,4 @@
-use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+use miden_node_proto::domain::note::NoteAuthenticationInfo;
 
 use crate::{batch_builder::TransactionBatch, test_utils::MockProvenTxBuilder};
 

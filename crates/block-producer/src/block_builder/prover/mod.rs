@@ -92,7 +92,8 @@ impl BlockProver {
             let advice_provider = MemAdviceProvider::from(advice_inputs);
 
             let mut host = DefaultHost::new(advice_provider);
-            let _ = host.load_mast_forest(StdLibrary::default().mast_forest().clone());
+            host.load_mast_forest(StdLibrary::default().mast_forest().clone())
+                .expect("failed to load mast forest");
 
             host
         };

@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
-use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
+use miden_lib::{note::create_p2id_note, transaction::TransactionKernel};
 use miden_node_proto::generated::{
     requests::{
         GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,
@@ -9,14 +9,14 @@ use miden_node_proto::generated::{
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
-    accounts::{Account, AccountData, AccountId, AuthSecretKey},
-    assets::FungibleAsset,
+    account::{Account, AccountData, AccountId, AuthSecretKey},
+    asset::FungibleAsset,
     block::{BlockHeader, BlockNumber},
     crypto::{
         merkle::{MmrPeaks, PartialMmr},
         rand::RpoRandomCoin,
     },
-    notes::{Note, NoteType},
+    note::{Note, NoteType},
     transaction::{ChainMmr, ExecutedTransaction, TransactionArgs, TransactionScript},
     utils::Deserializable,
     vm::AdviceMap,
@@ -30,7 +30,7 @@ use rand::{random, rngs::StdRng};
 use tonic::transport::Channel;
 use tracing::info;
 
-use crate::{config::FaucetConfig, errors::ClientError, store::FaucetDataStore, COMPONENT};
+use crate::{config::FaucetConfig, error::ClientError, store::FaucetDataStore, COMPONENT};
 
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");
