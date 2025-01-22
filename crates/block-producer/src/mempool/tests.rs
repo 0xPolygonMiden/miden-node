@@ -1,4 +1,4 @@
-use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+use miden_node_proto::domain::note::NoteAuthenticationInfo;
 use miden_objects::block::BlockNumber;
 use pretty_assertions::assert_eq;
 

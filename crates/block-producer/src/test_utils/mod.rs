@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     crypto::rand::{FeltRng, RpoRandomCoin},
     transaction::TransactionId,
     Digest,

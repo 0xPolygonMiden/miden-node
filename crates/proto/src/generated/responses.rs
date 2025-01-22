@@ -204,7 +204,7 @@ pub struct GetBlockByNumberResponse {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountStateDeltaResponse {
     /// The calculated account delta encoded using \[winter_utils::Serializable\] implementation
-    /// for \[miden_objects::accounts::delta::AccountDelta\].
+    /// for \[miden_objects::account::delta::AccountDelta\].
     #[prost(bytes = "vec", optional, tag = "1")]
     pub delta: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

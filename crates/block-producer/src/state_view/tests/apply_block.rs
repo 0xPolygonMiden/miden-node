@@ -8,7 +8,7 @@
 use std::iter;
 
 use assert_matches::assert_matches;
-use miden_objects::{accounts::delta::AccountUpdateDetails, block::BlockAccountUpdate};
+use miden_objects::{account::delta::AccountUpdateDetails, block::BlockAccountUpdate};
 
 use super::*;
 use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};

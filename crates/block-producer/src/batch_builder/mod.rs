@@ -1,7 +1,7 @@
 use std::{num::NonZeroUsize, ops::Range, time::Duration};
 
 use batch::BatchId;
-use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+use miden_node_proto::domain::note::NoteAuthenticationInfo;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
 use tracing::{debug, info, instrument, Span};

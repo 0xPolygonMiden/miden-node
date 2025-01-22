@@ -2,17 +2,17 @@
 #![allow(clippy::too_many_lines, reason = "test code can be long")]
 
 use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::domain::accounts::AccountSummary;
+use miden_node_proto::domain::account::AccountSummary;
 use miden_objects::{
-    accounts::{
+    account::{
         delta::AccountUpdateDetails, Account, AccountBuilder, AccountComponent, AccountDelta,
         AccountId, AccountIdVersion, AccountStorageDelta, AccountStorageMode, AccountType,
         AccountVaultDelta, StorageSlot,
     },
-    assets::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
+    asset::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
+    note::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
     testing::account_id::{
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
         ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
@@ -306,7 +306,7 @@ fn sql_select_accounts() {
             [i; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         );
         let account_hash = num_to_rpo_digest(u64::from(i));
         state.push(AccountInfo {

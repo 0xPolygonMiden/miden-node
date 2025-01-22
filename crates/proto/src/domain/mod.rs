@@ -1,10 +1,10 @@
-pub mod accounts;
-pub mod blocks;
+pub mod account;
+pub mod block;
 pub mod digest;
 pub mod merkle;
-pub mod notes;
-pub mod nullifiers;
-pub mod transactions;
+pub mod note;
+pub mod nullifier;
+pub mod transaction;
 
 // UTILITIES
 // ================================================================================================

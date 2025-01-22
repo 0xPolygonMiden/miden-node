@@ -1,6 +1,6 @@
 use miden_objects::{
     crypto::{hash::rpo::RpoDigest, merkle::SmtProof},
-    notes::Nullifier,
+    note::Nullifier,
 };
 
 use crate::{

@@ -1,9 +1,9 @@
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
+use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
 use miden_objects::{
-    accounts::{Account, AccountDelta, AccountId},
+    account::{Account, AccountDelta, AccountId},
     block::BlockNumber,
     crypto::hash::rpo::RpoDigest,
-    notes::Nullifier,
+    note::Nullifier,
     utils::Deserializable,
 };
 use rusqlite::{

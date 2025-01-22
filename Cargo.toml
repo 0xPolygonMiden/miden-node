@@ -26,7 +26,7 @@ readme = "README.md"
 
 [workspace.dependencies]
 assert_matches = { version = "1.5" }
-miden-air = { version = "0.11" }
+miden-air = { version = "0.12" }
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.6" }
 miden-node-proto = { path = "crates/proto", version = "0.6" }
@@ -35,8 +35,8 @@ miden-node-store = { path = "crates/store", version = "0.6" }
 miden-node-test-macro = { path = "crates/test-macro" }
 miden-node-utils = { path = "crates/utils", version = "0.6" }
 miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
-miden-processor = { version = "0.11" }
-miden-stdlib = { version = "0.11", default-features = false }
+miden-processor = { version = "0.12" }
+miden-stdlib = { version = "0.12", default-features = false }
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 prost = { version = "0.13" }
 rand = { version = "0.8" }

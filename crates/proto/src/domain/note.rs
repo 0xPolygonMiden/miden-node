@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
-    notes::{NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
+    note::{NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
     Digest, Felt,
 };
 
 use crate::{
     convert,
-    domain::blocks::BlockInclusionProof,
+    domain::block::BlockInclusionProof,
     errors::{ConversionError, MissingFieldHelper},
     generated::note as proto,
     try_convert,

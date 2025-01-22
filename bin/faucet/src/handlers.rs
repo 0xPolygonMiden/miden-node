@@ -8,8 +8,8 @@ use axum::{
 use http::header;
 use http_body_util::Full;
 use miden_objects::{
-    accounts::AccountId,
-    notes::{NoteDetails, NoteExecutionMode, NoteFile, NoteId, NoteTag},
+    account::AccountId,
+    note::{NoteDetails, NoteExecutionMode, NoteFile, NoteId, NoteTag},
     utils::serde::Serializable,
 };
 use serde::{Deserialize, Serialize};

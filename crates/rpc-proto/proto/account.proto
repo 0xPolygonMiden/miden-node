@@ -9,7 +9,7 @@ import "digest.proto";
 // and a random user-provided seed.
 message AccountId {
     // 15 bytes (120 bits) encoded using [winter_utils::Serializable] implementation for
-    // [miden_objects::accounts::account_id::AccountId].
+    // [miden_objects::account::account_id::AccountId].
     bytes id = 1;
 }
 
@@ -31,7 +31,7 @@ message AccountInfo {
     AccountSummary summary = 1;
 
     // Account details encoded using [winter_utils::Serializable] implementation for
-    // [miden_objects::accounts::Account].
+    // [miden_objects::account::Account].
     optional bytes details = 2;
 }
 

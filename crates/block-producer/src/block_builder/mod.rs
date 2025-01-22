@@ -2,9 +2,9 @@ use std::{collections::BTreeSet, ops::Range};
 
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::Block,
-    notes::{NoteHeader, Nullifier},
+    note::{NoteHeader, Nullifier},
     transaction::{InputNoteCommitment, OutputNote},
 };
 use rand::Rng;

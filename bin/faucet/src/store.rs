@@ -1,9 +1,9 @@
 use std::sync::Mutex;
 
 use miden_objects::{
-    accounts::{Account, AccountId},
+    account::{Account, AccountId},
     block::{BlockHeader, BlockNumber},
-    notes::NoteId,
+    note::NoteId,
     transaction::{ChainMmr, InputNotes, TransactionInputs},
     Word,
 };

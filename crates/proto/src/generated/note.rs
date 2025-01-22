@@ -10,12 +10,12 @@ pub struct NoteMetadata {
     pub note_type: u32,
     /// A value which can be used by the recipient(s) to identify notes intended for them.
     ///
-    /// See `miden_objects::notes::note_tag` for more info.
+    /// See `miden_objects::note::note_tag` for more info.
     #[prost(fixed32, tag = "3")]
     pub tag: u32,
     /// Specifies when a note is ready to be consumed.
     ///
-    /// See `miden_objects::notes::execution_hint` for more info.
+    /// See `miden_objects::note::execution_hint` for more info.
     #[prost(fixed64, tag = "4")]
     pub execution_hint: u64,
     /// An arbitrary user-defined value.

@@ -86,7 +86,7 @@ impl BatchBudget {
         // This type assertion reminds us to update the account check if we ever support multiple
         // account updates per tx.
         const ACCOUNT_UPDATES_PER_TX: usize = 1;
-        let _: miden_objects::accounts::AccountId = tx.account_update().account_id();
+        let _: miden_objects::account::AccountId = tx.account_update().account_id();
 
         let output_notes = tx.output_note_count();
         let input_notes = tx.input_note_count();

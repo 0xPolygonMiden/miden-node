@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use miden_objects::accounts::AccountId;
+use miden_objects::account::AccountId;
 use static_files::Resource;
 use tokio::sync::Mutex;
 use tracing::info;
