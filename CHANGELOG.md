@@ -17,6 +17,7 @@
 - [BREAKING] Remove store's `ListXXX` endpoints which were intended for test purposes (#608).
 - [BREAKING] Added support for storage maps on `GetAccountProofs` endpoint (#598).
 - [BREAKING] Removed the `testing` feature (#619).
+- [BREAKING] Renamed modules to singular (#636).
 
 ## v0.6.0 (2024-11-05)
 
