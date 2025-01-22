@@ -30,7 +30,7 @@ use rand::{random, rngs::StdRng};
 use tonic::transport::Channel;
 use tracing::info;
 
-use crate::{config::FaucetConfig, error::ClientError, store::FaucetDataStore, COMPONENT};
+use crate::{config::FaucetConfig, errors::ClientError, store::FaucetDataStore, COMPONENT};
 
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use tonic::body;
 use tracing::info;
 
-use crate::{error::HandlerError, state::FaucetState, COMPONENT};
+use crate::{errors::HandlerError, state::FaucetState, COMPONENT};
 
 #[derive(Deserialize)]
 pub struct FaucetRequest {
