@@ -1,6 +1,6 @@
 mod client;
 mod config;
-mod error;
+mod errors;
 mod handlers;
 mod state;
 mod store;
