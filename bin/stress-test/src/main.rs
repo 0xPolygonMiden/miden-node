@@ -29,7 +29,7 @@ use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use tokio::{
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
     task,
 };
 
@@ -124,7 +124,7 @@ fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: usiz
 /// Build blocks from transaction batches. Each new block contains [`BATCHES_PER_BLOCK`] batches.
 /// Returns the total time spent on inserting blocks to the store and the number of inserted blocks.
 async fn build_blocks(
-    mut batch_receiver: Receiver<TransactionBatch>,
+    mut batch_receiver: UnboundedReceiver<TransactionBatch>,
     store_client: StoreClient,
 ) -> (Duration, u32) {
     let block_builder = BlockBuilder::new(store_client);
@@ -158,7 +158,7 @@ async fn build_blocks(
 fn generate_note_batches(
     num_notes: usize,
     faucet_id: AccountId,
-    batch_sender: Sender<TransactionBatch>,
+    batch_sender: UnboundedSender<TransactionBatch>,
 ) -> Vec<Note> {
     let notes: Vec<Note> = (0..num_notes).into_par_iter().map(|_| create_note(faucet_id)).collect();
 
@@ -177,7 +177,7 @@ fn generate_note_batches(
         .for_each_with(batch_sender, |sender, txs| {
             let batch =
                 TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
-            sender.blocking_send(batch).unwrap()
+            sender.send(batch).unwrap()
         });
 
     notes
@@ -188,7 +188,7 @@ fn generate_note_batches(
 fn generate_account_batches(
     num_accounts: usize,
     notes: &[Note],
-    batch_sender: Sender<TransactionBatch>,
+    batch_sender: UnboundedSender<TransactionBatch>,
     genesis_header: &BlockHeader,
 ) {
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
@@ -214,7 +214,7 @@ fn generate_account_batches(
         .for_each_with(batch_sender, |sender, txs| {
             let batch =
                 TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
-            sender.blocking_send(batch).unwrap();
+            sender.send(batch).unwrap();
         });
 }
 
@@ -239,8 +239,7 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     let faucet_id = create_faucet(&genesis_header);
 
     // Spawn first block builder task
-    let num_note_batches = num_accounts / NOTES_PER_TRANSACTION / TRANSACTIONS_PER_BATCH;
-    let (batch_sender, batch_receiver) = channel::<TransactionBatch>(num_note_batches);
+    let (batch_sender, batch_receiver) = unbounded_channel::<TransactionBatch>();
     let db_task = task::spawn(build_blocks(batch_receiver, store_client));
 
     // Create notes
@@ -261,8 +260,7 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     // Spawn second block builder task
     let store_client =
         StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
-    let num_account_batches = num_accounts / TRANSACTIONS_PER_BATCH;
-    let (batch_sender, batch_receiver) = channel::<TransactionBatch>(num_account_batches);
+    let (batch_sender, batch_receiver) = unbounded_channel::<TransactionBatch>();
     let db_task = task::spawn(build_blocks(batch_receiver, store_client));
 
     // Create accounts to consume the notes
