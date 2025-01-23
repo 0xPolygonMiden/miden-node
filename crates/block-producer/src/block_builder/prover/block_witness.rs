@@ -1,20 +1,19 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
-    accounts::{delta::AccountUpdateDetails, AccountId},
-    block::BlockAccountUpdate,
+    account::{delta::AccountUpdateDetails, AccountId},
+    block::{BlockAccountUpdate, BlockHeader},
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
-    notes::Nullifier,
+    note::Nullifier,
     transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
-    BlockHeader, Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
+    Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
 use crate::{
-    batch_builder::batch::AccountUpdate,
+    batch_builder::batch::{AccountUpdate, TransactionBatch},
     block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
-    TransactionBatch,
 };
 
 // BLOCK WITNESS
@@ -24,7 +23,7 @@ use crate::{
 #[derive(Debug, PartialEq)]
 pub struct BlockWitness {
     pub(super) updated_accounts: Vec<(AccountId, AccountUpdateWitness)>,
-    /// (batch_index, created_notes_root) for batches that contain notes
+    /// (`batch_index`, `created_notes_root`) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
     pub(super) produced_nullifiers: BTreeMap<Nullifier, SmtProof>,
     pub(super) chain_peaks: MmrPeaks,
@@ -36,9 +35,9 @@ impl BlockWitness {
         mut block_inputs: BlockInputs,
         batches: &[TransactionBatch],
     ) -> Result<(Self, Vec<BlockAccountUpdate>), BuildBlockError> {
-        if batches.len() > MAX_BATCHES_PER_BLOCK {
-            return Err(BuildBlockError::TooManyBatchesInBlock(batches.len()));
-        }
+        // This limit should be enforced by the mempool.
+        assert!(batches.len() <= MAX_BATCHES_PER_BLOCK);
+
         Self::validate_nullifiers(&block_inputs, batches)?;
 
         let batch_created_notes_roots = batches
@@ -90,8 +89,8 @@ impl BlockWitness {
 
                 details = Some(match details {
                     None => update.details,
-                    Some(details) => details.merge(update.details).map_err(|err| {
-                        BuildBlockError::AccountUpdateError { account_id, error: err }
+                    Some(details) => details.merge(update.details).map_err(|source| {
+                        BuildBlockError::AccountUpdateError { account_id, source }
                     })?,
                 });
             }
@@ -163,7 +162,7 @@ impl BlockWitness {
             block_inputs.nullifiers.keys().copied().collect();
 
         let produced_nullifiers_from_batches: BTreeSet<Nullifier> =
-            batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+            batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
         if produced_nullifiers_from_store == produced_nullifiers_from_batches {
             Ok(())
@@ -189,7 +188,7 @@ impl BlockWitness {
                 for (idx, (account_id, account_update)) in self.updated_accounts.iter().enumerate()
                 {
                     account_data.extend(account_update.final_state_hash);
-                    account_data.push((*account_id).into());
+                    account_data.push(account_id.prefix().as_felt());
 
                     let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
                     num_accounts_updated = idx + 1;
@@ -219,8 +218,7 @@ impl BlockWitness {
                 let empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
                 advice_stack.extend(*empty_root);
 
-                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter()
-                {
+                for (batch_index, batch_created_notes_root) in &self.batch_created_notes_roots {
                     advice_stack.extend(batch_created_notes_root.iter());
 
                     let batch_index = Felt::try_from(*batch_index as u64)
@@ -266,7 +264,7 @@ impl BlockWitness {
             merkle_store
                 .add_merkle_paths(self.updated_accounts.into_iter().map(
                     |(account_id, AccountUpdateWitness { initial_state_hash, proof, .. })| {
-                        (u64::from(account_id), initial_state_hash, proof)
+                        (account_id.prefix().into(), initial_state_hash, proof)
                     },
                 ))
                 .map_err(BlockProverError::InvalidMerklePaths)?;

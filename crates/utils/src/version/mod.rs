@@ -6,7 +6,7 @@ pub use vergen::vergen;
 ///
 /// The build metadata can be embedded at compile time using the `vergen` function
 /// available from the `vergen` feature. See that functions description for a list
-/// of the environment variables emitted which map nicely to [LongVersion].
+/// of the environment variables emitted which map nicely to [`LongVersion`].
 ///
 /// Unfortunately these values must be transferred manually by the end user since the
 /// env variables are only available once the caller's build script has run - which is

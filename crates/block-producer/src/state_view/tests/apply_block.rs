@@ -7,7 +7,8 @@
 
 use std::iter;
 
-use miden_objects::{accounts::delta::AccountUpdateDetails, block::BlockAccountUpdate};
+use assert_matches::assert_matches;
+use miden_objects::{account::delta::AccountUpdateDetails, block::BlockAccountUpdate};
 
 use super::*;
 use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
@@ -15,7 +16,7 @@ use crate::test_utils::{block::MockBlockBuilder, MockStoreSuccessBuilder};
 /// Tests requirement AB1
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_apply_block_ab1() {
+async fn apply_block_ab1() {
     let account: MockPrivateAccount<3> = MockPrivateAccount::from(0);
 
     let store = Arc::new(
@@ -56,7 +57,7 @@ async fn test_apply_block_ab1() {
 /// Tests requirement AB2
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_apply_block_ab2() {
+async fn apply_block_ab2() {
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
@@ -74,7 +75,9 @@ async fn test_apply_block_ab2() {
     // Verify transactions so it can be tracked in state view
     for tx in txs {
         let verify_tx_res = state_view.verify_tx(&tx).await;
-        assert_eq!(verify_tx_res, Ok(0));
+        assert_matches!(verify_tx_res, Ok(block_height) => {
+            assert_eq!(block_height, 0);
+        });
     }
 
     // All except the first account will go into the block.
@@ -110,7 +113,7 @@ async fn test_apply_block_ab2() {
 /// Tests requirement AB3
 #[tokio::test]
 #[miden_node_test_macro::enable_logging]
-async fn test_apply_block_ab3() {
+async fn apply_block_ab3() {
     let (txs, accounts): (Vec<_>, Vec<_>) = get_txs_and_accounts(0, 3).unzip();
 
     let store = Arc::new(
@@ -128,7 +131,9 @@ async fn test_apply_block_ab3() {
     // Verify transactions so it can be tracked in state view
     for tx in txs.clone() {
         let verify_tx_res = state_view.verify_tx(&tx).await;
-        assert_eq!(verify_tx_res, Ok(0));
+        assert_matches!(verify_tx_res, Ok(block_height) => {
+            assert_eq!(block_height, 0);
+        });
     }
 
     let block = MockBlockBuilder::new(&store)
@@ -163,8 +168,10 @@ async fn test_apply_block_ab3() {
     .build();
 
     let verify_tx_res = state_view.verify_tx(&tx_new).await;
-    assert_eq!(
+    assert_matches!(
         verify_tx_res,
-        Err(VerifyTxError::InputNotesAlreadyConsumed(txs[0].get_nullifiers().collect()))
+        Err(VerifyTxError::InputNotesAlreadyConsumed(nullifiers)) => {
+            assert_eq!(nullifiers, txs[0].get_nullifiers().collect::<Vec<_>>());
+        }
     );
 }

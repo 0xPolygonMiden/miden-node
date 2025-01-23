@@ -13,7 +13,7 @@ BUILD_PROTO=BUILD_PROTO=1
 
 .PHONY: clippy
 clippy: ## Runs Clippy with configs
-	cargo clippy --locked --workspace --all-targets --all-features -- -D warnings --allow clippy::arc_with_non_send_sync
+	cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
 
 .PHONY: fix
@@ -72,14 +72,6 @@ install-node: ## Installs node
 .PHONY: install-faucet
 install-faucet: ## Installs faucet
 	${BUILD_PROTO} cargo install --path bin/faucet --locked
-
-.PHONY: install-node-testing
-install-node-testing: ## Installs node with testing feature enabled
-	${BUILD_PROTO} cargo install --features testing --path bin/node --locked
-
-.PHONY: install-faucet-testing
-install-faucet-testing: ## Installs faucet with testing feature enabled
-	${BUILD_PROTO} cargo install --features testing --path bin/faucet --locked
 
 # --- docker --------------------------------------------------------------------------------------
 

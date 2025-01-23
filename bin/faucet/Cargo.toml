@@ -11,22 +11,19 @@ authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
-[features]
-# Makes `make-genesis` subcommand run faster. Is only suitable for testing.
-# INFO: Make sure that all your components have matching features for them to function.
-testing = ["miden-objects/testing", "miden-lib/testing"]
+[lints]
+workspace = true
 
 [dependencies]
 anyhow = "1.0"
 axum = { version = "0.7", features = ["tokio"] }
 clap = { version = "4.5", features = ["derive", "string"] }
-figment = { version = "0.10", features = ["toml", "env"] }
 http = "1.1"
 http-body-util = "0.1"
-miden-lib = { workspace = true, features = ["concurrent"] }
+miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
-miden-objects = { workspace = true , features = ["concurrent"] }
+miden-objects = { workspace = true }
 miden-tx = { workspace = true,  features = ["concurrent"] }
 mime = "0.3"
 rand = { workspace = true }

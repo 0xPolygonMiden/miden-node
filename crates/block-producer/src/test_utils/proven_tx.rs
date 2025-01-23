@@ -1,22 +1,26 @@
 use std::ops::Range;
 
+use itertools::Itertools;
 use miden_air::HashFunction;
 use miden_objects::{
-    accounts::AccountId,
-    notes::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
+    account::AccountId,
+    block::BlockNumber,
+    note::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
     transaction::{InputNote, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
 };
+use rand::Rng;
 use winterfell::Proof;
 
 use super::MockPrivateAccount;
+use crate::domain::transaction::AuthenticatedTransaction;
 
 pub struct MockProvenTxBuilder {
     account_id: AccountId,
     initial_account_hash: Digest,
     final_account_hash: Digest,
-    expiration_block_num: u32,
+    expiration_block_num: BlockNumber,
     output_notes: Option<Vec<OutputNote>>,
     input_notes: Option<Vec<InputNote>>,
     nullifiers: Option<Vec<Nullifier>>,
@@ -29,6 +33,25 @@ impl MockProvenTxBuilder {
         Self::with_account(mock_account.id, mock_account.states[0], mock_account.states[1])
     }
 
+    /// Generates 3 random, sequential transactions acting on the same account.
+    pub fn sequential() -> [AuthenticatedTransaction; 3] {
+        let mut rng = rand::thread_rng();
+        let mock_account: MockPrivateAccount<4> = rng.gen::<u32>().into();
+
+        (0..3)
+            .map(|i| {
+                Self::with_account(
+                    mock_account.id,
+                    mock_account.states[i],
+                    mock_account.states[i + 1],
+                )
+            })
+            .map(|tx| AuthenticatedTransaction::from_inner(tx.build()))
+            .collect_vec()
+            .try_into()
+            .expect("Sizes should match")
+    }
+
     pub fn with_account(
         account_id: AccountId,
         initial_account_hash: Digest,
@@ -38,37 +61,42 @@ impl MockProvenTxBuilder {
             account_id,
             initial_account_hash,
             final_account_hash,
-            expiration_block_num: u32::MAX,
+            expiration_block_num: u32::MAX.into(),
             output_notes: None,
             input_notes: None,
             nullifiers: None,
         }
     }
 
+    #[must_use]
     pub fn unauthenticated_notes(mut self, notes: Vec<Note>) -> Self {
         self.input_notes = Some(notes.into_iter().map(InputNote::unauthenticated).collect());
 
         self
     }
 
+    #[must_use]
     pub fn nullifiers(mut self, nullifiers: Vec<Nullifier>) -> Self {
         self.nullifiers = Some(nullifiers);
 
         self
     }
 
-    pub fn expiration_block_num(mut self, expiration_block_num: u32) -> Self {
+    #[must_use]
+    pub fn expiration_block_num(mut self, expiration_block_num: BlockNumber) -> Self {
         self.expiration_block_num = expiration_block_num;
 
         self
     }
 
+    #[must_use]
     pub fn output_notes(mut self, notes: Vec<OutputNote>) -> Self {
         self.output_notes = Some(notes);
 
         self
     }
 
+    #[must_use]
     pub fn nullifiers_range(self, range: Range<u64>) -> Self {
         let nullifiers = range
             .map(|index| {
@@ -81,6 +109,7 @@ impl MockProvenTxBuilder {
         self.nullifiers(nullifiers)
     }
 
+    #[must_use]
     pub fn private_notes_created_range(self, range: Range<u64>) -> Self {
         let notes = range
             .map(|note_index| {

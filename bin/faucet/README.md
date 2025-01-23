@@ -2,20 +2,17 @@
 
 This crate contains a binary for running a Miden rollup faucet.
 
-## Running the faucet in testing mode
+## Running the faucet
 
-> [!TIP]
-> Miden account generation uses a proof-of-work puzzle to prevent DoS attacks. These puzzles can be quite expensive, especially for test purposes. You can lower the difficulty of the puzzle by appending `--features testing` to the `cargo install ..` invocation.
-
-1. Run a local node with the "testing" feature, for example using the docker image. From the "miden-node" repo root run the following commands:
+1. Run a local node using the docker image. From the "miden-node" repo root run the following commands:
 ```bash
 make docker-build-node
 make docker-run-node
 ```
 
-2. Install the faucet (with the "testing" feature):
+2. Install the faucet:
 ```bash
-make install-faucet-testing
+make install-faucet
 ```
 
 3. [Optional] Create faucet account (skip this step if you want to use an account from the genesis). This will generate authentication keypair and generate and write public faucet account data with its keypair into the file specified in `output-path`: 

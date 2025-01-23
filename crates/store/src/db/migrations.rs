@@ -6,7 +6,7 @@ use rusqlite_migration::{Migrations, SchemaVersion, M};
 use tracing::{debug, error, info, instrument};
 
 use crate::{
-    db::{settings::Settings, sql::schema_version},
+    db::{settings::Settings, sql::utils::schema_version},
     errors::DatabaseError,
     COMPONENT,
 };
@@ -24,7 +24,7 @@ fn up(s: &'static str) -> M<'static> {
 const DB_MIGRATION_HASH_FIELD: &str = "db-migration-hash";
 const DB_SCHEMA_VERSION_FIELD: &str = "db-schema-version";
 
-#[instrument(target = "miden-store", skip_all, err)]
+#[instrument(target = COMPONENT, skip_all, err)]
 pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
     let version_before = MIGRATIONS.current_version(conn)?;
 

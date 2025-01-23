@@ -1,19 +1,18 @@
 use std::collections::BTreeMap;
 
 use miden_node_proto::{
-    domain::notes::NoteAuthenticationInfo,
+    domain::note::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::responses::GetBlockInputsResponse,
     AccountInputRecord, NullifierWitness,
 };
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
+    block::BlockHeader,
     crypto::merkle::{MerklePath, MmrPeaks, SmtProof},
-    notes::Nullifier,
-    BlockHeader, Digest,
+    note::Nullifier,
+    Digest,
 };
-
-use crate::store::BlockInputsError;
 
 // BLOCK INPUTS
 // ================================================================================================
@@ -44,12 +43,12 @@ pub struct AccountWitness {
 }
 
 impl TryFrom<GetBlockInputsResponse> for BlockInputs {
-    type Error = BlockInputsError;
+    type Error = ConversionError;
 
     fn try_from(response: GetBlockInputsResponse) -> Result<Self, Self::Error> {
         let block_header: BlockHeader = response
             .block_header
-            .ok_or(GetBlockInputsResponse::missing_field(stringify!(block_header)))?
+            .ok_or(miden_node_proto::generated::block::BlockHeader::missing_field("block_header"))?
             .try_into()?;
 
         let chain_peaks = {
@@ -57,7 +56,7 @@ impl TryFrom<GetBlockInputsResponse> for BlockInputs {
             // what is currently in the chain MMR (i.e., chain MMR with block_num = 1 has 2 leave);
             // this is because GetBlockInputs returns the state of the chain MMR as of one block
             // ago so that block_header.chain_root matches the hash of MMR peaks.
-            let num_leaves = block_header.block_num() as usize;
+            let num_leaves = block_header.block_num().as_usize();
 
             MmrPeaks::new(
                 num_leaves,

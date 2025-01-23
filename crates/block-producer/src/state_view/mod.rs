@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
     block::Block,
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     transaction::OutputNote,
     Digest, MIN_PROOF_SECURITY_LEVEL,
 };
@@ -138,7 +138,7 @@ impl<S> ApplyBlock for DefaultStateView<S>
 where
     S: Store,
 {
-    #[instrument(target = "miden-block-producer", skip_all, err)]
+    #[instrument(target = COMPONENT, skip_all, err)]
     async fn apply_block(&self, block: &Block) -> Result<(), ApplyBlockError> {
         self.store.apply_block(block).await?;
 
@@ -179,7 +179,7 @@ where
 /// - all notes in `tx_notes_not_in_store` are currently in flight
 ///
 /// The account state is not verified as it is performed by [InflightAccountStates].
-#[instrument(target = "miden-block-producer", skip_all, err)]
+#[instrument(target = COMPONENT, skip_all, err)]
 fn ensure_in_flight_constraints(
     candidate_tx: &ProvenTransaction,
     accounts_in_flight: &InflightAccountStates,
@@ -225,7 +225,7 @@ fn ensure_in_flight_constraints(
 /// - input notes must not be already consumed
 ///
 /// Returns a list of unauthenticated input notes that were not found in the store.
-#[instrument(target = "miden-block-producer", skip_all, err)]
+#[instrument(target = COMPONENT, skip_all, err)]
 fn ensure_tx_inputs_constraints(
     candidate_tx: &ProvenTransaction,
     tx_inputs: TransactionInputs,

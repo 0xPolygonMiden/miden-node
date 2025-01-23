@@ -3,9 +3,11 @@ package requests;
 
 import "account.proto";
 import "digest.proto";
-import "note.proto";
 
+// Applies changes of a new block to the DB and in-memory data structures.
 message ApplyBlockRequest {
+    // Block data encoded using [winter_utils::Serializable] implementation for
+    // [miden_objects::block::Block].
     bytes block = 1;
 }
 
@@ -14,11 +16,13 @@ message CheckNullifiersByPrefixRequest {
     // Number of bits used for nullifier prefix. Currently the only supported value is 16.
     uint32 prefix_len = 1;
     // List of nullifiers to check. Each nullifier is specified by its prefix with length equal
-    // to prefix_len
+    // to `prefix_len`.
     repeated uint32 nullifiers = 2;
 }
 
+// Returns a nullifier proof for each of the requested nullifiers.
 message CheckNullifiersRequest {
+    // List of nullifiers to return proofs for.
     repeated digest.Digest nullifiers = 1;
 }
 
@@ -27,9 +31,7 @@ message CheckNullifiersRequest {
 //
 // The Merkle path is an MMR proof for the block's leaf, based on the current chain length.
 message GetBlockHeaderByNumberRequest {
-    // The block number of the target block.
-    //
-    // If not provided, means latest known block.
+    // The target block height, defaults to latest if not provided.
     optional uint32 block_num = 1;
     // Whether or not to return authentication data for the block header.
     optional bool include_mmr_proof = 2;
@@ -74,41 +76,47 @@ message SyncNoteRequest {
     repeated fixed32 note_tags = 2;
 }
 
+// Returns data required to prove the next block.
 message GetBlockInputsRequest {
     // ID of the account against which a transaction is executed.
     repeated account.AccountId account_ids = 1;
-    // Array of nullifiers for all notes consumed by a transaction.
+    // Set of nullifiers consumed by this transaction.
     repeated digest.Digest nullifiers = 2;
     // Array of note IDs to be checked for existence in the database.
     repeated digest.Digest unauthenticated_notes = 3;
 }
 
+// Returns data required to validate a new transaction.
 message GetTransactionInputsRequest {
+    // ID of the account against which a transaction is executed.
     account.AccountId account_id = 1;
+    // Set of nullifiers consumed by this transaction.
     repeated digest.Digest nullifiers = 2;
+    // Set of unauthenticated notes to check for existence on-chain.
+    //
+    // These are notes which were not on-chain at the state the transaction was proven,
+    // but could by now be present.
     repeated digest.Digest unauthenticated_notes = 3;
 }
 
+// Submits proven transaction to the Miden network.
 message SubmitProvenTransactionRequest {
-    // Transaction encoded using miden's native format
+    // Transaction encoded using [winter_utils::Serializable] implementation for
+    // [miden_objects::transaction::proven_tx::ProvenTransaction].
     bytes transaction = 1;
 }
 
+// Returns a list of notes matching the provided note IDs.
 message GetNotesByIdRequest {
-    // List of NoteId's to be queried from the database
+    // List of notes to be queried from the database.
     repeated digest.Digest note_ids = 1;
 }
 
+// Returns a list of Note inclusion proofs for the specified Note IDs.
 message GetNoteAuthenticationInfoRequest {
-    // List of NoteId's to be queried from the database
+    // List of notes to be queried from the database.
     repeated digest.Digest note_ids = 1;
 }
-
-message ListNullifiersRequest {}
-
-message ListAccountsRequest {}
-
-message ListNotesRequest {}
 
 // Returns the latest state of an account with the specified ID.
 message GetAccountDetailsRequest {
@@ -116,6 +124,7 @@ message GetAccountDetailsRequest {
     account.AccountId account_id = 1;
 }
 
+// Retrieves block data by given block number.
 message GetBlockByNumberRequest {
     // The block number of the target block.
     fixed32 block_num = 1;
@@ -132,12 +141,35 @@ message GetAccountStateDeltaRequest {
     fixed32 to_block_num = 3;
 }
 
+// Returns the latest state proofs of the specified accounts.
 message GetAccountProofsRequest {
-    // List of account IDs to get states.
-    repeated account.AccountId account_ids = 1;
-    // Optional flag to include header and account code in the response. `false` by default.
+    // Represents per-account requests where each account ID has its own list of
+    // (storage_slot_index, map_keys) pairs.
+    message AccountRequest {
+        // The account ID for this request.
+        account.AccountId account_id = 1;
+
+        // List of storage requests for this account.
+        repeated StorageRequest storage_requests = 2;
+    }
+
+    // Represents a storage slot index and the associated map keys.
+    message StorageRequest {
+        // Storage slot index ([0..255])
+        uint32 storage_slot_index = 1;
+
+        // A list of map keys (Digests) associated with this storage slot.
+        repeated digest.Digest map_keys = 2;
+    }
+
+    // A list of account requests, including map keys + values.
+    repeated AccountRequest account_requests = 1;
+
+    // Optional flag to include account headers and account code in the response. If false, storage
+    // requests are also ignored. False by default.
     optional bool include_headers = 2;
-    // Account code commitments corresponding to the last-known `AccountCode` for requested 
+
+    // Account code commitments corresponding to the last-known `AccountCode` for requested
     // accounts. Responses will include only the ones that are not known to the caller.
     // These are not associated with a specific account but rather, they will be matched against
     // all requested accounts.
