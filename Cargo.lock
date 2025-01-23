@@ -1481,7 +1481,7 @@ dependencies = [
 
 [[package]]
 name = "miden-faucet"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -1519,7 +1519,8 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#829580636d2098978ece0a06d01477e2b3a3a131"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ee8babd17ea380c6c5b948761ca63208b633b7130379ee2a57c6d3732d2f8bc"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1573,7 +1574,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1594,7 +1595,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-block-producer"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -1622,7 +1623,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-proto"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "hex",
@@ -1639,7 +1640,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-rpc"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "miden-node-proto",
  "miden-node-utils",
@@ -1655,7 +1656,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-store"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "assert_matches",
  "deadpool-sqlite",
@@ -1684,7 +1685,7 @@ dependencies = [
 
 [[package]]
 name = "miden-node-utils"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "figment",
@@ -1704,7 +1705,8 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#829580636d2098978ece0a06d01477e2b3a3a131"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7532561ba51c1edcdc510e4e4a097357d49a2b6ea899d9982176dc5608bfd32e"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -1749,7 +1751,7 @@ dependencies = [
 
 [[package]]
 name = "miden-rpc-proto"
-version = "0.6.0"
+version = "0.7.0"
 
 [[package]]
 name = "miden-stdlib"
@@ -1763,7 +1765,8 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=next#829580636d2098978ece0a06d01477e2b3a3a131"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4371509f1e4c25dfe26b7ffcffbb34aaa152c6eaad400f2624240a941baed2d0"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -3292,9 +3295,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "trybuild"
-version = "1.0.102"
+version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f14b5c02a137632f68194ec657ecb92304138948e8957c932127eb1b58c23be"
+checksum = "b812699e0c4f813b872b373a4471717d9eb550da14b311058a4d9cf4173cbca6"
 dependencies = [
  "dissimilar",
  "glob",
