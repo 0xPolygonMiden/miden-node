@@ -1,7 +1,7 @@
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    notes::Note,
-    testing::notes::NoteBuilder,
+    note::Note,
+    testing::note::NoteBuilder,
     transaction::{InputNote, InputNoteCommitment, OutputNote},
 };
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};

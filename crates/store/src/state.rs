@@ -12,9 +12,9 @@ use std::{
 use miden_node_proto::{
     convert,
     domain::{
-        accounts::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
-        blocks::BlockInclusionProof,
-        notes::NoteAuthenticationInfo,
+        account::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
+        block::BlockInclusionProof,
+        note::NoteAuthenticationInfo,
     },
     generated::responses::{
         AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse, StorageSlotMapProof,
@@ -23,7 +23,7 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::{AccountDelta, AccountHeader, AccountId, StorageSlot},
+    account::{AccountDelta, AccountHeader, AccountId, StorageSlot},
     block::{Block, BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
@@ -31,7 +31,7 @@ use miden_objects::{
             LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
         },
     },
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
     AccountError, ACCOUNT_TREE_DEPTH,

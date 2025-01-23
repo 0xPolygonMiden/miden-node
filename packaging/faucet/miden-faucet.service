@@ -8,8 +8,8 @@ WantedBy=multi-user.target
 [Service]
 Type=exec
 Environment="RUST_LOG=info"
-ExecStart=/usr/bin/miden-faucet start --config /opt/miden/miden-faucet/miden-faucet.toml
-WorkingDirectory=/opt/miden/miden-faucet
-User=miden
+ExecStart=/usr/bin/miden-faucet start --config /etc/opt/miden-faucet/miden-faucet.toml
+WorkingDirectory=/opt/miden-faucet
+User=miden-faucet
 RestartSec=5
 Restart=always

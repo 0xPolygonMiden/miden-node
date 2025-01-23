@@ -4,12 +4,12 @@ use std::{
     sync::Arc,
 };
 
-use miden_node_proto::domain::{blocks::BlockInclusionProof, notes::NoteAuthenticationInfo};
+use miden_node_proto::domain::{block::BlockInclusionProof, note::NoteAuthenticationInfo};
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::{Block, BlockHeader, BlockNumber, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    notes::{NoteId, NoteInclusionProof, Nullifier},
+    note::{NoteId, NoteInclusionProof, Nullifier},
     transaction::ProvenTransaction,
     Digest, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };

@@ -33,7 +33,7 @@ tokio-stream = { workspace = true, features = ["net"] }
 tonic = { workspace = true }
 tracing = { workspace = true }
 miden-air = { workspace = true }
-winterfell = { version = "0.10" }
+winterfell = { version = "0.11" }
 miden-objects = { workspace = true }
 rand_chacha = { version = "0.3", default-features = false }
 miden-lib = { workspace = true, features = ["testing"] }

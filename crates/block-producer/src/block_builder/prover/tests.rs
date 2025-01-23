@@ -1,16 +1,16 @@
 use std::{collections::BTreeMap, iter};
 
 use assert_matches::assert_matches;
-use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+use miden_node_proto::domain::note::NoteAuthenticationInfo;
 use miden_objects::{
-    accounts::{
+    account::{
         delta::AccountUpdateDetails, AccountId, AccountIdVersion, AccountStorageMode, AccountType,
     },
     block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree, BlockNumber},
     crypto::merkle::{
         EmptySubtreeRoots, LeafIndex, MerklePath, Mmr, MmrPeaks, Smt, SmtLeaf, SmtProof, SMT_DEPTH,
     },
-    notes::{NoteExecutionHint, NoteHeader, NoteMetadata, NoteTag, NoteType, Nullifier},
+    note::{NoteExecutionHint, NoteHeader, NoteMetadata, NoteTag, NoteType, Nullifier},
     testing::account_id::{
         ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     },
@@ -42,19 +42,19 @@ fn block_witness_validation_inconsistent_account_ids() {
         [0; 15],
         AccountIdVersion::Version0,
         AccountType::RegularAccountImmutableCode,
-        miden_objects::accounts::AccountStorageMode::Private,
+        miden_objects::account::AccountStorageMode::Private,
     );
     let account_id_2 = AccountId::dummy(
         [1; 15],
         AccountIdVersion::Version0,
         AccountType::RegularAccountImmutableCode,
-        miden_objects::accounts::AccountStorageMode::Private,
+        miden_objects::account::AccountStorageMode::Private,
     );
     let account_id_3 = AccountId::dummy(
         [2; 15],
         AccountIdVersion::Version0,
         AccountType::RegularAccountImmutableCode,
-        miden_objects::accounts::AccountStorageMode::Private,
+        miden_objects::account::AccountStorageMode::Private,
     );
 
     let block_inputs_from_store: BlockInputs = {
@@ -296,31 +296,31 @@ async fn compute_account_root_success() {
             [0; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         ),
         AccountId::dummy(
             [1; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         ),
         AccountId::dummy(
             [2; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         ),
         AccountId::dummy(
             [3; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         ),
         AccountId::dummy(
             [4; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         ),
     ];
 
@@ -568,19 +568,19 @@ async fn compute_note_root_success() {
             [0; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         ),
         AccountId::dummy(
             [1; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         ),
         AccountId::dummy(
             [2; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         ),
     ];
 

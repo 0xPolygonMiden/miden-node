@@ -1,12 +1,7 @@
-use std::{
-    path::{Path, PathBuf},
-    time::{Duration, Instant},
-};
-
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use miden_lib::{
-    accounts::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
     transaction::TransactionKernel,
 };
 use miden_node_block_producer::{
@@ -16,20 +11,21 @@ use miden_node_block_producer::{
 use miden_node_proto::generated::store::api_client::ApiClient;
 use miden_node_store::{config::StoreConfig, server::Store};
 use miden_objects::{
-    accounts::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
-    assets::{Asset, FungibleAsset, TokenSymbol},
+    account::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
+    asset::{Asset, FungibleAsset, TokenSymbol},
     block::BlockHeader,
     crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
-    notes::{Note, NoteInclusionProof},
-    testing::notes::NoteBuilder,
+    note::{Note, NoteInclusionProof},
+    testing::note::NoteBuilder,
     transaction::OutputNote,
     Digest, Felt, MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
-use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator},
-    prelude::*,
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use std::{
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},

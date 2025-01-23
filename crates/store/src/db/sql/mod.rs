@@ -9,17 +9,17 @@ use std::{
     rc::Rc,
 };
 
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
+use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
 use miden_objects::{
-    accounts::{
+    account::{
         delta::AccountUpdateDetails, AccountDelta, AccountId, AccountStorageDelta,
         AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction,
         StorageMapDelta,
     },
-    assets::NonFungibleAsset,
+    asset::NonFungibleAsset,
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
+    note::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
     Digest, Word,

@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::BlockNumber,
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     transaction::TransactionId,
 };
 

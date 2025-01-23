@@ -7,7 +7,7 @@
 #[prost(skip_debug)]
 pub struct AccountId {
     /// 15 bytes (120 bits) encoded using \[winter_utils::Serializable\] implementation for
-    /// \[miden_objects::accounts::account_id::AccountId\].
+    /// \[miden_objects::account::account_id::AccountId\].
     #[prost(bytes = "vec", tag = "1")]
     pub id: ::prost::alloc::vec::Vec<u8>,
 }
@@ -31,7 +31,7 @@ pub struct AccountInfo {
     #[prost(message, optional, tag = "1")]
     pub summary: ::core::option::Option<AccountSummary>,
     /// Account details encoded using \[winter_utils::Serializable\] implementation for
-    /// \[miden_objects::accounts::Account\].
+    /// \[miden_objects::account::Account\].
     #[prost(bytes = "vec", optional, tag = "2")]
     pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

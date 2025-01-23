@@ -2,14 +2,14 @@ use std::io;
 
 use deadpool_sqlite::{InteractError, PoolError};
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{MerkleError, MmrError},
         utils::DeserializationError,
     },
-    notes::Nullifier,
+    note::Nullifier,
     transaction::OutputNote,
     AccountDeltaError, AccountError, BlockError, NoteError,
 };

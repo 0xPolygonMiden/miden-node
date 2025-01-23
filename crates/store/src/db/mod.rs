@@ -6,14 +6,14 @@ use std::{
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
-    domain::accounts::{AccountInfo, AccountSummary},
+    domain::account::{AccountInfo, AccountSummary},
     generated::note as proto,
 };
 use miden_objects::{
-    accounts::{AccountDelta, AccountId},
+    account::{AccountDelta, AccountId},
     block::{Block, BlockHeader, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    note::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
     utils::Serializable,
 };

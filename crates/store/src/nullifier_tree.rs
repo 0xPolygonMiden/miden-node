@@ -4,7 +4,7 @@ use miden_objects::{
         hash::rpo::RpoDigest,
         merkle::{MutationSet, Smt, SmtProof, SMT_DEPTH},
     },
-    notes::Nullifier,
+    note::Nullifier,
     Felt, FieldElement, Word,
 };
 

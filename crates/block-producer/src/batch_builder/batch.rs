@@ -4,13 +4,13 @@ use std::{
     mem,
 };
 
-use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+use miden_node_proto::domain::note::NoteAuthenticationInfo;
 use miden_node_utils::formatting::format_blake3_digest;
 use miden_objects::{
-    accounts::{delta::AccountUpdateDetails, AccountId},
-    batches::BatchNoteTree,
+    account::{delta::AccountUpdateDetails, AccountId},
+    batch::BatchNoteTree,
     crypto::hash::blake::{Blake3Digest, Blake3_256},
-    notes::{NoteHeader, NoteId, Nullifier},
+    note::{NoteHeader, NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote, ProvenTransaction, TransactionId},
     AccountDeltaError, Digest,
 };
@@ -301,7 +301,7 @@ impl OutputNoteTracker {
 
 #[cfg(test)]
 mod tests {
-    use miden_objects::notes::NoteInclusionProof;
+    use miden_objects::note::NoteInclusionProof;
     use miden_processor::crypto::MerklePath;
 
     use super::*;

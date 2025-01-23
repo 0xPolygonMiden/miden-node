@@ -35,7 +35,7 @@ runs:
             --output text \
             --query "Command.CommandId")
         echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
-      continue-on-error: true
+      continue-on-error: false
 
     - name: Poll command status and retrieve live logs
       id: poll_output
@@ -64,7 +64,7 @@ runs:
             break
           elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
             echo "Command failed with status: $STATUS"
-            break
+            exit 1
           else
             elapsed_time=$(( $(date +%s) - start_time ))
             if [ "$elapsed_time" -gt "$timeout" ]; then

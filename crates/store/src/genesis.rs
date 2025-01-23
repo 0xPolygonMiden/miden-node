@@ -1,6 +1,6 @@
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{delta::AccountUpdateDetails, Account},
+    account::{delta::AccountUpdateDetails, Account},
     block::{Block, BlockAccountUpdate, BlockHeader, BlockNumber},
     crypto::merkle::{EmptySubtreeRoots, MmrPeaks, SimpleSmt, Smt},
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
