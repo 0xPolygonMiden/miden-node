@@ -1,4 +1,6 @@
 use std::{
+    fs::File,
+    io::Write,
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
@@ -8,19 +10,25 @@ use clap::{Parser, Subcommand};
 use miden_lib::{
     account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
     transaction::TransactionKernel,
+    utils::Serializable,
 };
 use miden_node_block_producer::{
     batch_builder::TransactionBatch, block_builder::BlockBuilder, store::StoreClient,
     test_utils::MockProvenTxBuilder,
 };
-use miden_node_proto::generated::store::api_client::ApiClient;
+use miden_node_proto::generated::{
+    account as proto, requests::SyncStateRequest, store::api_client::ApiClient,
+};
 use miden_node_store::{config::StoreConfig, server::Store};
 use miden_objects::{
-    account::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
+    account::{
+        delta::AccountUpdateDetails, Account, AccountBuilder, AccountId, AccountStorageMode,
+        AccountType,
+    },
     asset::{Asset, FungibleAsset, TokenSymbol},
     block::BlockHeader,
     crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
-    note::{Note, NoteInclusionProof},
+    note::{Note, NoteExecutionMode, NoteInclusionProof, NoteTag},
     testing::note::NoteBuilder,
     transaction::OutputNote,
     Digest, Felt, MAX_OUTPUT_NOTES_PER_BATCH,
@@ -29,6 +37,7 @@ use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use tokio::{
+    io::AsyncWriteExt,
     sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
     task,
 };
@@ -53,6 +62,33 @@ pub enum Command {
         #[arg(short, long, value_name = "NUM_ACCOUNTS")]
         num_accounts: usize,
 
+        /// Percentage of public accounts to total accounts to create.
+        #[arg(short, long, value_name = "PUBLIC_ACCOUNTS_PERCENTAGE", default_value = "0")]
+        public_accounts_percentage: u8,
+
+        /// Path to the genesis file of the store.
+        #[arg(short, long, value_name = "GENESIS_FILE")]
+        genesis_file: PathBuf,
+
+        /// Path to the accounts file to dump the created public account ids.
+        #[arg(short, long, value_name = "ACCOUNTS_FILE", default_value = "accounts.csv")]
+        accounts_file: PathBuf,
+
+        /// Path to the insertion time file to dump the insertion times.
+        #[arg(
+            short,
+            long,
+            value_name = "INSERTION_TIME_FILE",
+            default_value = "insertion_times.csv"
+        )]
+        insertion_time_file: PathBuf,
+    },
+
+    BenchSyncRequest {
+        /// Path to the store database file.
+        #[arg(short, long, value_name = "DUMP_FILE", default_value = "./miden-store.sqlite3")]
+        dump_file: PathBuf,
+
         /// Path to the genesis file of the store.
         #[arg(short, long, value_name = "GENESIS_FILE")]
         genesis_file: PathBuf,
@@ -73,14 +109,39 @@ async fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::SeedStore { dump_file, num_accounts, genesis_file } => {
-            seed_store(dump_file, *num_accounts, genesis_file).await;
+        Command::SeedStore {
+            dump_file,
+            num_accounts,
+            genesis_file,
+            public_accounts_percentage,
+            accounts_file,
+            insertion_time_file,
+        } => {
+            seed_store(
+                dump_file,
+                *num_accounts,
+                genesis_file,
+                *public_accounts_percentage,
+                accounts_file,
+                insertion_time_file,
+            )
+            .await;
+        },
+        Command::BenchSyncRequest { dump_file, genesis_file } => {
+            bench_sync_request(dump_file, genesis_file).await;
         },
     }
 }
 
 /// Seed the store with a given number of accounts.
-async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) {
+async fn seed_store(
+    dump_file: &Path,
+    num_accounts: usize,
+    genesis_file: &Path,
+    public_accounts_percentage: u8,
+    accounts_file: &Path,
+    insertion_time_file: &Path,
+) {
     let store_config = StoreConfig {
         database_filepath: dump_file.to_path_buf(),
         genesis_filepath: genesis_file.to_path_buf(),
@@ -110,12 +171,13 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     })
     .await
     .unwrap();
-
-    let (insertion_time, num_insertions) = db_task.await.unwrap();
+    let insertion_times = db_task.await.unwrap();
+    let num_insertions = insertion_times.len() as u32;
+    let insertion_time: Duration = insertion_times.iter().sum();
     println!(
-        "Created notes: inserted {} blocks with avg insertion time {} ms",
+        "Created notes: inserted {} blocks with avg insertion time {:?}",
         num_insertions,
-        (insertion_time / num_insertions).as_millis()
+        insertion_time / num_insertions
     );
 
     // Spawn second block builder task
@@ -126,19 +188,48 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
 
     // Create accounts to consume the notes
     println!("Creating accounts and consuming notes...");
+    let account_file = accounts_file.to_path_buf();
     task::spawn_blocking(move || {
-        generate_account_batches(num_accounts, &notes, batch_sender, &genesis_header);
+        generate_account_batches(
+            num_accounts,
+            &notes,
+            batch_sender,
+            &genesis_header,
+            public_accounts_percentage,
+            account_file,
+        );
     })
     .await
     .unwrap();
-    let (insertion_time, num_insertions) = db_task.await.unwrap();
+    let insertion_times = db_task.await.unwrap();
+    let num_insertions = insertion_times.len() as u32;
+    let insertion_time: Duration = insertion_times.iter().sum();
     println!(
-        "Consumed notes: inserted {} blocks with avg insertion time {} ms",
+        "Consumed notes: inserted {} blocks with avg insertion time {:?}",
         num_insertions,
-        (insertion_time / num_insertions).as_millis()
+        insertion_time / num_insertions
     );
 
-    println!("Store loaded in {:.3} seconds", start.elapsed().as_secs_f64());
+    dump_insertion_times(insertion_time_file.to_path_buf(), insertion_times);
+    println!("Store loaded in {:?}", start.elapsed());
+}
+
+/// Dump the insertion times to a file.
+fn dump_insertion_times(file_path: PathBuf, insertion_times: Vec<Duration>) {
+    let mut file = File::create(file_path).unwrap();
+    writeln!(file, "insertion_time_ms").unwrap();
+    for time in insertion_times {
+        writeln!(file, "{}", time.as_millis()).unwrap();
+    }
+}
+
+/// Dump the account ids to a file.
+async fn dump_account_ids(mut receiver: UnboundedReceiver<AccountId>, file: PathBuf) {
+    let mut file = tokio::fs::File::create(file).await.unwrap();
+    file.write_all("account_id\n".as_bytes()).await.unwrap();
+    while let Some(account_id) = receiver.recv().await {
+        file.write_all(format!("{}\n", account_id).as_bytes()).await.unwrap();
+    }
 }
 
 /// Create a new faucet account with a given anchor block.
@@ -176,17 +267,23 @@ fn create_note(faucet_id: AccountId) -> Note {
 
 /// Create a new account with a given public key and anchor block. Generates the seed from the given
 /// index.
-fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64) -> AccountId {
+fn create_account(
+    anchor_block: &BlockHeader,
+    public_key: PublicKey,
+    index: u64,
+    storage_mode: AccountStorageMode,
+) -> Account {
     let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
+
     let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
         .anchor(anchor_block.try_into().unwrap())
         .account_type(AccountType::RegularAccountImmutableCode)
-        .storage_mode(AccountStorageMode::Private)
+        .storage_mode(storage_mode)
         .with_component(RpoFalcon512::new(public_key))
         .with_component(BasicWallet)
         .build()
         .unwrap();
-    new_account.id()
+    new_account
 }
 
 /// Build blocks from transaction batches. Each new block contains [`BATCHES_PER_BLOCK`] batches.
@@ -194,7 +291,7 @@ fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64)
 async fn build_blocks(
     mut batch_receiver: UnboundedReceiver<TransactionBatch>,
     store_client: StoreClient,
-) -> (Duration, u32) {
+) -> Vec<Duration> {
     let block_builder = BlockBuilder::new(store_client);
 
     let mut current_block: Vec<TransactionBatch> = Vec::with_capacity(BATCHES_PER_BLOCK);
@@ -215,10 +312,7 @@ async fn build_blocks(
         block_builder.build_block(&current_block).await.unwrap();
         insertion_times.push(start.elapsed());
     }
-
-    let num_insertions = insertion_times.len() as u32;
-    let insertion_time: Duration = insertion_times.iter().sum();
-    (insertion_time, num_insertions)
+    insertion_times
 }
 
 /// Create a given number of notes and group them into transactions and batches.
@@ -229,7 +323,7 @@ fn generate_note_batches(
     batch_sender: UnboundedSender<TransactionBatch>,
 ) -> Vec<Note> {
     let notes: Vec<Note> = (0..num_notes).into_par_iter().map(|_| create_note(faucet_id)).collect();
-
+    // TODO: dump the notes into a file instead of keeping them in memory?
     notes
         .clone()
         .into_par_iter()
@@ -258,24 +352,49 @@ fn generate_account_batches(
     notes: &[Note],
     batch_sender: UnboundedSender<TransactionBatch>,
     genesis_header: &BlockHeader,
+    public_accounts_percentage: u8,
+    accounts_file: PathBuf,
 ) {
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
     // Re-using the same key for all accounts to avoid Falcon key generation overhead
     let key_pair = SecretKey::with_rng(&mut rng);
 
+    let (id_sender, id_receiver) = unbounded_channel::<AccountId>();
+    tokio::spawn(dump_account_ids(id_receiver, accounts_file));
+
     (0..num_accounts)
         .into_par_iter()
-        .map(|index| create_account(genesis_header, key_pair.public_key(), index as u64))
+        .map_with(id_sender, |sender, index| {
+            let storage_mode = if index >= num_accounts * public_accounts_percentage as usize / 100
+            {
+                AccountStorageMode::Private
+            } else {
+                AccountStorageMode::Public
+            };
+            let account =
+                create_account(genesis_header, key_pair.public_key(), index as u64, storage_mode);
+            sender.send(account.id()).unwrap();
+            account
+        })
         .enumerate()
-        .map(|(index, account_id)| {
+        .map(|(index, account)| {
+            let account_id = account.id();
             let note = notes.get(index).unwrap().clone();
 
             let path = MerklePath::new(vec![]);
             let inclusion_proof = NoteInclusionProof::new(0.into(), 0, path).unwrap();
 
-            MockProvenTxBuilder::with_account(account_id, Digest::default(), Digest::default())
+            let account_update_details =
+                if index >= num_accounts * public_accounts_percentage as usize / 100 {
+                    AccountUpdateDetails::Private
+                } else {
+                    AccountUpdateDetails::New(account.clone())
+                };
+
+            MockProvenTxBuilder::with_account(account_id, Digest::default(), account.hash())
                 .authenticated_notes(vec![(note, inclusion_proof)])
+                .account_update_details(account_update_details)
                 .build()
         })
         .chunks(TRANSACTIONS_PER_BATCH)
@@ -284,4 +403,36 @@ fn generate_account_batches(
                 TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
             sender.send(batch).unwrap();
         });
+}
+
+/// Sends a sync request to the store and measures the performance.
+async fn bench_sync_request(database_file: &Path, genesis_file: &Path) {
+    let store_config = StoreConfig {
+        database_filepath: database_file.to_path_buf(),
+        genesis_filepath: genesis_file.to_path_buf(),
+        ..Default::default()
+    };
+
+    // Start store
+    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
+    task::spawn(async move { store.serve().await.context("Serving store") });
+    let start = Instant::now();
+
+    // Send sync request and measure performance
+    // TODO: read account id from the accounts file
+    let account_id = AccountId::from_hex("0x9eb0c314a717bd000000d30140dcc0").unwrap();
+    let sync_request = SyncStateRequest {
+        block_num: 0,
+        note_tags: vec![u32::from(
+            NoteTag::from_account_id(account_id, NoteExecutionMode::Local).unwrap(),
+        )],
+        account_ids: vec![proto::AccountId { id: account_id.to_bytes() }],
+        nullifiers: vec![],
+    };
+
+    let api_client = ApiClient::connect(store_config.endpoint.to_string()).await.unwrap();
+    api_client.clone().sync_state(sync_request).await.unwrap();
+
+    let elapsed = start.elapsed();
+    println!("Sync request took: {:?}", elapsed);
 }
