@@ -323,7 +323,7 @@ fn generate_note_batches(
     batch_sender: UnboundedSender<TransactionBatch>,
 ) -> Vec<Note> {
     let notes: Vec<Note> = (0..num_notes).into_par_iter().map(|_| create_note(faucet_id)).collect();
-    // TODO: dump the notes into a file instead of keeping them in memory?
+
     notes
         .clone()
         .into_par_iter()
