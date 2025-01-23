@@ -1,10 +1,10 @@
 #!/bin/bash
 #
 ###############
-# Remove miden installs
+# Remove miden-node installs
 ##############
 sudo rm -rf /lib/systemd/system/miden-node.service
-sudo rm -rf /etc/miden
-sudo rm -rf /opt/miden/miden-node
-sudo deluser miden
+sudo rm -rf /etc/opt/miden-node
+sudo rm -rf /opt/miden-node
+sudo deluser miden-node
 sudo systemctl daemon-reload
