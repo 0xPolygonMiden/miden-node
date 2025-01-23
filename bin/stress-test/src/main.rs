@@ -1,6 +1,5 @@
 use std::{
     path::{Path, PathBuf},
-    sync::mpsc::{channel, Receiver, Sender},
     time::{Duration, Instant},
 };
 
@@ -32,7 +31,10 @@ use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
     prelude::*,
 };
-use tokio::task;
+use tokio::{
+    sync::mpsc::{channel, Receiver, Sender},
+    task,
+};
 
 #[derive(Parser)]
 #[command(version)]
@@ -125,14 +127,14 @@ fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: usiz
 /// Build blocks from transaction batches. Each new block contains [`BATCHES_PER_BLOCK`] batches.
 /// Returns the total time spent on inserting blocks to the store and the number of inserted blocks.
 async fn build_blocks(
-    batch_receiver: Receiver<TransactionBatch>,
+    mut batch_receiver: Receiver<TransactionBatch>,
     store_client: StoreClient,
 ) -> (Duration, u32) {
     let block_builder = BlockBuilder::new(store_client);
 
     let mut current_block: Vec<TransactionBatch> = Vec::with_capacity(BATCHES_PER_BLOCK);
     let mut insertion_times = Vec::new();
-    while let Ok(batch) = batch_receiver.recv() {
+    while let Some(batch) = batch_receiver.recv().await {
         current_block.push(batch);
 
         if current_block.len() == BATCHES_PER_BLOCK {
@@ -175,10 +177,10 @@ fn generate_note_batches(
                 .build()
         })
         .chunks(TRANSACTIONS_PER_BATCH)
-        .for_each_with(batch_sender.clone(), |sender, txs| {
+        .for_each_with(batch_sender, |sender, txs| {
             let batch =
                 TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
-            sender.send(batch).unwrap()
+            sender.blocking_send(batch).unwrap()
         });
 
     notes
@@ -199,10 +201,8 @@ fn generate_account_batches(
 
     (0..num_accounts)
         .into_par_iter()
-        .map(|index| {
-            let account_id = create_account(genesis_header, key_pair.public_key(), index);
-            (index, account_id)
-        })
+        .map(|index| create_account(genesis_header, key_pair.public_key(), index))
+        .enumerate()
         .map(|(index, account_id)| {
             let note = notes.get(index).unwrap().clone();
 
@@ -214,10 +214,10 @@ fn generate_account_batches(
                 .build()
         })
         .chunks(TRANSACTIONS_PER_BATCH)
-        .for_each_with(batch_sender.clone(), |sender, txs| {
+        .for_each_with(batch_sender, |sender, txs| {
             let batch =
                 TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
-            sender.send(batch).unwrap()
+            sender.blocking_send(batch).unwrap();
         });
 }
 
@@ -242,12 +242,18 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     let faucet_id = create_faucet(&genesis_header);
 
     // Spawn first block builder task
-    let (batch_sender, batch_receiver) = channel::<TransactionBatch>();
+    let num_note_batches = num_accounts / NOTES_PER_TRANSACTION / TRANSACTIONS_PER_BATCH;
+    let (batch_sender, batch_receiver) = channel::<TransactionBatch>(num_note_batches);
     let db_task = task::spawn(build_blocks(batch_receiver, store_client));
 
     // Create notes
     println!("Creating notes...");
-    let notes = generate_note_batches(num_accounts, faucet_id, batch_sender);
+    let notes = task::spawn_blocking(move || {
+        generate_note_batches(num_accounts, faucet_id, batch_sender.clone())
+    })
+    .await
+    .unwrap();
+
     let (insertion_time, num_insertions) = db_task.await.unwrap();
     println!(
         "Created notes: inserted {} blocks with avg insertion time {} ms",
@@ -258,12 +264,17 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     // Spawn second block builder task
     let store_client =
         StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
-    let (batch_sender, batch_receiver) = channel::<TransactionBatch>();
+    let num_account_batches = num_accounts / TRANSACTIONS_PER_BATCH;
+    let (batch_sender, batch_receiver) = channel::<TransactionBatch>(num_account_batches);
     let db_task = task::spawn(build_blocks(batch_receiver, store_client));
 
     // Create accounts to consume the notes
     println!("Creating accounts and consuming notes...");
-    generate_account_batches(num_accounts, &notes, batch_sender, &genesis_header);
+    task::spawn_blocking(move || {
+        generate_account_batches(num_accounts, &notes, batch_sender, &genesis_header);
+    })
+    .await
+    .unwrap();
     let (insertion_time, num_insertions) = db_task.await.unwrap();
     println!(
         "Consumed notes: inserted {} blocks with avg insertion time {} ms",
