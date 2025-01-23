@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Debug,
+    path::{Path, PathBuf},
+};
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
@@ -10,7 +13,7 @@ use miden_objects::{
     utils::{Deserializable, Serializable},
     Word, ACCOUNT_TREE_DEPTH,
 };
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use crate::{
     db::Db,
@@ -34,9 +37,11 @@ impl AccountTree {
         storage_path: PathBuf,
         latest_block_num: BlockNumber,
     ) -> Result<Self, StateInitializationError> {
+        tokio::fs::create_dir_all(&storage_path).await.map_err(DatabaseError::IoError)?;
+
         Ok(Self {
             accounts: Self::load_accounts(db).await?,
-            update_storage: UpdateStorage::new(storage_path, latest_block_num - 1).await?,
+            update_storage: UpdateStorage::new(storage_path, latest_block_num).await?,
         })
     }
 
@@ -82,8 +87,10 @@ impl AccountTree {
             }
         }
 
-        if block_num != self.update_storage.latest_block_num() + 1
-            && !self.update_storage.has_update(block_num)
+        if block_num > self.update_storage.latest_block_num()
+            || (block_num as usize)
+                < self.update_storage.latest_block_num() as usize
+                    - self.update_storage.num_updates()
         {
             return Err(DatabaseError::BlockNotFoundInDb(block_num));
         }
@@ -200,21 +207,21 @@ impl UpdateStorage {
         self.latest_block_num
     }
 
-    pub fn has_update(&self, block_num: BlockNumber) -> bool {
-        (block_num <= self.latest_block_num)
-            && ((self.latest_block_num - block_num) as usize) < self.updates.len()
+    pub fn num_updates(&self) -> usize {
+        self.updates.len()
     }
 
     pub fn get(&self, index: usize) -> &Update {
         &self.updates[index]
     }
 
+    #[instrument(target = COMPONENT)]
     async fn load_updates(
-        path: impl AsRef<Path>,
+        path: impl AsRef<Path> + Debug,
         latest_block_num: BlockNumber,
     ) -> Result<Vec<Update>, DatabaseError> {
         let mut updates = Vec::with_capacity(Self::UPDATES_DEPTH);
-        for block_num in (0..=latest_block_num).rev() {
+        for block_num in (0..latest_block_num).rev() {
             match Self::load_update(Self::item_path(&path, block_num)).await {
                 Ok(update) => updates.push(update),
                 Err(DatabaseError::IoError(err)) => {
@@ -227,6 +234,8 @@ impl UpdateStorage {
             }
         }
 
+        info!(target: COMPONENT, num_updates = updates.len(), "Loaded accounts SMT updates");
+
         Ok(updates)
     }
 
@@ -235,9 +244,10 @@ impl UpdateStorage {
         block_num: BlockNumber,
         update: Update,
     ) -> Result<(), DatabaseError> {
+        assert!(block_num > 0, "Latest block number must be positive");
         assert_eq!(block_num, self.latest_block_num + 1, "Block numbers must be contiguous");
 
-        self.store_update(Self::item_path(&self.path, block_num), &update).await?;
+        self.store_update(Self::item_path(&self.path, block_num - 1), &update).await?;
         self.updates.insert(0, update);
         self.latest_block_num = block_num;
         self.truncate_updates().await?;
@@ -263,7 +273,7 @@ impl UpdateStorage {
         while self.updates.len() > Self::UPDATES_DEPTH {
             let file_path = Self::item_path(
                 &self.path,
-                self.latest_block_num + 1 - self.updates.len() as BlockNumber,
+                self.latest_block_num - self.updates.len() as BlockNumber,
             );
             tokio::fs::remove_file(file_path).await?;
             self.updates.truncate(self.updates.len() - 1);
@@ -273,14 +283,14 @@ impl UpdateStorage {
     }
 
     fn item_path(path: impl AsRef<Path>, block_num: BlockNumber) -> PathBuf {
-        path.as_ref().join(format!("update_{block_num:0x}"))
+        path.as_ref().join(format!("update_{block_num:08x}.dat"))
     }
 
     fn update_index(&self, block_num: BlockNumber) -> Option<usize> {
-        if block_num > self.latest_block_num {
+        if block_num >= self.latest_block_num {
             return None;
         }
 
-        Some((self.latest_block_num - block_num) as usize)
+        Some((self.latest_block_num - block_num - 1) as usize)
     }
 }

@@ -382,11 +382,7 @@ impl State {
                 .expect("Unreachable: old account tree root must be checked before this step");
             inner.chain_mmr.add(block_hash);
 
-            inner
-                .account_tree
-                .update_storage_mut()
-                .add(block_num - 1, reverse_update)
-                .await?;
+            inner.account_tree.update_storage_mut().add(block_num, reverse_update).await?;
         }
 
         info!(%block_hash, block_num, COMPONENT, "apply_block successful");
