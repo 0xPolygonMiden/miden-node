@@ -1,3 +1,8 @@
+use std::{
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
+
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use miden_lib::{
@@ -23,10 +28,6 @@ use miden_objects::{
 use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use std::{
-    path::{Path, PathBuf},
-    time::{Duration, Instant},
-};
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
     task,
