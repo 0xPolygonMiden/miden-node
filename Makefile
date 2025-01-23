@@ -74,8 +74,8 @@ install-faucet: ## Installs faucet
 	${BUILD_PROTO} cargo install --path bin/faucet --locked
 
 .PHONY: install-stress-test
-install-stress-test: ## Installs faucet
-	${BUILD_PROTO} cargo install --path bin/stress-test --locked
+install-stress-test: ## Installs stress-test binary
+	cargo install --path bin/stress-test --locked
 
 # --- docker --------------------------------------------------------------------------------------
 
