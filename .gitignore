@@ -21,18 +21,8 @@ target/
 .code/
 .fleet/
 
-# Genesis files
-/accounts/
-genesis.dat
-
-# Sqlite db files
-*.sqlite3
-*.sqlite3-shm
-*.sqlite3-wal
-
-# Default store directories
-/blocks/
-/smt-updates/
+# Default storage directory
+/storage/
 
 # Docs ignore
 site/

@@ -100,6 +100,7 @@ mod tests {
                     database_filepath = "local.sqlite3"
                     genesis_filepath = "genesis.dat"
                     blockstore_dir = "blocks"
+                    account_smt_updates_dir = "account-smt-updates"
                 "#,
             )?;
 
@@ -131,7 +132,8 @@ mod tests {
                         },
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into(),
-                        blockstore_dir: "blocks".into()
+                        blockstore_dir: "blocks".into(),
+                        account_smt_updates_dir: "account-smt-updates".into(),
                     },
                 }
             );

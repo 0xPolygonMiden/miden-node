@@ -35,7 +35,7 @@ impl Store {
             .map_err(|err| ApiError::ApiInitialisationFailed(err.to_string()))?;
 
         let state = Arc::new(
-            State::load(db, block_store, config.blockstore_dir.join("updates"))
+            State::load(db, block_store, config.account_smt_updates_dir.clone())
                 .await
                 .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
         );
