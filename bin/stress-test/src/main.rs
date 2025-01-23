@@ -42,13 +42,18 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Create and store blocks into the store. Create a given number of accounts, where each
+    /// account consumes a note created from a faucet.
     SeedStore {
+        /// Path to the store database file.
         #[arg(short, long, value_name = "DUMP_FILE", default_value = "./miden-store.sqlite3")]
         dump_file: PathBuf,
 
+        /// Number of accounts to create.
         #[arg(short, long, value_name = "NUM_ACCOUNTS")]
         num_accounts: usize,
 
+        /// Path to the genesis file of the store.
         #[arg(short, long, value_name = "GENESIS_FILE")]
         genesis_file: PathBuf,
     },
@@ -74,6 +79,68 @@ async fn main() {
     }
 }
 
+/// Seed the store with a given number of accounts.
+async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) {
+    let store_config = StoreConfig {
+        database_filepath: dump_file.to_path_buf(),
+        genesis_filepath: genesis_file.to_path_buf(),
+        ..Default::default()
+    };
+
+    // Start store
+    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
+    task::spawn(async move { store.serve().await.context("Serving store") });
+    let start = Instant::now();
+
+    // Create faucet
+    println!("Creating new faucet account...");
+    let store_client =
+        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
+    let genesis_header = store_client.latest_header().await.unwrap();
+    let faucet_id = create_faucet(&genesis_header);
+
+    // Spawn first block builder task
+    let (batch_sender, batch_receiver) = unbounded_channel::<TransactionBatch>();
+    let db_task = task::spawn(build_blocks(batch_receiver, store_client));
+
+    // Create notes
+    println!("Creating notes...");
+    let notes = task::spawn_blocking(move || {
+        generate_note_batches(num_accounts, faucet_id, batch_sender.clone())
+    })
+    .await
+    .unwrap();
+
+    let (insertion_time, num_insertions) = db_task.await.unwrap();
+    println!(
+        "Created notes: inserted {} blocks with avg insertion time {} ms",
+        num_insertions,
+        (insertion_time / num_insertions).as_millis()
+    );
+
+    // Spawn second block builder task
+    let store_client =
+        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
+    let (batch_sender, batch_receiver) = unbounded_channel::<TransactionBatch>();
+    let db_task = task::spawn(build_blocks(batch_receiver, store_client));
+
+    // Create accounts to consume the notes
+    println!("Creating accounts and consuming notes...");
+    task::spawn_blocking(move || {
+        generate_account_batches(num_accounts, &notes, batch_sender, &genesis_header);
+    })
+    .await
+    .unwrap();
+    let (insertion_time, num_insertions) = db_task.await.unwrap();
+    println!(
+        "Consumed notes: inserted {} blocks with avg insertion time {} ms",
+        num_insertions,
+        (insertion_time / num_insertions).as_millis()
+    );
+
+    println!("Store loaded in {:.3} seconds", start.elapsed().as_secs_f64());
+}
+
 /// Create a new faucet account with a given anchor block.
 fn create_faucet(anchor_block: &BlockHeader) -> AccountId {
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
@@ -95,7 +162,8 @@ fn create_faucet(anchor_block: &BlockHeader) -> AccountId {
     new_faucet.id()
 }
 
-/// Create a new note with a single fungible asset.
+/// Create a new note containing 10 tokens of the fungible asset associated with the specified
+/// `faucet_id`.
 fn create_note(faucet_id: AccountId) -> Note {
     let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
     let coin_seed: [u64; 4] = rand::thread_rng().gen();
@@ -108,7 +176,7 @@ fn create_note(faucet_id: AccountId) -> Note {
 
 /// Create a new account with a given public key and anchor block. Generates the seed from the given
 /// index.
-fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: usize) -> AccountId {
+fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64) -> AccountId {
     let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
     let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
         .anchor(anchor_block.try_into().unwrap())
@@ -198,7 +266,7 @@ fn generate_account_batches(
 
     (0..num_accounts)
         .into_par_iter()
-        .map(|index| create_account(genesis_header, key_pair.public_key(), index))
+        .map(|index| create_account(genesis_header, key_pair.public_key(), index as u64))
         .enumerate()
         .map(|(index, account_id)| {
             let note = notes.get(index).unwrap().clone();
@@ -216,66 +284,4 @@ fn generate_account_batches(
                 TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
             sender.send(batch).unwrap();
         });
-}
-
-/// Seed the store with a given number of accounts.
-async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) {
-    let store_config = StoreConfig {
-        database_filepath: dump_file.to_path_buf(),
-        genesis_filepath: genesis_file.to_path_buf(),
-        ..Default::default()
-    };
-
-    // Start store
-    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
-    task::spawn(async move { store.serve().await.context("Serving store") });
-    let start = Instant::now();
-
-    // Create faucet
-    println!("Creating new faucet account...");
-    let store_client =
-        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
-    let genesis_header = store_client.latest_header().await.unwrap();
-    let faucet_id = create_faucet(&genesis_header);
-
-    // Spawn first block builder task
-    let (batch_sender, batch_receiver) = unbounded_channel::<TransactionBatch>();
-    let db_task = task::spawn(build_blocks(batch_receiver, store_client));
-
-    // Create notes
-    println!("Creating notes...");
-    let notes = task::spawn_blocking(move || {
-        generate_note_batches(num_accounts, faucet_id, batch_sender.clone())
-    })
-    .await
-    .unwrap();
-
-    let (insertion_time, num_insertions) = db_task.await.unwrap();
-    println!(
-        "Created notes: inserted {} blocks with avg insertion time {} ms",
-        num_insertions,
-        (insertion_time / num_insertions).as_millis()
-    );
-
-    // Spawn second block builder task
-    let store_client =
-        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
-    let (batch_sender, batch_receiver) = unbounded_channel::<TransactionBatch>();
-    let db_task = task::spawn(build_blocks(batch_receiver, store_client));
-
-    // Create accounts to consume the notes
-    println!("Creating accounts and consuming notes...");
-    task::spawn_blocking(move || {
-        generate_account_batches(num_accounts, &notes, batch_sender, &genesis_header);
-    })
-    .await
-    .unwrap();
-    let (insertion_time, num_insertions) = db_task.await.unwrap();
-    println!(
-        "Consumed notes: inserted {} blocks with avg insertion time {} ms",
-        num_insertions,
-        (insertion_time / num_insertions).as_millis()
-    );
-
-    println!("Store loaded in {:.3} seconds", start.elapsed().as_secs_f64());
 }
