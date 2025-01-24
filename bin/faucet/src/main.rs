@@ -33,7 +33,7 @@ use tracing::info;
 
 use crate::{
     config::{FaucetConfig, DEFAULT_FAUCET_ACCOUNT_PATH},
-    handlers::{get_index, get_metadata, get_tokens},
+    handlers::{get_metadata, get_static_file, get_tokens},
 };
 
 // CONSTANTS
@@ -102,9 +102,9 @@ async fn main() -> anyhow::Result<()> {
             info!(target: COMPONENT, %config, "Initializing server");
 
             let app = Router::new()
-                .route("/", get(get_index))
                 .route("/get_metadata", get(get_metadata))
                 .route("/get_tokens", post(get_tokens))
+                .route("/*path", get(get_static_file))
                 .layer(
                     ServiceBuilder::new()
                         .layer(TraceLayer::new_for_http())

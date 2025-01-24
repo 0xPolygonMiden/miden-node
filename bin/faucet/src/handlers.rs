@@ -1,6 +1,6 @@
 use anyhow::Context;
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{Response, StatusCode},
     response::IntoResponse,
     Json,
@@ -116,10 +116,13 @@ pub async fn get_tokens(
         .map_err(Into::into)
 }
 
-pub async fn get_index(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
-    info!(target: COMPONENT, "Serving `index.html`");
+pub async fn get_static_file(
+    State(state): State<FaucetState>,
+    Path(path): Path<String>,
+) -> Result<impl IntoResponse, HandlerError> {
+    info!(target: COMPONENT, path, "Serving static file");
 
-    let static_file = state.static_files.get("index.html").expect("index.html should be bundled");
+    let static_file = state.static_files.get(path.as_str()).ok_or(HandlerError::NotFound)?;
 
     Response::builder()
         .status(StatusCode::OK)
