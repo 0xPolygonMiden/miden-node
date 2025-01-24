@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changes
+
+- [BREAKING] Updated minimum Rust version to 1.84.
+
 ## v0.7.0 (2025-01-23)
 
 ### Enhancements
