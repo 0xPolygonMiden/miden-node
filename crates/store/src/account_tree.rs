@@ -5,10 +5,9 @@ use std::{
 
 use miden_crypto::{
     hash::rpo::RpoDigest,
-    merkle::{MerklePath, NodeMutation},
+    merkle::{EmptySubtreeRoots, MerklePath, NodeMutation},
 };
 use miden_objects::{
-    accounts::AccountId,
     crypto::merkle::{LeafIndex, MutationSet, NodeIndex, SimpleSmt, ValuePath},
     utils::{Deserializable, Serializable},
     Word, ACCOUNT_TREE_DEPTH,
@@ -25,6 +24,7 @@ use crate::{
 type Update = MutationSet<ACCOUNT_TREE_DEPTH, LeafIndex<ACCOUNT_TREE_DEPTH>, Word>;
 
 /// Account SMT with storage of reverse updates for recent blocks
+#[derive(Debug)]
 pub struct AccountTree {
     accounts: SimpleSmt<ACCOUNT_TREE_DEPTH>,
     update_storage: UpdateStorage,
@@ -61,24 +61,26 @@ impl AccountTree {
     /// It traverses over updated nodes in reverse updates from the root down to the leaf, filling
     /// items in Merkle path, from the given block up to the most recent update, if needed. If there
     /// is no updates left, remaining nodes are got from the current accounts SMT.   
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub fn compute_opening(
         &self,
-        account_id: &AccountId,
+        account_id_prefix: u64,
         block_num: BlockNumber,
     ) -> Result<ValuePath, DatabaseError> {
         /// Structure for filling of mutable Merkle path
+        #[derive(Debug)]
         struct MutableMerklePath(Vec<RpoDigest>);
 
         impl MutableMerklePath {
-            fn new(root: RpoDigest) -> Self {
-                Self(vec![root; ACCOUNT_TREE_DEPTH as usize])
+            fn new() -> Self {
+                Self(vec![Default::default(); ACCOUNT_TREE_DEPTH as usize])
             }
 
             fn update_item(&mut self, depth: u8, value: RpoDigest) {
-                assert!(depth < ACCOUNT_TREE_DEPTH);
+                debug_assert!(depth > 0);
+                debug_assert!(depth <= ACCOUNT_TREE_DEPTH);
 
-                let index = self.0.len() - depth as usize - 1;
+                let index = self.0.len() - depth as usize;
                 self.0[index] = value;
             }
 
@@ -95,7 +97,6 @@ impl AccountTree {
             return Err(DatabaseError::BlockNotFoundInDb(block_num));
         }
 
-        let account_id_prefix = account_id.prefix().into();
         let leaf_index = LeafIndex::<ACCOUNT_TREE_DEPTH>::new(account_id_prefix)
             .expect("`ACCOUNT_TREE_DEPTH` must not be less than `SMT_MIN_DEPTH`");
         let Some(mut update_index) = self.update_storage.update_index(block_num) else {
@@ -103,63 +104,88 @@ impl AccountTree {
         };
 
         let mut node_index = NodeIndex::root();
-        let mut path = MutableMerklePath::new(self.update_storage.get(update_index).root());
+        let mut path = MutableMerklePath::new();
 
         // Begin filling path from reverse updates, starting from the root of update for the given
-        // block number, moving down through the way to the account's leaf. If it finds an empty
-        // subtree (i.e. no leaves were updated), goes to the next reverse update.
+        // block number, moving down through the way to the account's leaf. If a subtree wasn't
+        // found (i.e. no leaves were updated), go to the next reverse update.
         while node_index.depth() < ACCOUNT_TREE_DEPTH {
             match self.update_storage.get(update_index).node_mutations().get(&node_index) {
-                None | Some(NodeMutation::Removal) => {
-                    if update_index == 0 {
-                        break;
-                    }
+                None if update_index == 0 => {
+                    break;
+                },
+
+                None => {
                     update_index -= 1;
                 },
-                Some(NodeMutation::Addition(node)) => {
-                    if Self::is_in_left_subtree(account_id_prefix, node_index) {
+
+                Some(mutation) => {
+                    let is_left = Self::is_in_left_subtree(account_id_prefix, node_index);
+
+                    if is_left {
                         node_index = node_index.left_child();
-                        path.update_item(node_index.depth(), node.left);
                     } else {
                         node_index = node_index.right_child();
-                        path.update_item(node_index.depth(), node.right);
                     }
+
+                    let path_item = match mutation {
+                        NodeMutation::Removal => {
+                            *EmptySubtreeRoots::entry(ACCOUNT_TREE_DEPTH, node_index.depth())
+                        },
+
+                        NodeMutation::Addition(node) => {
+                            if is_left {
+                                node.right
+                            } else {
+                                node.left
+                            }
+                        },
+                    };
+
+                    path.update_item(node_index.depth(), path_item);
                 },
             }
         }
 
-        // If we went down to the leaf, construct and return opening using the current update leaf.
+        // If went down to the leaf it was looking for, construct and return opening using the leaf
+        // from the current update.
         if node_index.depth() == ACCOUNT_TREE_DEPTH {
             let Some(leaf) = self.update_storage.get(update_index).new_pairs().get(&leaf_index)
             else {
                 return Err(DatabaseError::DataCorrupted(format!(
-                    "No new pair for leaf {leaf_index:?} in update #{update_index}"
+                    "No new pair for the leaf {leaf_index:?} were found in update #{update_index}"
                 )));
             };
 
             return Ok(ValuePath::new(leaf.into(), path.into_merkle_path()));
         }
 
-        // If no updates left, but the path was not yet completed, we need to fill remaining path
-        // part from the current account's SMT.
-        loop {
-            if Self::is_in_left_subtree(account_id_prefix, node_index) {
+        // No updates left, but the path was not yet completed, we need to fill remaining path part
+        // from the current account's SMT.
+        while node_index.depth() < ACCOUNT_TREE_DEPTH {
+            let is_left = Self::is_in_left_subtree(account_id_prefix, node_index);
+
+            let node = self
+                .accounts
+                .get_node(if is_left {
+                    node_index.right_child()
+                } else {
+                    node_index.left_child()
+                })
+                .expect("Depth must be in the range 0..=ACCOUNT_TREE_DEPTH");
+
+            if is_left {
                 node_index = node_index.left_child();
             } else {
                 node_index = node_index.right_child();
             }
-            if node_index.depth() == ACCOUNT_TREE_DEPTH {
-                let leaf = self.accounts.get_leaf(&leaf_index);
 
-                return Ok(ValuePath::new(leaf.into(), path.into_merkle_path()));
-            } else {
-                let node = self
-                    .accounts
-                    .get_node(node_index)
-                    .expect("Depth must be in range of 0..=ACCOUNT_TREE_DEPTH");
-                path.update_item(node_index.depth(), node);
-            }
+            path.update_item(node_index.depth(), node);
         }
+
+        let leaf = self.accounts.get_leaf(&leaf_index);
+
+        Ok(ValuePath::new(leaf.into(), path.into_merkle_path()))
     }
 
     #[instrument(target = COMPONENT, skip_all)]
@@ -186,6 +212,7 @@ impl AccountTree {
     }
 }
 
+#[derive(Debug)]
 pub struct UpdateStorage {
     path: PathBuf,
     latest_block_num: BlockNumber,
@@ -215,6 +242,26 @@ impl UpdateStorage {
         &self.updates[index]
     }
 
+    pub async fn add(
+        &mut self,
+        block_num: BlockNumber,
+        update: Update,
+    ) -> Result<(), DatabaseError> {
+        assert!(block_num > 0, "Latest block number must be positive");
+        assert_eq!(block_num, self.latest_block_num + 1, "Block numbers must be contiguous");
+
+        self.store_update(Self::item_path(&self.path, block_num - 1), &update).await?;
+        self.add_internal(block_num, update);
+        self.truncate_updates().await?;
+
+        Ok(())
+    }
+
+    fn add_internal(&mut self, block_num: BlockNumber, update: Update) {
+        self.updates.insert(0, update);
+        self.latest_block_num = block_num;
+    }
+
     #[instrument(target = COMPONENT)]
     async fn load_updates(
         path: impl AsRef<Path> + Debug,
@@ -237,22 +284,6 @@ impl UpdateStorage {
         info!(target: COMPONENT, num_updates = updates.len(), "Loaded accounts SMT updates");
 
         Ok(updates)
-    }
-
-    pub async fn add(
-        &mut self,
-        block_num: BlockNumber,
-        update: Update,
-    ) -> Result<(), DatabaseError> {
-        assert!(block_num > 0, "Latest block number must be positive");
-        assert_eq!(block_num, self.latest_block_num + 1, "Block numbers must be contiguous");
-
-        self.store_update(Self::item_path(&self.path, block_num - 1), &update).await?;
-        self.updates.insert(0, update);
-        self.latest_block_num = block_num;
-        self.truncate_updates().await?;
-
-        Ok(())
     }
 
     async fn store_update(
@@ -292,5 +323,98 @@ impl UpdateStorage {
         }
 
         Some((self.latest_block_num - block_num - 1) as usize)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use miden_crypto::{
+        merkle::{LeafIndex, SimpleSmt},
+        Felt, Word,
+    };
+    use miden_objects::{FieldElement, ACCOUNT_TREE_DEPTH};
+
+    use super::{AccountTree, UpdateStorage};
+    use crate::types::BlockNumber;
+
+    #[test]
+    fn compute_opening() {
+        fn account_smt_update(key: u64, value: u64) -> (LeafIndex<ACCOUNT_TREE_DEPTH>, Word) {
+            (
+                LeafIndex::new(key).unwrap(),
+                [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(value)],
+            )
+        }
+
+        let ids = [1_u64, 2, 30, 400, 5000, 60000, 700000, 80000000];
+        let updates = [
+            vec![
+                account_smt_update(ids[0], 1),
+                account_smt_update(ids[1], 2),
+                account_smt_update(ids[2], 3),
+                account_smt_update(ids[3], 4),
+                account_smt_update(ids[7], 45),
+            ],
+            vec![
+                account_smt_update(ids[1], 34),
+                account_smt_update(ids[2], 352),
+                account_smt_update(ids[3], 34),
+                account_smt_update(ids[5], 31),
+                account_smt_update(ids[7], 4),
+                account_smt_update(123432, 9898),
+            ],
+            vec![
+                account_smt_update(ids[3], 134),
+                account_smt_update(ids[5], 331),
+                account_smt_update(ids[7], 54),
+            ],
+            vec![
+                account_smt_update(ids[0], 4),
+                account_smt_update(ids[2], 2),
+                account_smt_update(ids[3], 0),
+                account_smt_update(234442, 123),
+                account_smt_update(ids[6], 1),
+                account_smt_update(ids[7], 2),
+            ],
+            vec![
+                account_smt_update(ids[1], 34),
+                account_smt_update(ids[2], 9),
+                account_smt_update(539234, 949),
+                account_smt_update(241223, 343),
+                account_smt_update(123132, 123),
+            ],
+        ];
+
+        let mut tree = AccountTree {
+            accounts: SimpleSmt::new().unwrap(),
+            update_storage: UpdateStorage {
+                path: Default::default(),
+                latest_block_num: 0,
+                updates: vec![],
+            },
+        };
+        let mut snapshots = vec![];
+
+        for (block_num, update) in updates.into_iter().enumerate() {
+            snapshots.push(tree.accounts().clone());
+            let mutations = tree.accounts().compute_mutations(update);
+            let reverse_update =
+                tree.accounts_mut().apply_mutations_with_reversion(mutations).unwrap();
+            tree.update_storage_mut()
+                .add_internal((block_num + 1) as BlockNumber, reverse_update.clone());
+
+            for i in 0..=(block_num + 1) {
+                for id in ids.iter() {
+                    let actual = tree.compute_opening(*id, i as BlockNumber).unwrap();
+                    let expected = if i == snapshots.len() {
+                        tree.accounts().open(&LeafIndex::new(*id).unwrap())
+                    } else {
+                        snapshots[i].open(&(LeafIndex::new(*id).unwrap()))
+                    };
+
+                    assert_eq!(actual, expected);
+                }
+            }
+        }
     }
 }

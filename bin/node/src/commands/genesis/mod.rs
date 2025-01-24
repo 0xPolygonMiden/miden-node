@@ -219,7 +219,7 @@ mod tests {
             //  run make_genesis to generate genesis.dat and accounts folder and files
             super::make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
 
-            let a0_file_path = PathBuf::from("accounts/faucet.mac");
+            let a0_file_path = genesis_dat_file_path.parent().unwrap().join("accounts/faucet.mac");
 
             // assert that the genesis.dat and account files exist
             assert!(genesis_dat_file_path.exists());
