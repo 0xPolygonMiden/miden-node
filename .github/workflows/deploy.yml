@@ -16,6 +16,11 @@ on:
         required: true
         type: string
 
+# Limit concurrency to 1 per network.
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.network }}
+  cancel-in-progress: true
+
 permissions:
   id-token: write
   contents: write
