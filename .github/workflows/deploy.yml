@@ -89,7 +89,6 @@ jobs:
         run: |
           mv miden-node.deb   ${{ env.node-package }} 
           mv miden-faucet.deb ${{ env.faucet-package }} 
-          
 
       # Configure AWS communication via SSM.
       - name: Configure AWS credentials
