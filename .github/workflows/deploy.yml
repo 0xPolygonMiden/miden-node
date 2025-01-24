@@ -33,10 +33,9 @@ jobs:
       oidcrole: midendev
       instance-id: ${{ inputs.network == 'testnet' && 'TESTNET_INSTANCE_TF' || 'DEVNET_INSTANCE_TF' }}
 
-      # Define the expected package names.
-      node-package:   miden-node-${{ inputs.gitref }}-arm64.deb
-      faucet-package: miden-faucet-${{ inputs.gitref }}-arm64.deb
-
+      # Unique name for each package file per workflow run so there are no clashes on s3.
+      node-package: node-${{ github.run_id }}-${{ github.run_number }}.arm64.deb
+      faucet-package: faucet-${{ github.run_id }}-${{ github.run_number }}.arm64.deb
         
     steps:
       # S3 path where packages are stored; used to send packages to instance as this isn't trivially possible directly.
@@ -55,14 +54,19 @@ jobs:
         if: ${{ startsWith(inputs.gitref, 'v') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          node-artifact:   miden-node-${{ inputs.gitref }}-arm64.deb
+          faucet-artifact: miden-faucet-${{ inputs.gitref }}-arm64.deb
         run: |
-          gh release download ${{ inputs.gitref }} -p ${{ env.node-package }}
-          gh release download ${{ inputs.gitref }} -p ${{ env.node-package }}.checksum
-          gh release download ${{ inputs.gitref }} -p ${{ env.faucet-package }}
-          gh release download ${{ inputs.gitref }} -p ${{ env.faucet-package }}.checksum
+          gh release download ${{ inputs.gitref }} -p ${{ env.node-artifact }}
+          gh release download ${{ inputs.gitref }} -p ${{ env.node-artifact }}.checksum
+          gh release download ${{ inputs.gitref }} -p ${{ env.faucet-artifact }}
+          gh release download ${{ inputs.gitref }} -p ${{ env.faucet-artifact }}.checksum
 
-          sha256sum --check ${{ env.node-package }}.checksum
-          sha256sum --check ${{ env.faucet-package }}.checksum
+          sha256sum --check ${{ env.node-artifact }}.checksum
+          sha256sum --check ${{ env.faucet-artifact }}.checksum
+
+          mv ${{ env.node-artifact }} ${{ env.node-package }}
+          mv ${{ env.faucet-artifact }} ${{ env.faucet-package }}
 
       # Otherwise build the packages from source.
       #
