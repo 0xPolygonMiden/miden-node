@@ -1462,8 +1462,7 @@ dependencies = [
 [[package]]
 name = "miden-crypto"
 version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06bf3ad2a85f3f8f0da73b6357c77e482b1ceb36cacda8a2d85caae3bd1f702"
+source = "git+https://github.com/0xPolygonMiden/crypto.git?branch=polydez-mutations-revert#1cf090bbe497bf473eccb0c47e2e109b94c88f80"
 dependencies = [
  "blake3",
  "cc",
@@ -1661,6 +1660,7 @@ dependencies = [
  "assert_matches",
  "deadpool-sqlite",
  "hex",
+ "miden-crypto",
  "miden-lib",
  "miden-node-proto",
  "miden-node-utils",

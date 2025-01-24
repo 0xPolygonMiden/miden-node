@@ -15,7 +15,7 @@ mod config;
 // ================================================================================================
 
 const NODE_CONFIG_FILE_PATH: &str = "miden-node.toml";
-const DEFAULT_GENESIS_FILE_PATH: &str = "genesis.dat";
+const DEFAULT_GENESIS_FILE_PATH: &str = "storage/genesis.dat";
 const DEFAULT_GENESIS_INPUTS_PATH: &str = "genesis.toml";
 
 // COMMANDS

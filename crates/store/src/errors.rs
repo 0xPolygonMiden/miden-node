@@ -57,6 +57,8 @@ pub enum DatabaseError {
     MigrationError(#[from] rusqlite_migration::Error),
     #[error("missing database connection")]
     MissingDbConnection(#[from] PoolError),
+    #[error("merkle error")]
+    MerkleError(#[from] MerkleError),
     #[error("note error")]
     NoteError(#[from] NoteError),
     #[error("SQLite error")]

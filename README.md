@@ -137,6 +137,7 @@ Modify the `miden-node.toml` configuration file such that the `[store]` paths po
 database_filepath = "<STORAGE>/miden-store.sqlite3"
 genesis_filepath  = "<STORAGE>/genesis.dat"
 blockstore_dir    = "<STORAGE>/blocks"
+account_smt_updates_dir = "<STORAGE>/account-smt-updates"
 ```
 
 Finally, configure the node's endpoints to your liking.

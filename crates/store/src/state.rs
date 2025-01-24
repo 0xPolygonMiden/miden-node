@@ -6,6 +6,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::Not,
+    path::PathBuf,
     sync::Arc,
 };
 
@@ -27,14 +28,12 @@ use miden_objects::{
     block::{Block, BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{
-            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
-        },
+        merkle::{LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SmtProof, ValuePath},
     },
     note::{NoteId, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
-    AccountError, ACCOUNT_TREE_DEPTH,
+    AccountError,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -43,6 +42,7 @@ use tokio::{
 use tracing::{info, info_span, instrument};
 
 use crate::{
+    account_tree::AccountTree,
     blocks::BlockStore,
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
@@ -98,7 +98,7 @@ pub struct TransactionInputs {
 struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
-    account_tree: SimpleSmt<ACCOUNT_TREE_DEPTH>,
+    account_tree: AccountTree,
 }
 
 impl InnerState {
@@ -106,7 +106,7 @@ impl InnerState {
     fn latest_block_num(&self) -> BlockNumber {
         let block_number: u32 = (self.chain_mmr.forest() - 1)
             .try_into()
-            .expect("chain_mmr always has, at least, the genesis block");
+            .expect("Chain MMR forest number must fit into `u32`");
 
         block_number.into()
     }
@@ -137,10 +137,16 @@ impl State {
     pub async fn load(
         mut db: Db,
         block_store: Arc<BlockStore>,
+        update_storage_path: PathBuf,
     ) -> Result<Self, StateInitializationError> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
-        let account_tree = load_accounts(&mut db).await?;
+        let account_tree = AccountTree::new(
+            &mut db,
+            update_storage_path,
+            BlockNumber::from_usize(chain_mmr.forest() - 1),
+        )
+        .await?;
 
         let inner = RwLock::new(InnerState { nullifier_tree, chain_mmr, account_tree });
 
@@ -258,7 +264,7 @@ impl State {
             }
 
             // compute update for account tree
-            let account_tree_update = inner.account_tree.compute_mutations(
+            let account_tree_update = inner.account_tree.accounts().compute_mutations(
                 block.updated_accounts().iter().map(|update| {
                     (
                         LeafIndex::new_max_depth(update.account_id().prefix().into()),
@@ -274,7 +280,7 @@ impl State {
             (
                 inner.nullifier_tree.root(),
                 nullifier_tree_update,
-                inner.account_tree.root(),
+                inner.account_tree.accounts().root(),
                 account_tree_update,
             )
         };
@@ -344,7 +350,7 @@ impl State {
             // did change, we do not proceed with in-memory and database updates, since it may
             // lead to an inconsistent state.
             if inner.nullifier_tree.root() != nullifier_tree_old_root
-                || inner.account_tree.root() != account_tree_old_root
+                || inner.account_tree.accounts().root() != account_tree_old_root
             {
                 return Err(ApplyBlockError::ConcurrentWrite);
             }
@@ -368,11 +374,14 @@ impl State {
                 .nullifier_tree
                 .apply_mutations(nullifier_tree_update)
                 .expect("Unreachable: old nullifier tree root must be checked before this step");
-            inner
+            let reverse_update = inner
                 .account_tree
-                .apply_mutations(account_tree_update)
+                .accounts_mut()
+                .apply_mutations_with_reversion(account_tree_update)
                 .expect("Unreachable: old account tree root must be checked before this step");
             inner.chain_mmr.add(block_hash);
+
+            inner.account_tree.update_storage_mut().add(block_num, reverse_update).await?;
         }
 
         info!(%block_hash, block_num = block_num.as_u32(), COMPONENT, "apply_block successful");
@@ -613,8 +622,10 @@ impl State {
             .iter()
             .copied()
             .map(|account_id| {
-                let ValuePath { value: account_hash, path: proof } =
-                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id.prefix().into()));
+                let ValuePath { value: account_hash, path: proof } = inner
+                    .account_tree
+                    .accounts()
+                    .open(&LeafIndex::new_max_depth(account_id.prefix().into()));
                 Ok(AccountInputRecord { account_id, account_hash, proof })
             })
             .collect::<Result<_, AccountError>>()?;
@@ -654,6 +665,7 @@ impl State {
 
         let account_hash = inner
             .account_tree
+            .accounts()
             .open(&LeafIndex::new_max_depth(account_id.prefix().into()))
             .value;
 
@@ -762,7 +774,7 @@ impl State {
             .into_iter()
             .map(|account_id| {
                 let acc_leaf_idx = LeafIndex::new_max_depth(account_id.prefix().into());
-                let opening = inner_state.account_tree.open(&acc_leaf_idx);
+                let opening = inner_state.account_tree.accounts().open(&acc_leaf_idx);
                 let state_header = state_headers.get(&account_id).cloned();
 
                 AccountProofsResponse {
@@ -836,19 +848,4 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
         db.select_all_block_headers().await?.iter().map(BlockHeader::hash).collect();
 
     Ok(block_hashes.into())
-}
-
-#[instrument(target = COMPONENT, skip_all)]
-async fn load_accounts(
-    db: &mut Db,
-) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
-    let account_data: Vec<_> = db
-        .select_all_account_hashes()
-        .await?
-        .into_iter()
-        .map(|(id, account_hash)| (id.prefix().into(), account_hash.into()))
-        .collect();
-
-    SimpleSmt::with_leaves(account_data)
-        .map_err(StateInitializationError::FailedToCreateAccountsTree)
 }
