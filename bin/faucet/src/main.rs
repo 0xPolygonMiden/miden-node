@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use axum::{
+    extract::Path,
     routing::{get, post},
     Router,
 };
@@ -102,6 +103,7 @@ async fn main() -> anyhow::Result<()> {
             info!(target: COMPONENT, %config, "Initializing server");
 
             let app = Router::new()
+                .route("/", get(|state| get_static_file(state, Path("index.html".to_string()))))
                 .route("/get_metadata", get(get_metadata))
                 .route("/get_tokens", post(get_tokens))
                 .route("/*path", get(get_static_file))
