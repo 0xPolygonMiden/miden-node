@@ -5,6 +5,7 @@
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
+- Added support for computing account opening for `N` recent blocks (#643).
 
 ## v0.7.0 (2025-01-23)
 
