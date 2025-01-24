@@ -6,13 +6,13 @@ use std::{
 
 use itertools::Itertools;
 use miden_node_proto::{
-    domain::notes::NoteAuthenticationInfo,
+    domain::note::NoteAuthenticationInfo,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetTransactionInputsRequest,
+            ApplyBlockRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
+            GetNoteAuthenticationInfoRequest, GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
@@ -21,12 +21,12 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::AccountId,
-    block::Block,
-    notes::{NoteId, Nullifier},
+    account::AccountId,
+    block::{Block, BlockHeader, BlockNumber},
+    note::{NoteId, Nullifier},
     transaction::ProvenTransaction,
     utils::Serializable,
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_processor::crypto::RpoDigest;
 use tonic::transport::Channel;
@@ -46,14 +46,14 @@ pub struct TransactionInputs {
     pub account_hash: Option<Digest>,
     /// Maps each consumed notes' nullifier to block number, where the note is consumed.
     ///
-    /// We use NonZeroU32 as the wire format uses 0 to encode none.
+    /// We use `NonZeroU32` as the wire format uses 0 to encode none.
     pub nullifiers: BTreeMap<Nullifier, Option<NonZeroU32>>,
     /// Unauthenticated notes which are present in the store.
     ///
     /// These are notes which were committed _after_ the transaction was created.
     pub found_unauthenticated_notes: BTreeSet<NoteId>,
     /// The current block height.
-    pub current_block_height: u32,
+    pub current_block_height: BlockNumber,
 }
 
 impl Display for TransactionInputs {
@@ -67,7 +67,7 @@ impl Display for TransactionInputs {
         let nullifiers = if nullifiers.is_empty() {
             "None".to_owned()
         } else {
-            format!("{{ {} }}", nullifiers)
+            format!("{{ {nullifiers} }}")
         };
 
         f.write_fmt(format_args!(
@@ -106,14 +106,14 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
             .collect::<Result<_, ConversionError>>()?;
 
-        let current_block_height = response.block_height;
+        let current_block_height = response.block_height.into();
 
         Ok(Self {
             account_id,
             account_hash,
             nullifiers,
-            current_block_height,
             found_unauthenticated_notes,
+            current_block_height,
         })
     }
 }
@@ -141,7 +141,9 @@ impl StoreClient {
         let response = self
             .inner
             .clone()
-            .get_block_header_by_number(tonic::Request::new(Default::default()))
+            .get_block_header_by_number(tonic::Request::new(
+                GetBlockHeaderByNumberRequest::default(),
+            ))
             .await?
             .into_inner()
             .block_header

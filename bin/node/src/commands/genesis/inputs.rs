@@ -47,7 +47,7 @@ impl Default for GenesisInput {
                 auth_scheme: AuthSchemeInput::RpoFalcon512,
                 token_symbol: "POL".to_string(),
                 decimals: 12,
-                max_supply: 1000000,
+                max_supply: 1_000_000,
                 storage_mode: "public".to_string(),
             })]),
         }

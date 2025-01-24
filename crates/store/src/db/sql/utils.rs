@@ -1,8 +1,9 @@
-use miden_node_proto::domain::accounts::{AccountInfo, AccountSummary};
+use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
 use miden_objects::{
-    accounts::{Account, AccountDelta, AccountId},
+    account::{Account, AccountDelta, AccountId},
+    block::BlockNumber,
     crypto::hash::rpo::RpoDigest,
-    notes::Nullifier,
+    note::Nullifier,
     utils::Deserializable,
 };
 use rusqlite::{
@@ -50,7 +51,7 @@ macro_rules! subst {
 /// insert_sql!(users { id, first_name, last_name, age });
 /// ```
 /// which generates:
-/// "INSERT INTO users (id, first_name, last_name, age) VALUES (?, ?, ?, ?)"
+/// "INSERT INTO users (id, `first_name`, `last_name`, age) VALUES (?, ?, ?, ?)"
 macro_rules! insert_sql {
     ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? }) => {
         concat!(
@@ -71,6 +72,10 @@ macro_rules! insert_sql {
 /// Sqlite uses `i64` as its internal representation format. Note that the `as` operator performs a
 /// lossless conversion from `u64` to `i64`.
 pub fn u64_to_value(v: u64) -> Value {
+    #[allow(
+        clippy::cast_possible_wrap,
+        reason = "We store u64 as i64 as sqlite only allows the latter."
+    )]
     Value::Integer(v as i64)
 }
 
@@ -83,7 +88,20 @@ pub fn column_value_as_u64<I: rusqlite::RowIndex>(
     index: I,
 ) -> rusqlite::Result<u64> {
     let value: i64 = row.get(index)?;
+    #[allow(
+        clippy::cast_sign_loss,
+        reason = "We store u64 as i64 as sqlite only allows the latter."
+    )]
     Ok(value as u64)
+}
+
+/// Gets a `BlockNum` value from the database.
+pub fn read_block_number<I: rusqlite::RowIndex>(
+    row: &rusqlite::Row<'_>,
+    index: I,
+) -> rusqlite::Result<BlockNumber> {
+    let value: u32 = row.get(index)?;
+    Ok(value.into())
 }
 
 /// Gets a blob value from the database and tries to deserialize it into the necessary type.
@@ -110,7 +128,7 @@ pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<Ac
     let account_id = read_from_blob_column(row, 0)?;
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
-    let block_num = row.get(2)?;
+    let block_num = read_block_number(row, 2)?;
 
     Ok(AccountSummary { account_id, account_hash, block_num })
 }

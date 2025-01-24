@@ -7,7 +7,6 @@ pub mod genesis;
 mod nullifier_tree;
 pub mod server;
 pub mod state;
-pub mod types;
 
 // CONSTANTS
 // =================================================================================================

@@ -2,7 +2,8 @@ use std::fmt::{Debug, Display, Formatter};
 
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId},
+    account::{Account, AccountHeader, AccountId},
+    block::BlockNumber,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     utils::{Deserializable, Serializable},
     Digest,
@@ -21,7 +22,7 @@ impl Display for proto::account::AccountId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "0x")?;
         for byte in &self.id {
-            write!(f, "{:02x}", byte)?;
+            write!(f, "{byte:02x}")?;
         }
         Ok(())
     }
@@ -66,7 +67,7 @@ impl TryFrom<proto::account::AccountId> for AccountId {
 pub struct AccountSummary {
     pub account_id: AccountId,
     pub account_hash: RpoDigest,
-    pub block_num: u32,
+    pub block_num: BlockNumber,
 }
 
 impl From<&AccountSummary> for proto::account::AccountSummary {
@@ -74,7 +75,7 @@ impl From<&AccountSummary> for proto::account::AccountSummary {
         Self {
             account_id: Some(update.account_id.into()),
             account_hash: Some(update.account_hash.into()),
-            block_num: update.block_num,
+            block_num: update.block_num.as_u32(),
         }
     }
 }
@@ -89,7 +90,7 @@ impl From<&AccountInfo> for proto::account::AccountInfo {
     fn from(AccountInfo { summary, details }: &AccountInfo) -> Self {
         Self {
             summary: Some(summary.into()),
-            details: details.as_ref().map(|account| account.to_bytes()),
+            details: details.as_ref().map(miden_objects::utils::Serializable::to_bytes),
         }
     }
 }

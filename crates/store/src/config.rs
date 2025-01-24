@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 pub struct StoreConfig {
     /// Defines the listening socket.
     pub endpoint: Endpoint,
-    /// SQLite database file
+    /// `SQLite` database file
     pub database_filepath: PathBuf,
     /// Genesis file
     pub genesis_filepath: PathBuf,

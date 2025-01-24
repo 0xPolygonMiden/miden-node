@@ -2,11 +2,18 @@
 
 ## Unreleased
 
+### Changes
+
+- [BREAKING] Updated minimum Rust version to 1.84.
+
+## v0.7.0 (2025-01-23)
+
 ### Enhancements
 
 - Support Https in endpoint configuration (#556).
 - Upgrade `block-producer` from FIFO queue to mempool dependency graph (#562).
 - Support transaction expiration (#582).
+- Improved RPC endpoints doc comments (#620).
 
 ### Changes
 
@@ -16,6 +23,7 @@
 - [BREAKING] Remove store's `ListXXX` endpoints which were intended for test purposes (#608).
 - [BREAKING] Added support for storage maps on `GetAccountProofs` endpoint (#598).
 - [BREAKING] Removed the `testing` feature (#619).
+- [BREAKING] Renamed modules to singular (#636).
 
 ## v0.6.0 (2024-11-05)
 
@@ -40,6 +48,7 @@
 - Reduce cloning in the store's `apply_block` (#532).
 - [BREAKING] Changed faucet storage type in the genesis to public. Using faucet from the genesis for faucet web app. Added support for faucet restarting without blockchain restarting (#517).
 - [BREAKING] Improved `ApplyBlockError` in the store (#535).
+- [BREAKING] Updated minimum Rust version to 1.82.
 
 ## 0.5.1 (2024-09-12)
 

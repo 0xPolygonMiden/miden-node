@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops::Not, sync::LazyLock};
 
 use miden_objects::{
-    accounts::{AccountIdAnchor, AccountIdVersion, AccountStorageMode, AccountType},
+    account::{AccountIdAnchor, AccountIdVersion, AccountStorageMode, AccountType},
     Hasher,
 };
 
@@ -84,5 +84,5 @@ impl<const NUM_STATES: usize> From<u32> for MockPrivateAccount<NUM_STATES> {
 }
 
 pub fn mock_account_id(num: u8) -> AccountId {
-    MockPrivateAccount::<3>::from(num as u32).id
+    MockPrivateAccount::<3>::from(u32::from(num)).id
 }

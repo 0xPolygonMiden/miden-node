@@ -1,8 +1,6 @@
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet};
 
-use miden_objects::transaction::TransactionId;
-
-use super::BlockNumber;
+use miden_objects::{block::BlockNumber, transaction::TransactionId};
 
 /// Tracks transactions and their expiration block heights.
 ///
@@ -59,17 +57,17 @@ mod tests {
     #[test]
     fn remove_prunes_empty_block_maps() {
         let tx = Random::with_random_seed().draw_tx_id();
-        let block = BlockNumber::new(123);
+        let block = BlockNumber::from(123);
 
         let mut uut = TransactionExpirations::default();
         uut.insert(tx, block);
         uut.remove(std::iter::once(&tx));
 
-        assert_eq!(uut, Default::default());
+        assert_eq!(uut, TransactionExpirations::default());
     }
 
     #[test]
     fn get_empty() {
-        assert!(TransactionExpirations::default().get(BlockNumber(123)).is_empty());
+        assert!(TransactionExpirations::default().get(BlockNumber::from(123)).is_empty());
     }
 }

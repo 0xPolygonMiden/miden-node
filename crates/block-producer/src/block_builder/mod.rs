@@ -2,10 +2,10 @@ use std::{collections::BTreeSet, ops::Range};
 
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::Block,
-    notes::{NoteHeader, Nullifier},
-    transaction::InputNoteCommitment,
+    note::{NoteHeader, Nullifier},
+    transaction::{InputNoteCommitment, OutputNote},
 };
 use rand::Rng;
 use tokio::time::Duration;
@@ -48,7 +48,7 @@ impl BlockBuilder {
             store,
         }
     }
-    /// Starts the [BlockBuilder], infinitely producing blocks at the configured interval.
+    /// Starts the [`BlockBuilder`], infinitely producing blocks at the configured interval.
     ///
     /// Block production is sequential and consists of
     ///
@@ -98,7 +98,7 @@ impl BlockBuilder {
         info!(
             target: COMPONENT,
             num_batches = batches.len(),
-            batches = %format_array(batches.iter().map(|batch| batch.id())),
+            batches = %format_array(batches.iter().map(TransactionBatch::id)),
         );
 
         let updated_account_set: BTreeSet<AccountId> = batches
@@ -114,10 +114,8 @@ impl BlockBuilder {
             batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
         // Populate set of output notes from all batches
-        let output_notes_set: BTreeSet<_> = output_notes
-            .iter()
-            .flat_map(|batch| batch.iter().map(|note| note.id()))
-            .collect();
+        let output_notes_set: BTreeSet<_> =
+            output_notes.iter().flat_map(|batch| batch.iter().map(OutputNote::id)).collect();
 
         // Build a set of unauthenticated input notes for this block which do not have a matching
         // output note produced in this block
@@ -151,7 +149,6 @@ impl BlockBuilder {
         let (block_header_witness, updated_accounts) = BlockWitness::new(block_inputs, batches)?;
 
         let new_block_header = self.block_kernel.prove(block_header_witness)?;
-        let block_num = new_block_header.block_num();
 
         // TODO: return an error?
         let block =
@@ -159,8 +156,9 @@ impl BlockBuilder {
                 .expect("invalid block components");
 
         let block_hash = block.hash();
+        let block_num = new_block_header.block_num();
 
-        info!(target: COMPONENT, block_num, %block_hash, "block built");
+        info!(target: COMPONENT, %block_num, %block_hash, "block built");
         debug!(target: COMPONENT, ?block);
 
         self.store
@@ -168,7 +166,7 @@ impl BlockBuilder {
             .await
             .map_err(BuildBlockError::StoreApplyBlockFailed)?;
 
-        info!(target: COMPONENT, block_num, %block_hash, "block committed");
+        info!(target: COMPONENT, %block_num, %block_hash, "block committed");
 
         Ok(())
     }

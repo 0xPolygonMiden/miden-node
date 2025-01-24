@@ -1,3 +1,5 @@
+use miden_node_proto::domain::note::NoteAuthenticationInfo;
+
 use crate::{batch_builder::TransactionBatch, test_utils::MockProvenTxBuilder};
 
 pub trait TransactionBatchConstructor {
@@ -15,7 +17,7 @@ impl TransactionBatchConstructor for TransactionBatch {
             .iter()
             .enumerate()
             .map(|(index, &num_notes)| {
-                let starting_note_index = starting_account_index as u64 + index as u64;
+                let starting_note_index = u64::from(starting_account_index) + index as u64;
                 MockProvenTxBuilder::with_account_index(starting_account_index + index as u32)
                     .private_notes_created_range(
                         starting_note_index..(starting_note_index + num_notes),
@@ -24,7 +26,7 @@ impl TransactionBatchConstructor for TransactionBatch {
             })
             .collect();
 
-        Self::new(&txs, Default::default()).unwrap()
+        Self::new(&txs, NoteAuthenticationInfo::default()).unwrap()
     }
 
     fn from_txs(starting_account_index: u32, num_txs_in_batch: u64) -> Self {
@@ -36,6 +38,6 @@ impl TransactionBatchConstructor for TransactionBatch {
             })
             .collect();
 
-        Self::new(&txs, Default::default()).unwrap()
+        Self::new(&txs, NoteAuthenticationInfo::default()).unwrap()
     }
 }

@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
-    notes::{NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
+    note::{NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
     Digest, Felt,
 };
 
 use crate::{
     convert,
-    domain::blocks::BlockInclusionProof,
+    domain::block::BlockInclusionProof,
     errors::{ConversionError, MissingFieldHelper},
     generated::note as proto,
     try_convert,
@@ -21,7 +21,7 @@ impl TryFrom<proto::NoteMetadata> for NoteMetadata {
             .sender
             .ok_or_else(|| proto::NoteMetadata::missing_field(stringify!(sender)))?
             .try_into()?;
-        let note_type = NoteType::try_from(value.note_type as u64)?;
+        let note_type = NoteType::try_from(u64::from(value.note_type))?;
         let tag = NoteTag::from(value.tag);
 
         let execution_hint = NoteExecutionHint::try_from(value.execution_hint)?;
@@ -54,7 +54,7 @@ impl From<(&NoteId, &NoteInclusionProof)> for proto::NoteInclusionInBlockProof {
     fn from((note_id, proof): (&NoteId, &NoteInclusionProof)) -> Self {
         Self {
             note_id: Some(note_id.into()),
-            block_num: proof.location().block_num(),
+            block_num: proof.location().block_num().as_u32(),
             note_index_in_block: proof.location().node_index_in_block().into(),
             merkle_path: Some(Into::into(proof.note_path())),
         }
@@ -76,7 +76,7 @@ impl TryFrom<&proto::NoteInclusionInBlockProof> for (NoteId, NoteInclusionProof)
             )?
             .into(),
             NoteInclusionProof::new(
-                proof.block_num,
+                proof.block_num.into(),
                 proof.note_index_in_block.try_into()?,
                 proof
                     .merkle_path

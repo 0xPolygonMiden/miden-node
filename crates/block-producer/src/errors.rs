@@ -1,17 +1,16 @@
 use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
+    block::BlockNumber,
     crypto::merkle::MerkleError,
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     transaction::TransactionId,
     AccountDeltaError, Digest,
 };
 use miden_processor::ExecutionError;
 use thiserror::Error;
 use tokio::task::JoinError;
-
-use crate::mempool::BlockNumber;
 
 // Block-producer errors
 // =================================================================================================
@@ -102,20 +101,22 @@ pub enum AddTransactionError {
 
 impl From<AddTransactionError> for tonic::Status {
     fn from(value: AddTransactionError) -> Self {
-        use AddTransactionError::*;
         match value {
-            VerificationFailed(VerifyTxError::InputNotesAlreadyConsumed(_))
-            | VerificationFailed(VerifyTxError::UnauthenticatedNotesNotFound(_))
-            | VerificationFailed(VerifyTxError::OutputNotesAlreadyExist(_))
-            | VerificationFailed(VerifyTxError::IncorrectAccountInitialHash { .. })
-            | VerificationFailed(VerifyTxError::InvalidTransactionProof(_))
-            | Expired { .. }
-            | TransactionDeserializationFailed(_) => Self::invalid_argument(value.to_string()),
+            AddTransactionError::VerificationFailed(
+                VerifyTxError::InputNotesAlreadyConsumed(_)
+                | VerifyTxError::UnauthenticatedNotesNotFound(_)
+                | VerifyTxError::OutputNotesAlreadyExist(_)
+                | VerifyTxError::IncorrectAccountInitialHash { .. }
+                | VerifyTxError::InvalidTransactionProof(_),
+            )
+            | AddTransactionError::Expired { .. }
+            | AddTransactionError::TransactionDeserializationFailed(_) => {
+                Self::invalid_argument(value.to_string())
+            },
 
             // Internal errors which should not be communicated to the user.
-            VerificationFailed(VerifyTxError::StoreConnectionFailed(_)) | StaleInputs { .. } => {
-                Self::internal("Internal error")
-            },
+            AddTransactionError::VerificationFailed(VerifyTxError::StoreConnectionFailed(_))
+            | AddTransactionError::StaleInputs { .. } => Self::internal("Internal error"),
         }
     }
 }
@@ -207,7 +208,7 @@ pub enum BuildBlockError {
 // Store errors
 // =================================================================================================
 
-/// Errors returned by the [StoreClient](crate::store::StoreClient).
+/// Errors returned by the [`StoreClient`](crate::store::StoreClient).
 #[derive(Debug, Error)]
 pub enum StoreError {
     #[error("gRPC client error")]

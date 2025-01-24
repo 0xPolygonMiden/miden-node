@@ -1,11 +1,11 @@
 use std::iter;
 
 use miden_objects::{
-    block::{Block, BlockAccountUpdate, BlockNoteIndex, BlockNoteTree, NoteBatch},
+    block::{Block, BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt},
-    notes::Nullifier,
+    note::Nullifier,
     transaction::OutputNote,
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH,
+    Digest, ACCOUNT_TREE_DEPTH,
 };
 
 use super::MockStoreSuccess;
@@ -126,6 +126,7 @@ impl MockBlockBuilder {
         }
     }
 
+    #[must_use]
     pub fn account_updates(mut self, updated_accounts: Vec<BlockAccountUpdate>) -> Self {
         for update in &updated_accounts {
             self.store_accounts
@@ -137,12 +138,14 @@ impl MockBlockBuilder {
         self
     }
 
+    #[must_use]
     pub fn created_notes(mut self, created_notes: Vec<NoteBatch>) -> Self {
         self.created_notes = Some(created_notes);
 
         self
     }
 
+    #[must_use]
     pub fn produced_nullifiers(mut self, produced_nullifiers: Vec<Nullifier>) -> Self {
         self.produced_nullifiers = Some(produced_nullifiers);
 

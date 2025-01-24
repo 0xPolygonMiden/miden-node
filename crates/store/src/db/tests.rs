@@ -1,20 +1,23 @@
+#![allow(clippy::similar_names, reason = "naming dummy test values is hard")]
+#![allow(clippy::too_many_lines, reason = "test code can be long")]
+
 use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::domain::accounts::AccountSummary;
+use miden_node_proto::domain::account::AccountSummary;
 use miden_objects::{
-    accounts::{
+    account::{
         delta::AccountUpdateDetails, Account, AccountBuilder, AccountComponent, AccountDelta,
         AccountId, AccountIdVersion, AccountStorageDelta, AccountStorageMode, AccountType,
         AccountVaultDelta, StorageSlot,
     },
-    assets::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
-    block::{BlockAccountUpdate, BlockNoteIndex, BlockNoteTree},
+    asset::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
+    block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    notes::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
+    note::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
     testing::account_id::{
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
         ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     },
-    BlockHeader, Felt, FieldElement, Word, ZERO,
+    Felt, FieldElement, Word, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 
@@ -28,7 +31,7 @@ fn create_db() -> Connection {
     conn
 }
 
-fn create_block(conn: &mut Connection, block_num: u32) {
+fn create_block(conn: &mut Connection, block_num: BlockNumber) {
     let block_header = BlockHeader::new(
         1_u8.into(),
         num_to_rpo_digest(2),
@@ -54,7 +57,7 @@ fn sql_insert_nullifiers_for_block() {
 
     let nullifiers = [num_to_nullifier(1 << 48)];
 
-    let block_num = 1;
+    let block_num = 1.into();
     create_block(&mut conn, block_num);
 
     // Insert a new nullifier succeeds
@@ -86,7 +89,7 @@ fn sql_insert_nullifiers_for_block() {
     // test inserting multiple nullifiers
     {
         let nullifiers: Vec<_> = (0..10).map(num_to_nullifier).collect();
-        let block_num = 1;
+        let block_num = 1.into();
         let transaction = conn.transaction().unwrap();
         let res = sql::insert_nullifiers_for_block(&transaction, &nullifiers, block_num);
         transaction.commit().unwrap();
@@ -108,8 +111,8 @@ fn sql_select_transactions() {
     fn query_transactions(conn: &mut Connection) -> Vec<TransactionSummary> {
         sql::select_transactions_by_accounts_and_block_range(
             conn,
-            0,
-            2,
+            0.into(),
+            2.into(),
             &[AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap()],
         )
         .unwrap()
@@ -134,7 +137,7 @@ fn sql_select_transactions() {
 fn sql_select_nullifiers() {
     let mut conn = create_db();
 
-    let block_num = 1;
+    let block_num = 1.into();
     create_block(&mut conn, block_num);
 
     // test querying empty table
@@ -160,7 +163,7 @@ fn sql_select_nullifiers() {
 fn sql_select_notes() {
     let mut conn = create_db();
 
-    let block_num = 1;
+    let block_num = BlockNumber::from(1);
     create_block(&mut conn, block_num);
 
     // test querying empty table
@@ -173,13 +176,13 @@ fn sql_select_notes() {
         let note = NoteRecord {
             block_num,
             note_index: BlockNoteIndex::new(0, i as usize).unwrap(),
-            note_id: num_to_rpo_digest(i as u64),
+            note_id: num_to_rpo_digest(u64::from(i)),
             metadata: NoteMetadata::new(
                 ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
                 NoteType::Public,
                 i.into(),
                 NoteExecutionHint::none(),
-                Default::default(),
+                Felt::default(),
             )
             .unwrap(),
             details: Some(vec![1, 2, 3]),
@@ -200,7 +203,7 @@ fn sql_select_notes() {
 fn sql_select_notes_different_execution_hints() {
     let mut conn = create_db();
 
-    let block_num = 1;
+    let block_num = 1.into();
     create_block(&mut conn, block_num);
 
     // test querying empty table
@@ -219,7 +222,7 @@ fn sql_select_notes_different_execution_hints() {
             NoteType::Public,
             0.into(),
             NoteExecutionHint::none(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details: Some(vec![1, 2, 3]),
@@ -243,7 +246,7 @@ fn sql_select_notes_different_execution_hints() {
             NoteType::Public,
             1.into(),
             NoteExecutionHint::always(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details: Some(vec![1, 2, 3]),
@@ -266,8 +269,8 @@ fn sql_select_notes_different_execution_hints() {
             ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
             NoteType::Public,
             2.into(),
-            NoteExecutionHint::after_block(12).unwrap(),
-            Default::default(),
+            NoteExecutionHint::after_block(12.into()).unwrap(),
+            Felt::default(),
         )
         .unwrap(),
         details: Some(vec![1, 2, 3]),
@@ -280,14 +283,17 @@ fn sql_select_notes_different_execution_hints() {
     assert_eq!(res.unwrap(), 1, "One element must have been inserted");
     transaction.commit().unwrap();
     let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(2).into()]).unwrap()[0];
-    assert_eq!(note.metadata.execution_hint(), NoteExecutionHint::after_block(12).unwrap());
+    assert_eq!(
+        note.metadata.execution_hint(),
+        NoteExecutionHint::after_block(12.into()).unwrap()
+    );
 }
 
 #[test]
 fn sql_select_accounts() {
     let mut conn = create_db();
 
-    let block_num = 1;
+    let block_num = 1.into();
     create_block(&mut conn, block_num);
 
     // test querying empty table
@@ -300,9 +306,9 @@ fn sql_select_accounts() {
             [i; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::accounts::AccountStorageMode::Private,
+            miden_objects::account::AccountStorageMode::Private,
         );
-        let account_hash = num_to_rpo_digest(i as u64);
+        let account_hash = num_to_rpo_digest(u64::from(i));
         state.push(AccountInfo {
             summary: AccountSummary { account_id, account_hash, block_num },
             details: None,
@@ -330,7 +336,7 @@ fn sql_select_accounts() {
 fn sql_public_account_details() {
     let mut conn = create_db();
 
-    create_block(&mut conn, 1);
+    create_block(&mut conn, 1.into());
 
     let fungible_faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
     let non_fungible_faucet_id =
@@ -362,7 +368,7 @@ fn sql_public_account_details() {
             AccountUpdateDetails::New(account.clone()),
             vec![],
         )],
-        1,
+        1.into(),
     )
     .unwrap();
 
@@ -377,9 +383,10 @@ fn sql_public_account_details() {
     let account_read = accounts_in_db.pop().unwrap().details.unwrap();
     assert_eq!(account_read, account);
 
-    create_block(&mut conn, 2);
+    create_block(&mut conn, 2.into());
 
-    let read_delta = sql::select_account_delta(&mut conn, account.id(), 1, 2).unwrap();
+    let read_delta =
+        sql::select_account_delta(&mut conn, account.id(), 1.into(), 2.into()).unwrap();
 
     assert_eq!(read_delta, None);
 
@@ -408,7 +415,7 @@ fn sql_public_account_details() {
             AccountUpdateDetails::Delta(delta2.clone()),
             vec![],
         )],
-        2,
+        2.into(),
     )
     .unwrap();
 
@@ -427,10 +434,11 @@ fn sql_public_account_details() {
     assert_eq!(account_read.nonce(), account.nonce());
     assert_eq!(account_read.storage(), account.storage());
 
-    let read_delta = sql::select_account_delta(&mut conn, account.id(), 1, 2).unwrap();
+    let read_delta =
+        sql::select_account_delta(&mut conn, account.id(), 1.into(), 2.into()).unwrap();
     assert_eq!(read_delta.as_ref(), Some(&delta2));
 
-    create_block(&mut conn, 3);
+    create_block(&mut conn, 3.into());
 
     let storage_delta3 = AccountStorageDelta::from_iters([5], [], []);
 
@@ -452,7 +460,7 @@ fn sql_public_account_details() {
             AccountUpdateDetails::Delta(delta3.clone()),
             vec![],
         )],
-        3,
+        3.into(),
     )
     .unwrap();
 
@@ -470,7 +478,8 @@ fn sql_public_account_details() {
     assert_eq!(account_read.vault(), account.vault());
     assert_eq!(account_read.nonce(), account.nonce());
 
-    let read_delta = sql::select_account_delta(&mut conn, account.id(), 1, 3).unwrap();
+    let read_delta =
+        sql::select_account_delta(&mut conn, account.id(), 1.into(), 3.into()).unwrap();
 
     delta2.merge(delta3).unwrap();
 
@@ -482,12 +491,13 @@ fn sql_select_nullifiers_by_block_range() {
     let mut conn = create_db();
 
     // test empty table
-    let nullifiers = sql::select_nullifiers_by_block_range(&mut conn, 0, u32::MAX, &[]).unwrap();
+    let nullifiers =
+        sql::select_nullifiers_by_block_range(&mut conn, 0.into(), u32::MAX.into(), &[]).unwrap();
     assert!(nullifiers.is_empty());
 
     // test single item
     let nullifier1 = num_to_nullifier(1 << 48);
-    let block_number1 = 1;
+    let block_number1 = 1.into();
     create_block(&mut conn, block_number1);
 
     let transaction = conn.transaction().unwrap();
@@ -496,8 +506,8 @@ fn sql_select_nullifiers_by_block_range() {
 
     let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
-        0,
-        u32::MAX,
+        0.into(),
+        u32::MAX.into(),
         &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
@@ -511,7 +521,7 @@ fn sql_select_nullifiers_by_block_range() {
 
     // test two elements
     let nullifier2 = num_to_nullifier(2 << 48);
-    let block_number2 = 2;
+    let block_number2 = 2.into();
     create_block(&mut conn, block_number2);
 
     let transaction = conn.transaction().unwrap();
@@ -524,8 +534,8 @@ fn sql_select_nullifiers_by_block_range() {
     // only the nullifiers matching the prefix are included
     let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
-        0,
-        u32::MAX,
+        0.into(),
+        u32::MAX.into(),
         &[sql::utils::get_nullifier_prefix(&nullifier1)],
     )
     .unwrap();
@@ -538,8 +548,8 @@ fn sql_select_nullifiers_by_block_range() {
     );
     let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
-        0,
-        u32::MAX,
+        0.into(),
+        u32::MAX.into(),
         &[sql::utils::get_nullifier_prefix(&nullifier2)],
     )
     .unwrap();
@@ -554,8 +564,8 @@ fn sql_select_nullifiers_by_block_range() {
     // Nullifiers created at block_end are included
     let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
-        0,
-        1,
+        0.into(),
+        1.into(),
         &[
             sql::utils::get_nullifier_prefix(&nullifier1),
             sql::utils::get_nullifier_prefix(&nullifier2),
@@ -573,8 +583,8 @@ fn sql_select_nullifiers_by_block_range() {
     // Nullifiers created at block_start are not included
     let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
-        1,
-        u32::MAX,
+        1.into(),
+        u32::MAX.into(),
         &[
             sql::utils::get_nullifier_prefix(&nullifier1),
             sql::utils::get_nullifier_prefix(&nullifier2),
@@ -593,8 +603,8 @@ fn sql_select_nullifiers_by_block_range() {
     // when the client requests a sync update, and it is already tracking the chain tip.
     let nullifiers = sql::select_nullifiers_by_block_range(
         &mut conn,
-        2,
-        2,
+        2.into(),
+        2.into(),
         &[
             sql::utils::get_nullifier_prefix(&nullifier1),
             sql::utils::get_nullifier_prefix(&nullifier2),
@@ -606,15 +616,15 @@ fn sql_select_nullifiers_by_block_range() {
 
 #[test]
 fn select_nullifiers_by_prefix() {
-    let mut conn = create_db();
     const PREFIX_LEN: u32 = 16;
+    let mut conn = create_db();
     // test empty table
     let nullifiers = sql::select_nullifiers_by_prefix(&mut conn, PREFIX_LEN, &[]).unwrap();
     assert!(nullifiers.is_empty());
 
     // test single item
     let nullifier1 = num_to_nullifier(1 << 48);
-    let block_number1 = 1;
+    let block_number1 = 1.into();
     create_block(&mut conn, block_number1);
 
     let transaction = conn.transaction().unwrap();
@@ -637,7 +647,7 @@ fn select_nullifiers_by_prefix() {
 
     // test two elements
     let nullifier2 = num_to_nullifier(2 << 48);
-    let block_number2 = 2;
+    let block_number2 = 2.into();
     create_block(&mut conn, block_number2);
 
     let transaction = conn.transaction().unwrap();
@@ -715,7 +725,7 @@ fn db_block_header() {
 
     // test querying empty table
     let block_number = 1;
-    let res = sql::select_block_header_by_block_num(&mut conn, Some(block_number)).unwrap();
+    let res = sql::select_block_header_by_block_num(&mut conn, Some(block_number.into())).unwrap();
     assert!(res.is_none());
 
     let res = sql::select_block_header_by_block_num(&mut conn, None).unwrap();
@@ -727,7 +737,7 @@ fn db_block_header() {
     let block_header = BlockHeader::new(
         1_u8.into(),
         num_to_rpo_digest(2),
-        3,
+        3.into(),
         num_to_rpo_digest(4),
         num_to_rpo_digest(5),
         num_to_rpo_digest(6),
@@ -744,7 +754,7 @@ fn db_block_header() {
 
     // test fetch unknown block header
     let block_number = 1;
-    let res = sql::select_block_header_by_block_num(&mut conn, Some(block_number)).unwrap();
+    let res = sql::select_block_header_by_block_num(&mut conn, Some(block_number.into())).unwrap();
     assert!(res.is_none());
 
     // test fetch block header by block number
@@ -759,7 +769,7 @@ fn db_block_header() {
     let block_header2 = BlockHeader::new(
         11_u8.into(),
         num_to_rpo_digest(12),
-        13,
+        13.into(),
         num_to_rpo_digest(14),
         num_to_rpo_digest(15),
         num_to_rpo_digest(16),
@@ -785,7 +795,7 @@ fn db_block_header() {
 fn db_account() {
     let mut conn = create_db();
 
-    let block_num = 1;
+    let block_num = 1.into();
     create_block(&mut conn, block_num);
 
     // test empty table
@@ -794,7 +804,9 @@ fn db_account() {
             .iter()
             .map(|acc_id| (*acc_id).try_into().unwrap())
             .collect();
-    let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
+    let res =
+        sql::select_accounts_by_block_range(&mut conn, 0.into(), u32::MAX.into(), &account_ids)
+            .unwrap();
     assert!(res.is_empty());
 
     // test insertion
@@ -818,7 +830,9 @@ fn db_account() {
     assert_eq!(row_count, 1);
 
     // test successful query
-    let res = sql::select_accounts_by_block_range(&mut conn, 0, u32::MAX, &account_ids).unwrap();
+    let res =
+        sql::select_accounts_by_block_range(&mut conn, 0.into(), u32::MAX.into(), &account_ids)
+            .unwrap();
     assert_eq!(
         res,
         vec![AccountSummary {
@@ -829,15 +843,20 @@ fn db_account() {
     );
 
     // test query for update outside the block range
-    let res = sql::select_accounts_by_block_range(&mut conn, block_num + 1, u32::MAX, &account_ids)
-        .unwrap();
+    let res = sql::select_accounts_by_block_range(
+        &mut conn,
+        block_num + 1,
+        u32::MAX.into(),
+        &account_ids,
+    )
+    .unwrap();
     assert!(res.is_empty());
 
     // test query with unknown accounts
     let res = sql::select_accounts_by_block_range(
         &mut conn,
         block_num + 1,
-        u32::MAX,
+        u32::MAX.into(),
         &[6.try_into().unwrap(), 7.try_into().unwrap(), 8.try_into().unwrap()],
     )
     .unwrap();
@@ -848,15 +867,16 @@ fn db_account() {
 fn notes() {
     let mut conn = create_db();
 
-    let block_num_1 = 1;
+    let block_num_1 = 1.into();
     create_block(&mut conn, block_num_1);
 
     // test empty table
-    let res = sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0).unwrap();
+    let res =
+        sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0.into()).unwrap();
     assert!(res.is_empty());
 
-    let res =
-        sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[1, 2, 3], &[], 0).unwrap();
+    let res = sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[1, 2, 3], &[], 0.into())
+        .unwrap();
     assert!(res.is_empty());
 
     // test insertion
@@ -869,7 +889,7 @@ fn notes() {
             .unwrap();
 
     let values = [(note_index, note_id.into(), note_metadata)];
-    let notes_db = BlockNoteTree::with_entries(values.iter().cloned()).unwrap();
+    let notes_db = BlockNoteTree::with_entries(values.iter().copied()).unwrap();
     let details = Some(vec![1, 2, 3]);
     let merkle_path = notes_db.get_note_path(note_index);
 
@@ -882,7 +902,7 @@ fn notes() {
             NoteType::Public,
             tag.into(),
             NoteExecutionHint::none(),
-            Default::default(),
+            Felt::default(),
         )
         .unwrap(),
         details,
@@ -894,7 +914,8 @@ fn notes() {
     transaction.commit().unwrap();
 
     // test empty tags
-    let res = sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0).unwrap();
+    let res =
+        sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[], &[], 0.into()).unwrap();
     assert!(res.is_empty());
 
     // test no updates
@@ -903,9 +924,13 @@ fn notes() {
     assert!(res.is_empty());
 
     // test match
-    let res =
-        sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[tag], &[], block_num_1 - 1)
-            .unwrap();
+    let res = sql::select_notes_since_block_by_tag_and_sender(
+        &mut conn,
+        &[tag],
+        &[],
+        block_num_1.parent().unwrap(),
+    )
+    .unwrap();
     assert_eq!(res, vec![note.clone().into()]);
 
     let block_num_2 = note.block_num + 1;
@@ -926,9 +951,13 @@ fn notes() {
     transaction.commit().unwrap();
 
     // only first note is returned
-    let res =
-        sql::select_notes_since_block_by_tag_and_sender(&mut conn, &[tag], &[], block_num_1 - 1)
-            .unwrap();
+    let res = sql::select_notes_since_block_by_tag_and_sender(
+        &mut conn,
+        &[tag],
+        &[],
+        block_num_1.parent().unwrap(),
+    )
+    .unwrap();
     assert_eq!(res, vec![note.clone().into()]);
 
     // only the second note is returned
@@ -948,7 +977,7 @@ fn notes() {
     let note_0 = res[0].clone();
     let note_1 = res[1].clone();
     assert_eq!(note_0.details, Some(vec![1, 2, 3]));
-    assert_eq!(note_1.details, None)
+    assert_eq!(note_1.details, None);
 }
 
 // UTILITIES
@@ -975,7 +1004,7 @@ fn mock_block_account_update(account_id: AccountId, num: u64) -> BlockAccountUpd
 }
 
 fn insert_transactions(conn: &mut Connection) -> usize {
-    let block_num = 1;
+    let block_num = 1.into();
     create_block(conn, block_num);
 
     let transaction = conn.transaction().unwrap();

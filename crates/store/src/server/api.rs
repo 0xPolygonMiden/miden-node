@@ -3,8 +3,8 @@ use std::{collections::BTreeSet, sync::Arc};
 use miden_node_proto::{
     convert,
     domain::{
-        accounts::{AccountInfo, AccountProofRequest},
-        notes::NoteAuthenticationInfo,
+        account::{AccountInfo, AccountProofRequest},
+        note::NoteAuthenticationInfo,
     },
     errors::ConversionError,
     generated::{
@@ -32,10 +32,10 @@ use miden_node_proto::{
     try_convert,
 };
 use miden_objects::{
-    accounts::AccountId,
-    block::Block,
+    account::AccountId,
+    block::{Block, BlockNumber},
     crypto::hash::rpo::RpoDigest,
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     utils::{Deserializable, Serializable},
 };
 use tonic::{Request, Response, Status};
@@ -72,7 +72,7 @@ impl api_server::Api for StoreApi {
         info!(target: COMPONENT, ?request);
         let request = request.into_inner();
 
-        let block_num = request.block_num;
+        let block_num = request.block_num.map(BlockNumber::from);
         let (block_header, mmr_proof) = self
             .state
             .get_block_header(block_num, request.include_mmr_proof.unwrap_or(false))
@@ -138,7 +138,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|nullifier_info| NullifierUpdate {
                 nullifier: Some(nullifier_info.nullifier.into()),
-                block_num: nullifier_info.block_num,
+                block_num: nullifier_info.block_num.as_u32(),
             })
             .collect();
 
@@ -164,7 +164,12 @@ impl api_server::Api for StoreApi {
 
         let (state, delta) = self
             .state
-            .sync_state(request.block_num, account_ids, request.note_tags, request.nullifiers)
+            .sync_state(
+                request.block_num.into(),
+                account_ids,
+                request.note_tags,
+                request.nullifiers,
+            )
             .await
             .map_err(internal_error)?;
 
@@ -174,7 +179,7 @@ impl api_server::Api for StoreApi {
             .map(|account_info| AccountSummary {
                 account_id: Some(account_info.account_id.into()),
                 account_hash: Some(account_info.account_hash.into()),
-                block_num: account_info.block_num,
+                block_num: account_info.block_num.as_u32(),
             })
             .collect();
 
@@ -183,7 +188,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|transaction_summary| TransactionSummary {
                 account_id: Some(transaction_summary.account_id.into()),
-                block_num: transaction_summary.block_num,
+                block_num: transaction_summary.block_num.as_u32(),
                 transaction_id: Some(transaction_summary.transaction_id.into()),
             })
             .collect();
@@ -195,12 +200,12 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|nullifier_info| NullifierUpdate {
                 nullifier: Some(nullifier_info.nullifier.into()),
-                block_num: nullifier_info.block_num,
+                block_num: nullifier_info.block_num.as_u32(),
             })
             .collect();
 
         Ok(Response::new(SyncStateResponse {
-            chain_tip: self.state.latest_block_num().await,
+            chain_tip: self.state.latest_block_num().await.as_u32(),
             block_header: Some(state.block_header.into()),
             mmr_delta: Some(delta.into()),
             accounts,
@@ -226,14 +231,14 @@ impl api_server::Api for StoreApi {
 
         let (state, mmr_proof) = self
             .state
-            .sync_notes(request.block_num, request.note_tags)
+            .sync_notes(request.block_num.into(), request.note_tags)
             .await
             .map_err(internal_error)?;
 
         let notes = state.notes.into_iter().map(Into::into).collect();
 
         Ok(Response::new(SyncNoteResponse {
-            chain_tip: self.state.latest_block_num().await,
+            chain_tip: self.state.latest_block_num().await.as_u32(),
             block_header: Some(state.block_header.into()),
             mmr_path: Some((&mmr_proof.merkle_path).into()),
             notes,
@@ -259,7 +264,7 @@ impl api_server::Api for StoreApi {
         let note_ids = request.into_inner().note_ids;
 
         let note_ids: Vec<RpoDigest> = try_convert(note_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
 
         let note_ids: Vec<NoteId> = note_ids.into_iter().map(From::from).collect();
 
@@ -274,7 +279,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetNotesByIdResponse { notes }))
     }
 
-    /// Returns a list of Note inclusion proofs for the specified NoteId's.
+    /// Returns the inclusion proofs of the specified notes.
     #[instrument(
         target = COMPONENT,
         name = "store:get_note_inclusion_proofs",
@@ -291,7 +296,7 @@ impl api_server::Api for StoreApi {
         let note_ids = request.into_inner().note_ids;
 
         let note_ids: Vec<RpoDigest> = try_convert(note_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
 
         let note_ids = note_ids.into_iter().map(From::from).collect();
 
@@ -354,7 +359,7 @@ impl api_server::Api for StoreApi {
             Status::invalid_argument(format!("Block deserialization error: {err}"))
         })?;
 
-        let block_num = block.header().block_num();
+        let block_num = block.header().block_num().as_u32();
 
         info!(
             target: COMPONENT,
@@ -421,7 +426,7 @@ impl api_server::Api for StoreApi {
             .get_transaction_inputs(account_id, &nullifiers, unauthenticated_notes)
             .await?;
 
-        let block_height = self.state.latest_block_num().await;
+        let block_height = self.state.latest_block_num().await.as_u32();
 
         Ok(Response::new(GetTransactionInputsResponse {
             account_state: Some(AccountTransactionInputRecord {
@@ -433,7 +438,7 @@ impl api_server::Api for StoreApi {
                 .into_iter()
                 .map(|nullifier| NullifierTransactionInputRecord {
                     nullifier: Some(nullifier.nullifier.into()),
-                    block_num: nullifier.block_num,
+                    block_num: nullifier.block_num.as_u32(),
                 })
                 .collect(),
             found_unauthenticated_notes: tx_inputs
@@ -460,7 +465,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let block = self.state.load_block(request.block_num).await?;
+        let block = self.state.load_block(request.block_num.into()).await?;
 
         Ok(Response::new(GetBlockByNumberResponse { block }))
     }
@@ -485,11 +490,11 @@ impl api_server::Api for StoreApi {
 
         let include_headers = include_headers.unwrap_or_default();
         let request_code_commitments: BTreeSet<RpoDigest> = try_convert(code_commitments)
-            .map_err(|err| Status::invalid_argument(format!("Invalid code commitment: {}", err)))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid code commitment: {err}")))?;
 
         let account_requests: Vec<AccountProofRequest> =
             try_convert(account_requests).map_err(|err| {
-                Status::invalid_argument(format!("Invalid account proofs request: {}", err))
+                Status::invalid_argument(format!("Invalid account proofs request: {err}"))
             })?;
 
         let (block_num, infos) = self
@@ -498,7 +503,7 @@ impl api_server::Api for StoreApi {
             .await?;
 
         Ok(Response::new(GetAccountProofsResponse {
-            block_num,
+            block_num: block_num.as_u32(),
             account_proofs: infos.into_iter().map(Into::into).collect(),
         }))
     }
@@ -521,7 +526,11 @@ impl api_server::Api for StoreApi {
         let account_id = read_account_id(request.account_id)?;
         let delta = self
             .state
-            .get_account_state_delta(account_id, request.from_block_num, request.to_block_num)
+            .get_account_state_delta(
+                account_id,
+                request.from_block_num.into(),
+                request.to_block_num.into(),
+            )
             .await?
             .map(|delta| delta.to_bytes());
 
@@ -545,7 +554,7 @@ fn invalid_argument<E: core::fmt::Display>(err: E) -> Status {
 fn read_account_id(id: Option<generated::account::AccountId>) -> Result<AccountId, Status> {
     id.ok_or(invalid_argument("missing account ID"))?
         .try_into()
-        .map_err(|err| invalid_argument(format!("invalid account ID: {}", err)))
+        .map_err(|err| invalid_argument(format!("invalid account ID: {err}")))
 }
 
 #[instrument(target = COMPONENT, skip_all, err)]
@@ -564,7 +573,7 @@ fn read_account_ids(
 fn validate_nullifiers(nullifiers: &[generated::digest::Digest]) -> Result<Vec<Nullifier>, Status> {
     nullifiers
         .iter()
-        .cloned()
+        .copied()
         .map(TryInto::try_into)
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))

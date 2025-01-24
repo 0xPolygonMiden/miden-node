@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use hex::{FromHex, ToHex};
-use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
+use miden_objects::{note::NoteId, Digest, Felt, StarkField};
 
 use crate::{errors::ConversionError, generated::digest as proto};
 
@@ -159,19 +159,19 @@ impl TryFrom<proto::Digest> for [Felt; 4] {
     type Error = ConversionError;
 
     fn try_from(value: proto::Digest) -> Result<Self, Self::Error> {
-        if ![value.d0, value.d1, value.d2, value.d3]
+        if [value.d0, value.d1, value.d2, value.d3]
             .iter()
-            .all(|v| *v < <Felt as StarkField>::MODULUS)
+            .any(|v| *v >= <Felt as StarkField>::MODULUS)
         {
-            Err(ConversionError::NotAValidFelt)
-        } else {
-            Ok([
-                Felt::new(value.d0),
-                Felt::new(value.d1),
-                Felt::new(value.d2),
-                Felt::new(value.d3),
-            ])
+            return Err(ConversionError::NotAValidFelt);
         }
+
+        Ok([
+            Felt::new(value.d0),
+            Felt::new(value.d1),
+            Felt::new(value.d2),
+            Felt::new(value.d3),
+        ])
     }
 }
 
@@ -212,10 +212,10 @@ mod test {
     #[test]
     fn hex_digest() {
         let digest = proto::Digest {
-            d0: 3488802789098113751,
-            d1: 5271242459988994564,
-            d2: 17816570245237064784,
-            d3: 10910963388447438895,
+            d0: 0x306A_B7A6_F795_CAD7,
+            d1: 0x4927_3716_D099_AA04,
+            d2: 0xF741_2C3D_E726_4450,
+            d3: 0x976B_8764_9DB3_B82F,
         };
         let encoded: String = ToHex::encode_hex(&digest);
         let round_trip: Result<proto::Digest, _> = FromHex::from_hex::<&[u8]>(encoded.as_ref());

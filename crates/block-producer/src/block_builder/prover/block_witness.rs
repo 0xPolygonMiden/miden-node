@@ -1,17 +1,17 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
-    accounts::{delta::AccountUpdateDetails, AccountId},
-    block::BlockAccountUpdate,
+    account::{delta::AccountUpdateDetails, AccountId},
+    block::{BlockAccountUpdate, BlockHeader},
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
-    notes::Nullifier,
+    note::Nullifier,
     transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
-    BlockHeader, Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
+    Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
 use crate::{
-    batch_builder::{batch::AccountUpdate, TransactionBatch},
+    batch_builder::batch::{AccountUpdate, TransactionBatch},
     block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
 };
@@ -23,7 +23,7 @@ use crate::{
 #[derive(Debug, PartialEq)]
 pub struct BlockWitness {
     pub(super) updated_accounts: Vec<(AccountId, AccountUpdateWitness)>,
-    /// (batch_index, created_notes_root) for batches that contain notes
+    /// (`batch_index`, `created_notes_root`) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
     pub(super) produced_nullifiers: BTreeMap<Nullifier, SmtProof>,
     pub(super) chain_peaks: MmrPeaks,
@@ -162,7 +162,7 @@ impl BlockWitness {
             block_inputs.nullifiers.keys().copied().collect();
 
         let produced_nullifiers_from_batches: BTreeSet<Nullifier> =
-            batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+            batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
 
         if produced_nullifiers_from_store == produced_nullifiers_from_batches {
             Ok(())
@@ -218,8 +218,7 @@ impl BlockWitness {
                 let empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
                 advice_stack.extend(*empty_root);
 
-                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter()
-                {
+                for (batch_index, batch_created_notes_root) in &self.batch_created_notes_roots {
                     advice_stack.extend(batch_created_notes_root.iter());
 
                     let batch_index = Felt::try_from(*batch_index as u64)

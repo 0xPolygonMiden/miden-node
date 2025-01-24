@@ -13,9 +13,9 @@ use std::{
 use miden_node_proto::{
     convert,
     domain::{
-        accounts::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
-        blocks::BlockInclusionProof,
-        notes::NoteAuthenticationInfo,
+        account::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
+        block::BlockInclusionProof,
+        note::NoteAuthenticationInfo,
     },
     generated::responses::{
         AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse, StorageSlotMapProof,
@@ -24,16 +24,16 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::{AccountDelta, AccountHeader, AccountId, StorageSlot},
-    block::Block,
+    account::{AccountDelta, AccountHeader, AccountId, StorageSlot},
+    block::{Block, BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SmtProof, ValuePath},
     },
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
-    AccountError, BlockHeader,
+    AccountError,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -51,7 +51,6 @@ use crate::{
         StateSyncError,
     },
     nullifier_tree::NullifierTree,
-    types::BlockNumber,
     COMPONENT,
 };
 // STRUCTURES
@@ -105,9 +104,11 @@ struct InnerState {
 impl InnerState {
     /// Returns the latest block number.
     fn latest_block_num(&self) -> BlockNumber {
-        (self.chain_mmr.forest() - 1)
+        let block_number: u32 = (self.chain_mmr.forest() - 1)
             .try_into()
-            .expect("Chain MMR forest number must fit into `u32`")
+            .expect("Chain MMR forest number must fit into `u32`");
+
+        block_number.into()
     }
 }
 
@@ -241,7 +242,7 @@ impl State {
                 .nullifiers()
                 .iter()
                 .filter(|&n| inner.nullifier_tree.get_block_num(n).is_some())
-                .cloned()
+                .copied()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
                 return Err(InvalidBlockError::DuplicatedNullifiers(duplicate_nullifiers).into());
@@ -298,10 +299,10 @@ impl State {
                 let details = match note {
                     OutputNote::Full(note) => Some(note.to_bytes()),
                     OutputNote::Header(_) => None,
-                    note => {
+                    note @ OutputNote::Partial(_) => {
                         return Err(InvalidBlockError::InvalidOutputNoteType(Box::new(
                             note.clone(),
-                        )))
+                        )));
                     },
                 };
 
@@ -385,7 +386,7 @@ impl State {
             inner.account_tree.update_storage_mut().add(block_num, reverse_update).await?;
         }
 
-        info!(%block_hash, block_num, COMPONENT, "apply_block successful");
+        info!(%block_hash, block_num = block_num.as_u32(), COMPONENT, "apply_block successful");
 
         Ok(())
     }
@@ -404,7 +405,7 @@ impl State {
         if let Some(header) = block_header {
             let mmr_proof = if include_mmr_proof {
                 let inner = self.inner.read().await;
-                let mmr_proof = inner.chain_mmr.open(header.block_num() as usize)?;
+                let mmr_proof = inner.chain_mmr.open(header.block_num().as_usize())?;
                 Some(mmr_proof)
             } else {
                 None
@@ -433,10 +434,10 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
-    /// Queries a list of [NoteRecord] from the database.
+    /// Queries a list of [`NoteRecord`] from the database.
     ///
-    /// If the provided list of [NoteId] given is empty or no [NoteRecord] matches the provided
-    /// [NoteId] an empty list is returned.
+    /// If the provided list of [`NoteId`] given is empty or no [`NoteRecord`] matches the provided
+    /// [`NoteId`] an empty list is returned.
     pub async fn get_notes_by_id(
         &self,
         note_ids: Vec<NoteId>,
@@ -475,16 +476,16 @@ impl State {
             let paths = blocks
                 .iter()
                 .map(|&block_num| {
-                    let proof = state.chain_mmr.open(block_num as usize)?.merkle_path;
+                    let proof = state.chain_mmr.open(block_num.as_usize())?.merkle_path;
 
                     Ok::<_, MmrError>((block_num, proof))
                 })
                 .collect::<Result<BTreeMap<_, _>, MmrError>>()?;
 
-            let chain_length = BlockNumber::try_from(chain_length)
-                .expect("Forest is a chain length so should fit into block number");
+            let chain_length = u32::try_from(chain_length)
+                .expect("Forest is a chain length so should fit into a u32");
 
-            (chain_length, paths)
+            (chain_length.into(), paths)
         };
 
         let headers = self.db.select_block_headers(blocks).await?;
@@ -536,7 +537,10 @@ impl State {
 
         let delta = if block_num == state_sync.block_header.block_num() {
             // The client is in sync with the chain tip.
-            MmrDelta { forest: block_num as usize, data: vec![] }
+            MmrDelta {
+                forest: block_num.as_usize(),
+                data: vec![],
+            }
         } else {
             // Important notes about the boundary conditions:
             //
@@ -547,8 +551,8 @@ impl State {
             // - Mmr::get_delta is inclusive, whereas the sync_state request block_num is defined to
             //   be
             // exclusive, so the from_forest has to be adjusted with a +1
-            let from_forest = (block_num + 1) as usize;
-            let to_forest = state_sync.block_header.block_num() as usize;
+            let from_forest = (block_num + 1).as_usize();
+            let to_forest = state_sync.block_header.block_num().as_usize();
             inner
                 .chain_mmr
                 .get_delta(from_forest, to_forest)
@@ -579,7 +583,7 @@ impl State {
 
         let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
 
-        let mmr_proof = inner.chain_mmr.open(note_sync.block_header.block_num() as usize)?;
+        let mmr_proof = inner.chain_mmr.open(note_sync.block_header.block_num().as_usize())?;
 
         Ok((note_sync, mmr_proof))
     }
@@ -600,7 +604,7 @@ impl State {
             .ok_or(GetBlockInputsError::DbBlockHeaderEmpty)?;
 
         // sanity check
-        if inner.chain_mmr.forest() != latest.block_num() as usize + 1 {
+        if inner.chain_mmr.forest() != latest.block_num().as_usize() + 1 {
             return Err(GetBlockInputsError::IncorrectChainMmrForestNumber {
                 forest: inner.chain_mmr.forest(),
                 block_num: latest.block_num(),
@@ -610,15 +614,15 @@ impl State {
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
         let chain_peaks =
-            inner.chain_mmr.peaks_at(latest.block_num() as usize).map_err(|error| {
+            inner.chain_mmr.peaks_at(latest.block_num().as_usize()).map_err(|error| {
                 GetBlockInputsError::FailedToGetMmrPeaksForForest {
-                    forest: latest.block_num() as usize,
+                    forest: latest.block_num().as_usize(),
                     error,
                 }
             })?;
         let account_states = account_ids
             .iter()
-            .cloned()
+            .copied()
             .map(|account_id| {
                 let ValuePath { value: account_hash, path: proof } = inner
                     .account_tree
@@ -705,7 +709,7 @@ impl State {
         let account_ids: Vec<AccountId> =
             account_requests.iter().map(|req| req.account_id).collect();
 
-        let state_headers = if !include_headers {
+        let state_headers = if include_headers.not() {
             BTreeMap::<AccountId, AccountStateHeader>::default()
         } else {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
@@ -738,7 +742,7 @@ impl State {
                                 let proof = storage_map.open(map_key);
 
                                 let slot_map_key = StorageSlotMapProof {
-                                    storage_slot: *storage_index as u32,
+                                    storage_slot: u32::from(*storage_index),
                                     smt_proof: proof.to_bytes(),
                                 };
                                 storage_slot_map_keys.push(slot_map_key);
