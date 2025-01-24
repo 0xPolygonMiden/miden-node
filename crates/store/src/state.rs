@@ -144,9 +144,7 @@ impl State {
         let account_tree = AccountTree::new(
             &mut db,
             update_storage_path,
-            BlockNumber::try_from(chain_mmr.forest())
-                .expect("Chain MMR forest number must fit into `u32`")
-                - 1,
+            BlockNumber::from_usize(chain_mmr.forest() - 1),
         )
         .await?;
 

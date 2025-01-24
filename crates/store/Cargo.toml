@@ -17,7 +17,7 @@ workspace = true
 [dependencies]
 deadpool-sqlite = { version = "0.9.0", features = ["rt_tokio_1"] }
 hex = { version = "0.4" }
-miden-crypto = { version = "0.12" }
+miden-crypto = { version = "0.13" }
 miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
