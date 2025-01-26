@@ -1,62 +1,62 @@
 [workspace]
 members = [
-  "bin/node",
   "bin/faucet",
+  "bin/node",
   "crates/block-producer",
   "crates/proto",
-  "crates/rpc-proto",
   "crates/rpc",
+  "crates/rpc-proto",
   "crates/store",
-  "crates/utils",
   "crates/test-macro",
+  "crates/utils",
 ]
 
 resolver = "2"
 
 [workspace.package]
-edition = "2021"
+authors      = ["Miden contributors"]
+edition      = "2021"
+exclude      = [".github/"]
+homepage     = "https://polygon.technology/polygon-miden"
+license      = "MIT"
+readme       = "README.md"
+repository   = "https://github.com/0xPolygonMiden/miden-node"
 rust-version = "1.84"
-version = "0.8.0"
-license = "MIT"
-authors = ["Miden contributors"]
-homepage = "https://polygon.technology/polygon-miden"
-repository = "https://github.com/0xPolygonMiden/miden-node"
-exclude = [".github/"]
-readme = "README.md"
+version      = "0.8.0"
 
 [workspace.dependencies]
-assert_matches = { version = "1.5" }
-miden-air = { version = "0.12" }
-miden-lib = { version = "0.7" }
+assert_matches            = { version = "1.5" }
+miden-air                 = { version = "0.12" }
+miden-lib                 = { version = "0.7" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.8" }
-miden-node-proto = { path = "crates/proto", version = "0.8" }
-miden-node-rpc = { path = "crates/rpc", version = "0.8" }
-miden-node-store = { path = "crates/store", version = "0.8" }
-miden-node-test-macro = { path = "crates/test-macro" }
-miden-node-utils = { path = "crates/utils", version = "0.8" }
-miden-objects = { version = "0.7" }
-miden-processor = { version = "0.12" }
-miden-stdlib = { version = "0.12", default-features = false }
-miden-tx = { version = "0.7" }
-prost = { version = "0.13" }
-rand = { version = "0.8" }
-thiserror = { version = "2.0", default-features = false }
-tokio = { version = "1.40", features = ["rt-multi-thread"] }
-tokio-stream = { version = "0.1" }
-tonic = { version = "0.12" }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = ["fmt",  "json",  "env-filter"] }
+miden-node-proto          = { path = "crates/proto", version = "0.8" }
+miden-node-rpc            = { path = "crates/rpc", version = "0.8" }
+miden-node-store          = { path = "crates/store", version = "0.8" }
+miden-node-test-macro     = { path = "crates/test-macro" }
+miden-node-utils          = { path = "crates/utils", version = "0.8" }
+miden-objects             = { version = "0.7" }
+miden-processor           = { version = "0.12" }
+miden-stdlib              = { version = "0.12", default-features = false }
+miden-tx                  = { version = "0.7" }
+prost                     = { version = "0.13" }
+rand                      = { version = "0.8" }
+thiserror                 = { version = "2.0", default-features = false }
+tokio                     = { version = "1.40", features = ["rt-multi-thread"] }
+tokio-stream              = { version = "0.1" }
+tonic                     = { version = "0.12" }
+tracing                   = { version = "0.1" }
+tracing-subscriber        = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 
 # Lints are set to warn for development, which are promoted to errors in CI.
 [workspace.lints.clippy]
 # Pedantic lints are set to a lower priority which allows lints in the group to be selectively enabled.
-pedantic = { level = "warn", priority = -1 }
-cast_possible_truncation =    "allow" # Overly many instances especially regarding indices.
-ignored_unit_patterns =       "allow" # Stylistic choice.
-large_types_passed_by_value = "allow" # Triggered by BlockHeader being Copy + 334 bytes.
-missing_errors_doc =          "allow" # TODO: fixup and enable this.
-missing_panics_doc =          "allow" # TODO: fixup and enable this.
-module_name_repetitions =     "allow" # Many triggers, and is a stylistic choice.
-must_use_candidate =          "allow" # This marks many fn's which isn't helpful.
-should_panic_without_expect = "allow" # We don't care about the specific panic message.
+cast_possible_truncation    = "allow"                           # Overly many instances especially regarding indices.
+ignored_unit_patterns       = "allow"                           # Stylistic choice.
+large_types_passed_by_value = "allow"                           # Triggered by BlockHeader being Copy + 334 bytes.
+missing_errors_doc          = "allow"                           # TODO: fixup and enable this.
+missing_panics_doc          = "allow"                           # TODO: fixup and enable this.
+module_name_repetitions     = "allow"                           # Many triggers, and is a stylistic choice.
+must_use_candidate          = "allow"                           # This marks many fn's which isn't helpful.
+pedantic                    = { level = "warn", priority = -1 }
+should_panic_without_expect = "allow"                           # We don't care about the specific panic message.
 # End of pedantic lints.
