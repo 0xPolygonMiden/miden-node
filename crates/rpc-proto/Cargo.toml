@@ -1,20 +1,20 @@
 [package]
-name = "miden-rpc-proto"
-version.workspace = true
-description = "Miden node RPC message definitions"
-readme = "README.md"
-keywords = ["miden", "node", "protobuf", "rpc"]
-categories = ["no-std::no-alloc"]
-edition.workspace = true
+authors.workspace      = true
+categories             = ["no-std::no-alloc"]
+description            = "Miden node RPC message definitions"
+edition.workspace      = true
+homepage.workspace     = true
+keywords               = ["miden", "node", "protobuf", "rpc"]
+license.workspace      = true
+name                   = "miden-rpc-proto"
+readme                 = "README.md"
+repository.workspace   = true
 rust-version.workspace = true
-license.workspace = true
-authors.workspace = true
-homepage.workspace = true
-repository.workspace = true
+version.workspace      = true
 
 [lints]
 workspace = true
 
 [features]
 default = ["std"]
-std = []
+std     = []

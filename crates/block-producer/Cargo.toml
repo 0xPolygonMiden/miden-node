@@ -1,15 +1,15 @@
 [package]
-name = "miden-node-block-producer"
-version.workspace = true
-description = "Miden node's block producer component"
-readme = "README.md"
-keywords = ["miden", "node", "block-producer"]
-edition.workspace = true
+authors.workspace      = true
+description            = "Miden node's block producer component"
+edition.workspace      = true
+homepage.workspace     = true
+keywords               = ["block-producer", "miden", "node"]
+license.workspace      = true
+name                   = "miden-node-block-producer"
+readme                 = "README.md"
+repository.workspace   = true
 rust-version.workspace = true
-license.workspace = true
-authors.workspace = true
-homepage.workspace = true
-repository.workspace = true
+version.workspace      = true
 
 [lints]
 workspace = true
@@ -18,31 +18,31 @@ workspace = true
 tracing-forest = ["miden-node-utils/tracing-forest"]
 
 [dependencies]
-async-trait = { version = "0.1" }
-itertools = { version = "0.13" }
-miden-lib = { workspace = true }
+async-trait      = { version = "0.1" }
+itertools        = { version = "0.13" }
+miden-lib        = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
-miden-objects = { workspace = true }
-miden-processor = { workspace = true }
-miden-stdlib = { workspace = true }
-miden-tx = { workspace = true }
-rand = { version = "0.8" }
-serde = { version = "1.0", features = ["derive"] }
-thiserror = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
-tokio-stream = { workspace = true, features = ["net"] }
-tonic = { workspace = true }
-tracing = { workspace = true }
+miden-objects    = { workspace = true }
+miden-processor  = { workspace = true }
+miden-stdlib     = { workspace = true }
+miden-tx         = { workspace = true }
+rand             = { version = "0.8" }
+serde            = { version = "1.0", features = ["derive"] }
+thiserror        = { workspace = true }
+tokio            = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
+tokio-stream     = { workspace = true, features = ["net"] }
+tonic            = { workspace = true }
+tracing          = { workspace = true }
 
 [dev-dependencies]
-assert_matches = { workspace = true}
-miden-air = { workspace = true }
-miden-lib = { workspace = true, features = ["testing"] }
+assert_matches        = { workspace = true }
+miden-air             = { workspace = true }
+miden-lib             = { workspace = true, features = ["testing"] }
 miden-node-test-macro = { path = "../test-macro" }
-miden-objects = { workspace = true, features = ["testing"] }
-miden-tx = { workspace = true, features = ["testing"] }
-pretty_assertions = "1.4"
-rand_chacha = { version = "0.3", default-features = false }
-tokio = { workspace = true, features = ["test-util"] }
-winterfell = { version = "0.11" }
+miden-objects         = { workspace = true, features = ["testing"] }
+miden-tx              = { workspace = true, features = ["testing"] }
+pretty_assertions     = "1.4"
+rand_chacha           = { version = "0.3", default-features = false }
+tokio                 = { workspace = true, features = ["test-util"] }
+winterfell            = { version = "0.11" }

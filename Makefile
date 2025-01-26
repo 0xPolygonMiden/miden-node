@@ -31,8 +31,18 @@ format-check: ## Runs Format using nightly toolchain but only in check mode
 	cargo +nightly fmt --all --check
 
 
+.PHONY: toml
+toml: ## Runs Format for all TOML files
+	taplo fmt
+
+
+.PHONY: toml-check
+toml-check: ## Runs Format for all TOML files but only in check mode
+	taplo fmt --check --verbose
+
+
 .PHONY: lint
-lint: format fix clippy ## Runs all linting tasks at once (Clippy, fixing, formatting)
+lint: format fix clippy toml ## Runs all linting tasks at once (Clippy, fixing, formatting)
 
 # --- docs ----------------------------------------------------------------------------------------
 
