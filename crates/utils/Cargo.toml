@@ -21,7 +21,7 @@ vergen = ["dep:vergen", "dep:vergen-gitcl"]
 [dependencies]
 anyhow             = { version = "1.0" }
 figment            = { version = "0.10", features = ["env", "toml"] }
-itertools          = { version = "0.12" }
+itertools          = { workspace = true }
 miden-objects      = { workspace = true }
 rand               = { workspace = true }
 serde              = { version = "1.0", features = ["derive"] }
