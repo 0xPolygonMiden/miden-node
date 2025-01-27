@@ -29,9 +29,6 @@ pub enum HandlerError {
 
     #[error("invalid asset amount {requested} requested, valid options are {options:?}")]
     InvalidAssetAmount { requested: u64, options: Vec<u64> },
-
-    #[error("not found")]
-    NotFound,
 }
 
 impl HandlerError {
@@ -41,7 +38,6 @@ impl HandlerError {
                 StatusCode::BAD_REQUEST
             },
             Self::ClientError(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::NotFound => StatusCode::NOT_FOUND,
         }
     }
 
