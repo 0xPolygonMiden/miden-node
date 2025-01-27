@@ -62,4 +62,4 @@ should_panic_without_expect = "allow" # We don't care about the specific panic m
 # End of pedantic lints.
 
 [patch.crates-io]
-miden-crypto = { git = "https://github.com/0xPolygonMiden/crypto.git", branch = "polydez-mutations-revert" }
+miden-crypto = { git = "https://github.com/0xPolygonMiden/crypto.git", branch = "polydez-old-state-proofs" }

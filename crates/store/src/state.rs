@@ -28,12 +28,14 @@ use miden_objects::{
     block::{Block, BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SmtProof, ValuePath},
+        merkle::{
+            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
+        },
     },
     note::{NoteId, Nullifier},
     transaction::OutputNote,
     utils::Serializable,
-    AccountError,
+    AccountError, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -42,7 +44,7 @@ use tokio::{
 use tracing::{info, info_span, instrument};
 
 use crate::{
-    account_tree::AccountTree,
+    account_tree::{AccountTree, FileUpdatesStorage},
     blocks::BlockStore,
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
@@ -98,7 +100,7 @@ pub struct TransactionInputs {
 struct InnerState {
     nullifier_tree: NullifierTree,
     chain_mmr: Mmr,
-    account_tree: AccountTree,
+    account_tree: AccountTree<FileUpdatesStorage>,
 }
 
 impl InnerState {
@@ -141,9 +143,11 @@ impl State {
     ) -> Result<Self, StateInitializationError> {
         let nullifier_tree = load_nullifier_tree(&mut db).await?;
         let chain_mmr = load_mmr(&mut db).await?;
+        let accounts = load_accounts(&mut db).await?;
+        let updates_storage = FileUpdatesStorage::new(update_storage_path).await?;
         let account_tree = AccountTree::new(
-            &mut db,
-            update_storage_path,
+            accounts,
+            updates_storage,
             BlockNumber::from_usize(chain_mmr.forest() - 1),
         )
         .await?;
@@ -374,14 +378,12 @@ impl State {
                 .nullifier_tree
                 .apply_mutations(nullifier_tree_update)
                 .expect("Unreachable: old nullifier tree root must be checked before this step");
-            let reverse_update = inner
+            inner
                 .account_tree
-                .accounts_mut()
-                .apply_mutations_with_reversion(account_tree_update)
-                .expect("Unreachable: old account tree root must be checked before this step");
+                .apply_mutations(block_num, account_tree_update)
+                .await
+                .expect("Fatal: failed to save reverse update");
             inner.chain_mmr.add(block_hash);
-
-            inner.account_tree.update_storage_mut().add(block_num, reverse_update).await?;
         }
 
         info!(%block_hash, block_num = block_num.as_u32(), COMPONENT, "apply_block successful");
@@ -848,4 +850,19 @@ async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
         db.select_all_block_headers().await?.iter().map(BlockHeader::hash).collect();
 
     Ok(block_hashes.into())
+}
+
+#[instrument(target = COMPONENT, skip_all)]
+async fn load_accounts(
+    db: &mut Db,
+) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
+    let account_data: Vec<_> = db
+        .select_all_account_hashes()
+        .await?
+        .into_iter()
+        .map(|(id, account_hash)| (id.prefix().into(), account_hash.into()))
+        .collect();
+
+    SimpleSmt::with_leaves(account_data)
+        .map_err(StateInitializationError::FailedToCreateAccountsTree)
 }
