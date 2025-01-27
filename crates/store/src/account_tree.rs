@@ -251,15 +251,11 @@ impl<S: PersistentUpdatesStorage + Debug> AccountSmtUpdates<S> {
         self.storage
             .save(block_num.parent().expect("Latest block number must be positive"), &update)
             .await?;
-        self.add_internal(block_num, update);
+        self.updates.insert(0, update);
+        self.latest_block_num = block_num;
         self.truncate_updates().await?;
 
         Ok(())
-    }
-
-    fn add_internal(&mut self, block_num: BlockNumber, update: Update) {
-        self.updates.insert(0, update);
-        self.latest_block_num = block_num;
     }
 
     #[instrument(target = COMPONENT)]
@@ -370,8 +366,8 @@ mod tests {
 
     use super::AccountTree;
 
-    #[test]
-    fn compute_opening() {
+    #[tokio::test]
+    async fn compute_opening() {
         fn account_smt_update(key: u64, value: u64) -> (LeafIndex<ACCOUNT_TREE_DEPTH>, Word) {
             (
                 LeafIndex::new(key).unwrap(),
@@ -424,9 +420,9 @@ mod tests {
         for (block_num, update) in updates.into_iter().enumerate() {
             snapshots.push(tree.accounts().clone());
             let mutations = tree.accounts().compute_mutations(update);
-            let reverse_update = tree.accounts.apply_mutations_with_reversion(mutations).unwrap();
-            tree.updates
-                .add_internal(BlockNumber::from_usize(block_num).child(), reverse_update.clone());
+            tree.apply_mutations(BlockNumber::from_usize(block_num).child(), mutations)
+                .await
+                .unwrap();
 
             for i in 0..=(block_num + 1) {
                 for id in ids {
