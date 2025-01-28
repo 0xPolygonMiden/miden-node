@@ -51,6 +51,12 @@ doc-serve: ## Serves documentation site
 test:  ## Runs all tests
 	cargo nextest run --all-features --workspace --no-capture
 
+# --- benchmarking --------------------------------------------------------------------------------
+
+.PHONY: bench
+bench:  ## Runs benchmarking
+	cargo run --bin bench --release
+
 # --- checking ------------------------------------------------------------------------------------
 
 .PHONY: check
