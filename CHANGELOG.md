@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.7.1 (2025-01-28)
+
 ### Changes
 
 - [BREAKING] Default faucet endpoint is now public instead of localhost (#647).
