@@ -26,6 +26,7 @@ version      = "0.8.0"
 
 [workspace.dependencies]
 assert_matches            = { version = "1.5" }
+itertools                 = { version = "0.14" }
 miden-air                 = { version = "0.12" }
 miden-lib                 = { version = "0.7" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.8" }
