@@ -111,11 +111,13 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     .await
     .unwrap();
 
-    let (insertion_time, num_insertions) = db_task.await.unwrap();
-    println!(
-        "Created notes: inserted {} blocks with avg insertion time {} ms",
+    let (insertion_time_per_block, total_insertion_time, num_insertions, store_file_size_over_time) =
+        db_task.await.unwrap();
+    print_metrics(
+        insertion_time_per_block,
+        total_insertion_time,
         num_insertions,
-        (insertion_time / num_insertions).as_millis()
+        store_file_size_over_time,
     );
 
     // Spawn second block builder task
@@ -131,14 +133,57 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     })
     .await
     .unwrap();
-    let (insertion_time, num_insertions) = db_task.await.unwrap();
-    println!(
-        "Consumed notes: inserted {} blocks with avg insertion time {} ms",
+    let (insertion_time_per_block, total_insertion_time, num_insertions, store_file_size_over_time) =
+        db_task.await.unwrap();
+    print_metrics(
+        insertion_time_per_block,
+        total_insertion_time,
         num_insertions,
-        (insertion_time / num_insertions).as_millis()
+        store_file_size_over_time,
     );
 
     println!("Store loaded in {:.3} seconds", start.elapsed().as_secs_f64());
+}
+
+fn print_metrics(
+    insertion_time_per_block: Vec<Duration>,
+    total_insertion_time: Duration,
+    num_insertions: u32,
+    store_file_size_over_time: Vec<u64>,
+) {
+    println!(
+        "Created notes: inserted {} blocks with avg insertion time {} ms",
+        num_insertions,
+        (total_insertion_time / num_insertions).as_millis()
+    );
+
+    // Print out average insertion time per 1k blocks to track how insertion times increases.
+    // Using insertion_time_per_block and taking each 1k blocks to calculate it.
+    let mut avg_insertion_time = Duration::default();
+    for (i, time) in insertion_time_per_block.iter().enumerate() {
+        avg_insertion_time += *time;
+        if (i + 1) % 1000 == 0 {
+            println!(
+                "Inserted {} blocks with avg insertion time {} ms",
+                i + 1,
+                (avg_insertion_time / 1000).as_millis()
+            );
+            avg_insertion_time = Duration::default();
+        }
+    }
+
+    // Print out the store file size every 1k blocks to track the growth of the file.
+    println!("Store file size every 1k blocks:");
+    for (i, size) in store_file_size_over_time.iter().enumerate() {
+        println!("{}: {} bytes", i * 1000, size);
+    }
+
+    // Print out the average growth rate of the file
+    let initial_size = store_file_size_over_time.first().unwrap();
+    let final_size = store_file_size_over_time.last().unwrap();
+    let growth_rate = (final_size - initial_size) as f64 / num_insertions as f64;
+
+    println!("Average growth rate: {} bytes per block", growth_rate);
 }
 
 /// Create a new faucet account with a given anchor block.
@@ -190,35 +235,55 @@ fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64)
 }
 
 /// Build blocks from transaction batches. Each new block contains [`BATCHES_PER_BLOCK`] batches.
-/// Returns the total time spent on inserting blocks to the store and the number of inserted blocks.
+///
+/// Returns a tuple containing:
+/// - A vector of the time spent on inserting each block.
+/// - The total time spent on inserting blocks to the store.
+/// - The number of inserted blocks.
+/// - A vector containing the store file size every 1k blocks.
 async fn build_blocks(
     mut batch_receiver: UnboundedReceiver<TransactionBatch>,
     store_client: StoreClient,
-) -> (Duration, u32) {
+) -> (Vec<Duration>, Duration, u32, Vec<u64>) {
     let block_builder = BlockBuilder::new(store_client);
 
     let mut current_block: Vec<TransactionBatch> = Vec::with_capacity(BATCHES_PER_BLOCK);
-    let mut insertion_times = Vec::new();
+    let mut insertion_time_per_block = Vec::new();
+    // Keep track of the store file size every 1k blocks in a vector to track the growth of the
+    // file.
+    let mut store_file_sizes = Vec::new();
+    // Store the file size of the store before starting the insertion.
+    let store_file_size = std::fs::metadata("./miden-store.sqlite3").unwrap().len();
+    store_file_sizes.push(store_file_size);
+
+    let mut counter = 0;
     while let Some(batch) = batch_receiver.recv().await {
         current_block.push(batch);
 
         if current_block.len() == BATCHES_PER_BLOCK {
             let start = Instant::now();
             block_builder.build_block(&current_block).await.unwrap();
-            insertion_times.push(start.elapsed());
+            insertion_time_per_block.push(start.elapsed());
             current_block.clear();
         }
+
+        if counter % 1000 == 0 {
+            let store_file_size = std::fs::metadata("./miden-store.sqlite3").unwrap().len();
+            store_file_sizes.push(store_file_size);
+        }
+
+        counter += 1;
     }
 
     if !current_block.is_empty() {
         let start = Instant::now();
         block_builder.build_block(&current_block).await.unwrap();
-        insertion_times.push(start.elapsed());
+        insertion_time_per_block.push(start.elapsed());
     }
 
-    let num_insertions = insertion_times.len() as u32;
-    let insertion_time: Duration = insertion_times.iter().sum();
-    (insertion_time, num_insertions)
+    let num_insertions = insertion_time_per_block.len() as u32;
+    let total_insertion_time: Duration = insertion_time_per_block.iter().sum();
+    (insertion_time_per_block, total_insertion_time, num_insertions, store_file_sizes)
 }
 
 /// Create a given number of notes and group them into transactions and batches.
