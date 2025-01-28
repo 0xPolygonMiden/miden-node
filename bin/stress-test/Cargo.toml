@@ -1,6 +1,6 @@
 [package]
 name = "miden-node-stress-test"
-description = "Miden stress test binary"
+description = "A binary for running stress tests against the Miden node"
 keywords = ["miden", "stress-test"]
 edition.workspace = true
 rust-version.workspace = true
