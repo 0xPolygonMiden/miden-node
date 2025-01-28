@@ -13,7 +13,7 @@ endpoint = { host = "0.0.0.0", port = 57291 }
 
 [store]
 # port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-store', 1)) % 2**16
-endpoint = { host = "localhost", port = 28943 }
+blockstore_dir    = "/opt/miden/blocks"
 database_filepath = "/opt/miden/miden-store.sqlite3"
-genesis_filepath = "/opt/miden/genesis.dat"
-blockstore_dir = "/opt/miden/blocks"
+endpoint          = { host = "localhost", port = 28943 }
+genesis_filepath  = "/opt/miden/genesis.dat"
