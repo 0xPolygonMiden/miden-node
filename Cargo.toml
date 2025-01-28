@@ -2,6 +2,7 @@
 members = [
   "bin/node",
   "bin/faucet",
+  "bin/bench",
   "crates/block-producer",
   "crates/proto",
   "crates/rpc-proto",

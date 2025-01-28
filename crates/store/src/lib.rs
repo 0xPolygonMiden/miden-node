@@ -8,6 +8,9 @@ mod nullifier_tree;
 pub mod server;
 pub mod state;
 
+#[cfg(feature = "bench")]
+pub use account_tree::AccountTree;
+
 // CONSTANTS
 // =================================================================================================
 pub const COMPONENT: &str = "miden-store";

@@ -1,0 +1,23 @@
+[package]
+name = "bench"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+exclude.workspace = true
+readme.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+criterion = { version = "0.5" }
+miden-crypto = { version = "0.13" }
+miden-node-store = { workspace = true, features = ["bench"] }
+miden-objects = { workspace = true }
+rand = { workspace = true, features = ["std_rng"] }
+tokio = { workspace = true }
+winter-rand-utils = { version = "0.11.0" }
