@@ -16,7 +16,7 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 rust-version = "1.82"
-version = "0.7.0"
+version = "0.7.1"
 license = "MIT"
 authors = ["Miden contributors"]
 homepage = "https://polygon.technology/polygon-miden"
