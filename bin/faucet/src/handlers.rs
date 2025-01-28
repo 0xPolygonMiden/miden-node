@@ -116,10 +116,30 @@ pub async fn get_tokens(
         .map_err(Into::into)
 }
 
-pub async fn get_index(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
-    info!(target: COMPONENT, "Serving `index.html`");
+pub async fn get_index_html(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
+    get_static_file(state, "index.html")
+}
 
-    let static_file = state.static_files.get("index.html").expect("index.html should be bundled");
+pub async fn get_index_js(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
+    get_static_file(state, "index.js")
+}
+
+pub async fn get_index_css(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
+    get_static_file(state, "index.css")
+}
+
+/// Returns a static file bundled with the app state.
+///
+/// # Panics
+///
+/// Panics if the file does not exist.
+fn get_static_file(
+    State(state): State<FaucetState>,
+    file: &'static str,
+) -> Result<impl IntoResponse, HandlerError> {
+    info!(target: COMPONENT, file, "Serving static file");
+
+    let static_file = state.static_files.get(file).expect("static file not found");
 
     Response::builder()
         .status(StatusCode::OK)

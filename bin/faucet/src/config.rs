@@ -3,7 +3,9 @@ use std::{
     path::PathBuf,
 };
 
-use miden_node_utils::config::{Endpoint, DEFAULT_FAUCET_SERVER_PORT, DEFAULT_NODE_RPC_PORT};
+use miden_node_utils::config::{
+    Endpoint, Protocol, DEFAULT_FAUCET_SERVER_PORT, DEFAULT_NODE_RPC_PORT,
+};
 use serde::{Deserialize, Serialize};
 
 // Faucet config
@@ -42,7 +44,11 @@ impl Display for FaucetConfig {
 impl Default for FaucetConfig {
     fn default() -> Self {
         Self {
-            endpoint: Endpoint::localhost(DEFAULT_FAUCET_SERVER_PORT),
+            endpoint: Endpoint {
+                host: "0.0.0.0".to_string(),
+                port: DEFAULT_FAUCET_SERVER_PORT,
+                protocol: Protocol::Http,
+            },
             node_url: Endpoint::localhost(DEFAULT_NODE_RPC_PORT).to_string(),
             timeout_ms: DEFAULT_RPC_TIMEOUT_MS,
             asset_amount_options: vec![100, 500, 1000],
