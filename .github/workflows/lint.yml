@@ -59,11 +59,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
         with:
-          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
+          tool: cargo-workspace-lints
       - run: |
-          cargo install cargo-workspace-lints --locked
           make workspace-check
 
   doc:
