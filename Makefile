@@ -41,6 +41,11 @@ toml-check: ## Runs Format for all TOML files but only in check mode
 	taplo fmt --check --verbose
 
 
+.PHONY: workspace-check
+workspace-check: ## Runs a check that all packages have `lints.workspace = true`
+	cargo workspace-lints
+
+
 .PHONY: lint
 lint: format fix clippy toml ## Runs all linting tasks at once (Clippy, fixing, formatting)
 

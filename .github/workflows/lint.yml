@@ -54,6 +54,18 @@ jobs:
           tool: taplo-cli
       - run: make toml-check
 
+  workspace-lints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
+      - run: |
+          cargo install cargo-workspace-lints --locked
+          make workspace-check
+
   doc:
     name: doc
     runs-on: ubuntu-latest
