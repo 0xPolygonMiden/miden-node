@@ -100,8 +100,8 @@ runs:
       env:
         repo-url: ${{ github.server_url }}/${{ github.repository }}
       run: |
-        cargo install miden-node   --root . --locked --features testing --git ${{ env.repo-url }} --rev ${{ steps.git-sha.outputs.sha }}
-        cargo install miden-faucet --root . --locked --features testing --git ${{ env.repo-url }} --rev ${{ steps.git-sha.outputs.sha }}
+        cargo install miden-node   --root . --locked --git ${{ env.repo-url }} --rev ${{ steps.git-sha.outputs.sha }}
+        cargo install miden-faucet --root . --locked --git ${{ env.repo-url }} --rev ${{ steps.git-sha.outputs.sha }}
 
     - name: Copy binary files
       shell: bash
