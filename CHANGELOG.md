@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.7.2 (2025-01-29)
+
 ### Fixes
 
 - Faucet webpage rejects valid account IDs (#655).
