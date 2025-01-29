@@ -37,11 +37,23 @@ impl Display for BlockProducerConfig {
 impl Default for BlockProducerConfig {
     fn default() -> Self {
         Self {
-            endpoint: Url::parse(format!("127.0.0.1:{DEFAULT_BLOCK_PRODUCER_PORT}").as_str())
-                .unwrap(),
+            endpoint: Url::parse(
+                format!("http://127.0.0.1:{DEFAULT_BLOCK_PRODUCER_PORT}").as_str(),
+            )
+            .unwrap(),
             store_url: Url::parse(format!("http://127.0.0.1:{DEFAULT_STORE_PORT}").as_str())
                 .unwrap(),
             verify_tx_proofs: true,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BlockProducerConfig;
+
+    #[test]
+    fn default_block_producer_config() {
+        let _config = BlockProducerConfig::default();
     }
 }

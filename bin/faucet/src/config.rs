@@ -43,12 +43,23 @@ impl Display for FaucetConfig {
 impl Default for FaucetConfig {
     fn default() -> Self {
         Self {
-            endpoint: Url::parse(format!("0.0.0.0:{DEFAULT_FAUCET_SERVER_PORT}").as_str()).unwrap(),
+            endpoint: Url::parse(format!("http://0.0.0.0:{DEFAULT_FAUCET_SERVER_PORT}").as_str())
+                .unwrap(),
             node_url: Url::parse(format!("http://127.0.0.1:{DEFAULT_NODE_RPC_PORT}").as_str())
                 .unwrap(),
             timeout_ms: DEFAULT_RPC_TIMEOUT_MS,
             asset_amount_options: vec![100, 500, 1000],
             faucet_account_path: DEFAULT_FAUCET_ACCOUNT_PATH.into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FaucetConfig;
+
+    #[test]
+    fn default_faucet_config() {
+        let _config = FaucetConfig::default();
     }
 }

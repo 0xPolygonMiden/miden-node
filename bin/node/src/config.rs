@@ -75,13 +75,13 @@ mod tests {
     use figment::Jail;
     use miden_node_store::config::StoreConfig;
     use miden_node_utils::config::load_config;
+    use url::Url;
 
     use super::NodeConfig;
     use crate::{
         config::{NormalizedBlockProducerConfig, NormalizedRpcConfig},
         NODE_CONFIG_FILE_PATH,
     };
-    use url::Url;
 
     #[test]
     fn node_config() {
@@ -90,7 +90,7 @@ mod tests {
                 NODE_CONFIG_FILE_PATH,
                 r#"
                     [block_producer]
-                    endpoint = "127.0.0.1:8080"
+                    endpoint = "http://127.0.0.1:8080"
                     verify_tx_proofs = true
 
                     [rpc]
@@ -110,7 +110,7 @@ mod tests {
                 config,
                 NodeConfig {
                     block_producer: NormalizedBlockProducerConfig {
-                        endpoint: Url::parse("127.0.0.1:8080").unwrap(),
+                        endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),
                         verify_tx_proofs: true
                     },
                     rpc: NormalizedRpcConfig {

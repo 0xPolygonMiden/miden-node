@@ -36,10 +36,21 @@ impl Default for StoreConfig {
     fn default() -> Self {
         const NODE_STORE_DIR: &str = "./";
         Self {
-            endpoint: Url::parse(format!("127.0.0.1:{DEFAULT_STORE_PORT}").as_str()).unwrap(),
+            endpoint: Url::parse(format!("http://127.0.0.1:{DEFAULT_STORE_PORT}").as_str())
+                .unwrap(),
             database_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "miden-store.sqlite3"),
             genesis_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "genesis.dat"),
             blockstore_dir: PathBuf::from(NODE_STORE_DIR.to_string() + "blocks"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StoreConfig;
+
+    #[test]
+    fn default_store_config() {
+        let _config = StoreConfig::default();
     }
 }
