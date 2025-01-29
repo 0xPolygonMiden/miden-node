@@ -5,6 +5,7 @@ use std::{
 
 use miden_node_utils::config::{DEFAULT_FAUCET_SERVER_PORT, DEFAULT_NODE_RPC_PORT};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 // Faucet config
 // ================================================================================================
@@ -19,9 +20,9 @@ pub const DEFAULT_RPC_TIMEOUT_MS: u64 = 10000;
 #[serde(deny_unknown_fields)]
 pub struct FaucetConfig {
     /// Endpoint of the faucet in the format `<ip>:<port>`
-    pub endpoint: String,
+    pub endpoint: Url,
     /// Node RPC gRPC endpoint in the format `http://<host>[:<port>]`
-    pub node_url: String,
+    pub node_url: Url,
     /// Timeout for RPC requests in milliseconds
     pub timeout_ms: u64,
     /// Possible options on the amount of asset that should be dispersed on each faucet request
@@ -42,8 +43,9 @@ impl Display for FaucetConfig {
 impl Default for FaucetConfig {
     fn default() -> Self {
         Self {
-            endpoint: format!("0.0.0.0:{DEFAULT_FAUCET_SERVER_PORT}"),
-            node_url: format!("http://127.0.0.1:{DEFAULT_NODE_RPC_PORT}"),
+            endpoint: Url::parse(format!("0.0.0.0:{DEFAULT_FAUCET_SERVER_PORT}").as_str()).unwrap(),
+            node_url: Url::parse(format!("http://127.0.0.1:{DEFAULT_NODE_RPC_PORT}").as_str())
+                .unwrap(),
             timeout_ms: DEFAULT_RPC_TIMEOUT_MS,
             asset_amount_options: vec![100, 500, 1000],
             faucet_account_path: DEFAULT_FAUCET_ACCOUNT_PATH.into(),

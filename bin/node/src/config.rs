@@ -2,6 +2,7 @@ use miden_node_block_producer::config::BlockProducerConfig;
 use miden_node_rpc::config::RpcConfig;
 use miden_node_store::config::StoreConfig;
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 /// Node top-level configuration.
 #[derive(Clone, Default, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
@@ -16,7 +17,7 @@ pub struct NodeConfig {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NormalizedRpcConfig {
-    endpoint: String,
+    endpoint: Url,
 }
 
 /// A specialized variant of [`BlockProducerConfig`] with redundant fields within [`NodeConfig`]
@@ -24,7 +25,7 @@ struct NormalizedRpcConfig {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NormalizedBlockProducerConfig {
-    endpoint: String,
+    endpoint: Url,
     verify_tx_proofs: bool,
 }
 
@@ -62,7 +63,7 @@ impl NodeConfig {
         let rpc = RpcConfig {
             endpoint: rpc.endpoint,
             store_url: store.endpoint.clone(),
-            block_producer_url: block_producer.endpoint_url(),
+            block_producer_url: block_producer.endpoint.clone(),
         };
 
         (block_producer, rpc, store)
@@ -80,6 +81,7 @@ mod tests {
         config::{NormalizedBlockProducerConfig, NormalizedRpcConfig},
         NODE_CONFIG_FILE_PATH,
     };
+    use url::Url;
 
     #[test]
     fn node_config() {
@@ -108,14 +110,14 @@ mod tests {
                 config,
                 NodeConfig {
                     block_producer: NormalizedBlockProducerConfig {
-                        endpoint: "127.0.0.1:8080".to_string(),
+                        endpoint: Url::parse("127.0.0.1:8080").unwrap(),
                         verify_tx_proofs: true
                     },
                     rpc: NormalizedRpcConfig {
-                        endpoint: "http://127.0.0.1:8080".to_string()
+                        endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),
                     },
                     store: StoreConfig {
-                        endpoint: "https://127.0.0.1:8080".to_string(),
+                        endpoint: Url::parse("https://127.0.0.1:8080").unwrap(),
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into(),
                         blockstore_dir: "blocks".into()

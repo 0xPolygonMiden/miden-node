@@ -5,6 +5,7 @@ use std::{
 
 use miden_node_utils::config::DEFAULT_STORE_PORT;
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 // Main config
 // ================================================================================================
@@ -13,7 +14,7 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct StoreConfig {
     /// Defines the listening socket.
-    pub endpoint: String,
+    pub endpoint: Url,
     /// `SQLite` database file
     pub database_filepath: PathBuf,
     /// Genesis file
@@ -35,7 +36,7 @@ impl Default for StoreConfig {
     fn default() -> Self {
         const NODE_STORE_DIR: &str = "./";
         Self {
-            endpoint: format!("127.0.0.1:{DEFAULT_STORE_PORT}"),
+            endpoint: Url::parse(format!("127.0.0.1:{DEFAULT_STORE_PORT}").as_str()).unwrap(),
             database_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "miden-store.sqlite3"),
             genesis_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "genesis.dat"),
             blockstore_dir: PathBuf::from(NODE_STORE_DIR.to_string() + "blocks"),

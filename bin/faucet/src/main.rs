@@ -123,9 +123,11 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .with_state(faucet_state);
 
-            let listener = TcpListener::bind(&config.endpoint)
-                .await
-                .context("Failed to bind TCP listener")?;
+            let socket_addr = config.endpoint.socket_addrs(|| None)?.into_iter().next().ok_or(
+                anyhow::anyhow!("Couldn't get any socket addrs for endpoint: {}", config.endpoint),
+            )?;
+            let listener =
+                TcpListener::bind(socket_addr).await.context("Failed to bind TCP listener")?;
 
             info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
 

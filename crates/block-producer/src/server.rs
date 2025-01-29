@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::ToSocketAddrs};
+use std::collections::HashMap;
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -66,8 +66,9 @@ impl BlockProducer {
 
         let rpc_listener = config
             .endpoint
-            .to_socket_addrs()
+            .socket_addrs(|| None)
             .map_err(ApiError::EndpointToSocketFailed)?
+            .into_iter()
             .next()
             .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))
             .map(TcpListener::bind)?

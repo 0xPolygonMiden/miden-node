@@ -41,14 +41,15 @@ pub struct RpcApi {
 
 impl RpcApi {
     pub(super) async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
-        let store = store_client::ApiClient::connect(config.store_url.clone()).await?;
-        info!(target: COMPONENT, store_endpoint = config.store_url, "Store client initialized");
+        let store = store_client::ApiClient::connect(config.store_url.to_string()).await?;
+        info!(target: COMPONENT, store_endpoint = config.store_url.as_str(), "Store client initialized");
 
         let block_producer =
-            block_producer_client::ApiClient::connect(config.block_producer_url.clone()).await?;
+            block_producer_client::ApiClient::connect(config.block_producer_url.to_string())
+                .await?;
         info!(
             target: COMPONENT,
-            block_producer_endpoint = config.block_producer_url,
+            block_producer_endpoint = config.block_producer_url.as_str(),
             "Block producer client initialized",
         );
 

@@ -32,6 +32,7 @@ serde                     = { version = "1.0", features = ["derive"] }
 tokio                     = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }
 toml                      = { version = "0.8" }
 tracing                   = { workspace = true }
+url                       = { workspace = true }
 
 [dev-dependencies]
 figment          = { version = "0.10", features = ["env", "test", "toml"] }
