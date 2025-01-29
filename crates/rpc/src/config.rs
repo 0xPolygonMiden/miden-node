@@ -51,8 +51,9 @@ impl Default for RpcConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::RpcConfig;
     use tokio::net::TcpListener;
+
+    use super::RpcConfig;
 
     #[tokio::test]
     async fn default_rpc_config() {

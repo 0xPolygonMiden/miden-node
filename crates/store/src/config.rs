@@ -47,8 +47,9 @@ impl Default for StoreConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::StoreConfig;
     use tokio::net::TcpListener;
+
+    use super::StoreConfig;
 
     #[tokio::test]
     async fn default_store_config() {

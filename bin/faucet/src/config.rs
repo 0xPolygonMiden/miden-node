@@ -56,8 +56,9 @@ impl Default for FaucetConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::FaucetConfig;
     use tokio::net::TcpListener;
+
+    use super::FaucetConfig;
 
     #[tokio::test]
     async fn default_faucet_config() {

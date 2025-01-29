@@ -50,8 +50,9 @@ impl Default for BlockProducerConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::BlockProducerConfig;
     use tokio::net::TcpListener;
+
+    use super::BlockProducerConfig;
 
     #[tokio::test]
     async fn default_block_producer_config() {
