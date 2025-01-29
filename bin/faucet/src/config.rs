@@ -57,9 +57,15 @@ impl Default for FaucetConfig {
 #[cfg(test)]
 mod tests {
     use super::FaucetConfig;
+    use tokio::net::TcpListener;
 
-    #[test]
-    fn default_faucet_config() {
-        let _config = FaucetConfig::default();
+    #[tokio::test]
+    async fn default_faucet_config() {
+        // Default does not panic
+        let config = FaucetConfig::default();
+        // Default can bind
+        let socket_addrs = config.endpoint.socket_addrs(|| None).unwrap();
+        let socket_addr = socket_addrs.into_iter().next().unwrap();
+        let _listener = TcpListener::bind(socket_addr).await.unwrap();
     }
 }

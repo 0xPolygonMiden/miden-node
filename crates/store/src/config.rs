@@ -48,9 +48,15 @@ impl Default for StoreConfig {
 #[cfg(test)]
 mod tests {
     use super::StoreConfig;
+    use tokio::net::TcpListener;
 
-    #[test]
-    fn default_store_config() {
-        let _config = StoreConfig::default();
+    #[tokio::test]
+    async fn default_store_config() {
+        // Default does not panic
+        let config = StoreConfig::default();
+        // Default can bind
+        let socket_addrs = config.endpoint.socket_addrs(|| None).unwrap();
+        let socket_addr = socket_addrs.into_iter().next().unwrap();
+        let _listener = TcpListener::bind(socket_addr).await.unwrap();
     }
 }

@@ -52,9 +52,15 @@ impl Default for RpcConfig {
 #[cfg(test)]
 mod tests {
     use super::RpcConfig;
+    use tokio::net::TcpListener;
 
-    #[test]
-    fn default_rpc_config() {
-        let _config = RpcConfig::default();
+    #[tokio::test]
+    async fn default_rpc_config() {
+        // Default does not panic
+        let config = RpcConfig::default();
+        // Default can bind
+        let socket_addrs = config.endpoint.socket_addrs(|| None).unwrap();
+        let socket_addr = socket_addrs.into_iter().next().unwrap();
+        let _listener = TcpListener::bind(socket_addr).await.unwrap();
     }
 }
