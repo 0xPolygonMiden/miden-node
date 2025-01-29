@@ -123,7 +123,7 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .with_state(faucet_state);
 
-            let listener = TcpListener::bind((config.endpoint.host.as_str(), config.endpoint.port))
+            let listener = TcpListener::bind(&config.endpoint)
                 .await
                 .context("Failed to bind TCP listener")?;
 

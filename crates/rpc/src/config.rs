@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use miden_node_utils::config::{
-    Endpoint, Protocol, DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_NODE_RPC_PORT, DEFAULT_STORE_PORT,
+    DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_NODE_RPC_PORT, DEFAULT_STORE_PORT,
 };
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RpcConfig {
-    pub endpoint: Endpoint,
+    pub endpoint: String,
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.
     pub store_url: String,
     /// Block producer gRPC endpoint in the format `http://<host>[:<port>]`.
@@ -36,13 +36,9 @@ impl Display for RpcConfig {
 impl Default for RpcConfig {
     fn default() -> Self {
         Self {
-            endpoint: Endpoint {
-                host: "0.0.0.0".to_string(),
-                port: DEFAULT_NODE_RPC_PORT,
-                protocol: Protocol::default(),
-            },
-            store_url: Endpoint::localhost(DEFAULT_STORE_PORT).to_string(),
-            block_producer_url: Endpoint::localhost(DEFAULT_BLOCK_PRODUCER_PORT).to_string(),
+            endpoint: format!("0.0.0.0:{DEFAULT_NODE_RPC_PORT}"),
+            store_url: format!("http://127.0.0.1:{DEFAULT_STORE_PORT}"),
+            block_producer_url: format!("http://127.0.0.1:{DEFAULT_BLOCK_PRODUCER_PORT}"),
         }
     }
 }

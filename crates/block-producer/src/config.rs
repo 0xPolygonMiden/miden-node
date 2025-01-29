@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use miden_node_utils::config::{Endpoint, DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_STORE_PORT};
+use miden_node_utils::config::{DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_STORE_PORT};
 use serde::{Deserialize, Serialize};
 
 // Main config
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlockProducerConfig {
-    pub endpoint: Endpoint,
+    pub endpoint: String,
 
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.
     pub store_url: String,
@@ -42,8 +42,8 @@ impl Display for BlockProducerConfig {
 impl Default for BlockProducerConfig {
     fn default() -> Self {
         Self {
-            endpoint: Endpoint::localhost(DEFAULT_BLOCK_PRODUCER_PORT),
-            store_url: Endpoint::localhost(DEFAULT_STORE_PORT).to_string(),
+            endpoint: format!("127.0.0.1:{DEFAULT_BLOCK_PRODUCER_PORT}"),
+            store_url: format!("http://127.0.0.1:{DEFAULT_STORE_PORT}"),
             verify_tx_proofs: true,
         }
     }
