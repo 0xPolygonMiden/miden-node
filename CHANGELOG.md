@@ -2,7 +2,17 @@
 
 ## Unreleased
 
+## v0.7.2 (2025-01-29)
+
+### Fixes
+
+- Faucet webpage rejects valid account IDs (#655).
+
 ## v0.7.1 (2025-01-28)
+
+### Fixes
+
+- Faucet webpage fails to load styling (index.css) and script (index.js) (#647).
 
 ### Changes
 
