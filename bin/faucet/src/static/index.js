@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let accountId = accountIdInput.value.trim();
         errorMessage.style.display = 'none';
 
-        if (!accountId || !/^0x[0-9a-fA-F]{16}$/i.test(accountId)) {
+        if (!accountId || !/^0x[0-9a-fA-F]{30}$/i.test(accountId)) {
             errorMessage.textContent = !accountId ? "Account ID is required." : "Invalid Account ID.";
             errorMessage.style.display = 'block';
             return;
