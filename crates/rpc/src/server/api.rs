@@ -182,7 +182,7 @@ impl api_server::Api for RpcApi {
 
         let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
 
-        tx_verifier.verify(tx.clone()).map_err(|err| {
+        tx_verifier.verify(&tx).map_err(|err| {
             Status::invalid_argument(format!("Invalid proof for transaction {}: {err}", tx.id()))
         })?;
 
