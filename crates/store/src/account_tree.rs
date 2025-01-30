@@ -300,7 +300,7 @@ impl<S: PersistentUpdatesStorage + Debug> AccountSmtUpdates<S> {
     }
 }
 
-#[allow(async_fn_in_trait)]
+#[expect(async_fn_in_trait)]
 pub trait PersistentUpdatesStorage {
     async fn load(&self, block_num: BlockNumber) -> Result<Option<Update>, DatabaseError>;
     async fn save(&self, block_num: BlockNumber, update: &Update) -> Result<(), DatabaseError>;
