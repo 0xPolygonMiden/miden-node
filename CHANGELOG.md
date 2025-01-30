@@ -5,6 +5,7 @@
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
+- [BREAKING] Replace `Endpoint` and `Protocol` types with `url::Url` and update node TOML configuration to treat endpoints as a single string (#654).
 
 ## v0.7.2 (2025-01-29)
 
