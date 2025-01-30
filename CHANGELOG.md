@@ -5,6 +5,7 @@
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
+- [BREAKING] `Endpoint` configuration simplified to a single string (#654).
 
 ## v0.7.2 (2025-01-29)
 

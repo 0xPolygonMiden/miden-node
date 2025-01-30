@@ -200,7 +200,7 @@ impl FaucetClient {
 pub async fn initialize_faucet_client(
     config: &FaucetConfig,
 ) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), ClientError> {
-    let endpoint = tonic::transport::Endpoint::try_from(config.node_url.clone())
+    let endpoint = tonic::transport::Endpoint::try_from(config.node_url.to_string())
         .context("Failed to parse node URL from configuration file")?
         .timeout(Duration::from_millis(config.timeout_ms));
 

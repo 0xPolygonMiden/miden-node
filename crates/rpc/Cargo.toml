@@ -25,6 +25,7 @@ tokio-stream     = { workspace = true, features = ["net"] }
 tonic            = { workspace = true }
 tonic-web        = { version = "0.12" }
 tracing          = { workspace = true }
+url              = { workspace = true }
 
 [dev-dependencies]
 miden-node-utils = { workspace = true, features = ["tracing-forest"] }

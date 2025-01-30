@@ -47,6 +47,7 @@ tokio-stream              = { version = "0.1" }
 tonic                     = { version = "0.12" }
 tracing                   = { version = "0.1" }
 tracing-subscriber        = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+url                       = { version = "2.5", features = ["serde"] }
 
 # Lints are set to warn for development, which are promoted to errors in CI.
 [workspace.lints.clippy]
