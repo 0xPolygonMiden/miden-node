@@ -15,7 +15,9 @@ use miden_node_block_producer::{
     batch_builder::TransactionBatch, block_builder::BlockBuilder, store::StoreClient,
     test_utils::MockProvenTxBuilder,
 };
-use miden_node_proto::generated::store::api_client::ApiClient;
+use miden_node_proto::{
+    domain::note::NoteAuthenticationInfo, generated::store::api_client::ApiClient,
+};
 use miden_node_store::{config::StoreConfig, server::Store};
 use miden_objects::{
     account::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
@@ -120,7 +122,7 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
                 .output_notes(vec![])
                 .build(),
         ],
-        Default::default(),
+        NoteAuthenticationInfo::default(),
     )
     .unwrap();
 
@@ -189,9 +191,9 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
         generate_batches(
             num_accounts,
             faucet_id,
-            accounts_and_notes.lock().unwrap().to_vec(),
-            batch_sender.clone(),
-        )
+            accounts_and_notes.lock().unwrap().as_slice(),
+            &batch_sender,
+        );
     })
     .await
     .unwrap();
@@ -202,20 +204,20 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     let total_time = start.elapsed().as_secs_f64();
 
     print_metrics(
-        insertion_time_per_block,
+        &insertion_time_per_block,
         total_insertion_time,
         num_insertions,
-        store_file_size_over_time,
+        &store_file_size_over_time,
         total_time,
         dump_file,
     );
 }
 
 fn print_metrics(
-    insertion_time_per_block: Vec<Duration>,
+    insertion_time_per_block: &[Duration],
     total_insertion_time: Duration,
     num_insertions: u32,
-    store_file_size_over_time: Vec<u64>,
+    store_file_size_over_time: &[u64],
     total_time: f64,
     dump_file: &Path,
 ) {
@@ -250,11 +252,13 @@ fn print_metrics(
     // Print out the average growth rate of the file
     let initial_size = store_file_size_over_time.first().unwrap();
     let final_size = store_file_size_over_time.last().unwrap();
-    let growth_rate = (final_size - initial_size) as f64 / num_insertions as f64;
 
-    println!("Average growth rate: {} bytes per blocks", growth_rate);
+    #[allow(clippy::cast_precision_loss)]
+    let growth_rate = (final_size - initial_size) as f64 / f64::from(num_insertions);
 
-    println!("Total time: {:.3} seconds", total_time);
+    println!("Average growth rate: {growth_rate} bytes per blocks");
+
+    println!("Total time: {total_time:.3} seconds");
 
     // Apply `VACUUM` to the store to reduce the size of the file by running the command:
     // `sqlite3 miden-store.sqlite3 "VACUUM;"`
@@ -265,20 +269,19 @@ fn print_metrics(
         .expect("failed to execute process");
 
     // Then, print out the size of the tables in the store
-    SQLITE_TABLES.iter().for_each(|table| {
+    for table in &SQLITE_TABLES {
         let db_stats = SystemCommand::new("sqlite3")
             .arg(dump_file)
             .arg(format!(
-                "SELECT name, SUM(pgsize) AS size_bytes, (SUM(pgsize) * 1.0) / (SELECT COUNT(*) FROM {}) AS bytes_per_row FROM dbstat WHERE name = '{}';",
-                table, table
+                "SELECT name, SUM(pgsize) AS size_bytes, (SUM(pgsize) * 1.0) / (SELECT COUNT(*) FROM {table}) AS bytes_per_row FROM dbstat WHERE name = '{table}';"
             ))
             .output()
             .expect("failed to execute process");
 
         let stdout = String::from_utf8(db_stats.stdout).expect("invalid utf8");
-        let stats: Vec<&str> = stdout.trim_end().split("|").collect();
+        let stats: Vec<&str> = stdout.trim_end().split('|').collect();
         println!("DB Stats for {}: {} bytes, {} bytes/entry", stats[0], stats[1], stats[2]);
-    });
+    }
 }
 
 /// Create a new faucet account with a given anchor block.
@@ -392,8 +395,8 @@ async fn build_blocks(
 fn generate_batches(
     num_accounts: usize,
     faucet_id: AccountId,
-    accounts_and_notes: Vec<(AccountId, Note, ProvenTransaction)>,
-    batch_sender: UnboundedSender<TransactionBatch>,
+    accounts_and_notes: &[(AccountId, Note, ProvenTransaction)],
+    batch_sender: &UnboundedSender<TransactionBatch>,
 ) {
     let mut accounts_notes_txs_1 = vec![];
 
@@ -428,8 +431,11 @@ fn generate_batches(
 
         // Fill the batches with [TRANSACTIONS_PER_BATCH] txs each
         txs.chunks(TRANSACTIONS_PER_BATCH).for_each(|txs| {
-            let batch =
-                TransactionBatch::new(txs.iter().collect::<Vec<_>>(), Default::default()).unwrap();
+            let batch = TransactionBatch::new(
+                txs.iter().collect::<Vec<_>>(),
+                NoteAuthenticationInfo::default(),
+            )
+            .unwrap();
             batch_sender.send(batch).unwrap();
         });
 
