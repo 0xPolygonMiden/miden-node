@@ -18,8 +18,7 @@ use miden_node_proto::{
         note::NoteAuthenticationInfo,
     },
     generated::responses::{
-        AccountProofsResponse, AccountStateHeader, GetBatchInputsResponse, GetBlockInputsResponse,
-        StorageSlotMapProof,
+        AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse, StorageSlotMapProof,
     },
     AccountInputRecord, NullifierWitness,
 };
@@ -555,8 +554,8 @@ impl State {
         };
 
         // TODO: Unnecessary conversion. We should change the select_block_headers function to take
-        // an impl Iterator instead.
-        let mut blocks = Vec::from_iter(blocks.into_iter());
+        // an impl Iterator instead to avoid this allocation.
+        let mut blocks: Vec<_> = blocks.into_iter().collect();
         // Fetch the reference block of the batch as part of this query, so we can avoid looking it
         // up in a separate DB access.
         blocks.push(batch_reference_block);

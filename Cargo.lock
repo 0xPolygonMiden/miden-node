@@ -1749,7 +1749,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#fb5170d8b3f3147f9bc7ba36a1fbfa94559ad7d9"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#3a58866a5ea7e45f72778fe6b5953ecd6a4eb028"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1939,7 +1939,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#fb5170d8b3f3147f9bc7ba36a1fbfa94559ad7d9"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#3a58866a5ea7e45f72778fe6b5953ecd6a4eb028"
 dependencies = [
  "getrandom 0.2.15",
  "miden-assembly",
@@ -1998,7 +1998,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#fb5170d8b3f3147f9bc7ba36a1fbfa94559ad7d9"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#3a58866a5ea7e45f72778fe6b5953ecd6a4eb028"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2015,7 +2015,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-batch-prover"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#fb5170d8b3f3147f9bc7ba36a1fbfa94559ad7d9"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#3a58866a5ea7e45f72778fe6b5953ecd6a4eb028"
 dependencies = [
  "miden-core",
  "miden-crypto",

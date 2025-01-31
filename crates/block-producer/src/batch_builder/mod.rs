@@ -1,23 +1,20 @@
 use std::{num::NonZeroUsize, ops::Range, time::Duration};
 
-use batch::BatchId;
-use miden_node_proto::domain::{batch::BatchInputs, note::NoteAuthenticationInfo};
-use miden_objects::{batch::{ProposedBatch, ProvenBatch}, block::BlockHeader, MIN_PROOF_SECURITY_LEVEL};
+use miden_node_proto::domain::batch::BatchInputs;
+use miden_node_utils::formatting::format_array;
+use miden_objects::{
+    batch::{BatchId, ProposedBatch, ProvenBatch},
+    MIN_PROOF_SECURITY_LEVEL,
+};
 use miden_tx_batch_prover::LocalBatchProver;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
-    domain::transaction::AuthenticatedTransaction, mempool::SharedMempool, store::StoreClient,
-    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
+    domain::transaction::AuthenticatedTransaction, errors::BuildBatchError, mempool::SharedMempool,
+    store::StoreClient, COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
 };
-
-pub mod batch;
-pub use batch::TransactionBatch;
-use miden_node_utils::formatting::format_array;
-
-use crate::errors::BuildBatchError;
 
 // BATCH BUILDER
 // ================================================================================================
@@ -107,7 +104,7 @@ impl BatchBuilder {
 // BATCH WORKER
 // ================================================================================================
 
-type BatchResult = Result<TransactionBatch, (BatchId, BuildBatchError)>;
+type BatchResult = Result<ProvenBatch, (BatchId, BuildBatchError)>;
 
 /// Represents a pool of batch provers.
 ///
@@ -232,11 +229,8 @@ impl WorkerPool {
                         .await
                         .map_err(|err| (id, BuildBatchError::FetchBatchInputsFailed(err)))?;
 
-                    let batch = Self::build_batch(
-                        transactions,
-                        batch_inputs,
-                    )
-                    .map_err(|err| (id, err))?;
+                    let batch =
+                        Self::build_batch(transactions, batch_inputs).map_err(|err| (id, err))?;
 
                     tokio::time::sleep(simulated_proof_time).await;
                     if failed {

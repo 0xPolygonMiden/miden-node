@@ -9,7 +9,7 @@ use miden_objects::{
 
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
-    generated::{note::NoteInclusionInBlockProof, responses::GetBatchInputsResponse},
+    generated::responses::GetBatchInputsResponse,
 };
 
 /// Data required for a transaction batch.

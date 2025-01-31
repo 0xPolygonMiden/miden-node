@@ -101,10 +101,6 @@ impl AuthenticatedTransaction {
         self.inner.input_notes().num_notes()
     }
 
-    pub fn block_reference(&self) -> Digest {
-        self.inner.block_ref()
-    }
-
     pub fn reference_block(&self) -> (BlockNumber, Digest) {
         (self.inner.block_num(), self.inner.block_ref())
     }
@@ -123,6 +119,7 @@ impl AuthenticatedTransaction {
         Arc::clone(&self.inner)
     }
 
+    #[cfg(test)]
     pub fn raw_proven_transaction(&self) -> &ProvenTransaction {
         &self.inner
     }

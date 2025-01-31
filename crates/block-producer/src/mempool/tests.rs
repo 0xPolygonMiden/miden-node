@@ -1,9 +1,8 @@
-use miden_node_proto::domain::note::NoteAuthenticationInfo;
 use miden_objects::block::BlockNumber;
 use pretty_assertions::assert_eq;
 
 use super::*;
-use crate::test_utils::MockProvenTxBuilder;
+use crate::test_utils::{batch::TransactionBatchConstructor, MockProvenTxBuilder};
 
 impl Mempool {
     fn for_tests() -> Self {
@@ -48,10 +47,8 @@ fn children_of_failed_batches_are_ignored() {
     uut.batch_failed(child_batch_a);
     assert_eq!(uut, reference);
 
-    let proof =
-        TransactionBatch::new([txs[2].raw_proven_transaction()], NoteAuthenticationInfo::default())
-            .unwrap();
-    uut.batch_proved(proof);
+    let proven_batch = ProvenBatch::mocked_from_transactions([txs[2].raw_proven_transaction()]);
+    uut.batch_proved(proven_batch);
     assert_eq!(uut, reference);
 }
 
@@ -95,13 +92,9 @@ fn block_commit_reverts_expired_txns() {
     // Force the tx into a pending block.
     uut.add_transaction(tx_to_commit.clone()).unwrap();
     uut.select_batch().unwrap();
-    uut.batch_proved(
-        TransactionBatch::new(
-            [tx_to_commit.raw_proven_transaction()],
-            NoteAuthenticationInfo::default(),
-        )
-        .unwrap(),
-    );
+    uut.batch_proved(ProvenBatch::mocked_from_transactions(
+        [tx_to_commit.raw_proven_transaction()],
+    ));
     let (block, _) = uut.select_block();
     // A reverted transaction behaves as if it never existed, the current state is the expected
     // outcome, plus an extra committed block at the end.
@@ -168,13 +161,9 @@ fn block_failure_reverts_its_transactions() {
 
     uut.add_transaction(reverted_txs[0].clone()).unwrap();
     uut.select_batch().unwrap();
-    uut.batch_proved(
-        TransactionBatch::new(
-            [reverted_txs[0].raw_proven_transaction()],
-            NoteAuthenticationInfo::default(),
-        )
-        .unwrap(),
-    );
+    uut.batch_proved(ProvenBatch::mocked_from_transactions([
+        reverted_txs[0].raw_proven_transaction()
+    ]));
 
     // Block 1 will contain just the first batch.
     let (block_number, _) = uut.select_block();
