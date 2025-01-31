@@ -15,30 +15,30 @@ version.workspace      = true
 workspace = true
 
 [features]
+testing        = ["dep:miden-air", "dep:miden-node-test-macro", "dep:rand_chacha", "dep:winterfell"]
 tracing-forest = ["miden-node-utils/tracing-forest"]
-testing = ["dep:miden-air", "dep:winterfell", "dep:rand_chacha", "dep:miden-node-test-macro"]
 
 [dependencies]
-async-trait      = { version = "0.1" }
-itertools        = { workspace = true }
-miden-air             = { workspace = true, optional = true}
-miden-lib        = { workspace = true }
-miden-node-proto = { workspace = true }
+async-trait           = { version = "0.1" }
+itertools             = { workspace = true }
+miden-air             = { workspace = true, optional = true }
+miden-lib             = { workspace = true }
+miden-node-proto      = { workspace = true }
 miden-node-test-macro = { path = "../test-macro", optional = true }
-miden-node-utils = { workspace = true }
-miden-objects    = { workspace = true }
-miden-processor  = { workspace = true }
-miden-stdlib     = { workspace = true }
-miden-tx         = { workspace = true }
-rand             = { version = "0.8" }
-rand_chacha      = { version = "0.3", default-features = false, optional = true }
-serde            = { version = "1.0", features = ["derive"] }
-thiserror        = { workspace = true }
-tokio            = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
-tokio-stream     = { workspace = true, features = ["net"] }
-tonic            = { workspace = true }
-tracing          = { workspace = true }
-winterfell       = { version = "0.11", optional = true }
+miden-node-utils      = { workspace = true }
+miden-objects         = { workspace = true }
+miden-processor       = { workspace = true }
+miden-stdlib          = { workspace = true }
+miden-tx              = { workspace = true }
+rand                  = { version = "0.8" }
+rand_chacha           = { version = "0.3", default-features = false, optional = true }
+serde                 = { version = "1.0", features = ["derive"] }
+thiserror             = { workspace = true }
+tokio                 = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
+tokio-stream          = { workspace = true, features = ["net"] }
+tonic                 = { workspace = true }
+tracing               = { workspace = true }
+winterfell            = { version = "0.11", optional = true }
 
 [dev-dependencies]
 assert_matches        = { workspace = true }
