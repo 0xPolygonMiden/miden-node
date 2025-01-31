@@ -5,7 +5,7 @@
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
-- Added stress test binary with seed-store command (#621).
+- Added stress test binary with `seed-store` and `bench-sync-request` commands (#621, #661).
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
 
 ## v0.7.2 (2025-01-29)

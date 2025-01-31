@@ -1919,11 +1919,13 @@ dependencies = [
  "miden-node-block-producer",
  "miden-node-proto",
  "miden-node-store",
+ "miden-node-utils",
  "miden-objects",
  "miden-processor",
  "rand",
  "rayon",
  "tokio",
+ "tonic",
 ]
 
 [[package]]

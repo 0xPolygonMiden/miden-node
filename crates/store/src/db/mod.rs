@@ -127,6 +127,54 @@ impl From<NoteRecord> for NoteSyncRecord {
 }
 
 impl Db {
+    #[instrument(target = COMPONENT, skip_all)]
+    pub async fn existing(
+        config: StoreConfig,
+        block_store: Arc<BlockStore>,
+    ) -> Result<Self, DatabaseSetupError> {
+        info!(target: COMPONENT, %config, "Connecting to an existing database");
+        let pool = SqliteConfig::new(config.database_filepath.clone())
+            .builder(Runtime::Tokio1)
+            .expect("Infallible")
+            .post_create(Hook::async_fn(move |conn, _| {
+                Box::pin(async move {
+                    let _ = conn
+                        .interact(|conn| {
+                            // Feature used to support `IN` and `NOT IN` queries. We need to load
+                            // this module for every connection we create to the DB to support the
+                            // queries we want to run
+                            array::load_module(conn)?;
+
+                            // Increase the statement cache size.
+                            conn.set_prepared_statement_cache_capacity(
+                                SQL_STATEMENT_CACHE_CAPACITY,
+                            );
+
+                            // Enable the WAL mode. This allows concurrent reads while the
+                            // transaction is being written, this is required for proper
+                            // synchronization of the servers in-memory and on-disk representations
+                            // (see [State::apply_block])
+                            conn.execute("PRAGMA journal_mode = WAL;", ())?;
+
+                            // Enable foreign key checks.
+                            conn.execute("PRAGMA foreign_keys = ON;", ())
+                        })
+                        .await
+                        .map_err(|e| {
+                            HookError::Message(format!("Loading carray module failed: {e}").into())
+                        })?;
+
+                    Ok(())
+                })
+            }))
+            .build()?;
+
+        let db = Db { pool };
+        db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy(), block_store)
+            .await?;
+
+        Ok(db)
+    }
     /// Open a connection to the DB, apply any pending migrations, and ensure that the genesis block
     /// is as expected and present in the database.
     // TODO: This span is logged in a root span, we should connect it to the parent one.
