@@ -14,17 +14,17 @@ use miden_node_proto::{
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountProofsRequest, GetAccountStateDeltaRequest,
-            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
-            GetNoteAuthenticationInfoRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
-            SyncNoteRequest, SyncStateRequest,
+            GetBatchInputsRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
+            GetBlockInputsRequest, GetNoteAuthenticationInfoRequest, GetNotesByIdRequest,
+            GetTransactionInputsRequest, SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
-            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetNoteAuthenticationInfoResponse, GetNotesByIdResponse,
-            GetTransactionInputsResponse, NullifierTransactionInputRecord, NullifierUpdate,
-            SyncNoteResponse, SyncStateResponse,
+            GetAccountStateDeltaResponse, GetBatchInputsResponse, GetBlockByNumberResponse,
+            GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
+            GetNoteAuthenticationInfoResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
         },
         store::api_server,
         transaction::TransactionSummary,
@@ -399,6 +399,39 @@ impl api_server::Api for StoreApi {
             .await
             .map(Into::into)
             .map(Response::new)
+            .map_err(internal_error)
+    }
+
+    /// TODO
+    #[instrument(
+      target = COMPONENT,
+      name = "store:get_batch_inputs",
+      skip_all,
+      ret(level = "debug"),
+      err
+    )]
+    async fn get_batch_inputs(
+        &self,
+        request: Request<GetBatchInputsRequest>,
+    ) -> Result<Response<GetBatchInputsResponse>, Status> {
+        let request = request.into_inner();
+
+        // TODO: Error report.
+        let note_ids: Vec<RpoDigest> = try_convert(request.note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
+        let note_ids = note_ids.into_iter().map(NoteId::from).collect();
+
+        // TODO: Error report.
+        let reference_blocks: Vec<u32> = try_convert(request.reference_blocks)
+            .map_err(|err| Status::invalid_argument(format!("Invalid BlockNumber: {err}")))?;
+        let reference_blocks = reference_blocks.into_iter().map(BlockNumber::from).collect();
+
+        self.state
+            .get_batch_inputs(reference_blocks, note_ids)
+            .await
+            .map(Into::into)
+            .map(Response::new)
+            // TODO: Is this correct?
             .map_err(internal_error)
     }
 

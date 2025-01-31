@@ -135,6 +135,7 @@ impl MockProvenTxBuilder {
             self.account_id,
             self.initial_account_hash,
             self.final_account_hash,
+            BlockNumber::from(0),
             Digest::default(),
             self.expiration_block_num,
             ExecutionProof::new(Proof::new_dummy(), HashFunction::Blake3_192),

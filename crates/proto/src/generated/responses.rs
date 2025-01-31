@@ -128,6 +128,21 @@ pub struct GetBlockInputsResponse {
         super::note::NoteAuthenticationInfo,
     >,
 }
+/// Represents the result of getting batch inputs.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBatchInputsResponse {
+    /// The latest block header.
+    #[prost(message, optional, tag = "1")]
+    pub block_header: ::core::option::Option<super::block::BlockHeader>,
+    /// Proof of each _found_ unauthenticated note's inclusion in a block.
+    #[prost(message, repeated, tag = "2")]
+    pub note_proofs: ::prost::alloc::vec::Vec<super::note::NoteInclusionInBlockProof>,
+    /// The serialized chain MMR which includes proofs for all blocks referenced by the
+    /// above note inclusion proofs as well as proofs for inclusion of the blocks referenced
+    /// by the transactions in the batch.
+    #[prost(bytes = "vec", tag = "3")]
+    pub chain_mmr: ::prost::alloc::vec::Vec<u8>,
+}
 /// An account returned as a response to the `GetTransactionInputs`.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountTransactionInputRecord {

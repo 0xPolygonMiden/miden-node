@@ -39,6 +39,9 @@ service Api {
     // Returns data required to prove the next block.
     rpc GetBlockInputs(requests.GetBlockInputsRequest) returns (responses.GetBlockInputsResponse) {}
 
+    // Returns the inputs for a transaction batch.
+    rpc GetBatchInputs(requests.GetBatchInputsRequest) returns (responses.GetBatchInputsResponse) {}
+
     // Returns a list of Note inclusion proofs for the specified Note IDs.
     rpc GetNoteAuthenticationInfo(requests.GetNoteAuthenticationInfoRequest) returns (responses.GetNoteAuthenticationInfoResponse) {}
 

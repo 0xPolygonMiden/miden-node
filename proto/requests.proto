@@ -86,6 +86,14 @@ message GetBlockInputsRequest {
     repeated digest.Digest unauthenticated_notes = 3;
 }
 
+// Returns the inputs for a transaction batch.
+message GetBatchInputsRequest {
+  // List of unauthenticated notes to be queried from the database.
+  repeated digest.Digest note_ids = 1;
+  // Set of block numbers referenced by transactions.
+  repeated fixed32 reference_blocks = 2;
+}
+
 // Returns data required to validate a new transaction.
 message GetTransactionInputsRequest {
     // ID of the account against which a transaction is executed.

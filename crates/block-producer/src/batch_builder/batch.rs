@@ -8,15 +8,19 @@ use miden_node_proto::domain::note::NoteAuthenticationInfo;
 use miden_node_utils::formatting::format_blake3_digest;
 use miden_objects::{
     account::{delta::AccountUpdateDetails, AccountId},
-    batch::BatchNoteTree,
-    crypto::hash::blake::{Blake3Digest, Blake3_256},
+    batch::{BatchNoteTree, ProvenBatch},
+    crypto::hash::{
+        blake::{Blake3Digest, Blake3_256},
+        rpo::RpoDigestError,
+    },
     note::{NoteHeader, NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote, ProvenTransaction, TransactionId},
     AccountDeltaError, Digest,
 };
+use miden_tx::utils::Serializable;
 use tracing::instrument;
 
-use crate::{errors::BuildBatchError, COMPONENT};
+use crate::{batch_builder, errors::BuildBatchError, COMPONENT};
 
 // BATCH ID
 // ================================================================================================
@@ -36,6 +40,10 @@ impl BatchId {
             buf.extend_from_slice(&tx.borrow().as_bytes());
         }
         Self(Blake3_256::hash(&buf))
+    }
+
+    pub fn new_unchecked(hash: &[u8]) -> Self {
+        Self(Blake3_256::hash(hash))
     }
 }
 
@@ -201,6 +209,16 @@ impl TransactionBatch {
             output_notes,
         })
     }
+
+    // pub fn new_unchecked(proven_batch: ProvenBatch) -> Self {
+    //     Self {
+    //         id: batch_builder::BatchId::new_unchecked(&proven_batch.id().as_bytes()),
+    //         input_notes: proven_batch.input_notes().into_vec(),
+    //         output_notes: proven_batch.output_notes().to_vec(),
+    //         output_notes_smt: proven_batch.output_notes_tree().clone(),
+    //         updated_accounts: proven_batch.account_updates().clone(),
+    //     }
+    // }
 
     // PUBLIC ACCESSORS
     // --------------------------------------------------------------------------------------------
