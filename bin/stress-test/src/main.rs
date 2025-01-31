@@ -173,8 +173,6 @@ async fn seed_store(
         ..Default::default()
     };
 
-    println!("{:?}", store_config);
-
     // Start store
     let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
     task::spawn(async move { store.serve().await.context("Serving store") });
@@ -598,8 +596,6 @@ async fn bench_sync_request(
         ..Default::default()
     };
 
-    println!("{:?}", store_config);
-
     // Start store
     let store = Store::with_existing_db(store_config.clone())
         .await
@@ -618,30 +614,55 @@ async fn bench_sync_request(
 
     let mut account_ids = accounts.iter().cycle();
 
+    let mut timers_accumulator = Vec::with_capacity(iterations);
     for _ in 0..iterations {
-        let account_id = account_ids.next().unwrap();
-        send_sync_request(&mut api_client, account_id).await;
+        // Take 3 account ids from the file and send a vec of them in the sync request
+        let account_id_1 = (*account_ids.next().unwrap()).to_string();
+        let account_id_2 = (*account_ids.next().unwrap()).to_string();
+        let account_id_3 = (*account_ids.next().unwrap()).to_string();
+
+        timers_accumulator.push(
+            send_sync_request(&mut api_client, vec![account_id_1, account_id_2, account_id_3])
+                .await,
+        );
     }
 
     let elapsed = start.elapsed();
-    println!("Sync request took: {elapsed:?}");
+    println!("Total sync request took: {elapsed:?}");
+
+    let avg_time = timers_accumulator.iter().sum::<Duration>() / iterations as u32;
+    println!("Average sync request took: {avg_time:?}");
 }
 
 async fn send_sync_request(
     api_client: &mut ApiClient<tonic::transport::Channel>,
-    account_id: &str,
-) {
-    let account_id = AccountId::from_hex(account_id).unwrap();
+    account_ids: Vec<String>,
+) -> Duration {
+    let account_ids = account_ids
+        .iter()
+        .map(|id| AccountId::from_hex(id).unwrap())
+        .collect::<Vec<_>>();
+
+    let note_tags = account_ids
+        .iter()
+        .map(|id| u32::from(NoteTag::from_account_id(*id, NoteExecutionMode::Local).unwrap()))
+        .collect::<Vec<_>>();
+
+    let account_ids = account_ids
+        .iter()
+        .map(|id| account_proto::AccountId { id: id.to_bytes() })
+        .collect::<Vec<_>>();
+
     let sync_request = SyncStateRequest {
         block_num: 0,
-        note_tags: vec![u32::from(
-            NoteTag::from_account_id(account_id, NoteExecutionMode::Local).unwrap(),
-        )],
-        account_ids: vec![account_proto::AccountId { id: account_id.to_bytes() }],
+        note_tags,
+        account_ids,
         nullifiers: vec![],
     };
 
+    let start = Instant::now();
     assert!(api_client.sync_state(sync_request).await.is_ok());
+    start.elapsed()
 }
 
 async fn dump_account_ids(mut receiver: UnboundedReceiver<AccountId>, file: PathBuf) {
