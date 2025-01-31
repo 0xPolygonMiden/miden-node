@@ -254,10 +254,6 @@ fn print_metrics(
 
     println!("Average growth rate: {} bytes per blocks", growth_rate);
 
-    // Print out the avg space used per account
-    let avg_space_per_account = growth_rate / 255.0;
-    println!("Average space used per account: {} bytes", avg_space_per_account);
-
     println!("Total time: {:.3} seconds", total_time);
 
     // Apply `VACUUM` to the store to reduce the size of the file by running the command:
