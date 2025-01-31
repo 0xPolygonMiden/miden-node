@@ -125,6 +125,8 @@ const TRANSACTIONS_PER_BATCH: usize = 16;
 /// - `genesis_file`: Path to the genesis file of the store.
 #[tokio::main]
 async fn main() {
+    miden_node_utils::logging::setup_logging().unwrap();
+
     let cli = Cli::parse();
 
     match &cli.command {
@@ -316,7 +318,6 @@ fn create_accounts(
                 .build();
 
         accounts_and_notes.lock().unwrap().push((account.id(), note, consume_tx));
-        id_sender.send(account.id()).unwrap();
     });
 
     // Create the public accounts
@@ -593,13 +594,17 @@ async fn bench_sync_request(
     let store_config = StoreConfig {
         database_filepath: dump_file.to_path_buf(),
         genesis_filepath: genesis_file.to_path_buf(),
+        blockstore_dir: blockstore_dir.to_path_buf(),
         ..Default::default()
     };
 
     println!("{:?}", store_config);
 
     // Start store
-    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
+    let store = Store::with_existing_db(store_config.clone())
+        .await
+        .context("Loading store")
+        .unwrap();
     task::spawn(async move { store.serve().await.context("Serving store") });
     let start = Instant::now();
 
@@ -636,7 +641,7 @@ async fn send_sync_request(
         nullifiers: vec![],
     };
 
-    api_client.sync_state(sync_request).await.unwrap();
+    assert!(api_client.sync_state(sync_request).await.is_ok());
 }
 
 async fn dump_account_ids(mut receiver: UnboundedReceiver<AccountId>, file: PathBuf) {
