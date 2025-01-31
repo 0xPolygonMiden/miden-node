@@ -3,7 +3,7 @@ name: Release packages
 run-name: Release packaging for ${{ inputs.version || github.ref }}
 
 env:
-  version: ${{ inputs.version || github.ref }}
+  version: ${{ inputs.version || github.ref_name }}
 
 on:
   release:

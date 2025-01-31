@@ -14,6 +14,7 @@ use axum::{
 };
 use clap::{Parser, Subcommand};
 use client::initialize_faucet_client;
+use handlers::{get_index_css, get_index_html, get_index_js};
 use http::HeaderValue;
 use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
@@ -33,7 +34,7 @@ use tracing::info;
 
 use crate::{
     config::{FaucetConfig, DEFAULT_FAUCET_ACCOUNT_PATH},
-    handlers::{get_index, get_metadata, get_tokens},
+    handlers::{get_metadata, get_tokens},
 };
 
 // CONSTANTS
@@ -102,7 +103,9 @@ async fn main() -> anyhow::Result<()> {
             info!(target: COMPONENT, %config, "Initializing server");
 
             let app = Router::new()
-                .route("/", get(get_index))
+                .route("/", get(get_index_html))
+                .route("/index.js", get(get_index_js))
+                .route("/index.css", get(get_index_css))
                 .route("/get_metadata", get(get_metadata))
                 .route("/get_tokens", post(get_tokens))
                 .layer(
@@ -120,9 +123,11 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .with_state(faucet_state);
 
-            let listener = TcpListener::bind((config.endpoint.host.as_str(), config.endpoint.port))
-                .await
-                .context("Failed to bind TCP listener")?;
+            let socket_addr = config.endpoint.socket_addrs(|| None)?.into_iter().next().ok_or(
+                anyhow::anyhow!("Couldn't get any socket addrs for endpoint: {}", config.endpoint),
+            )?;
+            let listener =
+                TcpListener::bind(socket_addr).await.context("Failed to bind TCP listener")?;
 
             info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
 

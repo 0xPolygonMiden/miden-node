@@ -6,6 +6,23 @@
 
 - [BREAKING] Updated minimum Rust version to 1.84.
 - Added stress test binary with seed-store command (#621).
+- [BREAKING] `Endpoint` configuration simplified to a single string (#654).
+
+## v0.7.2 (2025-01-29)
+
+### Fixes
+
+- Faucet webpage rejects valid account IDs (#655).
+
+## v0.7.1 (2025-01-28)
+
+### Fixes
+
+- Faucet webpage fails to load styling (index.css) and script (index.js) (#647).
+
+### Changes
+
+- [BREAKING] Default faucet endpoint is now public instead of localhost (#647).
 
 ## v0.7.0 (2025-01-23)
 
