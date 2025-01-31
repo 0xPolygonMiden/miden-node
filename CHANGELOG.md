@@ -5,6 +5,7 @@
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
+- Added stress test binary with seed-store command (#621).
 
 ## v0.7.0 (2025-01-23)
 
@@ -24,7 +25,6 @@
 - [BREAKING] Added support for storage maps on `GetAccountProofs` endpoint (#598).
 - [BREAKING] Removed the `testing` feature (#619).
 - [BREAKING] Renamed modules to singular (#636).
-- Added stress test binary with seed-store command (#621).
 
 ## v0.6.0 (2024-11-05)
 
