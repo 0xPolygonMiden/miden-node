@@ -131,9 +131,9 @@ pub struct GetBlockInputsResponse {
 /// Represents the result of getting batch inputs.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBatchInputsResponse {
-    /// The latest block header.
+    /// The block header that the transaction batch should reference.
     #[prost(message, optional, tag = "1")]
-    pub block_header: ::core::option::Option<super::block::BlockHeader>,
+    pub batch_reference_block_header: ::core::option::Option<super::block::BlockHeader>,
     /// Proof of each _found_ unauthenticated note's inclusion in a block.
     #[prost(message, repeated, tag = "2")]
     pub note_proofs: ::prost::alloc::vec::Vec<super::note::NoteInclusionInBlockProof>,

@@ -130,8 +130,8 @@ message GetBlockInputsResponse {
 
 // Represents the result of getting batch inputs.
 message GetBatchInputsResponse {
-  // The latest block header.
-  block.BlockHeader block_header = 1;
+  // The block header that the transaction batch should reference.
+  block.BlockHeader batch_reference_block_header = 1;
 
   // Proof of each _found_ unauthenticated note's inclusion in a block.
   repeated note.NoteInclusionInBlockProof note_proofs = 2;

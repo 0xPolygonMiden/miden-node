@@ -23,7 +23,7 @@ pub struct BatchInputs {
 impl From<BatchInputs> for GetBatchInputsResponse {
     fn from(inputs: BatchInputs) -> Self {
         Self {
-            block_header: Some(inputs.batch_reference_block_header.into()),
+            batch_reference_block_header: Some(inputs.batch_reference_block_header.into()),
             note_proofs: inputs.note_proofs.iter().map(Into::into).collect(),
             chain_mmr: inputs.chain_mmr.to_bytes(),
         }
@@ -36,7 +36,7 @@ impl TryFrom<GetBatchInputsResponse> for BatchInputs {
     fn try_from(response: GetBatchInputsResponse) -> Result<Self, ConversionError> {
         let result = Self {
             batch_reference_block_header: response
-                .block_header
+                .batch_reference_block_header
                 .ok_or(GetBatchInputsResponse::missing_field("block_header"))?
                 .try_into()?,
             note_proofs: response

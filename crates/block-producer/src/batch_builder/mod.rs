@@ -240,8 +240,6 @@ impl WorkerPool {
 
                     tracing::debug!("Batch proof completed.");
 
-                    // let batch = TransactionBatch::new_unchecked(batch);
-
                     Ok(batch)
                 }
             })

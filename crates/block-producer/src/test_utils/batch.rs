@@ -9,6 +9,14 @@ use miden_objects::{
 use crate::test_utils::MockProvenTxBuilder;
 
 pub trait TransactionBatchConstructor {
+    /// Builds a **mocked** [`ProvenBatch`] from the given transactions, which most likely violates
+    /// some of the rules of actual transaction batches.
+    ///
+    /// This builds a mocked version of a proven batch for testing purposes which can be useful if
+    /// the batch's details don't need to be correct (e.g. if something else is under test but
+    /// requires a transaction batch). If you need an actual valid [`ProvenBatch`], build a
+    /// [`ProposedBatch`](miden_objects::batch::ProposedBatch) first and convert (without proving)
+    /// or prove it into a [`ProvenBatch`].
     fn mocked_from_transactions<'tx>(txs: impl IntoIterator<Item = &'tx ProvenTransaction>)
         -> Self;
 
@@ -21,14 +29,6 @@ pub trait TransactionBatchConstructor {
 }
 
 impl TransactionBatchConstructor for ProvenBatch {
-    /// Builds a **mocked** [`ProvenBatch`] from the given transactions, which most likely violates
-    /// some of the rules of actual transaction batches.
-    ///
-    /// This builds a mocked version of a proven batch for testing purposes which can be useful if
-    /// the batch's details don't need to be correct (e.g. if something else is under test but
-    /// requires a transaction batch). If you need an actual valid [`ProvenBatch`], build a
-    /// [`ProposedBatch`](miden_objects::batch::ProposedBatch) first and convert (without proving)
-    /// or prove it into a [`ProvenBatch`].
     fn mocked_from_transactions<'tx>(
         txs: impl IntoIterator<Item = &'tx ProvenTransaction>,
     ) -> Self {
@@ -47,7 +47,11 @@ impl TransactionBatchConstructor for ProvenBatch {
                 })
                 .or_insert_with(|| BatchAccountUpdate::from_transaction(tx));
 
+            // Consider all input notes of all transactions as inputs of the batch, which may not
+            // always be correct.
             input_notes.extend(tx.input_notes().iter().cloned());
+            // Consider all outputs notes of all transactions as outputs of the batch, which may not
+            // always be correct.
             output_notes.extend(tx.output_notes().iter().cloned());
         }
 
