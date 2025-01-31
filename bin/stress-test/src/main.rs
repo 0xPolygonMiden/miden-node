@@ -10,21 +10,28 @@ use clap::{Parser, Subcommand};
 use miden_lib::{
     account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
     note::create_p2id_note,
+    utils::Serializable,
 };
 use miden_node_block_producer::{
     batch_builder::TransactionBatch, block_builder::BlockBuilder, store::StoreClient,
     test_utils::MockProvenTxBuilder,
 };
 use miden_node_proto::{
-    domain::note::NoteAuthenticationInfo, generated::store::api_client::ApiClient,
+    domain::note::NoteAuthenticationInfo,
+    generated::{
+        account as account_proto, requests::SyncStateRequest, store::api_client::ApiClient,
+    },
 };
 use miden_node_store::{config::StoreConfig, server::Store};
 use miden_objects::{
-    account::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
+    account::{
+        delta::AccountUpdateDetails, Account, AccountBuilder, AccountId, AccountStorageMode,
+        AccountType,
+    },
     asset::{Asset, FungibleAsset, TokenSymbol},
     block::BlockHeader,
     crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
-    note::{Note, NoteInclusionProof},
+    note::{Note, NoteExecutionMode, NoteInclusionProof, NoteTag},
     transaction::{OutputNote, ProvenTransaction},
     Digest, Felt,
 };
@@ -32,9 +39,12 @@ use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tokio::{
+    io::AsyncWriteExt,
     sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
     task,
 };
+
+type AccountNoteTransactions = Vec<(AccountId, Note, ProvenTransaction)>;
 
 const SQLITE_TABLES: [&str; 11] = [
     "account_deltas",
@@ -67,12 +77,41 @@ pub enum Command {
         dump_file: PathBuf,
 
         /// Number of accounts to create.
-        #[arg(short, long, value_name = "NUM_ACCOUNTS")]
+        #[arg(short, long, value_name = "NUM_ACCOUNTS", default_value = "10000")]
         num_accounts: usize,
 
+        /// Public accounts percentage
+        #[arg(short, long, value_name = "PUBLIC_ACCOUNTS_PERCENTAGE", default_value = "0")]
+        public_accounts_percentage: u8,
+
         /// Path to the genesis file of the store.
-        #[arg(short, long, value_name = "GENESIS_FILE")]
+        #[arg(short, long, value_name = "GENESIS_FILE", default_value = "./genesis.dat")]
         genesis_file: PathBuf,
+
+        /// Path to the accounts file to dump the created public account ids.
+        #[arg(short, long, value_name = "ACCOUNTS_FILE", default_value = "./accounts.txt")]
+        accounts_file: PathBuf,
+    },
+    BenchSyncRequest {
+        /// Path to the store database file.
+        #[arg(short, long, value_name = "DUMP_FILE", default_value = "./miden-store.sqlite3")]
+        dump_file: PathBuf,
+
+        /// Path to the genesis file of the store.
+        #[arg(short, long, value_name = "GENESIS_FILE", default_value = "./genesis.dat")]
+        genesis_file: PathBuf,
+
+        /// Iterations of the sync request.
+        #[arg(short, long, value_name = "ITERATIONS", default_value = "1")]
+        iterations: usize,
+
+        /// Path to the accounts file with the dumped public account ids.
+        #[arg(short, long, value_name = "ACCOUNTS_FILE", default_value = "./accounts.txt")]
+        accounts_file: PathBuf,
+
+        // Block store directory
+        #[arg(short, long, value_name = "BLOCKSTORE_DIR", default_value = "./blocks")]
+        blockstore_dir: PathBuf,
     },
 }
 
@@ -89,19 +128,50 @@ async fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::SeedStore { dump_file, num_accounts, genesis_file } => {
-            seed_store(dump_file, *num_accounts, genesis_file).await;
+        Command::SeedStore {
+            dump_file,
+            num_accounts,
+            genesis_file,
+            public_accounts_percentage,
+            accounts_file,
+        } => {
+            seed_store(
+                dump_file,
+                *num_accounts,
+                genesis_file,
+                *public_accounts_percentage,
+                accounts_file,
+            )
+            .await;
+        },
+        Command::BenchSyncRequest {
+            dump_file,
+            genesis_file,
+            iterations,
+            accounts_file,
+            blockstore_dir,
+        } => {
+            bench_sync_request(dump_file, genesis_file, *iterations, accounts_file, blockstore_dir)
+                .await;
         },
     }
 }
 
 /// Seed the store with a given number of accounts.
-async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) {
+async fn seed_store(
+    dump_file: &Path,
+    num_accounts: usize,
+    genesis_file: &Path,
+    public_accounts_percentage: u8,
+    accounts_file: &Path,
+) {
     let store_config = StoreConfig {
         database_filepath: dump_file.to_path_buf(),
         genesis_filepath: genesis_file.to_path_buf(),
         ..Default::default()
     };
+
+    println!("{:?}", store_config);
 
     // Start store
     let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
@@ -132,39 +202,17 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     let num_accounts_per_block = TRANSACTIONS_PER_BATCH * BATCHES_PER_BLOCK;
 
     // Create sets of accounts and notes
-    let accounts_and_notes: Arc<Mutex<Vec<(AccountId, Note, ProvenTransaction)>>> =
+    let accounts_and_notes: Arc<Mutex<AccountNoteTransactions>> =
         Arc::new(Mutex::new(Vec::with_capacity(num_accounts_per_block))); // THIS MIGHT BE REPLACED WITH A STRUCT OR ALIAS
 
-    // Shared random coin seed and key pair for all accounts
-    let coin_seed: [u64; 4] = rand::thread_rng().gen();
-    let rng = Arc::new(Mutex::new(RpoRandomCoin::new(coin_seed.map(Felt::new))));
-    // Re-using the same key for all accounts to avoid Falcon key generation overhead
-    let key_pair = {
-        let mut rng = rng.lock().unwrap();
-        SecretKey::with_rng(&mut *rng)
-    };
-
-    let start_generating_accounts = Instant::now();
-
-    // Create the accounts
-    (0..num_accounts).into_par_iter().for_each(|account_index| {
-        let account =
-            create_account(&genesis_header, key_pair.public_key(), (account_index) as u64);
-        let note = {
-            let mut rng = rng.lock().unwrap();
-            create_note(faucet_id, account, &mut rng)
-        };
-
-        let path = MerklePath::new(vec![]);
-        let inclusion_proof = NoteInclusionProof::new(0.into(), 0, path).unwrap();
-
-        let consume_tx =
-            MockProvenTxBuilder::with_account(account, Digest::default(), Digest::default())
-                .authenticated_notes(vec![(note.clone(), inclusion_proof)])
-                .build();
-
-        accounts_and_notes.lock().unwrap().push((account, note, consume_tx));
-    });
+    let start_generating_accounts = create_accounts(
+        num_accounts,
+        public_accounts_percentage,
+        accounts_file,
+        genesis_header,
+        faucet_id,
+        &accounts_and_notes,
+    );
 
     println!(
         "Generated {} accounts in {:.3} seconds",
@@ -211,6 +259,92 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
         total_time,
         dump_file,
     );
+}
+
+fn create_accounts(
+    num_accounts: usize,
+    public_accounts_percentage: u8,
+    accounts_file: &Path,
+    genesis_header: BlockHeader,
+    faucet_id: AccountId,
+    accounts_and_notes: &Arc<Mutex<AccountNoteTransactions>>,
+) -> Instant {
+    // Shared random coin seed and key pair for all accounts
+    let coin_seed: [u64; 4] = rand::thread_rng().gen();
+    let rng = Arc::new(Mutex::new(RpoRandomCoin::new(coin_seed.map(Felt::new))));
+    // Re-using the same key for all accounts to avoid Falcon key generation overhead
+    let key_pair = {
+        let mut rng = rng.lock().unwrap();
+        SecretKey::with_rng(&mut *rng)
+    };
+
+    let start_generating_accounts = Instant::now();
+
+    #[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
+    let public_accounts =
+        (num_accounts as f64 * (f64::from(public_accounts_percentage) / 100.0)).round() as usize;
+    let private_accounts = num_accounts - public_accounts;
+
+    println!(
+        "Creating {private_accounts} private accounts and {public_accounts} public accounts..."
+    );
+
+    // Account ID dumper
+    let (id_sender, id_receiver) = unbounded_channel::<AccountId>();
+    tokio::spawn(dump_account_ids(id_receiver, accounts_file.to_path_buf()));
+
+    // Create the private accounts
+    (0..private_accounts).into_par_iter().for_each(|account_index| {
+        let account = create_account(
+            &genesis_header,
+            key_pair.public_key(),
+            (account_index) as u64,
+            AccountStorageMode::Private,
+        );
+        let note = {
+            let mut rng = rng.lock().unwrap();
+            create_note(faucet_id, account.id(), &mut rng)
+        };
+
+        let path = MerklePath::new(vec![]);
+        let inclusion_proof = NoteInclusionProof::new(0.into(), 0, path).unwrap();
+
+        let consume_tx =
+            MockProvenTxBuilder::with_account(account.id(), Digest::default(), Digest::default())
+                .authenticated_notes(vec![(note.clone(), inclusion_proof)])
+                .account_update_details(AccountUpdateDetails::Private)
+                .build();
+
+        accounts_and_notes.lock().unwrap().push((account.id(), note, consume_tx));
+        id_sender.send(account.id()).unwrap();
+    });
+
+    // Create the public accounts
+    (0..public_accounts).into_par_iter().for_each(|account_index| {
+        let account = create_account(
+            &genesis_header,
+            key_pair.public_key(),
+            (account_index) as u64,
+            AccountStorageMode::Public,
+        );
+        let note = {
+            let mut rng = rng.lock().unwrap();
+            create_note(faucet_id, account.id(), &mut rng)
+        };
+
+        let path = MerklePath::new(vec![]);
+        let inclusion_proof = NoteInclusionProof::new(0.into(), 0, path).unwrap();
+
+        let consume_tx =
+            MockProvenTxBuilder::with_account(account.id(), account.init_hash(), account.hash())
+                .authenticated_notes(vec![(note.clone(), inclusion_proof)])
+                .account_update_details(AccountUpdateDetails::New(account.clone()))
+                .build();
+
+        accounts_and_notes.lock().unwrap().push((account.id(), note, consume_tx));
+        id_sender.send(account.id()).unwrap();
+    });
+    start_generating_accounts
 }
 
 fn print_metrics(
@@ -322,17 +456,22 @@ fn create_note(faucet_id: AccountId, receipient: AccountId, rng: &mut RpoRandomC
 
 /// Create a new account with a given public key and anchor block. Generates the seed from the given
 /// index.
-fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64) -> AccountId {
+fn create_account(
+    anchor_block: &BlockHeader,
+    public_key: PublicKey,
+    index: u64,
+    storage_mode: AccountStorageMode,
+) -> Account {
     let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
     let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
         .anchor(anchor_block.try_into().unwrap())
         .account_type(AccountType::RegularAccountImmutableCode)
-        .storage_mode(AccountStorageMode::Private)
+        .storage_mode(storage_mode)
         .with_component(RpoFalcon512::new(public_key))
         .with_component(BasicWallet)
         .build()
         .unwrap();
-    new_account.id()
+    new_account
 }
 
 /// Build blocks from transaction batches. Each new block contains [`BATCHES_PER_BLOCK`] batches.
@@ -440,5 +579,69 @@ fn generate_batches(
         });
 
         accounts_notes_txs_1 = accounts_notes_txs_0;
+    }
+}
+
+/// Sends a sync request to the store and measures the performance.
+async fn bench_sync_request(
+    dump_file: &Path,
+    genesis_file: &Path,
+    iterations: usize,
+    accounts_file: &Path,
+    blockstore_dir: &Path,
+) {
+    let store_config = StoreConfig {
+        database_filepath: dump_file.to_path_buf(),
+        genesis_filepath: genesis_file.to_path_buf(),
+        ..Default::default()
+    };
+
+    println!("{:?}", store_config);
+
+    // Start store
+    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
+    task::spawn(async move { store.serve().await.context("Serving store") });
+    let start = Instant::now();
+
+    let mut api_client = ApiClient::connect(store_config.endpoint.to_string()).await.unwrap();
+
+    // Send sync request and measure performance
+    // Read the account ids from the file
+    // If iterations > accounts_file, repeat the account ids
+    let accounts = tokio::fs::read_to_string(accounts_file).await.unwrap();
+    let accounts: Vec<&str> = accounts.lines().collect();
+
+    let mut account_ids = accounts.iter().cycle();
+
+    for _ in 0..iterations {
+        let account_id = account_ids.next().unwrap();
+        send_sync_request(&mut api_client, account_id).await;
+    }
+
+    let elapsed = start.elapsed();
+    println!("Sync request took: {elapsed:?}");
+}
+
+async fn send_sync_request(
+    api_client: &mut ApiClient<tonic::transport::Channel>,
+    account_id: &str,
+) {
+    let account_id = AccountId::from_hex(account_id).unwrap();
+    let sync_request = SyncStateRequest {
+        block_num: 0,
+        note_tags: vec![u32::from(
+            NoteTag::from_account_id(account_id, NoteExecutionMode::Local).unwrap(),
+        )],
+        account_ids: vec![account_proto::AccountId { id: account_id.to_bytes() }],
+        nullifiers: vec![],
+    };
+
+    api_client.sync_state(sync_request).await.unwrap();
+}
+
+async fn dump_account_ids(mut receiver: UnboundedReceiver<AccountId>, file: PathBuf) {
+    let mut file = tokio::fs::File::create(file).await.unwrap();
+    while let Some(account_id) = receiver.recv().await {
+        file.write_all(format!("{account_id}\n").as_bytes()).await.unwrap();
     }
 }

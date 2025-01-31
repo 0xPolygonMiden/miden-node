@@ -1924,6 +1924,7 @@ dependencies = [
  "rand",
  "rayon",
  "tokio",
+ "tonic",
 ]
 
 [[package]]
