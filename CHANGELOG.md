@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Enhancements
+
+- Add an optional open-telemetry trace exporter (#659).
+
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
