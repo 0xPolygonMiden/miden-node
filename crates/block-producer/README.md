@@ -1,6 +1,6 @@
 # Miden block producer
 
-Contains code definining the [Miden node's block-producer](/README.md#architecture) component. It is responsible for
+Contains code defining the [Miden node's block-producer](/README.md#architecture) component. It is responsible for
 ordering transactions into blocks and submitting these for inclusion in the blockchain.
 
 It serves a small [gRPC](htts://grpc.io) API which the node's RPC component uses to submit new transactions. In turn,
