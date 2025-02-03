@@ -549,27 +549,26 @@ impl State {
         // dropping the guard.
         let (batch_reference_block, partial_mmr) = {
             let state = self.inner.read().await;
-            let chain_length = BlockNumber::from(
-                u32::try_from(state.chain_mmr.forest())
-                    .expect("chain length should always fit into a u32"),
-            );
+            let latest_block_num = state.latest_block_num();
 
-            let highest_block_num = *blocks.last().expect("block references should not be empty");
-            if highest_block_num > chain_length {
-                return Err(GetBatchInputsError::TransactionBlockReferenceExceedsChainLength {
+            let highest_block_num =
+                *blocks.last().expect("we should have checked for empty block references");
+            if highest_block_num > latest_block_num {
+                return Err(GetBatchInputsError::TransactionBlockReferenceNewerThanLatestBlock {
                     highest_block_num,
-                    chain_length,
+                    latest_block_num,
                 });
             }
 
             // Remove the latest block from the to-be-tracked blocks as it will be the reference
             // block for the batch itself and thus added to the MMR within the batch kernel, so
             // there is no need to prove its inclusion.
-            blocks.remove(&chain_length);
+            blocks.remove(&latest_block_num);
 
-            // We do not include the latest block as it is used as the reference block and is added
-            // to the MMR by the transaction or batch kernel.
-            let target_forest = state.chain_mmr.forest() - 1;
+            // Using latest block as the target forest means we take the state of the MMR one before
+            // the latest block. This is because the latest block will be used as the reference
+            // block of the batch and will be added to the MMR by the batch kernel.
+            let target_forest = latest_block_num.as_usize();
             let peaks = state
                 .chain_mmr
                 .peaks_at(target_forest)
@@ -594,7 +593,7 @@ impl State {
                     .expect("filling partial mmr with data from mmr should succeed");
             }
 
-            (chain_length, partial_mmr)
+            (latest_block_num, partial_mmr)
         };
 
         // TODO: Unnecessary conversion. We should change the select_block_headers function to take

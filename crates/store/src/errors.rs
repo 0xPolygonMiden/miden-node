@@ -289,9 +289,9 @@ pub enum GetBatchInputsError {
     SelectBlockHeaderError(#[source] DatabaseError),
     #[error("set of blocks refernced by transactions is empty")]
     TransactionBlockReferencesEmpty,
-    #[error("highest block number {highest_block_num} referenced by a transaction exceeds the current chain length {chain_length}")]
-    TransactionBlockReferenceExceedsChainLength {
+    #[error("highest block number {highest_block_num} referenced by a transaction is newer than the latest block {latest_block_num}")]
+    TransactionBlockReferenceNewerThanLatestBlock {
         highest_block_num: BlockNumber,
-        chain_length: BlockNumber,
+        latest_block_num: BlockNumber,
     },
 }
