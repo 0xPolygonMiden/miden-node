@@ -6,7 +6,10 @@
 
 - [BREAKING] Updated minimum Rust version to 1.84.
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
-- [BREAKING] Replace `TransactionBatch` with `ProvenBatch` (#659).
+
+### Enhancements
+
+- Prove transaction batches using Rust batch prover reference implementation (#659).
 
 ## v0.7.2 (2025-01-29)
 
