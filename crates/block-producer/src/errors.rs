@@ -6,9 +6,10 @@ use miden_objects::{
     crypto::merkle::MerkleError,
     note::{NoteId, Nullifier},
     transaction::TransactionId,
-    AccountDeltaError, Digest,
+    AccountDeltaError, BatchProposeError, Digest,
 };
 use miden_processor::ExecutionError;
+use miden_tx_batch_prover::errors::BatchProveError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -137,6 +138,12 @@ pub enum BuildBatchError {
 
     #[error("failed to fetch batch inputs from store")]
     FetchBatchInputsFailed(#[source] StoreError),
+
+    #[error("failed to build proposed transaction batch")]
+    ProposeBatchError(#[source] BatchProposeError),
+
+    #[error("failed to prove proposed transaction batch")]
+    ProveBatchError(#[source] BatchProveError),
 }
 
 // Block prover errors

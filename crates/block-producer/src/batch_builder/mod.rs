@@ -270,14 +270,14 @@ impl WorkerPool {
 
         let proposed_batch =
             ProposedBatch::new(transactions, batch_reference_block_header, chain_mmr, note_proofs)
-                .expect("TODO: Error");
+                .map_err(BuildBatchError::ProposeBatchError)?;
 
         Span::current().record("batch_id", proposed_batch.id().to_string());
         info!(target: COMPONENT, "Proposed Batch built");
 
         let proven_batch = LocalBatchProver::new(MIN_PROOF_SECURITY_LEVEL)
             .prove(proposed_batch)
-            .expect("TODO: Error");
+            .map_err(BuildBatchError::ProveBatchError)?;
 
         Span::current().record("batch_id", proven_batch.id().to_string());
         info!(target: COMPONENT, "Proven Batch built");

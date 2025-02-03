@@ -127,7 +127,7 @@ impl BatchGraph {
             })
             .collect::<Result<_, _>>()?;
 
-        let id = BatchId::compute_from_ids(transactions.iter().copied());
+        let id = BatchId::from_ids(transactions.iter().copied());
         self.inner.insert_pending(id, parent_batches)?;
 
         for (tx, _) in transactions.iter().copied() {

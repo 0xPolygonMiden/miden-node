@@ -56,7 +56,7 @@ impl TransactionBatchConstructor for ProvenBatch {
         }
 
         ProvenBatch::new(
-            BatchId::compute_from_transactions(txs.into_iter()),
+            BatchId::from_transactions(txs.into_iter()),
             account_updates,
             InputNotes::new_unchecked(input_notes),
             BatchNoteTree::with_contiguous_leaves(
