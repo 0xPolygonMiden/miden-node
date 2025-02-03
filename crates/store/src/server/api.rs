@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeSet, convert::Infallible, sync::Arc};
 
 use miden_node_proto::{
     convert,
@@ -362,7 +362,9 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)
     }
 
-    /// TODO
+    /// Fetches the inputs for a transaction batch from the database.
+    ///
+    /// See [`State::get_batch_inputs`] for details.
     #[instrument(
       target = COMPONENT,
       name = "store:get_batch_inputs",
@@ -376,14 +378,13 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<GetBatchInputsResponse>, Status> {
         let request = request.into_inner();
 
-        // TODO: Error report.
         let note_ids: Vec<RpoDigest> = try_convert(request.note_ids)
             .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
         let note_ids = note_ids.into_iter().map(NoteId::from).collect();
 
-        // TODO: Error report.
-        let reference_blocks: Vec<u32> = try_convert(request.reference_blocks)
-            .map_err(|err| Status::invalid_argument(format!("Invalid BlockNumber: {err}")))?;
+        let reference_blocks: Vec<u32> =
+            try_convert::<_, Infallible, _, _, _>(request.reference_blocks)
+                .expect("operation should be infallible");
         let reference_blocks = reference_blocks.into_iter().map(BlockNumber::from).collect();
 
         self.state
@@ -391,7 +392,6 @@ impl api_server::Api for StoreApi {
             .await
             .map(Into::into)
             .map(Response::new)
-            // TODO: Is this correct?
             .map_err(internal_error)
     }
 

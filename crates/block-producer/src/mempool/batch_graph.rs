@@ -105,13 +105,7 @@ impl BatchGraph {
     ) -> Result<BatchId, BatchInsertError> {
         let duplicates = transactions
             .iter()
-            .filter_map(|(tx, _)| {
-                if self.transactions.contains_key(tx) {
-                    Some(tx)
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(tx, _)| self.transactions.contains_key(tx).then_some(tx))
             .copied()
             .collect::<BTreeSet<_>>();
         if !duplicates.is_empty() {
