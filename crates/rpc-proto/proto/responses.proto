@@ -187,12 +187,6 @@ message GetNotesByIdResponse {
     repeated note.Note notes = 1;
 }
 
-// Represents the result of getting note authentication info.
-message GetNoteAuthenticationInfoResponse {
-    // Proofs of note inclusions in blocks and block inclusions in chain.
-    note.NoteAuthenticationInfo proofs = 1;
-}
-
 // Represents the result of getting account details.
 message GetAccountDetailsResponse {
     // Account info (with details for public accounts).

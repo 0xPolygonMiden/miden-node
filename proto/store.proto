@@ -42,9 +42,6 @@ service Api {
     // Returns the inputs for a transaction batch.
     rpc GetBatchInputs(requests.GetBatchInputsRequest) returns (responses.GetBatchInputsResponse) {}
 
-    // Returns a list of Note inclusion proofs for the specified Note IDs.
-    rpc GetNoteAuthenticationInfo(requests.GetNoteAuthenticationInfoRequest) returns (responses.GetNoteAuthenticationInfoResponse) {}
-
     // Returns a list of notes matching the provided note IDs.
     rpc GetNotesById(requests.GetNotesByIdRequest) returns (responses.GetNotesByIdResponse) {}
 

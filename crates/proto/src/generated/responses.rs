@@ -193,13 +193,6 @@ pub struct GetNotesByIdResponse {
     #[prost(message, repeated, tag = "1")]
     pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
 }
-/// Represents the result of getting note authentication info.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetNoteAuthenticationInfoResponse {
-    /// Proofs of note inclusions in blocks and block inclusions in chain.
-    #[prost(message, optional, tag = "1")]
-    pub proofs: ::core::option::Option<super::note::NoteAuthenticationInfo>,
-}
 /// Represents the result of getting account details.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsResponse {

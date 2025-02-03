@@ -352,33 +352,6 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "GetBatchInputs"));
             self.inner.unary(req, path, codec).await
         }
-        /// Returns a list of Note inclusion proofs for the specified Note IDs.
-        pub async fn get_note_authentication_info(
-            &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::GetNoteAuthenticationInfoRequest,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetNoteAuthenticationInfoResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/store.Api/GetNoteAuthenticationInfo",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("store.Api", "GetNoteAuthenticationInfo"));
-            self.inner.unary(req, path, codec).await
-        }
         /// Returns a list of notes matching the provided note IDs.
         pub async fn get_notes_by_id(
             &mut self,
@@ -595,16 +568,6 @@ pub mod api_server {
             request: tonic::Request<super::super::requests::GetBatchInputsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::GetBatchInputsResponse>,
-            tonic::Status,
-        >;
-        /// Returns a list of Note inclusion proofs for the specified Note IDs.
-        async fn get_note_authentication_info(
-            &self,
-            request: tonic::Request<
-                super::super::requests::GetNoteAuthenticationInfoRequest,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetNoteAuthenticationInfoResponse>,
             tonic::Status,
         >;
         /// Returns a list of notes matching the provided note IDs.
@@ -1205,55 +1168,6 @@ pub mod api_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetBatchInputsSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/store.Api/GetNoteAuthenticationInfo" => {
-                    #[allow(non_camel_case_types)]
-                    struct GetNoteAuthenticationInfoSvc<T: Api>(pub Arc<T>);
-                    impl<
-                        T: Api,
-                    > tonic::server::UnaryService<
-                        super::super::requests::GetNoteAuthenticationInfoRequest,
-                    > for GetNoteAuthenticationInfoSvc<T> {
-                        type Response = super::super::responses::GetNoteAuthenticationInfoResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<
-                                super::super::requests::GetNoteAuthenticationInfoRequest,
-                            >,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as Api>::get_note_authentication_info(&inner, request)
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = GetNoteAuthenticationInfoSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

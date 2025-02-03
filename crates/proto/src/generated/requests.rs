@@ -133,13 +133,6 @@ pub struct GetNotesByIdRequest {
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
-/// Returns a list of Note inclusion proofs for the specified Note IDs.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetNoteAuthenticationInfoRequest {
-    /// List of notes to be queried from the database.
-    #[prost(message, repeated, tag = "1")]
-    pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
-}
 /// Returns the latest state of an account with the specified ID.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsRequest {

@@ -120,12 +120,6 @@ message GetNotesByIdRequest {
     repeated digest.Digest note_ids = 1;
 }
 
-// Returns a list of Note inclusion proofs for the specified Note IDs.
-message GetNoteAuthenticationInfoRequest {
-    // List of notes to be queried from the database.
-    repeated digest.Digest note_ids = 1;
-}
-
 // Returns the latest state of an account with the specified ID.
 message GetAccountDetailsRequest {
     // Account ID to get details.

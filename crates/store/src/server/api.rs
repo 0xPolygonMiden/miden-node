@@ -2,29 +2,25 @@ use std::{collections::BTreeSet, sync::Arc};
 
 use miden_node_proto::{
     convert,
-    domain::{
-        account::{AccountInfo, AccountProofRequest},
-        note::NoteAuthenticationInfo,
-    },
+    domain::account::{AccountInfo, AccountProofRequest},
     errors::ConversionError,
     generated::{
         self,
         account::AccountSummary,
-        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountProofsRequest, GetAccountStateDeltaRequest,
             GetBatchInputsRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
-            GetBlockInputsRequest, GetNoteAuthenticationInfoRequest, GetNotesByIdRequest,
-            GetTransactionInputsRequest, SyncNoteRequest, SyncStateRequest,
+            GetBlockInputsRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
             GetAccountStateDeltaResponse, GetBatchInputsResponse, GetBlockByNumberResponse,
-            GetBlockHeaderByNumberResponse, GetBlockInputsResponse,
-            GetNoteAuthenticationInfoResponse, GetNotesByIdResponse, GetTransactionInputsResponse,
-            NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
+            GetBlockHeaderByNumberResponse, GetBlockInputsResponse, GetNotesByIdResponse,
+            GetTransactionInputsResponse, NullifierTransactionInputRecord, NullifierUpdate,
+            SyncNoteResponse, SyncStateResponse,
         },
         store::api_server,
         transaction::TransactionSummary,
@@ -277,42 +273,6 @@ impl api_server::Api for StoreApi {
             .collect();
 
         Ok(Response::new(GetNotesByIdResponse { notes }))
-    }
-
-    /// Returns the inclusion proofs of the specified notes.
-    #[instrument(
-        target = COMPONENT,
-        name = "store:get_note_inclusion_proofs",
-        skip_all,
-        ret(level = "debug"),
-        err
-    )]
-    async fn get_note_authentication_info(
-        &self,
-        request: Request<GetNoteAuthenticationInfoRequest>,
-    ) -> Result<Response<GetNoteAuthenticationInfoResponse>, Status> {
-        info!(target: COMPONENT, ?request);
-
-        let note_ids = request.into_inner().note_ids;
-
-        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
-
-        let note_ids = note_ids.into_iter().map(From::from).collect();
-
-        let NoteAuthenticationInfo { block_proofs, note_proofs } = self
-            .state
-            .get_note_authentication_info(note_ids)
-            .await
-            .map_err(internal_error)?;
-
-        // Massage into shape required by protobuf
-        let note_proofs = note_proofs.iter().map(Into::into).collect();
-        let block_proofs = block_proofs.into_iter().map(Into::into).collect();
-
-        Ok(Response::new(GetNoteAuthenticationInfoResponse {
-            proofs: Some(NoteAuthenticationInfoProto { note_proofs, block_proofs }),
-        }))
     }
 
     /// Returns details for public (public) account by id.
