@@ -425,9 +425,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
+checksum = "f61dac84819c6588b558454b194026eb1f09c293b9036ae9b159e74e73ab6cf9"
 
 [[package]]
 name = "camino"
@@ -524,9 +524,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.27"
+version = "4.5.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "769b0145982b4b48713e01ec42d61614425f27b7058bda7180a3a41f30104796"
+checksum = "3e77c3243bd94243c03672cb5154667347c457ca271254724f9f393aee1c05ff"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -546,9 +546,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.24"
+version = "4.5.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54b755194d6389280185988721fffba69495eed5ee9feeee9a599b53db80318c"
+checksum = "bf4ced95c6f4a675af3da73304b9ac4ed991640c36374e4b46795c49e17cf1ed"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1749,7 +1749,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#6869e72b3e9bbca791c8d0e75323a7c243f67e97"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?rev=e82dee03de7589ef3fb12b7fd901cef25ae5535d#e82dee03de7589ef3fb12b7fd901cef25ae5535d"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1939,7 +1939,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#6869e72b3e9bbca791c8d0e75323a7c243f67e97"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?rev=e82dee03de7589ef3fb12b7fd901cef25ae5535d#e82dee03de7589ef3fb12b7fd901cef25ae5535d"
 dependencies = [
  "getrandom 0.2.15",
  "miden-assembly",
@@ -1998,7 +1998,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#6869e72b3e9bbca791c8d0e75323a7c243f67e97"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?rev=e82dee03de7589ef3fb12b7fd901cef25ae5535d#e82dee03de7589ef3fb12b7fd901cef25ae5535d"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2015,7 +2015,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-batch-prover"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base.git?branch=pgackst-batch-prover-crate#6869e72b3e9bbca791c8d0e75323a7c243f67e97"
+source = "git+https://github.com/0xPolygonMiden/miden-base.git?rev=e82dee03de7589ef3fb12b7fd901cef25ae5535d#e82dee03de7589ef3fb12b7fd901cef25ae5535d"
 dependencies = [
  "miden-core",
  "miden-crypto",
@@ -3736,9 +3736,9 @@ dependencies = [
 
 [[package]]
 name = "wait-timeout"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f200f5b12eb75f8c1ed65abd4b2db8a6e1b138a20de009dacee265a2498f3f6"
+checksum = "09ac3b126d3914f9849036f826e054cbabdc8519970b8998ddaf3b5bd3c65f11"
 dependencies = [
  "libc",
 ]
@@ -4089,9 +4089,9 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "winnow"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e49d2d35d3fad69b39b94139037ecfb4f359f08958b9c11e7315ce770462419"
+checksum = "86e376c75f4f43f44db463cf729e0d3acbf954d13e22c51e26e4c264b4ab545f"
 dependencies = [
  "memchr",
 ]
