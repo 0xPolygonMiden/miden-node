@@ -19,7 +19,7 @@ use http::HeaderValue;
 use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
 use miden_objects::{
-    account::{AccountData, AccountStorageMode, AuthSecretKey},
+    account::{AccountFile, AccountStorageMode, AuthSecretKey},
     asset::TokenSymbol,
     crypto::dsa::rpo_falcon512::SecretKey,
     Felt,
@@ -169,7 +169,7 @@ async fn main() -> anyhow::Result<()> {
             .context("Failed to create basic fungible faucet account")?;
 
             let account_data =
-                AccountData::new(account, Some(account_seed), AuthSecretKey::RpoFalcon512(secret));
+                AccountFile::new(account, Some(account_seed), AuthSecretKey::RpoFalcon512(secret));
 
             let output_path = current_dir.join(output_path);
             account_data

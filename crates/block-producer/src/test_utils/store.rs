@@ -5,6 +5,7 @@ use std::{
 
 use miden_node_proto::domain::{block::BlockInclusionProof, note::NoteAuthenticationInfo};
 use miden_objects::{
+    batch::ProvenBatch,
     block::{Block, BlockHeader, BlockNumber, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     note::{NoteId, NoteInclusionProof, Nullifier},
@@ -15,7 +16,6 @@ use tokio::sync::RwLock;
 
 use super::*;
 use crate::{
-    batch_builder::TransactionBatch,
     block::{AccountWitness, BlockInputs},
     errors::StoreError,
     store::TransactionInputs,
@@ -35,20 +35,23 @@ pub struct MockStoreSuccessBuilder {
 }
 
 impl MockStoreSuccessBuilder {
-    pub fn from_batches<'a>(
-        batches_iter: impl Iterator<Item = &'a TransactionBatch> + Clone,
-    ) -> Self {
+    pub fn from_batches<'a>(batches_iter: impl Iterator<Item = &'a ProvenBatch> + Clone) -> Self {
         let accounts_smt = {
             let accounts = batches_iter
                 .clone()
-                .flat_map(TransactionBatch::account_initial_states)
+                .flat_map(|batch| {
+                    batch
+                        .account_updates()
+                        .iter()
+                        .map(|(account_id, update)| (account_id, update.initial_state_commitment()))
+                })
                 .map(|(account_id, hash)| (account_id.prefix().into(), hash.into()));
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
         Self {
             accounts: Some(accounts_smt),
-            notes: Some(block_output_notes(batches_iter).cloned().collect()),
+            notes: Some(block_output_notes(batches_iter)),
             produced_nullifiers: None,
             chain_mmr: None,
             block_num: None,

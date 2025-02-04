@@ -3,6 +3,7 @@ use std::{collections::BTreeSet, ops::Range};
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
     account::AccountId,
+    batch::ProvenBatch,
     block::Block,
     note::{NoteHeader, Nullifier},
     transaction::{InputNoteCommitment, OutputNote},
@@ -12,8 +13,8 @@ use tokio::time::Duration;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    batch_builder::batch::TransactionBatch, errors::BuildBlockError, mempool::SharedMempool,
-    store::StoreClient, COMPONENT, SERVER_BLOCK_FREQUENCY,
+    errors::BuildBlockError, mempool::SharedMempool, store::StoreClient, COMPONENT,
+    SERVER_BLOCK_FREQUENCY,
 };
 
 pub(crate) mod prover;
@@ -94,34 +95,36 @@ impl BlockBuilder {
     }
 
     #[instrument(target = COMPONENT, skip_all, err)]
-    async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
+    async fn build_block(&self, batches: &[ProvenBatch]) -> Result<(), BuildBlockError> {
         info!(
             target: COMPONENT,
             num_batches = batches.len(),
-            batches = %format_array(batches.iter().map(TransactionBatch::id)),
+            batches = %format_array(batches.iter().map(ProvenBatch::id)),
         );
 
         let updated_account_set: BTreeSet<AccountId> = batches
             .iter()
-            .flat_map(TransactionBatch::updated_accounts)
+            .flat_map(ProvenBatch::account_updates)
             .map(|(account_id, _)| *account_id)
             .collect();
 
         let output_notes: Vec<_> =
-            batches.iter().map(TransactionBatch::output_notes).cloned().collect();
+            batches.iter().map(|batch| batch.output_notes().to_vec()).collect();
 
         let produced_nullifiers: Vec<Nullifier> =
-            batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
+            batches.iter().flat_map(ProvenBatch::produced_nullifiers).collect();
 
         // Populate set of output notes from all batches
-        let output_notes_set: BTreeSet<_> =
-            output_notes.iter().flat_map(|batch| batch.iter().map(OutputNote::id)).collect();
+        let output_notes_set: BTreeSet<_> = output_notes
+            .iter()
+            .flat_map(|output_notes| output_notes.iter().map(OutputNote::id))
+            .collect();
 
         // Build a set of unauthenticated input notes for this block which do not have a matching
         // output note produced in this block
         let dangling_notes: BTreeSet<_> = batches
             .iter()
-            .flat_map(TransactionBatch::input_notes)
+            .flat_map(ProvenBatch::input_notes)
             .filter_map(InputNoteCommitment::header)
             .map(NoteHeader::id)
             .filter(|note_id| !output_notes_set.contains(note_id))
