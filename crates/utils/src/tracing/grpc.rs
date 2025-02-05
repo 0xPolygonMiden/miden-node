@@ -1,31 +1,27 @@
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
-/// A [trace_fn] implementation for the block producer which adds open-telemetry information to the
-/// span.
+/// A [`trace_fn`](tonic::transport::server::Server) implementation for the block producer which
+/// adds open-telemetry information to the span.
 ///
 /// Creates an `info` span following the open-telemetry standard: `block-producer.rpc/{method}`.
 /// Additionally also pulls in remote tracing context which allows the server trace to be connected
 /// to the client's origin trace.
-///
-/// [trace_fn]: tonic::transport::server::Server::trace_fn
 pub fn block_producer_trace_fn(request: &http::Request<()>) -> tracing::Span {
-    let span = match request.uri().path().rsplit('/').next() {
-        Some("SubmitProvenTransaction") => {
-            tracing::info_span!("block-producer.rpc/SubmitProvenTransaction")
-        },
-        _ => tracing::info_span!("block-producer.rpc/Unknown"),
+    let span = if let Some("SubmitProvenTransaction") = request.uri().path().rsplit('/').next() {
+        tracing::info_span!("block-producer.rpc/SubmitProvenTransaction")
+    } else {
+        tracing::info_span!("block-producer.rpc/Unknown")
     };
 
     add_otel_span_attributes(span, request)
 }
 
-/// A [trace_fn] implementation for the store which adds open-telemetry information to the span.
+/// A [`trace_fn`](tonic::transport::server::Server) implementation for the store which adds
+/// open-telemetry information to the span.
 ///
 /// Creates an `info` span following the open-telemetry standard: `store.rpc/{method}`. Additionally
 /// also pulls in remote tracing context which allows the server trace to be connected to the
 /// client's origin trace.
-///
-/// [trace_fn]: tonic::transport::server::Server::trace_fn
 pub fn store_trace_fn(request: &http::Request<()>) -> tracing::Span {
     let span = match request.uri().path().rsplit('/').next() {
         Some("ApplyBlock") => tracing::info_span!("store.rpc/ApplyBlock"),
@@ -79,7 +75,7 @@ impl tonic::service::Interceptor for OtelInterceptor {
     ) -> Result<tonic::Request<()>, tonic::Status> {
         let ctx = tracing::Span::current().context();
         opentelemetry::global::get_text_map_propagator(|propagator| {
-            propagator.inject_context(&ctx, &mut MetadataInjector(request.metadata_mut()))
+            propagator.inject_context(&ctx, &mut MetadataInjector(request.metadata_mut()));
         });
 
         Ok(request)
@@ -88,13 +84,13 @@ impl tonic::service::Interceptor for OtelInterceptor {
 
 struct MetadataExtractor<'a>(&'a tonic::metadata::MetadataMap);
 impl opentelemetry::propagation::Extractor for MetadataExtractor<'_> {
-    /// Get a value for a key from the MetadataMap.  If the value can't be converted to &str,
+    /// Get a value for a key from the `MetadataMap`.  If the value can't be converted to &str,
     /// returns None
     fn get(&self, key: &str) -> Option<&str> {
         self.0.get(key).and_then(|metadata| metadata.to_str().ok())
     }
 
-    /// Collect all the keys from the MetadataMap.
+    /// Collect all the keys from the `MetadataMap`.
     fn keys(&self) -> Vec<&str> {
         self.0
             .keys()
@@ -108,7 +104,7 @@ impl opentelemetry::propagation::Extractor for MetadataExtractor<'_> {
 
 struct MetadataInjector<'a>(&'a mut tonic::metadata::MetadataMap);
 impl opentelemetry::propagation::Injector for MetadataInjector<'_> {
-    /// Set a key and value in the MetadataMap.  Does nothing if the key or value are not valid
+    /// Set a key and value in the `MetadataMap`.  Does nothing if the key or value are not valid
     /// inputs
     fn set(&mut self, key: &str, value: String) {
         if let Ok(key) = tonic::metadata::MetadataKey::from_bytes(key.as_bytes()) {

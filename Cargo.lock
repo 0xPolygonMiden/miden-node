@@ -1932,7 +1932,6 @@ dependencies = [
  "miden-node-proto",
  "miden-node-utils",
  "miden-objects",
- "opentelemetry",
  "rusqlite",
  "rusqlite_migration",
  "serde",
@@ -1941,7 +1940,6 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tracing",
- "tracing-opentelemetry",
  "url",
 ]
 
