@@ -5,6 +5,7 @@
 ### Enhancements
 
 - Add an optional open-telemetry trace exporter (#659).
+- Taking iterator in select_block_headers (#667).
 
 ### Changes
 

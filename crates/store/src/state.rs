@@ -477,7 +477,8 @@ impl State {
             (chain_length.into(), paths)
         };
 
-        let headers = self.db.select_block_headers(blocks.iter().copied()).await?;
+        let headers = self.db.select_block_headers(blocks.into_iter()).await?;
+
         let headers = headers
             .into_iter()
             .map(|header| (header.block_num(), header))
