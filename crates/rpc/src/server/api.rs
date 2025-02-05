@@ -18,12 +18,14 @@ use miden_node_proto::{
     },
     try_convert,
 };
+use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
     account::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
     utils::serde::Deserializable, Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
+    service::interceptor::InterceptedService,
     transport::{Channel, Error},
     Request, Response, Status,
 };
@@ -34,19 +36,29 @@ use crate::{config::RpcConfig, COMPONENT};
 // RPC API
 // ================================================================================================
 
+type StoreClient = store_client::ApiClient<InterceptedService<Channel, OtelInterceptor>>;
+type BlockProducerClient =
+    block_producer_client::ApiClient<InterceptedService<Channel, OtelInterceptor>>;
+
 pub struct RpcApi {
-    store: store_client::ApiClient<Channel>,
-    block_producer: block_producer_client::ApiClient<Channel>,
+    store: StoreClient,
+    block_producer: BlockProducerClient,
 }
 
 impl RpcApi {
     pub(super) async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
-        let store = store_client::ApiClient::connect(config.store_url.to_string()).await?;
+        let channel = tonic::transport::Endpoint::try_from(config.store_url.to_string())?
+            .connect()
+            .await?;
+        let store = store_client::ApiClient::with_interceptor(channel, OtelInterceptor);
         info!(target: COMPONENT, store_endpoint = config.store_url.as_str(), "Store client initialized");
 
+        let channel = tonic::transport::Endpoint::try_from(config.block_producer_url.to_string())?
+            .connect()
+            .await?;
         let block_producer =
-            block_producer_client::ApiClient::connect(config.block_producer_url.to_string())
-                .await?;
+            block_producer_client::ApiClient::with_interceptor(channel, OtelInterceptor);
+
         info!(
             target: COMPONENT,
             block_producer_endpoint = config.block_producer_url.as_str(),

@@ -5,6 +5,7 @@
 ### Enhancements
 
 - Add an optional open-telemetry trace exporter (#659).
+- Support tracing across gRPC boundaries using remote tracing context (#669).
 
 ### Changes
 

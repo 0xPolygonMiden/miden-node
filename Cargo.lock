@@ -1932,6 +1932,7 @@ dependencies = [
  "miden-node-proto",
  "miden-node-utils",
  "miden-objects",
+ "opentelemetry",
  "rusqlite",
  "rusqlite_migration",
  "serde",
@@ -1940,6 +1941,7 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tracing",
+ "tracing-opentelemetry",
  "url",
 ]
 
@@ -1957,6 +1959,7 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "figment",
+ "http",
  "itertools 0.14.0",
  "miden-objects",
  "opentelemetry",
