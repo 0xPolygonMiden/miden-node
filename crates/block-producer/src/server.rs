@@ -54,7 +54,7 @@ impl BlockProducer {
         info!(target: COMPONENT, %config, "Initializing server");
 
         let channel = tonic::transport::Endpoint::try_from(config.store_url.to_string())
-            .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?
+            .map_err(|err| ApiError::InvalidStoreUrl(err.to_string()))?
             .connect()
             .await
             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
