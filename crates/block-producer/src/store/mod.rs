@@ -19,7 +19,7 @@ use miden_node_proto::{
     },
     AccountState,
 };
-use miden_node_utils::formatting::format_opt;
+use miden_node_utils::{formatting::format_opt, tracing::grpc::OtelInterceptor};
 use miden_objects::{
     account::AccountId,
     block::{Block, BlockHeader, BlockNumber},
@@ -29,7 +29,7 @@ use miden_objects::{
     Digest,
 };
 use miden_processor::crypto::RpoDigest;
-use tonic::transport::Channel;
+use tonic::{service::interceptor::InterceptedService, transport::Channel};
 use tracing::{debug, info, instrument};
 
 use crate::{block::BlockInputs, errors::StoreError, COMPONENT};
@@ -121,17 +121,19 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
 // STORE CLIENT
 // ================================================================================================
 
+type InnerClient = store_client::ApiClient<InterceptedService<Channel, OtelInterceptor>>;
+
 /// Interface to the store's gRPC API.
 ///
 /// Essentially just a thin wrapper around the generated gRPC client which improves type safety.
 #[derive(Clone)]
 pub struct StoreClient {
-    inner: store_client::ApiClient<Channel>,
+    inner: InnerClient,
 }
 
 impl StoreClient {
     /// TODO: this should probably take store connection string and create a connection internally
-    pub fn new(store: store_client::ApiClient<Channel>) -> Self {
+    pub fn new(store: InnerClient) -> Self {
         Self { inner: store }
     }
 
