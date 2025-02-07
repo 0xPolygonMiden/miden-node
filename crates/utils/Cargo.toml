@@ -21,6 +21,7 @@ vergen = ["dep:vergen", "dep:vergen-gitcl"]
 [dependencies]
 anyhow                = { version = "1.0" }
 figment               = { version = "0.10", features = ["env", "toml"] }
+http                  = "1.2"
 itertools             = { workspace = true }
 miden-objects         = { workspace = true }
 opentelemetry         = "0.27"

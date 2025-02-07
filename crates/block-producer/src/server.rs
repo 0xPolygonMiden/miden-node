@@ -7,6 +7,7 @@ use miden_node_proto::generated::{
 use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
+    tracing::grpc::OtelInterceptor,
 };
 use miden_objects::{
     block::BlockNumber, transaction::ProvenTransaction, utils::serde::Deserializable,
@@ -52,11 +53,14 @@ impl BlockProducer {
     pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
-        let store = StoreClient::new(
-            store_client::ApiClient::connect(config.store_url.to_string())
-                .await
-                .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
-        );
+        let channel = tonic::transport::Endpoint::try_from(config.store_url.to_string())
+            .map_err(|err| ApiError::InvalidStoreUrl(err.to_string()))?
+            .connect()
+            .await
+            .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
+
+        let store = store_client::ApiClient::with_interceptor(channel, OtelInterceptor);
+        let store = StoreClient::new(store);
 
         let latest_header = store
             .latest_header()
@@ -208,6 +212,7 @@ impl BlockProducerRpcServer {
 
     async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
         tonic::transport::Server::builder()
+            .trace_fn(miden_node_utils::tracing::grpc::block_producer_trace_fn)
             .add_service(api_server::ApiServer::new(self))
             .serve_with_incoming(TcpListenerStream::new(listener))
             .await

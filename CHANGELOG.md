@@ -5,7 +5,7 @@
 ### Enhancements
 
 - Add an optional open-telemetry trace exporter (#659).
-- Taking iterator in select_block_headers (#667).
+- Support tracing across gRPC boundaries using remote tracing context (#669).
 
 ### Changes
 

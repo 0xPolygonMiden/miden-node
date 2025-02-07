@@ -1957,6 +1957,7 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "figment",
+ "http",
  "itertools 0.14.0",
  "miden-objects",
  "opentelemetry",
