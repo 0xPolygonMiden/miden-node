@@ -1059,11 +1059,11 @@ pub fn select_block_header_by_block_num(
 /// A vector of [`BlockHeader`] or an error.
 pub fn select_block_headers(
     conn: &mut Connection,
-    blocks: &[BlockNumber],
+    blocks: impl Iterator<Item = BlockNumber> + Send,
 ) -> Result<Vec<BlockHeader>> {
-    let mut headers = Vec::with_capacity(blocks.len());
+    let blocks: Vec<Value> = blocks.map(|b| b.as_u32().into()).collect();
 
-    let blocks: Vec<Value> = blocks.iter().copied().map(|b| b.as_u32().into()).collect();
+    let mut headers = Vec::with_capacity(blocks.len());
     let mut stmt = conn
         .prepare_cached("SELECT block_header FROM block_headers WHERE block_num IN rarray(?1);")?;
     let mut rows = stmt.query(params![Rc::new(blocks)])?;

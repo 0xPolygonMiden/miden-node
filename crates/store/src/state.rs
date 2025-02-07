@@ -450,9 +450,7 @@ impl State {
         let blocks = note_proofs
             .values()
             .map(|proof| proof.location().block_num())
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
+            .collect::<BTreeSet<_>>();
 
         // Grab the block merkle paths from the inner state.
         //
@@ -479,7 +477,8 @@ impl State {
             (chain_length.into(), paths)
         };
 
-        let headers = self.db.select_block_headers(blocks).await?;
+        let headers = self.db.select_block_headers(blocks.into_iter()).await?;
+
         let headers = headers
             .into_iter()
             .map(|header| (header.block_num(), header))
@@ -596,15 +595,11 @@ impl State {
             (latest_block_num, partial_mmr)
         };
 
-        // TODO: Unnecessary conversion. We should change the select_block_headers function to take
-        // an impl Iterator instead to avoid this allocation.
-        let mut blocks: Vec<_> = blocks.into_iter().collect();
         // Fetch the reference block of the batch as part of this query, so we can avoid looking it
         // up in a separate DB access.
-        blocks.push(batch_reference_block);
         let mut headers = self
             .db
-            .select_block_headers(blocks)
+            .select_block_headers(blocks.into_iter().chain(std::iter::once(batch_reference_block)))
             .await
             .map_err(GetBatchInputsError::SelectBlockHeaderError)?;
 
