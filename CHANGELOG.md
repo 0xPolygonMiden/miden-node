@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixes
+
+- Faucet webpage is missing `background.png` and `favicon.ico` (#672).
+
 ### Enhancements
 
 - Add an optional open-telemetry trace exporter (#659).
