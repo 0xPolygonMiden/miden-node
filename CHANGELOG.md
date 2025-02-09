@@ -10,6 +10,7 @@
 
 - Add an optional open-telemetry trace exporter (#659).
 - Support tracing across gRPC boundaries using remote tracing context (#669).
+- Instrument the block-producer's block building process (#676).
 
 ### Changes
 

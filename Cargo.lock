@@ -903,6 +903,7 @@ checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
 dependencies = [
  "futures-channel",
  "futures-core",
+ "futures-executor",
  "futures-io",
  "futures-sink",
  "futures-task",
@@ -971,10 +972,13 @@ version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81"
 dependencies = [
+ "futures-channel",
  "futures-core",
+ "futures-io",
  "futures-macro",
  "futures-sink",
  "futures-task",
+ "memchr",
  "pin-project-lite",
  "pin-utils",
  "slab",
@@ -1863,6 +1867,7 @@ version = "0.8.0"
 dependencies = [
  "assert_matches",
  "async-trait",
+ "futures",
  "itertools 0.14.0",
  "miden-air",
  "miden-lib",
@@ -1874,6 +1879,7 @@ dependencies = [
  "miden-stdlib",
  "miden-tx",
  "miden-tx-batch-prover",
+ "opentelemetry",
  "pretty_assertions",
  "rand",
  "rand_chacha",
@@ -1883,6 +1889,7 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tracing",
+ "tracing-opentelemetry",
  "url",
  "winterfell",
 ]

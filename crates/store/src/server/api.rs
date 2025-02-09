@@ -56,7 +56,7 @@ impl api_server::Api for StoreApi {
     /// If the block number is not provided, block header for the latest block is returned.
     #[instrument(
         target = COMPONENT,
-        name = "store:get_block_header_by_number",
+        name = "store.server.get_block_header_by_number",
         skip_all,
         ret(level = "debug"),
         err
@@ -88,7 +88,7 @@ impl api_server::Api for StoreApi {
     /// be verified against the latest root of the nullifier database.
     #[instrument(
         target = COMPONENT,
-        name = "store:check_nullifiers",
+        name = "store.server.check_nullifiers",
         skip_all,
         ret(level = "debug"),
         err
@@ -112,7 +112,7 @@ impl api_server::Api for StoreApi {
     /// Currently the only supported prefix length is 16 bits.
     #[instrument(
         target = COMPONENT,
-        name = "store:check_nullifiers_by_prefix",
+        name = "store.server.check_nullifiers_by_prefix",
         skip_all,
         ret(level = "debug"),
         err
@@ -145,7 +145,7 @@ impl api_server::Api for StoreApi {
     /// for the objects the client is interested in.
     #[instrument(
         target = COMPONENT,
-        name = "store:sync_state",
+        name = "store.server.sync_state",
         skip_all,
         ret(level = "debug"),
         err
@@ -214,7 +214,7 @@ impl api_server::Api for StoreApi {
     /// Returns info which can be used by the client to sync note state.
     #[instrument(
         target = COMPONENT,
-        name = "store:sync_notes",
+        name = "store.server.sync_notes",
         skip_all,
         ret(level = "debug"),
         err
@@ -246,7 +246,7 @@ impl api_server::Api for StoreApi {
     /// If the list is empty or no Note matched the requested NoteId and empty list is returned.
     #[instrument(
         target = COMPONENT,
-        name = "store:get_notes_by_id",
+        name = "store.server.get_notes_by_id",
         skip_all,
         ret(level = "debug"),
         err
@@ -278,7 +278,7 @@ impl api_server::Api for StoreApi {
     /// Returns details for public (public) account by id.
     #[instrument(
         target = COMPONENT,
-        name = "store:get_account_details",
+        name = "store.server.get_account_details",
         skip_all,
         ret(level = "debug"),
         err
@@ -302,7 +302,7 @@ impl api_server::Api for StoreApi {
     /// Updates the local DB by inserting a new block header and the related data.
     #[instrument(
         target = COMPONENT,
-        name = "store:apply_block",
+        name = "store.server.apply_block",
         skip_all,
         ret(level = "debug"),
         err
@@ -338,7 +338,7 @@ impl api_server::Api for StoreApi {
     /// Returns data needed by the block producer to construct and prove the next block.
     #[instrument(
         target = COMPONENT,
-        name = "store:get_block_inputs",
+        name = "store.server.get_block_inputs",
         skip_all,
         ret(level = "debug"),
         err
@@ -367,7 +367,7 @@ impl api_server::Api for StoreApi {
     /// See [`State::get_batch_inputs`] for details.
     #[instrument(
       target = COMPONENT,
-      name = "store:get_batch_inputs",
+      name = "store.server.get_batch_inputs",
       skip_all,
       ret(level = "debug"),
       err
@@ -397,7 +397,7 @@ impl api_server::Api for StoreApi {
 
     #[instrument(
         target = COMPONENT,
-        name = "store:get_transaction_inputs",
+        name = "store.server.get_transaction_inputs",
         skip_all,
         ret(level = "debug"),
         err
@@ -445,7 +445,7 @@ impl api_server::Api for StoreApi {
 
     #[instrument(
         target = COMPONENT,
-        name = "store:get_block_by_number",
+        name = "store.server.get_block_by_number",
         skip_all,
         ret(level = "debug"),
         err
@@ -465,7 +465,7 @@ impl api_server::Api for StoreApi {
 
     #[instrument(
         target = COMPONENT,
-        name = "store:get_account_proofs",
+        name = "store.server.get_account_proofs",
         skip_all,
         ret(level = "debug"),
         err
@@ -503,7 +503,7 @@ impl api_server::Api for StoreApi {
 
     #[instrument(
         target = COMPONENT,
-        name = "store:get_account_state_delta",
+        name = "store.server.get_account_state_delta",
         skip_all,
         ret(level = "debug"),
         err
