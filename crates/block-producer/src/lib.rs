@@ -1,14 +1,14 @@
 use std::time::Duration;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub mod test_utils;
 
-mod batch_builder;
-mod block_builder;
+pub mod batch_builder;
+pub mod block_builder;
 mod domain;
 mod errors;
 mod mempool;
-mod store;
+pub mod store;
 
 pub mod block;
 pub mod config;

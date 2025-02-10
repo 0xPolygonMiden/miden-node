@@ -1,20 +1,21 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     num::NonZeroU32,
+    sync::Arc,
 };
 
 use miden_node_proto::domain::{block::BlockInclusionProof, note::NoteAuthenticationInfo};
 use miden_objects::{
+    account::AccountId,
     batch::ProvenBatch,
     block::{Block, BlockHeader, BlockNumber, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     note::{NoteId, NoteInclusionProof, Nullifier},
     transaction::ProvenTransaction,
-    ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
+    Digest, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 use tokio::sync::RwLock;
 
-use super::*;
 use crate::{
     block::{AccountWitness, BlockInputs},
     errors::StoreError,

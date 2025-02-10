@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use miden_objects::{
     account::AccountId,
     crypto::rand::{FeltRng, RpoRandomCoin},

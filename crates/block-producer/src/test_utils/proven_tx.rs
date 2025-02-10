@@ -5,7 +5,9 @@ use miden_air::HashFunction;
 use miden_objects::{
     account::AccountId,
     block::BlockNumber,
-    note::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
+    note::{
+        Note, NoteExecutionHint, NoteHeader, NoteInclusionProof, NoteMetadata, NoteType, Nullifier,
+    },
     transaction::{InputNote, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
@@ -71,6 +73,18 @@ impl MockProvenTxBuilder {
     #[must_use]
     pub fn unauthenticated_notes(mut self, notes: Vec<Note>) -> Self {
         self.input_notes = Some(notes.into_iter().map(InputNote::unauthenticated).collect());
+
+        self
+    }
+
+    #[must_use]
+    pub fn authenticated_notes(mut self, notes: Vec<(Note, NoteInclusionProof)>) -> Self {
+        self.input_notes = Some(
+            notes
+                .into_iter()
+                .map(|(note, proof)| InputNote::authenticated(note, proof))
+                .collect(),
+        );
 
         self
     }
