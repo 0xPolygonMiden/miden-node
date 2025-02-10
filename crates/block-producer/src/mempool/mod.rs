@@ -4,8 +4,10 @@ use batch_graph::BatchGraph;
 use graph::GraphError;
 use inflight_state::InflightState;
 use miden_objects::{
-    block::BlockNumber, transaction::TransactionId, MAX_ACCOUNTS_PER_BATCH,
-    MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
+    batch::{BatchId, ProvenBatch},
+    block::BlockNumber,
+    transaction::TransactionId,
+    MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use tokio::sync::Mutex;
 use tracing::instrument;
@@ -13,10 +15,8 @@ use transaction_expiration::TransactionExpirations;
 use transaction_graph::TransactionGraph;
 
 use crate::{
-    batch_builder::batch::{BatchId, TransactionBatch},
-    domain::transaction::AuthenticatedTransaction,
-    errors::AddTransactionError,
-    COMPONENT, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
+    domain::transaction::AuthenticatedTransaction, errors::AddTransactionError, COMPONENT,
+    SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
 };
 
 mod batch_graph;
@@ -114,7 +114,7 @@ impl BlockBudget {
     /// Returns [`BudgetStatus::Exceeded`] if the batch would exceed the remaining budget,
     /// otherwise returns [`BudgetStatus::Ok`].
     #[must_use]
-    fn check_then_subtract(&mut self, _batch: &TransactionBatch) -> BudgetStatus {
+    fn check_then_subtract(&mut self, _batch: &ProvenBatch) -> BudgetStatus {
         if self.batches == 0 {
             BudgetStatus::Exceeded
         } else {
@@ -233,7 +233,7 @@ impl Mempool {
         if batch.is_empty() {
             return None;
         }
-        let tx_ids = batch.iter().map(AuthenticatedTransaction::id).collect::<Vec<_>>();
+        let tx_ids = batch.iter().map(|tx| (tx.id(), tx.account_id())).collect::<Vec<_>>();
 
         let batch_id = self.batches.insert(tx_ids, parents).expect("Selected batch should insert");
 
@@ -268,7 +268,7 @@ impl Mempool {
 
     /// Marks a batch as proven if it exists.
     #[instrument(target = COMPONENT, skip_all, fields(batch=%batch.id()))]
-    pub fn batch_proved(&mut self, batch: TransactionBatch) {
+    pub fn batch_proved(&mut self, batch: ProvenBatch) {
         // Batch may have been removed as part of a parent batches failure.
         if !self.batches.contains(&batch.id()) {
             return;
@@ -287,11 +287,11 @@ impl Mempool {
     ///
     /// Panics if there is already a block in flight.
     #[instrument(target = COMPONENT, skip_all)]
-    pub fn select_block(&mut self) -> (BlockNumber, Vec<TransactionBatch>) {
+    pub fn select_block(&mut self) -> (BlockNumber, Vec<ProvenBatch>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
         let batches = self.batches.select_block(self.block_budget);
-        self.block_in_progress = Some(batches.iter().map(TransactionBatch::id).collect());
+        self.block_in_progress = Some(batches.iter().map(ProvenBatch::id).collect());
 
         (self.chain_tip.child(), batches)
     }

@@ -22,8 +22,10 @@ miden-lib                 = { workspace = true }
 miden-node-block-producer = { workspace = true, features = ["testing"] }
 miden-node-proto          = { workspace = true }
 miden-node-store          = { workspace = true }
+miden-node-utils          = { workspace = true }
 miden-objects             = { workspace = true, features = ["testing"] }
 miden-processor           = { workspace = true }
 rand                      = { version = "0.8" }
 rayon                     = "1.10"
+tonic                     = { workspace = true }
 tokio                     = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }

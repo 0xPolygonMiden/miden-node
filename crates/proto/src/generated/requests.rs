@@ -92,6 +92,16 @@ pub struct GetBlockInputsRequest {
     #[prost(message, repeated, tag = "3")]
     pub unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
 }
+/// Returns the inputs for a transaction batch.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBatchInputsRequest {
+    /// List of unauthenticated notes to be queried from the database.
+    #[prost(message, repeated, tag = "1")]
+    pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    /// Set of block numbers referenced by transactions.
+    #[prost(fixed32, repeated, tag = "2")]
+    pub reference_blocks: ::prost::alloc::vec::Vec<u32>,
+}
 /// Returns data required to validate a new transaction.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetTransactionInputsRequest {
@@ -119,13 +129,6 @@ pub struct SubmitProvenTransactionRequest {
 /// Returns a list of notes matching the provided note IDs.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNotesByIdRequest {
-    /// List of notes to be queried from the database.
-    #[prost(message, repeated, tag = "1")]
-    pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
-}
-/// Returns a list of Note inclusion proofs for the specified Note IDs.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetNoteAuthenticationInfoRequest {
     /// List of notes to be queried from the database.
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,

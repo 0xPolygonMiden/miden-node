@@ -62,6 +62,7 @@ impl Store {
     /// Note: this blocks until the server dies.
     pub async fn serve(self) -> Result<(), ApiError> {
         tonic::transport::Server::builder()
+            .trace_fn(miden_node_utils::tracing::grpc::store_trace_fn)
             .add_service(self.api_service)
             .serve_with_incoming(TcpListenerStream::new(self.listener))
             .await

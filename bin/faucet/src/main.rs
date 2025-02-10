@@ -14,12 +14,12 @@ use axum::{
 };
 use clap::{Parser, Subcommand};
 use client::initialize_faucet_client;
-use handlers::{get_index_css, get_index_html, get_index_js};
+use handlers::{get_background, get_favicon, get_index_css, get_index_html, get_index_js};
 use http::HeaderValue;
 use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
 use miden_objects::{
-    account::{AccountData, AccountStorageMode, AuthSecretKey},
+    account::{AccountFile, AccountStorageMode, AuthSecretKey},
     asset::TokenSymbol,
     crypto::dsa::rpo_falcon512::SecretKey,
     Felt,
@@ -106,6 +106,8 @@ async fn main() -> anyhow::Result<()> {
                 .route("/", get(get_index_html))
                 .route("/index.js", get(get_index_js))
                 .route("/index.css", get(get_index_css))
+                .route("/background.png", get(get_background))
+                .route("/favicon.ico", get(get_favicon))
                 .route("/get_metadata", get(get_metadata))
                 .route("/get_tokens", post(get_tokens))
                 .layer(
@@ -169,7 +171,7 @@ async fn main() -> anyhow::Result<()> {
             .context("Failed to create basic fungible faucet account")?;
 
             let account_data =
-                AccountData::new(account, Some(account_seed), AuthSecretKey::RpoFalcon512(secret));
+                AccountFile::new(account, Some(account_seed), AuthSecretKey::RpoFalcon512(secret));
 
             let output_path = current_dir.join(output_path);
             account_data

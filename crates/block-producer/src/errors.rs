@@ -6,9 +6,10 @@ use miden_objects::{
     crypto::merkle::MerkleError,
     note::{NoteId, Nullifier},
     transaction::TransactionId,
-    AccountDeltaError, Digest,
+    AccountDeltaError, Digest, ProposedBatchError,
 };
 use miden_processor::ExecutionError;
+use miden_tx_batch_prover::errors::BatchProveError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -127,25 +128,6 @@ impl From<AddTransactionError> for tonic::Status {
 /// Error encountered while building a batch.
 #[derive(Debug, Error)]
 pub enum BuildBatchError {
-    #[error("duplicated unauthenticated transaction input note ID in the batch: {0}")]
-    DuplicateUnauthenticatedNote(NoteId),
-
-    #[error("duplicated transaction output note ID in the batch: {0}")]
-    DuplicateOutputNote(NoteId),
-
-    #[error("note hashes mismatch for note {id}: (input: {input_hash}, output: {output_hash})")]
-    NoteHashesMismatch {
-        id: NoteId,
-        input_hash: Digest,
-        output_hash: Digest,
-    },
-
-    #[error("failed to merge transaction delta into account {account_id}")]
-    AccountUpdateError {
-        account_id: AccountId,
-        source: AccountDeltaError,
-    },
-
     /// We sometimes randomly inject errors into the batch building process to test our failure
     /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]
@@ -156,6 +138,12 @@ pub enum BuildBatchError {
 
     #[error("failed to fetch batch inputs from store")]
     FetchBatchInputsFailed(#[source] StoreError),
+
+    #[error("failed to build proposed transaction batch")]
+    ProposeBatchError(#[source] ProposedBatchError),
+
+    #[error("failed to prove proposed transaction batch")]
+    ProveBatchError(#[source] BatchProveError),
 }
 
 // Block prover errors

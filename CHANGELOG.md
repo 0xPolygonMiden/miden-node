@@ -2,11 +2,24 @@
 
 ## Unreleased
 
+### Fixes
+
+- Faucet webpage is missing `background.png` and `favicon.ico` (#672).
+
+### Enhancements
+
+- Add an optional open-telemetry trace exporter (#659).
+- Support tracing across gRPC boundaries using remote tracing context (#669).
+
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
 - Added stress test binary with seed-store command (#621).
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
+
+### Enhancements
+
+- Prove transaction batches using Rust batch prover reference implementation (#659).
 
 ## v0.7.2 (2025-01-29)
 

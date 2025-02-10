@@ -12,16 +12,17 @@ use miden_lib::{
     note::create_p2id_note,
 };
 use miden_node_block_producer::{
-    batch_builder::TransactionBatch, block_builder::BlockBuilder, store::StoreClient,
-    test_utils::MockProvenTxBuilder,
+    block_builder::BlockBuilder,
+    store::StoreClient,
+    test_utils::{batch::TransactionBatchConstructor, MockProvenTxBuilder},
 };
-use miden_node_proto::{
-    domain::note::NoteAuthenticationInfo, generated::store::api_client::ApiClient,
-};
+use miden_node_proto::generated::store::api_client::ApiClient;
 use miden_node_store::{config::StoreConfig, server::Store};
+use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
     account::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
     asset::{Asset, FungibleAsset, TokenSymbol},
+    batch::ProvenBatch,
     block::BlockHeader,
     crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
     note::{Note, NoteInclusionProof},
@@ -106,26 +107,28 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     // Start store
     let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
     task::spawn(async move { store.serve().await.context("Serving store") });
+    let channel = tonic::transport::Endpoint::try_from(store_config.endpoint.to_string())
+        .unwrap()
+        .connect()
+        .await
+        .unwrap();
+    let store_api_client = ApiClient::with_interceptor(channel, OtelInterceptor);
+    let store_client = StoreClient::new(store_api_client);
     let start = Instant::now();
 
     // Create faucet
     println!("Creating new faucet account...");
-    let store_client =
-        StoreClient::new(ApiClient::connect(store_config.endpoint.to_string()).await.unwrap());
     let genesis_header = store_client.latest_header().await.unwrap();
     let faucet_id = create_faucet(&genesis_header);
 
     // Create first block with the faucet
-    let batch = TransactionBatch::new(
+    let txs =
         vec![
-            &MockProvenTxBuilder::with_account(faucet_id, Digest::default(), Digest::default())
+            MockProvenTxBuilder::with_account(faucet_id, Digest::default(), Digest::default())
                 .output_notes(vec![])
                 .build(),
-        ],
-        NoteAuthenticationInfo::default(),
-    )
-    .unwrap();
-
+        ];
+    let batch = ProvenBatch::mocked_from_transactions(txs.iter());
     BlockBuilder::new(store_client.clone()).build_block(&[batch]).await.unwrap();
 
     // Number of accounts per block
@@ -182,7 +185,7 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     // We should then build the block using this txs and send it to the store.
 
     // Spawn the block builder task
-    let (batch_sender, batch_receiver) = unbounded_channel::<TransactionBatch>();
+    let (batch_sender, batch_receiver) = unbounded_channel::<ProvenBatch>();
     let db_task = task::spawn(build_blocks(batch_receiver, store_client));
 
     // Create notes
@@ -343,12 +346,12 @@ fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64)
 /// - The number of inserted blocks.
 /// - A vector containing the store file size every 1k blocks.
 async fn build_blocks(
-    mut batch_receiver: UnboundedReceiver<TransactionBatch>,
+    mut batch_receiver: UnboundedReceiver<ProvenBatch>,
     store_client: StoreClient,
 ) -> (Vec<Duration>, Duration, u32, Vec<u64>) {
     let block_builder = BlockBuilder::new(store_client);
 
-    let mut current_block: Vec<TransactionBatch> = Vec::with_capacity(BATCHES_PER_BLOCK);
+    let mut current_block: Vec<ProvenBatch> = Vec::with_capacity(BATCHES_PER_BLOCK);
     let mut insertion_time_per_block = Vec::new();
     // Keep track of the store file size every 1k blocks in a vector to track the growth of the
     // file.
@@ -396,7 +399,7 @@ fn generate_batches(
     num_accounts: usize,
     faucet_id: AccountId,
     accounts_and_notes: &[(AccountId, Note, ProvenTransaction)],
-    batch_sender: &UnboundedSender<TransactionBatch>,
+    batch_sender: &UnboundedSender<ProvenBatch>,
 ) {
     let mut accounts_notes_txs_1 = vec![];
 
@@ -431,11 +434,7 @@ fn generate_batches(
 
         // Fill the batches with [TRANSACTIONS_PER_BATCH] txs each
         txs.chunks(TRANSACTIONS_PER_BATCH).for_each(|txs| {
-            let batch = TransactionBatch::new(
-                txs.iter().collect::<Vec<_>>(),
-                NoteAuthenticationInfo::default(),
-            )
-            .unwrap();
+            let batch = ProvenBatch::mocked_from_transactions(txs.iter());
             batch_sender.send(batch).unwrap();
         });
 

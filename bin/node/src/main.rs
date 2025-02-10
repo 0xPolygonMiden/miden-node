@@ -37,6 +37,9 @@ pub enum Command {
 
         #[arg(short, long, value_name = "FILE", default_value = NODE_CONFIG_FILE_PATH)]
         config: PathBuf,
+
+        #[arg(long = "open-telemetry", default_value_t = false)]
+        open_telemetry: bool,
     },
 
     /// Generates a genesis file and associated account files based on a specified genesis input
@@ -82,12 +85,17 @@ pub enum StartCommand {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    miden_node_utils::logging::setup_logging()?;
-
     let cli = Cli::parse();
 
+    // Open telemetry exporting is only valid for running the node.
+    let open_telemetry = match &cli.command {
+        Command::Start { open_telemetry, .. } => *open_telemetry,
+        _ => false,
+    };
+    miden_node_utils::logging::setup_tracing(open_telemetry)?;
+
     match &cli.command {
-        Command::Start { command, config } => match command {
+        Command::Start { command, config, .. } => match command {
             StartCommand::Node => {
                 let config = load_config(config).context("Loading configuration file")?;
                 start_node(config).await

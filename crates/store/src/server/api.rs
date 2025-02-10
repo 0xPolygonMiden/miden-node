@@ -1,28 +1,24 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeSet, convert::Infallible, sync::Arc};
 
 use miden_node_proto::{
     convert,
-    domain::{
-        account::{AccountInfo, AccountProofRequest},
-        note::NoteAuthenticationInfo,
-    },
+    domain::account::{AccountInfo, AccountProofRequest},
     errors::ConversionError,
     generated::{
         self,
         account::AccountSummary,
-        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountProofsRequest, GetAccountStateDeltaRequest,
-            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
-            GetNoteAuthenticationInfoRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            GetBatchInputsRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
+            GetBlockInputsRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
             SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
-            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetNoteAuthenticationInfoResponse, GetNotesByIdResponse,
+            GetAccountStateDeltaResponse, GetBatchInputsResponse, GetBlockByNumberResponse,
+            GetBlockHeaderByNumberResponse, GetBlockInputsResponse, GetNotesByIdResponse,
             GetTransactionInputsResponse, NullifierTransactionInputRecord, NullifierUpdate,
             SyncNoteResponse, SyncStateResponse,
         },
@@ -279,42 +275,6 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetNotesByIdResponse { notes }))
     }
 
-    /// Returns the inclusion proofs of the specified notes.
-    #[instrument(
-        target = COMPONENT,
-        name = "store:get_note_inclusion_proofs",
-        skip_all,
-        ret(level = "debug"),
-        err
-    )]
-    async fn get_note_authentication_info(
-        &self,
-        request: Request<GetNoteAuthenticationInfoRequest>,
-    ) -> Result<Response<GetNoteAuthenticationInfoResponse>, Status> {
-        info!(target: COMPONENT, ?request);
-
-        let note_ids = request.into_inner().note_ids;
-
-        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
-
-        let note_ids = note_ids.into_iter().map(From::from).collect();
-
-        let NoteAuthenticationInfo { block_proofs, note_proofs } = self
-            .state
-            .get_note_authentication_info(note_ids)
-            .await
-            .map_err(internal_error)?;
-
-        // Massage into shape required by protobuf
-        let note_proofs = note_proofs.iter().map(Into::into).collect();
-        let block_proofs = block_proofs.into_iter().map(Into::into).collect();
-
-        Ok(Response::new(GetNoteAuthenticationInfoResponse {
-            proofs: Some(NoteAuthenticationInfoProto { note_proofs, block_proofs }),
-        }))
-    }
-
     /// Returns details for public (public) account by id.
     #[instrument(
         target = COMPONENT,
@@ -396,6 +356,39 @@ impl api_server::Api for StoreApi {
 
         self.state
             .get_block_inputs(&account_ids, &nullifiers, unauthenticated_notes)
+            .await
+            .map(Into::into)
+            .map(Response::new)
+            .map_err(internal_error)
+    }
+
+    /// Fetches the inputs for a transaction batch from the database.
+    ///
+    /// See [`State::get_batch_inputs`] for details.
+    #[instrument(
+      target = COMPONENT,
+      name = "store:get_batch_inputs",
+      skip_all,
+      ret(level = "debug"),
+      err
+    )]
+    async fn get_batch_inputs(
+        &self,
+        request: Request<GetBatchInputsRequest>,
+    ) -> Result<Response<GetBatchInputsResponse>, Status> {
+        let request = request.into_inner();
+
+        let note_ids: Vec<RpoDigest> = try_convert(request.note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
+        let note_ids = note_ids.into_iter().map(NoteId::from).collect();
+
+        let reference_blocks: Vec<u32> =
+            try_convert::<_, Infallible, _, _, _>(request.reference_blocks)
+                .expect("operation should be infallible");
+        let reference_blocks = reference_blocks.into_iter().map(BlockNumber::from).collect();
+
+        self.state
+            .get_batch_inputs(reference_blocks, note_ids)
             .await
             .map(Into::into)
             .map(Response::new)

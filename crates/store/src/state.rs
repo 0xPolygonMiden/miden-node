@@ -13,6 +13,7 @@ use miden_node_proto::{
     convert,
     domain::{
         account::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
+        batch::BatchInputs,
         block::BlockInclusionProof,
         note::NoteAuthenticationInfo,
     },
@@ -28,11 +29,12 @@ use miden_objects::{
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{
-            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
+            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, PartialMmr, SimpleSmt,
+            SmtProof, ValuePath,
         },
     },
     note::{NoteId, Nullifier},
-    transaction::OutputNote,
+    transaction::{ChainMmr, OutputNote},
     utils::Serializable,
     AccountError, ACCOUNT_TREE_DEPTH,
 };
@@ -46,9 +48,9 @@ use crate::{
     blocks::BlockStore,
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
-        ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
-        GetNoteInclusionProofError, InvalidBlockError, NoteSyncError, StateInitializationError,
-        StateSyncError,
+        ApplyBlockError, DatabaseError, GetBatchInputsError, GetBlockHeaderError,
+        GetBlockInputsError, GetNoteAuthenticationInfoError, InvalidBlockError, NoteSyncError,
+        StateInitializationError, StateSyncError,
     },
     nullifier_tree::NullifierTree,
     COMPONENT,
@@ -438,8 +440,8 @@ impl State {
     pub async fn get_note_authentication_info(
         &self,
         note_ids: BTreeSet<NoteId>,
-    ) -> Result<NoteAuthenticationInfo, GetNoteInclusionProofError> {
-        // First we grab block-inclusion proofs for the known notes. These proofs only
+    ) -> Result<NoteAuthenticationInfo, GetNoteAuthenticationInfoError> {
+        // First we grab note inclusion proofs for the known notes. These proofs only
         // prove that the note was included in a given block. We then also need to prove that
         // each of those blocks is included in the chain.
         let note_proofs = self.db.select_note_inclusion_proofs(note_ids).await?;
@@ -448,9 +450,7 @@ impl State {
         let blocks = note_proofs
             .values()
             .map(|proof| proof.location().block_num())
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
+            .collect::<BTreeSet<_>>();
 
         // Grab the block merkle paths from the inner state.
         //
@@ -477,7 +477,8 @@ impl State {
             (chain_length.into(), paths)
         };
 
-        let headers = self.db.select_block_headers(blocks).await?;
+        let headers = self.db.select_block_headers(blocks.into_iter()).await?;
+
         let headers = headers
             .into_iter()
             .map(|header| (header.block_num(), header))
@@ -492,6 +493,141 @@ impl State {
         }
 
         Ok(NoteAuthenticationInfo { block_proofs, note_proofs })
+    }
+
+    /// Fetches the inputs for a transaction batch from the database.
+    ///
+    /// ## Inputs
+    ///
+    /// The function takes as input:
+    /// - The tx reference blocks are the set of blocks referenced by transactions in the batch.
+    /// - The unauthenticated note ids are the set of IDs of unauthenticated notes consumed by all
+    ///   transactions in the batch. For these notes, we attempt to find note inclusion proofs. Not
+    ///   all notes will exist in the DB necessarily, as some notes can be created and consumed
+    ///   within the same batch.
+    ///
+    /// ## Outputs
+    ///
+    /// The function will return:
+    /// - A block inclusion proof for all tx reference blocks and for all blocks which are
+    ///   referenced by a note inclusion proof.
+    /// - Note inclusion proofs for all notes that were found in the DB.
+    /// - The block header that the batch should reference, i.e. the latest known block.
+    pub async fn get_batch_inputs(
+        &self,
+        tx_reference_blocks: BTreeSet<BlockNumber>,
+        unauthenticated_note_ids: BTreeSet<NoteId>,
+    ) -> Result<BatchInputs, GetBatchInputsError> {
+        if tx_reference_blocks.is_empty() {
+            return Err(GetBatchInputsError::TransactionBlockReferencesEmpty);
+        }
+
+        // First we grab note inclusion proofs for the known notes. These proofs only
+        // prove that the note was included in a given block. We then also need to prove that
+        // each of those blocks is included in the chain.
+        let note_proofs = self
+            .db
+            .select_note_inclusion_proofs(unauthenticated_note_ids)
+            .await
+            .map_err(GetBatchInputsError::SelectNoteInclusionProofError)?;
+
+        // The set of blocks that the notes are included in.
+        let note_blocks = note_proofs.values().map(|proof| proof.location().block_num());
+
+        // Collect all blocks we need to query without duplicates, which is:
+        // - all blocks for which we need to prove note inclusion.
+        // - all blocks referenced by transactions in the batch.
+        let mut blocks = tx_reference_blocks;
+        blocks.extend(note_blocks);
+
+        // Grab the block merkle paths from the inner state.
+        //
+        // NOTE: Scoped block to automatically drop the mutex guard asap.
+        //
+        // We also avoid accessing the db in the block as this would delay
+        // dropping the guard.
+        let (batch_reference_block, partial_mmr) = {
+            let state = self.inner.read().await;
+            let latest_block_num = state.latest_block_num();
+
+            let highest_block_num =
+                *blocks.last().expect("we should have checked for empty block references");
+            if highest_block_num > latest_block_num {
+                return Err(GetBatchInputsError::TransactionBlockReferenceNewerThanLatestBlock {
+                    highest_block_num,
+                    latest_block_num,
+                });
+            }
+
+            // Remove the latest block from the to-be-tracked blocks as it will be the reference
+            // block for the batch itself and thus added to the MMR within the batch kernel, so
+            // there is no need to prove its inclusion.
+            blocks.remove(&latest_block_num);
+
+            // Using latest block as the target forest means we take the state of the MMR one before
+            // the latest block. This is because the latest block will be used as the reference
+            // block of the batch and will be added to the MMR by the batch kernel.
+            let target_forest = latest_block_num.as_usize();
+            let peaks = state
+                .chain_mmr
+                .peaks_at(target_forest)
+                .expect("target_forest should be smaller than forest of the chain mmr");
+            let mut partial_mmr = PartialMmr::from_peaks(peaks);
+
+            for block_num in blocks.iter().map(BlockNumber::as_usize) {
+                // SAFETY: We have ensured block nums are less than chain length.
+                let leaf = state
+                    .chain_mmr
+                    .get(block_num)
+                    .expect("block num less than chain length should exist in chain mmr");
+                let path = state
+                    .chain_mmr
+                    .open_at(block_num, target_forest)
+                    .expect("block num and target forest should be valid for this mmr")
+                    .merkle_path;
+                // SAFETY: We should be able to fill the partial MMR with data from the chain MMR
+                // without errors, otherwise it indicates the chain mmr is invalid.
+                partial_mmr
+                    .track(block_num, leaf, &path)
+                    .expect("filling partial mmr with data from mmr should succeed");
+            }
+
+            (latest_block_num, partial_mmr)
+        };
+
+        // Fetch the reference block of the batch as part of this query, so we can avoid looking it
+        // up in a separate DB access.
+        let mut headers = self
+            .db
+            .select_block_headers(blocks.into_iter().chain(std::iter::once(batch_reference_block)))
+            .await
+            .map_err(GetBatchInputsError::SelectBlockHeaderError)?;
+
+        // Find and remove the batch reference block as we don't want to add it to the chain MMR.
+        let header_index = headers
+            .iter()
+            .enumerate()
+            .find_map(|(index, header)| {
+                (header.block_num() == batch_reference_block).then_some(index)
+            })
+            .expect("DB should have returned the header of the batch reference block");
+
+        // The order doesn't matter for ChainMmr::new, so swap remove is fine.
+        let batch_reference_block_header = headers.swap_remove(header_index);
+
+        // SAFETY: This should not error because:
+        // - we're passing exactly the block headers that we've added to the partial MMR,
+        // - so none of the block headers block numbers should exceed the chain length of the
+        //   partial MMR,
+        // - and we've added blocks to a BTreeSet, so there can be no duplicates.
+        let chain_mmr = ChainMmr::new(partial_mmr, headers)
+            .expect("partial mmr and block headers should be consistent");
+
+        Ok(BatchInputs {
+            batch_reference_block_header,
+            note_proofs,
+            chain_mmr,
+        })
     }
 
     /// Loads data to synchronize a client.

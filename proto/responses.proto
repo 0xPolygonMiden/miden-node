@@ -128,6 +128,20 @@ message GetBlockInputsResponse {
     note.NoteAuthenticationInfo found_unauthenticated_notes = 5;
 }
 
+// Represents the result of getting batch inputs.
+message GetBatchInputsResponse {
+  // The block header that the transaction batch should reference.
+  block.BlockHeader batch_reference_block_header = 1;
+
+  // Proof of each _found_ unauthenticated note's inclusion in a block.
+  repeated note.NoteInclusionInBlockProof note_proofs = 2;
+
+  // The serialized chain MMR which includes proofs for all blocks referenced by the
+  // above note inclusion proofs as well as proofs for inclusion of the blocks referenced
+  // by the transactions in the batch.
+  bytes chain_mmr = 3;
+}
+
 // An account returned as a response to the `GetTransactionInputs`.
 message AccountTransactionInputRecord {
     // The account ID.
@@ -171,12 +185,6 @@ message SubmitProvenTransactionResponse {
 message GetNotesByIdResponse {
     // Lists Note's returned by the database.
     repeated note.Note notes = 1;
-}
-
-// Represents the result of getting note authentication info.
-message GetNoteAuthenticationInfoResponse {
-    // Proofs of note inclusions in blocks and block inclusions in chain.
-    note.NoteAuthenticationInfo proofs = 1;
 }
 
 // Represents the result of getting account details.
