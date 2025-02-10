@@ -1,6 +1,7 @@
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithTonicConfig;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
 use tracing::subscriber::{self, Subscriber};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Layer, Registry};
@@ -10,6 +11,10 @@ use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Layer, Registry};
 /// The open-telemetry configuration is controlled via environment variables as defined in the
 /// [specification](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#opentelemetry-protocol-exporter)
 pub fn setup_tracing(enable_otel: bool) -> Result<()> {
+    if enable_otel {
+        opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+    }
+
     let otel_layer = enable_otel.then_some(open_telemetry_layer());
     let subscriber = Registry::default().with(stdout_layer()).with(otel_layer);
     tracing::subscriber::set_global_default(subscriber).map_err(Into::into)
