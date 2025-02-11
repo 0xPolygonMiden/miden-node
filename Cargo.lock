@@ -1879,7 +1879,6 @@ dependencies = [
  "miden-stdlib",
  "miden-tx",
  "miden-tx-batch-prover",
- "opentelemetry",
  "pretty_assertions",
  "rand",
  "rand_chacha",
@@ -1889,7 +1888,6 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tracing",
- "tracing-opentelemetry",
  "url",
  "winterfell",
 ]

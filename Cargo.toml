@@ -40,7 +40,6 @@ miden-processor           = { version = "0.12" }
 miden-stdlib              = { version = "0.12", default-features = false }
 miden-tx                  = { git = "https://github.com/0xPolygonMiden/miden-base.git", rev = "e82dee03de7589ef3fb12b7fd901cef25ae5535d" }
 miden-tx-batch-prover     = { git = "https://github.com/0xPolygonMiden/miden-base.git", rev = "e82dee03de7589ef3fb12b7fd901cef25ae5535d" }
-opentelemetry             = { version = "0.27" }
 prost                     = { version = "0.13" }
 rand                      = { version = "0.8" }
 thiserror                 = { version = "2.0", default-features = false }
@@ -48,7 +47,6 @@ tokio                     = { version = "1.40", features = ["rt-multi-thread"] }
 tokio-stream              = { version = "0.1" }
 tonic                     = { version = "0.12" }
 tracing                   = { version = "0.1" }
-tracing-opentelemetry     = { version = "0.28" }
 tracing-subscriber        = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 url                       = { version = "2.5", features = ["serde"] }
 

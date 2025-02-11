@@ -1,6 +1,10 @@
-use std::{collections::BTreeSet, ops::Range};
+use std::{
+    collections::BTreeSet,
+    ops::{Add, Range},
+};
 
 use futures::FutureExt;
+use miden_node_utils::tracing::{OpenTelemetrySpanExt, OtelStatus};
 use miden_objects::{
     account::AccountId,
     batch::ProvenBatch,
@@ -8,11 +12,9 @@ use miden_objects::{
     note::{NoteHeader, NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote},
 };
-use opentelemetry::trace::Status;
 use rand::Rng;
 use tokio::time::Duration;
 use tracing::{instrument, Span};
-use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 use crate::{
     block::BlockInputs, errors::BuildBlockError, mempool::SharedMempool, store::StoreClient,
@@ -104,7 +106,7 @@ impl BlockBuilder {
             .and_then(|proven_block| async { self.inject_failure(proven_block) })
             .and_then(|proven_block| self.commit_block(mempool, proven_block))
             // Handle errors by propagating the error to the root span and rolling back the block.
-            .inspect_err(|err| Span::current().set_status(Status::Error { description: format!("{err:?}").into() }))
+            .inspect_err(|err| Span::current().set_status(OtelStatus::Error { description: format!("{err:?}").into() }))
             .or_else(|_err| self.rollback_block(mempool).never_error())
             // Error has been handled, this is just type manipulation to remove the result wrapper.
             .unwrap_or_else(|_| ())
