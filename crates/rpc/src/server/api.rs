@@ -1,5 +1,3 @@
-use std::pin::Pin;
-
 use miden_node_proto::{
     generated::{
         block_producer::api_client as block_producer_client,
@@ -26,11 +24,10 @@ use miden_objects::{
     utils::serde::Deserializable, Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
-use tokio_stream::Stream;
 use tonic::{
     service::interceptor::InterceptedService,
     transport::{Channel, Error},
-    Request, Response, Status,
+    Request, Response, Status, Streaming,
 };
 use tracing::{debug, info, instrument};
 
@@ -72,11 +69,10 @@ impl RpcApi {
     }
 }
 
-type ResponseStream = Pin<Box<dyn Stream<Item = Result<SyncStateResponse, Status>> + Send>>;
-
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
-    type SyncStateStream = ResponseStream;
+    type SyncStateStream = Streaming<SyncStateResponse>;
+
     #[instrument(
         target = COMPONENT,
         name = "rpc:check_nullifiers",
