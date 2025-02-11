@@ -6,7 +6,7 @@ use miden_objects::{
     crypto::merkle::MerkleError,
     note::{NoteId, Nullifier},
     transaction::TransactionId,
-    AccountDeltaError, Digest, ProposedBatchError,
+    AccountDeltaError, BlockError, Digest, ProposedBatchError,
 };
 use miden_processor::ExecutionError;
 use miden_tx_batch_prover::errors::BatchProveError;
@@ -187,6 +187,8 @@ pub enum BuildBlockError {
         account_id: AccountId,
         source: AccountDeltaError,
     },
+    #[error("block construction failed")]
+    BlockConstructionError(#[from] BlockError),
     /// We sometimes randomly inject errors into the batch building process to test our failure
     /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]

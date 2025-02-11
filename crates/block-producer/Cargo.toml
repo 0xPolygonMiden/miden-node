@@ -19,6 +19,7 @@ tracing-forest = ["miden-node-utils/tracing-forest"]
 
 [dependencies]
 async-trait           = { version = "0.1" }
+futures               = { version = "0.3" }
 itertools             = { workspace = true }
 miden-lib             = { workspace = true }
 miden-node-proto      = { workspace = true }
