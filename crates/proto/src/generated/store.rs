@@ -450,7 +450,9 @@ pub mod api_client {
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::SyncStateResponse>,
+            tonic::Response<
+                tonic::codec::Streaming<super::super::responses::SyncStateResponse>,
+            >,
             tonic::Status,
         > {
             self.inner
@@ -465,7 +467,7 @@ pub mod api_client {
             let path = http::uri::PathAndQuery::from_static("/store.Api/SyncState");
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "SyncState"));
-            self.inner.unary(req, path, codec).await
+            self.inner.server_streaming(req, path, codec).await
         }
     }
 }
@@ -602,6 +604,15 @@ pub mod api_server {
             tonic::Response<super::super::responses::SyncNoteResponse>,
             tonic::Status,
         >;
+        /// Server streaming response type for the SyncState method.
+        type SyncStateStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::super::responses::SyncStateResponse,
+                    tonic::Status,
+                >,
+            >
+            + std::marker::Send
+            + 'static;
         /// Returns info which can be used by the client to sync up to the latest state of the chain
         /// for the objects (accounts, notes, nullifiers) the client is interested in.
         ///
@@ -620,10 +631,7 @@ pub mod api_server {
         async fn sync_state(
             &self,
             request: tonic::Request<super::super::requests::SyncStateRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::SyncStateResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<Self::SyncStateStream>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct ApiServer<T> {
@@ -1332,12 +1340,13 @@ pub mod api_server {
                     struct SyncStateSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
-                    > tonic::server::UnaryService<
+                    > tonic::server::ServerStreamingService<
                         super::super::requests::SyncStateRequest,
                     > for SyncStateSvc<T> {
                         type Response = super::super::responses::SyncStateResponse;
+                        type ResponseStream = T::SyncStateStream;
                         type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
+                            tonic::Response<Self::ResponseStream>,
                             tonic::Status,
                         >;
                         fn call(
@@ -1370,7 +1379,7 @@ pub mod api_server {
                                 max_decoding_message_size,
                                 max_encoding_message_size,
                             );
-                        let res = grpc.unary(method, req).await;
+                        let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

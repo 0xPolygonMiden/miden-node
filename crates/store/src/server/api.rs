@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, convert::Infallible, sync::Arc};
+use std::{collections::BTreeSet, convert::Infallible, pin::Pin, sync::Arc, time::Duration};
 
 use miden_node_proto::{
     convert,
@@ -34,6 +34,8 @@ use miden_objects::{
     note::{NoteId, Nullifier},
     utils::{Deserializable, Serializable},
 };
+use tokio::sync::mpsc;
+use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -46,8 +48,11 @@ pub struct StoreApi {
     pub(super) state: Arc<State>,
 }
 
+type ResponseStream = Pin<Box<dyn Stream<Item = Result<SyncStateResponse, Status>> + Send>>;
+
 #[tonic::async_trait]
 impl api_server::Api for StoreApi {
+    type SyncStateStream = ResponseStream;
     // CLIENT ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
@@ -147,13 +152,13 @@ impl api_server::Api for StoreApi {
         target = COMPONENT,
         name = "store.server.sync_state",
         skip_all,
-        ret(level = "debug"),
+        // ret(level = "debug"), // CHECK: what is this? errors when using it
         err
     )]
     async fn sync_state(
         &self,
         request: Request<SyncStateRequest>,
-    ) -> Result<Response<SyncStateResponse>, Status> {
+    ) -> Result<Response<Self::SyncStateStream>, Status> {
         let request = request.into_inner();
 
         let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
@@ -200,7 +205,10 @@ impl api_server::Api for StoreApi {
             })
             .collect();
 
-        Ok(Response::new(SyncStateResponse {
+        // WIP: following tonic example https://github.com/hyperium/tonic/blob/master/examples/src/streaming/server.rs
+
+        // TODO: loop until tip chain is reached
+        let repeat = std::iter::repeat(SyncStateResponse {
             chain_tip: self.state.latest_block_num().await.as_u32(),
             block_header: Some(state.block_header.into()),
             mmr_delta: Some(delta.into()),
@@ -208,7 +216,27 @@ impl api_server::Api for StoreApi {
             transactions,
             notes,
             nullifiers,
-        }))
+        });
+        let mut stream = Box::pin(tokio_stream::iter(repeat).throttle(Duration::from_millis(200)));
+
+        let (tx, rx) = mpsc::channel(128);
+        tokio::spawn(async move {
+            while let Some(item) = stream.next().await {
+                match tx.send(Result::<_, Status>::Ok(item)).await {
+                    Ok(_) => {
+                        // item (server response) was queued to be send to client
+                    },
+                    Err(_item) => {
+                        // output_stream was build from rx and both are dropped
+                        break;
+                    },
+                }
+            }
+            println!("\tclient disconnected");
+        });
+
+        let output_stream = ReceiverStream::new(rx);
+        Ok(Response::new(Box::pin(output_stream) as Self::SyncStateStream))
     }
 
     /// Returns info which can be used by the client to sync note state.
