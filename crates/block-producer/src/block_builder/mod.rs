@@ -165,8 +165,7 @@ impl BlockBuilder {
             updated_accounts,
             summary.output_notes,
             summary.nullifiers,
-        )
-        .expect("invalid block components");
+        )?;
 
         self.simulate_proving().await;
 
@@ -300,7 +299,7 @@ impl BlockSummaryAndInputs {
         );
         span.set_attribute(
             "block.output_notes.count",
-            i64::try_from(self.summary.output_notes.len())
+            i64::try_from(self.summary.output_notes.iter().fold(0, |acc, x| acc.add(x.len())))
                 .expect("less than u32::MAX output notes"),
         );
         span.set_attribute(
@@ -326,11 +325,11 @@ impl ProvenBlock {
 
         span.set_attribute("block.protocol.version", i64::from(header.version()));
 
-        span.set_attribute("block.roots.kernel", header.kernel_root().to_hex());
-        span.set_attribute("block.roots.nullifier", header.nullifier_root().to_hex());
-        span.set_attribute("block.roots.account", header.account_root().to_hex());
-        span.set_attribute("block.roots.chain", header.chain_root().to_hex());
-        span.set_attribute("block.roots.note", header.note_root().to_hex());
-        span.set_attribute("block.roots.transation", header.tx_hash().to_hex());
+        span.set_attribute("block.commitments.kernel", header.kernel_root().to_hex());
+        span.set_attribute("block.commitments.nullifier", header.nullifier_root().to_hex());
+        span.set_attribute("block.commitments.account", header.account_root().to_hex());
+        span.set_attribute("block.commitments.chain", header.chain_root().to_hex());
+        span.set_attribute("block.commitments.note", header.note_root().to_hex());
+        span.set_attribute("block.commitments.transaction", header.tx_hash().to_hex());
     }
 }
