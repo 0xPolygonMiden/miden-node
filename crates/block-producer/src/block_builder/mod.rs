@@ -78,20 +78,25 @@ impl BlockBuilder {
         }
     }
 
+    /// Run the block building stages and add open-telemetry trace information where applicable.
+    ///
+    /// A failure in any stage will result in that block being rolled back.
+    ///
+    /// ## Telemetry
+    ///
+    /// - Creates a new root span which means each block gets its own complete trace.
+    /// - Important telemetry fields are added to the root span with the `block.xxx` prefix.
+    /// - Each stage has its own child span and are free to add further field data.
+    /// - A failed stage will emit an error event, and both its own span and the root span will be
+    ///   marked as errors.
     #[instrument(parent = None, target = COMPONENT, name = "block_builder.build_block", skip_all)]
     async fn build_block(&self, mempool: &SharedMempool) {
         use futures::TryFutureExt;
 
-        // Run the block building stages and add open-telemetry trace information where applicable.
-        //
-        // Important telemetry is added to the root span, and stages are free to add additional data
-        // to their subspans. Each stage has its own span and is expected to emit an error
-        // event if it fails. This automatically marks the span as an error, however the
-        // root span must be manually marked as this function does not return a result.
         Self::select_block(mempool)
             .inspect(SelectedBlock::inject_telemetry)
             .then(|selected| self.get_block_inputs(selected))
-            .inspect_ok(BlockPreimage::inject_telemetry)
+            .inspect_ok(BlockSummaryAndInputs::inject_telemetry)
             .and_then(|inputs| self.prove_block(inputs))
             .inspect_ok(ProvenBlock::inject_telemetry)
             // Failure must be injected before the final pipeline stage i.e. before commit is called. The system cannot
@@ -116,7 +121,7 @@ impl BlockBuilder {
     async fn get_block_inputs(
         &self,
         selected_block: SelectedBlock,
-    ) -> Result<BlockPreimage, BuildBlockError> {
+    ) -> Result<BlockSummaryAndInputs, BuildBlockError> {
         let SelectedBlock { block_number: _, batches } = selected_block;
         let summary = BlockSummary::summarize_batches(&batches);
 
@@ -139,12 +144,15 @@ impl BlockBuilder {
             return Err(BuildBlockError::UnauthenticatedNotesNotFound(missing_notes));
         }
 
-        Ok(BlockPreimage { batches, summary, inputs })
+        Ok(BlockSummaryAndInputs { batches, summary, inputs })
     }
 
     #[instrument(target = COMPONENT, name = "block_builder.prove_block", skip_all, err)]
-    async fn prove_block(&self, preimage: BlockPreimage) -> Result<ProvenBlock, BuildBlockError> {
-        let BlockPreimage { batches, summary, inputs } = preimage;
+    async fn prove_block(
+        &self,
+        preimage: BlockSummaryAndInputs,
+    ) -> Result<ProvenBlock, BuildBlockError> {
+        let BlockSummaryAndInputs { batches, summary, inputs } = preimage;
 
         let (block_header_witness, updated_accounts) = BlockWitness::new(inputs, &batches)?;
 
@@ -261,7 +269,7 @@ struct SelectedBlock {
     block_number: BlockNumber,
     batches: Vec<ProvenBatch>,
 }
-struct BlockPreimage {
+struct BlockSummaryAndInputs {
     batches: Vec<ProvenBatch>,
     summary: BlockSummary,
     inputs: BlockInputs,
@@ -278,7 +286,7 @@ impl SelectedBlock {
     }
 }
 
-impl BlockPreimage {
+impl BlockSummaryAndInputs {
     fn inject_telemetry(&self) {
         let span = Span::current();
 
