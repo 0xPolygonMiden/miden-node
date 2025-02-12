@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, convert::Infallible, pin::Pin, sync::Arc, time::Duration};
+use std::{collections::BTreeSet, convert::Infallible, pin::Pin, sync::Arc};
 
 use miden_node_proto::{
     convert,
@@ -35,7 +35,7 @@ use miden_objects::{
     utils::{Deserializable, Serializable},
 };
 use tokio::sync::mpsc;
-use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
+use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -161,78 +161,83 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<Self::SyncStateStream>, Status> {
         let request = request.into_inner();
 
-        let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
-
-        let (state, delta) = self
-            .state
-            .sync_state(
-                request.block_num.into(),
-                account_ids,
-                request.note_tags,
-                request.nullifiers,
-            )
-            .await
-            .map_err(internal_error)?;
-
-        let accounts = state
-            .account_updates
-            .into_iter()
-            .map(|account_info| AccountSummary {
-                account_id: Some(account_info.account_id.into()),
-                account_hash: Some(account_info.account_hash.into()),
-                block_num: account_info.block_num.as_u32(),
-            })
-            .collect();
-
-        let transactions = state
-            .transactions
-            .into_iter()
-            .map(|transaction_summary| TransactionSummary {
-                account_id: Some(transaction_summary.account_id.into()),
-                block_num: transaction_summary.block_num.as_u32(),
-                transaction_id: Some(transaction_summary.transaction_id.into()),
-            })
-            .collect();
-
-        let notes = state.notes.into_iter().map(Into::into).collect();
-
-        let nullifiers = state
-            .nullifiers
-            .into_iter()
-            .map(|nullifier_info| NullifierUpdate {
-                nullifier: Some(nullifier_info.nullifier.into()),
-                block_num: nullifier_info.block_num.as_u32(),
-            })
-            .collect();
-
-        // WIP: following tonic example https://github.com/hyperium/tonic/blob/master/examples/src/streaming/server.rs
-
-        // TODO: loop until tip chain is reached
-        let repeat = std::iter::repeat(SyncStateResponse {
-            chain_tip: self.state.latest_block_num().await.as_u32(),
-            block_header: Some(state.block_header.into()),
-            mmr_delta: Some(delta.into()),
-            accounts,
-            transactions,
-            notes,
-            nullifiers,
-        });
-        let mut stream = Box::pin(tokio_stream::iter(repeat).throttle(Duration::from_millis(200)));
-
-        let (tx, rx) = mpsc::channel(128);
+        let (tx, rx) = mpsc::channel(128); // TODO: check size of the channel
+        let latest_block_num = self.state.latest_block_num().await.as_u32();
+        let state = self.state.clone();
         tokio::spawn(async move {
-            while let Some(item) = stream.next().await {
-                match tx.send(Result::<_, Status>::Ok(item)).await {
-                    Ok(_) => {
-                        // item (server response) was queued to be send to client
-                    },
-                    Err(_item) => {
-                        // output_stream was build from rx and both are dropped
-                        break;
-                    },
+            loop {
+                let result = async {
+                    let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
+
+                    let (state, delta) = state
+                        .sync_state(
+                            request.clone().block_num.into(),
+                            account_ids,
+                            request.clone().note_tags,
+                            request.clone().nullifiers,
+                        )
+                        .await
+                        .map_err(internal_error)?;
+
+                    let accounts = state
+                        .account_updates
+                        .into_iter()
+                        .map(|account_info| AccountSummary {
+                            account_id: Some(account_info.account_id.into()),
+                            account_hash: Some(account_info.account_hash.into()),
+                            block_num: account_info.block_num.as_u32(),
+                        })
+                        .collect();
+
+                    let transactions = state
+                        .transactions
+                        .into_iter()
+                        .map(|transaction_summary| TransactionSummary {
+                            account_id: Some(transaction_summary.account_id.into()),
+                            block_num: transaction_summary.block_num.as_u32(),
+                            transaction_id: Some(transaction_summary.transaction_id.into()),
+                        })
+                        .collect();
+
+                    let notes = state.notes.into_iter().map(Into::into).collect();
+
+                    let nullifiers = state
+                        .nullifiers
+                        .into_iter()
+                        .map(|nullifier_info| NullifierUpdate {
+                            nullifier: Some(nullifier_info.nullifier.into()),
+                            block_num: nullifier_info.block_num.as_u32(),
+                        })
+                        .collect();
+
+                    let response = SyncStateResponse {
+                        chain_tip: latest_block_num,
+                        block_header: Some(state.block_header.into()),
+                        mmr_delta: Some(delta.into()),
+                        accounts,
+                        transactions,
+                        notes,
+                        nullifiers,
+                    };
+                    Ok(response)
+                }
+                .await;
+                // TODO: try to remove the clones
+
+                // If the current block number is greater than the requested, stop the sync
+                if result.clone().unwrap().block_header.unwrap().block_num > request.block_num {
+                    break;
+                }
+
+                tx.send(result.clone()).await.map_err(internal_error).unwrap();
+
+                // If the last response is up to date, stop the sync
+                if result.clone().unwrap().chain_tip
+                    == result.unwrap().block_header.unwrap().block_num
+                {
+                    break;
                 }
             }
-            println!("\tclient disconnected");
         });
 
         let output_stream = ReceiverStream::new(rx);
