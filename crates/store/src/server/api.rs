@@ -152,7 +152,6 @@ impl api_server::Api for StoreApi {
         target = COMPONENT,
         name = "store.server.sync_state",
         skip_all,
-        // ret(level = "debug"), // CHECK: what is this? errors when using it
         err
     )]
     async fn sync_state(
@@ -161,7 +160,7 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<Self::SyncStateStream>, Status> {
         let request = request.into_inner();
 
-        let (tx, rx) = mpsc::channel(128); // TODO: check size of the channel
+        let (tx, rx) = mpsc::channel(128); // TODO: check bound of the channel
         let latest_block_num = self.state.latest_block_num().await.as_u32();
         let state = self.state.clone();
         tokio::spawn(async move {
@@ -222,18 +221,25 @@ impl api_server::Api for StoreApi {
                     Ok(response)
                 }
                 .await;
-                // TODO: try to remove the clones
 
                 // If the current block number is greater than the requested, stop the sync
-                if result.clone().unwrap().block_header.unwrap().block_num > request.block_num {
+                if result
+                    .as_ref()
+                    .ok()
+                    .and_then(|r| r.block_header)
+                    .map_or(false, |header| header.block_num > request.block_num)
+                {
                     break;
                 }
 
                 tx.send(result.clone()).await.map_err(internal_error).unwrap();
 
                 // If the last response is up to date, stop the sync
-                if result.clone().unwrap().chain_tip
-                    == result.unwrap().block_header.unwrap().block_num
+                if result
+                    .as_ref()
+                    .ok()
+                    .and_then(|r| r.block_header.as_ref().map(|header| header.block_num))
+                    == result.as_ref().ok().map(|r| r.chain_tip)
                 {
                     break;
                 }

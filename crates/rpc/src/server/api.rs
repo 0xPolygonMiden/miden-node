@@ -132,7 +132,6 @@ impl api_server::Api for RpcApi {
         target = COMPONENT,
         name = "rpc:sync_state",
         skip_all,
-        // ret(level = "debug"), // TODO: check this
         err
     )]
     async fn sync_state(
