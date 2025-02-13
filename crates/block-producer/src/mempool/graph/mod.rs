@@ -82,25 +82,25 @@ where
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum GraphError<K> {
-    #[error("Node {0} already exists")]
+    #[error("node {0} already exists")]
     DuplicateKey(K),
 
-    #[error("Parents not found: {0:?}")]
+    #[error("parents not found: {0:?}")]
     MissingParents(BTreeSet<K>),
 
-    #[error("Nodes not found: {0:?}")]
+    #[error("nodes not found: {0:?}")]
     UnknownNodes(BTreeSet<K>),
 
-    #[error("Nodes were not yet processed: {0:?}")]
+    #[error("nodes were not yet processed: {0:?}")]
     UnprocessedNodes(BTreeSet<K>),
 
-    #[error("Nodes would be left dangling: {0:?}")]
+    #[error("nodes would be left dangling: {0:?}")]
     DanglingNodes(BTreeSet<K>),
 
-    #[error("Node {0} is not a root node")]
+    #[error("node {0} is not a root node")]
     InvalidRootNode(K),
 
-    #[error("Node {0} is not a pending node")]
+    #[error("node {0} is not a pending node")]
     InvalidPendingNode(K),
 }
 
@@ -108,12 +108,12 @@ pub enum GraphError<K> {
 impl<K, V> Default for DependencyGraph<K, V> {
     fn default() -> Self {
         Self {
-            vertices: Default::default(),
-            pending: Default::default(),
-            parents: Default::default(),
-            children: Default::default(),
-            roots: Default::default(),
-            processed: Default::default(),
+            vertices: BTreeMap::default(),
+            pending: BTreeSet::default(),
+            parents: BTreeMap::default(),
+            children: BTreeMap::default(),
+            roots: BTreeSet::default(),
+            processed: BTreeSet::default(),
         }
     }
 }
@@ -146,7 +146,7 @@ impl<K: Ord + Copy + Display + Debug, V: Clone> DependencyGraph<K, V> {
         }
         self.pending.insert(key);
         self.parents.insert(key, parents);
-        self.children.insert(key, Default::default());
+        self.children.insert(key, BTreeSet::default());
 
         Ok(())
     }
@@ -260,7 +260,7 @@ impl<K: Ord + Copy + Display + Debug, V: Clone> DependencyGraph<K, V> {
         // No parent may be left dangling i.e. all parents must be part of this prune set.
         let dangling = keys
             .iter()
-            .flat_map(|key| self.parents.get(key))
+            .filter_map(|key| self.parents.get(key))
             .flatten()
             .filter(|parent| !keys.contains(parent))
             .copied()

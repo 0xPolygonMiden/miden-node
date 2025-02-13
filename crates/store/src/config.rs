@@ -3,8 +3,9 @@ use std::{
     path::PathBuf,
 };
 
-use miden_node_utils::config::{Endpoint, DEFAULT_STORE_PORT};
+use miden_node_utils::config::DEFAULT_STORE_PORT;
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 // Main config
 // ================================================================================================
@@ -13,19 +14,13 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct StoreConfig {
     /// Defines the listening socket.
-    pub endpoint: Endpoint,
-    /// SQLite database file
+    pub endpoint: Url,
+    /// `SQLite` database file
     pub database_filepath: PathBuf,
     /// Genesis file
     pub genesis_filepath: PathBuf,
     /// Block store directory
     pub blockstore_dir: PathBuf,
-}
-
-impl StoreConfig {
-    pub fn endpoint_url(&self) -> String {
-        self.endpoint.to_string()
-    }
 }
 
 impl Display for StoreConfig {
@@ -41,10 +36,28 @@ impl Default for StoreConfig {
     fn default() -> Self {
         const NODE_STORE_DIR: &str = "./";
         Self {
-            endpoint: Endpoint::localhost(DEFAULT_STORE_PORT),
+            endpoint: Url::parse(format!("http://127.0.0.1:{DEFAULT_STORE_PORT}").as_str())
+                .unwrap(),
             database_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "miden-store.sqlite3"),
             genesis_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "genesis.dat"),
             blockstore_dir: PathBuf::from(NODE_STORE_DIR.to_string() + "blocks"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::net::TcpListener;
+
+    use super::StoreConfig;
+
+    #[tokio::test]
+    async fn default_store_config() {
+        // Default does not panic
+        let config = StoreConfig::default();
+        // Default can bind
+        let socket_addrs = config.endpoint.socket_addrs(|| None).unwrap();
+        let socket_addr = socket_addrs.into_iter().next().unwrap();
+        let _listener = TcpListener::bind(socket_addr).await.unwrap();
     }
 }

@@ -2,7 +2,7 @@
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE)
 [![test](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml)
-[![RUST_VERSION](https://img.shields.io/badge/rustc-1.80+-lightgray.svg)](https://www.rust-lang.org/tools/install)
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.84+-lightgray.svg)](https://www.rust-lang.org/tools/install)
 [![crates.io](https://img.shields.io/crates/v/miden-node)](https://crates.io/crates/miden-node)
 
 This repository holds the Miden node; that is, the software which processes transactions and creates blocks for the Miden rollup.
@@ -58,7 +58,7 @@ sudo dpkg -i $package_name.deb
 
 ### Install using `cargo`
 
-Install Rust version **1.80** or greater using the official Rust installation [instructions](https://www.rust-lang.org/tools/install).
+Install Rust version **1.84** or greater using the official Rust installation [instructions](https://www.rust-lang.org/tools/install).
 
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following command ensures that all required libraries are installed.
 
@@ -93,12 +93,6 @@ cargo install --locked --git https://github.com/0xPolygonMiden/miden-node miden-
 
 More information on the various options can be found [here](https://doc.rust-lang.org/cargo/commands/cargo-install.html#install-options).
 
-> [!TIP]
-> Miden account generation uses a proof-of-work puzzle to prevent DoS attacks. These puzzles can be quite expensive, especially for test purposes. You can lower the difficulty of the puzzle by appending `--features testing` to the `cargo install ..` invocation. For example:
-> ```sh
-> cargo install miden-node --locked --features testing
-> ```
-
 ### Verify installation
 
 You can verify the installation by checking the node's version:
@@ -127,7 +121,7 @@ Next, bootstrap the chain by generating the genesis data:
 
 ```sh
 miden-node make-genesis \
-  --input-path  <CONFIG>/genesis.toml \
+  --inputs-path  <CONFIG>/genesis.toml \
   --output-path <STORAGE>/genesis.dat
 ```
 

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
     block::Block,
-    notes::{NoteId, Nullifier},
+    note::{NoteId, Nullifier},
     transaction::OutputNote,
     Digest, MIN_PROOF_SECURITY_LEVEL,
 };

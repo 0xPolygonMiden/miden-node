@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::ToSocketAddrs};
+use std::collections::HashMap;
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -7,8 +7,11 @@ use miden_node_proto::generated::{
 use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
+    tracing::grpc::OtelInterceptor,
 };
-use miden_objects::{transaction::ProvenTransaction, utils::serde::Deserializable};
+use miden_objects::{
+    block::BlockNumber, transaction::ProvenTransaction, utils::serde::Deserializable,
+};
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
@@ -20,7 +23,7 @@ use crate::{
     config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
-    mempool::{BatchBudget, BlockBudget, BlockNumber, Mempool, SharedMempool},
+    mempool::{BatchBudget, BlockBudget, Mempool, SharedMempool},
     store::StoreClient,
     COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
 };
@@ -37,7 +40,7 @@ pub struct BlockProducer {
     batch_budget: BatchBudget,
     block_budget: BlockBudget,
     state_retention: usize,
-    expiration_slack: BlockNumber,
+    expiration_slack: u32,
     rpc_listener: TcpListener,
     store: StoreClient,
     chain_tip: BlockNumber,
@@ -50,22 +53,26 @@ impl BlockProducer {
     pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
         info!(target: COMPONENT, %config, "Initializing server");
 
-        let store = StoreClient::new(
-            store_client::ApiClient::connect(config.store_url.to_string())
-                .await
-                .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
-        );
+        let channel = tonic::transport::Endpoint::try_from(config.store_url.to_string())
+            .map_err(|err| ApiError::InvalidStoreUrl(err.to_string()))?
+            .connect()
+            .await
+            .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
+
+        let store = store_client::ApiClient::with_interceptor(channel, OtelInterceptor);
+        let store = StoreClient::new(store);
 
         let latest_header = store
             .latest_header()
             .await
             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
-        let chain_tip = BlockNumber::new(latest_header.block_num());
+        let chain_tip = latest_header.block_num();
 
         let rpc_listener = config
             .endpoint
-            .to_socket_addrs()
+            .socket_addrs(|| None)
             .map_err(ApiError::EndpointToSocketFailed)?
+            .into_iter()
             .next()
             .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))
             .map(TcpListener::bind)?
@@ -74,10 +81,10 @@ impl BlockProducer {
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            batch_builder: Default::default(),
+            batch_builder: BatchBuilder::default(),
             block_builder: BlockBuilder::new(store.clone()),
-            batch_budget: Default::default(),
-            block_budget: Default::default(),
+            batch_budget: BatchBudget::default(),
+            block_budget: BlockBudget::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
             expiration_slack: SERVER_MEMPOOL_EXPIRATION_SLACK,
             store,
@@ -205,6 +212,7 @@ impl BlockProducerRpcServer {
 
     async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
         tonic::transport::Server::builder()
+            .trace_fn(miden_node_utils::tracing::grpc::block_producer_trace_fn)
             .add_service(api_server::ApiServer::new(self))
             .serve_with_incoming(TcpListenerStream::new(listener))
             .await
@@ -223,7 +231,7 @@ impl BlockProducerRpcServer {
         debug!(target: COMPONENT, ?request);
 
         let tx = ProvenTransaction::read_from_bytes(&request.transaction)
-            .map_err(|err| AddTransactionError::DeserializationError(err.to_string()))?;
+            .map_err(AddTransactionError::TransactionDeserializationFailed)?;
 
         let tx_id = tx.id();
 
@@ -245,12 +253,8 @@ impl BlockProducerRpcServer {
         // SAFETY: we assume that the rpc component has verified the transaction proof already.
         let tx = AuthenticatedTransaction::new(tx, inputs)?;
 
-        self.mempool
-            .lock()
-            .await
-            .lock()
-            .await
-            .add_transaction(tx)
-            .map(|block_height| SubmitProvenTransactionResponse { block_height })
+        self.mempool.lock().await.lock().await.add_transaction(tx).map(|block_height| {
+            SubmitProvenTransactionResponse { block_height: block_height.as_u32() }
+        })
     }
 }

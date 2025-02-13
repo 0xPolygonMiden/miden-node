@@ -31,8 +31,23 @@ format-check: ## Runs Format using nightly toolchain but only in check mode
 	cargo +nightly fmt --all --check
 
 
+.PHONY: toml
+toml: ## Runs Format for all TOML files
+	taplo fmt
+
+
+.PHONY: toml-check
+toml-check: ## Runs Format for all TOML files but only in check mode
+	taplo fmt --check --verbose
+
+
+.PHONY: workspace-check
+workspace-check: ## Runs a check that all packages have `lints.workspace = true`
+	cargo workspace-lints
+
+
 .PHONY: lint
-lint: format fix clippy ## Runs all linting tasks at once (Clippy, fixing, formatting)
+lint: format fix clippy toml workspace-check ## Runs all linting tasks at once (Clippy, fixing, formatting, workspace)
 
 # --- docs ----------------------------------------------------------------------------------------
 
@@ -72,14 +87,6 @@ install-node: ## Installs node
 .PHONY: install-faucet
 install-faucet: ## Installs faucet
 	${BUILD_PROTO} cargo install --path bin/faucet --locked
-
-.PHONY: install-node-testing
-install-node-testing: ## Installs node with testing feature enabled
-	${BUILD_PROTO} cargo install --features testing --path bin/node --locked
-
-.PHONY: install-faucet-testing
-install-faucet-testing: ## Installs faucet with testing feature enabled
-	${BUILD_PROTO} cargo install --features testing --path bin/faucet --locked
 
 # --- docker --------------------------------------------------------------------------------------
 

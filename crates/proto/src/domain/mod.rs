@@ -1,10 +1,11 @@
-pub mod accounts;
-pub mod blocks;
+pub mod account;
+pub mod batch;
+pub mod block;
 pub mod digest;
 pub mod merkle;
-pub mod notes;
-pub mod nullifiers;
-pub mod transactions;
+pub mod note;
+pub mod nullifier;
+pub mod transaction;
 
 // UTILITIES
 // ================================================================================================
@@ -15,7 +16,7 @@ where
     From: Into<To>,
     R: FromIterator<To>,
 {
-    from.into_iter().map(|e| e.into()).collect()
+    from.into_iter().map(Into::into).collect()
 }
 
 pub fn try_convert<T, E, From, To, R>(from: T) -> Result<R, E>
@@ -24,5 +25,5 @@ where
     From: TryInto<To, Error = E>,
     R: FromIterator<To>,
 {
-    from.into_iter().map(|e| e.try_into()).collect()
+    from.into_iter().map(TryInto::try_into).collect()
 }

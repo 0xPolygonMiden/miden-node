@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     crypto::rand::{FeltRng, RpoRandomCoin},
+    testing::account_id::AccountIdBuilder,
     transaction::TransactionId,
     Digest,
 };
@@ -46,6 +47,10 @@ impl Random {
 
     pub fn draw_tx_id(&mut self) -> TransactionId {
         self.0.draw_word().into()
+    }
+
+    pub fn draw_account_id(&mut self) -> AccountId {
+        AccountIdBuilder::new().build_with_rng(&mut self.0)
     }
 
     pub fn draw_digest(&mut self) -> Digest {

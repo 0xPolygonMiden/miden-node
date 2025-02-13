@@ -1,47 +1,45 @@
 [package]
-name = "miden-faucet"
-version.workspace = true
-description = "Miden node token faucet"
-readme = "README.md"
-keywords = ["miden", "node", "faucet"]
-edition.workspace = true
+authors.workspace      = true
+description            = "Miden node token faucet"
+edition.workspace      = true
+homepage.workspace     = true
+keywords               = ["faucet", "miden", "node"]
+license.workspace      = true
+name                   = "miden-faucet"
+readme                 = "README.md"
+repository.workspace   = true
 rust-version.workspace = true
-license.workspace = true
-authors.workspace = true
-homepage.workspace = true
-repository.workspace = true
+version.workspace      = true
 
-[features]
-# Makes `make-genesis` subcommand run faster. Is only suitable for testing.
-# INFO: Make sure that all your components have matching features for them to function.
-testing = ["miden-objects/testing", "miden-lib/testing"]
+[lints]
+workspace = true
 
 [dependencies]
-anyhow = "1.0"
-axum = { version = "0.7", features = ["tokio"] }
-clap = { version = "4.5", features = ["derive", "string"] }
-figment = { version = "0.10", features = ["toml", "env"] }
-http = "1.1"
-http-body-util = "0.1"
-miden-lib = { workspace = true, features = ["concurrent"] }
+anyhow           = "1.0"
+axum             = { version = "0.8", features = ["tokio"] }
+clap             = { version = "4.5", features = ["derive", "string"] }
+http             = "1.1"
+http-body-util   = "0.1"
+miden-lib        = { workspace = true }
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
-miden-objects = { workspace = true , features = ["concurrent"] }
-miden-tx = { workspace = true,  features = ["concurrent"] }
-mime = "0.3"
-rand = { workspace = true }
-rand_chacha = "0.3"
-serde = { version = "1.0", features = ["derive"] }
-static-files = "0.2"
-thiserror = { workspace = true }
-tokio = { workspace = true, features = ["fs"] }
-toml = { version = "0.8" }
-tonic = { workspace = true }
-tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "set-header", "trace"] }
-tracing = { workspace = true }
+miden-objects    = { workspace = true }
+miden-tx         = { workspace = true, features = ["concurrent"] }
+mime             = "0.3"
+rand             = { workspace = true }
+rand_chacha      = "0.3"
+serde            = { version = "1.0", features = ["derive"] }
+static-files     = "0.2"
+thiserror        = { workspace = true }
+tokio            = { workspace = true, features = ["fs"] }
+toml             = { version = "0.8" }
+tonic            = { workspace = true }
+tower            = "0.5"
+tower-http       = { version = "0.6", features = ["cors", "set-header", "trace"] }
+tracing          = { workspace = true }
+url              = { workspace = true }
 
 [build-dependencies]
 # Required to inject build metadata.
 miden-node-utils = { workspace = true, features = ["vergen"] }
-static-files = "0.2"
+static-files     = "0.2"

@@ -24,6 +24,7 @@ WHERE
             block_num > ?3
         ORDER BY
             block_num ASC
-    LIMIT 1) AND
+        LIMIT 1
+    ) AND
     -- filter the block's notes and return only the ones matching the requested tags or senders
     (tag IN rarray(?1) OR sender IN rarray(?2))

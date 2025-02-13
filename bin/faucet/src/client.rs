@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
-use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
+use miden_lib::{note::create_p2id_note, transaction::TransactionKernel};
 use miden_node_proto::generated::{
     requests::{
         GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest,
@@ -9,17 +9,18 @@ use miden_node_proto::generated::{
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
-    accounts::{Account, AccountData, AccountId, AuthSecretKey},
-    assets::FungibleAsset,
+    account::{Account, AccountFile, AccountId, AuthSecretKey},
+    asset::FungibleAsset,
+    block::{BlockHeader, BlockNumber},
     crypto::{
         merkle::{MmrPeaks, PartialMmr},
         rand::RpoRandomCoin,
     },
-    notes::{Note, NoteType},
+    note::{Note, NoteType},
     transaction::{ChainMmr, ExecutedTransaction, TransactionArgs, TransactionScript},
     utils::Deserializable,
     vm::AdviceMap,
-    BlockHeader, Felt,
+    Felt,
 };
 use miden_tx::{
     auth::BasicAuthenticator, utils::Serializable, LocalTransactionProver, ProvingOptions,
@@ -29,12 +30,7 @@ use rand::{random, rngs::StdRng};
 use tonic::transport::Channel;
 use tracing::info;
 
-use crate::{
-    config::FaucetConfig,
-    errors::{ClientError, ImplError},
-    store::FaucetDataStore,
-    COMPONENT,
-};
+use crate::{config::FaucetConfig, errors::ClientError, store::FaucetDataStore, COMPONENT};
 
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");
@@ -65,7 +61,7 @@ impl FaucetClient {
         let (mut rpc_api, root_block_header, root_chain_mmr) =
             initialize_faucet_client(config).await?;
 
-        let faucet_account_data = AccountData::read(&config.faucet_account_path)
+        let faucet_account_data = AccountFile::read(&config.faucet_account_path)
             .context("Failed to load faucet account from file")?;
 
         let id = faucet_account_data.account.id();
@@ -116,7 +112,7 @@ impl FaucetClient {
         let coin_seed: [u64; 4] = random();
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-        Ok(Self { data_store, rpc_api, executor, id, rng })
+        Ok(Self { rpc_api, executor, data_store, id, rng })
     }
 
     /// Executes a mint transaction for the target account.
@@ -142,7 +138,7 @@ impl FaucetClient {
             target_account_id,
             vec![asset.into()],
             note_type,
-            Default::default(),
+            Felt::default(),
             &mut self.rng,
         )
         .context("Failed to create P2ID note")?;
@@ -151,7 +147,7 @@ impl FaucetClient {
 
         let executed_tx = self
             .executor
-            .execute_transaction(self.id, 0, &[], transaction_args)
+            .execute_transaction(self.id, 0.into(), &[], transaction_args)
             .context("Failed to execute transaction")?;
 
         Ok((executed_tx, output_note))
@@ -161,7 +157,7 @@ impl FaucetClient {
     pub async fn prove_and_submit_transaction(
         &mut self,
         executed_tx: ExecutedTransaction,
-    ) -> Result<u32, ClientError> {
+    ) -> Result<BlockNumber, ClientError> {
         // Prepare request with proven transaction.
         // This is needed to be in a separated code block in order to release reference to avoid
         // borrow checker error.
@@ -183,7 +179,7 @@ impl FaucetClient {
             .await
             .context("Failed to submit proven transaction")?;
 
-        Ok(response.into_inner().block_height)
+        Ok(response.into_inner().block_height.into())
     }
 
     /// Returns a reference to the data store.
@@ -204,7 +200,7 @@ impl FaucetClient {
 pub async fn initialize_faucet_client(
     config: &FaucetConfig,
 ) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), ClientError> {
-    let endpoint = tonic::transport::Endpoint::try_from(config.node_url.clone())
+    let endpoint = tonic::transport::Endpoint::try_from(config.node_url.to_string())
         .context("Failed to parse node URL from configuration file")?
         .timeout(Duration::from_millis(config.timeout_ms));
 
@@ -255,7 +251,6 @@ async fn request_account_state(
         account_info.details.context("Account details field is empty")?;
 
     Account::read_from_bytes(&faucet_account_state_bytes)
-        .map_err(ImplError)
         .context("Failed to deserialize faucet account")
         .map_err(Into::into)
 }

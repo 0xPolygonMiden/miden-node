@@ -18,12 +18,14 @@ use miden_node_proto::{
     },
     try_convert,
 };
+use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
-    accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
+    account::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
     utils::serde::Deserializable, Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
+    service::interceptor::InterceptedService,
     transport::{Channel, Error},
     Request, Response, Status,
 };
@@ -34,21 +36,32 @@ use crate::{config::RpcConfig, COMPONENT};
 // RPC API
 // ================================================================================================
 
+type StoreClient = store_client::ApiClient<InterceptedService<Channel, OtelInterceptor>>;
+type BlockProducerClient =
+    block_producer_client::ApiClient<InterceptedService<Channel, OtelInterceptor>>;
+
 pub struct RpcApi {
-    store: store_client::ApiClient<Channel>,
-    block_producer: block_producer_client::ApiClient<Channel>,
+    store: StoreClient,
+    block_producer: BlockProducerClient,
 }
 
 impl RpcApi {
     pub(super) async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
-        let store = store_client::ApiClient::connect(config.store_url.clone()).await?;
-        info!(target: COMPONENT, store_endpoint = config.store_url, "Store client initialized");
+        let channel = tonic::transport::Endpoint::try_from(config.store_url.to_string())?
+            .connect()
+            .await?;
+        let store = store_client::ApiClient::with_interceptor(channel, OtelInterceptor);
+        info!(target: COMPONENT, store_endpoint = config.store_url.as_str(), "Store client initialized");
 
+        let channel = tonic::transport::Endpoint::try_from(config.block_producer_url.to_string())?
+            .connect()
+            .await?;
         let block_producer =
-            block_producer_client::ApiClient::connect(config.block_producer_url.clone()).await?;
+            block_producer_client::ApiClient::with_interceptor(channel, OtelInterceptor);
+
         info!(
             target: COMPONENT,
-            block_producer_endpoint = config.block_producer_url,
+            block_producer_endpoint = config.block_producer_url.as_str(),
             "Block producer client initialized",
         );
 
@@ -72,7 +85,7 @@ impl api_server::Api for RpcApi {
         debug!(target: COMPONENT, request = ?request.get_ref());
 
         // validate all the nullifiers from the user request
-        for nullifier in request.get_ref().nullifiers.iter() {
+        for nullifier in &request.get_ref().nullifiers {
             let _: Digest = nullifier
                 .try_into()
                 .or(Err(Status::invalid_argument("Digest field is not in the modulus range")))?;
@@ -162,7 +175,7 @@ impl api_server::Api for RpcApi {
         let note_ids = request.get_ref().note_ids.clone();
 
         let _: Vec<RpoDigest> = try_convert(note_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {}", err)))?;
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
 
         self.store.clone().get_notes_by_id(request).await
     }
@@ -181,7 +194,7 @@ impl api_server::Api for RpcApi {
 
         let tx_verifier = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL);
 
-        tx_verifier.verify(tx.clone()).map_err(|err| {
+        tx_verifier.verify(&tx).map_err(|err| {
             Status::invalid_argument(format!("Invalid proof for transaction {}: {err}", tx.id()))
         })?;
 
@@ -265,11 +278,17 @@ impl api_server::Api for RpcApi {
 
         debug!(target: COMPONENT, ?request);
 
-        if request.account_ids.len() > MAX_NUM_FOREIGN_ACCOUNTS as usize {
+        if request.account_requests.len() > MAX_NUM_FOREIGN_ACCOUNTS as usize {
             return Err(Status::invalid_argument(format!(
                 "Too many accounts requested: {}, limit: {MAX_NUM_FOREIGN_ACCOUNTS}",
-                request.account_ids.len()
+                request.account_requests.len()
             )));
+        }
+
+        if request.account_requests.len() < request.code_commitments.len() {
+            return Err(Status::invalid_argument(
+                "The number of code commitments should not exceed the number of requested accounts.",
+            ));
         }
 
         self.store.clone().get_account_proofs(request).await

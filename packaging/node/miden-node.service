@@ -8,8 +8,8 @@ WantedBy=multi-user.target
 [Service]
 Type=exec
 Environment="RUST_LOG=info"
-ExecStart=/usr/bin/miden-node start --config /etc/miden/miden-node.toml node
-WorkingDirectory=/opt/miden/miden-node
-User=miden
+ExecStart=/usr/bin/miden-node start --config /etc/opt/miden-node/miden-node.toml node
+WorkingDirectory=/opt/miden-node
+User=miden-node
 RestartSec=5
 Restart=always

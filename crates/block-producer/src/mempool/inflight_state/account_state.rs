@@ -99,7 +99,7 @@ impl InflightAccountState {
         self.emptiness()
     }
 
-    /// This is essentially `is_empty` with the additional benefit that [AccountStatus] is marked
+    /// This is essentially `is_empty` with the additional benefit that [`AccountStatus`] is marked
     /// as `#[must_use]`, forcing callers to handle empty accounts (which should be pruned).
     fn emptiness(&self) -> AccountStatus {
         if self.states.is_empty() {
@@ -115,21 +115,21 @@ impl InflightAccountState {
     }
 }
 
-/// Describes the emptiness of an [InflightAccountState].
+/// Describes the emptiness of an [`InflightAccountState`].
 ///
 /// Is marked as `#[must_use]` so that callers handle prune empty accounts.
 #[must_use]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AccountStatus {
-    /// [InflightAccountState] contains no state and should be pruned.
+    /// [`InflightAccountState`] contains no state and should be pruned.
     Empty,
-    /// [InflightAccountState] contains state and should be kept.
+    /// [`InflightAccountState`] contains state and should be kept.
     NonEmpty,
 }
 
 impl AccountStatus {
-    pub fn is_empty(&self) -> bool {
-        *self == Self::Empty
+    pub fn is_empty(self) -> bool {
+        self == Self::Empty
     }
 }
 
@@ -221,9 +221,9 @@ mod tests {
 
     #[test]
     fn reverted_txs_are_nonextant() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
         const REVERT: usize = 2;
+        let mut rng = Random::with_random_seed();
 
         let states = (0..N).map(|_| (rng.draw_digest(), rng.draw_tx_id())).collect::<Vec<_>>();
 
@@ -243,9 +243,9 @@ mod tests {
 
     #[test]
     fn pruned_txs_are_nonextant() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
         const PRUNE: usize = 2;
+        let mut rng = Random::with_random_seed();
 
         let states = (0..N).map(|_| (rng.draw_digest(), rng.draw_tx_id())).collect::<Vec<_>>();
 
@@ -266,8 +266,8 @@ mod tests {
 
     #[test]
     fn is_empty_after_full_commit_and_prune() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
+        let mut rng = Random::with_random_seed();
         let mut uut = InflightAccountState::default();
         for _ in 0..N {
             uut.insert(rng.draw_digest(), rng.draw_tx_id());
@@ -276,7 +276,7 @@ mod tests {
         uut.commit(N);
         let _ = uut.prune_committed(N);
 
-        assert_eq!(uut, Default::default());
+        assert_eq!(uut, InflightAccountState::default());
     }
 
     #[test]
@@ -290,14 +290,14 @@ mod tests {
 
         let _ = uut.revert(N);
 
-        assert_eq!(uut, Default::default());
+        assert_eq!(uut, InflightAccountState::default());
     }
 
     #[test]
     #[should_panic]
     fn revert_panics_on_out_of_bounds() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
+        let mut rng = Random::with_random_seed();
         let mut uut = InflightAccountState::default();
         for _ in 0..N {
             uut.insert(rng.draw_digest(), rng.draw_tx_id());
@@ -310,8 +310,8 @@ mod tests {
     #[test]
     #[should_panic]
     fn commit_panics_on_out_of_bounds() {
-        let mut rng = Random::with_random_seed();
         const N: usize = 5;
+        let mut rng = Random::with_random_seed();
         let mut uut = InflightAccountState::default();
         for _ in 0..N {
             uut.insert(rng.draw_digest(), rng.draw_tx_id());

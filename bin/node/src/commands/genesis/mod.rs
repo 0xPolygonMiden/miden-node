@@ -5,12 +5,12 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 pub use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
-use miden_lib::{accounts::faucets::create_basic_fungible_faucet, AuthScheme};
+use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin};
 use miden_objects::{
-    accounts::{Account, AccountData, AccountIdAnchor, AuthSecretKey},
-    assets::TokenSymbol,
+    account::{Account, AccountFile, AccountIdAnchor, AuthSecretKey},
+    asset::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
     Felt, ONE,
 };
@@ -38,7 +38,7 @@ const DEFAULT_ACCOUNTS_DIR: &str = "accounts/";
 /// This function returns a `Result` type. On successful creation of the genesis file, it returns
 /// `Ok(())`. If it fails at any point, due to issues like file existence checks or read/write
 /// operations, it returns an `Err` with a detailed error message.
-pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) -> Result<()> {
+pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: bool) -> Result<()> {
     let inputs_path = Path::new(inputs_path);
     let output_path = Path::new(output_path);
 
@@ -63,14 +63,8 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
         return Err(anyhow!("Failed to open {} file.", inputs_path.display()));
     }
 
-    let parent_path = match output_path.parent() {
-        Some(path) => path,
-        None => {
-            return Err(anyhow!(
-                "There has been an error processing output_path: {}",
-                output_path.display()
-            ))
-        },
+    let Some(parent_path) = output_path.parent() else {
+        anyhow::bail!("There has been an error processing output_path: {}", output_path.display());
     };
 
     let genesis_input: GenesisInput = load_config(inputs_path).map_err(|err| {
@@ -97,7 +91,7 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: &bool) 
 fn create_accounts(
     accounts: &[AccountInput],
     accounts_path: impl AsRef<Path>,
-    force: &bool,
+    force: bool,
 ) -> Result<Vec<Account>> {
     if accounts_path.as_ref().try_exists()? {
         if !force {
@@ -120,7 +114,7 @@ fn create_accounts(
         let (mut account_data, name) = match account {
             AccountInput::BasicFungibleFaucet(inputs) => {
                 info!("Creating fungible faucet account...");
-                let (auth_scheme, auth_secret_key) = gen_auth_keys(inputs.auth_scheme, &mut rng)?;
+                let (auth_scheme, auth_secret_key) = gen_auth_keys(inputs.auth_scheme, &mut rng);
 
                 let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
@@ -140,7 +134,7 @@ fn create_accounts(
                 );
                 faucet_count += 1;
 
-                (AccountData::new(account, Some(account_seed), auth_secret_key), name)
+                (AccountFile::new(account, Some(account_seed), auth_secret_key), name)
             },
         };
 
@@ -166,15 +160,15 @@ fn create_accounts(
 fn gen_auth_keys(
     auth_scheme_input: AuthSchemeInput,
     rng: &mut ChaCha20Rng,
-) -> Result<(AuthScheme, AuthSecretKey)> {
+) -> (AuthScheme, AuthSecretKey) {
     match auth_scheme_input {
         AuthSchemeInput::RpoFalcon512 => {
             let secret = SecretKey::with_rng(&mut get_rpo_random_coin(rng));
 
-            Ok((
+            (
                 AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
                 AuthSecretKey::RpoFalcon512(secret),
-            ))
+            )
         },
     }
 }
@@ -188,7 +182,7 @@ mod tests {
 
     use figment::Jail;
     use miden_node_store::genesis::GenesisState;
-    use miden_objects::{accounts::AccountData, utils::serde::Deserializable};
+    use miden_objects::{account::AccountFile, utils::serde::Deserializable};
 
     use crate::DEFAULT_GENESIS_FILE_PATH;
 
@@ -217,7 +211,7 @@ mod tests {
             let genesis_dat_file_path = PathBuf::from(DEFAULT_GENESIS_FILE_PATH);
 
             //  run make_genesis to generate genesis.dat and accounts folder and files
-            super::make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, &true).unwrap();
+            super::make_genesis(&genesis_inputs_file_path, &genesis_dat_file_path, true).unwrap();
 
             let a0_file_path = PathBuf::from("accounts/faucet.mac");
 
@@ -226,7 +220,7 @@ mod tests {
             assert!(a0_file_path.exists());
 
             // deserialize account and genesis_state
-            let a0 = AccountData::read(a0_file_path).unwrap();
+            let a0 = AccountFile::read(a0_file_path).unwrap();
 
             // assert that the account has the corresponding storage mode
             assert!(a0.account.is_public());
@@ -235,7 +229,7 @@ mod tests {
             let genesis_state = GenesisState::read_from_bytes(&genesis_file_contents).unwrap();
 
             // build supposed genesis_state
-            let supposed_genesis_state = GenesisState::new(vec![a0.account], 1, 1672531200);
+            let supposed_genesis_state = GenesisState::new(vec![a0.account], 1, 1_672_531_200);
 
             // assert that both genesis_state(s) are eq
             assert_eq!(genesis_state, supposed_genesis_state);

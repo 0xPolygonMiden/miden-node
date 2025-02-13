@@ -1,26 +1,25 @@
 use std::{num::NonZeroUsize, ops::Range, time::Duration};
 
-use batch::BatchId;
-use miden_node_proto::domain::notes::NoteAuthenticationInfo;
+use miden_node_proto::domain::batch::BatchInputs;
+use miden_node_utils::formatting::format_array;
+use miden_objects::{
+    batch::{BatchId, ProposedBatch, ProvenBatch},
+    MIN_PROOF_SECURITY_LEVEL,
+};
+use miden_tx_batch_prover::LocalBatchProver;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
-    domain::transaction::AuthenticatedTransaction, mempool::SharedMempool, store::StoreClient,
-    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
+    domain::transaction::AuthenticatedTransaction, errors::BuildBatchError, mempool::SharedMempool,
+    store::StoreClient, COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
 };
-
-pub mod batch;
-pub use batch::TransactionBatch;
-use miden_node_utils::formatting::format_array;
-
-use crate::errors::BuildBatchError;
 
 // BATCH BUILDER
 // ================================================================================================
 
-/// Builds [TransactionBatch] from sets of transactions.
+/// Builds [`TransactionBatch`] from sets of transactions.
 ///
 /// Transaction sets are pulled from the [Mempool] at a configurable interval, and passed to a pool
 /// of provers for proof generation. Proving is currently unimplemented and is instead simulated via
@@ -50,7 +49,7 @@ impl Default for BatchBuilder {
 }
 
 impl BatchBuilder {
-    /// Starts the [BatchBuilder], creating and proving batches at the configured interval.
+    /// Starts the [`BatchBuilder`], creating and proving batches at the configured interval.
     ///
     /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.
     /// A batch is skipped if there are no available workers, or if there are no transactions
@@ -105,11 +104,11 @@ impl BatchBuilder {
 // BATCH WORKER
 // ================================================================================================
 
-type BatchResult = Result<TransactionBatch, (BatchId, BuildBatchError)>;
+type BatchResult = Result<ProvenBatch, (BatchId, BuildBatchError)>;
 
 /// Represents a pool of batch provers.
 ///
-/// Effectively a wrapper around tokio's JoinSet that remains pending if the set is empty,
+/// Effectively a wrapper around tokio's `JoinSet` that remains pending if the set is empty,
 /// instead of returning None.
 struct WorkerPool {
     in_progress: JoinSet<BatchResult>,
@@ -139,13 +138,13 @@ impl WorkerPool {
             capacity,
             store,
             in_progress: JoinSet::default(),
-            task_map: Default::default(),
+            task_map: Vec::default(),
         }
     }
 
     /// Returns the next batch proof result.
     ///
-    /// Will return pending if there are no jobs in progress (unlike tokio's [JoinSet::join_next]
+    /// Will return pending if there are no jobs in progress (unlike tokio's [`JoinSet::join_next`]
     /// which returns an option).
     async fn join_next(&mut self) -> BatchResult {
         if self.in_progress.is_empty() {
@@ -193,7 +192,7 @@ impl WorkerPool {
     /// # Errors
     ///
     /// Returns an error if no workers are available which can be checked using
-    /// [has_capacity](Self::has_capacity).
+    /// [`has_capacity`](Self::has_capacity).
     fn spawn(
         &mut self,
         id: BatchId,
@@ -219,13 +218,19 @@ impl WorkerPool {
                 async move {
                     tracing::debug!("Begin proving batch.");
 
-                    let inputs = store
-                        .get_batch_inputs(
-                            transactions.iter().flat_map(|tx| tx.unauthenticated_notes()),
-                        )
+                    let block_references =
+                        transactions.iter().map(AuthenticatedTransaction::reference_block);
+                    let unauthenticated_notes = transactions
+                        .iter()
+                        .flat_map(AuthenticatedTransaction::unauthenticated_notes);
+
+                    let batch_inputs = store
+                        .get_batch_inputs(block_references, unauthenticated_notes)
                         .await
-                        .map_err(|err| (id, err.into()))?;
-                    let batch = Self::build_batch(transactions, inputs).map_err(|err| (id, err))?;
+                        .map_err(|err| (id, BuildBatchError::FetchBatchInputsFailed(err)))?;
+
+                    let batch =
+                        Self::build_batch(transactions, batch_inputs).map_err(|err| (id, err))?;
 
                     tokio::time::sleep(simulated_proof_time).await;
                     if failed {
@@ -248,19 +253,35 @@ impl WorkerPool {
     #[instrument(target = COMPONENT, skip_all, err, fields(batch_id))]
     fn build_batch(
         txs: Vec<AuthenticatedTransaction>,
-        inputs: NoteAuthenticationInfo,
-    ) -> Result<TransactionBatch, BuildBatchError> {
+        batch_inputs: BatchInputs,
+    ) -> Result<ProvenBatch, BuildBatchError> {
         let num_txs = txs.len();
 
         info!(target: COMPONENT, num_txs, "Building a transaction batch");
         debug!(target: COMPONENT, txs = %format_array(txs.iter().map(|tx| tx.id().to_hex())));
 
-        let txs = txs.iter().map(AuthenticatedTransaction::raw_proven_transaction);
-        let batch = TransactionBatch::new(txs, inputs)?;
+        let BatchInputs {
+            batch_reference_block_header,
+            note_proofs,
+            chain_mmr,
+        } = batch_inputs;
 
-        Span::current().record("batch_id", batch.id().to_string());
-        info!(target: COMPONENT, "Transaction batch built");
+        let transactions = txs.iter().map(AuthenticatedTransaction::proven_transaction).collect();
 
-        Ok(batch)
+        let proposed_batch =
+            ProposedBatch::new(transactions, batch_reference_block_header, chain_mmr, note_proofs)
+                .map_err(BuildBatchError::ProposeBatchError)?;
+
+        Span::current().record("batch_id", proposed_batch.id().to_string());
+        info!(target: COMPONENT, "Proposed Batch built");
+
+        let proven_batch = LocalBatchProver::new(MIN_PROOF_SECURITY_LEVEL)
+            .prove(proposed_batch)
+            .map_err(BuildBatchError::ProveBatchError)?;
+
+        Span::current().record("batch_id", proven_batch.id().to_string());
+        info!(target: COMPONENT, "Proven Batch built");
+
+        Ok(proven_batch)
     }
 }

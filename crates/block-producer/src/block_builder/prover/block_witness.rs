@@ -1,17 +1,17 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
-    accounts::{delta::AccountUpdateDetails, AccountId},
-    block::BlockAccountUpdate,
+    account::{delta::AccountUpdateDetails, AccountId},
+    batch::{BatchAccountUpdate, ProvenBatch},
+    block::{BlockAccountUpdate, BlockHeader},
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
-    notes::Nullifier,
+    note::Nullifier,
     transaction::TransactionId,
     vm::{AdviceInputs, StackInputs},
-    BlockHeader, Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
+    Digest, Felt, BLOCK_NOTE_TREE_DEPTH, MAX_BATCHES_PER_BLOCK, ZERO,
 };
 
 use crate::{
-    batch_builder::{batch::AccountUpdate, TransactionBatch},
     block::BlockInputs,
     errors::{BlockProverError, BuildBlockError},
 };
@@ -23,7 +23,7 @@ use crate::{
 #[derive(Debug, PartialEq)]
 pub struct BlockWitness {
     pub(super) updated_accounts: Vec<(AccountId, AccountUpdateWitness)>,
-    /// (batch_index, created_notes_root) for batches that contain notes
+    /// (`batch_index`, `created_notes_root`) for batches that contain notes
     pub(super) batch_created_notes_roots: BTreeMap<usize, Digest>,
     pub(super) produced_nullifiers: BTreeMap<Nullifier, SmtProof>,
     pub(super) chain_peaks: MmrPeaks,
@@ -33,7 +33,7 @@ pub struct BlockWitness {
 impl BlockWitness {
     pub fn new(
         mut block_inputs: BlockInputs,
-        batches: &[TransactionBatch],
+        batches: &[ProvenBatch],
     ) -> Result<(Self, Vec<BlockAccountUpdate>), BuildBlockError> {
         // This limit should be enforced by the mempool.
         assert!(batches.len() <= MAX_BATCHES_PER_BLOCK);
@@ -44,18 +44,19 @@ impl BlockWitness {
             .iter()
             .enumerate()
             .filter(|(_, batch)| !batch.output_notes().is_empty())
-            .map(|(batch_index, batch)| (batch_index, batch.output_notes_root()))
+            .map(|(batch_index, batch)| (batch_index, batch.output_notes_tree().root()))
             .collect();
 
         // Order account updates by account ID and each update's initial state hash.
         //
         // This let's us chronologically order the updates per account across batches.
-        let mut updated_accounts = BTreeMap::<AccountId, BTreeMap<Digest, AccountUpdate>>::new();
-        for (account_id, update) in batches.iter().flat_map(TransactionBatch::updated_accounts) {
+        let mut updated_accounts =
+            BTreeMap::<AccountId, BTreeMap<Digest, BatchAccountUpdate>>::new();
+        for (account_id, update) in batches.iter().flat_map(ProvenBatch::account_updates) {
             updated_accounts
                 .entry(*account_id)
                 .or_default()
-                .insert(update.init_state, update.clone());
+                .insert(update.initial_state_commitment(), update.clone());
         }
 
         // Build account witnesses.
@@ -84,13 +85,14 @@ impl BlockWitness {
                     )
                 })?;
 
-                transactions.extend(update.transactions);
-                current_hash = update.final_state;
+                current_hash = update.final_state_commitment();
+                let (update_transactions, update_details) = update.into_parts();
+                transactions.extend(update_transactions);
 
                 details = Some(match details {
-                    None => update.details,
-                    Some(details) => details.merge(update.details).map_err(|err| {
-                        BuildBlockError::AccountUpdateError { account_id, error: err }
+                    None => update_details,
+                    Some(details) => details.merge(update_details).map_err(|source| {
+                        BuildBlockError::AccountUpdateError { account_id, source }
                     })?,
                 });
             }
@@ -156,13 +158,13 @@ impl BlockWitness {
     /// done in MASM.
     fn validate_nullifiers(
         block_inputs: &BlockInputs,
-        batches: &[TransactionBatch],
+        batches: &[ProvenBatch],
     ) -> Result<(), BuildBlockError> {
         let produced_nullifiers_from_store: BTreeSet<Nullifier> =
             block_inputs.nullifiers.keys().copied().collect();
 
         let produced_nullifiers_from_batches: BTreeSet<Nullifier> =
-            batches.iter().flat_map(|batch| batch.produced_nullifiers()).collect();
+            batches.iter().flat_map(ProvenBatch::produced_nullifiers).collect();
 
         if produced_nullifiers_from_store == produced_nullifiers_from_batches {
             Ok(())
@@ -188,7 +190,7 @@ impl BlockWitness {
                 for (idx, (account_id, account_update)) in self.updated_accounts.iter().enumerate()
                 {
                     account_data.extend(account_update.final_state_hash);
-                    account_data.push(account_id.first_felt());
+                    account_data.push(account_id.prefix().as_felt());
 
                     let idx = u64::try_from(idx).expect("can't be more than 2^64 - 1 accounts");
                     num_accounts_updated = idx + 1;
@@ -218,8 +220,7 @@ impl BlockWitness {
                 let empty_root = EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0);
                 advice_stack.extend(*empty_root);
 
-                for (batch_index, batch_created_notes_root) in self.batch_created_notes_roots.iter()
-                {
+                for (batch_index, batch_created_notes_root) in &self.batch_created_notes_roots {
                     advice_stack.extend(batch_created_notes_root.iter());
 
                     let batch_index = Felt::try_from(*batch_index as u64)

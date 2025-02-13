@@ -1,4 +1,4 @@
-use std::{net::ToSocketAddrs, sync::Arc};
+use std::sync::Arc;
 
 use miden_node_proto::generated::store::api_server;
 use miden_node_utils::errors::ApiError;
@@ -44,8 +44,9 @@ impl Store {
 
         let addr = config
             .endpoint
-            .to_socket_addrs()
+            .socket_addrs(|| None)
             .map_err(ApiError::EndpointToSocketFailed)?
+            .into_iter()
             .next()
             .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))?;
 
@@ -61,6 +62,7 @@ impl Store {
     /// Note: this blocks until the server dies.
     pub async fn serve(self) -> Result<(), ApiError> {
         tonic::transport::Server::builder()
+            .trace_fn(miden_node_utils::tracing::grpc::store_trace_fn)
             .add_service(self.api_service)
             .serve_with_incoming(TcpListenerStream::new(self.listener))
             .await

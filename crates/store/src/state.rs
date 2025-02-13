@@ -11,24 +11,32 @@ use std::{
 
 use miden_node_proto::{
     convert,
-    domain::{accounts::AccountInfo, blocks::BlockInclusionProof, notes::NoteAuthenticationInfo},
-    generated::responses::{AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse},
+    domain::{
+        account::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
+        batch::BatchInputs,
+        block::BlockInclusionProof,
+        note::NoteAuthenticationInfo,
+    },
+    generated::responses::{
+        AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse, StorageSlotMapProof,
+    },
     AccountInputRecord, NullifierWitness,
 };
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    accounts::{AccountDelta, AccountHeader, AccountId},
-    block::Block,
+    account::{AccountDelta, AccountHeader, AccountId, StorageSlot},
+    block::{Block, BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{
-            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, SimpleSmt, SmtProof, ValuePath,
+            LeafIndex, Mmr, MmrDelta, MmrError, MmrPeaks, MmrProof, PartialMmr, SimpleSmt,
+            SmtProof, ValuePath,
         },
     },
-    notes::{NoteId, Nullifier},
-    transaction::OutputNote,
+    note::{NoteId, Nullifier},
+    transaction::{ChainMmr, OutputNote},
     utils::Serializable,
-    AccountError, BlockHeader, ACCOUNT_TREE_DEPTH,
+    AccountError, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{
     sync::{oneshot, Mutex, RwLock},
@@ -40,12 +48,11 @@ use crate::{
     blocks::BlockStore,
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
-        ApplyBlockError, DatabaseError, GetBlockHeaderError, GetBlockInputsError,
-        GetNoteInclusionProofError, InvalidBlockError, NoteSyncError, StateInitializationError,
-        StateSyncError,
+        ApplyBlockError, DatabaseError, GetBatchInputsError, GetBlockHeaderError,
+        GetBlockInputsError, GetNoteAuthenticationInfoError, InvalidBlockError, NoteSyncError,
+        StateInitializationError, StateSyncError,
     },
     nullifier_tree::NullifierTree,
-    types::BlockNumber,
     COMPONENT,
 };
 
@@ -100,9 +107,11 @@ struct InnerState {
 impl InnerState {
     /// Returns the latest block number.
     fn latest_block_num(&self) -> BlockNumber {
-        (self.chain_mmr.forest() - 1)
+        let block_number: u32 = (self.chain_mmr.forest() - 1)
             .try_into()
-            .expect("chain_mmr always has, at least, the genesis block")
+            .expect("chain_mmr always has, at least, the genesis block");
+
+        block_number.into()
     }
 }
 
@@ -176,7 +185,7 @@ impl State {
 
         let tx_hash = block.compute_tx_hash();
         if header.tx_hash() != tx_hash {
-            return Err(InvalidBlockError::InvalidTxHash {
+            return Err(InvalidBlockError::InvalidBlockTxHash {
                 expected: tx_hash,
                 actual: header.tx_hash(),
             }
@@ -228,7 +237,7 @@ impl State {
                 .nullifiers()
                 .iter()
                 .filter(|&n| inner.nullifier_tree.get_block_num(n).is_some())
-                .cloned()
+                .copied()
                 .collect();
             if !duplicate_nullifiers.is_empty() {
                 return Err(InvalidBlockError::DuplicatedNullifiers(duplicate_nullifiers).into());
@@ -285,10 +294,10 @@ impl State {
                 let details = match note {
                     OutputNote::Full(note) => Some(note.to_bytes()),
                     OutputNote::Header(_) => None,
-                    note => {
+                    note @ OutputNote::Partial(_) => {
                         return Err(InvalidBlockError::InvalidOutputNoteType(Box::new(
                             note.clone(),
-                        )))
+                        )));
                     },
                 };
 
@@ -369,7 +378,7 @@ impl State {
             inner.chain_mmr.add(block_hash);
         }
 
-        info!(%block_hash, block_num, COMPONENT, "apply_block successful");
+        info!(%block_hash, block_num = block_num.as_u32(), COMPONENT, "apply_block successful");
 
         Ok(())
     }
@@ -388,7 +397,7 @@ impl State {
         if let Some(header) = block_header {
             let mmr_proof = if include_mmr_proof {
                 let inner = self.inner.read().await;
-                let mmr_proof = inner.chain_mmr.open(header.block_num() as usize)?;
+                let mmr_proof = inner.chain_mmr.open(header.block_num().as_usize())?;
                 Some(mmr_proof)
             } else {
                 None
@@ -417,10 +426,10 @@ impl State {
         nullifiers.iter().map(|n| inner.nullifier_tree.open(n)).collect()
     }
 
-    /// Queries a list of [NoteRecord] from the database.
+    /// Queries a list of [`NoteRecord`] from the database.
     ///
-    /// If the provided list of [NoteId] given is empty or no [NoteRecord] matches the provided
-    /// [NoteId] an empty list is returned.
+    /// If the provided list of [`NoteId`] given is empty or no [`NoteRecord`] matches the provided
+    /// [`NoteId`] an empty list is returned.
     pub async fn get_notes_by_id(
         &self,
         note_ids: Vec<NoteId>,
@@ -432,8 +441,8 @@ impl State {
     pub async fn get_note_authentication_info(
         &self,
         note_ids: BTreeSet<NoteId>,
-    ) -> Result<NoteAuthenticationInfo, GetNoteInclusionProofError> {
-        // First we grab block-inclusion proofs for the known notes. These proofs only
+    ) -> Result<NoteAuthenticationInfo, GetNoteAuthenticationInfoError> {
+        // First we grab note inclusion proofs for the known notes. These proofs only
         // prove that the note was included in a given block. We then also need to prove that
         // each of those blocks is included in the chain.
         let note_proofs = self.db.select_note_inclusion_proofs(note_ids).await?;
@@ -442,9 +451,7 @@ impl State {
         let blocks = note_proofs
             .values()
             .map(|proof| proof.location().block_num())
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
+            .collect::<BTreeSet<_>>();
 
         // Grab the block merkle paths from the inner state.
         //
@@ -459,19 +466,20 @@ impl State {
             let paths = blocks
                 .iter()
                 .map(|&block_num| {
-                    let proof = state.chain_mmr.open(block_num as usize)?.merkle_path;
+                    let proof = state.chain_mmr.open(block_num.as_usize())?.merkle_path;
 
                     Ok::<_, MmrError>((block_num, proof))
                 })
                 .collect::<Result<BTreeMap<_, _>, MmrError>>()?;
 
-            let chain_length = BlockNumber::try_from(chain_length)
-                .expect("Forest is a chain length so should fit into block number");
+            let chain_length = u32::try_from(chain_length)
+                .expect("Forest is a chain length so should fit into a u32");
 
-            (chain_length, paths)
+            (chain_length.into(), paths)
         };
 
-        let headers = self.db.select_block_headers(blocks).await?;
+        let headers = self.db.select_block_headers(blocks.into_iter()).await?;
+
         let headers = headers
             .into_iter()
             .map(|header| (header.block_num(), header))
@@ -486,6 +494,141 @@ impl State {
         }
 
         Ok(NoteAuthenticationInfo { block_proofs, note_proofs })
+    }
+
+    /// Fetches the inputs for a transaction batch from the database.
+    ///
+    /// ## Inputs
+    ///
+    /// The function takes as input:
+    /// - The tx reference blocks are the set of blocks referenced by transactions in the batch.
+    /// - The unauthenticated note ids are the set of IDs of unauthenticated notes consumed by all
+    ///   transactions in the batch. For these notes, we attempt to find note inclusion proofs. Not
+    ///   all notes will exist in the DB necessarily, as some notes can be created and consumed
+    ///   within the same batch.
+    ///
+    /// ## Outputs
+    ///
+    /// The function will return:
+    /// - A block inclusion proof for all tx reference blocks and for all blocks which are
+    ///   referenced by a note inclusion proof.
+    /// - Note inclusion proofs for all notes that were found in the DB.
+    /// - The block header that the batch should reference, i.e. the latest known block.
+    pub async fn get_batch_inputs(
+        &self,
+        tx_reference_blocks: BTreeSet<BlockNumber>,
+        unauthenticated_note_ids: BTreeSet<NoteId>,
+    ) -> Result<BatchInputs, GetBatchInputsError> {
+        if tx_reference_blocks.is_empty() {
+            return Err(GetBatchInputsError::TransactionBlockReferencesEmpty);
+        }
+
+        // First we grab note inclusion proofs for the known notes. These proofs only
+        // prove that the note was included in a given block. We then also need to prove that
+        // each of those blocks is included in the chain.
+        let note_proofs = self
+            .db
+            .select_note_inclusion_proofs(unauthenticated_note_ids)
+            .await
+            .map_err(GetBatchInputsError::SelectNoteInclusionProofError)?;
+
+        // The set of blocks that the notes are included in.
+        let note_blocks = note_proofs.values().map(|proof| proof.location().block_num());
+
+        // Collect all blocks we need to query without duplicates, which is:
+        // - all blocks for which we need to prove note inclusion.
+        // - all blocks referenced by transactions in the batch.
+        let mut blocks = tx_reference_blocks;
+        blocks.extend(note_blocks);
+
+        // Grab the block merkle paths from the inner state.
+        //
+        // NOTE: Scoped block to automatically drop the mutex guard asap.
+        //
+        // We also avoid accessing the db in the block as this would delay
+        // dropping the guard.
+        let (batch_reference_block, partial_mmr) = {
+            let state = self.inner.read().await;
+            let latest_block_num = state.latest_block_num();
+
+            let highest_block_num =
+                *blocks.last().expect("we should have checked for empty block references");
+            if highest_block_num > latest_block_num {
+                return Err(GetBatchInputsError::TransactionBlockReferenceNewerThanLatestBlock {
+                    highest_block_num,
+                    latest_block_num,
+                });
+            }
+
+            // Remove the latest block from the to-be-tracked blocks as it will be the reference
+            // block for the batch itself and thus added to the MMR within the batch kernel, so
+            // there is no need to prove its inclusion.
+            blocks.remove(&latest_block_num);
+
+            // Using latest block as the target forest means we take the state of the MMR one before
+            // the latest block. This is because the latest block will be used as the reference
+            // block of the batch and will be added to the MMR by the batch kernel.
+            let target_forest = latest_block_num.as_usize();
+            let peaks = state
+                .chain_mmr
+                .peaks_at(target_forest)
+                .expect("target_forest should be smaller than forest of the chain mmr");
+            let mut partial_mmr = PartialMmr::from_peaks(peaks);
+
+            for block_num in blocks.iter().map(BlockNumber::as_usize) {
+                // SAFETY: We have ensured block nums are less than chain length.
+                let leaf = state
+                    .chain_mmr
+                    .get(block_num)
+                    .expect("block num less than chain length should exist in chain mmr");
+                let path = state
+                    .chain_mmr
+                    .open_at(block_num, target_forest)
+                    .expect("block num and target forest should be valid for this mmr")
+                    .merkle_path;
+                // SAFETY: We should be able to fill the partial MMR with data from the chain MMR
+                // without errors, otherwise it indicates the chain mmr is invalid.
+                partial_mmr
+                    .track(block_num, leaf, &path)
+                    .expect("filling partial mmr with data from mmr should succeed");
+            }
+
+            (latest_block_num, partial_mmr)
+        };
+
+        // Fetch the reference block of the batch as part of this query, so we can avoid looking it
+        // up in a separate DB access.
+        let mut headers = self
+            .db
+            .select_block_headers(blocks.into_iter().chain(std::iter::once(batch_reference_block)))
+            .await
+            .map_err(GetBatchInputsError::SelectBlockHeaderError)?;
+
+        // Find and remove the batch reference block as we don't want to add it to the chain MMR.
+        let header_index = headers
+            .iter()
+            .enumerate()
+            .find_map(|(index, header)| {
+                (header.block_num() == batch_reference_block).then_some(index)
+            })
+            .expect("DB should have returned the header of the batch reference block");
+
+        // The order doesn't matter for ChainMmr::new, so swap remove is fine.
+        let batch_reference_block_header = headers.swap_remove(header_index);
+
+        // SAFETY: This should not error because:
+        // - we're passing exactly the block headers that we've added to the partial MMR,
+        // - so none of the block headers block numbers should exceed the chain length of the
+        //   partial MMR,
+        // - and we've added blocks to a BTreeSet, so there can be no duplicates.
+        let chain_mmr = ChainMmr::new(partial_mmr, headers)
+            .expect("partial mmr and block headers should be consistent");
+
+        Ok(BatchInputs {
+            batch_reference_block_header,
+            note_proofs,
+            chain_mmr,
+        })
     }
 
     /// Loads data to synchronize a client.
@@ -520,7 +663,10 @@ impl State {
 
         let delta = if block_num == state_sync.block_header.block_num() {
             // The client is in sync with the chain tip.
-            MmrDelta { forest: block_num as usize, data: vec![] }
+            MmrDelta {
+                forest: block_num.as_usize(),
+                data: vec![],
+            }
         } else {
             // Important notes about the boundary conditions:
             //
@@ -531,8 +677,8 @@ impl State {
             // - Mmr::get_delta is inclusive, whereas the sync_state request block_num is defined to
             //   be
             // exclusive, so the from_forest has to be adjusted with a +1
-            let from_forest = (block_num + 1) as usize;
-            let to_forest = state_sync.block_header.block_num() as usize;
+            let from_forest = (block_num + 1).as_usize();
+            let to_forest = state_sync.block_header.block_num().as_usize();
             inner
                 .chain_mmr
                 .get_delta(from_forest, to_forest)
@@ -563,7 +709,7 @@ impl State {
 
         let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
 
-        let mmr_proof = inner.chain_mmr.open(note_sync.block_header.block_num() as usize)?;
+        let mmr_proof = inner.chain_mmr.open(note_sync.block_header.block_num().as_usize())?;
 
         Ok((note_sync, mmr_proof))
     }
@@ -584,7 +730,7 @@ impl State {
             .ok_or(GetBlockInputsError::DbBlockHeaderEmpty)?;
 
         // sanity check
-        if inner.chain_mmr.forest() != latest.block_num() as usize + 1 {
+        if inner.chain_mmr.forest() != latest.block_num().as_usize() + 1 {
             return Err(GetBlockInputsError::IncorrectChainMmrForestNumber {
                 forest: inner.chain_mmr.forest(),
                 block_num: latest.block_num(),
@@ -594,15 +740,15 @@ impl State {
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
         let chain_peaks =
-            inner.chain_mmr.peaks_at(latest.block_num() as usize).map_err(|error| {
+            inner.chain_mmr.peaks_at(latest.block_num().as_usize()).map_err(|error| {
                 GetBlockInputsError::FailedToGetMmrPeaksForForest {
-                    forest: latest.block_num() as usize,
+                    forest: latest.block_num().as_usize(),
                     error,
                 }
             })?;
         let account_states = account_ids
             .iter()
-            .cloned()
+            .copied()
             .map(|account_id| {
                 let ValuePath { value: account_hash, path: proof } =
                     inner.account_tree.open(&LeafIndex::new_max_depth(account_id.prefix().into()));
@@ -666,22 +812,6 @@ impl State {
         })
     }
 
-    /// Lists all known nullifiers with their inclusion blocks, intended for testing.
-    pub async fn list_nullifiers(&self) -> Result<Vec<(Nullifier, u32)>, DatabaseError> {
-        self.db.select_all_nullifiers().await
-    }
-
-    /// Lists all known accounts, with their ids, latest state hash, and block at which the account
-    /// was last modified, intended for testing.
-    pub async fn list_accounts(&self) -> Result<Vec<AccountInfo>, DatabaseError> {
-        self.db.select_all_accounts().await
-    }
-
-    /// Lists all known notes, intended for testing.
-    pub async fn list_notes(&self) -> Result<Vec<NoteRecord>, DatabaseError> {
-        self.db.select_all_notes().await
-    }
-
     /// Returns account summary (with optional details for public account) by ID.
     pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
         self.db.select_account(id).await
@@ -690,8 +820,8 @@ impl State {
     /// Returns account proofs with optional account and storage headers.
     pub async fn get_account_proofs(
         &self,
-        account_ids: Vec<AccountId>,
-        request_code_commitments: BTreeSet<RpoDigest>,
+        account_requests: Vec<AccountProofRequest>,
+        known_code_commitments: BTreeSet<RpoDigest>,
         include_headers: bool,
     ) -> Result<(BlockNumber, Vec<AccountProofsResponse>), DatabaseError> {
         // Lock inner state for the whole operation. We need to hold this lock to prevent the
@@ -699,11 +829,13 @@ impl State {
         // because changing one of them would lead to inconsistent state.
         let inner_state = self.inner.read().await;
 
-        let state_headers = if !include_headers {
+        let account_ids: Vec<AccountId> =
+            account_requests.iter().map(|req| req.account_id).collect();
+
+        let state_headers = if include_headers.not() {
             BTreeMap::<AccountId, AccountStateHeader>::default()
         } else {
             let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
-
             if account_ids.len() > infos.len() {
                 let found_ids = infos.iter().map(|info| info.summary.account_id).collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
@@ -711,26 +843,56 @@ impl State {
                 ));
             }
 
-            infos
-                .into_iter()
-                .filter_map(|info| {
-                    info.details.map(|details| {
-                        (
-                            info.summary.account_id,
-                            AccountStateHeader {
-                                header: Some(AccountHeader::from(&details).into()),
-                                storage_header: details.storage().get_header().to_bytes(),
-                                // Only include account code if the request did not contain it
-                                // (known by the caller)
-                                account_code: request_code_commitments
-                                    .contains(&details.code().commitment())
-                                    .not()
-                                    .then_some(details.code().to_bytes()),
-                            },
-                        )
-                    })
-                })
-                .collect()
+            let mut headers_map = BTreeMap::new();
+
+            // Iterate and build state headers for public accounts
+            for request in account_requests {
+                let account_info = infos
+                    .iter()
+                    .find(|info| info.summary.account_id == request.account_id)
+                    .expect("retrieved accounts were validated against request");
+
+                if let Some(details) = &account_info.details {
+                    let mut storage_slot_map_keys = Vec::new();
+
+                    for StorageMapKeysProof { storage_index, storage_keys } in
+                        &request.storage_requests
+                    {
+                        if let Some(StorageSlot::Map(storage_map)) =
+                            details.storage().slots().get(*storage_index as usize)
+                        {
+                            for map_key in storage_keys {
+                                let proof = storage_map.open(map_key);
+
+                                let slot_map_key = StorageSlotMapProof {
+                                    storage_slot: u32::from(*storage_index),
+                                    smt_proof: proof.to_bytes(),
+                                };
+                                storage_slot_map_keys.push(slot_map_key);
+                            }
+                        } else {
+                            return Err(AccountError::StorageSlotNotMap(*storage_index).into());
+                        }
+                    }
+
+                    // Only include unknown account codes
+                    let account_code = known_code_commitments
+                        .contains(&details.code().commitment())
+                        .not()
+                        .then(|| details.code().to_bytes());
+
+                    let state_header = AccountStateHeader {
+                        header: Some(AccountHeader::from(details).into()),
+                        storage_header: details.storage().get_header().to_bytes(),
+                        account_code,
+                        storage_maps: storage_slot_map_keys,
+                    };
+
+                    headers_map.insert(account_info.summary.account_id, state_header);
+                }
+            }
+
+            headers_map
         };
 
         let responses = account_ids

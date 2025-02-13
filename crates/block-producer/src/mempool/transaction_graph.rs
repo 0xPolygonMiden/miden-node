@@ -53,7 +53,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::insert_pending].
+    /// Follows the error conditions of [`DependencyGraph::insert_pending`].
     pub fn insert(
         &mut self,
         transaction: AuthenticatedTransaction,
@@ -73,8 +73,8 @@ impl TransactionGraph {
     /// Note: this may emit empty batches.
     ///
     /// See also:
-    ///   - [Self::requeue_transactions]
-    ///   - [Self::commit_transactions]
+    ///   - [`Self::requeue_transactions`]
+    ///   - [`Self::commit_transactions`]
     pub fn select_batch(
         &mut self,
         mut budget: BatchBudget,
@@ -84,7 +84,7 @@ impl TransactionGraph {
         let mut batch = Vec::with_capacity(budget.transactions);
         let mut parents = BTreeSet::new();
 
-        while let Some(root) = self.inner.roots().first().cloned() {
+        while let Some(root) = self.inner.roots().first().copied() {
             // SAFETY: Since it was a root batch, it must definitely have a processed batch
             // associated with it.
             let tx = self.inner.get(&root).unwrap().clone();
@@ -109,7 +109,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::revert_subgraphs].
+    /// Follows the error conditions of [`DependencyGraph::revert_subgraphs`].
     pub fn requeue_transactions(
         &mut self,
         transactions: BTreeSet<TransactionId>,
@@ -121,13 +121,13 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::prune_processed].
+    /// Follows the error conditions of [`DependencyGraph::prune_processed`].
     pub fn commit_transactions(
         &mut self,
         tx_ids: &[TransactionId],
     ) -> Result<(), GraphError<TransactionId>> {
         // TODO: revisit this api.
-        let tx_ids = tx_ids.iter().cloned().collect();
+        let tx_ids = tx_ids.iter().copied().collect();
         self.inner.prune_processed(tx_ids)?;
         Ok(())
     }
@@ -138,7 +138,7 @@ impl TransactionGraph {
     ///
     /// # Errors
     ///
-    /// Follows the error conditions of [DependencyGraph::purge_subgraphs].
+    /// Follows the error conditions of [`DependencyGraph::purge_subgraphs`].
     pub fn remove_transactions(
         &mut self,
         transactions: Vec<TransactionId>,

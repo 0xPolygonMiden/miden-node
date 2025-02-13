@@ -6,30 +6,30 @@ use std::{
 
 use itertools::Itertools;
 use miden_node_proto::{
-    domain::notes::NoteAuthenticationInfo,
+    domain::batch::BatchInputs,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         digest,
         requests::{
-            ApplyBlockRequest, GetBlockInputsRequest, GetNoteAuthenticationInfoRequest,
-            GetTransactionInputsRequest,
+            ApplyBlockRequest, GetBatchInputsRequest, GetBlockHeaderByNumberRequest,
+            GetBlockInputsRequest, GetTransactionInputsRequest,
         },
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
     AccountState,
 };
-use miden_node_utils::formatting::format_opt;
+use miden_node_utils::{formatting::format_opt, tracing::grpc::OtelInterceptor};
 use miden_objects::{
-    accounts::AccountId,
-    block::Block,
-    notes::{NoteId, Nullifier},
+    account::AccountId,
+    block::{Block, BlockHeader, BlockNumber},
+    note::{NoteId, Nullifier},
     transaction::ProvenTransaction,
     utils::Serializable,
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_processor::crypto::RpoDigest;
-use tonic::transport::Channel;
+use tonic::{service::interceptor::InterceptedService, transport::Channel};
 use tracing::{debug, info, instrument};
 
 use crate::{block::BlockInputs, errors::StoreError, COMPONENT};
@@ -46,14 +46,14 @@ pub struct TransactionInputs {
     pub account_hash: Option<Digest>,
     /// Maps each consumed notes' nullifier to block number, where the note is consumed.
     ///
-    /// We use NonZeroU32 as the wire format uses 0 to encode none.
+    /// We use `NonZeroU32` as the wire format uses 0 to encode none.
     pub nullifiers: BTreeMap<Nullifier, Option<NonZeroU32>>,
     /// Unauthenticated notes which are present in the store.
     ///
     /// These are notes which were committed _after_ the transaction was created.
     pub found_unauthenticated_notes: BTreeSet<NoteId>,
     /// The current block height.
-    pub current_block_height: u32,
+    pub current_block_height: BlockNumber,
 }
 
 impl Display for TransactionInputs {
@@ -67,7 +67,7 @@ impl Display for TransactionInputs {
         let nullifiers = if nullifiers.is_empty() {
             "None".to_owned()
         } else {
-            format!("{{ {} }}", nullifiers)
+            format!("{{ {nullifiers} }}")
         };
 
         f.write_fmt(format_args!(
@@ -106,14 +106,14 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
             .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
             .collect::<Result<_, ConversionError>>()?;
 
-        let current_block_height = response.block_height;
+        let current_block_height = response.block_height.into();
 
         Ok(Self {
             account_id,
             account_hash,
             nullifiers,
-            current_block_height,
             found_unauthenticated_notes,
+            current_block_height,
         })
     }
 }
@@ -121,27 +121,31 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
 // STORE CLIENT
 // ================================================================================================
 
+type InnerClient = store_client::ApiClient<InterceptedService<Channel, OtelInterceptor>>;
+
 /// Interface to the store's gRPC API.
 ///
 /// Essentially just a thin wrapper around the generated gRPC client which improves type safety.
 #[derive(Clone)]
 pub struct StoreClient {
-    inner: store_client::ApiClient<Channel>,
+    inner: InnerClient,
 }
 
 impl StoreClient {
     /// TODO: this should probably take store connection string and create a connection internally
-    pub fn new(store: store_client::ApiClient<Channel>) -> Self {
+    pub fn new(store: InnerClient) -> Self {
         Self { inner: store }
     }
 
     /// Returns the latest block's header from the store.
-    #[instrument(target = COMPONENT, skip_all, err)]
+    #[instrument(target = COMPONENT, name = "store.client.latest_header", skip_all, err)]
     pub async fn latest_header(&self) -> Result<BlockHeader, StoreError> {
         let response = self
             .inner
             .clone()
-            .get_block_header_by_number(tonic::Request::new(Default::default()))
+            .get_block_header_by_number(tonic::Request::new(
+                GetBlockHeaderByNumberRequest::default(),
+            ))
             .await?
             .into_inner()
             .block_header
@@ -152,7 +156,7 @@ impl StoreClient {
         BlockHeader::try_from(response).map_err(Into::into)
     }
 
-    #[instrument(target = COMPONENT, skip_all, err)]
+    #[instrument(target = COMPONENT, name = "store.client.get_tx_inputs", skip_all, err)]
     pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
@@ -189,7 +193,7 @@ impl StoreClient {
         Ok(tx_inputs)
     }
 
-    #[instrument(target = COMPONENT, skip_all, err)]
+    #[instrument(target = COMPONENT, name = "store.client.get_block_inputs", skip_all, err)]
     pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
@@ -207,27 +211,23 @@ impl StoreClient {
         store_response.try_into().map_err(Into::into)
     }
 
-    #[instrument(target = COMPONENT, skip_all, err)]
+    #[instrument(target = COMPONENT, name = "store.client.get_batch_inputs", skip_all, err)]
     pub async fn get_batch_inputs(
         &self,
+        block_references: impl Iterator<Item = (BlockNumber, Digest)> + Send,
         notes: impl Iterator<Item = NoteId> + Send,
-    ) -> Result<NoteAuthenticationInfo, StoreError> {
-        let request = tonic::Request::new(GetNoteAuthenticationInfoRequest {
+    ) -> Result<BatchInputs, StoreError> {
+        let request = tonic::Request::new(GetBatchInputsRequest {
+            reference_blocks: block_references.map(|(block_num, _)| block_num.as_u32()).collect(),
             note_ids: notes.map(digest::Digest::from).collect(),
         });
 
-        let store_response =
-            self.inner.clone().get_note_authentication_info(request).await?.into_inner();
+        let store_response = self.inner.clone().get_batch_inputs(request).await?.into_inner();
 
-        let note_authentication_info = store_response
-            .proofs
-            .ok_or(GetTransactionInputsResponse::missing_field("proofs"))?
-            .try_into()?;
-
-        Ok(note_authentication_info)
+        store_response.try_into().map_err(Into::into)
     }
 
-    #[instrument(target = COMPONENT, skip_all, err)]
+    #[instrument(target = COMPONENT, name = "store.client.apply_block", skip_all, err)]
     pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
         let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 

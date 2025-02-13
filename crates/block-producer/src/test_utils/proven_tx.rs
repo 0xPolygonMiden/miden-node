@@ -3,8 +3,9 @@ use std::ops::Range;
 use itertools::Itertools;
 use miden_air::HashFunction;
 use miden_objects::{
-    accounts::AccountId,
-    notes::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
+    account::AccountId,
+    block::BlockNumber,
+    note::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
     transaction::{InputNote, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
     Digest, Felt, Hasher, ONE,
@@ -19,7 +20,7 @@ pub struct MockProvenTxBuilder {
     account_id: AccountId,
     initial_account_hash: Digest,
     final_account_hash: Digest,
-    expiration_block_num: u32,
+    expiration_block_num: BlockNumber,
     output_notes: Option<Vec<OutputNote>>,
     input_notes: Option<Vec<InputNote>>,
     nullifiers: Option<Vec<Nullifier>>,
@@ -60,37 +61,42 @@ impl MockProvenTxBuilder {
             account_id,
             initial_account_hash,
             final_account_hash,
-            expiration_block_num: u32::MAX,
+            expiration_block_num: u32::MAX.into(),
             output_notes: None,
             input_notes: None,
             nullifiers: None,
         }
     }
 
+    #[must_use]
     pub fn unauthenticated_notes(mut self, notes: Vec<Note>) -> Self {
         self.input_notes = Some(notes.into_iter().map(InputNote::unauthenticated).collect());
 
         self
     }
 
+    #[must_use]
     pub fn nullifiers(mut self, nullifiers: Vec<Nullifier>) -> Self {
         self.nullifiers = Some(nullifiers);
 
         self
     }
 
-    pub fn expiration_block_num(mut self, expiration_block_num: u32) -> Self {
+    #[must_use]
+    pub fn expiration_block_num(mut self, expiration_block_num: BlockNumber) -> Self {
         self.expiration_block_num = expiration_block_num;
 
         self
     }
 
+    #[must_use]
     pub fn output_notes(mut self, notes: Vec<OutputNote>) -> Self {
         self.output_notes = Some(notes);
 
         self
     }
 
+    #[must_use]
     pub fn nullifiers_range(self, range: Range<u64>) -> Self {
         let nullifiers = range
             .map(|index| {
@@ -103,6 +109,7 @@ impl MockProvenTxBuilder {
         self.nullifiers(nullifiers)
     }
 
+    #[must_use]
     pub fn private_notes_created_range(self, range: Range<u64>) -> Self {
         let notes = range
             .map(|note_index| {
@@ -128,6 +135,7 @@ impl MockProvenTxBuilder {
             self.account_id,
             self.initial_account_hash,
             self.final_account_hash,
+            BlockNumber::from(0),
             Digest::default(),
             self.expiration_block_num,
             ExecutionProof::new(Proof::new_dummy(), HashFunction::Blake3_192),

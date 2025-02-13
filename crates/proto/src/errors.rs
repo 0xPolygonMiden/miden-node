@@ -1,33 +1,47 @@
 use std::{any::type_name, num::TryFromIntError};
 
-use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
+use miden_objects::{
+    crypto::merkle::{SmtLeafError, SmtProofError},
+    utils::DeserializationError,
+};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ConversionError {
-    #[error("Hex error: {0}")]
+    #[error("hex error")]
     HexError(#[from] hex::FromHexError),
-    #[error("Note error: {0}")]
+    #[error("note error")]
     NoteError(#[from] miden_objects::NoteError),
-    #[error("SMT leaf error: {0}")]
+    #[error("SMT leaf error")]
     SmtLeafError(#[from] SmtLeafError),
-    #[error("SMT proof error: {0}")]
+    #[error("SMT proof error")]
     SmtProofError(#[from] SmtProofError),
-    #[error("Integer conversion error: {0}")]
+    #[error("integer conversion error: {0}")]
     TryFromIntError(#[from] TryFromIntError),
-    #[error("Too much data, expected {expected}, got {got}")]
+    #[error("too much data, expected {expected}, got {got}")]
     TooMuchData { expected: usize, got: usize },
-    #[error("Not enough data, expected {expected}, got {got}")]
+    #[error("not enough data, expected {expected}, got {got}")]
     InsufficientData { expected: usize, got: usize },
-    #[error("Value is not in the range 0..MODULUS")]
+    #[error("value is not in the range 0..MODULUS")]
     NotAValidFelt,
-    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
+    #[error("field `{entity}::{field_name}` is missing")]
     MissingFieldInProtobufRepresentation {
         entity: &'static str,
         field_name: &'static str,
     },
-    #[error("MMR error: {0}")]
+    #[error("MMR error")]
     MmrError(#[from] miden_objects::crypto::merkle::MmrError),
+    #[error("failed to deserialize {entity}")]
+    DeserializationError {
+        entity: &'static str,
+        source: DeserializationError,
+    },
+}
+
+impl ConversionError {
+    pub fn deserialization_error(entity: &'static str, source: DeserializationError) -> Self {
+        Self::DeserializationError { entity, source }
+    }
 }
 
 pub trait MissingFieldHelper {

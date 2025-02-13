@@ -2,16 +2,59 @@
 
 ## Unreleased
 
+### Fixes
+
+- Faucet webpage is missing `background.png` and `favicon.ico` (#672).
+
+### Enhancements
+
+- Add an optional open-telemetry trace exporter (#659).
+- Support tracing across gRPC boundaries using remote tracing context (#669).
+- Instrument the block-producer's block building process (#676).
+
+### Changes
+
+- [BREAKING] Updated minimum Rust version to 1.84.
+- [BREAKING] `Endpoint` configuration simplified to a single string (#654).
+
+### Enhancements
+
+- Prove transaction batches using Rust batch prover reference implementation (#659).
+
+## v0.7.2 (2025-01-29)
+
+### Fixes
+
+- Faucet webpage rejects valid account IDs (#655).
+
+## v0.7.1 (2025-01-28)
+
+### Fixes
+
+- Faucet webpage fails to load styling (index.css) and script (index.js) (#647).
+
+### Changes
+
+- [BREAKING] Default faucet endpoint is now public instead of localhost (#647).
+
+## v0.7.0 (2025-01-23)
+
 ### Enhancements
 
 - Support Https in endpoint configuration (#556).
 - Upgrade `block-producer` from FIFO queue to mempool dependency graph (#562).
 - Support transaction expiration (#582).
+- Improved RPC endpoints doc comments (#620).
 
 ### Changes
 
+- Standardized protobuf type aliases (#609).
 - [BREAKING] Added support for new two `Felt` account ID (#591).
 - [BREAKING] Inverted `TransactionInputs.missing_unauthenticated_notes` to `found_missing_notes` (#509).
+- [BREAKING] Remove store's `ListXXX` endpoints which were intended for test purposes (#608).
+- [BREAKING] Added support for storage maps on `GetAccountProofs` endpoint (#598).
+- [BREAKING] Removed the `testing` feature (#619).
+- [BREAKING] Renamed modules to singular (#636).
 
 ## v0.6.0 (2024-11-05)
 
@@ -36,6 +79,7 @@
 - Reduce cloning in the store's `apply_block` (#532).
 - [BREAKING] Changed faucet storage type in the genesis to public. Using faucet from the genesis for faucet web app. Added support for faucet restarting without blockchain restarting (#517).
 - [BREAKING] Improved `ApplyBlockError` in the store (#535).
+- [BREAKING] Updated minimum Rust version to 1.82.
 
 ## 0.5.1 (2024-09-12)
 

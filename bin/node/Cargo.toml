@@ -1,41 +1,41 @@
 [package]
-name = "miden-node"
-version.workspace = true
-description = "Miden node binary"
-readme.workspace = true
-keywords = ["miden", "node"]
-edition.workspace = true
+authors.workspace      = true
+description            = "Miden node binary"
+edition.workspace      = true
+homepage.workspace     = true
+keywords               = ["miden", "node"]
+license.workspace      = true
+name                   = "miden-node"
+readme.workspace       = true
+repository.workspace   = true
 rust-version.workspace = true
-license.workspace = true
-authors.workspace = true
-homepage.workspace = true
-repository.workspace = true
+version.workspace      = true
+
+[lints]
+workspace = true
 
 [features]
-# Makes `make-genesis` subcommand run faster. Is only suitable for testing.
-# INFO: Make sure that all your components have matching features for them to function.
-testing = ["miden-lib/testing", "miden-objects/testing"]
 tracing-forest = ["miden-node-block-producer/tracing-forest"]
 
 [dependencies]
-anyhow = { version = "1.0" }
-clap = { version = "4.5", features = ["derive", "string"] }
-miden-lib = { workspace = true, features = ["concurrent"] }
+anyhow                    = { version = "1.0" }
+clap                      = { version = "4.5", features = ["derive", "string"] }
+miden-lib                 = { workspace = true }
 miden-node-block-producer = { workspace = true }
-miden-node-rpc = { workspace = true }
-miden-node-store = { workspace = true }
-miden-node-utils = { workspace = true }
-miden-objects = { workspace = true }
-rand = { workspace = true }
-rand_chacha = "0.3"
-serde = { version = "1.0", features = ["derive"] }
-tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros"] }
-toml = { version = "0.8" }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
+miden-node-rpc            = { workspace = true }
+miden-node-store          = { workspace = true }
+miden-node-utils          = { workspace = true }
+miden-objects             = { workspace = true }
+rand                      = { workspace = true }
+rand_chacha               = "0.3"
+serde                     = { version = "1.0", features = ["derive"] }
+tokio                     = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }
+toml                      = { version = "0.8" }
+tracing                   = { workspace = true }
+url                       = { workspace = true }
 
 [dev-dependencies]
-figment = { version = "0.10", features = ["toml", "env", "test"] }
+figment          = { version = "0.10", features = ["env", "test", "toml"] }
 miden-node-utils = { workspace = true, features = ["tracing-forest"] }
 
 [build-dependencies]

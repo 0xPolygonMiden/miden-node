@@ -1,13 +1,14 @@
 use miden_objects::{
+    block::BlockNumber,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{MutationSet, Smt, SmtProof, SMT_DEPTH},
     },
-    notes::Nullifier,
+    note::Nullifier,
     Felt, FieldElement, Word,
 };
 
-use crate::{errors::NullifierTreeError, types::BlockNumber};
+use crate::errors::NullifierTreeError;
 
 /// Nullifier SMT.
 #[derive(Debug, Clone)]
@@ -22,7 +23,7 @@ impl NullifierTree {
             (nullifier.inner(), Self::block_num_to_leaf_value(block_num))
         });
 
-        let inner = Smt::with_entries(leaves)?;
+        let inner = Smt::with_entries(leaves).map_err(NullifierTreeError::CreationFailed)?;
 
         Ok(Self(inner))
     }
@@ -63,7 +64,7 @@ impl NullifierTree {
         &mut self,
         mutations: MutationSet<SMT_DEPTH, RpoDigest, Word>,
     ) -> Result<(), NullifierTreeError> {
-        self.0.apply_mutations(mutations).map_err(Into::into)
+        self.0.apply_mutations(mutations).map_err(NullifierTreeError::MutationFailed)
     }
 
     // HELPER FUNCTIONS
@@ -79,7 +80,10 @@ impl NullifierTree {
     /// There are no nullifiers in the genesis block. The value zero is instead used to signal
     /// absence of a value.
     fn leaf_value_to_block_num(value: Word) -> BlockNumber {
-        value[0].as_int().try_into().expect("invalid block number found in store")
+        let block_num: u32 =
+            value[0].as_int().try_into().expect("invalid block number found in store");
+
+        block_num.into()
     }
 }
 
@@ -92,9 +96,9 @@ mod tests {
     #[test]
     fn leaf_value_encoding() {
         let block_num = 123;
-        let nullifier_value = NullifierTree::block_num_to_leaf_value(block_num);
+        let nullifier_value = NullifierTree::block_num_to_leaf_value(block_num.into());
 
-        assert_eq!(nullifier_value, [Felt::from(block_num), ZERO, ZERO, ZERO])
+        assert_eq!(nullifier_value, [Felt::from(block_num), ZERO, ZERO, ZERO]);
     }
 
     #[test]
@@ -103,6 +107,6 @@ mod tests {
         let nullifier_value = [Felt::from(block_num), ZERO, ZERO, ZERO];
         let decoded_block_num = NullifierTree::leaf_value_to_block_num(nullifier_value);
 
-        assert_eq!(decoded_block_num, block_num);
+        assert_eq!(decoded_block_num, block_num.into());
     }
 }

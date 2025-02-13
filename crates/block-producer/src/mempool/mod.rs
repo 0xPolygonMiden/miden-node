@@ -1,22 +1,22 @@
-use std::{collections::BTreeSet, fmt::Display, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc};
 
 use batch_graph::BatchGraph;
 use graph::GraphError;
 use inflight_state::InflightState;
 use miden_objects::{
-    transaction::TransactionId, MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH,
-    MAX_OUTPUT_NOTES_PER_BATCH,
+    batch::{BatchId, ProvenBatch},
+    block::BlockNumber,
+    transaction::TransactionId,
+    MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, MutexGuard};
 use tracing::instrument;
 use transaction_expiration::TransactionExpirations;
 use transaction_graph::TransactionGraph;
 
 use crate::{
-    batch_builder::batch::{BatchId, TransactionBatch},
-    domain::transaction::AuthenticatedTransaction,
-    errors::AddTransactionError,
-    COMPONENT, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
+    domain::transaction::AuthenticatedTransaction, errors::AddTransactionError, COMPONENT,
+    SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
 };
 
 mod batch_graph;
@@ -27,52 +27,6 @@ mod transaction_graph;
 
 #[cfg(test)]
 mod tests;
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BlockNumber(u32);
-
-impl Display for BlockNumber {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl std::ops::Add<Self> for BlockNumber {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        BlockNumber::new(self.0 + rhs.0)
-    }
-}
-
-impl BlockNumber {
-    pub const fn new(x: u32) -> Self {
-        Self(x)
-    }
-
-    pub fn next(&self) -> Self {
-        let mut ret = *self;
-        ret.increment();
-
-        ret
-    }
-
-    pub fn prev(&self) -> Option<Self> {
-        self.checked_sub(Self(1))
-    }
-
-    pub fn increment(&mut self) {
-        self.0 += 1;
-    }
-
-    pub fn checked_sub(&self, rhs: Self) -> Option<Self> {
-        self.0.checked_sub(rhs.0).map(Self)
-    }
-
-    pub fn into_inner(self) -> u32 {
-        self.0
-    }
-}
 
 // MEMPOOL BUDGET
 // ================================================================================================
@@ -125,14 +79,14 @@ impl Default for BlockBudget {
 impl BatchBudget {
     /// Attempts to consume the transaction's resources from the budget.
     ///
-    /// Returns [BudgetStatus::Exceeded] if the transaction would exceed the remaining budget,
-    /// otherwise returns [BudgetStatus::Ok] and subtracts the resources from the budger.
+    /// Returns [`BudgetStatus::Exceeded`] if the transaction would exceed the remaining budget,
+    /// otherwise returns [`BudgetStatus::Ok`] and subtracts the resources from the budger.
     #[must_use]
     fn check_then_subtract(&mut self, tx: &AuthenticatedTransaction) -> BudgetStatus {
         // This type assertion reminds us to update the account check if we ever support multiple
         // account updates per tx.
-        let _: miden_objects::accounts::AccountId = tx.account_update().account_id();
         const ACCOUNT_UPDATES_PER_TX: usize = 1;
+        let _: miden_objects::account::AccountId = tx.account_update().account_id();
 
         let output_notes = tx.output_note_count();
         let input_notes = tx.input_note_count();
@@ -157,10 +111,10 @@ impl BatchBudget {
 impl BlockBudget {
     /// Attempts to consume the batch's resources from the budget.
     ///
-    /// Returns [BudgetStatus::Exceeded] if the batch would exceed the remaining budget,
-    /// otherwise returns [BudgetStatus::Ok].
+    /// Returns [`BudgetStatus::Exceeded`] if the batch would exceed the remaining budget,
+    /// otherwise returns [`BudgetStatus::Ok`].
     #[must_use]
-    fn check_then_subtract(&mut self, _batch: &TransactionBatch) -> BudgetStatus {
+    fn check_then_subtract(&mut self, _batch: &ProvenBatch) -> BudgetStatus {
         if self.batches == 0 {
             BudgetStatus::Exceeded
         } else {
@@ -173,7 +127,15 @@ impl BlockBudget {
 // MEMPOOL
 // ================================================================================================
 
-pub type SharedMempool = Arc<Mutex<Mempool>>;
+#[derive(Clone)]
+pub struct SharedMempool(Arc<Mutex<Mempool>>);
+
+impl SharedMempool {
+    #[instrument(target = COMPONENT, name = "mempool.lock", skip_all)]
+    pub async fn lock(&self) -> MutexGuard<'_, Mempool> {
+        self.0.lock().await
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mempool {
@@ -206,21 +168,21 @@ pub struct Mempool {
 }
 
 impl Mempool {
-    /// Creates a new [SharedMempool] with the provided configuration.
+    /// Creates a new [`SharedMempool`] with the provided configuration.
     pub fn shared(
         chain_tip: BlockNumber,
         batch_budget: BatchBudget,
         block_budget: BlockBudget,
         state_retention: usize,
-        expiration_slack: BlockNumber,
+        expiration_slack: u32,
     ) -> SharedMempool {
-        Arc::new(Mutex::new(Self::new(
+        SharedMempool(Arc::new(Mutex::new(Self::new(
             chain_tip,
             batch_budget,
             block_budget,
             state_retention,
             expiration_slack,
-        )))
+        ))))
     }
 
     fn new(
@@ -228,17 +190,17 @@ impl Mempool {
         batch_budget: BatchBudget,
         block_budget: BlockBudget,
         state_retention: usize,
-        expiration_slack: BlockNumber,
+        expiration_slack: u32,
     ) -> Mempool {
         Self {
             chain_tip,
             batch_budget,
             block_budget,
             state: InflightState::new(chain_tip, state_retention, expiration_slack),
-            block_in_progress: Default::default(),
-            transactions: Default::default(),
-            batches: Default::default(),
-            expirations: Default::default(),
+            block_in_progress: None,
+            transactions: TransactionGraph::default(),
+            batches: BatchGraph::default(),
+            expirations: TransactionExpirations::default(),
         }
     }
 
@@ -251,11 +213,11 @@ impl Mempool {
     /// # Errors
     ///
     /// Returns an error if the transaction's initial conditions don't match the current state.
-    #[instrument(target = COMPONENT, skip_all, fields(tx=%transaction.id()))]
+    #[instrument(target = COMPONENT, name = "mempool.add_transaction", skip_all, fields(tx=%transaction.id()))]
     pub fn add_transaction(
         &mut self,
         transaction: AuthenticatedTransaction,
-    ) -> Result<u32, AddTransactionError> {
+    ) -> Result<BlockNumber, AddTransactionError> {
         // Add transaction to inflight state.
         let parents = self.state.add_transaction(&transaction)?;
 
@@ -265,7 +227,7 @@ impl Mempool {
             .insert(transaction, parents)
             .expect("Transaction should insert after passing inflight state");
 
-        Ok(self.chain_tip.0)
+        Ok(self.chain_tip)
     }
 
     /// Returns a set of transactions for the next batch.
@@ -273,13 +235,13 @@ impl Mempool {
     /// Transactions are returned in a valid execution ordering.
     ///
     /// Returns `None` if no transactions are available.
-    #[instrument(target = COMPONENT, skip_all)]
+    #[instrument(target = COMPONENT, name = "mempool.select_batch", skip_all)]
     pub fn select_batch(&mut self) -> Option<(BatchId, Vec<AuthenticatedTransaction>)> {
         let (batch, parents) = self.transactions.select_batch(self.batch_budget);
         if batch.is_empty() {
             return None;
         }
-        let tx_ids = batch.iter().map(AuthenticatedTransaction::id).collect::<Vec<_>>();
+        let tx_ids = batch.iter().map(|tx| (tx.id(), tx.account_id())).collect::<Vec<_>>();
 
         let batch_id = self.batches.insert(tx_ids, parents).expect("Selected batch should insert");
 
@@ -289,7 +251,7 @@ impl Mempool {
     /// Drops the failed batch and all of its descendants.
     ///
     /// Transactions are placed back in the queue.
-    #[instrument(target = COMPONENT, skip_all, fields(batch))]
+    #[instrument(target = COMPONENT, name = "mempool.batch_failed", skip_all, fields(batch_id=%batch))]
     pub fn batch_failed(&mut self, batch: BatchId) {
         // Batch may already have been removed as part of a parent batches failure.
         if !self.batches.contains(&batch) {
@@ -313,8 +275,8 @@ impl Mempool {
     }
 
     /// Marks a batch as proven if it exists.
-    #[instrument(target = COMPONENT, skip_all, fields(batch=%batch.id()))]
-    pub fn batch_proved(&mut self, batch: TransactionBatch) {
+    #[instrument(target = COMPONENT, name = "mempool.batch_proved", skip_all, fields(batch_id=%batch.id()))]
+    pub fn batch_proved(&mut self, batch: ProvenBatch) {
         // Batch may have been removed as part of a parent batches failure.
         if !self.batches.contains(&batch.id()) {
             return;
@@ -332,28 +294,30 @@ impl Mempool {
     /// # Panics
     ///
     /// Panics if there is already a block in flight.
-    #[instrument(target = COMPONENT, skip_all)]
-    pub fn select_block(&mut self) -> (BlockNumber, Vec<TransactionBatch>) {
+    #[instrument(target = COMPONENT, name = "mempool.select_block", skip_all)]
+    pub fn select_block(&mut self) -> (BlockNumber, Vec<ProvenBatch>) {
         assert!(self.block_in_progress.is_none(), "Cannot have two blocks inflight.");
 
         let batches = self.batches.select_block(self.block_budget);
-        self.block_in_progress = Some(batches.iter().map(TransactionBatch::id).collect());
+        self.block_in_progress = Some(batches.iter().map(ProvenBatch::id).collect());
 
-        (self.chain_tip.next(), batches)
+        (self.chain_tip.child(), batches)
     }
 
-    /// Notify the pool that the block was successfully completed.
+    /// Notify the pool that the in flight block was successfully committed to the chain.
+    ///
+    /// The pool will mark the associated batches and transactions as committed, and prune stale
+    /// committed data, and purge transactions that are now considered expired.
     ///
     /// # Panics
     ///
-    /// Panics if blocks are completed out-of-order or if there is no block in flight.
-    #[instrument(target = COMPONENT, skip_all, fields(block_number))]
-    pub fn block_committed(&mut self, block_number: BlockNumber) {
-        assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
-
+    /// Panics if there is no block in flight.
+    #[instrument(target = COMPONENT, name = "mempool.commit_block", skip_all)]
+    pub fn commit_block(&mut self) {
         // Remove committed batches and transactions from graphs.
         let batches = self.block_in_progress.take().expect("No block in progress to commit");
-        let transactions = self.batches.prune_committed(batches).expect("Batches failed to commit");
+        let transactions =
+            self.batches.prune_committed(&batches).expect("Batches failed to commit");
         self.transactions
             .commit_transactions(&transactions)
             .expect("Transaction graph malformed");
@@ -363,24 +327,21 @@ impl Mempool {
 
         // Inform inflight state about committed data.
         self.state.commit_block(transactions);
-        self.chain_tip.increment();
+        self.chain_tip = self.chain_tip.child();
 
         // Revert expired transactions and their descendents.
-        let expired = self.expirations.get(block_number);
-        self.revert_transactions(expired.into_iter().collect())
-            .expect("expired transactions must be part of the mempool");
+        self.revert_expired_transactions();
     }
 
-    /// Block and all of its contents and dependents are purged from the mempool.
+    /// Notify the pool that construction of the in flight block failed.
+    ///
+    /// The pool will purge the block and all of its contents from the pool.
     ///
     /// # Panics
     ///
-    /// Panics if there is no block in flight or if the block number does not match the current
-    /// inflight block.
-    #[instrument(target = COMPONENT, skip_all, fields(block_number))]
-    pub fn block_failed(&mut self, block_number: BlockNumber) {
-        assert_eq!(block_number, self.chain_tip.next(), "Blocks must be submitted sequentially");
-
+    /// Panics if there is no block in flight.
+    #[instrument(target = COMPONENT, name = "mempool.rollback_block", skip_all)]
+    pub fn rollback_block(&mut self) {
         let batches = self.block_in_progress.take().expect("No block in progress to be failed");
 
         // Revert all transactions. This is the nuclear (but simplest) solution.
@@ -403,6 +364,14 @@ impl Mempool {
             .expect("transactions from a block must be part of the mempool");
     }
 
+    #[instrument(target = COMPONENT, name = "mempool.revert_expired_transactions", skip_all)]
+    fn revert_expired_transactions(&mut self) {
+        let expired = self.expirations.get(self.chain_tip);
+
+        self.revert_transactions(expired.into_iter().collect())
+            .expect("expired transactions must be part of the mempool");
+    }
+
     /// Reverts the given transactions and their descendents from the mempool.
     ///
     /// This includes removing them from the transaction and batch graphs, as well as cleaning up
@@ -415,10 +384,13 @@ impl Mempool {
     ///
     /// Returns an error if any transaction was not in the transaction graph i.e. if the transaction
     /// is unknown.
+    #[instrument(target = COMPONENT, name = "mempool.revert_transactions", skip_all, fields(transactions.ids))]
     fn revert_transactions(
         &mut self,
         txs: Vec<TransactionId>,
     ) -> Result<(), GraphError<TransactionId>> {
+        tracing::Span::current().record("transactions.expired.ids", tracing::field::debug(&txs));
+
         // Revert all transactions and their descendents, and their associated batches.
         let reverted = self.transactions.remove_transactions(txs)?;
         let batches_reverted = self.batches.remove_batches_with_transactions(reverted.iter());

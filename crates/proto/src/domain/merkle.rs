@@ -6,29 +6,29 @@ use miden_objects::{
 use super::{convert, try_convert};
 use crate::{
     errors::{ConversionError, MissingFieldHelper},
-    generated,
+    generated as proto,
 };
 
 // MERKLE PATH
 // ================================================================================================
 
-impl From<&MerklePath> for generated::merkle::MerklePath {
+impl From<&MerklePath> for proto::merkle::MerklePath {
     fn from(value: &MerklePath) -> Self {
-        let siblings = value.nodes().iter().map(generated::digest::Digest::from).collect();
-        generated::merkle::MerklePath { siblings }
+        let siblings = value.nodes().iter().map(proto::digest::Digest::from).collect();
+        proto::merkle::MerklePath { siblings }
     }
 }
 
-impl From<MerklePath> for generated::merkle::MerklePath {
+impl From<MerklePath> for proto::merkle::MerklePath {
     fn from(value: MerklePath) -> Self {
         (&value).into()
     }
 }
 
-impl TryFrom<&generated::merkle::MerklePath> for MerklePath {
+impl TryFrom<&proto::merkle::MerklePath> for MerklePath {
     type Error = ConversionError;
 
-    fn try_from(merkle_path: &generated::merkle::MerklePath) -> Result<Self, Self::Error> {
+    fn try_from(merkle_path: &proto::merkle::MerklePath) -> Result<Self, Self::Error> {
         merkle_path.siblings.iter().map(Digest::try_from).collect()
     }
 }
@@ -36,17 +36,17 @@ impl TryFrom<&generated::merkle::MerklePath> for MerklePath {
 // MMR DELTA
 // ================================================================================================
 
-impl From<MmrDelta> for generated::mmr::MmrDelta {
+impl From<MmrDelta> for proto::mmr::MmrDelta {
     fn from(value: MmrDelta) -> Self {
-        let data = value.data.into_iter().map(generated::digest::Digest::from).collect();
-        generated::mmr::MmrDelta { forest: value.forest as u64, data }
+        let data = value.data.into_iter().map(proto::digest::Digest::from).collect();
+        proto::mmr::MmrDelta { forest: value.forest as u64, data }
     }
 }
 
-impl TryFrom<generated::mmr::MmrDelta> for MmrDelta {
+impl TryFrom<proto::mmr::MmrDelta> for MmrDelta {
     type Error = ConversionError;
 
-    fn try_from(value: generated::mmr::MmrDelta) -> Result<Self, Self::Error> {
+    fn try_from(value: proto::mmr::MmrDelta) -> Result<Self, Self::Error> {
         let data: Result<Vec<_>, ConversionError> =
             value.data.into_iter().map(Digest::try_from).collect();
 
@@ -63,22 +63,22 @@ impl TryFrom<generated::mmr::MmrDelta> for MmrDelta {
 // SMT LEAF
 // ------------------------------------------------------------------------------------------------
 
-impl TryFrom<generated::smt::SmtLeaf> for SmtLeaf {
+impl TryFrom<proto::smt::SmtLeaf> for SmtLeaf {
     type Error = ConversionError;
 
-    fn try_from(value: generated::smt::SmtLeaf) -> Result<Self, Self::Error> {
-        let leaf = value.leaf.ok_or(generated::smt::SmtLeaf::missing_field(stringify!(leaf)))?;
+    fn try_from(value: proto::smt::SmtLeaf) -> Result<Self, Self::Error> {
+        let leaf = value.leaf.ok_or(proto::smt::SmtLeaf::missing_field(stringify!(leaf)))?;
 
         match leaf {
-            generated::smt::smt_leaf::Leaf::Empty(leaf_index) => {
+            proto::smt::smt_leaf::Leaf::Empty(leaf_index) => {
                 Ok(Self::new_empty(LeafIndex::new_max_depth(leaf_index)))
             },
-            generated::smt::smt_leaf::Leaf::Single(entry) => {
+            proto::smt::smt_leaf::Leaf::Single(entry) => {
                 let (key, value): (Digest, Word) = entry.try_into()?;
 
                 Ok(SmtLeaf::new_single(key, value))
             },
-            generated::smt::smt_leaf::Leaf::Multiple(entries) => {
+            proto::smt::smt_leaf::Leaf::Multiple(entries) => {
                 let domain_entries: Vec<(Digest, Word)> = try_convert(entries.entries)?;
 
                 Ok(SmtLeaf::new_multiple(domain_entries)?)
@@ -87,15 +87,15 @@ impl TryFrom<generated::smt::SmtLeaf> for SmtLeaf {
     }
 }
 
-impl From<SmtLeaf> for generated::smt::SmtLeaf {
+impl From<SmtLeaf> for proto::smt::SmtLeaf {
     fn from(smt_leaf: SmtLeaf) -> Self {
-        use generated::smt::smt_leaf::Leaf;
+        use proto::smt::smt_leaf::Leaf;
 
         let leaf = match smt_leaf {
             SmtLeaf::Empty(leaf_index) => Leaf::Empty(leaf_index.value()),
             SmtLeaf::Single(entry) => Leaf::Single(entry.into()),
             SmtLeaf::Multiple(entries) => {
-                Leaf::Multiple(generated::smt::SmtLeafEntries { entries: convert(entries) })
+                Leaf::Multiple(proto::smt::SmtLeafEntries { entries: convert(entries) })
             },
         };
 
@@ -106,24 +106,24 @@ impl From<SmtLeaf> for generated::smt::SmtLeaf {
 // SMT LEAF ENTRY
 // ------------------------------------------------------------------------------------------------
 
-impl TryFrom<generated::smt::SmtLeafEntry> for (Digest, Word) {
+impl TryFrom<proto::smt::SmtLeafEntry> for (Digest, Word) {
     type Error = ConversionError;
 
-    fn try_from(entry: generated::smt::SmtLeafEntry) -> Result<Self, Self::Error> {
+    fn try_from(entry: proto::smt::SmtLeafEntry) -> Result<Self, Self::Error> {
         let key: Digest = entry
             .key
-            .ok_or(generated::smt::SmtLeafEntry::missing_field(stringify!(key)))?
+            .ok_or(proto::smt::SmtLeafEntry::missing_field(stringify!(key)))?
             .try_into()?;
         let value: Word = entry
             .value
-            .ok_or(generated::smt::SmtLeafEntry::missing_field(stringify!(value)))?
+            .ok_or(proto::smt::SmtLeafEntry::missing_field(stringify!(value)))?
             .try_into()?;
 
         Ok((key, value))
     }
 }
 
-impl From<(Digest, Word)> for generated::smt::SmtLeafEntry {
+impl From<(Digest, Word)> for proto::smt::SmtLeafEntry {
     fn from((key, value): (Digest, Word)) -> Self {
         Self {
             key: Some(key.into()),
@@ -135,25 +135,25 @@ impl From<(Digest, Word)> for generated::smt::SmtLeafEntry {
 // SMT PROOF
 // ------------------------------------------------------------------------------------------------
 
-impl TryFrom<generated::smt::SmtOpening> for SmtProof {
+impl TryFrom<proto::smt::SmtOpening> for SmtProof {
     type Error = ConversionError;
 
-    fn try_from(opening: generated::smt::SmtOpening) -> Result<Self, Self::Error> {
+    fn try_from(opening: proto::smt::SmtOpening) -> Result<Self, Self::Error> {
         let path: MerklePath = opening
             .path
             .as_ref()
-            .ok_or(generated::smt::SmtOpening::missing_field(stringify!(path)))?
+            .ok_or(proto::smt::SmtOpening::missing_field(stringify!(path)))?
             .try_into()?;
         let leaf: SmtLeaf = opening
             .leaf
-            .ok_or(generated::smt::SmtOpening::missing_field(stringify!(leaf)))?
+            .ok_or(proto::smt::SmtOpening::missing_field(stringify!(leaf)))?
             .try_into()?;
 
         Ok(SmtProof::new(path, leaf)?)
     }
 }
 
-impl From<SmtProof> for generated::smt::SmtOpening {
+impl From<SmtProof> for proto::smt::SmtOpening {
     fn from(proof: SmtProof) -> Self {
         let (ref path, leaf) = proof.into_parts();
         Self {

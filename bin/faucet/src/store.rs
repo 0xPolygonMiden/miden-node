@@ -1,14 +1,13 @@
 use std::sync::Mutex;
 
 use miden_objects::{
-    accounts::{Account, AccountId},
-    notes::NoteId,
+    account::{Account, AccountId},
+    block::{BlockHeader, BlockNumber},
+    note::NoteId,
     transaction::{ChainMmr, InputNotes, TransactionInputs},
-    BlockHeader, Word,
+    Word,
 };
 use miden_tx::{DataStore, DataStoreError};
-
-use crate::errors::HandlerError;
 
 pub struct FaucetDataStore {
     faucet_account: Mutex<Account>,
@@ -42,10 +41,8 @@ impl FaucetDataStore {
     }
 
     /// Updates the stored faucet account with the new one.
-    pub async fn update_faucet_state(&self, new_faucet_state: Account) -> Result<(), HandlerError> {
+    pub fn update_faucet_state(&self, new_faucet_state: Account) {
         *self.faucet_account.lock().expect("Poisoned lock") = new_faucet_state;
-
-        Ok(())
     }
 }
 
@@ -53,7 +50,7 @@ impl DataStore for FaucetDataStore {
     fn get_transaction_inputs(
         &self,
         account_id: AccountId,
-        _block_ref: u32,
+        _block_ref: BlockNumber,
         _notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         let account = self.faucet_account.lock().expect("Poisoned lock");

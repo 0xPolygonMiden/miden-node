@@ -44,6 +44,27 @@ jobs:
       - name: Clippy
         run: make clippy
 
+  toml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: taplo-cli
+      - run: make toml-check
+
+  workspace-lints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-workspace-lints
+      - run: |
+          make workspace-check
+
   doc:
     name: doc
     runs-on: ubuntu-latest
@@ -67,6 +88,14 @@ jobs:
           override: true
       - name: check rust versions
         run: ./scripts/check-rust-version.sh
+
+  unused_deps:
+    name: check for unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: machete
+        uses: bnjbvr/cargo-machete@main
 
   proto:
     name: proto check

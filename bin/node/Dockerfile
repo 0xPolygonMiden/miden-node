@@ -1,4 +1,4 @@
-FROM rust:1.80-slim-bookworm AS builder
+FROM rust:1.82-slim-bookworm AS builder
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -8,7 +8,7 @@ RUN apt-get update && \
 WORKDIR /app
 COPY . .
 
-RUN cargo install --features testing --path bin/node --locked
+RUN cargo install --path bin/node --locked
 RUN miden-node make-genesis --inputs-path config/genesis.toml
 
 FROM debian:bookworm-slim

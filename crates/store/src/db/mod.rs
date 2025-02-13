@@ -6,17 +6,16 @@ use std::{
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
-    domain::accounts::{AccountInfo, AccountSummary},
-    generated::note::{Note as NotePb, NoteSyncRecord as NoteSyncRecordPb},
+    domain::account::{AccountInfo, AccountSummary},
+    generated::note as proto,
 };
 use miden_objects::{
-    accounts::{AccountDelta, AccountId},
-    block::{Block, BlockNoteIndex},
+    account::{AccountDelta, AccountId},
+    block::{Block, BlockHeader, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
-    notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    note::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
     utils::Serializable,
-    BlockHeader, GENESIS_BLOCK,
 };
 use rusqlite::vtab::array;
 use tokio::sync::oneshot;
@@ -28,7 +27,6 @@ use crate::{
     db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
-    types::BlockNumber,
     COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
@@ -68,10 +66,10 @@ pub struct NoteRecord {
     pub merkle_path: MerklePath,
 }
 
-impl From<NoteRecord> for NotePb {
+impl From<NoteRecord> for proto::Note {
     fn from(note: NoteRecord) -> Self {
         Self {
-            block_num: note.block_num,
+            block_num: note.block_num.as_u32(),
             note_index: note.note_index.leaf_index_value().into(),
             note_id: Some(note.note_id.into()),
             metadata: Some(note.metadata.into()),
@@ -105,7 +103,7 @@ pub struct NoteSyncRecord {
     pub merkle_path: MerklePath,
 }
 
-impl From<NoteSyncRecord> for NoteSyncRecordPb {
+impl From<NoteSyncRecord> for proto::NoteSyncRecord {
     fn from(note: NoteSyncRecord) -> Self {
         Self {
             note_index: note.note_index.leaf_index_value().into(),
@@ -232,22 +230,6 @@ impl Db {
             })?
     }
 
-    /// Loads all the notes from the DB.
-    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_all_notes(&self) -> Result<Vec<NoteRecord>> {
-        self.pool.get().await?.interact(sql::select_all_notes).await.map_err(|err| {
-            DatabaseError::InteractError(format!("Select notes task failed: {err}"))
-        })?
-    }
-
-    /// Loads all the accounts from the DB.
-    #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_all_accounts(&self) -> Result<Vec<AccountInfo>> {
-        self.pool.get().await?.interact(sql::select_all_accounts).await.map_err(|err| {
-            DatabaseError::InteractError(format!("Select accounts task failed: {err}"))
-        })?
-    }
-
     /// Search for a [BlockHeader] from the database by its `block_num`.
     ///
     /// When `block_number` is [None], the latest block header is returned.
@@ -268,7 +250,10 @@ impl Db {
 
     /// Loads multiple block headers from the DB.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_block_headers(&self, blocks: Vec<BlockNumber>) -> Result<Vec<BlockHeader>> {
+    pub async fn select_block_headers(
+        &self,
+        blocks: impl Iterator<Item = BlockNumber> + Send + 'static,
+    ) -> Result<Vec<BlockHeader>> {
         self.pool
             .get()
             .await?
@@ -493,10 +478,10 @@ impl Db {
         block_store: Arc<BlockStore>,
     ) -> Result<(), GenesisError> {
         let genesis_block = {
-            let file_contents = fs::read(genesis_filepath).map_err(|error| {
+            let file_contents = fs::read(genesis_filepath).map_err(|source| {
                 GenesisError::FailedToReadGenesisFile {
                     genesis_filepath: genesis_filepath.to_string(),
-                    error,
+                    source,
                 }
             })?;
 
@@ -507,7 +492,7 @@ impl Db {
         };
 
         let maybe_block_header_in_store = self
-            .select_block_header_by_block_num(Some(GENESIS_BLOCK))
+            .select_block_header_by_block_num(Some(BlockNumber::GENESIS))
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
@@ -544,7 +529,7 @@ impl Db {
                             genesis_block.updated_accounts(),
                         )?;
 
-                        block_store.save_block_blocking(0, &genesis_block.to_bytes())?;
+                        block_store.save_block_blocking(0.into(), &genesis_block.to_bytes())?;
 
                         transaction.commit()?;
 
@@ -552,7 +537,7 @@ impl Db {
                         Ok(())
                     })
                     .await
-                    .map_err(|err| GenesisError::ApplyBlockFailed(err.to_string()))??;
+                    .map_err(GenesisError::ApplyBlockFailed)??;
             },
         }
 

@@ -1,16 +1,16 @@
 use std::iter;
 
 use miden_objects::{
-    block::{Block, BlockAccountUpdate, BlockNoteIndex, BlockNoteTree, NoteBatch},
+    batch::ProvenBatch,
+    block::{Block, BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, NoteBatch},
     crypto::merkle::{Mmr, SimpleSmt},
-    notes::Nullifier,
+    note::Nullifier,
     transaction::OutputNote,
-    BlockHeader, Digest, ACCOUNT_TREE_DEPTH,
+    Digest, ACCOUNT_TREE_DEPTH,
 };
 
 use super::MockStoreSuccess;
 use crate::{
-    batch_builder::TransactionBatch,
     block::BlockInputs,
     block_builder::prover::{block_witness::BlockWitness, BlockProver},
 };
@@ -19,7 +19,7 @@ use crate::{
 /// batches to be applied
 pub async fn build_expected_block_header(
     store: &MockStoreSuccess,
-    batches: &[TransactionBatch],
+    batches: &[ProvenBatch],
 ) -> BlockHeader {
     let last_block_header = *store
         .block_headers
@@ -32,11 +32,11 @@ pub async fn build_expected_block_header(
 
     // Compute new account root
     let updated_accounts: Vec<_> =
-        batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
+        batches.iter().flat_map(|batch| batch.account_updates().iter()).collect();
     let new_account_root = {
         let mut store_accounts = store.accounts.read().await.clone();
         for (&account_id, update) in updated_accounts {
-            store_accounts.insert(account_id.into(), update.final_state.into());
+            store_accounts.insert(account_id.into(), update.final_state_commitment().into());
         }
 
         store_accounts.root()
@@ -51,7 +51,8 @@ pub async fn build_expected_block_header(
         store_chain_mmr.peaks().hash_peaks()
     };
 
-    let note_created_smt = note_created_smt_from_note_batches(block_output_notes(batches.iter()));
+    let note_created_smt =
+        note_created_smt_from_note_batches(block_output_notes(batches.iter()).iter());
 
     // Build header
     BlockHeader::new(
@@ -74,12 +75,12 @@ pub async fn build_expected_block_header(
 /// node
 pub async fn build_actual_block_header(
     store: &MockStoreSuccess,
-    batches: Vec<TransactionBatch>,
+    batches: Vec<ProvenBatch>,
 ) -> BlockHeader {
     let updated_accounts: Vec<_> =
-        batches.iter().flat_map(TransactionBatch::updated_accounts).collect();
+        batches.iter().flat_map(|batch| batch.account_updates().iter()).collect();
     let produced_nullifiers: Vec<Nullifier> =
-        batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
+        batches.iter().flat_map(ProvenBatch::produced_nullifiers).collect();
 
     let block_inputs_from_store: BlockInputs = store
         .get_block_inputs(
@@ -126,6 +127,7 @@ impl MockBlockBuilder {
         }
     }
 
+    #[must_use]
     pub fn account_updates(mut self, updated_accounts: Vec<BlockAccountUpdate>) -> Self {
         for update in &updated_accounts {
             self.store_accounts
@@ -137,12 +139,14 @@ impl MockBlockBuilder {
         self
     }
 
+    #[must_use]
     pub fn created_notes(mut self, created_notes: Vec<NoteBatch>) -> Self {
         self.created_notes = Some(created_notes);
 
         self
     }
 
+    #[must_use]
     pub fn produced_nullifiers(mut self, produced_nullifiers: Vec<Nullifier>) -> Self {
         self.produced_nullifiers = Some(produced_nullifiers);
 
@@ -196,7 +200,7 @@ pub(crate) fn note_created_smt_from_note_batches<'a>(
 }
 
 pub(crate) fn block_output_notes<'a>(
-    batches: impl Iterator<Item = &'a TransactionBatch> + Clone,
-) -> impl Iterator<Item = &'a NoteBatch> + Clone {
-    batches.map(TransactionBatch::output_notes)
+    batches: impl Iterator<Item = &'a ProvenBatch> + Clone,
+) -> Vec<Vec<OutputNote>> {
+    batches.map(|batch| batch.output_notes().to_vec()).collect()
 }

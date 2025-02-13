@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use miden_objects::accounts::AccountId;
+use miden_objects::account::AccountId;
 use static_files::Resource;
 use tokio::sync::Mutex;
 use tracing::info;
@@ -31,6 +31,6 @@ impl FaucetState {
 
         info!(target: COMPONENT, account_id = %id, "Faucet initialization successful");
 
-        Ok(FaucetState { client, id, config, static_files })
+        Ok(FaucetState { id, client, config, static_files })
     }
 }

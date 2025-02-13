@@ -90,6 +90,7 @@ pub mod api_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        /// Applies changes of a new block to the DB and in-memory data structures.
         pub async fn apply_block(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::ApplyBlockRequest>,
@@ -111,6 +112,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "ApplyBlock"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns a nullifier proof for each of the requested nullifiers.
         pub async fn check_nullifiers(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -136,6 +138,9 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "CheckNullifiers"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
+        ///
+        /// Note that only 16-bit prefixes are supported at this time.
         pub async fn check_nullifiers_by_prefix(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -162,6 +167,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "CheckNullifiersByPrefix"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns the latest state of an account with the specified ID.
         pub async fn get_account_details(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -188,6 +194,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetAccountDetails"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns the latest state proofs of the specified accounts.
         pub async fn get_account_proofs(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -214,6 +221,8 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetAccountProofs"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns delta of the account states in the range from `from_block_num` (exclusive) to
+        /// `to_block_num` (inclusive).
         pub async fn get_account_state_delta(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -240,6 +249,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetAccountStateDelta"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns raw block data for the specified block number.
         pub async fn get_block_by_number(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -266,6 +276,8 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetBlockByNumber"));
             self.inner.unary(req, path, codec).await
         }
+        /// Retrieves block header by given block number. Optionally, it also returns the MMR path
+        /// and current chain length to authenticate the block's inclusion.
         pub async fn get_block_header_by_number(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -292,6 +304,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetBlockHeaderByNumber"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns data required to prove the next block.
         pub async fn get_block_inputs(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -315,13 +328,14 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "GetBlockInputs"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn get_note_authentication_info(
+        /// Returns the inputs for a transaction batch.
+        pub async fn get_batch_inputs(
             &mut self,
             request: impl tonic::IntoRequest<
-                super::super::requests::GetNoteAuthenticationInfoRequest,
+                super::super::requests::GetBatchInputsRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetNoteAuthenticationInfoResponse>,
+            tonic::Response<super::super::responses::GetBatchInputsResponse>,
             tonic::Status,
         > {
             self.inner
@@ -333,14 +347,12 @@ pub mod api_client {
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/store.Api/GetNoteAuthenticationInfo",
-            );
+            let path = http::uri::PathAndQuery::from_static("/store.Api/GetBatchInputs");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("store.Api", "GetNoteAuthenticationInfo"));
+            req.extensions_mut().insert(GrpcMethod::new("store.Api", "GetBatchInputs"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns a list of notes matching the provided note IDs.
         pub async fn get_notes_by_id(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::GetNotesByIdRequest>,
@@ -362,6 +374,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "GetNotesById"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns data required to validate a new transaction.
         pub async fn get_transaction_inputs(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -388,71 +401,15 @@ pub mod api_client {
                 .insert(GrpcMethod::new("store.Api", "GetTransactionInputs"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn list_accounts(
-            &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::ListAccountsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::ListAccountsResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/store.Api/ListAccounts");
-            let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("store.Api", "ListAccounts"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn list_notes(
-            &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::ListNotesRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::ListNotesResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/store.Api/ListNotes");
-            let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("store.Api", "ListNotes"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn list_nullifiers(
-            &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::ListNullifiersRequest,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::ListNullifiersResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/store.Api/ListNullifiers");
-            let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("store.Api", "ListNullifiers"));
-            self.inner.unary(req, path, codec).await
-        }
+        /// Returns info which can be used by the client to sync up to the tip of chain for the notes they are interested in.
+        ///
+        /// Client specifies the `note_tags` they are interested in, and the block height from which to search for new for
+        /// matching notes for. The request will then return the next block containing any note matching the provided tags.
+        ///
+        /// The response includes each note's metadata and inclusion proof.
+        ///
+        /// A basic note sync can be implemented by repeatedly requesting the previous response's block until reaching the
+        /// tip of the chain.
         pub async fn sync_notes(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncNoteRequest>,
@@ -474,6 +431,21 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "SyncNotes"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns info which can be used by the client to sync up to the latest state of the chain
+        /// for the objects (accounts, notes, nullifiers) the client is interested in.
+        ///
+        /// This request returns the next block containing requested data. It also returns `chain_tip`
+        /// which is the latest block number in the chain. Client is expected to repeat these requests
+        /// in a loop until `response.block_header.block_num == response.chain_tip`, at which point
+        /// the client is fully synchronized with the chain.
+        ///
+        /// Each request also returns info about new notes, nullifiers etc. created. It also returns
+        /// Chain MMR delta that can be used to update the state of Chain MMR. This includes both chain
+        /// MMR peaks and chain MMR nodes.
+        ///
+        /// For preserving some degree of privacy, note tags and nullifiers filters contain only high
+        /// part of hashes. Thus, returned data contains excessive notes and nullifiers, client can make
+        /// additional filtering of that data on its side.
         pub async fn sync_state(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,
@@ -510,6 +482,7 @@ pub mod api_server {
     /// Generated trait containing gRPC methods that should be implemented for use with ApiServer.
     #[async_trait]
     pub trait Api: std::marker::Send + std::marker::Sync + 'static {
+        /// Applies changes of a new block to the DB and in-memory data structures.
         async fn apply_block(
             &self,
             request: tonic::Request<super::super::requests::ApplyBlockRequest>,
@@ -517,6 +490,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::ApplyBlockResponse>,
             tonic::Status,
         >;
+        /// Returns a nullifier proof for each of the requested nullifiers.
         async fn check_nullifiers(
             &self,
             request: tonic::Request<super::super::requests::CheckNullifiersRequest>,
@@ -524,6 +498,9 @@ pub mod api_server {
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
             tonic::Status,
         >;
+        /// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
+        ///
+        /// Note that only 16-bit prefixes are supported at this time.
         async fn check_nullifiers_by_prefix(
             &self,
             request: tonic::Request<
@@ -533,6 +510,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::CheckNullifiersByPrefixResponse>,
             tonic::Status,
         >;
+        /// Returns the latest state of an account with the specified ID.
         async fn get_account_details(
             &self,
             request: tonic::Request<super::super::requests::GetAccountDetailsRequest>,
@@ -540,6 +518,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountDetailsResponse>,
             tonic::Status,
         >;
+        /// Returns the latest state proofs of the specified accounts.
         async fn get_account_proofs(
             &self,
             request: tonic::Request<super::super::requests::GetAccountProofsRequest>,
@@ -547,6 +526,8 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountProofsResponse>,
             tonic::Status,
         >;
+        /// Returns delta of the account states in the range from `from_block_num` (exclusive) to
+        /// `to_block_num` (inclusive).
         async fn get_account_state_delta(
             &self,
             request: tonic::Request<super::super::requests::GetAccountStateDeltaRequest>,
@@ -554,6 +535,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetAccountStateDeltaResponse>,
             tonic::Status,
         >;
+        /// Returns raw block data for the specified block number.
         async fn get_block_by_number(
             &self,
             request: tonic::Request<super::super::requests::GetBlockByNumberRequest>,
@@ -561,6 +543,8 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetBlockByNumberResponse>,
             tonic::Status,
         >;
+        /// Retrieves block header by given block number. Optionally, it also returns the MMR path
+        /// and current chain length to authenticate the block's inclusion.
         async fn get_block_header_by_number(
             &self,
             request: tonic::Request<
@@ -570,6 +554,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
         >;
+        /// Returns data required to prove the next block.
         async fn get_block_inputs(
             &self,
             request: tonic::Request<super::super::requests::GetBlockInputsRequest>,
@@ -577,15 +562,15 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetBlockInputsResponse>,
             tonic::Status,
         >;
-        async fn get_note_authentication_info(
+        /// Returns the inputs for a transaction batch.
+        async fn get_batch_inputs(
             &self,
-            request: tonic::Request<
-                super::super::requests::GetNoteAuthenticationInfoRequest,
-            >,
+            request: tonic::Request<super::super::requests::GetBatchInputsRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::GetNoteAuthenticationInfoResponse>,
+            tonic::Response<super::super::responses::GetBatchInputsResponse>,
             tonic::Status,
         >;
+        /// Returns a list of notes matching the provided note IDs.
         async fn get_notes_by_id(
             &self,
             request: tonic::Request<super::super::requests::GetNotesByIdRequest>,
@@ -593,6 +578,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetNotesByIdResponse>,
             tonic::Status,
         >;
+        /// Returns data required to validate a new transaction.
         async fn get_transaction_inputs(
             &self,
             request: tonic::Request<super::super::requests::GetTransactionInputsRequest>,
@@ -600,27 +586,15 @@ pub mod api_server {
             tonic::Response<super::super::responses::GetTransactionInputsResponse>,
             tonic::Status,
         >;
-        async fn list_accounts(
-            &self,
-            request: tonic::Request<super::super::requests::ListAccountsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::ListAccountsResponse>,
-            tonic::Status,
-        >;
-        async fn list_notes(
-            &self,
-            request: tonic::Request<super::super::requests::ListNotesRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::ListNotesResponse>,
-            tonic::Status,
-        >;
-        async fn list_nullifiers(
-            &self,
-            request: tonic::Request<super::super::requests::ListNullifiersRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::ListNullifiersResponse>,
-            tonic::Status,
-        >;
+        /// Returns info which can be used by the client to sync up to the tip of chain for the notes they are interested in.
+        ///
+        /// Client specifies the `note_tags` they are interested in, and the block height from which to search for new for
+        /// matching notes for. The request will then return the next block containing any note matching the provided tags.
+        ///
+        /// The response includes each note's metadata and inclusion proof.
+        ///
+        /// A basic note sync can be implemented by repeatedly requesting the previous response's block until reaching the
+        /// tip of the chain.
         async fn sync_notes(
             &self,
             request: tonic::Request<super::super::requests::SyncNoteRequest>,
@@ -628,6 +602,21 @@ pub mod api_server {
             tonic::Response<super::super::responses::SyncNoteResponse>,
             tonic::Status,
         >;
+        /// Returns info which can be used by the client to sync up to the latest state of the chain
+        /// for the objects (accounts, notes, nullifiers) the client is interested in.
+        ///
+        /// This request returns the next block containing requested data. It also returns `chain_tip`
+        /// which is the latest block number in the chain. Client is expected to repeat these requests
+        /// in a loop until `response.block_header.block_num == response.chain_tip`, at which point
+        /// the client is fully synchronized with the chain.
+        ///
+        /// Each request also returns info about new notes, nullifiers etc. created. It also returns
+        /// Chain MMR delta that can be used to update the state of Chain MMR. This includes both chain
+        /// MMR peaks and chain MMR nodes.
+        ///
+        /// For preserving some degree of privacy, note tags and nullifiers filters contain only high
+        /// part of hashes. Thus, returned data contains excessive notes and nullifiers, client can make
+        /// additional filtering of that data on its side.
         async fn sync_state(
             &self,
             request: tonic::Request<super::super::requests::SyncStateRequest>,
@@ -1146,15 +1135,15 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/store.Api/GetNoteAuthenticationInfo" => {
+                "/store.Api/GetBatchInputs" => {
                     #[allow(non_camel_case_types)]
-                    struct GetNoteAuthenticationInfoSvc<T: Api>(pub Arc<T>);
+                    struct GetBatchInputsSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::GetNoteAuthenticationInfoRequest,
-                    > for GetNoteAuthenticationInfoSvc<T> {
-                        type Response = super::super::responses::GetNoteAuthenticationInfoResponse;
+                        super::super::requests::GetBatchInputsRequest,
+                    > for GetBatchInputsSvc<T> {
+                        type Response = super::super::responses::GetBatchInputsResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -1162,13 +1151,12 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::GetNoteAuthenticationInfoRequest,
+                                super::super::requests::GetBatchInputsRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::get_note_authentication_info(&inner, request)
-                                    .await
+                                <T as Api>::get_batch_inputs(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1179,7 +1167,7 @@ pub mod api_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = GetNoteAuthenticationInfoSvc(inner);
+                        let method = GetBatchInputsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -1276,150 +1264,6 @@ pub mod api_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetTransactionInputsSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/store.Api/ListAccounts" => {
-                    #[allow(non_camel_case_types)]
-                    struct ListAccountsSvc<T: Api>(pub Arc<T>);
-                    impl<
-                        T: Api,
-                    > tonic::server::UnaryService<
-                        super::super::requests::ListAccountsRequest,
-                    > for ListAccountsSvc<T> {
-                        type Response = super::super::responses::ListAccountsResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<
-                                super::super::requests::ListAccountsRequest,
-                            >,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as Api>::list_accounts(&inner, request).await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = ListAccountsSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/store.Api/ListNotes" => {
-                    #[allow(non_camel_case_types)]
-                    struct ListNotesSvc<T: Api>(pub Arc<T>);
-                    impl<
-                        T: Api,
-                    > tonic::server::UnaryService<
-                        super::super::requests::ListNotesRequest,
-                    > for ListNotesSvc<T> {
-                        type Response = super::super::responses::ListNotesResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<
-                                super::super::requests::ListNotesRequest,
-                            >,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as Api>::list_notes(&inner, request).await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = ListNotesSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/store.Api/ListNullifiers" => {
-                    #[allow(non_camel_case_types)]
-                    struct ListNullifiersSvc<T: Api>(pub Arc<T>);
-                    impl<
-                        T: Api,
-                    > tonic::server::UnaryService<
-                        super::super::requests::ListNullifiersRequest,
-                    > for ListNullifiersSvc<T> {
-                        type Response = super::super::responses::ListNullifiersResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<
-                                super::super::requests::ListNullifiersRequest,
-                            >,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as Api>::list_nullifiers(&inner, request).await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = ListNullifiersSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

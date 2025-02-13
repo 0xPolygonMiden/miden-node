@@ -1,27 +1,31 @@
 [package]
-name = "miden-node-rpc"
-version.workspace = true
-description = "Miden node's front-end RPC server"
-readme = "README.md"
-keywords = ["miden", "node", "rpc"]
-edition.workspace = true
+authors.workspace      = true
+description            = "Miden node's front-end RPC server"
+edition.workspace      = true
+homepage.workspace     = true
+keywords               = ["miden", "node", "rpc"]
+license.workspace      = true
+name                   = "miden-node-rpc"
+readme                 = "README.md"
+repository.workspace   = true
 rust-version.workspace = true
-license.workspace = true
-authors.workspace = true
-homepage.workspace = true
-repository.workspace = true
+version.workspace      = true
+
+[lints]
+workspace = true
 
 [dependencies]
 miden-node-proto = { workspace = true }
 miden-node-utils = { workspace = true }
-miden-objects = { workspace = true }
-miden-tx = { workspace = true }
-serde = { version = "1.0", features = ["derive"] }
-tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros"] }
-tokio-stream = { workspace = true, features = ["net"] }
-tonic = { workspace = true }
-tonic-web = { version = "0.12" }
-tracing = { workspace = true }
+miden-objects    = { workspace = true }
+miden-tx         = { workspace = true }
+serde            = { version = "1.0", features = ["derive"] }
+tokio            = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }
+tokio-stream     = { workspace = true, features = ["net"] }
+tonic            = { workspace = true }
+tonic-web        = { version = "0.12" }
+tracing          = { workspace = true }
+url              = { workspace = true }
 
 [dev-dependencies]
 miden-node-utils = { workspace = true, features = ["tracing-forest"] }
