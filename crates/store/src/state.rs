@@ -264,7 +264,7 @@ impl State {
                 block.updated_accounts().iter().map(|update| {
                     (
                         LeafIndex::new_max_depth(update.account_id().prefix().into()),
-                        update.new_state_hash().into(),
+                        update.final_state_commitment().into(),
                     )
                 }),
             );

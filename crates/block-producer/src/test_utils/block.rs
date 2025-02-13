@@ -131,7 +131,7 @@ impl MockBlockBuilder {
     pub fn account_updates(mut self, updated_accounts: Vec<BlockAccountUpdate>) -> Self {
         for update in &updated_accounts {
             self.store_accounts
-                .insert(update.account_id().into(), update.new_state_hash().into());
+                .insert(update.account_id().into(), update.final_state_commitment().into());
         }
 
         self.updated_accounts = Some(updated_accounts);

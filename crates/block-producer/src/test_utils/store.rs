@@ -199,7 +199,8 @@ impl MockStoreSuccess {
 
         // update accounts
         for update in block.updated_accounts() {
-            locked_accounts.insert(update.account_id().into(), update.new_state_hash().into());
+            locked_accounts
+                .insert(update.account_id().into(), update.final_state_commitment().into());
         }
         let header = block.header();
         debug_assert_eq!(locked_accounts.root(), header.account_root());
