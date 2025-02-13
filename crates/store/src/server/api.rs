@@ -229,12 +229,12 @@ impl api_server::Api for StoreApi {
                     .as_ref()
                     .ok()
                     .and_then(|r| r.block_header)
-                    .map_or(false, |header| header.block_num > request.block_num)
+                    .map_or(true, |header| header.block_num > request.block_num)
                 {
                     break;
                 }
 
-                let is_last_response = result.as_ref().ok().map_or(false, |r| {
+                let is_last_response = result.as_ref().ok().map_or(true, |r| {
                     r.block_header
                         .as_ref()
                         .map_or(false, |header| header.block_num == latest_block_num)
