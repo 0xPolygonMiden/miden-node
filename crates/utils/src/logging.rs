@@ -37,8 +37,8 @@ where
         .build()
         .unwrap();
 
-    let tracer = opentelemetry_sdk::trace::TracerProvider::builder()
-        .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+    let tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
         .build();
 
     let tracer = tracer.tracer("tracing-otel-subscriber");
