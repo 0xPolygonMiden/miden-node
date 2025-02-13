@@ -161,6 +161,8 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
 
         let (tx, rx) = mpsc::channel(128); // TODO: check bound of the channel
+
+        // TODO: should latest_block_num be updated on each loop?
         let latest_block_num = self.state.latest_block_num().await.as_u32();
         let state = self.state.clone();
         tokio::spawn(async move {
@@ -232,15 +234,16 @@ impl api_server::Api for StoreApi {
                     break;
                 }
 
-                tx.send(result.clone()).await.map_err(internal_error).unwrap();
+                let is_last_response = result.as_ref().ok().map_or(false, |r| {
+                    r.block_header
+                        .as_ref()
+                        .map_or(false, |header| header.block_num == latest_block_num)
+                });
+
+                tx.send(result).await.map_err(internal_error).unwrap();
 
                 // If the last response is up to date, stop the sync
-                if result
-                    .as_ref()
-                    .ok()
-                    .and_then(|r| r.block_header.as_ref().map(|header| header.block_num))
-                    == result.as_ref().ok().map(|r| r.chain_tip)
-                {
+                if is_last_response {
                     break;
                 }
             }
