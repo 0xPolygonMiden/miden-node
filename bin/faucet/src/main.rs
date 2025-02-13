@@ -17,7 +17,9 @@ use client::initialize_faucet_client;
 use handlers::{get_background, get_favicon, get_index_css, get_index_html, get_index_js};
 use http::HeaderValue;
 use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
-use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
+use miden_node_utils::{
+    config::load_config, crypto::get_rpo_random_coin, logging::OpenTelemetry, version::LongVersion,
+};
 use miden_objects::{
     account::{AccountFile, AccountStorageMode, AuthSecretKey},
     asset::TokenSymbol,
@@ -89,7 +91,8 @@ pub enum Command {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    miden_node_utils::logging::setup_logging().context("Failed to initialize logging")?;
+    miden_node_utils::logging::setup_tracing(OpenTelemetry::Disabled)
+        .context("Failed to initialize logging")?;
 
     let cli = Cli::parse();
 
