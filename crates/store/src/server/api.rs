@@ -162,20 +162,20 @@ impl api_server::Api for StoreApi {
 
         let (tx, rx) = mpsc::channel(128); // TODO: check bound of the channel
 
-        // TODO: should latest_block_num be updated on each loop?
-        let latest_block_num = self.state.latest_block_num().await.as_u32();
         let state = self.state.clone();
+        let mut last_block_num = request.block_num;
         tokio::spawn(async move {
             loop {
+                let chain_tip = state.latest_block_num().await.as_u32();
                 let result = async {
                     let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
 
                     let (state, delta) = state
                         .sync_state(
-                            request.clone().block_num.into(),
+                            last_block_num.into(),
                             account_ids,
-                            request.clone().note_tags,
-                            request.clone().nullifiers,
+                            request.note_tags.clone(),
+                            request.nullifiers.clone(),
                         )
                         .await
                         .map_err(internal_error)?;
@@ -212,7 +212,7 @@ impl api_server::Api for StoreApi {
                         .collect();
 
                     let response = SyncStateResponse {
-                        chain_tip: latest_block_num,
+                        chain_tip,
                         block_header: Some(state.block_header.into()),
                         mmr_delta: Some(delta.into()),
                         accounts,
@@ -224,26 +224,14 @@ impl api_server::Api for StoreApi {
                 }
                 .await;
 
-                // If the current block number is greater than the requested, stop the sync
-                if result
-                    .as_ref()
-                    .ok()
-                    .and_then(|r| r.block_header)
-                    .map_or(true, |header| header.block_num > request.block_num)
-                {
-                    break;
-                }
-
-                let is_last_response = result.as_ref().ok().map_or(true, |r| {
-                    r.block_header
-                        .as_ref()
-                        .map_or(false, |header| header.block_num == latest_block_num)
+                last_block_num = result.as_ref().ok().map_or(last_block_num, |r| {
+                    r.block_header.as_ref().map_or(last_block_num, |header| header.block_num)
                 });
 
                 tx.send(result).await.map_err(internal_error).unwrap();
 
                 // If the last response is up to date, stop the sync
-                if is_last_response {
+                if last_block_num == chain_tip {
                     break;
                 }
             }
