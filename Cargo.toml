@@ -28,17 +28,17 @@ version      = "0.8.0"
 assert_matches            = { version = "1.5" }
 itertools                 = { version = "0.14" }
 miden-air                 = { version = "0.12" }
-miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-lib                 = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.8" }
 miden-node-proto          = { path = "crates/proto", version = "0.8" }
 miden-node-rpc            = { path = "crates/rpc", version = "0.8" }
 miden-node-store          = { path = "crates/store", version = "0.8" }
 miden-node-test-macro     = { path = "crates/test-macro" }
 miden-node-utils          = { path = "crates/utils", version = "0.8" }
-miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-objects             = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
 miden-processor           = { version = "0.12" }
 miden-stdlib              = { version = "0.12", default-features = false }
-miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-tx                  = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
 miden-tx-batch-prover     = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 prost                     = { version = "0.13" }
 rand                      = { version = "0.8" }
