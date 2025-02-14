@@ -48,7 +48,7 @@ impl GenesisState {
 
         let account_smt: SimpleSmt<ACCOUNT_TREE_DEPTH> =
             SimpleSmt::with_leaves(accounts.iter().map(|update| {
-                (update.account_id().prefix().into(), update.new_state_hash().into())
+                (update.account_id().prefix().into(), update.final_state_commitment().into())
             }))?;
 
         let header = BlockHeader::new(
