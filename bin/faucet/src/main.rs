@@ -17,7 +17,9 @@ use client::initialize_faucet_client;
 use handlers::{get_background, get_favicon, get_index_css, get_index_html, get_index_js};
 use http::HeaderValue;
 use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
-use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin, version::LongVersion};
+use miden_node_utils::{
+    config::load_config, crypto::get_rpo_random_coin, logging::OpenTelemetry, version::LongVersion,
+};
 use miden_objects::{
     account::{AccountFile, AccountStorageMode, AuthSecretKey},
     asset::TokenSymbol,
@@ -89,14 +91,15 @@ pub enum Command {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    miden_node_utils::logging::setup_logging().context("Failed to initialize logging")?;
+    miden_node_utils::logging::setup_tracing(OpenTelemetry::Disabled)
+        .context("failed to initialize logging")?;
 
     let cli = Cli::parse();
 
     match &cli.command {
         Command::Start { config } => {
             let config: FaucetConfig =
-                load_config(config).context("Failed to load configuration file")?;
+                load_config(config).context("failed to load configuration file")?;
 
             let faucet_state = FaucetState::new(config.clone()).await?;
 
@@ -129,7 +132,7 @@ async fn main() -> anyhow::Result<()> {
                 anyhow::anyhow!("Couldn't get any socket addrs for endpoint: {}", config.endpoint),
             )?;
             let listener =
-                TcpListener::bind(socket_addr).await.context("Failed to bind TCP listener")?;
+                TcpListener::bind(socket_addr).await.context("failed to bind TCP listener")?;
 
             info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
 
@@ -146,12 +149,12 @@ async fn main() -> anyhow::Result<()> {
             println!("Generating new faucet account. This may take a few minutes...");
 
             let config: FaucetConfig =
-                load_config(config_path).context("Failed to load configuration file")?;
+                load_config(config_path).context("failed to load configuration file")?;
 
             let (_, root_block_header, _) = initialize_faucet_client(&config).await?;
 
             let current_dir =
-                std::env::current_dir().context("Failed to open current directory")?;
+                std::env::current_dir().context("failed to open current directory")?;
 
             let mut rng = ChaCha20Rng::from_seed(rand::random());
 
@@ -159,16 +162,16 @@ async fn main() -> anyhow::Result<()> {
 
             let (account, account_seed) = create_basic_fungible_faucet(
                 rng.gen(),
-                (&root_block_header).try_into().context("Failed to create anchor block")?,
+                (&root_block_header).try_into().context("failed to create anchor block")?,
                 TokenSymbol::try_from(token_symbol.as_str())
-                    .context("Failed to parse token symbol")?,
+                    .context("failed to parse token symbol")?,
                 *decimals,
                 Felt::try_from(*max_supply)
                     .expect("max supply value is greater than or equal to the field modulus"),
                 AccountStorageMode::Public,
                 AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
             )
-            .context("Failed to create basic fungible faucet account")?;
+            .context("failed to create basic fungible faucet account")?;
 
             let account_data =
                 AccountFile::new(account, Some(account_seed), AuthSecretKey::RpoFalcon512(secret));
@@ -176,14 +179,14 @@ async fn main() -> anyhow::Result<()> {
             let output_path = current_dir.join(output_path);
             account_data
                 .write(&output_path)
-                .context("Failed to write account data to file")?;
+                .context("failed to write account data to file")?;
 
             println!("Faucet account file successfully created at: {output_path:?}");
         },
 
         Command::Init { config_path, faucet_account_path } => {
             let current_dir =
-                std::env::current_dir().context("Failed to open current directory")?;
+                std::env::current_dir().context("failed to open current directory")?;
 
             let config_file_path = current_dir.join(config_path);
 
@@ -193,10 +196,10 @@ async fn main() -> anyhow::Result<()> {
             };
 
             let config_as_toml_string =
-                toml::to_string(&config).context("Failed to serialize default config")?;
+                toml::to_string(&config).context("failed to serialize default config")?;
 
             std::fs::write(&config_file_path, config_as_toml_string)
-                .context("Error writing config to file")?;
+                .context("error writing config to file")?;
 
             println!("Config file successfully created at: {config_file_path:?}");
         },
