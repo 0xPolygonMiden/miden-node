@@ -128,6 +128,14 @@ pub async fn get_index_css(state: State<FaucetState>) -> Result<impl IntoRespons
     get_static_file(state, "index.css")
 }
 
+pub async fn get_background(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
+    get_static_file(state, "background.png")
+}
+
+pub async fn get_favicon(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
+    get_static_file(state, "favicon.ico")
+}
+
 /// Returns a static file bundled with the app state.
 ///
 /// # Panics

@@ -10,7 +10,9 @@ pub fn enable_logging(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let stmts = function.block.stmts;
     let block: Block = parse_quote! {{
         if ::std::env::args().any(|e| e == "--nocapture") {
-            let subscriber = ::tracing::subscriber::set_default(::miden_node_utils::logging::subscriber());
+            ::miden_node_utils::logging::setup_tracing(
+                ::miden_node_utils::logging::OpenTelemetry::Disabled
+            ).expect("logging setup should succeed");
             let span = ::tracing::span!(::tracing::Level::INFO, #name).entered();
 
             #(#stmts)*

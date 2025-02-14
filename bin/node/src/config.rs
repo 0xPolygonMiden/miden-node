@@ -1,8 +1,8 @@
 use miden_node_block_producer::config::BlockProducerConfig;
 use miden_node_rpc::config::RpcConfig;
 use miden_node_store::config::StoreConfig;
-use miden_node_utils::config::Endpoint;
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 /// Node top-level configuration.
 #[derive(Clone, Default, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
@@ -17,7 +17,7 @@ pub struct NodeConfig {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NormalizedRpcConfig {
-    endpoint: Endpoint,
+    endpoint: Url,
 }
 
 /// A specialized variant of [`BlockProducerConfig`] with redundant fields within [`NodeConfig`]
@@ -25,7 +25,7 @@ struct NormalizedRpcConfig {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NormalizedBlockProducerConfig {
-    endpoint: Endpoint,
+    endpoint: Url,
     verify_tx_proofs: bool,
 }
 
@@ -56,14 +56,14 @@ impl NodeConfig {
 
         let block_producer = BlockProducerConfig {
             endpoint: block_producer.endpoint,
-            store_url: store.endpoint_url(),
+            store_url: store.endpoint.clone(),
             verify_tx_proofs: block_producer.verify_tx_proofs,
         };
 
         let rpc = RpcConfig {
             endpoint: rpc.endpoint,
-            store_url: store.endpoint_url(),
-            block_producer_url: block_producer.endpoint_url(),
+            store_url: store.endpoint.clone(),
+            block_producer_url: block_producer.endpoint.clone(),
         };
 
         (block_producer, rpc, store)
@@ -74,7 +74,8 @@ impl NodeConfig {
 mod tests {
     use figment::Jail;
     use miden_node_store::config::StoreConfig;
-    use miden_node_utils::config::{load_config, Endpoint, Protocol};
+    use miden_node_utils::config::load_config;
+    use url::Url;
 
     use super::NodeConfig;
     use crate::{
@@ -89,14 +90,14 @@ mod tests {
                 NODE_CONFIG_FILE_PATH,
                 r#"
                     [block_producer]
-                    endpoint = { host = "127.0.0.1",  port = 8080 }
+                    endpoint = "http://127.0.0.1:8080"
                     verify_tx_proofs = true
 
                     [rpc]
-                    endpoint = { host = "127.0.0.1",  port = 8080, protocol = "Http" }
+                    endpoint = "http://127.0.0.1:8080"
 
                     [store]
-                    endpoint = { host = "127.0.0.1",  port = 8080, protocol = "Https" }
+                    endpoint = "https://127.0.0.1:8080"
                     database_filepath = "local.sqlite3"
                     genesis_filepath = "genesis.dat"
                     blockstore_dir = "blocks"
@@ -109,26 +110,14 @@ mod tests {
                 config,
                 NodeConfig {
                     block_producer: NormalizedBlockProducerConfig {
-                        endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
-                            protocol: Protocol::default()
-                        },
+                        endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),
                         verify_tx_proofs: true
                     },
                     rpc: NormalizedRpcConfig {
-                        endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
-                            protocol: Protocol::Http
-                        },
+                        endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),
                     },
                     store: StoreConfig {
-                        endpoint: Endpoint {
-                            host: "127.0.0.1".to_string(),
-                            port: 8080,
-                            protocol: Protocol::Https
-                        },
+                        endpoint: Url::parse("https://127.0.0.1:8080").unwrap(),
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into(),
                         blockstore_dir: "blocks".into()

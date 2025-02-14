@@ -250,11 +250,14 @@ impl Db {
 
     /// Loads multiple block headers from the DB.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_block_headers(&self, blocks: Vec<BlockNumber>) -> Result<Vec<BlockHeader>> {
+    pub async fn select_block_headers(
+        &self,
+        blocks: impl Iterator<Item = BlockNumber> + Send + 'static,
+    ) -> Result<Vec<BlockHeader>> {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_block_headers(conn, &blocks))
+            .interact(move |conn| sql::select_block_headers(conn, blocks))
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(

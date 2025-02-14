@@ -422,10 +422,10 @@ pub fn upsert_accounts(
             AccountUpdateDetails::New(account) => {
                 debug_assert_eq!(account_id, account.id());
 
-                if account.hash() != update.new_state_hash() {
+                if account.hash() != update.final_state_commitment() {
                     return Err(DatabaseError::AccountHashesMismatch {
                         calculated: account.hash(),
-                        expected: update.new_state_hash(),
+                        expected: update.final_state_commitment(),
                     });
                 }
 
@@ -439,8 +439,12 @@ pub fn upsert_accounts(
                     return Err(DatabaseError::AccountNotFoundInDb(account_id));
                 };
 
-                let account =
-                    apply_delta(account_id, &row.get_ref(0)?, delta, &update.new_state_hash())?;
+                let account = apply_delta(
+                    account_id,
+                    &row.get_ref(0)?,
+                    delta,
+                    &update.final_state_commitment(),
+                )?;
 
                 (Some(Cow::Owned(account)), Some(Cow::Borrowed(delta)))
             },
@@ -448,7 +452,7 @@ pub fn upsert_accounts(
 
         let inserted = upsert_stmt.execute(params![
             account_id.to_bytes(),
-            update.new_state_hash().to_bytes(),
+            update.final_state_commitment().to_bytes(),
             block_num.as_u32(),
             full_account.as_ref().map(|account| account.to_bytes()),
         ])?;
@@ -1059,11 +1063,11 @@ pub fn select_block_header_by_block_num(
 /// A vector of [`BlockHeader`] or an error.
 pub fn select_block_headers(
     conn: &mut Connection,
-    blocks: &[BlockNumber],
+    blocks: impl Iterator<Item = BlockNumber> + Send,
 ) -> Result<Vec<BlockHeader>> {
-    let mut headers = Vec::with_capacity(blocks.len());
+    let blocks: Vec<Value> = blocks.map(|b| b.as_u32().into()).collect();
 
-    let blocks: Vec<Value> = blocks.iter().copied().map(|b| b.as_u32().into()).collect();
+    let mut headers = Vec::with_capacity(blocks.len());
     let mut stmt = conn
         .prepare_cached("SELECT block_header FROM block_headers WHERE block_num IN rarray(?1);")?;
     let mut rows = stmt.query(params![Rc::new(blocks)])?;

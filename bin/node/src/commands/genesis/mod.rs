@@ -9,7 +9,7 @@ use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin};
 use miden_objects::{
-    account::{Account, AccountData, AccountIdAnchor, AuthSecretKey},
+    account::{Account, AccountFile, AccountIdAnchor, AuthSecretKey},
     asset::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
     Felt, ONE,
@@ -134,7 +134,7 @@ fn create_accounts(
                 );
                 faucet_count += 1;
 
-                (AccountData::new(account, Some(account_seed), auth_secret_key), name)
+                (AccountFile::new(account, Some(account_seed), auth_secret_key), name)
             },
         };
 
@@ -182,7 +182,7 @@ mod tests {
 
     use figment::Jail;
     use miden_node_store::genesis::GenesisState;
-    use miden_objects::{account::AccountData, utils::serde::Deserializable};
+    use miden_objects::{account::AccountFile, utils::serde::Deserializable};
 
     use crate::DEFAULT_GENESIS_FILE_PATH;
 
@@ -220,7 +220,7 @@ mod tests {
             assert!(a0_file_path.exists());
 
             // deserialize account and genesis_state
-            let a0 = AccountData::read(a0_file_path).unwrap();
+            let a0 = AccountFile::read(a0_file_path).unwrap();
 
             // assert that the account has the corresponding storage mode
             assert!(a0.account.is_public());

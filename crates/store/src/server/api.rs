@@ -1,28 +1,24 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeSet, convert::Infallible, sync::Arc};
 
 use miden_node_proto::{
     convert,
-    domain::{
-        account::{AccountInfo, AccountProofRequest},
-        note::NoteAuthenticationInfo,
-    },
+    domain::account::{AccountInfo, AccountProofRequest},
     errors::ConversionError,
     generated::{
         self,
         account::AccountSummary,
-        note::NoteAuthenticationInfo as NoteAuthenticationInfoProto,
         requests::{
             ApplyBlockRequest, CheckNullifiersByPrefixRequest, CheckNullifiersRequest,
             GetAccountDetailsRequest, GetAccountProofsRequest, GetAccountStateDeltaRequest,
-            GetBlockByNumberRequest, GetBlockHeaderByNumberRequest, GetBlockInputsRequest,
-            GetNoteAuthenticationInfoRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
+            GetBatchInputsRequest, GetBlockByNumberRequest, GetBlockHeaderByNumberRequest,
+            GetBlockInputsRequest, GetNotesByIdRequest, GetTransactionInputsRequest,
             SyncNoteRequest, SyncStateRequest,
         },
         responses::{
             AccountTransactionInputRecord, ApplyBlockResponse, CheckNullifiersByPrefixResponse,
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
-            GetAccountStateDeltaResponse, GetBlockByNumberResponse, GetBlockHeaderByNumberResponse,
-            GetBlockInputsResponse, GetNoteAuthenticationInfoResponse, GetNotesByIdResponse,
+            GetAccountStateDeltaResponse, GetBatchInputsResponse, GetBlockByNumberResponse,
+            GetBlockHeaderByNumberResponse, GetBlockInputsResponse, GetNotesByIdResponse,
             GetTransactionInputsResponse, NullifierTransactionInputRecord, NullifierUpdate,
             SyncNoteResponse, SyncStateResponse,
         },
@@ -60,7 +56,7 @@ impl api_server::Api for StoreApi {
     /// If the block number is not provided, block header for the latest block is returned.
     #[instrument(
         target = COMPONENT,
-        name = "store:get_block_header_by_number",
+        name = "store.server.get_block_header_by_number",
         skip_all,
         ret(level = "debug"),
         err
@@ -92,7 +88,7 @@ impl api_server::Api for StoreApi {
     /// be verified against the latest root of the nullifier database.
     #[instrument(
         target = COMPONENT,
-        name = "store:check_nullifiers",
+        name = "store.server.check_nullifiers",
         skip_all,
         ret(level = "debug"),
         err
@@ -116,7 +112,7 @@ impl api_server::Api for StoreApi {
     /// Currently the only supported prefix length is 16 bits.
     #[instrument(
         target = COMPONENT,
-        name = "store:check_nullifiers_by_prefix",
+        name = "store.server.check_nullifiers_by_prefix",
         skip_all,
         ret(level = "debug"),
         err
@@ -149,7 +145,7 @@ impl api_server::Api for StoreApi {
     /// for the objects the client is interested in.
     #[instrument(
         target = COMPONENT,
-        name = "store:sync_state",
+        name = "store.server.sync_state",
         skip_all,
         ret(level = "debug"),
         err
@@ -218,7 +214,7 @@ impl api_server::Api for StoreApi {
     /// Returns info which can be used by the client to sync note state.
     #[instrument(
         target = COMPONENT,
-        name = "store:sync_notes",
+        name = "store.server.sync_notes",
         skip_all,
         ret(level = "debug"),
         err
@@ -250,7 +246,7 @@ impl api_server::Api for StoreApi {
     /// If the list is empty or no Note matched the requested NoteId and empty list is returned.
     #[instrument(
         target = COMPONENT,
-        name = "store:get_notes_by_id",
+        name = "store.server.get_notes_by_id",
         skip_all,
         ret(level = "debug"),
         err
@@ -279,46 +275,10 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetNotesByIdResponse { notes }))
     }
 
-    /// Returns the inclusion proofs of the specified notes.
-    #[instrument(
-        target = COMPONENT,
-        name = "store:get_note_inclusion_proofs",
-        skip_all,
-        ret(level = "debug"),
-        err
-    )]
-    async fn get_note_authentication_info(
-        &self,
-        request: Request<GetNoteAuthenticationInfoRequest>,
-    ) -> Result<Response<GetNoteAuthenticationInfoResponse>, Status> {
-        info!(target: COMPONENT, ?request);
-
-        let note_ids = request.into_inner().note_ids;
-
-        let note_ids: Vec<RpoDigest> = try_convert(note_ids)
-            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
-
-        let note_ids = note_ids.into_iter().map(From::from).collect();
-
-        let NoteAuthenticationInfo { block_proofs, note_proofs } = self
-            .state
-            .get_note_authentication_info(note_ids)
-            .await
-            .map_err(internal_error)?;
-
-        // Massage into shape required by protobuf
-        let note_proofs = note_proofs.iter().map(Into::into).collect();
-        let block_proofs = block_proofs.into_iter().map(Into::into).collect();
-
-        Ok(Response::new(GetNoteAuthenticationInfoResponse {
-            proofs: Some(NoteAuthenticationInfoProto { note_proofs, block_proofs }),
-        }))
-    }
-
     /// Returns details for public (public) account by id.
     #[instrument(
         target = COMPONENT,
-        name = "store:get_account_details",
+        name = "store.server.get_account_details",
         skip_all,
         ret(level = "debug"),
         err
@@ -342,7 +302,7 @@ impl api_server::Api for StoreApi {
     /// Updates the local DB by inserting a new block header and the related data.
     #[instrument(
         target = COMPONENT,
-        name = "store:apply_block",
+        name = "store.server.apply_block",
         skip_all,
         ret(level = "debug"),
         err
@@ -378,7 +338,7 @@ impl api_server::Api for StoreApi {
     /// Returns data needed by the block producer to construct and prove the next block.
     #[instrument(
         target = COMPONENT,
-        name = "store:get_block_inputs",
+        name = "store.server.get_block_inputs",
         skip_all,
         ret(level = "debug"),
         err
@@ -402,9 +362,42 @@ impl api_server::Api for StoreApi {
             .map_err(internal_error)
     }
 
+    /// Fetches the inputs for a transaction batch from the database.
+    ///
+    /// See [`State::get_batch_inputs`] for details.
+    #[instrument(
+      target = COMPONENT,
+      name = "store.server.get_batch_inputs",
+      skip_all,
+      ret(level = "debug"),
+      err
+    )]
+    async fn get_batch_inputs(
+        &self,
+        request: Request<GetBatchInputsRequest>,
+    ) -> Result<Response<GetBatchInputsResponse>, Status> {
+        let request = request.into_inner();
+
+        let note_ids: Vec<RpoDigest> = try_convert(request.note_ids)
+            .map_err(|err| Status::invalid_argument(format!("Invalid NoteId: {err}")))?;
+        let note_ids = note_ids.into_iter().map(NoteId::from).collect();
+
+        let reference_blocks: Vec<u32> =
+            try_convert::<_, Infallible, _, _, _>(request.reference_blocks)
+                .expect("operation should be infallible");
+        let reference_blocks = reference_blocks.into_iter().map(BlockNumber::from).collect();
+
+        self.state
+            .get_batch_inputs(reference_blocks, note_ids)
+            .await
+            .map(Into::into)
+            .map(Response::new)
+            .map_err(internal_error)
+    }
+
     #[instrument(
         target = COMPONENT,
-        name = "store:get_transaction_inputs",
+        name = "store.server.get_transaction_inputs",
         skip_all,
         ret(level = "debug"),
         err
@@ -452,7 +445,7 @@ impl api_server::Api for StoreApi {
 
     #[instrument(
         target = COMPONENT,
-        name = "store:get_block_by_number",
+        name = "store.server.get_block_by_number",
         skip_all,
         ret(level = "debug"),
         err
@@ -472,7 +465,7 @@ impl api_server::Api for StoreApi {
 
     #[instrument(
         target = COMPONENT,
-        name = "store:get_account_proofs",
+        name = "store.server.get_account_proofs",
         skip_all,
         ret(level = "debug"),
         err
@@ -510,7 +503,7 @@ impl api_server::Api for StoreApi {
 
     #[instrument(
         target = COMPONENT,
-        name = "store:get_account_state_delta",
+        name = "store.server.get_account_state_delta",
         skip_all,
         ret(level = "debug"),
         err

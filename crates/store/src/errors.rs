@@ -244,11 +244,11 @@ pub enum GetBlockInputsError {
     NoteInclusionMmr(#[from] MmrError),
 }
 
-impl From<GetNoteInclusionProofError> for GetBlockInputsError {
-    fn from(value: GetNoteInclusionProofError) -> Self {
+impl From<GetNoteAuthenticationInfoError> for GetBlockInputsError {
+    fn from(value: GetNoteAuthenticationInfoError) -> Self {
         match value {
-            GetNoteInclusionProofError::DatabaseError(db_err) => db_err.into(),
-            GetNoteInclusionProofError::MmrError(mmr_err) => Self::NoteInclusionMmr(mmr_err),
+            GetNoteAuthenticationInfoError::DatabaseError(db_err) => db_err.into(),
+            GetNoteAuthenticationInfoError::MmrError(mmr_err) => Self::NoteInclusionMmr(mmr_err),
         }
     }
 }
@@ -274,9 +274,24 @@ pub enum NoteSyncError {
 }
 
 #[derive(Error, Debug)]
-pub enum GetNoteInclusionProofError {
+pub enum GetNoteAuthenticationInfoError {
     #[error("database error")]
     DatabaseError(#[from] DatabaseError),
     #[error("Mmr error")]
     MmrError(#[from] MmrError),
+}
+
+#[derive(Error, Debug)]
+pub enum GetBatchInputsError {
+    #[error("failed to select note inclusion proofs")]
+    SelectNoteInclusionProofError(#[source] DatabaseError),
+    #[error("failed to select block headers")]
+    SelectBlockHeaderError(#[source] DatabaseError),
+    #[error("set of blocks refernced by transactions is empty")]
+    TransactionBlockReferencesEmpty,
+    #[error("highest block number {highest_block_num} referenced by a transaction is newer than the latest block {latest_block_num}")]
+    TransactionBlockReferenceNewerThanLatestBlock {
+        highest_block_num: BlockNumber,
+        latest_block_num: BlockNumber,
+    },
 }

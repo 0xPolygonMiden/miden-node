@@ -9,7 +9,7 @@ use miden_node_proto::generated::{
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
-    account::{Account, AccountData, AccountId, AuthSecretKey},
+    account::{Account, AccountFile, AccountId, AuthSecretKey},
     asset::FungibleAsset,
     block::{BlockHeader, BlockNumber},
     crypto::{
@@ -61,7 +61,7 @@ impl FaucetClient {
         let (mut rpc_api, root_block_header, root_chain_mmr) =
             initialize_faucet_client(config).await?;
 
-        let faucet_account_data = AccountData::read(&config.faucet_account_path)
+        let faucet_account_data = AccountFile::read(&config.faucet_account_path)
             .context("Failed to load faucet account from file")?;
 
         let id = faucet_account_data.account.id();
@@ -200,7 +200,7 @@ impl FaucetClient {
 pub async fn initialize_faucet_client(
     config: &FaucetConfig,
 ) -> Result<(ApiClient<Channel>, BlockHeader, ChainMmr), ClientError> {
-    let endpoint = tonic::transport::Endpoint::try_from(config.node_url.clone())
+    let endpoint = tonic::transport::Endpoint::try_from(config.node_url.to_string())
         .context("Failed to parse node URL from configuration file")?
         .timeout(Duration::from_millis(config.timeout_ms));
 

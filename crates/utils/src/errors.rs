@@ -21,4 +21,7 @@ pub enum ApiError {
 
     #[error("connection to the database has failed: {0}")]
     DatabaseConnectionFailed(String),
+
+    #[error("parsing store url failed: {0}")]
+    InvalidStoreUrl(String),
 }

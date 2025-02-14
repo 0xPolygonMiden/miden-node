@@ -1,6 +1,9 @@
 use std::{any::type_name, num::TryFromIntError};
 
-use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
+use miden_objects::{
+    crypto::merkle::{SmtLeafError, SmtProofError},
+    utils::DeserializationError,
+};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -28,6 +31,17 @@ pub enum ConversionError {
     },
     #[error("MMR error")]
     MmrError(#[from] miden_objects::crypto::merkle::MmrError),
+    #[error("failed to deserialize {entity}")]
+    DeserializationError {
+        entity: &'static str,
+        source: DeserializationError,
+    },
+}
+
+impl ConversionError {
+    pub fn deserialization_error(entity: &'static str, source: DeserializationError) -> Self {
+        Self::DeserializationError { entity, source }
+    }
 }
 
 pub trait MissingFieldHelper {

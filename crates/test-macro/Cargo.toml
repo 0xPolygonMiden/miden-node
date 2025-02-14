@@ -1,22 +1,22 @@
 [package]
-name = "miden-node-test-macro"
-version = "0.1.0"
-description = "Miden node's test macro"
-readme = "README.md"
-keywords = ["miden", "node", "utils", "macro"]
-edition.workspace = true
+authors.workspace      = true
+description            = "Miden node's test macro"
+edition.workspace      = true
+homepage.workspace     = true
+keywords               = ["macro", "miden", "node", "utils"]
+license.workspace      = true
+name                   = "miden-node-test-macro"
+readme                 = "README.md"
+repository.workspace   = true
 rust-version.workspace = true
-license.workspace = true
-authors.workspace = true
-homepage.workspace = true
-repository.workspace = true
+version                = "0.1.0"
 
 [lints]
 workspace = true
 
 [dependencies]
 quote = { version = "1.0" }
-syn = { version = "2.0" , features = ["full", "extra-traits"]}
+syn   = { version = "2.0", features = ["extra-traits", "full"] }
 
 [lib]
 proc-macro = true

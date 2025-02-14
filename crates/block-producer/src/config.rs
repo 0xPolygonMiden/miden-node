@@ -1,7 +1,8 @@
 use std::fmt::{Display, Formatter};
 
-use miden_node_utils::config::{Endpoint, DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_STORE_PORT};
+use miden_node_utils::config::{DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_STORE_PORT};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 // Main config
 // ================================================================================================
@@ -10,10 +11,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlockProducerConfig {
-    pub endpoint: Endpoint,
+    pub endpoint: Url,
 
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.
-    pub store_url: String,
+    pub store_url: Url,
 
     /// Enable or disable the verification of transaction proofs before they are accepted into the
     /// transaction queue.
@@ -22,12 +23,6 @@ pub struct BlockProducerConfig {
     /// verification may take ~15ms/proof. This is OK when all transactions are forwarded to the
     /// block producer from the RPC component as transaction proofs are also verified there.
     pub verify_tx_proofs: bool,
-}
-
-impl BlockProducerConfig {
-    pub fn endpoint_url(&self) -> String {
-        self.endpoint.to_string()
-    }
 }
 
 impl Display for BlockProducerConfig {
@@ -42,9 +37,30 @@ impl Display for BlockProducerConfig {
 impl Default for BlockProducerConfig {
     fn default() -> Self {
         Self {
-            endpoint: Endpoint::localhost(DEFAULT_BLOCK_PRODUCER_PORT),
-            store_url: Endpoint::localhost(DEFAULT_STORE_PORT).to_string(),
+            endpoint: Url::parse(
+                format!("http://127.0.0.1:{DEFAULT_BLOCK_PRODUCER_PORT}").as_str(),
+            )
+            .unwrap(),
+            store_url: Url::parse(format!("http://127.0.0.1:{DEFAULT_STORE_PORT}").as_str())
+                .unwrap(),
             verify_tx_proofs: true,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::net::TcpListener;
+
+    use super::BlockProducerConfig;
+
+    #[tokio::test]
+    async fn default_block_producer_config() {
+        // Default does not panic
+        let config = BlockProducerConfig::default();
+        // Default can bind
+        let socket_addrs = config.endpoint.socket_addrs(|| None).unwrap();
+        let socket_addr = socket_addrs.into_iter().next().unwrap();
+        let _listener = TcpListener::bind(socket_addr).await.unwrap();
     }
 }

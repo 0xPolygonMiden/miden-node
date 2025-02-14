@@ -1,5 +1,3 @@
-use std::net::ToSocketAddrs;
-
 use api::RpcApi;
 use miden_node_proto::generated::rpc::api_server;
 use miden_node_utils::errors::ApiError;
@@ -33,8 +31,9 @@ impl Rpc {
 
         let addr = config
             .endpoint
-            .to_socket_addrs()
+            .socket_addrs(|| None)
             .map_err(ApiError::EndpointToSocketFailed)?
+            .into_iter()
             .next()
             .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))?;
 

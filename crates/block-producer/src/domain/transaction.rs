@@ -101,6 +101,10 @@ impl AuthenticatedTransaction {
         self.inner.input_notes().num_notes()
     }
 
+    pub fn reference_block(&self) -> (BlockNumber, Digest) {
+        (self.inner.block_num(), self.inner.block_ref())
+    }
+
     /// Notes which were unauthenticate in the transaction __and__ which were
     /// not authenticated by the store inputs.
     pub fn unauthenticated_notes(&self) -> impl Iterator<Item = NoteId> + '_ {
@@ -111,6 +115,11 @@ impl AuthenticatedTransaction {
             .filter(|note_id| !self.notes_authenticated_by_store.contains(note_id))
     }
 
+    pub fn proven_transaction(&self) -> Arc<ProvenTransaction> {
+        Arc::clone(&self.inner)
+    }
+
+    #[cfg(test)]
     pub fn raw_proven_transaction(&self) -> &ProvenTransaction {
         &self.inner
     }
