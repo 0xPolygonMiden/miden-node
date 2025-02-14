@@ -6,7 +6,7 @@ use commands::{init::init_config_files, start::start_node};
 use miden_node_block_producer::server::BlockProducer;
 use miden_node_rpc::server::Rpc;
 use miden_node_store::server::Store;
-use miden_node_utils::{config::load_config, version::LongVersion};
+use miden_node_utils::{config::load_config, logging::OpenTelemetry, version::LongVersion};
 
 mod commands;
 mod config;
@@ -88,9 +88,10 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     // Open telemetry exporting is only valid for running the node.
-    let open_telemetry = match &cli.command {
-        Command::Start { open_telemetry, .. } => *open_telemetry,
-        _ => false,
+    let open_telemetry = if let Command::Start { open_telemetry: true, .. } = &cli.command {
+        OpenTelemetry::Enabled
+    } else {
+        OpenTelemetry::Disabled
     };
     miden_node_utils::logging::setup_tracing(open_telemetry)?;
 
