@@ -88,9 +88,10 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     // Open telemetry exporting is only valid for running the node.
-    let open_telemetry = match &cli.command {
-        Command::Start { open_telemetry, .. } if *open_telemetry => OpenTelemetry::Enabled,
-        _ => OpenTelemetry::Disabled,
+    let open_telemetry = if let Command::Start { open_telemetry: true, .. } = &cli.command {
+        OpenTelemetry::Enabled
+    } else {
+        OpenTelemetry::Disabled
     };
     miden_node_utils::logging::setup_tracing(open_telemetry)?;
 
