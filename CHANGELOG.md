@@ -5,6 +5,7 @@
 ### Fixes
 
 - Faucet webpage is missing `background.png` and `favicon.ico` (#672).
+- Add wrapper for `Mmr` (#668).
 
 ### Enhancements
 
