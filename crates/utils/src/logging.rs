@@ -11,6 +11,7 @@ use tracing_subscriber::{
     Layer, Registry,
 };
 
+/// Configures [`setup_tracing`] to enable or disable the open-telemetry exporter.
 #[derive(Clone, Copy)]
 pub enum OpenTelemetry {
     Enabled,
@@ -23,7 +24,10 @@ impl OpenTelemetry {
     }
 }
 
-/// Configures tracing and optionally enables an open-telemetry OTLP exporter.
+/// Initializes tracing to stdout and optionally an open-telemetry exporter.
+///
+/// Trace filtering defaults to `INFO` and can be configured using the conventional `RUST_LOG`
+/// environment variable.
 ///
 /// The open-telemetry configuration is controlled via environment variables as defined in the
 /// [specification](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#opentelemetry-protocol-exporter)
