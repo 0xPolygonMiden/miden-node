@@ -74,5 +74,5 @@ service Api {
     // For preserving some degree of privacy, note tags and nullifiers filters contain only high
     // part of hashes. Thus, returned data contains excessive notes and nullifiers, client can make
     // additional filtering of that data on its side.
-    rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
+    rpc SyncState(requests.SyncStateRequest) returns (stream responses.SyncStateResponse) {}
 }
