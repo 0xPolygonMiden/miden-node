@@ -164,9 +164,9 @@ impl api_server::Api for StoreApi {
 
         let state = self.state.clone();
         let mut last_block_num = request.block_num;
+        let chain_tip = state.latest_block_num().await.as_u32();
         tokio::spawn(async move {
             loop {
-                let chain_tip = state.latest_block_num().await.as_u32();
                 if last_block_num == chain_tip {
                     // The state is up to date, no need to sync
                     break;
