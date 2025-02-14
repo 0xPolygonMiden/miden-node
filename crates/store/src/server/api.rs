@@ -167,6 +167,11 @@ impl api_server::Api for StoreApi {
         tokio::spawn(async move {
             loop {
                 let chain_tip = state.latest_block_num().await.as_u32();
+                if last_block_num == chain_tip {
+                    // The state is up to date, no need to sync
+                    break;
+                }
+
                 let result = async {
                     let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
 
@@ -224,14 +229,14 @@ impl api_server::Api for StoreApi {
                 }
                 .await;
 
-                last_block_num = result.as_ref().ok().map_or(last_block_num, |r| {
-                    r.block_header.as_ref().map_or(last_block_num, |header| header.block_num)
-                });
+                if let Ok(response) = &result {
+                    last_block_num = response.block_header.unwrap().block_num;
+                }
+                let is_error = result.is_err();
 
                 tx.send(result).await.map_err(internal_error).unwrap();
 
-                // If the last response is up to date, stop the sync
-                if last_block_num == chain_tip {
+                if is_error {
                     break;
                 }
             }
