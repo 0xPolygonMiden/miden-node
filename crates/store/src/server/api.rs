@@ -217,7 +217,6 @@ impl api_server::Api for StoreApi {
                         .collect();
 
                     let response = SyncStateResponse {
-                        chain_tip,
                         block_header: Some(state.block_header.into()),
                         mmr_delta: Some(delta.into()),
                         accounts,
