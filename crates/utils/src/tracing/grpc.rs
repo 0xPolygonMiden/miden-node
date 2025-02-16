@@ -6,7 +6,7 @@ use tracing_opentelemetry::OpenTelemetrySpanExt;
 /// Creates an `info` span following the open-telemetry standard: `block-producer.rpc/{method}`.
 /// Additionally also pulls in remote tracing context which allows the server trace to be connected
 /// to the client's origin trace.
-pub fn block_producer_trace_fn(request: &http::Request<()>) -> tracing::Span {
+pub fn block_producer_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
     let span = if let Some("SubmitProvenTransaction") = request.uri().path().rsplit('/').next() {
         tracing::info_span!("block-producer.rpc/SubmitProvenTransaction")
     } else {
@@ -22,7 +22,7 @@ pub fn block_producer_trace_fn(request: &http::Request<()>) -> tracing::Span {
 /// Creates an `info` span following the open-telemetry standard: `store.rpc/{method}`. Additionally
 /// also pulls in remote tracing context which allows the server trace to be connected to the
 /// client's origin trace.
-pub fn store_trace_fn(request: &http::Request<()>) -> tracing::Span {
+pub fn store_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
     let span = match request.uri().path().rsplit('/').next() {
         Some("ApplyBlock") => tracing::info_span!("store.rpc/ApplyBlock"),
         Some("CheckNullifiers") => tracing::info_span!("store.rpc/CheckNullifiers"),
@@ -47,7 +47,7 @@ pub fn store_trace_fn(request: &http::Request<()>) -> tracing::Span {
 /// Adds remote tracing context to the span.
 ///
 /// Could be expanded in the future by adding in more open-telemetry properties.
-fn add_otel_span_attributes(span: tracing::Span, request: &http::Request<()>) -> tracing::Span {
+fn add_otel_span_attributes<T>(span: tracing::Span, request: &http::Request<T>) -> tracing::Span {
     // Pull the open-telemetry parent context using the HTTP extractor. We could make a more
     // generic gRPC extractor by utilising the gRPC metadata. However that
     //     (a) requires cloning headers,

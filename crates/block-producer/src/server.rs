@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -15,6 +15,7 @@ use miden_objects::{
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
+use tower_http::{classify::GrpcFailureClass, trace::TraceLayer};
 use tracing::{debug, info, instrument};
 
 use crate::{
@@ -211,8 +212,17 @@ impl BlockProducerRpcServer {
     }
 
     async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
+        let trace_layer = TraceLayer::new_for_grpc()
+            .make_span_with(miden_node_utils::tracing::grpc::block_producer_trace_fn)
+            .on_request(|_request: &http::Request<_>, _span: &tracing::Span| todo!())
+            .on_response(
+                |_response: &http::Response<_>, _latency: Duration, _span: &tracing::Span| todo!(),
+            )
+            .on_failure(
+                |_error: GrpcFailureClass, _latency: Duration, _span: &tracing::Span| todo!(),
+            );
         tonic::transport::Server::builder()
-            .trace_fn(miden_node_utils::tracing::grpc::block_producer_trace_fn)
+            .layer(trace_layer)
             .add_service(api_server::ApiServer::new(self))
             .serve_with_incoming(TcpListenerStream::new(listener))
             .await
