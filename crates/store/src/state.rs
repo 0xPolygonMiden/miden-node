@@ -96,12 +96,17 @@ pub struct TransactionInputs {
     pub found_unauthenticated_notes: BTreeSet<NoteId>,
 }
 
-/// Blockchain wrapper for `Mmr`
+/// Blockchain wrapper for `Mmr` .c
 #[derive(Debug, Clone)]
 pub struct Blockchain(Mmr);
 
 impl Blockchain {
-    /// Returns the latest block number
+    /// Returns a new Blockchain.
+    pub fn new(chain_mmr: Mmr) -> Self {
+        Self(chain_mmr)
+    }
+
+    /// Returns the latest block number.
     pub fn chain_tip(&self) -> BlockNumber {
         let block_number: u32 = (self.0.forest() - 1)
             .try_into()
@@ -110,7 +115,7 @@ impl Blockchain {
         block_number.into()
     }
 
-    /// Returns the chain length
+    /// Returns the chain length.
     pub fn chain_length(&self) -> BlockNumber {
         let latest = self.chain_tip();
         latest + 1
@@ -129,28 +134,24 @@ impl Blockchain {
         self.0.peaks_at(forest)
     }
 
-    /// Adds a new element to the MMR.
-    pub fn add(&mut self, el: RpoDigest) {
-        self.0.add(el);
+    /// Adds a block commitment to the MMR. The caller must ensure that this commitent is the one
+    /// for the next block in the chain.
+    pub fn add(&mut self, block_commitment: RpoDigest) {
+        self.0.add(block_commitment);
     }
 
-    /// Returns an [`MmrProof`] for the leaf at the specified position
+    /// Returns an [`MmrProof`] for the leaf at the specified position.
     pub fn open(&self, pos: usize) -> Result<MmrProof, MmrError> {
         self.0.open_at(pos, self.0.forest())
     }
 
-    /// Returns the latest block number and partial mmr
-    pub fn chain_mmr(
+    /// Returns the latest block number and partial mmr.
+    pub fn latest_block_number(
         &self,
         blocks: &BTreeSet<BlockNumber>,
         highest_block_number: &BlockNumber,
     ) -> Result<(BlockNumber, PartialMmr), GetBatchInputsError> {
         // Grab the block merkle paths from the inner state.
-        //
-        // NOTE: Scoped block to automatically drop the mutex guard asap.
-        //
-        // We also avoid accessing the db in the block as this would delay
-        // dropping the guard.
         let (batch_reference_block, partial_mmr) = {
             let latest_block_num = highest_block_number;
 
@@ -196,7 +197,7 @@ struct InnerState {
 impl InnerState {
     /// Returns the latest block number.
     fn latest_block_num(&self) -> BlockNumber {
-        let block_number: u32 = (self.blockchain.0.forest() - 1)
+        let block_number: u32 = (self.blockchain.chain_tip().as_usize() - 1)
             .try_into()
             .expect("chain_mmr always has, at least, the genesis block");
 
@@ -236,7 +237,7 @@ impl State {
 
         let inner = RwLock::new(InnerState {
             nullifier_tree,
-            blockchain: Blockchain(chain_mmr),
+            blockchain: Blockchain::new(chain_mmr),
             account_tree,
         });
 
@@ -339,7 +340,7 @@ impl State {
             // compute updates for the in-memory data structures
 
             // new_block.chain_root must be equal to the chain MMR root prior to the update
-            let peaks = inner.blockchain.0.peaks();
+            let peaks = inner.blockchain.peaks();
             if peaks.hash_peaks() != header.chain_root() {
                 return Err(InvalidBlockError::NewBlockInvalidChainRoot.into());
             }
@@ -468,7 +469,7 @@ impl State {
                 .account_tree
                 .apply_mutations(account_tree_update)
                 .expect("Unreachable: old account tree root must be checked before this step");
-            inner.blockchain.0.add(block_hash);
+            inner.blockchain.add(block_hash);
         }
 
         info!(%block_hash, block_num = block_num.as_u32(), COMPONENT, "apply_block successful");
@@ -490,7 +491,7 @@ impl State {
         if let Some(header) = block_header {
             let mmr_proof = if include_mmr_proof {
                 let inner = self.inner.read().await;
-                let mmr_proof = inner.blockchain.0.open(header.block_num().as_usize())?;
+                let mmr_proof = inner.blockchain.open(header.block_num().as_usize())?;
                 Some(mmr_proof)
             } else {
                 None
@@ -554,12 +555,12 @@ impl State {
         // dropping the guard.
         let (chain_length, merkle_paths) = {
             let state = self.inner.read().await;
-            let chain_length = state.blockchain.0.forest();
+            let chain_length = state.blockchain.chain_tip().as_usize();
 
             let paths = blocks
                 .iter()
                 .map(|&block_num| {
-                    let proof = state.blockchain.0.open(block_num.as_usize())?.merkle_path;
+                    let proof = state.blockchain.open(block_num.as_usize())?.merkle_path;
 
                     Ok::<_, MmrError>((block_num, proof))
                 })
@@ -650,8 +651,29 @@ impl State {
         // there is no need to prove its inclusion.
         blocks.remove(&latest_block_num);
 
-        let (batch_reference_block, partial_mmr) =
-            self.inner.blocking_read().blockchain.chain_mmr(&blocks, &highest_block_num)?;
+        // Scoped block to automatically drop the read lock guard as soon as we're done.
+        // We also avoid accessing the db in the block as this would delay dropping the guard.
+        let (batch_reference_block, partial_mmr) = {
+            let inner_state = self.inner.blocking_read();
+
+            let latest_block_num = inner_state.blockchain.chain_tip();
+
+            let highest_block_num =
+                *blocks.last().expect("we should have checked for empty block references");
+            if highest_block_num > latest_block_num {
+                return Err(GetBatchInputsError::TransactionBlockReferenceNewerThanLatestBlock {
+                    highest_block_num,
+                    latest_block_num,
+                });
+            }
+
+            // Remove the latest block from the to-be-tracked blocks as it will be the reference
+            // block for the batch itself and thus added to the MMR within the batch kernel, so
+            // there is no need to prove its inclusion.
+            blocks.remove(&latest_block_num);
+
+            inner_state.blockchain.latest_block_number(&blocks, &latest_block_num)?
+        };
 
         // Fetch the reference block of the batch as part of this query, so we can avoid looking it
         // up in a separate DB access.
@@ -668,7 +690,7 @@ impl State {
             .find_map(|(index, header)| {
                 (header.block_num() == batch_reference_block).then_some(index)
             })
-            .expect("DB should have returned the header of the batch reference block");
+            .ok_or(GetBatchInputsError::BatchRefernceBlockError)?;
 
         // The order doesn't matter for ChainMmr::new, so swap remove is fine.
         let batch_reference_block_header = headers.swap_remove(header_index);
@@ -767,7 +789,7 @@ impl State {
 
         let note_sync = self.db.get_note_sync(block_num, note_tags).await?;
 
-        let mmr_proof = inner.blockchain.0.open(note_sync.block_header.block_num().as_usize())?;
+        let mmr_proof = inner.blockchain.open(note_sync.block_header.block_num().as_usize())?;
 
         Ok((note_sync, mmr_proof))
     }
@@ -788,9 +810,9 @@ impl State {
             .ok_or(GetBlockInputsError::DbBlockHeaderEmpty)?;
 
         // sanity check
-        if inner.blockchain.0.forest() != latest.block_num().as_usize() + 1 {
+        if inner.blockchain.chain_tip().as_usize() != latest.block_num().as_usize() + 1 {
             return Err(GetBlockInputsError::IncorrectChainMmrForestNumber {
-                forest: inner.blockchain.0.forest(),
+                forest: inner.blockchain.chain_tip().as_usize(),
                 block_num: latest.block_num(),
             });
         }
@@ -798,7 +820,7 @@ impl State {
         // using current block number gets us the peaks of the chain MMR as of one block ago;
         // this is done so that latest.chain_root matches the returned peaks
         let chain_peaks =
-            inner.blockchain.0.peaks_at(latest.block_num().as_usize()).map_err(|error| {
+            inner.blockchain.peaks_at(latest.block_num().as_usize()).map_err(|error| {
                 GetBlockInputsError::FailedToGetMmrPeaksForForest {
                     forest: latest.block_num().as_usize(),
                     error,

@@ -283,6 +283,8 @@ pub enum GetNoteAuthenticationInfoError {
 
 #[derive(Error, Debug)]
 pub enum GetBatchInputsError {
+    #[error("batch refernce block not found")]
+    BatchRefernceBlockError,
     #[error("failed to select note inclusion proofs")]
     SelectNoteInclusionProofError(#[source] DatabaseError),
     #[error("failed to select block headers")]
