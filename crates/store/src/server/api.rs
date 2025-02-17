@@ -229,11 +229,12 @@ impl api_server::Api for StoreApi {
                 .await;
 
                 if let Ok(response) = &result {
+                    // SAFETY: SyncStateResponse always has a block header
                     last_block_num = response.block_header.unwrap().block_num;
                 }
                 let is_error = result.is_err();
 
-                tx.send(result).await.map_err(internal_error).unwrap();
+                tx.send(result).await.expect("error sending sync state response to the client");
 
                 if is_error {
                     break;
