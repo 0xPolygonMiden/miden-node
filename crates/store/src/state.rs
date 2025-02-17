@@ -96,7 +96,7 @@ pub struct TransactionInputs {
     pub found_unauthenticated_notes: BTreeSet<NoteId>,
 }
 
-/// Blockchain wrapper for `Mmr` .c
+/// A [Merkle Mountain Range](Mmr) defining a chain of blocks.
 #[derive(Debug, Clone)]
 pub struct Blockchain(Mmr);
 
@@ -106,7 +106,7 @@ impl Blockchain {
         Self(chain_mmr)
     }
 
-    /// Returns the latest block number.
+    /// Returns the tip of the chain, i.e. the number of the latest block in the chain.
     pub fn chain_tip(&self) -> BlockNumber {
         let block_number: u32 = (self.0.forest() - 1)
             .try_into()
@@ -117,18 +117,18 @@ impl Blockchain {
 
     /// Returns the chain length.
     pub fn chain_length(&self) -> BlockNumber {
-        let latest = self.chain_tip();
-        latest + 1
+        self.chain_tip().child()
     }
 
     /// Returns the current peaks of the MMR.
     pub fn peaks(&self) -> MmrPeaks {
-        self.0.peaks_at(self.0.forest()).expect("failed to get peaks at current forest")
+        self.0.peaks()
     }
 
     /// Returns the peaks of the MMR at the state specified by `forest`.
     ///
     /// # Errors
+    ///
     /// Returns an error if the specified `forest` value is not valid for this MMR.
     pub fn peaks_at(&self, forest: usize) -> Result<MmrPeaks, MmrError> {
         self.0.peaks_at(forest)
@@ -136,7 +136,7 @@ impl Blockchain {
 
     /// Adds a block commitment to the MMR. The caller must ensure that this commitent is the one
     /// for the next block in the chain.
-    pub fn add(&mut self, block_commitment: RpoDigest) {
+    pub fn push(&mut self, block_commitment: RpoDigest) {
         self.0.add(block_commitment);
     }
 
@@ -145,48 +145,48 @@ impl Blockchain {
         self.0.open_at(pos, self.0.forest())
     }
 
+    /// Returns a reference to the underlying [`Mmr`].
+    pub fn as_mmr(&self) -> &Mmr {
+        &self.0
+    }
+
     /// Returns the latest block number and partial mmr.
-    pub fn latest_block_number(
+    pub fn partial_mmr_from_blocks(
         &self,
         blocks: &BTreeSet<BlockNumber>,
-        highest_block_number: &BlockNumber,
-    ) -> Result<(BlockNumber, PartialMmr), GetBatchInputsError> {
+        latest_block_number: BlockNumber,
+    ) -> Result<PartialMmr, GetBatchInputsError> {
+        // Using latest block as the target forest means we take the state of the MMR one before
+        // the latest block. This is because the latest block will be used as the reference
+        // block of the batch and will be added to the MMR by the batch kernel.
+        let target_forest = latest_block_number.as_usize();
+        let peaks = self
+            .peaks_at(target_forest)
+            .expect("target_forest should be smaller than forest of the chain mmr");
         // Grab the block merkle paths from the inner state.
-        let (batch_reference_block, partial_mmr) = {
-            let latest_block_num = highest_block_number;
+        let mut partial_mmr = PartialMmr::from_peaks(peaks);
 
-            // Using latest block as the target forest means we take the state of the MMR one before
-            // the latest block. This is because the latest block will be used as the reference
-            // block of the batch and will be added to the MMR by the batch kernel.
-            let target_forest = latest_block_num.as_usize();
-            let peaks = self
-                .peaks_at(target_forest)
-                .expect("target_forest should be smaller than forest of the chain mmr");
-            let mut partial_mmr = PartialMmr::from_peaks(peaks);
-
-            for block_num in blocks.iter().map(BlockNumber::as_usize) {
-                // SAFETY: We have ensured block nums are less than chain length.
-                let leaf = self
-                    .0
-                    .get(block_num)
-                    .expect("block num less than chain length should exist in chain mmr");
-                let path = self
-                    .0
-                    .open_at(block_num, target_forest)
-                    .expect("block num and target forest should be valid for this mmr")
-                    .merkle_path;
-                // SAFETY: We should be able to fill the partial MMR with data from the chain MMR
-                // without errors, otherwise it indicates the chain mmr is invalid.
-                partial_mmr
-                    .track(block_num, leaf, &path)
-                    .expect("filling partial mmr with data from mmr should succeed");
-            }
-
-            (latest_block_num, partial_mmr)
-        };
-        Ok((*batch_reference_block, partial_mmr))
+        for block_num in blocks.iter().map(BlockNumber::as_usize) {
+            // SAFETY: We have ensured block nums are less than chain length.
+            let leaf = self
+                .0
+                .get(block_num)
+                .expect("block num less than chain length should exist in chain mmr");
+            let path = self
+                .0
+                .open_at(block_num, target_forest)
+                .expect("block num and target forest should be valid for this mmr")
+                .merkle_path;
+            // SAFETY: We should be able to fill the partial MMR with data from the chain MMR
+            // without errors, otherwise it indicates the chain mmr is invalid.
+            partial_mmr
+                .track(block_num, leaf, &path)
+                .expect("filling partial mmr with data from mmr should succeed");
+        }
+        Ok(partial_mmr)
     }
 }
+
 /// Container for state that needs to be updated atomically.
 struct InnerState {
     nullifier_tree: NullifierTree,
@@ -469,7 +469,7 @@ impl State {
                 .account_tree
                 .apply_mutations(account_tree_update)
                 .expect("Unreachable: old account tree root must be checked before this step");
-            inner.blockchain.add(block_hash);
+            inner.blockchain.push(block_hash);
         }
 
         info!(%block_hash, block_num = block_num.as_u32(), COMPONENT, "apply_block successful");
@@ -555,7 +555,7 @@ impl State {
         // dropping the guard.
         let (chain_length, merkle_paths) = {
             let state = self.inner.read().await;
-            let chain_length = state.blockchain.chain_tip().as_usize();
+            let chain_length = state.blockchain.chain_length().as_usize();
 
             let paths = blocks
                 .iter()
@@ -635,22 +635,6 @@ impl State {
         let mut blocks = tx_reference_blocks;
         blocks.extend(note_blocks);
 
-        let latest_block_num = self.inner.blocking_read().blockchain.chain_tip();
-
-        let highest_block_num =
-            *blocks.last().expect("we should have checked for empty block references");
-        if highest_block_num > latest_block_num {
-            return Err(GetBatchInputsError::TransactionBlockReferenceNewerThanLatestBlock {
-                highest_block_num,
-                latest_block_num,
-            });
-        }
-
-        // Remove the latest block from the to-be-tracked blocks as it will be the reference
-        // block for the batch itself and thus added to the MMR within the batch kernel, so
-        // there is no need to prove its inclusion.
-        blocks.remove(&latest_block_num);
-
         // Scoped block to automatically drop the read lock guard as soon as we're done.
         // We also avoid accessing the db in the block as this would delay dropping the guard.
         let (batch_reference_block, partial_mmr) = {
@@ -672,7 +656,10 @@ impl State {
             // there is no need to prove its inclusion.
             blocks.remove(&latest_block_num);
 
-            inner_state.blockchain.latest_block_number(&blocks, &latest_block_num)?
+            (
+                latest_block_num,
+                inner_state.blockchain.partial_mmr_from_blocks(&blocks, latest_block_num)?,
+            )
         };
 
         // Fetch the reference block of the batch as part of this query, so we can avoid looking it
@@ -681,7 +668,7 @@ impl State {
             .db
             .select_block_headers(blocks.into_iter().chain(std::iter::once(batch_reference_block)))
             .await
-            .expect("partial mmr and block headers should be consistent");
+            .map_err(GetBatchInputsError::SelectBlockHeaderError)?;
 
         // Find and remove the batch reference block as we don't want to add it to the chain MMR.
         let header_index = headers
@@ -690,7 +677,7 @@ impl State {
             .find_map(|(index, header)| {
                 (header.block_num() == batch_reference_block).then_some(index)
             })
-            .ok_or(GetBatchInputsError::BatchRefernceBlockError)?;
+            .expect("DB should have returned the header of the batch reference block");
 
         // The order doesn't matter for ChainMmr::new, so swap remove is fine.
         let batch_reference_block_header = headers.swap_remove(header_index);
@@ -760,7 +747,7 @@ impl State {
             let to_forest = state_sync.block_header.block_num().as_usize();
             inner
                 .blockchain
-                .0
+                .as_mmr()
                 .get_delta(from_forest, to_forest)
                 .map_err(StateSyncError::FailedToBuildMmrDelta)?
         };
@@ -810,7 +797,7 @@ impl State {
             .ok_or(GetBlockInputsError::DbBlockHeaderEmpty)?;
 
         // sanity check
-        if inner.blockchain.chain_tip().as_usize() != latest.block_num().as_usize() + 1 {
+        if inner.blockchain.chain_tip() != latest.block_num() {
             return Err(GetBlockInputsError::IncorrectChainMmrForestNumber {
                 forest: inner.blockchain.chain_tip().as_usize(),
                 block_num: latest.block_num(),
