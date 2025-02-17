@@ -147,6 +147,18 @@ An example service file is provided [here](packaging/miden-node.service). If you
 
 ### Running the node
 
+To run the node, a few steps are required. First, it is necessary to start the batch prover service:
+
+```sh
+cargo install miden-proving-service
+```
+
+And then initialize the proving service:
+
+```sh
+miden-proving-service start-worker --port 8082 --batch-prover
+```
+
 Using the node configuration file created in the previous step, start the node:
 
 ```sh
