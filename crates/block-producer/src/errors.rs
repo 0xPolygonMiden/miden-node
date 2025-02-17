@@ -9,7 +9,7 @@ use miden_objects::{
     AccountDeltaError, BlockError, Digest, ProposedBatchError,
 };
 use miden_processor::ExecutionError;
-use miden_tx_batch_prover::errors::BatchProveError;
+use miden_proving_service_client::RemoteProverError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -142,8 +142,8 @@ pub enum BuildBatchError {
     #[error("failed to build proposed transaction batch")]
     ProposeBatchError(#[source] ProposedBatchError),
 
-    #[error("failed to prove proposed transaction batch")]
-    ProveBatchError(#[source] BatchProveError),
+    #[error("remote batch prover error")]
+    RemoteProverError(#[from] RemoteProverError),
 }
 
 // Block prover errors

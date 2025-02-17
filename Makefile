@@ -9,16 +9,21 @@ help:
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 BUILD_PROTO=BUILD_PROTO=1
 
+PROVER_DIR="miden-base"
+PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
+PROVER_BRANCH="next"
+PROVER_PORT=8082
+
 # -- linting --------------------------------------------------------------------------------------
 
 .PHONY: clippy
 clippy: ## Runs Clippy with configs
-	cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+	cargo clippy --locked --workspace --all-targets --all-features --exclude miden-faucet -- -D warnings
 
 
 .PHONY: fix
 fix: ## Runs Fix with configs
-	cargo fix --allow-staged --allow-dirty --all-targets --all-features
+	cargo fix --allow-staged --allow-dirty --workspace --all-features --exclude miden-faucet
 
 
 .PHONY: format
@@ -110,3 +115,32 @@ docker-run-node: ## Runs the Miden node as a Docker container
                -v miden-db:/db \
                -v "$${ABSOLUTE_PATH}:/miden-node.toml" \
                -d miden-node-image
+
+# --- remote prover -------------------------------------------------------------------------------
+
+.PHONY: clean-prover
+clean-prover: ## Uninstall prover
+	cargo uninstall miden-proving-service || echo 'prover not installed'
+
+.PHONY: prover
+prover: setup-miden-base update-prover-branch build-prover ## Setup prover directory
+
+.PHONY: setup-miden-base
+setup-miden-base: ## Clone the miden-base repository if it doesn't exist
+	if [ ! -d $(PROVER_DIR) ]; then git clone $(PROVER_REPO) $(PROVER_DIR); fi
+
+.PHONY: update-prover-branch
+update-prover-branch: setup-miden-base ## Checkout and update the specified branch in miden-base
+	cd $(PROVER_DIR) && git checkout $(PROVER_BRANCH) && git pull origin $(PROVER_BRANCH)
+
+.PHONY: build-prover
+build-prover: update-prover-branch ## Update dependencies and build the prover binary with specified features
+	cd $(PROVER_DIR) && cargo update && cargo build --bin miden-proving-service --locked $(PROVER_FEATURES_TESTING) --release
+
+.PHONY: start-prover
+start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
+	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT) --batch-prover
+
+.PHONY: kill-prover
+kill-prover: ## Kill prover process
+	pkill miden-tx-prover || echo 'process not running'

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -12,6 +12,7 @@ use miden_node_utils::{
 use miden_objects::{
     block::BlockNumber, transaction::ProvenTransaction, utils::serde::Deserializable,
 };
+use miden_proving_service_client::proving_service::batch_prover::RemoteBatchProver;
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
@@ -44,6 +45,7 @@ pub struct BlockProducer {
     rpc_listener: TcpListener,
     store: StoreClient,
     chain_tip: BlockNumber,
+    remote_batch_prover: Arc<Mutex<RemoteBatchProver>>,
 }
 
 impl BlockProducer {
@@ -80,6 +82,9 @@ impl BlockProducer {
 
         info!(target: COMPONENT, "Server initialized");
 
+        let remote_batch_prover =
+            Arc::new(Mutex::new(RemoteBatchProver::new(config.remote_batch_prover)));
+
         Ok(Self {
             batch_builder: BatchBuilder::default(),
             block_builder: BlockBuilder::new(store.clone()),
@@ -90,6 +95,7 @@ impl BlockProducer {
             store,
             rpc_listener,
             chain_tip,
+            remote_batch_prover,
         })
     }
 
@@ -104,6 +110,7 @@ impl BlockProducer {
             store,
             chain_tip,
             expiration_slack,
+            remote_batch_prover,
         } = self;
 
         let mempool = Mempool::shared(
@@ -127,7 +134,7 @@ impl BlockProducer {
                 let mempool = mempool.clone();
                 let store = store.clone();
                 async {
-                    batch_builder.run(mempool, store).await;
+                    batch_builder.run(mempool, store, remote_batch_prover).await;
                     Ok(())
                 }
             })

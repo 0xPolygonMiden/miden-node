@@ -1,14 +1,11 @@
-use std::{num::NonZeroUsize, ops::Range, time::Duration};
+use std::{num::NonZeroUsize, ops::Range, sync::Arc, time::Duration};
 
 use miden_node_proto::domain::batch::BatchInputs;
 use miden_node_utils::formatting::format_array;
-use miden_objects::{
-    batch::{BatchId, ProposedBatch, ProvenBatch},
-    MIN_PROOF_SECURITY_LEVEL,
-};
-use miden_tx_batch_prover::LocalBatchProver;
+use miden_objects::batch::{BatchId, ProposedBatch, ProvenBatch};
+use miden_proving_service_client::proving_service::batch_prover::RemoteBatchProver;
 use rand::Rng;
-use tokio::{task::JoinSet, time};
+use tokio::{sync::Mutex, task::JoinSet, time};
 use tracing::{debug, info, instrument, Span};
 
 use crate::{
@@ -54,7 +51,12 @@ impl BatchBuilder {
     /// A pool of batch-proving workers is spawned, which are fed new batch jobs periodically.
     /// A batch is skipped if there are no available workers, or if there are no transactions
     /// available to batch.
-    pub async fn run(self, mempool: SharedMempool, store: StoreClient) {
+    pub async fn run(
+        self,
+        mempool: SharedMempool,
+        store: StoreClient,
+        remote_batch_prover: Arc<Mutex<RemoteBatchProver>>,
+    ) {
         assert!(
             self.failure_rate < 1.0 && self.failure_rate.is_sign_positive(),
             "Failure rate must be a percentage"
@@ -63,8 +65,13 @@ impl BatchBuilder {
         let mut interval = tokio::time::interval(self.batch_interval);
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
-        let mut worker_pool =
-            WorkerPool::new(self.workers, self.simulated_proof_time, self.failure_rate, store);
+        let mut worker_pool = WorkerPool::new(
+            self.workers,
+            self.simulated_proof_time,
+            self.failure_rate,
+            store,
+            remote_batch_prover,
+        );
 
         loop {
             tokio::select! {
@@ -123,6 +130,7 @@ struct WorkerPool {
     /// impact beyond ergonomics.
     task_map: Vec<(tokio::task::Id, BatchId)>,
     store: StoreClient,
+    remote_batch_prover: Arc<Mutex<RemoteBatchProver>>,
 }
 
 impl WorkerPool {
@@ -131,6 +139,7 @@ impl WorkerPool {
         simulated_proof_time: Range<Duration>,
         failure_rate: f32,
         store: StoreClient,
+        remote_batch_prover: Arc<Mutex<RemoteBatchProver>>,
     ) -> Self {
         Self {
             simulated_proof_time,
@@ -139,6 +148,7 @@ impl WorkerPool {
             store,
             in_progress: JoinSet::default(),
             task_map: Vec::default(),
+            remote_batch_prover,
         }
     }
 
@@ -215,6 +225,8 @@ impl WorkerPool {
                 let failed = rand::thread_rng().gen::<f32>() < self.failure_rate;
                 let store = self.store.clone();
 
+                let remote_batch_prover = self.remote_batch_prover.clone();
+
                 async move {
                     tracing::debug!("Begin proving batch.");
 
@@ -229,8 +241,9 @@ impl WorkerPool {
                         .await
                         .map_err(|err| (id, BuildBatchError::FetchBatchInputsFailed(err)))?;
 
-                    let batch =
-                        Self::build_batch(transactions, batch_inputs).map_err(|err| (id, err))?;
+                    let batch = Self::build_batch(transactions, batch_inputs, remote_batch_prover)
+                        .await
+                        .map_err(|err| (id, err))?;
 
                     tokio::time::sleep(simulated_proof_time).await;
                     if failed {
@@ -251,9 +264,10 @@ impl WorkerPool {
     }
 
     #[instrument(target = COMPONENT, skip_all, err, fields(batch_id))]
-    fn build_batch(
+    async fn build_batch(
         txs: Vec<AuthenticatedTransaction>,
         batch_inputs: BatchInputs,
+        remote_batch_prover: Arc<Mutex<RemoteBatchProver>>,
     ) -> Result<ProvenBatch, BuildBatchError> {
         let num_txs = txs.len();
 
@@ -275,9 +289,12 @@ impl WorkerPool {
         Span::current().record("batch_id", proposed_batch.id().to_string());
         info!(target: COMPONENT, "Proposed Batch built");
 
-        let proven_batch = LocalBatchProver::new(MIN_PROOF_SECURITY_LEVEL)
+        let proven_batch = remote_batch_prover
+            .lock()
+            .await
             .prove(proposed_batch)
-            .map_err(BuildBatchError::ProveBatchError)?;
+            .await
+            .map_err(BuildBatchError::RemoteProverError)?;
 
         Span::current().record("batch_id", proven_batch.id().to_string());
         info!(target: COMPONENT, "Proven Batch built");
