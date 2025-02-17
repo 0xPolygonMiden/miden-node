@@ -1,5 +1,3 @@
-# Node operation
-
 The bulk of the information is still present in the [main readme](/README.md), which will be migrated here eventually.
 
 <!--toc:start-->
