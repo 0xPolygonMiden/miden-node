@@ -183,6 +183,10 @@ or alternatively start the systemd service if that's how you wish to operate:
 systemctl start miden-node.service
 ```
 
+### Monitoring and telemetry
+
+Please see our operator documentation [here](docs/operator.md).
+
 ## Updating
 
 We currently make no guarantees about backwards compatibility. Updating the node software therefore consists of wiping
