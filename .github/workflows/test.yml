@@ -26,7 +26,7 @@ jobs:
         with:
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
       - run: make prover
-      - run: make start-prover
+      - run: make start-prover > /dev/null &
       - uses: taiki-e/install-action@nextest 
       - name: Run tests
         run: make test
