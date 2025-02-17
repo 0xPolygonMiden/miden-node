@@ -185,6 +185,14 @@ or alternatively start the systemd service if that's how you wish to operate:
 systemctl start miden-node.service
 ```
 
+The `miden-node.toml` can be modified adding a batch prover URL, to delegate the batch proving:
+
+```toml
+batch_prover_url = "<BATCH_PROVER_URL>"
+```
+
+If this variable is not set, the node will use a local batch prover.
+
 ### Monitoring and telemetry
 
 Please see our operator documentation [here](docs/operator.md).

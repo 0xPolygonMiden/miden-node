@@ -23,14 +23,22 @@ pub struct BlockProducerConfig {
     /// verification may take ~15ms/proof. This is OK when all transactions are forwarded to the
     /// block producer from the RPC component as transaction proofs are also verified there.
     pub verify_tx_proofs: bool,
+
+    /// URL of the remote batch prover.
+    pub batch_prover_url: Option<Url>,
 }
 
 impl Display for BlockProducerConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{{ endpoint: \"{}\", store_url: \"{}\" }}",
-            self.endpoint, self.store_url
-        ))
+        write!(f, "{{ endpoint: \"{}\"", self.endpoint)?;
+        write!(f, ", store_url: \"{}\"", self.store_url)?;
+
+        let batch_prover_url = self
+            .batch_prover_url
+            .as_ref()
+            .map_or_else(|| "None".to_string(), ToString::to_string);
+
+        write!(f, ", batch_prover_url: \"{batch_prover_url}\" }}")
     }
 }
 
@@ -44,6 +52,7 @@ impl Default for BlockProducerConfig {
             store_url: Url::parse(format!("http://127.0.0.1:{DEFAULT_STORE_PORT}").as_str())
                 .unwrap(),
             verify_tx_proofs: true,
+            batch_prover_url: None,
         }
     }
 }

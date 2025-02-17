@@ -1706,7 +1706,7 @@ dependencies = [
 [[package]]
 name = "miden-block-prover"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0aa58b4ad81d7970edcfd32a08eb90234294ecbf"
 dependencies = [
  "miden-crypto",
  "miden-lib",
@@ -1795,7 +1795,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0aa58b4ad81d7970edcfd32a08eb90234294ecbf"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1829,7 +1829,7 @@ dependencies = [
  "supports-hyperlinks",
  "supports-unicode",
  "syn",
- "terminal_size",
+ "terminal_size 0.3.0",
  "textwrap",
  "thiserror 2.0.11",
  "trybuild",
@@ -1885,6 +1885,7 @@ dependencies = [
  "miden-node-utils",
  "miden-objects",
  "miden-processor",
+ "miden-proving-service-client",
  "miden-tx",
  "miden-tx-batch-prover",
  "pretty_assertions",
@@ -1991,7 +1992,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0aa58b4ad81d7970edcfd32a08eb90234294ecbf"
 dependencies = [
  "getrandom 0.2.15",
  "miden-assembly",
@@ -2035,6 +2036,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "miden-proving-service-client"
+version = "0.8.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0aa58b4ad81d7970edcfd32a08eb90234294ecbf"
+dependencies = [
+ "async-trait",
+ "miden-objects",
+ "miden-tx",
+ "miette",
+ "prost",
+ "prost-build",
+ "protox",
+ "thiserror 2.0.11",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "tonic-web-wasm-client",
+]
+
+[[package]]
 name = "miden-rpc-proto"
 version = "0.8.0"
 
@@ -2050,7 +2070,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0aa58b4ad81d7970edcfd32a08eb90234294ecbf"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2067,7 +2087,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-batch-prover"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0aa58b4ad81d7970edcfd32a08eb90234294ecbf"
 dependencies = [
  "miden-core",
  "miden-crypto",
@@ -2096,8 +2116,16 @@ version = "7.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a955165f87b37fd1862df2a59547ac542c77ef6d17c666f619d1ad22dd89484"
 dependencies = [
+ "backtrace",
+ "backtrace-ext",
  "cfg-if",
  "miette-derive",
+ "owo-colors",
+ "supports-color",
+ "supports-hyperlinks",
+ "supports-unicode",
+ "terminal_size 0.4.1",
+ "textwrap",
  "thiserror 1.0.69",
  "unicode-width 0.1.14",
 ]
@@ -3367,6 +3395,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "terminal_size"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5352447f921fda68cf61b4101566c0bdb5104eff6804d0678e5227580ab6a4e9"
+dependencies = [
+ "rustix",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3639,6 +3677,31 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "tonic-web-wasm-client"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c191f6613df48874158b6af303313eadf25d1b7a534216b62a1f049d77cd2711"
+dependencies = [
+ "base64",
+ "byteorder",
+ "bytes",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "httparse",
+ "js-sys",
+ "pin-project",
+ "thiserror 1.0.69",
+ "tonic",
+ "tower-service",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-streams",
+ "web-sys",
 ]
 
 [[package]]
@@ -4079,6 +4142,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-bindgen-futures"
+version = "0.4.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "555d470ec0bc3bb57890405e5d4322cc9ea83cebb085523ced7be4144dac1e61"
+dependencies = [
+ "cfg-if",
+ "js-sys",
+ "once_cell",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "wasm-bindgen-macro"
 version = "0.2.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4108,6 +4184,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a05d73b933a847d6cccdda8f838a22ff101ad9bf93e33684f39c1f5f0eece3d"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "wasm-streams"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "web-sys"
+version = "0.3.77"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33b6dd2ef9186f1f2072e409e99cd22a975331a6b3591b12c764e0e55c60d5d2"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
 ]
 
 [[package]]
