@@ -70,7 +70,7 @@ impl AccountUpdate {
     fn merge_tx(&mut self, tx: &ProvenTransaction) -> Result<(), AccountDeltaError> {
         assert!(
             self.final_state == tx.account_update().init_state_hash(),
-            "Transacion's initial state does not match current account state"
+            "Transaction's initial state does not match current account state"
         );
 
         self.final_state = tx.account_update().final_state_hash();
