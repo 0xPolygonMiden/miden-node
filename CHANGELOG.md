@@ -11,6 +11,7 @@
 - Add an optional open-telemetry trace exporter (#659, #690).
 - Support tracing across gRPC boundaries using remote tracing context (#669).
 - Instrument the block-producer's block building process (#676).
+- Add `ToValue` and custom extension trait for `tracing::Span` instead of re-exporting `tracing_opentelemetry::OpenTelemetrySpanExt` and `opentelemetry::trace::Status` (#700).
 
 ### Changes
 

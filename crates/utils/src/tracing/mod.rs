@@ -1,10 +1,9 @@
 pub mod grpc;
 
 use core::time::Duration;
-use miden_objects::block::BlockNumber;
-use miden_objects::Digest;
-use opentelemetry::trace::Status as OtelStatus;
-use opentelemetry::{Key, Value};
+
+use miden_objects::{block::BlockNumber, Digest};
+use opentelemetry::{trace::Status as OtelStatus, Key, Value};
 use sealed::sealed;
 
 /// Utility functions for converting types into [`opentelemetry::Value`].
