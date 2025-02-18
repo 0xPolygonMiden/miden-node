@@ -282,7 +282,7 @@ struct ProvenBlock {
 impl SelectedBlock {
     fn inject_telemetry(&self) {
         let span = Span::current();
-        span.set_attribute("block.number", self.block_number.as_u32());
+        span.set_attribute("block.number", self.block_number);
         span.set_attribute("block.batches.count", self.batches.len() as u32);
     }
 }
