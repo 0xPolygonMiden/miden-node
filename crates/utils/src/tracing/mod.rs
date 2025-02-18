@@ -4,7 +4,6 @@ use core::time::Duration;
 
 use miden_objects::{block::BlockNumber, Digest};
 use opentelemetry::{trace::Status as OtelStatus, Key, Value};
-use sealed::sealed;
 
 /// Utility functions for converting types into [`opentelemetry::Value`].
 pub trait ToValue {
@@ -48,13 +47,13 @@ impl ToValue for i64 {
 }
 
 /// Utility functions based on [`tracing_opentelemetry::OpenTelemetrySpanExt`].
-#[sealed]
-pub trait OpenTelemetrySpanExt {
+///
+/// This is a sealed trait. It and cannot be implemented outside of this module.
+pub trait OpenTelemetrySpanExt: private::Sealed {
     fn set_attribute(&self, key: impl Into<Key>, value: impl ToValue);
     fn set_error(&self, err: &dyn std::error::Error);
 }
 
-#[sealed]
 impl OpenTelemetrySpanExt for tracing::Span {
     /// Sets an attribute on `Span`.
     ///
@@ -70,4 +69,9 @@ impl OpenTelemetrySpanExt for tracing::Span {
             OtelStatus::Error { description: format!("{err:?}").into() },
         );
     }
+}
+
+mod private {
+    pub trait Sealed {}
+    impl Sealed for tracing::Span {}
 }
