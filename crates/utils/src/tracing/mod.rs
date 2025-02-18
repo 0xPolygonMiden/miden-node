@@ -64,9 +64,15 @@ impl OpenTelemetrySpanExt for tracing::Span {
 
     /// Sets a status on `Span` based on an error.
     fn set_error(&self, err: &dyn std::error::Error) {
+        // Coalesce all sources into one string.
+        let mut description = format!("{err}.");
+        let current = err;
+        while let Some(cause) = current.source() {
+            description.push_str(format!("\nCaused by: {cause}").as_str());
+        }
         tracing_opentelemetry::OpenTelemetrySpanExt::set_status(
             self,
-            OtelStatus::Error { description: format!("{err:?}").into() },
+            OtelStatus::Error { description: description.into() },
         );
     }
 }
