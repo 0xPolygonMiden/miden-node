@@ -52,7 +52,10 @@ pub trait OpenTelemetrySpanExt: private::Sealed {
     fn set_error(&self, err: &dyn std::error::Error);
 }
 
-impl OpenTelemetrySpanExt for tracing::Span {
+impl<S> OpenTelemetrySpanExt for S
+where
+    S: tracing_opentelemetry::OpenTelemetrySpanExt,
+{
     /// Sets an attribute on `Span`.
     ///
     /// Implementations for `ToValue` should be added to this crate (miden-node-utils).
@@ -63,7 +66,7 @@ impl OpenTelemetrySpanExt for tracing::Span {
     /// Sets a status on `Span` based on an error.
     fn set_error(&self, err: &dyn std::error::Error) {
         // Coalesce all sources into one string.
-        let mut description = format!("{err}.");
+        let mut description = format!("{err}");
         let current = err;
         while let Some(cause) = current.source() {
             description.push_str(format!("\nCaused by: {cause}").as_str());
@@ -77,5 +80,5 @@ impl OpenTelemetrySpanExt for tracing::Span {
 
 mod private {
     pub trait Sealed {}
-    impl Sealed for tracing::Span {}
+    impl<S> Sealed for S where S: tracing_opentelemetry::OpenTelemetrySpanExt {}
 }
