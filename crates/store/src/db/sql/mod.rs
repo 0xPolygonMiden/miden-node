@@ -797,9 +797,11 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
         note_type,
         sender,
         tag,
+        execution_mode,
         aux,
         execution_hint,
         merkle_path,
+        consumed,
         details,
     }))?;
 
@@ -814,9 +816,12 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             note.metadata.note_type() as u8,
             note.metadata.sender().to_bytes(),
             note.metadata.tag().inner(),
+            note.metadata.tag().execution_mode() as u8,
             u64_to_value(note.metadata.aux().into()),
-            Into::<u64>::into(note.metadata.execution_hint()),
+            u64_to_value(note.metadata.execution_hint().into()),
             note.merkle_path.to_bytes(),
+            // New notes are always uncomsumed.
+            false,
             details,
         ])?;
     }

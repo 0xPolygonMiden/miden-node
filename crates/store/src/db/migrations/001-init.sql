@@ -28,16 +28,20 @@ CREATE TABLE
     note_index     INTEGER NOT NULL, -- Index of note in batch, starting from 0
     note_id        BLOB    NOT NULL,
     note_type      INTEGER NOT NULL, -- 1-Public (0b01), 2-Private (0b10), 3-Encrypted (0b11)
-    sender         BLOB NOT NULL,
+    sender         BLOB    NOT NULL,
     tag            INTEGER NOT NULL,
+    execution_mode INTEGER NOT NULL, -- 0-Network, 1-Local
     aux            INTEGER NOT NULL,
     execution_hint INTEGER NOT NULL,
     merkle_path    BLOB    NOT NULL,
+    consumed       INTEGER NOT NULL, -- boolean
     details        BLOB,
 
     PRIMARY KEY (block_num, batch_index, note_index),
     FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
     CONSTRAINT notes_type_in_enum CHECK (note_type BETWEEN 1 AND 3),
+    CONSTRAINT notes_execution_mode_in_enum CHECK (execution_mode BETWEEN 0 AND 1),
+    CONSTRAINT notes_consumed_is_bool CHECK (execution_mode BETWEEN 0 AND 1),
     CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_batch_index_is_u32 CHECK (batch_index BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
@@ -145,3 +149,4 @@ CREATE TABLE
 
 CREATE INDEX idx_transactions_account_id ON transactions(account_id);
 CREATE INDEX idx_transactions_block_num ON transactions(block_num);
+CREATE INDEX note_execution_mode ON notes(execution_mode);
