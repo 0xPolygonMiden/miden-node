@@ -8,7 +8,8 @@
 This repository holds the Miden node; that is, the software which processes transactions and creates blocks for the
 Miden rollup.
 
-> [!NOTE] The Miden node is still under heavy development and the project can be considered to be in an _alpha_ stage.
+> [!NOTE]
+> The Miden node is still under heavy development and the project can be considered to be in an _alpha_ stage.
 > Many features are yet to be implemented and there are a number of limitations which we will lift in the near future.
 >
 > At this point, we are developing the Miden node for a centralized operator. As such, the work does not yet include
@@ -60,8 +61,9 @@ To install, download the desired releases `.deb` package and checksum files. Ins
 sudo dpkg -i $package_name.deb
 ```
 
-> [!TIP] You should verify the checksum using a SHA256 utility. This differs from platform to platform, but on most
-> linux distros:
+> [!TIP]
+> You should verify the checksum using a SHA256 utility. This differs from platform to platform, but on most linux
+> distros:
 >
 > ```sh
 > sha256sum --check $checksum_file.deb.checksum
@@ -201,7 +203,8 @@ First stop the currently running node or systemd service then remove all existin
 rm -rf <STORAGE>
 ```
 
-> [!WARNING] Failure to remove existing node data could result in strange behaviour.
+> [!WARNING]
+> Failure to remove existing node data could result in strange behaviour.
 
 ## Development
 

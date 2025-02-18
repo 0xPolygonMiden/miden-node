@@ -57,7 +57,7 @@ This trace covers the building, proving and submission of a block.
 
 <details>
   <summary>Span tree</summary>
-```bash
+```sh
 block_builder.build_block
 ┝━ block_builder.select_block
 │  ┝━ mempool.lock
@@ -105,13 +105,13 @@ Not yet implemented.
 The available log levels are `trace`, `debug`, `info` (default), `warn`, `error` which can be configured using the
 `RUST_LOG` environment variable e.g.
 
-```bash
+```sh
 export RUST_LOG=debug
 ```
 
 The verbosity can also be specified by component (when running them as a single process):
 
-```bash
+```sh
 export RUST_LOG=warn,block-producer=debug,rpc=error
 ```
 
@@ -122,7 +122,7 @@ The above would set the general level to `warn`, and the `block-producer` and `r
 
 The OpenTelemetry trace exporter can be enabled by adding the `--open-telemetry` flag to the node's start command:
 
-```bash
+```sh
 miden-node start --open-telemetry node
 ```
 
@@ -141,7 +141,7 @@ The exporter can be configured using environment variables as specified in the o
 > This is based off Honeycomb's OpenTelemetry
 > [setup guide](https://docs.honeycomb.io/send-data/opentelemetry/#using-the-honeycomb-opentelemetry-endpoint).
 
-```bash
+```sh
 OTEL_EXPORTER_OTLP_ENDPOINT=api.honeycomb.io:443 \
 OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=your-api-key" \
 miden-node start --open-telemetry node
