@@ -680,14 +680,33 @@ pub fn select_nullifiers_by_prefix(
     conn: &mut Connection,
     prefix_len: u32,
     nullifier_prefixes: &[u32],
+    block_num: Option<BlockNumber>,
 ) -> Result<Vec<NullifierInfo>> {
     assert_eq!(prefix_len, 16, "Only 16-bit prefixes are supported");
 
     let nullifier_prefixes: Vec<Value> =
         nullifier_prefixes.iter().copied().map(Into::into).collect();
 
-    let mut stmt = conn.prepare_cached(
-        "
+    let mut stmt;
+    let mut rows = if let Some(block_number) = block_num {
+        stmt = conn.prepare_cached(
+            "
+        SELECT
+            nullifier,
+            block_num
+        FROM
+            nullifiers
+        WHERE
+            nullifier_prefix IN rarray(?1) AND
+            block_num > ?2
+        ORDER BY
+            block_num ASC
+    ",
+        )?;
+        stmt.query(params![Rc::new(nullifier_prefixes), block_number.as_u32()])?
+    } else {
+        stmt = conn.prepare_cached(
+            "
         SELECT
             nullifier,
             block_num
@@ -698,9 +717,9 @@ pub fn select_nullifiers_by_prefix(
         ORDER BY
             block_num ASC
     ",
-    )?;
-
-    let mut rows = stmt.query(params![Rc::new(nullifier_prefixes)])?;
+        )?;
+        stmt.query(params![Rc::new(nullifier_prefixes)])?
+    };
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {

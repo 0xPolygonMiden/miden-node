@@ -215,12 +215,13 @@ impl Db {
         &self,
         prefix_len: u32,
         nullifier_prefixes: Vec<u32>,
+        block_num: Option<BlockNumber>,
     ) -> Result<Vec<NullifierInfo>> {
         self.pool
             .get()
             .await?
             .interact(move |conn| {
-                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes)
+                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes, block_num)
             })
             .await
             .map_err(|err| {

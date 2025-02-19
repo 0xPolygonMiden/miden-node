@@ -18,6 +18,8 @@ message CheckNullifiersByPrefixRequest {
     // List of nullifiers to check. Each nullifier is specified by its prefix with length equal
     // to `prefix_len`.
     repeated uint32 nullifiers = 2;
+    // Block number from which the nullifiers are requested (exclusive).
+    optional fixed32 block_num = 3;
 }
 
 // Returns a nullifier proof for each of the requested nullifiers.

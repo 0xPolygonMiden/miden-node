@@ -619,7 +619,7 @@ fn select_nullifiers_by_prefix() {
     const PREFIX_LEN: u32 = 16;
     let mut conn = create_db();
     // test empty table
-    let nullifiers = sql::select_nullifiers_by_prefix(&mut conn, PREFIX_LEN, &[]).unwrap();
+    let nullifiers = sql::select_nullifiers_by_prefix(&mut conn, PREFIX_LEN, &[], None).unwrap();
     assert!(nullifiers.is_empty());
 
     // test single item
@@ -635,6 +635,7 @@ fn select_nullifiers_by_prefix() {
         &mut conn,
         PREFIX_LEN,
         &[sql::utils::get_nullifier_prefix(&nullifier1)],
+        None,
     )
     .unwrap();
     assert_eq!(
@@ -662,6 +663,7 @@ fn select_nullifiers_by_prefix() {
         &mut conn,
         PREFIX_LEN,
         &[sql::utils::get_nullifier_prefix(&nullifier1)],
+        None,
     )
     .unwrap();
     assert_eq!(
@@ -675,6 +677,7 @@ fn select_nullifiers_by_prefix() {
         &mut conn,
         PREFIX_LEN,
         &[sql::utils::get_nullifier_prefix(&nullifier2)],
+        None,
     )
     .unwrap();
     assert_eq!(
@@ -693,6 +696,7 @@ fn select_nullifiers_by_prefix() {
             sql::utils::get_nullifier_prefix(&nullifier1),
             sql::utils::get_nullifier_prefix(&nullifier2),
         ],
+        None,
     )
     .unwrap();
     assert_eq!(
@@ -714,9 +718,29 @@ fn select_nullifiers_by_prefix() {
         &mut conn,
         PREFIX_LEN,
         &[sql::utils::get_nullifier_prefix(&num_to_nullifier(3 << 48))],
+        None,
     )
     .unwrap();
     assert!(nullifiers.is_empty());
+
+    // If a block number is provided, only matching nullifiers created after that block are returned
+    let nullifiers = sql::select_nullifiers_by_prefix(
+        &mut conn,
+        PREFIX_LEN,
+        &[
+            sql::utils::get_nullifier_prefix(&nullifier1),
+            sql::utils::get_nullifier_prefix(&nullifier2),
+        ],
+        Some(block_number1),
+    )
+    .unwrap();
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier2,
+            block_num: block_number2
+        }]
+    );
 }
 
 #[test]
