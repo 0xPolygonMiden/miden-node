@@ -617,54 +617,6 @@ pub fn select_all_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, Bl
     Ok(result)
 }
 
-/// Select nullifiers created between `(block_start, block_end]` that also match the
-/// `nullifier_prefixes` filter using the given [Connection].
-///
-/// Each value of the `nullifier_prefixes` is only the 16 most significant bits of the nullifier of
-/// interest to the client. This hides the details of the specific nullifier being requested.
-///
-/// # Returns
-///
-/// A vector of [`NullifierInfo`] with the nullifiers and the block height at which they were
-/// created, or an error.
-pub fn select_nullifiers_by_block_range(
-    conn: &mut Connection,
-    block_start: BlockNumber,
-    block_end: BlockNumber,
-    nullifier_prefixes: &[u32],
-) -> Result<Vec<NullifierInfo>> {
-    let nullifier_prefixes: Vec<Value> =
-        nullifier_prefixes.iter().copied().map(Into::into).collect();
-
-    let mut stmt = conn.prepare_cached(
-        "
-        SELECT
-            nullifier,
-            block_num
-        FROM
-            nullifiers
-        WHERE
-            block_num > ?1 AND
-            block_num <= ?2 AND
-            nullifier_prefix IN rarray(?3)
-        ORDER BY
-            block_num ASC
-    ",
-    )?;
-
-    let mut rows =
-        stmt.query(params![block_start.as_u32(), block_end.as_u32(), Rc::new(nullifier_prefixes)])?;
-
-    let mut result = Vec::new();
-    while let Some(row) = rows.next()? {
-        let nullifier_data = row.get_ref(0)?.as_blob()?;
-        let nullifier = Nullifier::read_from_bytes(nullifier_data)?;
-        let block_num: u32 = row.get(1)?;
-        result.push(NullifierInfo { nullifier, block_num: block_num.into() });
-    }
-    Ok(result)
-}
-
 /// Returns nullifiers filtered by prefix and block creation height.
 ///
 /// Each value of the `nullifier_prefixes` is only the `prefix_len` most significant bits
@@ -1195,7 +1147,6 @@ pub fn get_state_sync(
     block_num: BlockNumber,
     account_ids: &[AccountId],
     note_tag_prefixes: &[u32],
-    nullifier_prefixes: &[u32],
 ) -> Result<StateSyncUpdate, StateSyncError> {
     let notes = select_notes_since_block_by_tag_and_sender(
         conn,
@@ -1218,19 +1169,11 @@ pub fn get_state_sync(
         account_ids,
     )?;
 
-    let nullifiers = select_nullifiers_by_block_range(
-        conn,
-        block_num,
-        block_header.block_num(),
-        nullifier_prefixes,
-    )?;
-
     Ok(StateSyncUpdate {
         notes,
         block_header,
         account_updates,
         transactions,
-        nullifiers,
     })
 }
 
