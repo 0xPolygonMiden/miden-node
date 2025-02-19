@@ -294,6 +294,9 @@ pub fn select_account_delta(
 
     let mut select_non_fungible_asset_updates_stmt = conn.prepare_cached(
         "
+        CREATE INDEX IF NOT EXISTS idx_non_fungible_updates
+        ON account_non_fungible_asset_updates(account_id, block_num);
+
         SELECT
             block_num, vault_key, is_remove
         FROM
