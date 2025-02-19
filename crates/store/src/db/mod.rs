@@ -215,7 +215,7 @@ impl Db {
         &self,
         prefix_len: u32,
         nullifier_prefixes: Vec<u32>,
-        block_num: Option<BlockNumber>,
+        block_num: BlockNumber,
     ) -> Result<Vec<NullifierInfo>> {
         self.pool
             .get()

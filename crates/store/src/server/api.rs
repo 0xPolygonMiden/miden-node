@@ -132,10 +132,13 @@ impl api_server::Api for StoreApi {
             return Err(Status::invalid_argument("Only 16-bit prefixes are supported"));
         }
 
-        let block_num = request.block_num.map(BlockNumber::from);
         let nullifiers = self
             .state
-            .check_nullifiers_by_prefix(request.prefix_len, request.nullifiers, block_num)
+            .check_nullifiers_by_prefix(
+                request.prefix_len,
+                request.nullifiers,
+                BlockNumber::from(request.block_num),
+            )
             .await?
             .into_iter()
             .map(|nullifier_info| NullifierUpdate {

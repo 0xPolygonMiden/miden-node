@@ -672,6 +672,9 @@ pub fn select_nullifiers_by_block_range(
 /// of the nullifier of interest to the client. This hides the details of the specific
 /// nullifier being requested. Currently the only supported prefix length is 16 bits.
 ///
+/// Additionally, the nullifiers are filtered by the block number, so only nullifiers created
+/// at or after the given block number are returned.
+///
 /// # Returns
 ///
 /// A vector of [`NullifierInfo`] with the nullifiers and the block height at which they were
@@ -680,17 +683,15 @@ pub fn select_nullifiers_by_prefix(
     conn: &mut Connection,
     prefix_len: u32,
     nullifier_prefixes: &[u32],
-    block_num: Option<BlockNumber>,
+    block_num: BlockNumber,
 ) -> Result<Vec<NullifierInfo>> {
     assert_eq!(prefix_len, 16, "Only 16-bit prefixes are supported");
 
     let nullifier_prefixes: Vec<Value> =
         nullifier_prefixes.iter().copied().map(Into::into).collect();
 
-    let mut stmt;
-    let mut rows = if let Some(block_number) = block_num {
-        stmt = conn.prepare_cached(
-            "
+    let mut stmt = conn.prepare_cached(
+        "
         SELECT
             nullifier,
             block_num
@@ -698,28 +699,12 @@ pub fn select_nullifiers_by_prefix(
             nullifiers
         WHERE
             nullifier_prefix IN rarray(?1) AND
-            block_num > ?2
+            block_num >= ?2
         ORDER BY
             block_num ASC
     ",
-        )?;
-        stmt.query(params![Rc::new(nullifier_prefixes), block_number.as_u32()])?
-    } else {
-        stmt = conn.prepare_cached(
-            "
-        SELECT
-            nullifier,
-            block_num
-        FROM
-            nullifiers
-        WHERE
-            nullifier_prefix IN rarray(?1)
-        ORDER BY
-            block_num ASC
-    ",
-        )?;
-        stmt.query(params![Rc::new(nullifier_prefixes)])?
-    };
+    )?;
+    let mut rows = stmt.query(params![Rc::new(nullifier_prefixes), block_num.as_u32()])?;
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {

@@ -411,7 +411,7 @@ impl State {
         &self,
         prefix_len: u32,
         nullifier_prefixes: Vec<u32>,
-        block_num: Option<BlockNumber>,
+        block_num: BlockNumber,
     ) -> Result<Vec<NullifierInfo>, DatabaseError> {
         self.db
             .select_nullifiers_by_prefix(prefix_len, nullifier_prefixes, block_num)
