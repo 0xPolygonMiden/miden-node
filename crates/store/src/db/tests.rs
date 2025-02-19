@@ -175,7 +175,7 @@ fn sql_select_notes() {
     for i in 0..10 {
         let note = NoteRecord {
             block_num,
-            note_index: BlockNoteIndex::new(0, i as usize).unwrap(),
+            note_index: BlockNoteIndex::new(0, i as usize),
             note_id: num_to_rpo_digest(u64::from(i)),
             metadata: NoteMetadata::new(
                 ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
@@ -215,7 +215,7 @@ fn sql_select_notes_different_execution_hints() {
 
     let note_none = NoteRecord {
         block_num,
-        note_index: BlockNoteIndex::new(0, 0).unwrap(),
+        note_index: BlockNoteIndex::new(0, 0),
         note_id: num_to_rpo_digest(0),
         metadata: NoteMetadata::new(
             ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
@@ -239,7 +239,7 @@ fn sql_select_notes_different_execution_hints() {
 
     let note_always = NoteRecord {
         block_num,
-        note_index: BlockNoteIndex::new(0, 1).unwrap(),
+        note_index: BlockNoteIndex::new(0, 1),
         note_id: num_to_rpo_digest(1),
         metadata: NoteMetadata::new(
             ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
@@ -263,7 +263,7 @@ fn sql_select_notes_different_execution_hints() {
 
     let note_after_block = NoteRecord {
         block_num,
-        note_index: BlockNoteIndex::new(0, 2).unwrap(),
+        note_index: BlockNoteIndex::new(0, 2),
         note_id: num_to_rpo_digest(2),
         metadata: NoteMetadata::new(
             ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
@@ -880,7 +880,7 @@ fn notes() {
     assert!(res.is_empty());
 
     // test insertion
-    let note_index = BlockNoteIndex::new(0, 2).unwrap();
+    let note_index = BlockNoteIndex::new(0, 2);
     let note_id = num_to_rpo_digest(3);
     let tag = 5u32;
     let sender = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();

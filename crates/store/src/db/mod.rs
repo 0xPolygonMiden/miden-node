@@ -11,7 +11,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     account::{AccountDelta, AccountId},
-    block::{Block, BlockHeader, BlockNoteIndex, BlockNumber},
+    block::{BlockHeader, BlockNoteIndex, BlockNumber, ProvenBlock},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     note::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
@@ -408,7 +408,7 @@ impl Db {
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
-        block: Block,
+        block: ProvenBlock,
         notes: Vec<NoteRecord>,
     ) -> Result<()> {
         self.pool
@@ -423,7 +423,7 @@ impl Db {
                     &transaction,
                     &block.header(),
                     &notes,
-                    block.nullifiers(),
+                    block.created_nullifiers(),
                     block.updated_accounts(),
                 )?;
 

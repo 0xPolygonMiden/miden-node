@@ -11,7 +11,7 @@ use miden_objects::{
     },
     note::Nullifier,
     transaction::OutputNote,
-    AccountDeltaError, AccountError, BlockError, NoteError,
+    AccountDeltaError, AccountError, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -41,8 +41,9 @@ pub enum DatabaseError {
     AccountError(#[from] AccountError),
     #[error("account delta error")]
     AccountDeltaError(#[from] AccountDeltaError),
+    // TODO: Check if needed.
     #[error("block error")]
-    BlockError(#[from] BlockError),
+    BlockError,
     #[error("closed channel")]
     ClosedChannel(#[from] RecvError),
     #[error("deserialization failed")]
@@ -136,8 +137,9 @@ pub enum GenesisError {
     // ---------------------------------------------------------------------------------------------
     #[error("database error")]
     DatabaseError(#[from] DatabaseError),
+    // TODO: Check if needed.
     #[error("block error")]
-    BlockError(#[from] BlockError),
+    BlockError,
     #[error("merkle error")]
     MerkleError(#[from] MerkleError),
     #[error("failed to deserialize genesis file")]

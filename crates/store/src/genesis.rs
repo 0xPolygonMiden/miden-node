@@ -1,7 +1,7 @@
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     account::{delta::AccountUpdateDetails, Account},
-    block::{Block, BlockAccountUpdate, BlockHeader, BlockNumber},
+    block::{BlockAccountUpdate, BlockHeader, BlockNumber, ProvenBlock},
     crypto::merkle::{EmptySubtreeRoots, MmrPeaks, SimpleSmt, Smt},
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, ACCOUNT_TREE_DEPTH, BLOCK_NOTE_TREE_DEPTH,
@@ -26,7 +26,7 @@ impl GenesisState {
     }
 
     /// Returns the block header and the account SMT
-    pub fn into_block(self) -> Result<Block, GenesisError> {
+    pub fn into_block(self) -> Result<ProvenBlock, GenesisError> {
         let accounts: Vec<BlockAccountUpdate> = self
             .accounts
             .iter()
@@ -65,7 +65,7 @@ impl GenesisState {
             self.timestamp,
         );
 
-        Block::new(header, accounts, vec![], vec![]).map_err(Into::into)
+        Ok(ProvenBlock::new_unchecked(header, accounts, vec![], vec![]))
     }
 }
 

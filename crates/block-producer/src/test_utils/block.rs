@@ -2,7 +2,10 @@ use std::iter;
 
 use miden_objects::{
     batch::ProvenBatch,
-    block::{Block, BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, NoteBatch},
+    block::{
+        BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, OutputNoteBatch,
+        ProvenBlock,
+    },
     crypto::merkle::{Mmr, SimpleSmt},
     note::Nullifier,
     transaction::OutputNote,
@@ -103,7 +106,7 @@ pub struct MockBlockBuilder {
     last_block_header: BlockHeader,
 
     updated_accounts: Option<Vec<BlockAccountUpdate>>,
-    created_notes: Option<Vec<NoteBatch>>,
+    created_notes: Option<Vec<OutputNoteBatch>>,
     produced_nullifiers: Option<Vec<Nullifier>>,
 }
 
@@ -140,7 +143,7 @@ impl MockBlockBuilder {
     }
 
     #[must_use]
-    pub fn created_notes(mut self, created_notes: Vec<NoteBatch>) -> Self {
+    pub fn created_notes(mut self, created_notes: Vec<OutputNoteBatch>) -> Self {
         self.created_notes = Some(created_notes);
 
         self
@@ -153,7 +156,7 @@ impl MockBlockBuilder {
         self
     }
 
-    pub fn build(self) -> Block {
+    pub fn build(self) -> ProvenBlock {
         let created_notes = self.created_notes.unwrap_or_default();
 
         let header = BlockHeader::new(
@@ -170,28 +173,27 @@ impl MockBlockBuilder {
             1,
         );
 
-        Block::new(
+        ProvenBlock::new_unchecked(
             header,
             self.updated_accounts.unwrap_or_default(),
             created_notes,
             self.produced_nullifiers.unwrap_or_default(),
         )
-        .unwrap()
     }
 }
 
 pub(crate) fn flatten_output_notes<'a>(
-    batches: impl Iterator<Item = &'a NoteBatch>,
+    batches: impl Iterator<Item = &'a OutputNoteBatch>,
 ) -> impl Iterator<Item = (BlockNoteIndex, &'a OutputNote)> {
     batches.enumerate().flat_map(|(batch_idx, batch)| {
-        batch.iter().enumerate().map(move |(note_idx_in_batch, note)| {
-            (BlockNoteIndex::new(batch_idx, note_idx_in_batch).unwrap(), note)
+        batch.iter().map(move |(note_idx_in_batch, note)| {
+            (BlockNoteIndex::new(batch_idx, *note_idx_in_batch), note)
         })
     })
 }
 
 pub(crate) fn note_created_smt_from_note_batches<'a>(
-    batches: impl Iterator<Item = &'a NoteBatch>,
+    batches: impl Iterator<Item = &'a OutputNoteBatch>,
 ) -> BlockNoteTree {
     let note_leaf_iterator =
         flatten_output_notes(batches).map(|(index, note)| (index, note.id(), *note.metadata()));
@@ -201,6 +203,8 @@ pub(crate) fn note_created_smt_from_note_batches<'a>(
 
 pub(crate) fn block_output_notes<'a>(
     batches: impl Iterator<Item = &'a ProvenBatch> + Clone,
-) -> Vec<Vec<OutputNote>> {
-    batches.map(|batch| batch.output_notes().to_vec()).collect()
+) -> Vec<OutputNoteBatch> {
+    batches
+        .map(|batch| batch.output_notes().iter().cloned().enumerate().collect())
+        .collect()
 }

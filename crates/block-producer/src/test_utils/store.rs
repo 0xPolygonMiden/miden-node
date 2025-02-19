@@ -6,7 +6,7 @@ use std::{
 use miden_node_proto::domain::{block::BlockInclusionProof, note::NoteAuthenticationInfo};
 use miden_objects::{
     batch::ProvenBatch,
-    block::{Block, BlockHeader, BlockNumber, NoteBatch},
+    block::{BlockHeader, BlockNumber, OutputNoteBatch, ProvenBlock},
     crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
     note::{NoteId, NoteInclusionProof, Nullifier},
     transaction::ProvenTransaction,
@@ -28,7 +28,7 @@ use crate::{
 #[derive(Debug)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    notes: Option<Vec<NoteBatch>>,
+    notes: Option<Vec<OutputNoteBatch>>,
     produced_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
     block_num: Option<BlockNumber>,
@@ -76,7 +76,10 @@ impl MockStoreSuccessBuilder {
     }
 
     #[must_use]
-    pub fn initial_notes<'a>(mut self, notes: impl Iterator<Item = &'a NoteBatch> + Clone) -> Self {
+    pub fn initial_notes<'a>(
+        mut self,
+        notes: impl Iterator<Item = &'a OutputNoteBatch> + Clone,
+    ) -> Self {
         self.notes = Some(notes.cloned().collect());
 
         self
@@ -191,7 +194,7 @@ impl MockStoreSuccess {
         locked_accounts.root()
     }
 
-    pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
+    pub async fn apply_block(&self, block: &ProvenBlock) -> Result<(), StoreError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from
         // going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
@@ -206,7 +209,7 @@ impl MockStoreSuccess {
         debug_assert_eq!(locked_accounts.root(), header.account_root());
 
         // update nullifiers
-        for nullifier in block.nullifiers() {
+        for nullifier in block.created_nullifiers() {
             locked_produced_nullifiers
                 .insert(nullifier.inner(), [header.block_num().into(), ZERO, ZERO, ZERO]);
         }
@@ -219,11 +222,11 @@ impl MockStoreSuccess {
         }
 
         // build note tree
-        let note_tree = block.build_note_tree();
+        let note_tree = block.build_output_note_tree();
 
         // update notes
         let mut locked_notes = self.notes.write().await;
-        for (note_index, note) in block.notes() {
+        for (note_index, note) in block.output_notes() {
             locked_notes.insert(
                 note.id(),
                 NoteInclusionProof::new(

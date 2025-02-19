@@ -6,10 +6,10 @@ use miden_objects::{
     crypto::merkle::MerkleError,
     note::{NoteId, Nullifier},
     transaction::TransactionId,
-    AccountDeltaError, BlockError, Digest, ProposedBatchError,
+    AccountDeltaError, Digest, ProposedBatchError,
 };
 use miden_processor::ExecutionError;
-use miden_tx_batch_prover::errors::BatchProveError;
+use miden_tx_batch_prover::errors::ProvenBatchError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -143,7 +143,7 @@ pub enum BuildBatchError {
     ProposeBatchError(#[source] ProposedBatchError),
 
     #[error("failed to prove proposed transaction batch")]
-    ProveBatchError(#[source] BatchProveError),
+    ProveBatchError(#[source] ProvenBatchError),
 }
 
 // Block prover errors
@@ -187,8 +187,9 @@ pub enum BuildBlockError {
         account_id: AccountId,
         source: AccountDeltaError,
     },
-    #[error("block construction failed")]
-    BlockConstructionError(#[from] BlockError),
+    // TODO: Check if needed.
+    // #[error("block construction failed")]
+    // BlockConstructionError,
     /// We sometimes randomly inject errors into the batch building process to test our failure
     /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]

@@ -29,7 +29,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     account::AccountId,
-    block::{Block, BlockNumber},
+    block::{BlockNumber, ProvenBlock},
     crypto::hash::rpo::RpoDigest,
     note::{NoteId, Nullifier},
     utils::{Deserializable, Serializable},
@@ -315,7 +315,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let block = Block::read_from_bytes(&request.block).map_err(|err| {
+        let block = ProvenBlock::read_from_bytes(&request.block).map_err(|err| {
             Status::invalid_argument(format!("Block deserialization error: {err}"))
         })?;
 
@@ -326,8 +326,8 @@ impl api_server::Api for StoreApi {
             block_num,
             block_hash = %block.hash(),
             account_count = block.updated_accounts().len(),
-            note_count = block.notes().count(),
-            nullifier_count = block.nullifiers().len(),
+            note_count = block.output_notes().count(),
+            nullifier_count = block.created_nullifiers().len(),
         );
 
         self.state.apply_block(block).await?;

@@ -644,21 +644,9 @@ async fn compute_note_root_success() {
 
     // The first 2 txs were put in the first batch; the 3rd was put in the second
     let note_tree = BlockNoteTree::with_entries([
-        (
-            BlockNoteIndex::new(0, 0).unwrap(),
-            notes_created[0].id(),
-            *notes_created[0].metadata(),
-        ),
-        (
-            BlockNoteIndex::new(0, 1).unwrap(),
-            notes_created[1].id(),
-            *notes_created[1].metadata(),
-        ),
-        (
-            BlockNoteIndex::new(1, 0).unwrap(),
-            notes_created[2].id(),
-            *notes_created[2].metadata(),
-        ),
+        (BlockNoteIndex::new(0, 0), notes_created[0].id(), *notes_created[0].metadata()),
+        (BlockNoteIndex::new(0, 1), notes_created[1].id(), *notes_created[1].metadata()),
+        (BlockNoteIndex::new(1, 0), notes_created[2].id(), *notes_created[2].metadata()),
     ])
     .unwrap();
 

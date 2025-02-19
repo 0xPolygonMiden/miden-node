@@ -8,7 +8,7 @@ use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
     account::AccountId,
     batch::ProvenBatch,
-    block::{Block, BlockNumber},
+    block::{BlockNumber, ProvenBlock},
     note::{NoteHeader, NoteId, Nullifier},
     transaction::{InputNoteCommitment, OutputNote},
 };
@@ -160,12 +160,13 @@ impl BlockBuilder {
 
         let new_block_header = self.block_kernel.prove(block_header_witness)?;
 
-        let block = Block::new(
+        // TODO: Update. Temporarily left in an incorrect state.
+        let block = ProvenBlock::new_unchecked(
             new_block_header,
             updated_accounts,
-            summary.output_notes,
+            vec![],
             summary.nullifiers,
-        )?;
+        );
 
         self.simulate_proving().await;
 
@@ -278,7 +279,7 @@ struct BlockSummaryAndInputs {
 
 // TODO: Is this still needed? If so, what should be its name?
 struct ProvenBlockWrapper {
-    block: Block,
+    block: ProvenBlock,
 }
 
 impl SelectedBlock {

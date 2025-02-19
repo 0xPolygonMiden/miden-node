@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use miden_objects::{
     account::{delta::AccountUpdateDetails, AccountId},
-    batch::{BatchAccountUpdate, ProvenBatch},
+    batch::{BatchAccountUpdate, BatchNoteTree, ProvenBatch},
     block::{BlockAccountUpdate, BlockHeader},
     crypto::merkle::{EmptySubtreeRoots, MerklePath, MerkleStore, MmrPeaks, SmtProof},
     note::Nullifier,
@@ -44,7 +44,13 @@ impl BlockWitness {
             .iter()
             .enumerate()
             .filter(|(_, batch)| !batch.output_notes().is_empty())
-            .map(|(batch_index, batch)| (batch_index, batch.output_notes_tree().root()))
+            .map(|(batch_index, batch)| {
+                let batch_note_tree = BatchNoteTree::with_contiguous_leaves(
+                    batch.output_notes().iter().map(|note| (note.id(), note.metadata())),
+                )
+                .expect("number of output notes in batch should be within the allowed range");
+                (batch_index, batch_note_tree.root())
+            })
             .collect();
 
         // Order account updates by account ID and each update's initial state hash.

@@ -25,7 +25,7 @@ use miden_node_proto::{
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
     account::{AccountDelta, AccountHeader, AccountId, StorageSlot},
-    block::{Block, BlockHeader, BlockNumber},
+    block::{BlockHeader, BlockNumber, ProvenBlock},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{
@@ -268,12 +268,12 @@ impl State {
     ///   released.
     // TODO: This span is logged in a root span, we should connect it to the parent span.
     #[instrument(target = COMPONENT, skip_all, err)]
-    pub async fn apply_block(&self, block: Block) -> Result<(), ApplyBlockError> {
+    pub async fn apply_block(&self, block: ProvenBlock) -> Result<(), ApplyBlockError> {
         let _lock = self.writer.try_lock().map_err(|_| ApplyBlockError::ConcurrentWrite)?;
 
         let header = block.header();
 
-        let tx_hash = block.compute_tx_hash();
+        let tx_hash = BlockHeader::compute_tx_commitment(block.transactions());
         if header.tx_hash() != tx_hash {
             return Err(InvalidBlockError::InvalidBlockTxHash {
                 expected: tx_hash,
@@ -324,7 +324,7 @@ impl State {
 
             // nullifiers can be produced only once
             let duplicate_nullifiers: Vec<_> = block
-                .nullifiers()
+                .created_nullifiers()
                 .iter()
                 .filter(|&n| inner.nullifier_tree.get_block_num(n).is_some())
                 .copied()
@@ -343,7 +343,7 @@ impl State {
 
             // compute update for nullifier tree
             let nullifier_tree_update = inner.nullifier_tree.compute_mutations(
-                block.nullifiers().iter().map(|nullifier| (*nullifier, block_num)),
+                block.created_nullifiers().iter().map(|nullifier| (*nullifier, block_num)),
             );
 
             if nullifier_tree_update.root() != header.nullifier_root() {
@@ -373,13 +373,13 @@ impl State {
         };
 
         // build note tree
-        let note_tree = block.build_note_tree();
+        let note_tree = block.build_output_note_tree();
         if note_tree.root() != header.note_root() {
             return Err(InvalidBlockError::NewBlockInvalidNoteRoot.into());
         }
 
         let notes = block
-            .notes()
+            .output_notes()
             .map(|(note_index, note)| {
                 let details = match note {
                     OutputNote::Full(note) => Some(note.to_bytes()),

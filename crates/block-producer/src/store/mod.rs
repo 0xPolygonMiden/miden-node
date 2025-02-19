@@ -22,7 +22,7 @@ use miden_node_proto::{
 use miden_node_utils::{formatting::format_opt, tracing::grpc::OtelInterceptor};
 use miden_objects::{
     account::AccountId,
-    block::{Block, BlockHeader, BlockNumber},
+    block::{BlockHeader, BlockNumber, ProvenBlock},
     note::{NoteId, Nullifier},
     transaction::ProvenTransaction,
     utils::Serializable,
@@ -228,7 +228,7 @@ impl StoreClient {
     }
 
     #[instrument(target = COMPONENT, name = "store.client.apply_block", skip_all, err)]
-    pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
+    pub async fn apply_block(&self, block: &ProvenBlock) -> Result<(), StoreError> {
         let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 
         self.inner.clone().apply_block(request).await.map(|_| ()).map_err(Into::into)

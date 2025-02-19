@@ -747,6 +747,11 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
 
     let mut notes = vec![];
     while let Some(row) = rows.next()? {
+        let batch_idx = row.get(1)?;
+        let note_idx_in_batch = row.get(2)?;
+        // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
+        // should never panic.
+        let note_index = BlockNoteIndex::new(batch_idx, note_idx_in_batch);
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id_data)?;
 
@@ -768,7 +773,7 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
 
         notes.push(NoteRecord {
             block_num: read_block_number(row, 0)?,
-            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
+            note_index,
             note_id,
             metadata,
             details,
@@ -856,7 +861,11 @@ pub fn select_notes_since_block_by_tag_and_sender(
     let mut res = Vec::new();
     while let Some(row) = rows.next()? {
         let block_num = read_block_number(row, 0)?;
-        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
+        let batch_idx = row.get(1)?;
+        let note_idx_in_batch = row.get(2)?;
+        // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
+        // should never panic.
+        let note_index = BlockNoteIndex::new(batch_idx, note_idx_in_batch);
         let note_id = read_from_blob_column(row, 3)?;
         let note_type = row.get::<_, u8>(4)?;
         let sender = read_from_blob_column(row, 5)?;
@@ -919,6 +928,11 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
 
     let mut notes = Vec::new();
     while let Some(row) = rows.next()? {
+        let batch_idx = row.get(1)?;
+        let note_idx_in_batch = row.get(2)?;
+        // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
+        // should never panic.
+        let note_index = BlockNoteIndex::new(batch_idx, note_idx_in_batch);
         let note_id_data = row.get_ref(3)?.as_blob()?;
         let note_id = NoteId::read_from_bytes(note_id_data)?;
 
@@ -939,7 +953,7 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
 
         notes.push(NoteRecord {
             block_num: read_block_number(row, 0)?,
-            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
+            note_index,
             details,
             note_id: note_id.into(),
             metadata,
@@ -989,7 +1003,9 @@ pub fn select_note_inclusion_proofs(
 
         let batch_index = row.get(2)?;
         let note_index = row.get(3)?;
-        let node_index_in_block = BlockNoteIndex::new(batch_index, note_index)?.leaf_index_value();
+        // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
+        // should never panic.
+        let node_index_in_block = BlockNoteIndex::new(batch_index, note_index).leaf_index_value();
 
         let merkle_path_data = row.get_ref(4)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
