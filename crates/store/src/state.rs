@@ -197,11 +197,7 @@ struct InnerState {
 impl InnerState {
     /// Returns the latest block number.
     fn latest_block_num(&self) -> BlockNumber {
-        let block_number: u32 = (self.blockchain.chain_tip().as_usize() - 1)
-            .try_into()
-            .expect("chain_mmr always has, at least, the genesis block");
-
-        block_number.into()
+        self.blockchain.chain_tip()
     }
 }
 
@@ -638,7 +634,7 @@ impl State {
         // Scoped block to automatically drop the read lock guard as soon as we're done.
         // We also avoid accessing the db in the block as this would delay dropping the guard.
         let (batch_reference_block, partial_mmr) = {
-            let inner_state = self.inner.blocking_read();
+            let inner_state = self.inner.read().await;
 
             let latest_block_num = inner_state.blockchain.chain_tip();
 
