@@ -16,7 +16,8 @@
 
 - [BREAKING] Updated minimum Rust version to 1.84.
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
-- Added `block_num` parameter to `CheckNullifiersByPrefix` endpoint.
+- Added `block_num` parameter to `CheckNullifiersByPrefix` endpoint (#707).
+- [BREAKING] Changed sync state endpoint to stream the response (#685).
 
 ### Enhancements
 

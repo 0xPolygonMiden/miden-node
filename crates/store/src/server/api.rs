@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, convert::Infallible, sync::Arc};
+use std::{collections::BTreeSet, convert::Infallible, pin::Pin, sync::Arc};
 
 use miden_node_proto::{
     convert,
@@ -34,6 +34,8 @@ use miden_objects::{
     note::{NoteId, Nullifier},
     utils::{Deserializable, Serializable},
 };
+use tokio::sync::mpsc;
+use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
@@ -46,8 +48,11 @@ pub struct StoreApi {
     pub(super) state: Arc<State>,
 }
 
+type ResponseStream = Pin<Box<dyn Stream<Item = Result<SyncStateResponse, Status>> + Send>>;
+
 #[tonic::async_trait]
 impl api_server::Api for StoreApi {
+    type SyncStateStream = ResponseStream;
     // CLIENT ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
@@ -148,68 +153,98 @@ impl api_server::Api for StoreApi {
         target = COMPONENT,
         name = "store.server.sync_state",
         skip_all,
-        ret(level = "debug"),
         err
     )]
     async fn sync_state(
         &self,
         request: Request<SyncStateRequest>,
-    ) -> Result<Response<SyncStateResponse>, Status> {
+    ) -> Result<Response<Self::SyncStateStream>, Status> {
         let request = request.into_inner();
 
-        let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
+        let (tx, rx) = mpsc::channel(128); // TODO: check bound of the channel
 
-        let (state, delta) = self
-            .state
-            .sync_state(
-                request.block_num.into(),
-                account_ids,
-                request.note_tags,
-                request.nullifiers,
-            )
-            .await
-            .map_err(internal_error)?;
+        let state = self.state.clone();
+        let mut last_block_num = request.block_num;
+        let chain_tip = state.latest_block_num().await.as_u32();
+        tokio::spawn(async move {
+            loop {
+                if last_block_num == chain_tip {
+                    // The state is up to date, no need to sync
+                    break;
+                }
 
-        let accounts = state
-            .account_updates
-            .into_iter()
-            .map(|account_info| AccountSummary {
-                account_id: Some(account_info.account_id.into()),
-                account_hash: Some(account_info.account_hash.into()),
-                block_num: account_info.block_num.as_u32(),
-            })
-            .collect();
+                let result = async {
+                    let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
 
-        let transactions = state
-            .transactions
-            .into_iter()
-            .map(|transaction_summary| TransactionSummary {
-                account_id: Some(transaction_summary.account_id.into()),
-                block_num: transaction_summary.block_num.as_u32(),
-                transaction_id: Some(transaction_summary.transaction_id.into()),
-            })
-            .collect();
+                    let (state, delta) = state
+                        .sync_state(
+                            last_block_num.into(),
+                            account_ids,
+                            request.note_tags.clone(),
+                            request.nullifiers.clone(),
+                        )
+                        .await
+                        .map_err(internal_error)?;
 
-        let notes = state.notes.into_iter().map(Into::into).collect();
+                    let accounts = state
+                        .account_updates
+                        .into_iter()
+                        .map(|account_info| AccountSummary {
+                            account_id: Some(account_info.account_id.into()),
+                            account_hash: Some(account_info.account_hash.into()),
+                            block_num: account_info.block_num.as_u32(),
+                        })
+                        .collect();
 
-        let nullifiers = state
-            .nullifiers
-            .into_iter()
-            .map(|nullifier_info| NullifierUpdate {
-                nullifier: Some(nullifier_info.nullifier.into()),
-                block_num: nullifier_info.block_num.as_u32(),
-            })
-            .collect();
+                    let transactions = state
+                        .transactions
+                        .into_iter()
+                        .map(|transaction_summary| TransactionSummary {
+                            account_id: Some(transaction_summary.account_id.into()),
+                            block_num: transaction_summary.block_num.as_u32(),
+                            transaction_id: Some(transaction_summary.transaction_id.into()),
+                        })
+                        .collect();
 
-        Ok(Response::new(SyncStateResponse {
-            chain_tip: self.state.latest_block_num().await.as_u32(),
-            block_header: Some(state.block_header.into()),
-            mmr_delta: Some(delta.into()),
-            accounts,
-            transactions,
-            notes,
-            nullifiers,
-        }))
+                    let notes = state.notes.into_iter().map(Into::into).collect();
+
+                    let nullifiers = state
+                        .nullifiers
+                        .into_iter()
+                        .map(|nullifier_info| NullifierUpdate {
+                            nullifier: Some(nullifier_info.nullifier.into()),
+                            block_num: nullifier_info.block_num.as_u32(),
+                        })
+                        .collect();
+
+                    let response = SyncStateResponse {
+                        block_header: Some(state.block_header.into()),
+                        mmr_delta: Some(delta.into()),
+                        accounts,
+                        transactions,
+                        notes,
+                        nullifiers,
+                    };
+                    Ok(response)
+                }
+                .await;
+
+                if let Ok(response) = &result {
+                    // SAFETY: SyncStateResponse always has a block header
+                    last_block_num = response.block_header.unwrap().block_num;
+                }
+                let is_error = result.is_err();
+
+                tx.send(result).await.expect("error sending sync state response to the client");
+
+                if is_error {
+                    break;
+                }
+            }
+        });
+
+        let output_stream = ReceiverStream::new(rx);
+        Ok(Response::new(Box::pin(output_stream) as Self::SyncStateStream))
     }
 
     /// Returns info which can be used by the client to sync note state.

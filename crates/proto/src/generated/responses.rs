@@ -42,27 +42,24 @@ pub struct NullifierUpdate {
 /// Represents the result of syncing state request.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateResponse {
-    /// Number of the latest block in the chain.
-    #[prost(fixed32, tag = "1")]
-    pub chain_tip: u32,
     /// Block header of the block with the first note matching the specified criteria.
-    #[prost(message, optional, tag = "2")]
+    #[prost(message, optional, tag = "1")]
     pub block_header: ::core::option::Option<super::block::BlockHeader>,
     /// Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`.
-    #[prost(message, optional, tag = "3")]
+    #[prost(message, optional, tag = "2")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
     /// List of account hashes updated after `request.block_num + 1` but not after `response.block_header.block_num`.
-    #[prost(message, repeated, tag = "5")]
+    #[prost(message, repeated, tag = "3")]
     pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
     /// List of transactions executed against requested accounts between `request.block_num + 1` and
     /// `response.block_header.block_num`.
-    #[prost(message, repeated, tag = "6")]
+    #[prost(message, repeated, tag = "4")]
     pub transactions: ::prost::alloc::vec::Vec<super::transaction::TransactionSummary>,
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`.
-    #[prost(message, repeated, tag = "7")]
+    #[prost(message, repeated, tag = "5")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
     /// List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
-    #[prost(message, repeated, tag = "8")]
+    #[prost(message, repeated, tag = "6")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
 /// Represents the result of syncing notes request.
