@@ -6,6 +6,7 @@ pub(crate) mod utils;
 use std::{
     borrow::Cow,
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
+    num::NonZeroUsize,
     rc::Rc,
 };
 
@@ -19,7 +20,7 @@ use miden_objects::{
     asset::NonFungibleAsset,
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    note::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
+    note::{NoteExecutionMode, NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
     Digest, Word,
@@ -1005,6 +1006,84 @@ pub fn select_note_inclusion_proofs(
     }
 
     Ok(result)
+}
+
+/// Returns a paginated batch of network notes that have not yet been consumed.
+///
+/// Pagination is controlled with the `offset` and `limit` values. If less than `limit` values are
+/// returned, then this is the final page.
+///
+/// # Returns
+///
+/// A batch of unconsumed network notes with maximum length of `limit`, from the given `offset`.
+#[expect(dead_code, reason = "gRPC method is not yet implemented")]
+pub fn unconsumed_network_notes(
+    transaction: &mut Transaction,
+    offset: usize,
+    limit: NonZeroUsize,
+) -> Result<Vec<NoteRecord>> {
+    assert_eq!(
+        NoteExecutionMode::Network as u8,
+        0,
+        "Hardcoded execution value must match query"
+    );
+
+    let mut stmt = transaction.prepare_cached(
+        "
+        SELECT
+            block_num,
+            batch_index,
+            note_index,
+            note_id,
+            note_type,
+            sender,
+            tag,
+            aux,
+            execution_hint,
+            merkle_path,
+            details
+        FROM
+            notes
+        WHERE
+            execution_mode = 0 AND consumed = FALSE
+        OFFSET ?0
+        LIMIT ?1
+        ",
+    )?;
+
+    let mut rows = stmt.query(params![offset, limit])?;
+
+    let mut notes = Vec::with_capacity(limit.into());
+    while let Some(row) = rows.next()? {
+        let note_id_data = row.get_ref(3)?.as_blob()?;
+        let note_id = NoteId::read_from_bytes(note_id_data)?;
+
+        let merkle_path = read_from_blob_column(row, 9)?;
+
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
+        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+
+        let note_type = row.get::<_, u8>(4)?.try_into()?;
+        let sender = read_from_blob_column(row, 5)?;
+        let tag: u32 = row.get(6)?;
+        let aux: u64 = row.get(7)?;
+        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
+        let execution_hint = column_value_as_u64(row, 8)?;
+
+        let metadata =
+            NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
+
+        notes.push(NoteRecord {
+            block_num: read_block_number(row, 0)?,
+            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
+            details,
+            note_id: note_id.into(),
+            metadata,
+            merkle_path,
+        });
+    }
+
+    Ok(notes)
 }
 
 // BLOCK CHAIN QUERIES

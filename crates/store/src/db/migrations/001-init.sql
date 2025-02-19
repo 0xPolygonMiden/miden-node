@@ -149,4 +149,4 @@ CREATE TABLE
 
 CREATE INDEX idx_transactions_account_id ON transactions(account_id);
 CREATE INDEX idx_transactions_block_num ON transactions(block_num);
-CREATE INDEX note_execution_mode ON notes(execution_mode);
+CREATE INDEX unconsumed_network_notes ON notes(execution_mode, consumed);
