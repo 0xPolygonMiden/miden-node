@@ -100,7 +100,7 @@ impl BlockBuilder {
             .then(|selected| self.get_block_inputs(selected))
             .inspect_ok(BlockSummaryAndInputs::inject_telemetry)
             .and_then(|inputs| self.prove_block(inputs))
-            .inspect_ok(ProvenBlock::inject_telemetry)
+            .inspect_ok(ProvenBlockWrapper::inject_telemetry)
             // Failure must be injected before the final pipeline stage i.e. before commit is called. The system cannot
             // handle errors after it considers the process complete (which makes sense).
             .and_then(|proven_block| async { self.inject_failure(proven_block) })
@@ -153,7 +153,7 @@ impl BlockBuilder {
     async fn prove_block(
         &self,
         preimage: BlockSummaryAndInputs,
-    ) -> Result<ProvenBlock, BuildBlockError> {
+    ) -> Result<ProvenBlockWrapper, BuildBlockError> {
         let BlockSummaryAndInputs { batches, summary, inputs } = preimage;
 
         let (block_header_witness, updated_accounts) = BlockWitness::new(inputs, &batches)?;
@@ -169,14 +169,14 @@ impl BlockBuilder {
 
         self.simulate_proving().await;
 
-        Ok(ProvenBlock { block })
+        Ok(ProvenBlockWrapper { block })
     }
 
     #[instrument(target = COMPONENT, name = "block_builder.commit_block", skip_all, err)]
     async fn commit_block(
         &self,
         mempool: &SharedMempool,
-        proven_block: ProvenBlock,
+        proven_block: ProvenBlockWrapper,
     ) -> Result<(), BuildBlockError> {
         self.store
             .apply_block(&proven_block.block)
@@ -275,7 +275,9 @@ struct BlockSummaryAndInputs {
     summary: BlockSummary,
     inputs: BlockInputs,
 }
-struct ProvenBlock {
+
+// TODO: Is this still needed? If so, what should be its name?
+struct ProvenBlockWrapper {
     block: Block,
 }
 
@@ -314,7 +316,7 @@ impl BlockSummaryAndInputs {
     }
 }
 
-impl ProvenBlock {
+impl ProvenBlockWrapper {
     fn inject_telemetry(&self) {
         let span = Span::current();
         let header = self.block.header();
