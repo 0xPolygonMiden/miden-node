@@ -66,9 +66,6 @@ message SyncStateResponse {
 
     // List of all notes together with the Merkle paths from `response.block_header.note_root`.
     repeated note.NoteSyncRecord notes = 7;
-
-    // List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
-    repeated NullifierUpdate nullifiers = 8;
 }
 
 // Represents the result of syncing notes request.
