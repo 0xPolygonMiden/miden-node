@@ -17,6 +17,9 @@ pub struct CheckNullifiersByPrefixRequest {
     /// to `prefix_len`.
     #[prost(uint32, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
+    /// Block number from which the nullifiers are requested (inclusive).
+    #[prost(fixed32, tag = "3")]
+    pub block_num: u32,
 }
 /// Returns a nullifier proof for each of the requested nullifiers.
 #[derive(Clone, PartialEq, ::prost::Message)]
