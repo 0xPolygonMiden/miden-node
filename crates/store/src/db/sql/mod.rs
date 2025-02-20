@@ -665,15 +665,11 @@ pub fn select_nullifiers_by_block_range(
     Ok(result)
 }
 
-/// Select nullifiers created that match the `nullifier_prefixes` filter using the given
-/// [Connection].
+/// Returns nullifiers filtered by prefix and block creation height.
 ///
 /// Each value of the `nullifier_prefixes` is only the `prefix_len` most significant bits
 /// of the nullifier of interest to the client. This hides the details of the specific
 /// nullifier being requested. Currently the only supported prefix length is 16 bits.
-///
-/// Additionally, the nullifiers are filtered by the block number, so only nullifiers created
-/// at or after the given block number are returned.
 ///
 /// # Returns
 ///
