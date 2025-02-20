@@ -47,8 +47,8 @@ source.
 
 ### Debian package
 
-Debian packages are available and are the fastest way to install the node on a Debian-based system. Currently only
-`amd64` architecture are supported.
+Debian packages are available and are the fastest way to install the node on a Debian-based system. Both `amd64` and
+`arm64` packages are available. 
 
 These packages can be found under our [releases](https://github.com/0xPolygonMiden/miden-node/releases) page along with
 a checksum.
@@ -140,8 +140,8 @@ miden-node init \
 ```
 
 which will generate `miden-node.toml` and `genesis.toml` files. The latter controls the accounts that the genesis block
-will be spawned with and by default includes a basic wallet account and a basic fungible faucet account. You can modify
-this file to add/remove accounts as desired.
+will be spawned with and by default includes a basic fungible faucet account. You can modify this file to add/remove
+accounts as desired.
 
 Next, bootstrap the chain by generating the genesis data:
 

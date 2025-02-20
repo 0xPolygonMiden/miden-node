@@ -1,3 +1,5 @@
+# Monitoring
+
 Developer level overview of how we aim to use `tracing` and `open-telemetry` to provide monitoring and telemetry for the
 node.
 
@@ -86,7 +88,7 @@ A good convention to follow is creating child spans for timing information you m
 operation. As an example, it may make sense to instrument a mutex locking function to visualize the contention on it. Or
 separating the database file IO from the sqlite statement creation. Essentially operations which you would otherwise
 consider logging the timings for should be separate spans. While you may find this changes the code you might otherwise
-create, I've found this actually results in fairly good structure since it follows your business logic sense.
+create, We've found this actually results in fairly good structure since it follows your business logic sense.
 
 ### Inclusions and naming conventions
 

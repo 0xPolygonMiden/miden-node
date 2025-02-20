@@ -57,6 +57,7 @@ This trace covers the building, proving and submission of a block.
 
 <details>
   <summary>Span tree</summary>
+
 ```sh
 block_builder.build_block
 ┝━ block_builder.select_block
