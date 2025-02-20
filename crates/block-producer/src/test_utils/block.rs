@@ -1,5 +1,3 @@
-use std::iter;
-
 use miden_objects::{
     batch::ProvenBatch,
     block::{
@@ -13,10 +11,6 @@ use miden_objects::{
 };
 
 use super::MockStoreSuccess;
-use crate::{
-    block::BlockInputs,
-    block_builder::prover::{block_witness::BlockWitness, BlockProver},
-};
 
 /// Constructs the block we expect to be built given the store state, and a set of transaction
 /// batches to be applied
@@ -74,30 +68,31 @@ pub async fn build_expected_block_header(
     )
 }
 
-/// Builds the "actual" block header; i.e. the block header built using the Miden VM, used in the
-/// node
-pub async fn build_actual_block_header(
-    store: &MockStoreSuccess,
-    batches: Vec<ProvenBatch>,
-) -> BlockHeader {
-    let updated_accounts: Vec<_> =
-        batches.iter().flat_map(|batch| batch.account_updates().iter()).collect();
-    let produced_nullifiers: Vec<Nullifier> =
-        batches.iter().flat_map(ProvenBatch::produced_nullifiers).collect();
+// Note: Commented as it is unused atm. Is it worth fixing it?
+// /// Builds the "actual" block header; i.e. the block header built using the Miden VM, used in the
+// /// node
+// pub async fn build_actual_block_header(
+//     store: &MockStoreSuccess,
+//     batches: Vec<ProvenBatch>,
+// ) -> BlockHeader {
+//     let updated_accounts: Vec<_> =
+//         batches.iter().flat_map(|batch| batch.account_updates().iter()).collect();
+//     let produced_nullifiers: Vec<Nullifier> =
+//         batches.iter().flat_map(ProvenBatch::produced_nullifiers).collect();
 
-    let block_inputs_from_store: BlockInputs = store
-        .get_block_inputs(
-            updated_accounts.iter().map(|(&account_id, _)| account_id),
-            produced_nullifiers.iter(),
-            iter::empty(),
-        )
-        .await
-        .unwrap();
+//     let block_inputs_from_store: BlockInputs = store
+//         .get_block_inputs(
+//             updated_accounts.iter().map(|(&account_id, _)| account_id),
+//             produced_nullifiers.iter(),
+//             iter::empty(),
+//         )
+//         .await
+//         .unwrap();
 
-    let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
+//     let (block_witness, _) = BlockWitness::new(block_inputs_from_store, &batches).unwrap();
 
-    BlockProver::new().prove(block_witness).unwrap()
-}
+//     BlockProver::new().prove(block_witness).unwrap()
+// }
 
 #[derive(Debug)]
 pub struct MockBlockBuilder {

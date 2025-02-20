@@ -349,15 +349,16 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<GetBlockInputsResponse>, Status> {
         let request = request.into_inner();
 
-        let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_ids = read_account_ids(&request.account_ids)?;
+        let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
+        let reference_blocks = read_block_numbers(&request.reference_blocks);
         let unauthenticated_notes = unauthenticated_notes.into_iter().collect();
 
         self.state
-            .get_block_inputs(&account_ids, &nullifiers, unauthenticated_notes)
+            .get_block_inputs(&account_ids, &nullifiers, unauthenticated_notes, reference_blocks)
             .await
-            .map(Into::into)
+            .map(GetBlockInputsResponse::from)
             .map(Response::new)
             .map_err(internal_error)
     }
@@ -579,4 +580,9 @@ fn validate_notes(notes: &[generated::digest::Digest]) -> Result<Vec<NoteId>, St
         .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
+}
+
+#[instrument(target = COMPONENT, skip_all)]
+fn read_block_numbers(block_numbers: &[u32]) -> BTreeSet<BlockNumber> {
+    block_numbers.iter().map(|raw_number| BlockNumber::from(*raw_number)).collect()
 }

@@ -21,6 +21,7 @@ tracing-forest = ["miden-node-utils/tracing-forest"]
 async-trait           = { version = "0.1" }
 futures               = { version = "0.3" }
 itertools             = { workspace = true }
+miden-block-prover    = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "pgackst-batch-expiration" }
 miden-lib             = { workspace = true }
 miden-node-proto      = { workspace = true }
 miden-node-utils      = { workspace = true }

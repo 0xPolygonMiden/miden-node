@@ -10,22 +10,18 @@ use std::{
 };
 
 use miden_node_proto::{
-    convert,
     domain::{
         account::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
         batch::BatchInputs,
         block::BlockInclusionProof,
         note::NoteAuthenticationInfo,
     },
-    generated::responses::{
-        AccountProofsResponse, AccountStateHeader, GetBlockInputsResponse, StorageSlotMapProof,
-    },
-    AccountInputRecord, NullifierWitness,
+    generated::responses::{AccountProofsResponse, AccountStateHeader, StorageSlotMapProof},
 };
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
     account::{AccountDelta, AccountHeader, AccountId, StorageSlot},
-    block::{BlockHeader, BlockNumber, ProvenBlock},
+    block::{AccountWitness, BlockHeader, BlockInputs, BlockNumber, NullifierWitness, ProvenBlock},
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{
@@ -57,37 +53,6 @@ use crate::{
 };
 // STRUCTURES
 // ================================================================================================
-
-/// Information needed from the store to validate and build a block
-#[derive(Debug)]
-pub struct BlockInputs {
-    /// Previous block header
-    pub block_header: BlockHeader,
-
-    /// MMR peaks for the current chain state
-    pub chain_peaks: MmrPeaks,
-
-    /// The hashes of the requested accounts and their authentication paths
-    pub account_states: Vec<AccountInputRecord>,
-
-    /// The requested nullifiers and their authentication paths
-    pub nullifiers: Vec<NullifierWitness>,
-
-    /// List of notes found in the store
-    pub found_unauthenticated_notes: NoteAuthenticationInfo,
-}
-
-impl From<BlockInputs> for GetBlockInputsResponse {
-    fn from(value: BlockInputs) -> Self {
-        Self {
-            block_header: Some(value.block_header.into()),
-            mmr_peaks: convert(value.chain_peaks.peaks()),
-            account_states: convert(value.account_states),
-            nullifiers: convert(value.nullifiers),
-            found_unauthenticated_notes: Some(value.found_unauthenticated_notes.into()),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct TransactionInputs {
@@ -150,12 +115,14 @@ impl Blockchain {
         &self.0
     }
 
-    /// Returns the latest block number and partial mmr.
+    /// Creates a [`PartialMmr`] at the state of the latest block (i.e. the block's chain root will
+    /// match the hashed peaks of the returned partial MMR). This MMR will include authentication
+    /// paths for all blocks in the provided set.
     pub fn partial_mmr_from_blocks(
         &self,
         blocks: &BTreeSet<BlockNumber>,
         latest_block_number: BlockNumber,
-    ) -> Result<PartialMmr, GetBatchInputsError> {
+    ) -> PartialMmr {
         // Using latest block as the target forest means we take the state of the MMR one before
         // the latest block. This is because the latest block will be used as the reference
         // block of the batch and will be added to the MMR by the batch kernel.
@@ -183,7 +150,8 @@ impl Blockchain {
                 .track(block_num, leaf, &path)
                 .expect("filling partial mmr with data from mmr should succeed");
         }
-        Ok(partial_mmr)
+
+        partial_mmr
     }
 }
 
@@ -654,7 +622,7 @@ impl State {
 
             (
                 latest_block_num,
-                inner_state.blockchain.partial_mmr_from_blocks(&blocks, latest_block_num)?,
+                inner_state.blockchain.partial_mmr_from_blocks(&blocks, latest_block_num),
             )
         };
 
@@ -783,61 +751,100 @@ impl State {
         account_ids: &[AccountId],
         nullifiers: &[Nullifier],
         unauthenticated_notes: BTreeSet<NoteId>,
+        reference_blocks: BTreeSet<BlockNumber>,
     ) -> Result<BlockInputs, GetBlockInputsError> {
+        // Get the note inclusion proofs from the DB.
+        // We do this first so we have to acquire the lock to the state where we have to get the
+        // note inclusion proof's block inclusion proof.
+        let unauthenticated_note_proofs = self
+            .db
+            .select_note_inclusion_proofs(unauthenticated_notes)
+            .await
+            .map_err(GetBlockInputsError::SelectNoteInclusionProofError)?;
+
+        // The set of blocks that the notes are included in.
+        let note_proof_reference_blocks =
+            unauthenticated_note_proofs.values().map(|proof| proof.location().block_num());
+
+        // Collect all blocks we need to prove inclusion for, without duplicates.
+        let mut blocks = reference_blocks;
+        blocks.extend(note_proof_reference_blocks);
+
+        // Acquire the lock to the inner state. While we hold the lock, we don't access the DB.
         let inner = self.inner.read().await;
 
-        let latest = self
-            .db
-            .select_block_header_by_block_num(None)
-            .await?
-            .ok_or(GetBlockInputsError::DbBlockHeaderEmpty)?;
+        let latest_block_number = inner.latest_block_num();
 
-        // sanity check
-        if inner.blockchain.chain_tip() != latest.block_num() {
-            return Err(GetBlockInputsError::IncorrectChainMmrForestNumber {
-                forest: inner.blockchain.chain_tip().as_usize(),
-                block_num: latest.block_num(),
-            });
-        }
+        // The latest block is not yet in the chain MMR, so we can't (and don't need to) prove its
+        // inclusion in the chain.
+        blocks.remove(&latest_block_number);
 
-        // using current block number gets us the peaks of the chain MMR as of one block ago;
-        // this is done so that latest.chain_root matches the returned peaks
-        let chain_peaks =
-            inner.blockchain.peaks_at(latest.block_num().as_usize()).map_err(|error| {
-                GetBlockInputsError::FailedToGetMmrPeaksForForest {
-                    forest: latest.block_num().as_usize(),
-                    error,
-                }
-            })?;
-        let account_states = account_ids
+        // Fetch the partial MMR with authentication paths for the set of blocks.
+        let partial_mmr = inner.blockchain.partial_mmr_from_blocks(&blocks, latest_block_number);
+
+        // Fetch witnesses for all acounts.
+        let account_witnesses = account_ids
             .iter()
             .copied()
             .map(|account_id| {
-                let ValuePath { value: account_hash, path: proof } =
-                    inner.account_tree.open(&LeafIndex::new_max_depth(account_id.prefix().into()));
-                Ok(AccountInputRecord { account_id, account_hash, proof })
+                let ValuePath {
+                    value: latest_state_commitment,
+                    path: proof,
+                } = inner.account_tree.open(&account_id.into());
+                (account_id, AccountWitness::new(latest_state_commitment, proof))
             })
-            .collect::<Result<_, AccountError>>()?;
+            .collect::<BTreeMap<AccountId, AccountWitness>>();
 
-        let nullifiers: Vec<NullifierWitness> = nullifiers
+        // Fetch witnesses for all nullifiers. We don't check whether the nullifiers are spent or
+        // not as this is done as part of proposing the block.
+        let nullifier_witnesses: BTreeMap<Nullifier, NullifierWitness> = nullifiers
             .iter()
+            .copied()
             .map(|nullifier| {
-                let proof = inner.nullifier_tree.open(nullifier);
-
-                NullifierWitness { nullifier: *nullifier, proof }
+                let proof = inner.nullifier_tree.open(&nullifier);
+                (nullifier, NullifierWitness::new(proof))
             })
             .collect();
 
-        let found_unauthenticated_notes =
-            self.get_note_authentication_info(unauthenticated_notes).await?;
+        // Release the lock.
+        std::mem::drop(inner);
 
-        Ok(BlockInputs {
-            block_header: latest,
-            chain_peaks,
-            account_states,
-            nullifiers,
-            found_unauthenticated_notes,
-        })
+        // Fetch the block headers for all blocks in the partial MMR plus the latest one which will
+        // be used as the previous block header of the block being built.
+        let mut headers = self
+            .db
+            .select_block_headers(blocks.into_iter().chain(std::iter::once(latest_block_number)))
+            .await
+            .map_err(GetBlockInputsError::SelectBlockHeaderError)?;
+
+        // Find and remove the latest block as we must not add it to the chain MMR, since it is
+        // not yet in the chain.
+        let latest_block_header_index = headers
+            .iter()
+            .enumerate()
+            .find_map(|(index, header)| {
+                (header.block_num() == latest_block_number).then_some(index)
+            })
+            .expect("DB should have returned the header of the latest block header");
+
+        // The order doesn't matter for ChainMmr::new, so swap remove is fine.
+        let latest_block_header = headers.swap_remove(latest_block_header_index);
+
+        // SAFETY: This should not error because:
+        // - we're passing exactly the block headers that we've added to the partial MMR,
+        // - so none of the block header's block numbers should exceed the chain length of the
+        //   partial MMR,
+        // - and we've added blocks to a BTreeSet, so there can be no duplicates.
+        let chain_mmr = ChainMmr::new(partial_mmr, headers)
+            .expect("partial mmr and block headers should be consistent");
+
+        Ok(BlockInputs::new(
+            latest_block_header,
+            chain_mmr,
+            account_witnesses,
+            nullifier_witnesses,
+            unauthenticated_note_proofs,
+        ))
     }
 
     /// Returns data needed by the block producer to verify transactions validity.

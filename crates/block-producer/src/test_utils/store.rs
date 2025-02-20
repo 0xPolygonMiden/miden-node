@@ -3,12 +3,11 @@ use std::{
     num::NonZeroU32,
 };
 
-use miden_node_proto::domain::{block::BlockInclusionProof, note::NoteAuthenticationInfo};
 use miden_objects::{
     batch::ProvenBatch,
     block::{BlockHeader, BlockNumber, OutputNoteBatch, ProvenBlock},
-    crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    note::{NoteId, NoteInclusionProof, Nullifier},
+    crypto::merkle::{Mmr, SimpleSmt, Smt},
+    note::{NoteId, NoteInclusionProof},
     transaction::ProvenTransaction,
     ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
@@ -16,7 +15,6 @@ use tokio::sync::RwLock;
 
 use super::*;
 use crate::{
-    block::{AccountWitness, BlockInputs},
     errors::StoreError,
     store::TransactionInputs,
     test_utils::block::{
@@ -293,65 +291,66 @@ impl MockStoreSuccess {
         })
     }
 
-    pub async fn get_block_inputs(
-        &self,
-        updated_accounts: impl Iterator<Item = AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, StoreError> {
-        let locked_accounts = self.accounts.read().await;
-        let locked_produced_nullifiers = self.produced_nullifiers.read().await;
+    // Note: Commented as it is unused atm. Is it worth fixing it?
+    // pub async fn get_block_inputs(
+    //     &self,
+    //     updated_accounts: impl Iterator<Item = AccountId> + Send,
+    //     produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
+    //     notes: impl Iterator<Item = &NoteId> + Send,
+    // ) -> Result<BlockInputs, StoreError> {
+    //     let locked_accounts = self.accounts.read().await;
+    //     let locked_produced_nullifiers = self.produced_nullifiers.read().await;
 
-        let chain_peaks = {
-            let locked_chain_mmr = self.chain_mmr.read().await;
-            locked_chain_mmr.peaks()
-        };
+    //     let chain_peaks = {
+    //         let locked_chain_mmr = self.chain_mmr.read().await;
+    //         locked_chain_mmr.peaks()
+    //     };
 
-        let accounts = {
-            updated_accounts
-                .map(|account_id| {
-                    let ValuePath { value: hash, path: proof } =
-                        locked_accounts.open(&account_id.into());
+    //     let accounts = {
+    //         updated_accounts
+    //             .map(|account_id| {
+    //                 let ValuePath { value: hash, path: proof } =
+    //                     locked_accounts.open(&account_id.into());
 
-                    (account_id, AccountWitness { hash, proof })
-                })
-                .collect()
-        };
+    //                 (account_id, AccountWitness { hash, proof })
+    //             })
+    //             .collect()
+    //     };
 
-        let nullifiers = produced_nullifiers
-            .map(|nullifier| (*nullifier, locked_produced_nullifiers.open(&nullifier.inner())))
-            .collect();
+    //     let nullifiers = produced_nullifiers
+    //         .map(|nullifier| (*nullifier, locked_produced_nullifiers.open(&nullifier.inner())))
+    //         .collect();
 
-        let locked_notes = self.notes.read().await;
-        let note_proofs = notes
-            .filter_map(|id| locked_notes.get(id).map(|proof| (*id, proof.clone())))
-            .collect::<BTreeMap<_, _>>();
+    //     let locked_notes = self.notes.read().await;
+    //     let note_proofs = notes
+    //         .filter_map(|id| locked_notes.get(id).map(|proof| (*id, proof.clone())))
+    //         .collect::<BTreeMap<_, _>>();
 
-        let locked_headers = self.block_headers.read().await;
-        let latest_header =
-            *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
+    //     let locked_headers = self.block_headers.read().await;
+    //     let latest_header =
+    //         *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
 
-        let locked_chain_mmr = self.chain_mmr.read().await;
-        let chain_length = latest_header.block_num();
-        let block_proofs = note_proofs
-            .values()
-            .map(|note_proof| {
-                let block_num = note_proof.location().block_num();
-                let block_header = *locked_headers.get(&block_num).unwrap();
-                let mmr_path = locked_chain_mmr.open(block_num.as_usize()).unwrap().merkle_path;
+    //     let locked_chain_mmr = self.chain_mmr.read().await;
+    //     let chain_length = latest_header.block_num();
+    //     let block_proofs = note_proofs
+    //         .values()
+    //         .map(|note_proof| {
+    //             let block_num = note_proof.location().block_num();
+    //             let block_header = *locked_headers.get(&block_num).unwrap();
+    //             let mmr_path = locked_chain_mmr.open(block_num.as_usize()).unwrap().merkle_path;
 
-                BlockInclusionProof { block_header, mmr_path, chain_length }
-            })
-            .collect();
+    //             BlockInclusionProof { block_header, mmr_path, chain_length }
+    //         })
+    //         .collect();
 
-        let found_unauthenticated_notes = NoteAuthenticationInfo { block_proofs, note_proofs };
+    //     let found_unauthenticated_notes = NoteAuthenticationInfo { block_proofs, note_proofs };
 
-        Ok(BlockInputs {
-            block_header: latest_header,
-            chain_peaks,
-            accounts,
-            nullifiers,
-            found_unauthenticated_notes,
-        })
-    }
+    //     Ok(BlockInputs {
+    //         block_header: latest_header,
+    //         chain_peaks,
+    //         accounts,
+    //         nullifiers,
+    //         found_unauthenticated_notes,
+    //     })
+    // }
 }

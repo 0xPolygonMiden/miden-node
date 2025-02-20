@@ -244,6 +244,10 @@ pub enum GetBlockInputsError {
     IncorrectChainMmrForestNumber { forest: usize, block_num: BlockNumber },
     #[error("note inclusion proof MMR error")]
     NoteInclusionMmr(#[from] MmrError),
+    #[error("failed to select note inclusion proofs")]
+    SelectNoteInclusionProofError(#[source] DatabaseError),
+    #[error("failed to select block headers")]
+    SelectBlockHeaderError(#[source] DatabaseError),
 }
 
 impl From<GetNoteAuthenticationInfoError> for GetBlockInputsError {

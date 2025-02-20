@@ -8,8 +8,8 @@ pub mod generated;
 // ================================================================================================
 
 pub use domain::{
-    account::{AccountInputRecord, AccountState},
+    account::{AccountState, AccountWitnessRecord},
     convert,
-    nullifier::NullifierWitness,
+    nullifier::NullifierWitnessRecord,
     try_convert,
 };

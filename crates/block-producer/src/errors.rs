@@ -1,14 +1,12 @@
+use miden_block_prover::ProvenBlockError;
 use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    account::AccountId,
     block::BlockNumber,
-    crypto::merkle::MerkleError,
     note::{NoteId, Nullifier},
     transaction::TransactionId,
-    AccountDeltaError, Digest, ProposedBatchError,
+    Digest, ProposedBatchError, ProposedBlockError,
 };
-use miden_processor::ExecutionError;
 use miden_tx_batch_prover::errors::ProvenBatchError;
 use thiserror::Error;
 use tokio::task::JoinError;
@@ -146,50 +144,19 @@ pub enum BuildBatchError {
     ProveBatchError(#[source] ProvenBatchError),
 }
 
-// Block prover errors
-// =================================================================================================
-
-#[derive(Debug, Error)]
-pub enum BlockProverError {
-    #[error("received invalid merkle path")]
-    InvalidMerklePaths(#[source] MerkleError),
-    #[error("program execution failed")]
-    ProgramExecutionFailed(#[source] ExecutionError),
-    #[error("failed to retrieve {0} root from stack outputs")]
-    InvalidRootOutput(&'static str),
-}
-
 // Block building errors
 // =================================================================================================
 
 #[derive(Debug, Error)]
 pub enum BuildBlockError {
-    #[error("failed to compute new block")]
-    BlockProverFailed(#[from] BlockProverError),
     #[error("failed to apply block to store")]
     StoreApplyBlockFailed(#[source] StoreError),
     #[error("failed to get block inputs from store")]
     GetBlockInputsFailed(#[source] StoreError),
-    #[error("block inputs from store did not contain data for account {0}")]
-    MissingAccountInput(AccountId),
-    #[error("block inputs from store contained extra data for accounts {0:?}")]
-    ExtraStoreData(Vec<AccountId>),
-    #[error("account {0} with state {1} cannot transaction to remaining states {2:?}")]
-    InconsistentAccountStateTransition(AccountId, Digest, Vec<Digest>),
-    #[error(
-        "block inputs from store and transaction batches produced different nullifiers: {0:?}"
-    )]
-    InconsistentNullifiers(Vec<Nullifier>),
-    #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
-    UnauthenticatedNotesNotFound(Vec<NoteId>),
-    #[error("failed to merge transaction delta into account {account_id}")]
-    AccountUpdateError {
-        account_id: AccountId,
-        source: AccountDeltaError,
-    },
-    // TODO: Check if needed.
-    // #[error("block construction failed")]
-    // BlockConstructionError,
+    #[error("failed to propose block")]
+    ProposeBlockFailed(#[source] ProposedBlockError),
+    #[error("failed to prove block")]
+    ProveBlockFailed(#[source] ProvenBlockError),
     /// We sometimes randomly inject errors into the batch building process to test our failure
     /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]
