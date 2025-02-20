@@ -64,7 +64,6 @@ pub struct NoteRecord {
     pub note_id: RpoDigest,
     pub metadata: NoteMetadata,
     pub details: Option<Vec<u8>>,
-    pub nullifier: Option<Nullifier>,
     pub merkle_path: MerklePath,
 }
 
@@ -81,8 +80,7 @@ impl NoteRecord {
             aux,
             execution_hint,
             merkle_path,
-            details,
-            nullifier
+            details
     ";
 
     /// Parses a row from the `notes` table. The sql selection must use [`Self::SELECT_COLUMNS`] to
@@ -102,11 +100,6 @@ impl NoteRecord {
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
         let details_data = row.get_ref(10)?.as_blob_or_null()?;
         let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-        let nullifier = row
-            .get_ref(11)?
-            .as_blob_or_null()?
-            .map(Nullifier::read_from_bytes)
-            .transpose()?;
 
         let metadata =
             NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
@@ -117,7 +110,6 @@ impl NoteRecord {
             note_id,
             metadata,
             details,
-            nullifier,
             merkle_path,
         })
     }
@@ -466,7 +458,7 @@ impl Db {
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
         block: Block,
-        notes: Vec<NoteRecord>,
+        notes: Vec<(NoteRecord, Option<Nullifier>)>,
     ) -> Result<()> {
         self.pool
             .get()

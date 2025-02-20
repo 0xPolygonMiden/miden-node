@@ -393,17 +393,18 @@ impl State {
 
                 let merkle_path = note_tree.get_note_path(note_index);
 
-                Ok(NoteRecord {
+                let note_record = NoteRecord {
                     block_num,
                     note_index,
                     note_id: note.id().into(),
                     metadata: *note.metadata(),
                     details,
                     merkle_path,
-                    nullifier,
-                })
+                };
+
+                Ok((note_record, nullifier))
             })
-            .collect::<Result<Vec<NoteRecord>, InvalidBlockError>>()?;
+            .collect::<Result<Vec<_>, InvalidBlockError>>()?;
 
         // Signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();

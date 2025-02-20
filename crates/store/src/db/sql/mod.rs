@@ -742,7 +742,7 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
     Ok(notes)
 }
 
-/// Insert notes to the DB using the given [Transaction].
+/// Insert notes to the DB using the given [Transaction]. Public notes should also have a nullifier.
 ///
 /// # Returns
 ///
@@ -752,7 +752,10 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
 ///
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
-pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<usize> {
+pub fn insert_notes(
+    transaction: &Transaction,
+    notes: &[(NoteRecord, Option<Nullifier>)],
+) -> Result<usize> {
     let mut stmt = transaction.prepare_cached(insert_sql!(notes {
         block_num,
         batch_index,
@@ -771,7 +774,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
     }))?;
 
     let mut count = 0;
-    for note in notes {
+    for (note, nullifier) in notes {
         let details = note.details.as_ref().map(miden_objects::utils::Serializable::to_bytes);
         count += stmt.execute(params![
             note.block_num.as_u32(),
@@ -788,7 +791,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             // New notes are always uncomsumed.
             false,
             details,
-            note.nullifier.as_ref().map(Nullifier::to_bytes),
+            nullifier.to_bytes(),
         ])?;
     }
 
@@ -1237,7 +1240,7 @@ pub fn get_note_sync(
 pub fn apply_block(
     transaction: &Transaction,
     block_header: &BlockHeader,
-    notes: &[NoteRecord],
+    notes: &[(NoteRecord, Option<Nullifier>)],
     nullifiers: &[Nullifier],
     accounts: &[BlockAccountUpdate],
 ) -> Result<usize> {

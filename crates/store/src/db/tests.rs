@@ -187,12 +187,11 @@ fn sql_select_notes() {
             .unwrap(),
             details: Some(vec![1, 2, 3]),
             merkle_path: MerklePath::new(vec![]),
-            nullifier: None,
         };
         state.push(note.clone());
 
         let transaction = conn.transaction().unwrap();
-        let res = sql::insert_notes(&transaction, &[note]);
+        let res = sql::insert_notes(&transaction, &[(note, None)]);
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
         let notes = sql::select_all_notes(&mut conn).unwrap();
@@ -228,12 +227,11 @@ fn sql_select_notes_different_execution_hints() {
         .unwrap(),
         details: Some(vec![1, 2, 3]),
         merkle_path: MerklePath::new(vec![]),
-        nullifier: None,
     };
     state.push(note_none.clone());
 
     let transaction = conn.transaction().unwrap();
-    let res = sql::insert_notes(&transaction, &[note_none]);
+    let res = sql::insert_notes(&transaction, &[(note_none, None)]);
     assert_eq!(res.unwrap(), 1, "One element must have been inserted");
     transaction.commit().unwrap();
     let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(0).into()]).unwrap()[0];
@@ -253,12 +251,11 @@ fn sql_select_notes_different_execution_hints() {
         .unwrap(),
         details: Some(vec![1, 2, 3]),
         merkle_path: MerklePath::new(vec![]),
-        nullifier: None,
     };
     state.push(note_always.clone());
 
     let transaction = conn.transaction().unwrap();
-    let res = sql::insert_notes(&transaction, &[note_always]);
+    let res = sql::insert_notes(&transaction, &[(note_always, None)]);
     assert_eq!(res.unwrap(), 1, "One element must have been inserted");
     transaction.commit().unwrap();
     let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(1).into()]).unwrap()[0];
@@ -278,12 +275,11 @@ fn sql_select_notes_different_execution_hints() {
         .unwrap(),
         details: Some(vec![1, 2, 3]),
         merkle_path: MerklePath::new(vec![]),
-        nullifier: None,
     };
     state.push(note_after_block.clone());
 
     let transaction = conn.transaction().unwrap();
-    let res = sql::insert_notes(&transaction, &[note_after_block]);
+    let res = sql::insert_notes(&transaction, &[(note_after_block, None)]);
     assert_eq!(res.unwrap(), 1, "One element must have been inserted");
     transaction.commit().unwrap();
     let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(2).into()]).unwrap()[0];
@@ -911,11 +907,10 @@ fn notes() {
         .unwrap(),
         details,
         merkle_path: merkle_path.clone(),
-        nullifier: None,
     };
 
     let transaction = conn.transaction().unwrap();
-    sql::insert_notes(&transaction, &[note.clone()]).unwrap();
+    sql::insert_notes(&transaction, &[(note.clone(), None)]).unwrap();
     transaction.commit().unwrap();
 
     // test empty tags
@@ -949,11 +944,10 @@ fn notes() {
         metadata: note.metadata,
         details: None,
         merkle_path,
-        nullifier: None,
     };
 
     let transaction = conn.transaction().unwrap();
-    sql::insert_notes(&transaction, &[note2.clone()]).unwrap();
+    sql::insert_notes(&transaction, &[(note2.clone(), None)]).unwrap();
     transaction.commit().unwrap();
 
     // only first note is returned
