@@ -45,7 +45,7 @@ pub struct GetBlockHeaderByNumberRequest {
 ///
 /// Specifies state updates the client is interested in. The server will return the first block which
 /// contains a note matching `note_tags` or the chain tip. And the corresponding updates to
-/// `nullifiers` and `account_ids` for that block range.
+/// `account_ids` for that block range.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateRequest {
     /// Last block known by the client. The response will contain data starting from the next block,
@@ -63,10 +63,6 @@ pub struct SyncStateRequest {
     /// Specifies the tags which the client is interested in.
     #[prost(fixed32, repeated, tag = "3")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
-    /// Determines the nullifiers the client is interested in by specifying the 16high bits of the
-    /// target nullifier.
-    #[prost(uint32, repeated, tag = "4")]
-    pub nullifiers: ::prost::alloc::vec::Vec<u32>,
 }
 /// Note synchronization request.
 ///

@@ -180,12 +180,7 @@ impl api_server::Api for StoreApi {
                     let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
 
                     let (state, delta) = state
-                        .sync_state(
-                            last_block_num.into(),
-                            account_ids,
-                            request.note_tags.clone(),
-                            request.nullifiers.clone(),
-                        )
+                        .sync_state(last_block_num.into(), account_ids, request.note_tags.clone())
                         .await
                         .map_err(internal_error)?;
 
@@ -211,22 +206,12 @@ impl api_server::Api for StoreApi {
 
                     let notes = state.notes.into_iter().map(Into::into).collect();
 
-                    let nullifiers = state
-                        .nullifiers
-                        .into_iter()
-                        .map(|nullifier_info| NullifierUpdate {
-                            nullifier: Some(nullifier_info.nullifier.into()),
-                            block_num: nullifier_info.block_num.as_u32(),
-                        })
-                        .collect();
-
                     let response = SyncStateResponse {
                         block_header: Some(state.block_header.into()),
                         mmr_delta: Some(delta.into()),
                         accounts,
                         transactions,
                         notes,
-                        nullifiers,
                     };
                     Ok(response)
                 }

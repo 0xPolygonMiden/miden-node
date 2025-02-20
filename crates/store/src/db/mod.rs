@@ -85,7 +85,6 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub account_updates: Vec<AccountSummary>,
     pub transactions: Vec<TransactionSummary>,
-    pub nullifiers: Vec<NullifierInfo>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -328,15 +327,12 @@ impl Db {
         block_num: BlockNumber,
         account_ids: Vec<AccountId>,
         note_tags: Vec<u32>,
-        nullifier_prefixes: Vec<u32>,
     ) -> Result<StateSyncUpdate, StateSyncError> {
         self.pool
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| {
-                sql::get_state_sync(conn, block_num, &account_ids, &note_tags, &nullifier_prefixes)
-            })
+            .interact(move |conn| sql::get_state_sync(conn, block_num, &account_ids, &note_tags))
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get state sync task failed: {err}"))
