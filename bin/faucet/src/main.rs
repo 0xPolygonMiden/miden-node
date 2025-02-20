@@ -5,6 +5,9 @@ mod handlers;
 mod state;
 mod store;
 
+#[cfg(test)]
+mod stub_rpc_api;
+
 use std::path::PathBuf;
 
 use anyhow::Context;
@@ -100,43 +103,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Start { config } => {
             let config: FaucetConfig =
                 load_config(config).context("failed to load configuration file")?;
-
-            let faucet_state = FaucetState::new(config.clone()).await?;
-
-            info!(target: COMPONENT, %config, "Initializing server");
-
-            let app = Router::new()
-                .route("/", get(get_index_html))
-                .route("/index.js", get(get_index_js))
-                .route("/index.css", get(get_index_css))
-                .route("/background.png", get(get_background))
-                .route("/favicon.ico", get(get_favicon))
-                .route("/get_metadata", get(get_metadata))
-                .route("/get_tokens", post(get_tokens))
-                .layer(
-                    ServiceBuilder::new()
-                        .layer(TraceLayer::new_for_http())
-                        .layer(SetResponseHeaderLayer::if_not_present(
-                            http::header::CACHE_CONTROL,
-                            HeaderValue::from_static("no-cache"),
-                        ))
-                        .layer(
-                            CorsLayer::new()
-                                .allow_origin(tower_http::cors::Any)
-                                .allow_methods(tower_http::cors::Any),
-                        ),
-                )
-                .with_state(faucet_state);
-
-            let socket_addr = config.endpoint.socket_addrs(|| None)?.into_iter().next().ok_or(
-                anyhow::anyhow!("Couldn't get any socket addrs for endpoint: {}", config.endpoint),
-            )?;
-            let listener =
-                TcpListener::bind(socket_addr).await.context("failed to bind TCP listener")?;
-
-            info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
-
-            axum::serve(listener, app).await.unwrap();
+            serve_faucet(config).await?;
         },
 
         Command::CreateFaucetAccount {
@@ -227,5 +194,135 @@ fn long_version() -> LongVersion {
         target: option_env!("VERGEN_CARGO_TARGET_TRIPLE").unwrap_or_default(),
         opt_level: option_env!("VERGEN_CARGO_OPT_LEVEL").unwrap_or_default(),
         debug: option_env!("VERGEN_CARGO_DEBUG").unwrap_or_default(),
+    }
+}
+
+fn create_new_router(faucet_state: FaucetState) -> Router {
+    Router::new()
+        .route("/", get(get_index_html))
+        .route("/index.js", get(get_index_js))
+        .route("/index.css", get(get_index_css))
+        .route("/background.png", get(get_background))
+        .route("/favicon.ico", get(get_favicon))
+        .route("/get_metadata", get(get_metadata))
+        .route("/get_tokens", post(get_tokens))
+        .layer(
+            ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                .layer(SetResponseHeaderLayer::if_not_present(
+                    http::header::CACHE_CONTROL,
+                    HeaderValue::from_static("no-cache"),
+                ))
+                .layer(
+                    CorsLayer::new()
+                        .allow_origin(tower_http::cors::Any)
+                        .allow_methods(tower_http::cors::Any),
+                ),
+        )
+        .with_state(faucet_state)
+}
+
+async fn serve_faucet(config: FaucetConfig) -> anyhow::Result<()> {
+    let faucet_state = FaucetState::new(config.clone()).await?;
+
+    info!(target: COMPONENT, %config, "Initializing server");
+
+    let app = create_new_router(faucet_state);
+
+    let socket_addr =
+        config
+            .endpoint
+            .socket_addrs(|| None)?
+            .into_iter()
+            .next()
+            .ok_or(anyhow::anyhow!(
+                "Couldn't get any socket addrs for endpoint: {}",
+                config.endpoint
+            ))?;
+    let listener = TcpListener::bind(socket_addr).await.context("failed to bind TCP listener")?;
+
+    info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
+
+    axum::serve(listener, app).await.unwrap();
+    Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use std::{process::Command, str::FromStr, time::Duration};
+
+    use fantoccini::ClientBuilder;
+    use serde_json::{json, Map};
+    use tokio::time::sleep;
+    use url::Url;
+
+    use crate::{config::FaucetConfig, serve_faucet, stub_rpc_api::serve_stub};
+
+    #[tokio::test]
+    async fn test_website() {
+        let stub_node_url = Url::from_str("http://localhost:50051").unwrap();
+
+        // Start the stub node
+        let stub_url_clone = stub_node_url.clone();
+        tokio::spawn(async move { serve_stub(&stub_url_clone).await.unwrap() });
+
+        // Start the faucet connected to the stub
+        let config = FaucetConfig {
+            node_url: stub_node_url,
+            faucet_account_path: "src/test_data/faucet.mac".into(),
+            ..FaucetConfig::default()
+        };
+        let website_url = config.endpoint.clone();
+        tokio::spawn(async move { serve_faucet(config).await.unwrap() });
+
+        // Start chromedriver. This requires having chromedriver and chrome installed
+        let chromedriver_port = "57709";
+        #[allow(clippy::zombie_processes)]
+        let mut chromedriver = Command::new("chromedriver")
+            .arg(format!("--port={chromedriver_port}"))
+            .spawn()
+            .expect("failed to start chromedriver");
+
+        // Wait for the server to be running
+        sleep(Duration::from_secs(1)).await;
+
+        // Start fantoccini client
+        let mut caps = Map::new();
+        caps.insert(
+            "goog:chromeOptions".to_string(),
+            json!({"args": ["--headless", "--disable-gpu", "--no-sandbox"]}),
+        );
+        let client = ClientBuilder::native()
+            .capabilities(caps)
+            .connect(&format!("http://localhost:{chromedriver_port}"))
+            .await
+            .expect("failed to connect to WebDriver");
+
+        // Open the website
+        client.goto(website_url.as_str()).await.unwrap();
+
+        let title = client.title().await.unwrap();
+        assert_eq!(title, "Miden Faucet");
+
+        // Collect all the requests made by the website and test that they all return 200
+        let script = r"
+            let requests = [];
+            window.performance.getEntriesByType('resource').forEach(entry => {
+                requests.push(entry.name);
+            });
+            return requests;
+        ";
+        let requests = client.execute(script, vec![]).await.unwrap();
+        assert!(!requests.as_array().unwrap().is_empty());
+
+        for request in requests.as_array().unwrap() {
+            let uri = request.as_str().unwrap();
+            let status = reqwest::get(uri).await.unwrap().status();
+            assert_eq!(status, 200);
+        }
+
+        // Close the client and kill chromedriver
+        client.close().await.unwrap();
+        chromedriver.kill().unwrap();
     }
 }
