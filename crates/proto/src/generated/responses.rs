@@ -121,7 +121,9 @@ pub struct GetBlockInputsResponse {
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
     /// The list of requested notes which were found in the database.
     #[prost(message, optional, tag = "5")]
-    pub found_unauthenticated_notes: ::core::option::Option<super::note::NoteAuthenticationInfo>,
+    pub found_unauthenticated_notes: ::core::option::Option<
+        super::note::NoteAuthenticationInfo,
+    >,
 }
 /// Represents the result of getting batch inputs.
 #[derive(Clone, PartialEq, ::prost::Message)]
