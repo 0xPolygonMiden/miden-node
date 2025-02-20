@@ -37,7 +37,8 @@ Returns a nullifier proof for each of the requested nullifiers.
 
 ### CheckNullifiersByPrefix
 
-Returns a list of nullifiers recorded in the node that match the specified prefixes and block creation height.
+Returns a list of nullifiers recorded in the node that match the specified prefixes and were created at or after 
+the given block height.
 
 Only 16-bit prefixes are supported at this time.
 
