@@ -590,13 +590,12 @@ pub fn insert_nullifiers_for_block(
 
     let mut stmt = transaction
         .prepare_cached("UPDATE notes SET consumed = TRUE WHERE nullifier IN rarray(?1)")?;
-    stmt.execute(params![serialized_nullifiers])?;
+    let mut count = stmt.execute(params![serialized_nullifiers])?;
 
     let mut stmt = transaction.prepare_cached(
         "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_num) VALUES (?1, ?2, ?3);",
     )?;
 
-    let mut count = 0;
     for (nullifier, bytes) in nullifiers.iter().zip(serialized_nullifiers.iter()) {
         count +=
             stmt.execute(params![bytes, get_nullifier_prefix(nullifier), block_num.as_u32()])?;
@@ -1034,6 +1033,8 @@ pub fn select_note_inclusion_proofs(
 /// Pagination is controlled with the `offset` and `limit` values. If less than `limit` values are
 /// returned, then this is the final page.
 ///
+/// Notes are ordered chronologically, i.e. by block number and note index within the block.
+///
 /// # Returns
 ///
 /// A batch of unconsumed network notes with maximum length of `limit`, from the given `offset`.
@@ -1068,6 +1069,7 @@ pub fn unconsumed_network_notes(
             notes
         WHERE
             execution_mode = 0 AND consumed = FALSE
+        ORDER BY block_num, note_index ASC
         OFFSET ?0
         LIMIT ?1
         ",
