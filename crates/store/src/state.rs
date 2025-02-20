@@ -381,9 +381,9 @@ impl State {
         let notes = block
             .notes()
             .map(|(note_index, note)| {
-                let details = match note {
-                    OutputNote::Full(note) => Some(note.to_bytes()),
-                    OutputNote::Header(_) => None,
+                let (details, nullifier) = match note {
+                    OutputNote::Full(note) => (Some(note.to_bytes()), Some(note.nullifier())),
+                    OutputNote::Header(_) => (None, None),
                     note @ OutputNote::Partial(_) => {
                         return Err(InvalidBlockError::InvalidOutputNoteType(Box::new(
                             note.clone(),
@@ -400,6 +400,7 @@ impl State {
                     metadata: *note.metadata(),
                     details,
                     merkle_path,
+                    nullifier,
                 })
             })
             .collect::<Result<Vec<NoteRecord>, InvalidBlockError>>()?;

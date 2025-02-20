@@ -63,6 +63,7 @@ pub struct NoteRecord {
     pub note_id: RpoDigest,
     pub metadata: NoteMetadata,
     pub details: Option<Vec<u8>>,
+    pub nullifier: Option<Nullifier>,
     pub merkle_path: MerklePath,
 }
 

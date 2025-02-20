@@ -35,6 +35,7 @@ CREATE TABLE
     execution_hint INTEGER NOT NULL,
     merkle_path    BLOB    NOT NULL,
     consumed       INTEGER NOT NULL, -- boolean
+    nullifier      BLOB,             -- Only known for public notes, null for private notes
     details        BLOB,
 
     PRIMARY KEY (block_num, batch_index, note_index),

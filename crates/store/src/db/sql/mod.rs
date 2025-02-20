@@ -568,7 +568,8 @@ fn insert_account_delta(
 // NULLIFIER QUERIES
 // ================================================================================================
 
-/// Insert nullifiers to the DB using the given [Transaction].
+/// Commit nullifiers to the DB using the given [Transaction]. This inserts the nullifiers into the
+/// nullifiers table, and marks the note as consumed (if it was public).
 ///
 /// # Returns
 ///
@@ -583,17 +584,22 @@ pub fn insert_nullifiers_for_block(
     nullifiers: &[Nullifier],
     block_num: BlockNumber,
 ) -> Result<usize> {
+    let serialized_nullifiers: Vec<Value> =
+        nullifiers.iter().map(Nullifier::to_bytes).map(Into::into).collect();
+    let serialized_nullifiers = Rc::new(serialized_nullifiers);
+
+    let mut stmt = transaction
+        .prepare_cached("UPDATE notes SET consumed = TRUE WHERE nullifier IN rarray(?1)")?;
+    stmt.execute(params![serialized_nullifiers])?;
+
     let mut stmt = transaction.prepare_cached(
         "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_num) VALUES (?1, ?2, ?3);",
     )?;
 
     let mut count = 0;
-    for nullifier in nullifiers {
-        count += stmt.execute(params![
-            nullifier.to_bytes(),
-            get_nullifier_prefix(nullifier),
-            block_num.as_u32()
-        ])?;
+    for (nullifier, bytes) in nullifiers.iter().zip(serialized_nullifiers.iter()) {
+        count +=
+            stmt.execute(params![bytes, get_nullifier_prefix(nullifier), block_num.as_u32()])?;
     }
     Ok(count)
 }
@@ -737,7 +743,8 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
             aux,
             execution_hint,
             merkle_path,
-            details
+            details,
+            nullifier
         FROM
             notes
         ORDER BY
@@ -748,31 +755,36 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
 
     let mut notes = vec![];
     while let Some(row) = rows.next()? {
-        let note_id_data = row.get_ref(3)?.as_blob()?;
-        let note_id = RpoDigest::read_from_bytes(note_id_data)?;
-
-        let merkle_path_data = row.get_ref(9)?.as_blob()?;
-        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-
+        let block_num = read_block_number(row, 0)?;
+        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
+        let note_id = row.get_ref(3)?.as_blob()?;
+        let note_id = RpoDigest::read_from_bytes(note_id)?;
         let note_type = row.get::<_, u8>(4)?.try_into()?;
         let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
         let execution_hint = column_value_as_u64(row, 8)?;
+        let merkle_path_data = row.get_ref(9)?.as_blob()?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
+        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+        let nullifier = row
+            .get_ref(11)?
+            .as_blob_or_null()?
+            .map(Nullifier::read_from_bytes)
+            .transpose()?;
 
         let metadata =
             NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
 
         notes.push(NoteRecord {
-            block_num: read_block_number(row, 0)?,
-            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
+            block_num,
+            note_index,
             note_id,
             metadata,
             details,
+            nullifier,
             merkle_path,
         });
     }
@@ -804,6 +816,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
         merkle_path,
         consumed,
         details,
+        nullifier,
     }))?;
 
     let mut count = 0;
@@ -824,6 +837,7 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             // New notes are always uncomsumed.
             false,
             details,
+            note.nullifier.as_ref().map(Nullifier::to_bytes),
         ])?;
     }
 
@@ -914,7 +928,8 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
             aux,
             execution_hint,
             merkle_path,
-            details
+            details,
+            nullifier
         FROM
             notes
         WHERE
@@ -925,30 +940,36 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
 
     let mut notes = Vec::new();
     while let Some(row) = rows.next()? {
-        let note_id_data = row.get_ref(3)?.as_blob()?;
-        let note_id = NoteId::read_from_bytes(note_id_data)?;
-
-        let merkle_path = read_from_blob_column(row, 9)?;
-
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-
+        let block_num = read_block_number(row, 0)?;
+        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
+        let note_id = row.get_ref(3)?.as_blob()?;
+        let note_id = RpoDigest::read_from_bytes(note_id)?;
         let note_type = row.get::<_, u8>(4)?.try_into()?;
-        let sender = read_from_blob_column(row, 5)?;
+        let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
         let execution_hint = column_value_as_u64(row, 8)?;
+        let merkle_path_data = row.get_ref(9)?.as_blob()?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
+        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+        let nullifier = row
+            .get_ref(11)?
+            .as_blob_or_null()?
+            .map(Nullifier::read_from_bytes)
+            .transpose()?;
 
         let metadata =
             NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
 
         notes.push(NoteRecord {
-            block_num: read_block_number(row, 0)?,
-            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
-            details,
-            note_id: note_id.into(),
+            block_num,
+            note_index,
+            note_id,
             metadata,
+            details,
+            nullifier,
             merkle_path,
         });
     }
@@ -1041,7 +1062,8 @@ pub fn unconsumed_network_notes(
             aux,
             execution_hint,
             merkle_path,
-            details
+            details,
+            nullifier
         FROM
             notes
         WHERE
@@ -1055,30 +1077,36 @@ pub fn unconsumed_network_notes(
 
     let mut notes = Vec::with_capacity(limit.into());
     while let Some(row) = rows.next()? {
-        let note_id_data = row.get_ref(3)?.as_blob()?;
-        let note_id = NoteId::read_from_bytes(note_id_data)?;
-
-        let merkle_path = read_from_blob_column(row, 9)?;
-
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-
+        let block_num = read_block_number(row, 0)?;
+        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
+        let note_id = row.get_ref(3)?.as_blob()?;
+        let note_id = RpoDigest::read_from_bytes(note_id)?;
         let note_type = row.get::<_, u8>(4)?.try_into()?;
-        let sender = read_from_blob_column(row, 5)?;
+        let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
         let tag: u32 = row.get(6)?;
         let aux: u64 = row.get(7)?;
         let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
         let execution_hint = column_value_as_u64(row, 8)?;
+        let merkle_path_data = row.get_ref(9)?.as_blob()?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
+        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+        let nullifier = row
+            .get_ref(11)?
+            .as_blob_or_null()?
+            .map(Nullifier::read_from_bytes)
+            .transpose()?;
 
         let metadata =
             NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
 
         notes.push(NoteRecord {
-            block_num: read_block_number(row, 0)?,
-            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
-            details,
-            note_id: note_id.into(),
+            block_num,
+            note_index,
+            note_id,
             metadata,
+            details,
+            nullifier,
             merkle_path,
         });
     }

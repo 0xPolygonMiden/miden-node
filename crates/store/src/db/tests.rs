@@ -187,6 +187,7 @@ fn sql_select_notes() {
             .unwrap(),
             details: Some(vec![1, 2, 3]),
             merkle_path: MerklePath::new(vec![]),
+            nullifier: None,
         };
         state.push(note.clone());
 
@@ -227,6 +228,7 @@ fn sql_select_notes_different_execution_hints() {
         .unwrap(),
         details: Some(vec![1, 2, 3]),
         merkle_path: MerklePath::new(vec![]),
+        nullifier: None,
     };
     state.push(note_none.clone());
 
@@ -251,6 +253,7 @@ fn sql_select_notes_different_execution_hints() {
         .unwrap(),
         details: Some(vec![1, 2, 3]),
         merkle_path: MerklePath::new(vec![]),
+        nullifier: None,
     };
     state.push(note_always.clone());
 
@@ -275,6 +278,7 @@ fn sql_select_notes_different_execution_hints() {
         .unwrap(),
         details: Some(vec![1, 2, 3]),
         merkle_path: MerklePath::new(vec![]),
+        nullifier: None,
     };
     state.push(note_after_block.clone());
 
@@ -907,6 +911,7 @@ fn notes() {
         .unwrap(),
         details,
         merkle_path: merkle_path.clone(),
+        nullifier: None,
     };
 
     let transaction = conn.transaction().unwrap();
@@ -944,6 +949,7 @@ fn notes() {
         metadata: note.metadata,
         details: None,
         merkle_path,
+        nullifier: None,
     };
 
     let transaction = conn.transaction().unwrap();
