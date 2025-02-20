@@ -46,7 +46,7 @@ CREATE TABLE
     CONSTRAINT notes_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_batch_index_is_u32 CHECK (batch_index BETWEEN 0 AND 0xFFFFFFFF),
     CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
-) STRICT, WITHOUT ROWID;
+) STRICT;
 
 CREATE TABLE
     accounts

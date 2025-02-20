@@ -938,47 +938,51 @@ pub fn select_note_inclusion_proofs(
 
 /// Returns a paginated batch of network notes that have not yet been consumed.
 ///
-/// Pagination is controlled with the `offset` and `limit` values. If less than `limit` values are
-/// returned, then this is the final page.
-///
-/// Notes are ordered chronologically, i.e. by block number and note index within the block.
-///
 /// # Returns
 ///
-/// A batch of unconsumed network notes with maximum length of `limit`, from the given `offset`.
+/// A set of unconsumed network notes with maximum length of `limit` and a pagination token to get
+/// the next set.
 #[cfg_attr(not(test), expect(dead_code, reason = "gRPC method is not yet implemented"))]
 pub fn unconsumed_network_notes(
     transaction: &Transaction,
-    offset: usize,
+    mut token: PaginationToken,
     limit: NonZeroUsize,
-) -> Result<Vec<NoteRecord>> {
+) -> Result<(Vec<NoteRecord>, PaginationToken)> {
     assert_eq!(
         NoteExecutionMode::Network as u8,
         0,
         "Hardcoded execution value must match query"
     );
 
+    // Select the rowid column so that we can return a pagination token.
+    //
+    // rowid column _must_ come after the note fields so that we don't mess up the
+    // `NoteRecord::from_row` call.
     let mut stmt = transaction.prepare_cached(&format!(
         "
-        SELECT {} FROM notes
+        SELECT {}, rowid FROM notes
         WHERE
-            execution_mode = 0 AND consumed = FALSE
-        ORDER BY block_num, note_index
+            execution_mode = 0 AND consumed = FALSE AND rowid >= ?
         LIMIT ?
-        OFFSET ?
         ",
         NoteRecord::SELECT_COLUMNS
     ))?;
 
-    let mut rows = stmt.query(params![limit, offset])?;
+    let mut rows = stmt.query(params![token.0, limit])?;
 
     let mut notes = Vec::with_capacity(limit.into());
     while let Some(row) = rows.next()? {
         notes.push(NoteRecord::from_row(row)?);
+        // Increment by 1 because we are using rowid >=, and otherwise we would include the last
+        // element in the next page as well.
+        token.0 = row.get::<_, i64>(11)? + 1;
     }
 
-    Ok(notes)
+    Ok((notes, token))
 }
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct PaginationToken(i64);
 
 // BLOCK CHAIN QUERIES
 // ================================================================================================
