@@ -17,6 +17,7 @@
 
 - [BREAKING] Updated minimum Rust version to 1.84.
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
+- [BREAKING] `CheckNullifiersByPrefix` now takes a starting block number (#707).
 
 ### Enhancements
 

@@ -129,7 +129,11 @@ impl api_server::Api for StoreApi {
 
         let nullifiers = self
             .state
-            .check_nullifiers_by_prefix(request.prefix_len, request.nullifiers)
+            .check_nullifiers_by_prefix(
+                request.prefix_len,
+                request.nullifiers,
+                BlockNumber::from(request.block_num),
+            )
             .await?
             .into_iter()
             .map(|nullifier_info| NullifierUpdate {

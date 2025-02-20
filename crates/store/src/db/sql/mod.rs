@@ -665,8 +665,7 @@ pub fn select_nullifiers_by_block_range(
     Ok(result)
 }
 
-/// Select nullifiers created that match the `nullifier_prefixes` filter using the given
-/// [Connection].
+/// Returns nullifiers filtered by prefix and block creation height.
 ///
 /// Each value of the `nullifier_prefixes` is only the `prefix_len` most significant bits
 /// of the nullifier of interest to the client. This hides the details of the specific
@@ -680,6 +679,7 @@ pub fn select_nullifiers_by_prefix(
     conn: &mut Connection,
     prefix_len: u32,
     nullifier_prefixes: &[u32],
+    block_num: BlockNumber,
 ) -> Result<Vec<NullifierInfo>> {
     assert_eq!(prefix_len, 16, "Only 16-bit prefixes are supported");
 
@@ -694,13 +694,13 @@ pub fn select_nullifiers_by_prefix(
         FROM
             nullifiers
         WHERE
-            nullifier_prefix IN rarray(?1)
+            nullifier_prefix IN rarray(?1) AND
+            block_num >= ?2
         ORDER BY
             block_num ASC
     ",
     )?;
-
-    let mut rows = stmt.query(params![Rc::new(nullifier_prefixes)])?;
+    let mut rows = stmt.query(params![Rc::new(nullifier_prefixes), block_num.as_u32()])?;
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {

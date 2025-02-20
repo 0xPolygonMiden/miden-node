@@ -502,8 +502,11 @@ impl State {
         &self,
         prefix_len: u32,
         nullifier_prefixes: Vec<u32>,
+        block_num: BlockNumber,
     ) -> Result<Vec<NullifierInfo>, DatabaseError> {
-        self.db.select_nullifiers_by_prefix(prefix_len, nullifier_prefixes).await
+        self.db
+            .select_nullifiers_by_prefix(prefix_len, nullifier_prefixes, block_num)
+            .await
     }
 
     /// Generates membership proofs for each one of the `nullifiers` against the latest nullifier
