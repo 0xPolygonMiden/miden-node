@@ -791,7 +791,8 @@ pub fn insert_notes(
             // New notes are always uncomsumed.
             false,
             details,
-            nullifier.to_bytes(),
+            // Beware: `Option<T>` also implements `to_bytes`, but this is not what you want.
+            nullifier.as_ref().map(Nullifier::to_bytes),
         ])?;
     }
 
@@ -945,9 +946,9 @@ pub fn select_note_inclusion_proofs(
 /// # Returns
 ///
 /// A batch of unconsumed network notes with maximum length of `limit`, from the given `offset`.
-#[expect(dead_code, reason = "gRPC method is not yet implemented")]
+#[cfg_attr(not(test), expect(dead_code, reason = "gRPC method is not yet implemented"))]
 pub fn unconsumed_network_notes(
-    transaction: &mut Transaction,
+    transaction: &Transaction,
     offset: usize,
     limit: NonZeroUsize,
 ) -> Result<Vec<NoteRecord>> {
@@ -963,13 +964,13 @@ pub fn unconsumed_network_notes(
         WHERE
             execution_mode = 0 AND consumed = FALSE
         ORDER BY block_num, note_index
-        OFFSET ?0
-        LIMIT ?1
+        LIMIT ?
+        OFFSET ?
         ",
         NoteRecord::SELECT_COLUMNS
     ))?;
 
-    let mut rows = stmt.query(params![offset, limit])?;
+    let mut rows = stmt.query(params![limit, offset])?;
 
     let mut notes = Vec::with_capacity(limit.into());
     while let Some(row) = rows.next()? {
