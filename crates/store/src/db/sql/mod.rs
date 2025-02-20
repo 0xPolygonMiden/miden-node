@@ -729,63 +729,15 @@ pub fn select_nullifiers_by_prefix(
 /// A vector with notes, or an error.
 #[cfg(test)]
 pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
-    let mut stmt = conn.prepare_cached(
-        "
-        SELECT
-            block_num,
-            batch_index,
-            note_index,
-            note_id,
-            note_type,
-            sender,
-            tag,
-            aux,
-            execution_hint,
-            merkle_path,
-            details,
-            nullifier
-        FROM
-            notes
-        ORDER BY
-            block_num ASC;
-        ",
-    )?;
+    let mut stmt = conn.prepare_cached(&format!(
+        "SELECT {} FROM notes ORDER BY block_num ASC",
+        NoteRecord::SELECT_COLUMNS,
+    ))?;
     let mut rows = stmt.query([])?;
 
     let mut notes = vec![];
     while let Some(row) = rows.next()? {
-        let block_num = read_block_number(row, 0)?;
-        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
-        let note_id = row.get_ref(3)?.as_blob()?;
-        let note_id = RpoDigest::read_from_bytes(note_id)?;
-        let note_type = row.get::<_, u8>(4)?.try_into()?;
-        let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
-        let tag: u32 = row.get(6)?;
-        let aux: u64 = row.get(7)?;
-        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = column_value_as_u64(row, 8)?;
-        let merkle_path_data = row.get_ref(9)?.as_blob()?;
-        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-        let nullifier = row
-            .get_ref(11)?
-            .as_blob_or_null()?
-            .map(Nullifier::read_from_bytes)
-            .transpose()?;
-
-        let metadata =
-            NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
-
-        notes.push(NoteRecord {
-            block_num,
-            note_index,
-            note_id,
-            metadata,
-            details,
-            nullifier,
-            merkle_path,
-        });
+        notes.push(NoteRecord::from_row(row)?);
     }
     Ok(notes)
 }
@@ -914,63 +866,15 @@ pub fn select_notes_since_block_by_tag_and_sender(
 pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<NoteRecord>> {
     let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
-    let mut stmt = conn.prepare_cached(
-        "
-        SELECT
-            block_num,
-            batch_index,
-            note_index,
-            note_id,
-            note_type,
-            sender,
-            tag,
-            aux,
-            execution_hint,
-            merkle_path,
-            details,
-            nullifier
-        FROM
-            notes
-        WHERE
-            note_id IN rarray(?1)
-        ",
-    )?;
+    let mut stmt = conn.prepare_cached(&format!(
+        "SELECT {} FROM notes WHERE note_id IN rarray(?1)",
+        NoteRecord::SELECT_COLUMNS
+    ))?;
     let mut rows = stmt.query(params![Rc::new(note_ids)])?;
 
     let mut notes = Vec::new();
     while let Some(row) = rows.next()? {
-        let block_num = read_block_number(row, 0)?;
-        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
-        let note_id = row.get_ref(3)?.as_blob()?;
-        let note_id = RpoDigest::read_from_bytes(note_id)?;
-        let note_type = row.get::<_, u8>(4)?.try_into()?;
-        let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
-        let tag: u32 = row.get(6)?;
-        let aux: u64 = row.get(7)?;
-        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = column_value_as_u64(row, 8)?;
-        let merkle_path_data = row.get_ref(9)?.as_blob()?;
-        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-        let nullifier = row
-            .get_ref(11)?
-            .as_blob_or_null()?
-            .map(Nullifier::read_from_bytes)
-            .transpose()?;
-
-        let metadata =
-            NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
-
-        notes.push(NoteRecord {
-            block_num,
-            note_index,
-            note_id,
-            metadata,
-            details,
-            nullifier,
-            merkle_path,
-        });
+        notes.push(NoteRecord::from_row(row)?);
     }
 
     Ok(notes)
@@ -1050,67 +954,23 @@ pub fn unconsumed_network_notes(
         "Hardcoded execution value must match query"
     );
 
-    let mut stmt = transaction.prepare_cached(
+    let mut stmt = transaction.prepare_cached(&format!(
         "
-        SELECT
-            block_num,
-            batch_index,
-            note_index,
-            note_id,
-            note_type,
-            sender,
-            tag,
-            aux,
-            execution_hint,
-            merkle_path,
-            details,
-            nullifier
-        FROM
-            notes
+        SELECT {} FROM notes
         WHERE
             execution_mode = 0 AND consumed = FALSE
-        ORDER BY block_num, note_index ASC
+        ORDER BY block_num, note_index
         OFFSET ?0
         LIMIT ?1
         ",
-    )?;
+        NoteRecord::SELECT_COLUMNS
+    ))?;
 
     let mut rows = stmt.query(params![offset, limit])?;
 
     let mut notes = Vec::with_capacity(limit.into());
     while let Some(row) = rows.next()? {
-        let block_num = read_block_number(row, 0)?;
-        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
-        let note_id = row.get_ref(3)?.as_blob()?;
-        let note_id = RpoDigest::read_from_bytes(note_id)?;
-        let note_type = row.get::<_, u8>(4)?.try_into()?;
-        let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
-        let tag: u32 = row.get(6)?;
-        let aux: u64 = row.get(7)?;
-        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = column_value_as_u64(row, 8)?;
-        let merkle_path_data = row.get_ref(9)?.as_blob()?;
-        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-        let nullifier = row
-            .get_ref(11)?
-            .as_blob_or_null()?
-            .map(Nullifier::read_from_bytes)
-            .transpose()?;
-
-        let metadata =
-            NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
-
-        notes.push(NoteRecord {
-            block_num,
-            note_index,
-            note_id,
-            metadata,
-            details,
-            nullifier,
-            merkle_path,
-        });
+        notes.push(NoteRecord::from_row(row)?);
     }
 
     Ok(notes)
