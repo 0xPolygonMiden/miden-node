@@ -356,7 +356,7 @@ impl api_server::Api for StoreApi {
         let unauthenticated_notes = unauthenticated_notes.into_iter().collect();
 
         self.state
-            .get_block_inputs(&account_ids, &nullifiers, unauthenticated_notes, reference_blocks)
+            .get_block_inputs(account_ids, nullifiers, unauthenticated_notes, reference_blocks)
             .await
             .map(GetBlockInputsResponse::from)
             .map(Response::new)

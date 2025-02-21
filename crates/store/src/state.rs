@@ -687,8 +687,8 @@ impl State {
     /// Returns data needed by the block producer to construct and prove the next block.
     pub async fn get_block_inputs(
         &self,
-        account_ids: &[AccountId],
-        nullifiers: &[Nullifier],
+        account_ids: Vec<AccountId>,
+        nullifiers: Vec<Nullifier>,
         unauthenticated_notes: BTreeSet<NoteId>,
         reference_blocks: BTreeSet<BlockNumber>,
     ) -> Result<BlockInputs, GetBlockInputsError> {
@@ -709,54 +709,8 @@ impl State {
         let mut blocks = reference_blocks;
         blocks.extend(note_proof_reference_blocks);
 
-        // Acquire the lock to the inner state. While we hold the lock, we don't access the DB.
-        let inner = self.inner.read().await;
-
-        let latest_block_number = inner.latest_block_num();
-
-        // If `blocks` is empty, use the latest block number which will never trigger the error.
-        let highest_block_number = blocks.last().copied().unwrap_or(latest_block_number);
-        if highest_block_number > latest_block_number {
-            return Err(GetBlockInputsError::UnknownBatchBlockReference {
-                highest_block_number,
-                latest_block_number,
-            });
-        }
-
-        // The latest block is not yet in the chain MMR, so we can't (and don't need to) prove its
-        // inclusion in the chain.
-        blocks.remove(&latest_block_number);
-
-        // Fetch the partial MMR at the state of the latest block with authentication paths for the
-        // provided set of blocks.
-        let partial_mmr = inner.blockchain.partial_mmr_from_blocks(&blocks, latest_block_number);
-
-        // Fetch witnesses for all acounts.
-        let account_witnesses = account_ids
-            .iter()
-            .copied()
-            .map(|account_id| {
-                let ValuePath {
-                    value: latest_state_commitment,
-                    path: proof,
-                } = inner.account_tree.open(&account_id.into());
-                (account_id, AccountWitness::new(latest_state_commitment, proof))
-            })
-            .collect::<BTreeMap<AccountId, AccountWitness>>();
-
-        // Fetch witnesses for all nullifiers. We don't check whether the nullifiers are spent or
-        // not as this is done as part of proposing the block.
-        let nullifier_witnesses: BTreeMap<Nullifier, NullifierWitness> = nullifiers
-            .iter()
-            .copied()
-            .map(|nullifier| {
-                let proof = inner.nullifier_tree.open(&nullifier);
-                (nullifier, NullifierWitness::new(proof))
-            })
-            .collect();
-
-        // Release the lock.
-        std::mem::drop(inner);
+        let (latest_block_number, account_witnesses, nullifier_witnesses, partial_mmr) =
+            self.get_block_inputs_witnesses(&mut blocks, account_ids, nullifiers).await?;
 
         // Fetch the block headers for all blocks in the partial MMR plus the latest one which will
         // be used as the previous block header of the block being built.
@@ -794,6 +748,74 @@ impl State {
             nullifier_witnesses,
             unauthenticated_note_proofs,
         ))
+    }
+
+    /// Get account and nullifier witnesses for the requested account IDs and nullifier as well as
+    /// the [`PartialMmr`] for the given blocks. The MMR won't contain the latest block and its
+    /// number is removed from `blocks` and returned separately.
+    ///
+    /// This method acquires the lock to the inner state and does not access the DB so we release
+    /// the lock asap.
+    async fn get_block_inputs_witnesses(
+        &self,
+        blocks: &mut BTreeSet<BlockNumber>,
+        account_ids: Vec<AccountId>,
+        nullifiers: Vec<Nullifier>,
+    ) -> Result<
+        (
+            BlockNumber,
+            BTreeMap<AccountId, AccountWitness>,
+            BTreeMap<Nullifier, NullifierWitness>,
+            PartialMmr,
+        ),
+        GetBlockInputsError,
+    > {
+        let inner = self.inner.read().await;
+
+        let latest_block_number = inner.latest_block_num();
+
+        // If `blocks` is empty, use the latest block number which will never trigger the error.
+        let highest_block_number = blocks.last().copied().unwrap_or(latest_block_number);
+        if highest_block_number > latest_block_number {
+            return Err(GetBlockInputsError::UnknownBatchBlockReference {
+                highest_block_number,
+                latest_block_number,
+            });
+        }
+
+        // The latest block is not yet in the chain MMR, so we can't (and don't need to) prove its
+        // inclusion in the chain.
+        blocks.remove(&latest_block_number);
+
+        // Fetch the partial MMR at the state of the latest block with authentication paths for the
+        // provided set of blocks.
+        let partial_mmr = inner.blockchain.partial_mmr_from_blocks(blocks, latest_block_number);
+
+        // Fetch witnesses for all acounts.
+        let account_witnesses = account_ids
+            .iter()
+            .copied()
+            .map(|account_id| {
+                let ValuePath {
+                    value: latest_state_commitment,
+                    path: proof,
+                } = inner.account_tree.open(&account_id.into());
+                (account_id, AccountWitness::new(latest_state_commitment, proof))
+            })
+            .collect::<BTreeMap<AccountId, AccountWitness>>();
+
+        // Fetch witnesses for all nullifiers. We don't check whether the nullifiers are spent or
+        // not as this is done as part of proposing the block.
+        let nullifier_witnesses: BTreeMap<Nullifier, NullifierWitness> = nullifiers
+            .iter()
+            .copied()
+            .map(|nullifier| {
+                let proof = inner.nullifier_tree.open(&nullifier);
+                (nullifier, NullifierWitness::new(proof))
+            })
+            .collect();
+
+        Ok((latest_block_number, account_witnesses, nullifier_witnesses, partial_mmr))
     }
 
     /// Returns data needed by the block producer to verify transactions validity.
