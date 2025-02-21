@@ -73,8 +73,6 @@ pub enum DatabaseError {
     AccountsNotFoundInDb(Vec<AccountId>),
     #[error("account {0} is not on the chain")]
     AccountNotPublic(AccountId),
-    #[error("block {0} not found")]
-    BlockNotFoundInDb(BlockNumber),
     #[error("data corrupted: {0}")]
     DataCorrupted(String),
     #[error("SQLite pool interaction failed: {0}")]
@@ -93,8 +91,7 @@ impl From<DatabaseError> for Status {
         match err {
             DatabaseError::AccountNotFoundInDb(_)
             | DatabaseError::AccountsNotFoundInDb(_)
-            | DatabaseError::AccountNotPublic(_)
-            | DatabaseError::BlockNotFoundInDb(_) => Status::not_found(err.to_string()),
+            | DatabaseError::AccountNotPublic(_) => Status::not_found(err.to_string()),
 
             _ => Status::internal(err.to_string()),
         }
@@ -257,14 +254,6 @@ pub enum NoteSyncError {
     #[error("block headers table is empty")]
     EmptyBlockHeadersTable,
     #[error("error retrieving the merkle proof for the block")]
-    MmrError(#[from] MmrError),
-}
-
-#[derive(Error, Debug)]
-pub enum GetNoteAuthenticationInfoError {
-    #[error("database error")]
-    DatabaseError(#[from] DatabaseError),
-    #[error("Mmr error")]
     MmrError(#[from] MmrError),
 }
 
