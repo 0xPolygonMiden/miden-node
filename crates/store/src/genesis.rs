@@ -3,6 +3,7 @@ use miden_objects::{
     account::{delta::AccountUpdateDetails, Account},
     block::{BlockAccountUpdate, BlockHeader, BlockNoteTree, BlockNumber, ProvenBlock},
     crypto::merkle::{MmrPeaks, SimpleSmt, Smt},
+    note::Nullifier,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, ACCOUNT_TREE_DEPTH,
 };
@@ -51,14 +52,20 @@ impl GenesisState {
                 (update.account_id().prefix().into(), update.final_state_commitment().into())
             }))?;
 
+        let empty_nullifiers: Vec<Nullifier> = Vec::new();
+        let empty_nullifier_tree = Smt::new();
+
+        let empty_output_notes = Vec::new();
+        let empty_block_note_tree = BlockNoteTree::empty();
+
         let header = BlockHeader::new(
             self.version,
             Digest::default(),
             BlockNumber::GENESIS,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
-            Smt::default().root(),
-            BlockNoteTree::empty().root(),
+            empty_nullifier_tree.root(),
+            empty_block_note_tree.root(),
             Digest::default(),
             TransactionKernel::kernel_root(),
             Digest::default(),
@@ -68,7 +75,12 @@ impl GenesisState {
         // SAFETY: Header and accounts should be valid by construction.
         // No notes or nullifiers are created at genesis, which is consistent with the above empty
         // block note tree root and empty nullifier tree root.
-        Ok(ProvenBlock::new_unchecked(header, accounts, vec![], vec![]))
+        Ok(ProvenBlock::new_unchecked(
+            header,
+            accounts,
+            empty_output_notes,
+            empty_nullifiers,
+        ))
     }
 }
 
