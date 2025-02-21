@@ -27,7 +27,6 @@ miden-node-proto      = { workspace = true }
 miden-node-utils      = { workspace = true }
 miden-objects         = { workspace = true }
 miden-processor       = { workspace = true }
-miden-stdlib          = { workspace = true }
 miden-tx              = { workspace = true }
 miden-tx-batch-prover = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "pgackst-empty-blocks" }
 rand                  = { version = "0.8" }

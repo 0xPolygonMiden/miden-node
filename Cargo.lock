@@ -1885,7 +1885,6 @@ dependencies = [
  "miden-node-utils",
  "miden-objects",
  "miden-processor",
- "miden-stdlib",
  "miden-tx",
  "miden-tx-batch-prover",
  "pretty_assertions",
