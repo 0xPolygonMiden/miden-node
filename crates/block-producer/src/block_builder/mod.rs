@@ -153,14 +153,14 @@ impl BlockBuilder {
                 .filter_map(|note| note.header().map(NoteHeader::id))
         });
         let block_references_iter = batch_iter.clone().map(ProvenBatch::reference_block_num);
-        let account_ids = batch_iter.clone().flat_map(ProvenBatch::updated_accounts);
-        let created_nullifiers = batch_iter.flat_map(ProvenBatch::created_nullifiers);
+        let account_ids_iter = batch_iter.clone().flat_map(ProvenBatch::updated_accounts);
+        let created_nullifiers_iter = batch_iter.flat_map(ProvenBatch::created_nullifiers);
 
         let inputs = self
             .store
             .get_block_inputs(
-                account_ids,
-                created_nullifiers,
+                account_ids_iter,
+                created_nullifiers_iter,
                 unauthenticated_notes_iter,
                 block_references_iter,
             )
