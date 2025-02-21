@@ -1,16 +1,10 @@
-use std::collections::{BTreeMap, BTreeSet};
-
 use miden_objects::{
-    note::{NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
-    Digest, Felt,
+    note::{NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType}, Digest, Felt
 };
 
 use crate::{
-    convert,
-    domain::block::BlockInclusionProof,
     errors::{ConversionError, MissingFieldHelper},
     generated::note as proto,
-    try_convert,
 };
 
 impl TryFrom<proto::NoteMetadata> for NoteMetadata {
@@ -87,43 +81,5 @@ impl TryFrom<&proto::NoteInclusionInBlockProof> for (NoteId, NoteInclusionProof)
                     .try_into()?,
             )?,
         ))
-    }
-}
-
-#[derive(Clone, Default, Debug)]
-pub struct NoteAuthenticationInfo {
-    pub block_proofs: Vec<BlockInclusionProof>,
-    pub note_proofs: BTreeMap<NoteId, NoteInclusionProof>,
-}
-
-impl NoteAuthenticationInfo {
-    pub fn contains_note(&self, note: &NoteId) -> bool {
-        self.note_proofs.contains_key(note)
-    }
-
-    pub fn note_ids(&self) -> BTreeSet<NoteId> {
-        self.note_proofs.keys().copied().collect()
-    }
-}
-
-impl From<NoteAuthenticationInfo> for proto::NoteAuthenticationInfo {
-    fn from(value: NoteAuthenticationInfo) -> Self {
-        Self {
-            note_proofs: convert(&value.note_proofs),
-            block_proofs: convert(value.block_proofs),
-        }
-    }
-}
-
-impl TryFrom<proto::NoteAuthenticationInfo> for NoteAuthenticationInfo {
-    type Error = ConversionError;
-
-    fn try_from(value: proto::NoteAuthenticationInfo) -> Result<Self, Self::Error> {
-        let result = Self {
-            block_proofs: try_convert(value.block_proofs)?,
-            note_proofs: try_convert(&value.note_proofs)?,
-        };
-
-        Ok(result)
     }
 }

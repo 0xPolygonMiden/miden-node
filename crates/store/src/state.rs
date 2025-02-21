@@ -13,8 +13,6 @@ use miden_node_proto::{
     domain::{
         account::{AccountInfo, AccountProofRequest, StorageMapKeysProof},
         batch::BatchInputs,
-        block::BlockInclusionProof,
-        note::NoteAuthenticationInfo,
     },
     generated::responses::{AccountProofsResponse, AccountStateHeader, StorageSlotMapProof},
 };
@@ -45,8 +43,8 @@ use crate::{
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBatchInputsError, GetBlockHeaderError,
-        GetBlockInputsError, GetNoteAuthenticationInfoError, InvalidBlockError, NoteSyncError,
-        StateInitializationError, StateSyncError,
+        GetBlockInputsError, InvalidBlockError, NoteSyncError, StateInitializationError,
+        StateSyncError,
     },
     nullifier_tree::NullifierTree,
     COMPONENT,
@@ -493,65 +491,6 @@ impl State {
         note_ids: Vec<NoteId>,
     ) -> Result<Vec<NoteRecord>, DatabaseError> {
         self.db.select_notes_by_id(note_ids).await
-    }
-
-    /// Queries all the note inclusion proofs matching a certain Note IDs from the database.
-    pub async fn get_note_authentication_info(
-        &self,
-        note_ids: BTreeSet<NoteId>,
-    ) -> Result<NoteAuthenticationInfo, GetNoteAuthenticationInfoError> {
-        // First we grab note inclusion proofs for the known notes. These proofs only
-        // prove that the note was included in a given block. We then also need to prove that
-        // each of those blocks is included in the chain.
-        let note_proofs = self.db.select_note_inclusion_proofs(note_ids).await?;
-
-        // The set of blocks that the notes are included in.
-        let blocks = note_proofs
-            .values()
-            .map(|proof| proof.location().block_num())
-            .collect::<BTreeSet<_>>();
-
-        // Grab the block merkle paths from the inner state.
-        //
-        // NOTE: Scoped block to automatically drop the mutex guard asap.
-        //
-        // We also avoid accessing the db in the block as this would delay
-        // dropping the guard.
-        let (chain_length, merkle_paths) = {
-            let state = self.inner.read().await;
-            let chain_length = state.blockchain.chain_length().as_usize();
-
-            let paths = blocks
-                .iter()
-                .map(|&block_num| {
-                    let proof = state.blockchain.open(block_num.as_usize())?.merkle_path;
-
-                    Ok::<_, MmrError>((block_num, proof))
-                })
-                .collect::<Result<BTreeMap<_, _>, MmrError>>()?;
-
-            let chain_length = u32::try_from(chain_length)
-                .expect("Forest is a chain length so should fit into a u32");
-
-            (chain_length.into(), paths)
-        };
-
-        let headers = self.db.select_block_headers(blocks.into_iter()).await?;
-
-        let headers = headers
-            .into_iter()
-            .map(|header| (header.block_num(), header))
-            .collect::<BTreeMap<BlockNumber, _>>();
-
-        let mut block_proofs = Vec::with_capacity(merkle_paths.len());
-        for (block_num, mmr_path) in merkle_paths {
-            let block_header =
-                *headers.get(&block_num).ok_or(DatabaseError::BlockNotFoundInDb(block_num))?;
-
-            block_proofs.push(BlockInclusionProof { block_header, mmr_path, chain_length });
-        }
-
-        Ok(NoteAuthenticationInfo { block_proofs, note_proofs })
     }
 
     /// Fetches the inputs for a transaction batch from the database.
