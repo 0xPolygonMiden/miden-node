@@ -24,7 +24,7 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    account::{AccountDelta, AccountHeader, AccountId, StorageSlot},
+    account::{Account, AccountDelta, AccountHeader, AccountId, StorageSlot},
     block::{Block, BlockHeader, BlockNumber},
     crypto::{
         hash::rpo::RpoDigest,
@@ -95,6 +95,38 @@ pub struct TransactionInputs {
     pub account_hash: RpoDigest,
     pub nullifiers: Vec<NullifierInfo>,
     pub found_unauthenticated_notes: BTreeSet<NoteId>,
+}
+
+/// Special structure needed for protecting account deltas from being removed by garbage collector
+/// during serving of request.
+pub struct StateQueryParams {
+    #[cfg(not(test))]
+    #[expect(dead_code)]
+    owner: Arc<State>,
+    account_ids: Vec<AccountId>,
+    block_number: BlockNumber,
+}
+
+impl StateQueryParams {
+    #[cfg(test)]
+    pub fn new(account_ids: Vec<AccountId>, block_number: BlockNumber) -> Self {
+        Self { account_ids, block_number }
+    }
+
+    pub fn account_ids(&self) -> &[AccountId] {
+        &self.account_ids
+    }
+
+    pub fn block_number(&self) -> BlockNumber {
+        self.block_number
+    }
+}
+
+#[cfg(not(test))]
+impl Drop for StateQueryParams {
+    fn drop(&mut self) {
+        // TODO: Notify owner about released lock
+    }
 }
 
 /// Container for state that needs to be updated atomically.
@@ -813,13 +845,48 @@ impl State {
     }
 
     /// Returns account summary (with optional details for public account) by ID.
-    pub async fn get_account_details(&self, id: AccountId) -> Result<AccountInfo, DatabaseError> {
-        self.db.select_account(id).await
+    pub async fn get_account_details(
+        self: Arc<Self>,
+        id: AccountId,
+    ) -> Result<AccountInfo, DatabaseError> {
+        let summary = self.db.select_account(id).await?;
+
+        let mut states =
+            self.compute_account_states(vec![summary.account_id], summary.block_num).await?;
+        let details = states.remove(&summary.account_id).flatten();
+
+        Ok(AccountInfo { summary, details })
+    }
+
+    /// Computes the latest accounts summary (with optional details for public accounts) for the
+    /// given IDs and block number.
+    pub async fn compute_account_states(
+        self: Arc<Self>,
+        account_ids: Vec<AccountId>,
+        block_number: BlockNumber,
+    ) -> Result<BTreeMap<AccountId, Option<Account>>, DatabaseError> {
+        let query_params = StateQueryParams {
+            #[cfg(not(test))]
+            owner: Arc::clone(&self),
+            account_ids,
+            block_number,
+        };
+        self.db.compute_account_states(query_params).await
+    }
+
+    /// Computes the latest accounts summary (with optional details for public accounts) for the
+    /// given IDs.
+    pub async fn compute_latest_account_states(
+        self: Arc<Self>,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, Option<Account>>, DatabaseError> {
+        let latest_block_number = self.latest_block_num().await;
+        self.compute_account_states(account_ids, latest_block_number).await
     }
 
     /// Returns account proofs with optional account and storage headers.
     pub async fn get_account_proofs(
-        &self,
+        self: Arc<Self>,
         account_requests: Vec<AccountProofRequest>,
         known_code_commitments: BTreeSet<RpoDigest>,
         include_headers: bool,
@@ -835,9 +902,10 @@ impl State {
         let state_headers = if include_headers.not() {
             BTreeMap::<AccountId, AccountStateHeader>::default()
         } else {
-            let infos = self.db.select_accounts_by_ids(account_ids.clone()).await?;
+            let infos =
+                Arc::clone(&self).compute_latest_account_states(account_ids.clone()).await?;
             if account_ids.len() > infos.len() {
-                let found_ids = infos.iter().map(|info| info.summary.account_id).collect();
+                let found_ids = infos.into_keys().collect();
                 return Err(DatabaseError::AccountsNotFoundInDb(
                     BTreeSet::from_iter(account_ids).difference(&found_ids).copied().collect(),
                 ));
@@ -847,12 +915,11 @@ impl State {
 
             // Iterate and build state headers for public accounts
             for request in account_requests {
-                let account_info = infos
-                    .iter()
-                    .find(|info| info.summary.account_id == request.account_id)
+                let details_opt = infos
+                    .get(&request.account_id)
                     .expect("retrieved accounts were validated against request");
 
-                if let Some(details) = &account_info.details {
+                if let Some(details) = details_opt {
                     let mut storage_slot_map_keys = Vec::new();
 
                     for StorageMapKeysProof { storage_index, storage_keys } in
@@ -888,7 +955,7 @@ impl State {
                         storage_maps: storage_slot_map_keys,
                     };
 
-                    headers_map.insert(account_info.summary.account_id, state_header);
+                    headers_map.insert(request.account_id, state_header);
                 }
             }
 

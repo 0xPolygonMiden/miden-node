@@ -1,18 +1,10 @@
-use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
+use miden_node_proto::domain::account::AccountSummary;
 use miden_objects::{
-    account::{Account, AccountDelta, AccountId},
-    block::BlockNumber,
-    crypto::hash::rpo::RpoDigest,
-    note::Nullifier,
-    utils::Deserializable,
+    block::BlockNumber, crypto::hash::rpo::RpoDigest, note::Nullifier, utils::Deserializable,
 };
 use rusqlite::{
-    params,
-    types::{Value, ValueRef},
-    Connection, OptionalExtension,
+    params, types::Value, AndThenRows, CachedStatement, Connection, OptionalExtension, Params, Row,
 };
-
-use crate::errors::DatabaseError;
 
 /// Returns the high 16 bits of the provided nullifier.
 pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
@@ -46,17 +38,19 @@ macro_rules! subst {
 pub(crate) use subst;
 
 /// Generates a simple insert SQL statement with parameters for the provided table name and fields.
+/// Supports optional conflict resolution (adding "| replace" or "| ignore" at the end will generate
+/// "OR REPLACE" and "OR IGNORE", correspondingly).
 ///
 /// # Usage:
 ///
-/// `insert_sql!(users { id, first_name, last_name, age });`
+/// `insert_sql!(users { id, first_name, last_name, age } | replace);`
 ///
 /// which generates:
-/// "INSERT INTO users (id, `first_name`, `last_name`, age) VALUES (?, ?, ?, ?)"
+/// "INSERT OR REPLACE INTO users (id, `first_name`, `last_name`, age) VALUES (?, ?, ?, ?)"
 macro_rules! insert_sql {
-    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? }) => {
+    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } $(, $on_conflict:expr)?) => {
         concat!(
-            stringify!(INSERT INTO $table),
+            stringify!(INSERT $(OR $on_conflict)? INTO $table),
             " (",
             stringify!($first_field),
             $($(concat!(", ", stringify!($field))),+ ,)?
@@ -65,6 +59,14 @@ macro_rules! insert_sql {
             $($(subst!($field, ", ?")),+ ,)?
             ")"
         )
+    };
+
+    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } | replace) => {
+        insert_sql!($table { $first_field, $($($field),+)? }, REPLACE)
+    };
+
+    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } | ignore) => {
+        insert_sql!($table { $first_field, $($($field),+)? }, IGNORE)
     };
 }
 
@@ -87,7 +89,7 @@ pub fn u64_to_value(v: u64) -> Value {
 /// Sqlite uses `i64` as its internal representation format, and so when retrieving
 /// we need to make sure we cast as `u64` to get the original value
 pub fn column_value_as_u64<I: rusqlite::RowIndex>(
-    row: &rusqlite::Row<'_>,
+    row: &Row<'_>,
     index: I,
 ) -> rusqlite::Result<u64> {
     let value: i64 = row.get(index)?;
@@ -100,7 +102,7 @@ pub fn column_value_as_u64<I: rusqlite::RowIndex>(
 
 /// Gets a `BlockNum` value from the database.
 pub fn read_block_number<I: rusqlite::RowIndex>(
-    row: &rusqlite::Row<'_>,
+    row: &Row<'_>,
     index: I,
 ) -> rusqlite::Result<BlockNumber> {
     let value: u32 = row.get(index)?;
@@ -108,7 +110,7 @@ pub fn read_block_number<I: rusqlite::RowIndex>(
 }
 
 /// Gets a blob value from the database and tries to deserialize it into the necessary type.
-pub fn read_from_blob_column<I, T>(row: &rusqlite::Row<'_>, index: I) -> rusqlite::Result<T>
+pub fn read_from_blob_column<I, T>(row: &Row<'_>, index: I) -> rusqlite::Result<T>
 where
     I: rusqlite::RowIndex + Copy + Into<usize>,
     T: Deserializable,
@@ -124,33 +126,10 @@ where
     })
 }
 
-/// Gets an optional (nullable) blob value from the database and tries to deserialize it into
-/// the necessary type.
-pub fn read_nullable_from_blob_column<I, T>(
-    row: &rusqlite::Row<'_>,
-    index: I,
-) -> rusqlite::Result<Option<T>>
-where
-    I: rusqlite::RowIndex + Copy + Into<usize>,
-    T: Deserializable,
-{
-    row.get_ref(index)?
-        .as_blob_or_null()?
-        .map(|value| T::read_from_bytes(value))
-        .transpose()
-        .map_err(|err| {
-            rusqlite::Error::FromSqlConversionFailure(
-                index.into(),
-                rusqlite::types::Type::Blob,
-                Box::new(err),
-            )
-        })
-}
-
 /// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
-pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
+pub fn account_summary_from_row(row: &Row<'_>) -> crate::db::Result<AccountSummary> {
     let account_id = read_from_blob_column(row, 0)?;
     let account_hash_data = row.get_ref(1)?.as_blob()?;
     let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
@@ -159,41 +138,23 @@ pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<Ac
     Ok(AccountSummary { account_id, account_hash, block_num })
 }
 
-/// Constructs `AccountInfo` from the row of `accounts` table.
-///
-/// Note: field ordering must be the same, as in `accounts` table!
-pub fn account_info_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountInfo> {
-    let update = account_summary_from_row(row)?;
-
-    let details = row.get_ref(3)?.as_blob_or_null()?;
-    let details = details.map(Account::read_from_bytes).transpose()?;
-
-    Ok(AccountInfo { summary: update, details })
+/// Cached SQL query statement augmented with params and row-to-entity mapping function.
+pub struct AugmentedStatement<'conn, P, F> {
+    statement: CachedStatement<'conn>,
+    params: P,
+    mapper: F,
 }
 
-/// Deserializes account and applies account delta.
-pub fn apply_delta(
-    account_id: AccountId,
-    value: &ValueRef<'_>,
-    delta: &AccountDelta,
-    final_state_hash: &RpoDigest,
-) -> crate::db::Result<Account, DatabaseError> {
-    let account = value.as_blob_or_null()?;
-    let account = account.map(Account::read_from_bytes).transpose()?;
-
-    let Some(mut account) = account else {
-        return Err(DatabaseError::AccountNotPublic(account_id));
-    };
-
-    account.apply_delta(delta)?;
-
-    let actual_hash = account.hash();
-    if &actual_hash != final_state_hash {
-        return Err(DatabaseError::AccountHashesMismatch {
-            calculated: actual_hash,
-            expected: *final_state_hash,
-        });
+impl<'conn, P, T, F> AugmentedStatement<'conn, P, F>
+where
+    P: Params + Clone,
+    F: FnMut(&Row<'_>) -> crate::db::Result<T> + Clone,
+{
+    pub fn new(statement: CachedStatement<'conn>, params: P, mapper: F) -> Self {
+        Self { statement, params, mapper }
     }
 
-    Ok(account)
+    pub fn query(&mut self) -> rusqlite::Result<AndThenRows<F>> {
+        self.statement.query_and_then(self.params.clone(), self.mapper.clone())
+    }
 }

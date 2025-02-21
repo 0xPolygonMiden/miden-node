@@ -5,12 +5,9 @@ use std::{
 };
 
 use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
-use miden_node_proto::{
-    domain::account::{AccountInfo, AccountSummary},
-    generated::note as proto,
-};
+use miden_node_proto::{domain::account::AccountSummary, generated::note as proto};
 use miden_objects::{
-    account::{AccountDelta, AccountId},
+    account::{Account, AccountDelta, AccountId},
     block::{Block, BlockHeader, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     note::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
@@ -27,6 +24,7 @@ use crate::{
     db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
+    state::StateQueryParams,
     COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
@@ -292,9 +290,9 @@ impl Db {
             })?
     }
 
-    /// Loads public account details from the DB.
+    /// Loads account summary from the DB.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_account(&self, id: AccountId) -> Result<AccountInfo> {
+    pub async fn select_account(&self, id: AccountId) -> Result<AccountSummary> {
         self.pool
             .get()
             .await?
@@ -305,20 +303,22 @@ impl Db {
             })?
     }
 
-    /// Loads the latest accounts summary (with optional details for public accounts) filtered by
-    /// IDs from the DB.
+    /// Computes the latest accounts summary (with optional details for public accounts) for the
+    /// given IDs and block number.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_accounts_by_ids(
+    pub async fn compute_account_states(
         &self,
-        account_ids: Vec<AccountId>,
-    ) -> Result<Vec<AccountInfo>> {
+        query_params: StateQueryParams,
+    ) -> Result<BTreeMap<AccountId, Option<Account>>> {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_accounts_by_ids(conn, &account_ids))
+            .interact(move |conn| sql::compute_account_states(conn, query_params))
             .await
             .map_err(|err| {
-                DatabaseError::InteractError(format!("Get accounts details task failed: {err}"))
+                DatabaseError::InteractError(format!(
+                    "Compute accounts' details task failed: {err}"
+                ))
             })?
     }
 

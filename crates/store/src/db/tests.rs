@@ -2,7 +2,7 @@
 #![allow(clippy::too_many_lines, reason = "test code can be long")]
 
 use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::domain::account::AccountSummary;
+use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
 use miden_objects::{
     account::{
         delta::AccountUpdateDetails, Account, AccountBuilder, AccountComponent, AccountDelta,
@@ -21,8 +21,11 @@ use miden_objects::{
 };
 use rusqlite::{vtab::array, Connection};
 
-use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
-use crate::db::{migrations::apply_migrations, TransactionSummary};
+use super::{sql, NoteRecord, NullifierInfo};
+use crate::{
+    db::{migrations::apply_migrations, TransactionSummary},
+    state::StateQueryParams,
+};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -490,12 +493,10 @@ fn sql_public_account_details() {
 fn test_sql_public_account_details_for_old_block() {
     fn compare_accounts(conn: &mut Connection, block_num: BlockNumber, expected: &[Account]) {
         for i in 1..=block_num.as_u32() {
-            let account_read =
-                sql::compute_old_account_states(conn, &[expected[0].id()], BlockNumber::from(i))
-                    .unwrap()
-                    .pop()
-                    .unwrap();
-            assert_eq!(account_read, expected[i as usize - 1]);
+            let query_params = StateQueryParams::new(vec![expected[0].id()], BlockNumber::from(i));
+            let (_account_id, account_read) =
+                sql::compute_account_states(conn, query_params).unwrap().pop_first().unwrap();
+            assert_eq!(account_read.as_ref(), Some(&expected[i as usize - 1]));
         }
     }
 

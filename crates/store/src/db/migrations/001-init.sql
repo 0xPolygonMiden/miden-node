@@ -1,8 +1,6 @@
 -- Table for storing different settings in run-time, which need to persist over runs.
 -- Note: we can store values of different types in the same `value` field.
-CREATE TABLE
-    settings
-(
+CREATE TABLE settings (
     name  TEXT NOT NULL,
     value ANY,
 
@@ -10,9 +8,7 @@ CREATE TABLE
     CONSTRAINT settings_name_is_not_empty CHECK (length(name) > 0)
 ) STRICT, WITHOUT ROWID;
 
-CREATE TABLE
-    block_headers
-(
+CREATE TABLE block_headers (
     block_num    INTEGER NOT NULL,
     block_header BLOB    NOT NULL,
 
@@ -20,9 +16,7 @@ CREATE TABLE
     CONSTRAINT block_header_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
 ) STRICT;
 
-CREATE TABLE
-    notes
-(
+CREATE TABLE notes (
     block_num      INTEGER NOT NULL,
     batch_index    INTEGER NOT NULL, -- Index of batch in block, starting from 0
     note_index     INTEGER NOT NULL, -- Index of note in batch, starting from 0
@@ -43,22 +37,35 @@ CREATE TABLE
     CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
 ) STRICT, WITHOUT ROWID;
 
-CREATE TABLE
-    accounts
-(
+CREATE TABLE account_codes (
+    code_hash   BLOB NOT NULL,
+    code        BLOB NOT NULL,
+
+    PRIMARY KEY (code_hash)
+) STRICT, WITHOUT ROWID;
+
+
+CREATE TABLE accounts (
     account_id   BLOB NOT NULL,
     account_hash BLOB    NOT NULL,
     block_num    INTEGER NOT NULL,
-    details      BLOB,
 
     PRIMARY KEY (account_id),
     FOREIGN KEY (block_num) REFERENCES block_headers(block_num),
     CONSTRAINT accounts_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
-) STRICT;
+) STRICT, WITHOUT ROWID;
 
-CREATE TABLE
-    account_deltas
-(
+CREATE TABLE public_accounts (
+    account_id      BLOB NOT NULL,
+    code_hash       BLOB NOT NULL,
+    storage_layout  BLOB NOT NULL,
+
+    PRIMARY KEY (account_id),
+    FOREIGN KEY (account_id) REFERENCES accounts(account_id),
+    FOREIGN KEY (code_hash) REFERENCES account_codes(code_hash)
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE account_deltas (
     account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
     nonce       INTEGER NOT NULL,
@@ -68,9 +75,7 @@ CREATE TABLE
     FOREIGN KEY (block_num) REFERENCES block_headers(block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE TABLE
-    account_storage_slot_updates
-(
+CREATE TABLE account_storage_slot_updates (
     account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
     slot        INTEGER NOT NULL,
@@ -80,9 +85,7 @@ CREATE TABLE
     FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE TABLE
-    account_storage_map_updates
-(
+CREATE TABLE account_storage_map_updates (
     account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
     slot        INTEGER NOT NULL,
@@ -93,9 +96,7 @@ CREATE TABLE
     FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE TABLE
-    account_fungible_asset_deltas
-(
+CREATE TABLE account_fungible_asset_deltas (
     account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
     faucet_id   BLOB NOT NULL,
@@ -105,9 +106,7 @@ CREATE TABLE
     FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE TABLE
-    account_non_fungible_asset_updates
-(
+CREATE TABLE account_non_fungible_asset_updates (
     account_id  BLOB NOT NULL,
     block_num   INTEGER NOT NULL,
     vault_key   BLOB NOT NULL,
@@ -117,9 +116,7 @@ CREATE TABLE
     FOREIGN KEY (account_id, block_num) REFERENCES account_deltas (account_id, block_num)
 ) STRICT, WITHOUT ROWID;
 
-CREATE TABLE
-    nullifiers
-(
+CREATE TABLE nullifiers (
     nullifier        BLOB    NOT NULL,
     nullifier_prefix INTEGER NOT NULL,
     block_num        INTEGER NOT NULL,
@@ -131,9 +128,7 @@ CREATE TABLE
     CONSTRAINT nullifiers_block_num_is_u32 CHECK (block_num BETWEEN 0 AND 0xFFFFFFFF)
 ) STRICT, WITHOUT ROWID;
 
-CREATE TABLE
-    transactions
-(
+CREATE TABLE transactions (
     transaction_id BLOB    NOT NULL,
     account_id     BLOB    NOT NULL,
     block_num      INTEGER NOT NULL,

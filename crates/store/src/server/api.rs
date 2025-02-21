@@ -289,7 +289,8 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<GetAccountDetailsResponse>, Status> {
         let request = request.into_inner();
         let account_id = read_account_id(request.account_id)?;
-        let account_info: AccountInfo = self.state.get_account_details(account_id).await?;
+        let account_info: AccountInfo =
+            Arc::clone(&self.state).get_account_details(account_id).await?;
 
         Ok(Response::new(GetAccountDetailsResponse {
             details: Some((&account_info).into()),
@@ -490,8 +491,7 @@ impl api_server::Api for StoreApi {
                 Status::invalid_argument(format!("Invalid account proofs request: {err}"))
             })?;
 
-        let (block_num, infos) = self
-            .state
+        let (block_num, infos) = Arc::clone(&self.state)
             .get_account_proofs(account_requests, request_code_commitments, include_headers)
             .await?;
 
