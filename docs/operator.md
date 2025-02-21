@@ -90,6 +90,7 @@ block_builder.build_block
       ┕━ mempool.revert_expired_transactions
          ┕━ mempool.revert_transactions
 ```
+
 </details>
 
 #### Batch building
@@ -143,7 +144,7 @@ The exporter can be configured using environment variables as specified in the o
 > [setup guide](https://docs.honeycomb.io/send-data/opentelemetry/#using-the-honeycomb-opentelemetry-endpoint).
 
 ```sh
-OTEL_EXPORTER_OTLP_ENDPOINT=api.honeycomb.io:443 \
+OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io:443 \
 OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=your-api-key" \
 miden-node start --open-telemetry node
 ```
