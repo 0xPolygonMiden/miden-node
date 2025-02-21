@@ -535,7 +535,7 @@ impl State {
         // Collect all blocks we need to query without duplicates, which is:
         // - all blocks for which we need to prove note inclusion.
         // - all blocks referenced by transactions in the batch.
-        let mut blocks = tx_reference_blocks;
+        let mut blocks: BTreeSet<BlockNumber> = tx_reference_blocks;
         blocks.extend(note_blocks);
 
         // Scoped block to automatically drop the read lock guard as soon as we're done.
