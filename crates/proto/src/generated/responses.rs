@@ -61,9 +61,6 @@ pub struct SyncStateResponse {
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`.
     #[prost(message, repeated, tag = "7")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
-    /// List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
-    #[prost(message, repeated, tag = "8")]
-    pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
 /// Represents the result of syncing notes request.
 #[derive(Clone, PartialEq, ::prost::Message)]

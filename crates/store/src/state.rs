@@ -468,8 +468,11 @@ impl State {
         &self,
         prefix_len: u32,
         nullifier_prefixes: Vec<u32>,
+        block_num: BlockNumber,
     ) -> Result<Vec<NullifierInfo>, DatabaseError> {
-        self.db.select_nullifiers_by_prefix(prefix_len, nullifier_prefixes).await
+        self.db
+            .select_nullifiers_by_prefix(prefix_len, nullifier_prefixes, block_num)
+            .await
     }
 
     /// Generates membership proofs for each one of the `nullifiers` against the latest nullifier
@@ -613,22 +616,16 @@ impl State {
     ///   range.
     /// - `note_tags`: The tags the client is interested in, result is restricted to the first block
     ///   with any matches tags.
-    /// - `nullifier_prefixes`: Only the 16 high bits of the nullifiers the client is interested in,
-    ///   results will include nullifiers matching prefixes produced in the given block range.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
     pub async fn sync_state(
         &self,
         block_num: BlockNumber,
         account_ids: Vec<AccountId>,
         note_tags: Vec<u32>,
-        nullifier_prefixes: Vec<u32>,
     ) -> Result<(StateSyncUpdate, MmrDelta), StateSyncError> {
         let inner = self.inner.read().await;
 
-        let state_sync = self
-            .db
-            .get_state_sync(block_num, account_ids, note_tags, nullifier_prefixes)
-            .await?;
+        let state_sync = self.db.get_state_sync(block_num, account_ids, note_tags).await?;
 
         let delta = if block_num == state_sync.block_header.block_num() {
             // The client is in sync with the chain tip.

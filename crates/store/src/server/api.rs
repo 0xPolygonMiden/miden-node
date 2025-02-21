@@ -129,7 +129,11 @@ impl api_server::Api for StoreApi {
 
         let nullifiers = self
             .state
-            .check_nullifiers_by_prefix(request.prefix_len, request.nullifiers)
+            .check_nullifiers_by_prefix(
+                request.prefix_len,
+                request.nullifiers,
+                BlockNumber::from(request.block_num),
+            )
             .await?
             .into_iter()
             .map(|nullifier_info| NullifierUpdate {
@@ -160,12 +164,7 @@ impl api_server::Api for StoreApi {
 
         let (state, delta) = self
             .state
-            .sync_state(
-                request.block_num.into(),
-                account_ids,
-                request.note_tags,
-                request.nullifiers,
-            )
+            .sync_state(request.block_num.into(), account_ids, request.note_tags)
             .await
             .map_err(internal_error)?;
 
@@ -191,15 +190,6 @@ impl api_server::Api for StoreApi {
 
         let notes = state.notes.into_iter().map(Into::into).collect();
 
-        let nullifiers = state
-            .nullifiers
-            .into_iter()
-            .map(|nullifier_info| NullifierUpdate {
-                nullifier: Some(nullifier_info.nullifier.into()),
-                block_num: nullifier_info.block_num.as_u32(),
-            })
-            .collect();
-
         Ok(Response::new(SyncStateResponse {
             chain_tip: self.state.latest_block_num().await.as_u32(),
             block_header: Some(state.block_header.into()),
@@ -207,7 +197,6 @@ impl api_server::Api for StoreApi {
             accounts,
             transactions,
             notes,
-            nullifiers,
         }))
     }
 

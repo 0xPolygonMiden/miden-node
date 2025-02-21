@@ -18,6 +18,8 @@ message CheckNullifiersByPrefixRequest {
     // List of nullifiers to check. Each nullifier is specified by its prefix with length equal
     // to `prefix_len`.
     repeated uint32 nullifiers = 2;
+    // Block number from which the nullifiers are requested (inclusive).
+    fixed32 block_num = 3;
 }
 
 // Returns a nullifier proof for each of the requested nullifiers.
@@ -41,7 +43,7 @@ message GetBlockHeaderByNumberRequest {
 //
 // Specifies state updates the client is interested in. The server will return the first block which
 // contains a note matching `note_tags` or the chain tip. And the corresponding updates to
-// `nullifiers` and `account_ids` for that block range.
+// `account_ids` for that block range.
 message SyncStateRequest {
     // Last block known by the client. The response will contain data starting from the next block,
     // until the first block which contains a note of matching the requested tag, or the chain tip
@@ -57,10 +59,6 @@ message SyncStateRequest {
 
     // Specifies the tags which the client is interested in.
     repeated fixed32 note_tags = 3;
-
-    // Determines the nullifiers the client is interested in by specifying the 16high bits of the
-    // target nullifier.
-    repeated uint32 nullifiers = 4;
 }
 
 // Note synchronization request.
