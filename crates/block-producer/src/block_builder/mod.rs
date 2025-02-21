@@ -173,9 +173,9 @@ impl BlockBuilder {
     #[instrument(target = COMPONENT, name = "block_builder.prove_block", skip_all, err)]
     async fn prove_block(
         &self,
-        preimage: BlockBatchesAndInputs,
+        batches_inputs: BlockBatchesAndInputs,
     ) -> Result<BuiltBlock, BuildBlockError> {
-        let BlockBatchesAndInputs { batches, inputs } = preimage;
+        let BlockBatchesAndInputs { batches, inputs } = batches_inputs;
 
         // Question: Should we split proposing and proving in two stages for telemetry reasons?
         let proposed_block =
