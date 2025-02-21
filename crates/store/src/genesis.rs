@@ -1,10 +1,10 @@
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     account::{delta::AccountUpdateDetails, Account},
-    block::{BlockAccountUpdate, BlockHeader, BlockNumber, ProvenBlock},
-    crypto::merkle::{EmptySubtreeRoots, MmrPeaks, SimpleSmt, Smt},
+    block::{BlockAccountUpdate, BlockHeader, BlockNoteTree, BlockNumber, ProvenBlock},
+    crypto::merkle::{MmrPeaks, SimpleSmt, Smt},
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest, ACCOUNT_TREE_DEPTH, BLOCK_NOTE_TREE_DEPTH,
+    Digest, ACCOUNT_TREE_DEPTH,
 };
 
 use crate::errors::GenesisError;
@@ -58,13 +58,16 @@ impl GenesisState {
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
             Smt::default().root(),
-            *EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0),
+            BlockNoteTree::empty().root(),
             Digest::default(),
             TransactionKernel::kernel_root(),
             Digest::default(),
             self.timestamp,
         );
 
+        // SAFETY: Header and accounts should be valid by construction.
+        // No notes or nullifiers are created at genesis, which is consistent with the above empty
+        // block note tree root and empty nullifier tree root.
         Ok(ProvenBlock::new_unchecked(header, accounts, vec![], vec![]))
     }
 }
