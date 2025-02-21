@@ -775,11 +775,21 @@ impl State {
 
         let latest_block_number = inner.latest_block_num();
 
+        // If `blocks` is empty, use the latest block number which will never trigger the error.
+        let highest_block_number = blocks.last().copied().unwrap_or(latest_block_number);
+        if highest_block_number > latest_block_number {
+            return Err(GetBlockInputsError::BatchBlockReferenceNewerThanLatestBlock {
+                highest_block_number,
+                latest_block_number,
+            });
+        }
+
         // The latest block is not yet in the chain MMR, so we can't (and don't need to) prove its
         // inclusion in the chain.
         blocks.remove(&latest_block_number);
 
-        // Fetch the partial MMR with authentication paths for the set of blocks.
+        // Fetch the partial MMR at the state of the latest block with authentication paths for the
+        // provided set of blocks.
         let partial_mmr = inner.blockchain.partial_mmr_from_blocks(&blocks, latest_block_number);
 
         // Fetch witnesses for all acounts.

@@ -41,9 +41,6 @@ pub enum DatabaseError {
     AccountError(#[from] AccountError),
     #[error("account delta error")]
     AccountDeltaError(#[from] AccountDeltaError),
-    // TODO: Check if needed.
-    #[error("block error")]
-    BlockError,
     #[error("closed channel")]
     ClosedChannel(#[from] RecvError),
     #[error("deserialization failed")]
@@ -232,31 +229,15 @@ pub enum GetBlockHeaderError {
 
 #[derive(Error, Debug)]
 pub enum GetBlockInputsError {
-    #[error("account error")]
-    AccountError(#[from] AccountError),
-    #[error("database error")]
-    DatabaseError(#[from] DatabaseError),
-    #[error("database doesn't have any block header data")]
-    DbBlockHeaderEmpty,
-    #[error("failed to get MMR peaks for forest ({forest}): {error}")]
-    FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
-    #[error("chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {forest}, block num: {block_num}")]
-    IncorrectChainMmrForestNumber { forest: usize, block_num: BlockNumber },
-    #[error("note inclusion proof MMR error")]
-    NoteInclusionMmr(#[from] MmrError),
     #[error("failed to select note inclusion proofs")]
     SelectNoteInclusionProofError(#[source] DatabaseError),
     #[error("failed to select block headers")]
     SelectBlockHeaderError(#[source] DatabaseError),
-}
-
-impl From<GetNoteAuthenticationInfoError> for GetBlockInputsError {
-    fn from(value: GetNoteAuthenticationInfoError) -> Self {
-        match value {
-            GetNoteAuthenticationInfoError::DatabaseError(db_err) => db_err.into(),
-            GetNoteAuthenticationInfoError::MmrError(mmr_err) => Self::NoteInclusionMmr(mmr_err),
-        }
-    }
+    #[error("highest block number {highest_block_number} referenced by a batch is newer than the latest block {latest_block_number}")]
+    BatchBlockReferenceNewerThanLatestBlock {
+        highest_block_number: BlockNumber,
+        latest_block_number: BlockNumber,
+    },
 }
 
 #[derive(Error, Debug)]

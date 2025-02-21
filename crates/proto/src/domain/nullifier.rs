@@ -35,7 +35,7 @@ impl TryFrom<proto::digest::Digest> for Nullifier {
     }
 }
 
-// NULLIFIER INPUT RECORD
+// NULLIFIER WITNESS RECORD
 // ================================================================================================
 
 #[derive(Clone, Debug)]

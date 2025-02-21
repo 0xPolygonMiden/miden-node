@@ -293,7 +293,7 @@ impl BuiltBlock {
 
         span.set_attribute("block.protocol.version", i64::from(header.version()));
 
-        // Question: Should this be here? (Moved here because output notes are no longer)
+        // Question: Should this be here?
         span.set_attribute(
             "block.output_notes.count",
             i64::try_from(self.block.output_notes().count())
