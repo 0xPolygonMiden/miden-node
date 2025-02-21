@@ -126,10 +126,10 @@ impl BlockBuilder {
     /// - Account witnesses for all accounts updated in the block
     /// - Nullifier witnesses for all nullifiers created in the block
     ///   - Due to note erasure the set of nullifiers the block creates it not necessarily equal to
-    ///     the union of sets of all nullifiers created in proven batches. However, since we don't
-    ///     yet know which nullifiers the block will actually create, we fetch witnesses for all
-    ///     nullifiers created by batches. If we knew that a certain note will be erased, we would
-    ///     not have to supply a nullifier witness for it.
+    ///     the union of all nullifiers created in proven batches. However, since we don't yet know
+    ///     which nullifiers the block will actually create, we fetch witnesses for all nullifiers
+    ///     created by batches. If we knew that a certain note will be erased, we would not have to
+    ///     supply a nullifier witness for it.
     #[instrument(target = COMPONENT, name = "block_builder.get_block_inputs", skip_all, err)]
     async fn get_block_inputs(
         &self,
