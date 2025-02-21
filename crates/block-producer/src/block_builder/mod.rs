@@ -94,8 +94,10 @@ impl BlockBuilder {
             .inspect(SelectedBlock::inject_telemetry)
             .then(|selected| self.get_block_inputs(selected))
             .inspect_ok(BlockBatchesAndInputs::inject_telemetry)
+            .and_then(|inputs| self.propose_block(inputs))
+            .inspect_ok(ProposedBlock::inject_telemetry)
             .and_then(|inputs| self.prove_block(inputs))
-            .inspect_ok(BuiltBlock::inject_telemetry)
+            .inspect_ok(ProvenBlock::inject_telemetry)
             // Failure must be injected before the final pipeline stage i.e. before commit is called. The system cannot
             // handle errors after it considers the process complete (which makes sense).
             .and_then(|proven_block| async { self.inject_failure(proven_block) })
@@ -170,17 +172,24 @@ impl BlockBuilder {
         Ok(BlockBatchesAndInputs { batches, inputs })
     }
 
-    #[instrument(target = COMPONENT, name = "block_builder.prove_block", skip_all, err)]
-    async fn prove_block(
+    #[instrument(target = COMPONENT, name = "block_builder.propose_block", skip_all, err)]
+    async fn propose_block(
         &self,
         batches_inputs: BlockBatchesAndInputs,
-    ) -> Result<BuiltBlock, BuildBlockError> {
+    ) -> Result<ProposedBlock, BuildBlockError> {
         let BlockBatchesAndInputs { batches, inputs } = batches_inputs;
 
-        // Question: Should we split proposing and proving in two stages for telemetry reasons?
         let proposed_block =
             ProposedBlock::new(inputs, batches).map_err(BuildBlockError::ProposeBlockFailed)?;
 
+        Ok(proposed_block)
+    }
+
+    #[instrument(target = COMPONENT, name = "block_builder.prove_block", skip_all, err)]
+    async fn prove_block(
+        &self,
+        proposed_block: ProposedBlock,
+    ) -> Result<ProvenBlock, BuildBlockError> {
         let proven_block = self
             .block_prover
             .prove(proposed_block)
@@ -188,17 +197,17 @@ impl BlockBuilder {
 
         self.simulate_proving().await;
 
-        Ok(BuiltBlock { block: proven_block })
+        Ok(proven_block)
     }
 
     #[instrument(target = COMPONENT, name = "block_builder.commit_block", skip_all, err)]
     async fn commit_block(
         &self,
         mempool: &SharedMempool,
-        built_block: BuiltBlock,
+        built_block: ProvenBlock,
     ) -> Result<(), BuildBlockError> {
         self.store
-            .apply_block(&built_block.block)
+            .apply_block(&built_block)
             .await
             .map_err(BuildBlockError::StoreApplyBlockFailed)?;
 
@@ -247,10 +256,6 @@ struct BlockBatchesAndInputs {
     inputs: BlockInputs,
 }
 
-struct BuiltBlock {
-    block: ProvenBlock,
-}
-
 impl SelectedBlock {
     fn inject_telemetry(&self) {
         let span = Span::current();
@@ -270,35 +275,67 @@ impl BlockBatchesAndInputs {
                 .expect("less than u32::MAX account updates"),
         );
         span.set_attribute(
-            "block.nullifiers.count",
-            i64::try_from(self.inputs.nullifier_witnesses().len())
-                .expect("less than u32::MAX nullifiers"),
-        );
-        span.set_attribute(
             "block.unauthenticated_notes.count",
             i64::try_from(self.inputs.unauthenticated_note_proofs().len())
-                .expect("less than u32::MAX dangling notes"),
+                .expect("less than u32::MAX unauthenticated notes"),
         );
     }
 }
 
-impl BuiltBlock {
+trait TelemetryInjector {
+    fn inject_telemetry(&self);
+}
+
+impl TelemetryInjector for ProposedBlock {
+    /// Emit the input and output note related attributes. We do this here since this is the
+    /// earliest point we can set attributes after note erasure was done.
     fn inject_telemetry(&self) {
         let span = Span::current();
-        let header = self.block.header();
+
+        span.set_attribute(
+            "block.nullifiers.count",
+            u32::try_from(self.created_nullifiers().len())
+                .expect("should have less than u32::MAX created nullifiers"),
+        );
+        let num_block_created_notes = self
+            .output_note_batches()
+            .iter()
+            .fold(0, |acc, output_notes| acc + output_notes.len());
+        span.set_attribute(
+            "block.output_notes.count",
+            u32::try_from(num_block_created_notes)
+                .expect("should have less than u32::MAX output notes"),
+        );
+
+        let num_batch_created_notes =
+            self.batches().iter().fold(0, |acc, batch| acc + batch.output_notes().len());
+        span.set_attribute(
+            "block.batches.output_notes.count",
+            u32::try_from(num_batch_created_notes)
+                .expect("should have less than u32::MAX erased notes"),
+        );
+
+        let num_erased_notes = num_block_created_notes
+            .checked_sub(num_batch_created_notes)
+            .expect("block should not create fewer notes than all batches in it");
+        span.set_attribute(
+            "block.erased_notes.count",
+            u32::try_from(num_erased_notes).expect("should have less than u32::MAX erased notes"),
+        );
+    }
+}
+
+impl TelemetryInjector for ProvenBlock {
+    fn inject_telemetry(&self) {
+        let span = Span::current();
+        let header = self.header();
 
         span.set_attribute("block.hash", header.hash());
         span.set_attribute("block.sub_hash", header.sub_hash());
         span.set_attribute("block.parent_hash", header.prev_hash());
+        span.set_attribute("block.timestamp", header.timestamp());
 
         span.set_attribute("block.protocol.version", i64::from(header.version()));
-
-        // Question: Should this be here?
-        span.set_attribute(
-            "block.output_notes.count",
-            i64::try_from(self.block.output_notes().count())
-                .expect("less than u32::MAX output notes"),
-        );
 
         span.set_attribute("block.commitments.kernel", header.kernel_root());
         span.set_attribute("block.commitments.nullifier", header.nullifier_root());
