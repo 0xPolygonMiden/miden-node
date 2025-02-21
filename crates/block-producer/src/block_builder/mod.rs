@@ -154,7 +154,7 @@ impl BlockBuilder {
         });
         let block_references_iter = batch_iter.clone().map(ProvenBatch::reference_block_num);
         let account_ids = batch_iter.clone().flat_map(ProvenBatch::updated_accounts);
-        let created_nullifiers = batch_iter.flat_map(ProvenBatch::produced_nullifiers);
+        let created_nullifiers = batch_iter.flat_map(ProvenBatch::created_nullifiers);
 
         let inputs = self
             .store
