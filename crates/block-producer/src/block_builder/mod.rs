@@ -275,7 +275,7 @@ impl BlockBatchesAndInputs {
                 .expect("less than u32::MAX account updates"),
         );
         span.set_attribute(
-            "block.unauthenticated_notes.count",
+            "block.erased_note_proofs.count",
             i64::try_from(self.inputs.unauthenticated_note_proofs().len())
                 .expect("less than u32::MAX unauthenticated notes"),
         );
