@@ -1,5 +1,6 @@
 use miden_objects::{
-    note::{NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType}, Digest, Felt
+    note::{NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
+    Digest, Felt,
 };
 
 use crate::{

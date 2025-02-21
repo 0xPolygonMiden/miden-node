@@ -36,16 +36,3 @@ pub struct BlockHeader {
     #[prost(fixed32, tag = "11")]
     pub timestamp: u32,
 }
-/// Represents a block inclusion proof.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BlockInclusionProof {
-    /// Block header associated with the inclusion proof.
-    #[prost(message, optional, tag = "1")]
-    pub block_header: ::core::option::Option<BlockHeader>,
-    /// Merkle path associated with the inclusion proof.
-    #[prost(message, optional, tag = "2")]
-    pub mmr_path: ::core::option::Option<super::merkle::MerklePath>,
-    /// The chain length associated with `mmr_path`.
-    #[prost(fixed32, tag = "3")]
-    pub chain_length: u32,
-}

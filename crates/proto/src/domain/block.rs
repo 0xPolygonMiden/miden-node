@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 
 use miden_objects::{
-    block::{AccountWitness, BlockHeader, BlockInputs, BlockNumber, NullifierWitness},
-    crypto::merkle::MerklePath,
+    block::{AccountWitness, BlockHeader, BlockInputs, NullifierWitness},
     note::{NoteId, NoteInclusionProof},
     transaction::ChainMmr,
     utils::{Deserializable, Serializable},
@@ -92,44 +91,6 @@ impl TryFrom<proto::BlockHeader> for BlockHeader {
                 .try_into()?,
             value.timestamp,
         ))
-    }
-}
-
-/// Data required to verify a block's inclusion proof.
-#[derive(Clone, Debug)]
-pub struct BlockInclusionProof {
-    pub block_header: BlockHeader,
-    pub mmr_path: MerklePath,
-    pub chain_length: BlockNumber,
-}
-
-impl From<BlockInclusionProof> for proto::BlockInclusionProof {
-    fn from(value: BlockInclusionProof) -> Self {
-        Self {
-            block_header: Some(value.block_header.into()),
-            mmr_path: Some((&value.mmr_path).into()),
-            chain_length: value.chain_length.as_u32(),
-        }
-    }
-}
-
-impl TryFrom<proto::BlockInclusionProof> for BlockInclusionProof {
-    type Error = ConversionError;
-
-    fn try_from(value: proto::BlockInclusionProof) -> Result<Self, ConversionError> {
-        let result = Self {
-            block_header: value
-                .block_header
-                .ok_or(proto::BlockInclusionProof::missing_field("block_header"))?
-                .try_into()?,
-            mmr_path: (&value
-                .mmr_path
-                .ok_or(proto::BlockInclusionProof::missing_field("mmr_path"))?)
-                .try_into()?,
-            chain_length: value.chain_length.into(),
-        };
-
-        Ok(result)
     }
 }
 
