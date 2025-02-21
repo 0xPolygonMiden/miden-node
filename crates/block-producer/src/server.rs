@@ -15,8 +15,8 @@ use miden_objects::{
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
-use tower_http::{classify::GrpcFailureClass, trace::TraceLayer};
-use tracing::{debug, info, instrument};
+use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
+use tracing::{debug, error, info, instrument, Span};
 
 use crate::{
     batch_builder::BatchBuilder,
@@ -212,24 +212,25 @@ impl BlockProducerRpcServer {
     }
 
     async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
-        let trace_layer = TraceLayer::new_for_grpc()
+        // Configure the trace layer with callbacks.
+        let trace_layer = TraceLayer::new_for_http()
             .make_span_with(miden_node_utils::tracing::grpc::block_producer_trace_fn)
-            .on_request(|request: &http::Request<_>, _span: &tracing::Span| {
-                tracing::info!(
-                    "request: {} {} {:?}",
+            .on_request(|request: &http::Request<_>, _span: &Span| {
+                info!(
+                    "request: {} {} {} {:?}",
                     request.method(),
+                    request.uri().host().unwrap_or("unknown_host"),
                     request.uri().path(),
                     request.headers()
                 );
             })
-            .on_response(
-                |response: &http::Response<_>, latency: Duration, _span: &tracing::Span| {
-                    tracing::info!("response: {} {:?}", response.status(), latency);
-                },
-            )
-            .on_failure(|error: GrpcFailureClass, _latency: Duration, _span: &tracing::Span| {
-                tracing::error!("error: {}", error);
+            .on_response(|response: &http::Response<_>, latency: Duration, _span: &Span| {
+                info!("response: {} {:?}", response.status(), latency);
+            })
+            .on_failure(|error: ServerErrorsFailureClass, latency: Duration, _span: &Span| {
+                error!("error: {} {:?}", error, latency);
             });
+        // Build the gRPC server with the API service and trace layer.
         tonic::transport::Server::builder()
             .layer(trace_layer)
             .add_service(api_server::ApiServer::new(self))
