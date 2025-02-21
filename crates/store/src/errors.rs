@@ -231,7 +231,7 @@ pub enum GetBlockInputsError {
     #[error("failed to select block headers")]
     SelectBlockHeaderError(#[source] DatabaseError),
     #[error("highest block number {highest_block_number} referenced by a batch is newer than the latest block {latest_block_number}")]
-    BatchBlockReferenceNewerThanLatestBlock {
+    UnknownBatchBlockReference {
         highest_block_number: BlockNumber,
         latest_block_number: BlockNumber,
     },
@@ -266,7 +266,7 @@ pub enum GetBatchInputsError {
     #[error("set of blocks refernced by transactions is empty")]
     TransactionBlockReferencesEmpty,
     #[error("highest block number {highest_block_num} referenced by a transaction is newer than the latest block {latest_block_num}")]
-    TransactionBlockReferenceNewerThanLatestBlock {
+    UnknownTransactionBlockReference {
         highest_block_num: BlockNumber,
         latest_block_num: BlockNumber,
     },

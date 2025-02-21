@@ -548,7 +548,7 @@ impl State {
             let highest_block_num =
                 *blocks.last().expect("we should have checked for empty block references");
             if highest_block_num > latest_block_num {
-                return Err(GetBatchInputsError::TransactionBlockReferenceNewerThanLatestBlock {
+                return Err(GetBatchInputsError::UnknownTransactionBlockReference {
                     highest_block_num,
                     latest_block_num,
                 });
@@ -717,7 +717,7 @@ impl State {
         // If `blocks` is empty, use the latest block number which will never trigger the error.
         let highest_block_number = blocks.last().copied().unwrap_or(latest_block_number);
         if highest_block_number > latest_block_number {
-            return Err(GetBlockInputsError::BatchBlockReferenceNewerThanLatestBlock {
+            return Err(GetBlockInputsError::UnknownBatchBlockReference {
                 highest_block_number,
                 latest_block_number,
             });
