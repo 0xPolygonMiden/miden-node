@@ -214,13 +214,22 @@ impl BlockProducerRpcServer {
     async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
         let trace_layer = TraceLayer::new_for_grpc()
             .make_span_with(miden_node_utils::tracing::grpc::block_producer_trace_fn)
-            .on_request(|_request: &http::Request<_>, _span: &tracing::Span| todo!())
+            .on_request(|request: &http::Request<_>, _span: &tracing::Span| {
+                tracing::info!(
+                    "request: {} {} {:?}",
+                    request.method(),
+                    request.uri().path(),
+                    request.headers()
+                );
+            })
             .on_response(
-                |_response: &http::Response<_>, _latency: Duration, _span: &tracing::Span| todo!(),
+                |response: &http::Response<_>, latency: Duration, _span: &tracing::Span| {
+                    tracing::info!("response: {} {:?}", response.status(), latency);
+                },
             )
-            .on_failure(
-                |_error: GrpcFailureClass, _latency: Duration, _span: &tracing::Span| todo!(),
-            );
+            .on_failure(|error: GrpcFailureClass, _latency: Duration, _span: &tracing::Span| {
+                tracing::error!("error: {}", error);
+            });
         tonic::transport::Server::builder()
             .layer(trace_layer)
             .add_service(api_server::ApiServer::new(self))
