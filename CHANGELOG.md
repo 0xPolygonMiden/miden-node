@@ -16,6 +16,7 @@
 
 - [BREAKING] Updated minimum Rust version to 1.84.
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
+- [BREAKING] Update `GetBlockInputs` RPC and use `LocalBlockProver` for block building (#709).
 
 ### Enhancements
 
