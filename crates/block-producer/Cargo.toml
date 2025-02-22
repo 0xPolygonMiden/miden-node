@@ -25,7 +25,7 @@ itertools             = { workspace = true }
 miden-block-prover    = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-lib             = { workspace = true }
 miden-node-proto      = { workspace = true }
-miden-node-utils      = { workspace = true }
+miden-node-utils      = { workspace = true, features = ["testing"] }
 miden-objects         = { workspace = true }
 miden-processor       = { workspace = true }
 miden-tx              = { workspace = true }

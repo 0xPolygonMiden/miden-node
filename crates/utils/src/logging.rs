@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithTonicConfig;
-use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::{propagation::TraceContextPropagator, trace::SpanExporter};
 use tracing::subscriber::Subscriber;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
@@ -39,7 +39,14 @@ pub fn setup_tracing(otel: OpenTelemetry) -> Result<()> {
     // Note: open-telemetry requires a tokio-runtime, so this _must_ be lazily evaluated (aka not
     // `then_some`) to avoid crashing sync callers (with OpenTelemetry::Disabled set). Examples of
     // such callers are tests with logging enabled.
-    let otel_layer = otel.is_enabled().then(open_telemetry_layer);
+    let otel_layer = otel.is_enabled().then(|| {
+        let exporter = opentelemetry_otlp::SpanExporter::builder()
+            .with_tonic()
+            .with_tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())
+            .build()
+            .unwrap();
+        open_telemetry_layer(exporter)
+    });
 
     let subscriber = Registry::default()
         .with(stdout_layer().with_filter(env_or_default_filter()))
@@ -47,17 +54,31 @@ pub fn setup_tracing(otel: OpenTelemetry) -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).map_err(Into::into)
 }
 
-fn open_telemetry_layer<S>() -> Box<dyn tracing_subscriber::Layer<S> + Send + Sync + 'static>
+#[cfg(feature = "testing")]
+pub fn setup_test_tracing() -> Result<(
+    tokio::sync::mpsc::UnboundedReceiver<opentelemetry_sdk::trace::SpanData>,
+    tokio::sync::mpsc::UnboundedReceiver<()>,
+)> {
+    opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+
+    let (exporter, rx_export, rx_shutdown) =
+        opentelemetry_sdk::testing::trace::new_tokio_test_exporter();
+
+    let otel_layer = open_telemetry_layer(exporter);
+    let subscriber = Registry::default()
+        .with(stdout_layer().with_filter(env_or_default_filter()))
+        .with(otel_layer.with_filter(env_or_default_filter()));
+    tracing::subscriber::set_global_default(subscriber)?;
+    Ok((rx_export, rx_shutdown))
+}
+
+fn open_telemetry_layer<S>(
+    exporter: impl SpanExporter + 'static,
+) -> Box<dyn tracing_subscriber::Layer<S> + Send + Sync + 'static>
 where
     S: Subscriber + Sync + Send,
     for<'a> S: tracing_subscriber::registry::LookupSpan<'a>,
 {
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
-        .with_tonic()
-        .with_tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())
-        .build()
-        .unwrap();
-
     let tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(exporter)
         .build();
