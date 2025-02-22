@@ -963,6 +963,7 @@ pub fn unconsumed_network_notes(
         SELECT {}, rowid FROM notes
         WHERE
             execution_mode = 0 AND consumed = FALSE AND rowid >= ?
+        ORDER BY rowid
         LIMIT ?
         ",
         NoteRecord::SELECT_COLUMNS
