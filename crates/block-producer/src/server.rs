@@ -15,7 +15,7 @@ use miden_objects::{
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
-use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
+use tower_http::{classify::GrpcFailureClass, trace::TraceLayer};
 use tracing::{debug, error, info, instrument, Span};
 
 use crate::{
@@ -213,7 +213,7 @@ impl BlockProducerRpcServer {
 
     async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
         // Configure the trace layer with callbacks.
-        let trace_layer = TraceLayer::new_for_http()
+        let trace_layer = TraceLayer::new_for_grpc()
             .make_span_with(miden_node_utils::tracing::grpc::block_producer_trace_fn)
             .on_request(|request: &http::Request<_>, _span: &Span| {
                 info!(
@@ -227,7 +227,7 @@ impl BlockProducerRpcServer {
             .on_response(|response: &http::Response<_>, latency: Duration, _span: &Span| {
                 info!("response: {} {:?}", response.status(), latency);
             })
-            .on_failure(|error: ServerErrorsFailureClass, latency: Duration, _span: &Span| {
+            .on_failure(|error: GrpcFailureClass, latency: Duration, _span: &Span| {
                 error!("error: {} {:?}", error, latency);
             });
         // Build the gRPC server with the API service and trace layer.

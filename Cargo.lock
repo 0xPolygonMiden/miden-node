@@ -2187,6 +2187,7 @@ dependencies = [
  "assert_matches",
  "deadpool-sqlite",
  "hex",
+ "http",
  "miden-lib",
  "miden-node-proto",
  "miden-node-utils",
@@ -2198,6 +2199,8 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
+ "tower 0.5.2",
+ "tower-http 0.6.2",
  "tracing",
  "url",
 ]

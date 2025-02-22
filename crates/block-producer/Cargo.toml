@@ -20,7 +20,7 @@ tracing-forest = ["miden-node-utils/tracing-forest"]
 [dependencies]
 async-trait           = { version = "0.1" }
 futures               = { version = "0.3" }
-http                  = { version = "1.2" }
+http                  = { workspace = true }
 itertools             = { workspace = true }
 miden-block-prover    = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-lib             = { workspace = true }

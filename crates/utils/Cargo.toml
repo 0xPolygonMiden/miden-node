@@ -23,7 +23,7 @@ testing = ["dep:tokio"]
 [dependencies]
 anyhow                = { version = "1.0" }
 figment               = { version = "0.10", features = ["env", "toml"] }
-http                  = { version = "1.2" }
+http                  = { workspace = true }
 itertools             = { workspace = true }
 miden-objects         = { workspace = true }
 opentelemetry         = { version = "0.28" }
