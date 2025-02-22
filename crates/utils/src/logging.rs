@@ -39,14 +39,17 @@ pub fn setup_tracing(otel: OpenTelemetry) -> Result<()> {
     // Note: open-telemetry requires a tokio-runtime, so this _must_ be lazily evaluated (aka not
     // `then_some`) to avoid crashing sync callers (with OpenTelemetry::Disabled set). Examples of
     // such callers are tests with logging enabled.
-    let otel_layer = otel.is_enabled().then(|| {
-        let exporter = opentelemetry_otlp::SpanExporter::builder()
-            .with_tonic()
-            .with_tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())
-            .build()
-            .unwrap();
-        open_telemetry_layer(exporter)
-    });
+    let otel_layer = {
+        if otel.is_enabled() {
+            let exporter = opentelemetry_otlp::SpanExporter::builder()
+                .with_tonic()
+                .with_tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())
+                .build()?;
+            Some(open_telemetry_layer(exporter))
+        } else {
+            None
+        }
+    };
 
     let subscriber = Registry::default()
         .with(stdout_layer().with_filter(env_or_default_filter()))
