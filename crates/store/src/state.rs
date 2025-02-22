@@ -381,9 +381,9 @@ impl State {
         let notes = block
             .notes()
             .map(|(note_index, note)| {
-                let details = match note {
-                    OutputNote::Full(note) => Some(note.to_bytes()),
-                    OutputNote::Header(_) => None,
+                let (details, nullifier) = match note {
+                    OutputNote::Full(note) => (Some(note.to_bytes()), Some(note.nullifier())),
+                    OutputNote::Header(_) => (None, None),
                     note @ OutputNote::Partial(_) => {
                         return Err(InvalidBlockError::InvalidOutputNoteType(Box::new(
                             note.clone(),
@@ -393,16 +393,18 @@ impl State {
 
                 let merkle_path = note_tree.get_note_path(note_index);
 
-                Ok(NoteRecord {
+                let note_record = NoteRecord {
                     block_num,
                     note_index,
                     note_id: note.id().into(),
                     metadata: *note.metadata(),
                     details,
                     merkle_path,
-                })
+                };
+
+                Ok((note_record, nullifier))
             })
-            .collect::<Result<Vec<NoteRecord>, InvalidBlockError>>()?;
+            .collect::<Result<Vec<_>, InvalidBlockError>>()?;
 
         // Signals the transaction is ready to be committed, and the write lock can be acquired
         let (allow_acquire, acquired_allowed) = oneshot::channel::<()>();
