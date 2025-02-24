@@ -247,13 +247,11 @@ impl BlockBuilder {
     }
 }
 
+/// A wrapper around batches selected for inlucion in a block, primarily used to be able to inject
+/// telemetry in-between the selection and fetching the required [`BlockInputs`].
 struct SelectedBlock {
     block_number: BlockNumber,
     batches: Vec<ProvenBatch>,
-}
-struct BlockBatchesAndInputs {
-    batches: Vec<ProvenBatch>,
-    inputs: BlockInputs,
 }
 
 impl SelectedBlock {
@@ -262,6 +260,13 @@ impl SelectedBlock {
         span.set_attribute("block.number", self.block_number);
         span.set_attribute("block.batches.count", self.batches.len() as u32);
     }
+}
+
+/// A wrapper around the inputs needed to build a [`ProposedBlock`], primarily used to be able to
+/// inject telemetry in-between fetching block inputs and proposing the block.
+struct BlockBatchesAndInputs {
+    batches: Vec<ProvenBatch>,
+    inputs: BlockInputs,
 }
 
 impl BlockBatchesAndInputs {
