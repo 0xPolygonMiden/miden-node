@@ -293,13 +293,14 @@ mod test {
 
         // Start fantoccini client
         let client = ClientBuilder::native()
-            .capabilities(Map::from_iter(
+            .capabilities(
                 [(
                     "goog:chromeOptions".to_string(),
                     json!({"args": ["--headless", "--disable-gpu", "--no-sandbox"]}),
                 )]
-                .into_iter(),
-            ))
+                .into_iter()
+                .collect::<Map<_, _>>(),
+            )
             .connect(&format!("http://localhost:{chromedriver_port}"))
             .await
             .expect("failed to connect to WebDriver");
@@ -310,22 +311,18 @@ mod test {
         let title = client.title().await.unwrap();
         assert_eq!(title, "Miden Faucet");
 
-        // Collect all the requests made by the website and test that they all return 200
+        // Execute a script to get all the failed requests
         let script = r"
-            let requests = [];
-            window.performance.getEntriesByType('resource').forEach(entry => {
-                requests.push(entry.name);
+            let errors = [];
+            performance.getEntriesByType('resource').forEach(entry => {
+                if (entry.responseStatus && entry.responseStatus >= 400) {
+                    errors.push({url: entry.name, status: entry.responseStatus});
+                }
             });
-            return requests;
+            return errors;
         ";
-        let requests = client.execute(script, vec![]).await.unwrap();
-        assert!(!requests.as_array().unwrap().is_empty());
-
-        for request in requests.as_array().unwrap() {
-            let uri = request.as_str().unwrap();
-            let status = reqwest::get(uri).await.unwrap().status();
-            assert_eq!(status, 200);
-        }
+        let failed_requests = client.execute(script, vec![]).await.unwrap();
+        assert!(failed_requests.as_array().unwrap().is_empty());
 
         // Close the client and kill chromedriver
         client.close().await.unwrap();

@@ -46,7 +46,6 @@ static-files     = "0.2"
 
 [dev-dependencies]
 fantoccini   = { version = "0.21" }
-reqwest      = { version = "0.12" }
 serde_json   = { version = "1.0" }
 tokio-stream = { workspace = true, features = ["net"] }
 tonic-web    = { version = "0.12" }
