@@ -1,3 +1,6 @@
+// This is required due to a long chain of and_then in BlockBuilder::build_block causing rust error E0275.
+#![recursion_limit = "256"]
+
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
