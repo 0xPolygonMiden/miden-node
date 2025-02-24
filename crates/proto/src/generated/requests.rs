@@ -84,7 +84,7 @@ pub struct GetBlockInputsRequest {
     /// IDs of all accounts updated in the proposed block for which to retrieve account witnesses.
     #[prost(message, repeated, tag = "1")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Nullifiers all notes consumed by the block for which to retrieve witnesses.
+    /// Nullifiers of all notes consumed by the block for which to retrieve witnesses.
     ///
     /// Due to note erasure it will generally not be possible to know the exact set of nullifiers
     /// a block will create, unless we pre-execute note erasure. So in practice, this set of
@@ -95,7 +95,7 @@ pub struct GetBlockInputsRequest {
     /// provide a nullifier witness for it.
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
-    /// Array of note IDs for which to retrieve note inclusion proofs, **if they exist**.
+    /// Array of note IDs for which to retrieve note inclusion proofs, **if they exist in the store**.
     #[prost(message, repeated, tag = "3")]
     pub unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
     /// Array of block numbers referenced by all batches in the block.
