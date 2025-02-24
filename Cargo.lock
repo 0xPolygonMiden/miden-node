@@ -463,9 +463,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.14"
+version = "1.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c3d1b2e905a3a7b00a6141adb0e4c0bb941d11caf55349d863942a1cc44e3c9"
+checksum = "c736e259eea577f443d5c86c304f9f4ae0295c43f3ba05c21f1d66b5f06001af"
 dependencies = [
  "jobserver",
  "libc",
@@ -811,9 +811,9 @@ checksum = "59f8e79d1fbf76bdfbde321e902714bf6c49df88a7dda6fc682fc2979226962d"
 
 [[package]]
 name = "either"
-version = "1.13.0"
+version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
+checksum = "b7914353092ddf589ad78f25c5c1c21b7f80b0ff8621e7c814c3485b5306da9d"
 
 [[package]]
 name = "ena"
@@ -1530,9 +1530,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.169"
+version = "0.2.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5aba8db14291edd000dfcc4d620c7ebfb122c613afb886ca8803fa4e128a20a"
+checksum = "875b3680cb2f8f71bdcf9a30f38d48282f5d3c95cbf9b3fa57269bb5d5c06828"
 
 [[package]]
 name = "libloading"
@@ -1706,7 +1706,7 @@ dependencies = [
 [[package]]
 name = "miden-block-prover"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#ce76f0f097623d85576cd6fea9739df73134c9fc"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
 dependencies = [
  "miden-crypto",
  "miden-lib",
@@ -1795,7 +1795,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#ce76f0f097623d85576cd6fea9739df73134c9fc"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1991,7 +1991,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#ce76f0f097623d85576cd6fea9739df73134c9fc"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
 dependencies = [
  "getrandom 0.2.15",
  "miden-assembly",
@@ -2050,7 +2050,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#ce76f0f097623d85576cd6fea9739df73134c9fc"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2067,7 +2067,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-batch-prover"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#ce76f0f097623d85576cd6fea9739df73134c9fc"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
 dependencies = [
  "miden-core",
  "miden-crypto",
@@ -2137,9 +2137,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3b1c9bd4fe1f0f8b387f6eb9eb3b4a1aa26185e5750efb9140301703f62cd1b"
+checksum = "8e3e04debbb59698c15bacbb6d93584a8c0ca9cc3213cb423d31f760d8843ce5"
 dependencies = [
  "adler2",
 ]
@@ -2391,9 +2391,9 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "owo-colors"
-version = "4.1.0"
+version = "4.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb37767f6569cd834a413442455e0f066d0d522de8630436e2a1761d9726ba56"
+checksum = "1036865bb9422d3300cf723f657c2851d0e9ab12567854b1f4eba3d77decf564"
 
 [[package]]
 name = "parking_lot"
@@ -2789,9 +2789,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.8"
+version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03a862b389f93e68874fbf580b9de08dd02facb9a788ebadaf4a3fd33cf58834"
+checksum = "82b568323e98e49e2a0899dcee453dd679fae22d69adf9b11dd508d1549b7e2f"
 dependencies = [
  "bitflags",
 ]
@@ -2853,9 +2853,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "ring"
-version = "0.17.9"
+version = "0.17.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e75ec5e92c4d8aede845126adc388046234541629e76029599ed35a003c7ed24"
+checksum = "da5349ae27d3887ca812fb375b45a4fbb36d8d12d2df394968cd86e35683fe73"
 dependencies = [
  "cc",
  "cfg-if",

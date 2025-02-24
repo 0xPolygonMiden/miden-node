@@ -91,7 +91,8 @@ impl NoteRecord {
         let note_idx_in_batch = row.get(2)?;
         // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
         // should never panic.
-        let note_index = BlockNoteIndex::new(batch_idx, note_idx_in_batch);
+        let note_index = BlockNoteIndex::new(batch_idx, note_idx_in_batch)
+            .expect("batch and note index from DB should be valid");
         let note_id = row.get_ref(3)?.as_blob()?;
         let note_id = RpoDigest::read_from_bytes(note_id)?;
         let note_type = row.get::<_, u8>(4)?.try_into()?;
