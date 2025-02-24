@@ -1,6 +1,8 @@
 #![allow(clippy::similar_names, reason = "naming dummy test values is hard")]
 #![allow(clippy::too_many_lines, reason = "test code can be long")]
 
+use std::num::NonZeroUsize;
+
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::account::AccountSummary;
 use miden_objects::{
@@ -12,17 +14,20 @@ use miden_objects::{
     asset::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    note::{NoteExecutionHint, NoteId, NoteMetadata, NoteType, Nullifier},
+    note::{
+        NoteExecutionHint, NoteExecutionMode, NoteId, NoteMetadata, NoteTag, NoteType, Nullifier,
+    },
     testing::account_id::{
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
         ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
     },
     Felt, FieldElement, Word, ZERO,
 };
 use rusqlite::{vtab::array, Connection};
 
 use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
-use crate::db::{migrations::apply_migrations, TransactionSummary};
+use crate::db::{migrations::apply_migrations, sql::PaginationToken, TransactionSummary};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -191,7 +196,7 @@ fn sql_select_notes() {
         state.push(note.clone());
 
         let transaction = conn.transaction().unwrap();
-        let res = sql::insert_notes(&transaction, &[note]);
+        let res = sql::insert_notes(&transaction, &[(note, None)]);
         assert_eq!(res.unwrap(), 1, "One element must have been inserted");
         transaction.commit().unwrap();
         let notes = sql::select_all_notes(&mut conn).unwrap();
@@ -231,7 +236,7 @@ fn sql_select_notes_different_execution_hints() {
     state.push(note_none.clone());
 
     let transaction = conn.transaction().unwrap();
-    let res = sql::insert_notes(&transaction, &[note_none]);
+    let res = sql::insert_notes(&transaction, &[(note_none, None)]);
     assert_eq!(res.unwrap(), 1, "One element must have been inserted");
     transaction.commit().unwrap();
     let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(0).into()]).unwrap()[0];
@@ -255,7 +260,7 @@ fn sql_select_notes_different_execution_hints() {
     state.push(note_always.clone());
 
     let transaction = conn.transaction().unwrap();
-    let res = sql::insert_notes(&transaction, &[note_always]);
+    let res = sql::insert_notes(&transaction, &[(note_always, None)]);
     assert_eq!(res.unwrap(), 1, "One element must have been inserted");
     transaction.commit().unwrap();
     let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(1).into()]).unwrap()[0];
@@ -279,7 +284,7 @@ fn sql_select_notes_different_execution_hints() {
     state.push(note_after_block.clone());
 
     let transaction = conn.transaction().unwrap();
-    let res = sql::insert_notes(&transaction, &[note_after_block]);
+    let res = sql::insert_notes(&transaction, &[(note_after_block, None)]);
     assert_eq!(res.unwrap(), 1, "One element must have been inserted");
     transaction.commit().unwrap();
     let note = &sql::select_notes_by_id(&mut conn, &[num_to_rpo_digest(2).into()]).unwrap()[0];
@@ -287,6 +292,105 @@ fn sql_select_notes_different_execution_hints() {
         note.metadata.execution_hint(),
         NoteExecutionHint::after_block(12.into()).unwrap()
     );
+}
+
+#[test]
+fn sql_unconsumed_network_notes() {
+    // Number of notes to generate.
+    const N: u64 = 32;
+
+    let mut conn = create_db();
+
+    let block_num = BlockNumber::from(1);
+    // An arbitrary public account (network note tag requires public account).
+    let account_id = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN.try_into().unwrap();
+    create_block(&mut conn, block_num);
+
+    // Create some notes, of which half are network notes.
+    let notes = (0..N)
+        .map(|i| {
+            let is_network = i % 2 == 0;
+            let execution_mode = if is_network {
+                NoteExecutionMode::Network
+            } else {
+                NoteExecutionMode::Local
+            };
+            let note = NoteRecord {
+                block_num,
+                note_index: BlockNoteIndex::new(0, i as usize).unwrap(),
+                note_id: num_to_rpo_digest(i),
+                metadata: NoteMetadata::new(
+                    account_id,
+                    NoteType::Public,
+                    NoteTag::from_account_id(account_id, execution_mode).unwrap(),
+                    NoteExecutionHint::none(),
+                    Felt::default(),
+                )
+                .unwrap(),
+                details: is_network.then_some(vec![1, 2, 3]),
+                merkle_path: MerklePath::new(vec![]),
+            };
+
+            (note, is_network.then_some(num_to_nullifier(i)))
+        })
+        .collect::<Vec<_>>();
+
+    // Copy out all network notes to assert against. These will be in chronological order already.
+    let network_notes = notes
+        .iter()
+        .filter_map(|(note, nullifier)| nullifier.is_some().then_some(note.clone()))
+        .collect::<Vec<_>>();
+
+    // Insert the set of notes.
+    let db_tx = conn.transaction().unwrap();
+    sql::insert_notes(&db_tx, &notes).unwrap();
+
+    // Fetch all network notes by setting a limit larger than the amount available.
+    let (result, _) = sql::unconsumed_network_notes(
+        &db_tx,
+        PaginationToken::default(),
+        NonZeroUsize::new(N as usize * 10).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result, network_notes);
+
+    // Check pagination works as expected.
+    let limit = 5;
+    let mut token = PaginationToken::default();
+    network_notes.chunks(limit).for_each(|expected| {
+        let (result, new_token) =
+            sql::unconsumed_network_notes(&db_tx, token, NonZeroUsize::new(limit).unwrap())
+                .unwrap();
+        token = new_token;
+        assert_eq!(result, expected);
+    });
+
+    // Returns empty when paging past the total.
+    let (result, _) =
+        sql::unconsumed_network_notes(&db_tx, token, NonZeroUsize::new(100).unwrap()).unwrap();
+    assert!(result.is_empty());
+
+    // Consume every third network note and ensure these are now excluded from the results.
+    let consumed = notes
+        .iter()
+        .filter_map(|(_, nullifier)| *nullifier)
+        .step_by(3)
+        .collect::<Vec<_>>();
+    sql::insert_nullifiers_for_block(&db_tx, &consumed, block_num).unwrap();
+
+    let expected = network_notes
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| i % 3 != 0)
+        .map(|(_, note)| note.clone())
+        .collect::<Vec<_>>();
+    let (result, _) = sql::unconsumed_network_notes(
+        &db_tx,
+        PaginationToken::default(),
+        NonZeroUsize::new(N as usize * 10).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result, expected);
 }
 
 #[test]
@@ -809,7 +913,7 @@ fn notes() {
     };
 
     let transaction = conn.transaction().unwrap();
-    sql::insert_notes(&transaction, &[note.clone()]).unwrap();
+    sql::insert_notes(&transaction, &[(note.clone(), None)]).unwrap();
     transaction.commit().unwrap();
 
     // test empty tags
@@ -846,7 +950,7 @@ fn notes() {
     };
 
     let transaction = conn.transaction().unwrap();
-    sql::insert_notes(&transaction, &[note2.clone()]).unwrap();
+    sql::insert_notes(&transaction, &[(note2.clone(), None)]).unwrap();
     transaction.commit().unwrap();
 
     // only first note is returned

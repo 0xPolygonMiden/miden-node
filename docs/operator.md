@@ -1,0 +1,151 @@
+The bulk of the information is still present in the [main readme](/README.md), which will be migrated here eventually.
+
+<!--toc:start-->
+
+- [Node configuration](#node-configuration)
+- [Monitoring & telemetry](#monitoring-telemetry)
+  - [What gets traced](#what-gets-traced)
+    - [RPC request/response](#rpc-requestresponse)
+    - [Block building](#block-building)
+    - [Batch building](#batch-building)
+  - [Verbosity](#verbosity)
+  - [Configuration](#configuration)
+    - [Example: Honeycomb configuration](#example-honeycomb-configuration)
+
+<!--toc:end-->
+
+## Node configuration
+
+TODO (waiting on CLI arg refactoring):
+
+- mention `--help` to see options, defaults and env var options
+- consider `--help` output here
+- describe how to inject env vars using `source`, `systemd.service` files etc.
+
+## Monitoring & telemetry
+
+We provide logging to `stdout` and an optional [OpenTelemetry](https://opentelemetry.io/) exporter for our traces.
+
+We do _not_ export OpenTelemetry logs or metrics. Our end goal is to derive these based off of our tracing information.
+This approach is known as [wide-events](https://isburmistrov.substack.com/p/all-you-need-is-wide-events-not-metrics),
+[structured logs](https://newrelic.com/blog/how-to-relic/structured-logging), and
+[Observibility 2.0](https://www.honeycomb.io/blog/time-to-version-observability-signs-point-to-yes).
+
+What we're exporting are `traces` which consist of `spans` (covering a period of time), and `events` (something happened
+at a specific instance in time). These are extremely useful to debug distributed systems - even though `miden` is still
+centralized, the `node` components are distributed.
+
+OpenTelemetry provides a
+[Span Metrics Converter](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/connector/spanmetricsconnector)
+which can be used to convert our traces into more conventional metrics.
+
+### What gets traced
+
+We assign a unique trace (aka root span) to each RPC request/response, batch build, and block build process.
+
+> [!CAUTION]
+> Span and attribute naming is unstable and should not be relied upon. This also means changes here will not be
+> breaking, however we will do our best to document them.
+
+#### RPC request/response
+
+Not yet implemented.
+
+#### Block building
+
+This trace covers the building, proving and submission of a block.
+
+<details>
+  <summary>Span tree</summary>
+
+```sh
+block_builder.build_block
+┝━ block_builder.select_block
+│  ┝━ mempool.lock
+│  ┕━ mempool.select_block
+┝━ block_builder.get_block_inputs
+│  ┝━ block_builder.summarize_batches
+│  ┕━ store.client.get_block_inputs
+│     ┕━ store.rpc/GetBlockInputs
+│        ┕━ store.server.get_block_inputs
+│           ┝━ validate_nullifiers
+│           ┝━ read_account_ids
+│           ┝━ validate_notes
+│           ┝━ select_block_header_by_block_num
+│           ┝━ select_note_inclusion_proofs
+│           ┕━ select_block_headers
+┝━ block_builder.prove_block
+│  ┝━ execute_program
+│  ┕━ block_builder.simulate_proving
+┝━ block_builder.inject_failure
+┕━ block_builder.commit_block
+   ┝━ store.client.apply_block
+   │ ┕━ store.rpc/ApplyBlock
+   │    ┕━ store.server.apply_block
+   │       ┕━ apply_block
+   │          ┝━ select_block_header_by_block_num
+   │          ┕━ update_in_memory_structs
+   ┝━ mempool.lock
+   ┕━ mempool.commit_block
+      ┕━ mempool.revert_expired_transactions
+         ┕━ mempool.revert_transactions
+```
+</details>
+
+#### Batch building
+
+Not yet implemented.
+
+### Verbosity
+
+> [!IMPORTANT]
+> We log important spans and events at `info` level or higher, which is also the default log level.
+>
+> Changing this level should rarely be required - let us know if you're missing information that should be at `info`.
+
+The available log levels are `trace`, `debug`, `info` (default), `warn`, `error` which can be configured using the
+`RUST_LOG` environment variable e.g.
+
+```sh
+export RUST_LOG=debug
+```
+
+The verbosity can also be specified by component (when running them as a single process):
+
+```sh
+export RUST_LOG=warn,block-producer=debug,rpc=error
+```
+
+The above would set the general level to `warn`, and the `block-producer` and `rpc` components would be overriden to
+`debug` and `error` respectively. Though as mentioned, it should be unusual to do this.
+
+### Configuration
+
+The OpenTelemetry trace exporter can be enabled by adding the `--open-telemetry` flag to the node's start command:
+
+```sh
+miden-node start --open-telemetry node
+```
+
+The exporter can be configured using environment variables as specified in the official
+[documents](https://opentelemetry.io/docs/specs/otel/protocol/exporter/).
+
+> [!WARNING]
+> Not all options are fully supported. We are limited to what the Rust OpenTelemetry implementation supports. If you
+> have any problems please open an issue and we'll do our best to resolve it.
+>
+> Note: we only support gRPC as the export protocol.
+
+#### Example: Honeycomb configuration
+
+> [!NOTE]
+> This is based off Honeycomb's OpenTelemetry
+> [setup guide](https://docs.honeycomb.io/send-data/opentelemetry/#using-the-honeycomb-opentelemetry-endpoint).
+
+```sh
+OTEL_EXPORTER_OTLP_ENDPOINT=api.honeycomb.io:443 \
+OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=your-api-key" \
+miden-node start --open-telemetry node
+```
+
+TODO: honeycomb queries, triggers and board examples.

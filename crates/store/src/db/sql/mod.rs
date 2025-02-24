@@ -6,6 +6,7 @@ pub(crate) mod utils;
 use std::{
     borrow::Cow,
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
+    num::NonZeroUsize,
     rc::Rc,
 };
 
@@ -19,7 +20,7 @@ use miden_objects::{
     asset::NonFungibleAsset,
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNumber},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
-    note::{NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
+    note::{NoteExecutionMode, NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
     Digest, Word,
@@ -567,7 +568,8 @@ fn insert_account_delta(
 // NULLIFIER QUERIES
 // ================================================================================================
 
-/// Insert nullifiers to the DB using the given [Transaction].
+/// Commit nullifiers to the DB using the given [Transaction]. This inserts the nullifiers into the
+/// nullifiers table, and marks the note as consumed (if it was public).
 ///
 /// # Returns
 ///
@@ -582,17 +584,21 @@ pub fn insert_nullifiers_for_block(
     nullifiers: &[Nullifier],
     block_num: BlockNumber,
 ) -> Result<usize> {
+    let serialized_nullifiers: Vec<Value> =
+        nullifiers.iter().map(Nullifier::to_bytes).map(Into::into).collect();
+    let serialized_nullifiers = Rc::new(serialized_nullifiers);
+
+    let mut stmt = transaction
+        .prepare_cached("UPDATE notes SET consumed = TRUE WHERE nullifier IN rarray(?1)")?;
+    let mut count = stmt.execute(params![serialized_nullifiers])?;
+
     let mut stmt = transaction.prepare_cached(
         "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_num) VALUES (?1, ?2, ?3);",
     )?;
 
-    let mut count = 0;
-    for nullifier in nullifiers {
-        count += stmt.execute(params![
-            nullifier.to_bytes(),
-            get_nullifier_prefix(nullifier),
-            block_num.as_u32()
-        ])?;
+    for (nullifier, bytes) in nullifiers.iter().zip(serialized_nullifiers.iter()) {
+        count +=
+            stmt.execute(params![bytes, get_nullifier_prefix(nullifier), block_num.as_u32()])?;
     }
     Ok(count)
 }
@@ -675,62 +681,20 @@ pub fn select_nullifiers_by_prefix(
 /// A vector with notes, or an error.
 #[cfg(test)]
 pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
-    let mut stmt = conn.prepare_cached(
-        "
-        SELECT
-            block_num,
-            batch_index,
-            note_index,
-            note_id,
-            note_type,
-            sender,
-            tag,
-            aux,
-            execution_hint,
-            merkle_path,
-            details
-        FROM
-            notes
-        ORDER BY
-            block_num ASC;
-        ",
-    )?;
+    let mut stmt = conn.prepare_cached(&format!(
+        "SELECT {} FROM notes ORDER BY block_num ASC",
+        NoteRecord::SELECT_COLUMNS,
+    ))?;
     let mut rows = stmt.query([])?;
 
     let mut notes = vec![];
     while let Some(row) = rows.next()? {
-        let note_id_data = row.get_ref(3)?.as_blob()?;
-        let note_id = RpoDigest::read_from_bytes(note_id_data)?;
-
-        let merkle_path_data = row.get_ref(9)?.as_blob()?;
-        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
-
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-
-        let note_type = row.get::<_, u8>(4)?.try_into()?;
-        let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
-        let tag: u32 = row.get(6)?;
-        let aux: u64 = row.get(7)?;
-        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = column_value_as_u64(row, 8)?;
-
-        let metadata =
-            NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
-
-        notes.push(NoteRecord {
-            block_num: read_block_number(row, 0)?,
-            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
-            note_id,
-            metadata,
-            details,
-            merkle_path,
-        });
+        notes.push(NoteRecord::from_row(row)?);
     }
     Ok(notes)
 }
 
-/// Insert notes to the DB using the given [Transaction].
+/// Insert notes to the DB using the given [Transaction]. Public notes should also have a nullifier.
 ///
 /// # Returns
 ///
@@ -740,7 +704,10 @@ pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
 ///
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
-pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<usize> {
+pub fn insert_notes(
+    transaction: &Transaction,
+    notes: &[(NoteRecord, Option<Nullifier>)],
+) -> Result<usize> {
     let mut stmt = transaction.prepare_cached(insert_sql!(notes {
         block_num,
         batch_index,
@@ -749,14 +716,17 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
         note_type,
         sender,
         tag,
+        execution_mode,
         aux,
         execution_hint,
         merkle_path,
+        consumed,
         details,
+        nullifier,
     }))?;
 
     let mut count = 0;
-    for note in notes {
+    for (note, nullifier) in notes {
         let details = note.details.as_ref().map(miden_objects::utils::Serializable::to_bytes);
         count += stmt.execute(params![
             note.block_num.as_u32(),
@@ -766,10 +736,15 @@ pub fn insert_notes(transaction: &Transaction, notes: &[NoteRecord]) -> Result<u
             note.metadata.note_type() as u8,
             note.metadata.sender().to_bytes(),
             note.metadata.tag().inner(),
+            note.metadata.tag().execution_mode() as u8,
             u64_to_value(note.metadata.aux().into()),
-            Into::<u64>::into(note.metadata.execution_hint()),
+            u64_to_value(note.metadata.execution_hint().into()),
             note.merkle_path.to_bytes(),
+            // New notes are always uncomsumed.
+            false,
             details,
+            // Beware: `Option<T>` also implements `to_bytes`, but this is not what you want.
+            nullifier.as_ref().map(Nullifier::to_bytes),
         ])?;
     }
 
@@ -847,56 +822,15 @@ pub fn select_notes_since_block_by_tag_and_sender(
 pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<NoteRecord>> {
     let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
-    let mut stmt = conn.prepare_cached(
-        "
-        SELECT
-            block_num,
-            batch_index,
-            note_index,
-            note_id,
-            note_type,
-            sender,
-            tag,
-            aux,
-            execution_hint,
-            merkle_path,
-            details
-        FROM
-            notes
-        WHERE
-            note_id IN rarray(?1)
-        ",
-    )?;
+    let mut stmt = conn.prepare_cached(&format!(
+        "SELECT {} FROM notes WHERE note_id IN rarray(?1)",
+        NoteRecord::SELECT_COLUMNS
+    ))?;
     let mut rows = stmt.query(params![Rc::new(note_ids)])?;
 
     let mut notes = Vec::new();
     while let Some(row) = rows.next()? {
-        let note_id_data = row.get_ref(3)?.as_blob()?;
-        let note_id = NoteId::read_from_bytes(note_id_data)?;
-
-        let merkle_path = read_from_blob_column(row, 9)?;
-
-        let details_data = row.get_ref(10)?.as_blob_or_null()?;
-        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
-
-        let note_type = row.get::<_, u8>(4)?.try_into()?;
-        let sender = read_from_blob_column(row, 5)?;
-        let tag: u32 = row.get(6)?;
-        let aux: u64 = row.get(7)?;
-        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
-        let execution_hint = column_value_as_u64(row, 8)?;
-
-        let metadata =
-            NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
-
-        notes.push(NoteRecord {
-            block_num: read_block_number(row, 0)?,
-            note_index: BlockNoteIndex::new(row.get(1)?, row.get(2)?)?,
-            details,
-            note_id: note_id.into(),
-            metadata,
-            merkle_path,
-        });
+        notes.push(NoteRecord::from_row(row)?);
     }
 
     Ok(notes)
@@ -953,6 +887,55 @@ pub fn select_note_inclusion_proofs(
 
     Ok(result)
 }
+
+/// Returns a paginated batch of network notes that have not yet been consumed.
+///
+/// # Returns
+///
+/// A set of unconsumed network notes with maximum length of `limit` and a pagination token to get
+/// the next set.
+#[cfg_attr(not(test), expect(dead_code, reason = "gRPC method is not yet implemented"))]
+pub fn unconsumed_network_notes(
+    transaction: &Transaction,
+    mut token: PaginationToken,
+    limit: NonZeroUsize,
+) -> Result<(Vec<NoteRecord>, PaginationToken)> {
+    assert_eq!(
+        NoteExecutionMode::Network as u8,
+        0,
+        "Hardcoded execution value must match query"
+    );
+
+    // Select the rowid column so that we can return a pagination token.
+    //
+    // rowid column _must_ come after the note fields so that we don't mess up the
+    // `NoteRecord::from_row` call.
+    let mut stmt = transaction.prepare_cached(&format!(
+        "
+        SELECT {}, rowid FROM notes
+        WHERE
+            execution_mode = 0 AND consumed = FALSE AND rowid >= ?
+        ORDER BY rowid
+        LIMIT ?
+        ",
+        NoteRecord::SELECT_COLUMNS
+    ))?;
+
+    let mut rows = stmt.query(params![token.0, limit])?;
+
+    let mut notes = Vec::with_capacity(limit.into());
+    while let Some(row) = rows.next()? {
+        notes.push(NoteRecord::from_row(row)?);
+        // Increment by 1 because we are using rowid >=, and otherwise we would include the last
+        // element in the next page as well.
+        token.0 = row.get::<_, i64>(11)? + 1;
+    }
+
+    Ok((notes, token))
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct PaginationToken(i64);
 
 // BLOCK CHAIN QUERIES
 // ================================================================================================
@@ -1206,7 +1189,7 @@ pub fn get_note_sync(
 pub fn apply_block(
     transaction: &Transaction,
     block_header: &BlockHeader,
-    notes: &[NoteRecord],
+    notes: &[(NoteRecord, Option<Nullifier>)],
     nullifiers: &[Nullifier],
     accounts: &[BlockAccountUpdate],
 ) -> Result<usize> {

@@ -4,7 +4,7 @@ use std::{
 };
 
 use futures::FutureExt;
-use miden_node_utils::tracing::{OpenTelemetrySpanExt, OtelStatus};
+use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
     account::AccountId,
     batch::ProvenBatch,
@@ -106,7 +106,7 @@ impl BlockBuilder {
             .and_then(|proven_block| async { self.inject_failure(proven_block) })
             .and_then(|proven_block| self.commit_block(mempool, proven_block))
             // Handle errors by propagating the error to the root span and rolling back the block.
-            .inspect_err(|err| Span::current().set_status(OtelStatus::Error { description: format!("{err:?}").into() }))
+            .inspect_err(|err| Span::current().set_error(err))
             .or_else(|_err| self.rollback_block(mempool).never_error())
             // Error has been handled, this is just type manipulation to remove the result wrapper.
             .unwrap_or_else(|_| ())
@@ -197,9 +197,9 @@ impl BlockBuilder {
     async fn simulate_proving(&self) {
         let proving_duration = rand::thread_rng().gen_range(self.simulated_proof_time.clone());
 
-        Span::current().set_attribute("range.min_s", self.simulated_proof_time.start.as_secs_f64());
-        Span::current().set_attribute("range.max_s", self.simulated_proof_time.end.as_secs_f64());
-        Span::current().set_attribute("dice_roll_s", proving_duration.as_secs_f64());
+        Span::current().set_attribute("range.min_s", self.simulated_proof_time.start);
+        Span::current().set_attribute("range.max_s", self.simulated_proof_time.end);
+        Span::current().set_attribute("dice_roll_s", proving_duration);
 
         tokio::time::sleep(proving_duration).await;
     }
@@ -282,8 +282,8 @@ struct ProvenBlock {
 impl SelectedBlock {
     fn inject_telemetry(&self) {
         let span = Span::current();
-        span.set_attribute("block.number", i64::from(self.block_number.as_u32()));
-        span.set_attribute("block.batches.count", i64::from(self.batches.len() as u32));
+        span.set_attribute("block.number", self.block_number);
+        span.set_attribute("block.batches.count", self.batches.len() as u32);
     }
 }
 
@@ -319,17 +319,17 @@ impl ProvenBlock {
         let span = Span::current();
         let header = self.block.header();
 
-        span.set_attribute("block.hash", header.hash().to_hex());
-        span.set_attribute("block.sub_hash", header.sub_hash().to_hex());
-        span.set_attribute("block.parent_hash", header.prev_hash().to_hex());
+        span.set_attribute("block.hash", header.hash());
+        span.set_attribute("block.sub_hash", header.sub_hash());
+        span.set_attribute("block.parent_hash", header.prev_hash());
 
         span.set_attribute("block.protocol.version", i64::from(header.version()));
 
-        span.set_attribute("block.commitments.kernel", header.kernel_root().to_hex());
-        span.set_attribute("block.commitments.nullifier", header.nullifier_root().to_hex());
-        span.set_attribute("block.commitments.account", header.account_root().to_hex());
-        span.set_attribute("block.commitments.chain", header.chain_root().to_hex());
-        span.set_attribute("block.commitments.note", header.note_root().to_hex());
-        span.set_attribute("block.commitments.transaction", header.tx_hash().to_hex());
+        span.set_attribute("block.commitments.kernel", header.kernel_root());
+        span.set_attribute("block.commitments.nullifier", header.nullifier_root());
+        span.set_attribute("block.commitments.account", header.account_root());
+        span.set_attribute("block.commitments.chain", header.chain_root());
+        span.set_attribute("block.commitments.note", header.note_root());
+        span.set_attribute("block.commitments.transaction", header.tx_hash());
     }
 }

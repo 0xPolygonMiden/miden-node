@@ -55,11 +55,6 @@ lint: format fix clippy toml workspace-check ## Runs all linting tasks at once (
 doc: ## Generates & checks documentation
 	$(WARNINGS) cargo doc --all-features --keep-going --release --locked
 
-
-.PHONY: doc-serve
-doc-serve: ## Serves documentation site
-	./scripts/serve-doc-site.sh
-
 # --- testing -------------------------------------------------------------------------------------
 
 .PHONY: test

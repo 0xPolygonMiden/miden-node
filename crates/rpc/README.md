@@ -103,18 +103,17 @@ the chain.
 
 ### SyncState
 
-Returns info which can be used by the client to sync up to the latest state of the chain for the objects (accounts 
-and notes) the client is interested in.
+Returns info which can be used by the client to sync up to the latest state of the chain for the objects (accounts and
+notes) the client is interested in.
 
 This request returns a stream where multiple update responses will be pushed in order. Client is expected to read 
 the updates from the stream and apply them, and then it will be fully synchronized with the chain.
 
-Each update response also contains info about new notes, accounts etc. created. It also returns Chain MMR delta 
-that can be used to update the state of Chain MMR. This includes both chain MMR peaks and chain MMR nodes.
+Each request also returns info about new notes, accounts, etc. created. It also returns Chain MMR delta that can be
+used to update the state of Chain MMR. This includes both chain MMR peaks and chain MMR nodes.
 
-For preserving some degree of privacy, note tags contain only high part of hashes. Thus, returned data contains 
-excessive notes, client can make additional filtering of that data on its side.
-
+For preserving some degree of privacy, note tags contain only high part of hashes. Thus, returned data contains excessive 
+notes, client can make additional filtering of that data on its side.
 ---
 
 ## License
