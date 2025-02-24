@@ -882,7 +882,9 @@ pub fn select_note_inclusion_proofs(
         let note_index = row.get(3)?;
         // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
         // should never panic.
-        let node_index_in_block = BlockNoteIndex::new(batch_index, note_index).expect("batch and note index from DB should be valid").leaf_index_value();
+        let node_index_in_block = BlockNoteIndex::new(batch_index, note_index)
+            .expect("batch and note index from DB should be valid")
+            .leaf_index_value();
 
         let merkle_path_data = row.get_ref(4)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
