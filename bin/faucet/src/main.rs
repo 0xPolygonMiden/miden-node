@@ -197,7 +197,7 @@ fn long_version() -> LongVersion {
     }
 }
 
-fn create_new_router(faucet_state: FaucetState) -> Router {
+fn create_router(faucet_state: FaucetState) -> Router {
     Router::new()
         .route("/", get(get_index_html))
         .route("/index.js", get(get_index_js))
@@ -227,7 +227,7 @@ async fn serve_faucet(config: FaucetConfig) -> anyhow::Result<()> {
 
     info!(target: COMPONENT, %config, "Initializing server");
 
-    let app = create_new_router(faucet_state);
+    let app = create_router(faucet_state);
 
     let socket_addr =
         config
@@ -260,12 +260,17 @@ mod test {
 
     #[tokio::test]
     async fn test_website() {
+        // This test starts a stub node, a faucet connected to the stub node, and a chromedriver
+        // to test the faucet website. It then loads the website and checks that all the requests
+        // made return status 200.
+
         let stub_node_url = Url::from_str("http://localhost:50051").unwrap();
 
         // Start the stub node
-        let stub_url_clone = stub_node_url.clone();
-        tokio::spawn(async move { serve_stub(&stub_url_clone).await.unwrap() });
-
+        tokio::spawn({
+            let stub_node_url = stub_node_url.clone();
+            async move { serve_stub(&stub_node_url).await.unwrap() }
+        });
         // Start the faucet connected to the stub
         let config = FaucetConfig {
             node_url: stub_node_url,
@@ -277,7 +282,7 @@ mod test {
 
         // Start chromedriver. This requires having chromedriver and chrome installed
         let chromedriver_port = "57709";
-        #[allow(clippy::zombie_processes)]
+        #[expect(clippy::zombie_processes)]
         let mut chromedriver = Command::new("chromedriver")
             .arg(format!("--port={chromedriver_port}"))
             .spawn()
@@ -287,13 +292,14 @@ mod test {
         sleep(Duration::from_secs(1)).await;
 
         // Start fantoccini client
-        let mut caps = Map::new();
-        caps.insert(
-            "goog:chromeOptions".to_string(),
-            json!({"args": ["--headless", "--disable-gpu", "--no-sandbox"]}),
-        );
         let client = ClientBuilder::native()
-            .capabilities(caps)
+            .capabilities(Map::from_iter(
+                [(
+                    "goog:chromeOptions".to_string(),
+                    json!({"args": ["--headless", "--disable-gpu", "--no-sandbox"]}),
+                )]
+                .into_iter(),
+            ))
             .connect(&format!("http://localhost:{chromedriver_port}"))
             .await
             .expect("failed to connect to WebDriver");
