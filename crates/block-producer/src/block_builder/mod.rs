@@ -282,11 +282,13 @@ impl BlockBatchesAndInputs {
     }
 }
 
-trait TelemetryInjector {
+/// An extension trait used only locally to implement telemetry injection.
+trait TelemetryInjectorExt {
+    /// Inject [`tracing`] telemetry from self.
     fn inject_telemetry(&self);
 }
 
-impl TelemetryInjector for ProposedBlock {
+impl TelemetryInjectorExt for ProposedBlock {
     /// Emit the input and output note related attributes. We do this here since this is the
     /// earliest point we can set attributes after note erasure was done.
     fn inject_telemetry(&self) {
@@ -325,7 +327,7 @@ impl TelemetryInjector for ProposedBlock {
     }
 }
 
-impl TelemetryInjector for ProvenBlock {
+impl TelemetryInjectorExt for ProvenBlock {
     fn inject_telemetry(&self) {
         let span = Span::current();
         let header = self.header();
