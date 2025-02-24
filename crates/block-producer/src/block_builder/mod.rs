@@ -1,23 +1,23 @@
 use std::ops::Range;
 
-use futures::FutureExt;
+use futures::{never::Never, FutureExt};
 use miden_block_prover::LocalBlockProver;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
-    MIN_PROOF_SECURITY_LEVEL,
     batch::ProvenBatch,
     block::{BlockInputs, BlockNumber, ProposedBlock, ProvenBlock},
     note::NoteHeader,
+    MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_proving_service_client::proving_service::block_prover::RemoteBlockProver;
 use rand::Rng;
 use tokio::time::Duration;
-use tracing::{Span, info, instrument};
+use tracing::{info, instrument, Span};
 use url::Url;
 
 use crate::{
-    COMPONENT, SERVER_BLOCK_FREQUENCY, errors::BuildBlockError, mempool::SharedMempool,
-    store::StoreClient,
+    errors::BuildBlockError, mempool::SharedMempool, store::StoreClient, COMPONENT,
+    SERVER_BLOCK_FREQUENCY,
 };
 
 // BLOCK BUILDER
@@ -116,7 +116,7 @@ impl BlockBuilder {
             .inspect_err(|err| Span::current().set_error(err))
             .or_else(|_err| self.rollback_block(mempool).never_error())
             // Error has been handled, this is just type manipulation to remove the result wrapper.
-            .unwrap_or_else(|_| ())
+            .unwrap_or_else(|_: Never| ())
             .await;
     }
 
