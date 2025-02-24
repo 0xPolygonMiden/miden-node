@@ -25,7 +25,14 @@ pub struct BlockProducerConfig {
     pub verify_tx_proofs: bool,
 
     /// URL of the remote batch prover.
+    ///
+    /// If not set, the block producer will use the local batch prover.
     pub batch_prover_url: Option<Url>,
+
+    /// URL of the remote block prover.
+    ///
+    /// If not set, the block producer will use the local block prover.
+    pub block_prover_url: Option<Url>,
 }
 
 impl Display for BlockProducerConfig {
@@ -38,7 +45,14 @@ impl Display for BlockProducerConfig {
             .as_ref()
             .map_or_else(|| "None".to_string(), ToString::to_string);
 
-        write!(f, ", batch_prover_url: \"{batch_prover_url}\" }}")
+        write!(f, ", batch_prover_url: \"{batch_prover_url}\" }}")?;
+
+        let block_prover_url = self
+            .block_prover_url
+            .as_ref()
+            .map_or_else(|| "None".to_string(), ToString::to_string);
+
+        write!(f, ", block_prover_url: \"{block_prover_url}\" }}")
     }
 }
 
@@ -53,6 +67,7 @@ impl Default for BlockProducerConfig {
                 .unwrap(),
             verify_tx_proofs: true,
             batch_prover_url: None,
+            block_prover_url: None,
         }
     }
 }

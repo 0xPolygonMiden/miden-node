@@ -165,6 +165,8 @@ pub enum BuildBlockError {
     /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]
     InjectedFailure,
+    #[error("failed to prove block with remote prover")]
+    RemoteProverError(#[source] RemoteProverError),
 }
 
 // Store errors

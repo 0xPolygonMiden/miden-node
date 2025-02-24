@@ -29,6 +29,7 @@ miden-objects = { workspace = true }
 miden-processor = { workspace = true }
 miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", features = [
   "batch-prover",
+  "block-prover",
 ] }
 miden-tx = { workspace = true }
 miden-tx-batch-prover = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
