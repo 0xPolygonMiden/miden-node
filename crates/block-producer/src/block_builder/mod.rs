@@ -317,9 +317,9 @@ impl TelemetryInjectorExt for ProposedBlock {
                 .expect("should have less than u32::MAX erased notes"),
         );
 
-        let num_erased_notes = num_block_created_notes
-            .checked_sub(num_batch_created_notes)
-            .expect("block should not create fewer notes than all batches in it");
+        let num_erased_notes = num_batch_created_notes
+            .checked_sub(num_block_created_notes)
+            .expect("all batches in the block should not create fewer notes than the block itself");
         span.set_attribute(
             "block.erased_notes.count",
             u32::try_from(num_erased_notes).expect("should have less than u32::MAX erased notes"),
