@@ -1706,7 +1706,7 @@ dependencies = [
 [[package]]
 name = "miden-block-prover"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
 dependencies = [
  "miden-crypto",
  "miden-lib",
@@ -1795,7 +1795,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1991,7 +1991,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
 dependencies = [
  "getrandom 0.2.15",
  "miden-assembly",
@@ -2050,7 +2050,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2067,7 +2067,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-batch-prover"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-empty-blocks#b6d06c32f9ec8e9926a39a35fc7b129b8bbdc9be"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f2d50bfa4a83841875570d1301adccbe164ea111"
 dependencies = [
  "miden-core",
  "miden-crypto",
