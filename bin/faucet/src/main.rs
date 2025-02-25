@@ -229,16 +229,12 @@ async fn serve_faucet(config: FaucetConfig) -> anyhow::Result<()> {
 
     let app = create_router(faucet_state);
 
-    let socket_addr =
-        config
-            .endpoint
-            .socket_addrs(|| None)?
-            .into_iter()
-            .next()
-            .ok_or(anyhow::anyhow!(
-                "Couldn't get any socket addrs for endpoint: {}",
-                config.endpoint
-            ))?;
+    let socket_addr = config
+        .endpoint
+        .socket_addrs(|| None)?
+        .into_iter()
+        .next()
+        .with_context(|| format!("no sockets available on {}", config.endpoint))?;
     let listener = TcpListener::bind(socket_addr).await.context("failed to bind TCP listener")?;
 
     info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
