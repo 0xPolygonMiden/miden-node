@@ -254,12 +254,11 @@ mod test {
 
     use crate::{config::FaucetConfig, serve_faucet, stub_rpc_api::serve_stub};
 
+    /// This test starts a stub node, a faucet connected to the stub node, and a chromedriver
+    /// to test the faucet website. It then loads the website and checks that all the requests
+    /// made return status 200.
     #[tokio::test]
     async fn test_website() {
-        // This test starts a stub node, a faucet connected to the stub node, and a chromedriver
-        // to test the faucet website. It then loads the website and checks that all the requests
-        // made return status 200.
-
         let stub_node_url = Url::from_str("http://localhost:50051").unwrap();
 
         // Start the stub node
