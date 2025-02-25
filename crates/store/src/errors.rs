@@ -11,7 +11,7 @@ use miden_objects::{
     },
     note::Nullifier,
     transaction::OutputNote,
-    AccountDeltaError, AccountError, BlockError, NoteError,
+    AccountDeltaError, AccountError, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -41,8 +41,6 @@ pub enum DatabaseError {
     AccountError(#[from] AccountError),
     #[error("account delta error")]
     AccountDeltaError(#[from] AccountDeltaError),
-    #[error("block error")]
-    BlockError(#[from] BlockError),
     #[error("closed channel")]
     ClosedChannel(#[from] RecvError),
     #[error("deserialization failed")]
@@ -75,8 +73,6 @@ pub enum DatabaseError {
     AccountsNotFoundInDb(Vec<AccountId>),
     #[error("account {0} is not on the chain")]
     AccountNotPublic(AccountId),
-    #[error("block {0} not found")]
-    BlockNotFoundInDb(BlockNumber),
     #[error("data corrupted: {0}")]
     DataCorrupted(String),
     #[error("SQLite pool interaction failed: {0}")]
@@ -95,8 +91,7 @@ impl From<DatabaseError> for Status {
         match err {
             DatabaseError::AccountNotFoundInDb(_)
             | DatabaseError::AccountsNotFoundInDb(_)
-            | DatabaseError::AccountNotPublic(_)
-            | DatabaseError::BlockNotFoundInDb(_) => Status::not_found(err.to_string()),
+            | DatabaseError::AccountNotPublic(_) => Status::not_found(err.to_string()),
 
             _ => Status::internal(err.to_string()),
         }
@@ -136,8 +131,9 @@ pub enum GenesisError {
     // ---------------------------------------------------------------------------------------------
     #[error("database error")]
     DatabaseError(#[from] DatabaseError),
+    // TODO: Check if needed.
     #[error("block error")]
-    BlockError(#[from] BlockError),
+    BlockError,
     #[error("merkle error")]
     MerkleError(#[from] MerkleError),
     #[error("failed to deserialize genesis file")]
@@ -230,27 +226,15 @@ pub enum GetBlockHeaderError {
 
 #[derive(Error, Debug)]
 pub enum GetBlockInputsError {
-    #[error("account error")]
-    AccountError(#[from] AccountError),
-    #[error("database error")]
-    DatabaseError(#[from] DatabaseError),
-    #[error("database doesn't have any block header data")]
-    DbBlockHeaderEmpty,
-    #[error("failed to get MMR peaks for forest ({forest}): {error}")]
-    FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
-    #[error("chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {forest}, block num: {block_num}")]
-    IncorrectChainMmrForestNumber { forest: usize, block_num: BlockNumber },
-    #[error("note inclusion proof MMR error")]
-    NoteInclusionMmr(#[from] MmrError),
-}
-
-impl From<GetNoteAuthenticationInfoError> for GetBlockInputsError {
-    fn from(value: GetNoteAuthenticationInfoError) -> Self {
-        match value {
-            GetNoteAuthenticationInfoError::DatabaseError(db_err) => db_err.into(),
-            GetNoteAuthenticationInfoError::MmrError(mmr_err) => Self::NoteInclusionMmr(mmr_err),
-        }
-    }
+    #[error("failed to select note inclusion proofs")]
+    SelectNoteInclusionProofError(#[source] DatabaseError),
+    #[error("failed to select block headers")]
+    SelectBlockHeaderError(#[source] DatabaseError),
+    #[error("highest block number {highest_block_number} referenced by a batch is newer than the latest block {latest_block_number}")]
+    UnknownBatchBlockReference {
+        highest_block_number: BlockNumber,
+        latest_block_number: BlockNumber,
+    },
 }
 
 #[derive(Error, Debug)]
@@ -274,14 +258,6 @@ pub enum NoteSyncError {
 }
 
 #[derive(Error, Debug)]
-pub enum GetNoteAuthenticationInfoError {
-    #[error("database error")]
-    DatabaseError(#[from] DatabaseError),
-    #[error("Mmr error")]
-    MmrError(#[from] MmrError),
-}
-
-#[derive(Error, Debug)]
 pub enum GetBatchInputsError {
     #[error("failed to select note inclusion proofs")]
     SelectNoteInclusionProofError(#[source] DatabaseError),
@@ -290,7 +266,7 @@ pub enum GetBatchInputsError {
     #[error("set of blocks refernced by transactions is empty")]
     TransactionBlockReferencesEmpty,
     #[error("highest block number {highest_block_num} referenced by a transaction is newer than the latest block {latest_block_num}")]
-    TransactionBlockReferenceNewerThanLatestBlock {
+    UnknownTransactionBlockReference {
         highest_block_num: BlockNumber,
         latest_block_num: BlockNumber,
     },

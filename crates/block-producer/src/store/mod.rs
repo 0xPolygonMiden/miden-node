@@ -22,7 +22,7 @@ use miden_node_proto::{
 use miden_node_utils::{formatting::format_opt, tracing::grpc::OtelInterceptor};
 use miden_objects::{
     account::AccountId,
-    block::{Block, BlockHeader, BlockNumber},
+    block::{BlockHeader, BlockInputs, BlockNumber, ProvenBlock},
     note::{NoteId, Nullifier},
     transaction::ProvenTransaction,
     utils::Serializable,
@@ -32,7 +32,7 @@ use miden_processor::crypto::RpoDigest;
 use tonic::{service::interceptor::InterceptedService, transport::Channel};
 use tracing::{debug, info, instrument};
 
-use crate::{block::BlockInputs, errors::StoreError, COMPONENT};
+use crate::{errors::StoreError, COMPONENT};
 
 // TRANSACTION INPUTS
 // ================================================================================================
@@ -138,7 +138,7 @@ impl StoreClient {
     }
 
     /// Returns the latest block's header from the store.
-    #[instrument(target = COMPONENT, skip_all, err)]
+    #[instrument(target = COMPONENT, name = "store.client.latest_header", skip_all, err)]
     pub async fn latest_header(&self) -> Result<BlockHeader, StoreError> {
         let response = self
             .inner
@@ -156,7 +156,7 @@ impl StoreClient {
         BlockHeader::try_from(response).map_err(Into::into)
     }
 
-    #[instrument(target = COMPONENT, skip_all, err)]
+    #[instrument(target = COMPONENT, name = "store.client.get_tx_inputs", skip_all, err)]
     pub async fn get_tx_inputs(
         &self,
         proven_tx: &ProvenTransaction,
@@ -193,17 +193,19 @@ impl StoreClient {
         Ok(tx_inputs)
     }
 
-    #[instrument(target = COMPONENT, skip_all, err)]
+    #[instrument(target = COMPONENT, name = "store.client.get_block_inputs", skip_all, err)]
     pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        notes: impl Iterator<Item = &NoteId> + Send,
+        created_nullifiers: impl Iterator<Item = Nullifier> + Send,
+        unauthenticated_notes: impl Iterator<Item = NoteId> + Send,
+        reference_blocks: impl Iterator<Item = BlockNumber> + Send,
     ) -> Result<BlockInputs, StoreError> {
         let request = tonic::Request::new(GetBlockInputsRequest {
             account_ids: updated_accounts.map(Into::into).collect(),
-            nullifiers: produced_nullifiers.map(digest::Digest::from).collect(),
-            unauthenticated_notes: notes.map(digest::Digest::from).collect(),
+            nullifiers: created_nullifiers.map(digest::Digest::from).collect(),
+            unauthenticated_notes: unauthenticated_notes.map(digest::Digest::from).collect(),
+            reference_blocks: reference_blocks.map(|block_num| block_num.as_u32()).collect(),
         });
 
         let store_response = self.inner.clone().get_block_inputs(request).await?.into_inner();
@@ -211,7 +213,7 @@ impl StoreClient {
         store_response.try_into().map_err(Into::into)
     }
 
-    #[instrument(target = COMPONENT, skip_all, err)]
+    #[instrument(target = COMPONENT, name = "store.client.get_batch_inputs", skip_all, err)]
     pub async fn get_batch_inputs(
         &self,
         block_references: impl Iterator<Item = (BlockNumber, Digest)> + Send,
@@ -227,8 +229,8 @@ impl StoreClient {
         store_response.try_into().map_err(Into::into)
     }
 
-    #[instrument(target = COMPONENT, skip_all, err)]
-    pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
+    #[instrument(target = COMPONENT, name = "store.client.apply_block", skip_all, err)]
+    pub async fn apply_block(&self, block: &ProvenBlock) -> Result<(), StoreError> {
         let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 
         self.inner.clone().apply_block(request).await.map(|_| ()).map_err(Into::into)

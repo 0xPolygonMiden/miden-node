@@ -80,12 +80,3 @@ message NoteSyncRecord {
     // The note's inclusion proof in the block.
     merkle.MerklePath merkle_path = 4;
 }
-
-// Represents proof of notes inclusion in the block(s) and block(s) inclusion in the chain.
-message NoteAuthenticationInfo {
-    // Proof of each note's inclusion in a block.
-    repeated note.NoteInclusionInBlockProof note_proofs = 1;
-
-    // Proof of each block's inclusion in the chain.
-    repeated block.BlockInclusionProof block_proofs = 2;
-}

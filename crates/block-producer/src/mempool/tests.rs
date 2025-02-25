@@ -107,8 +107,8 @@ fn block_commit_reverts_expired_txns() {
     uut.add_transaction(tx_to_revert).unwrap();
 
     // Commit the pending block which should revert the above tx.
-    uut.block_committed(block);
-    reference.block_committed(block);
+    uut.commit_block();
+    reference.commit_block();
 
     assert_eq!(uut, reference);
 }
@@ -118,24 +118,15 @@ fn empty_block_commitment() {
     let mut uut = Mempool::for_tests();
 
     for _ in 0..3 {
-        let (block, _) = uut.select_block();
-        uut.block_committed(block);
+        let (_block, _) = uut.select_block();
+        uut.commit_block();
     }
 }
 
 #[test]
 #[should_panic]
-fn blocks_must_be_committed_sequentially() {
-    let mut uut = Mempool::for_tests();
-
-    let (block, _) = uut.select_block();
-    uut.block_committed(block + 1);
-}
-
-#[test]
-#[should_panic]
 fn block_commitment_is_rejected_if_no_block_is_in_flight() {
-    Mempool::for_tests().block_committed(BlockNumber::from(1));
+    Mempool::for_tests().commit_block();
 }
 
 #[test]
@@ -166,7 +157,7 @@ fn block_failure_reverts_its_transactions() {
     ]));
 
     // Block 1 will contain just the first batch.
-    let (block_number, _) = uut.select_block();
+    let (_number, _batches) = uut.select_block();
 
     // Create another dependent batch.
     uut.add_transaction(reverted_txs[1].clone()).unwrap();
@@ -175,7 +166,7 @@ fn block_failure_reverts_its_transactions() {
     uut.add_transaction(reverted_txs[2].clone()).unwrap();
 
     // Fail the block which should result in everything reverting.
-    uut.block_failed(block_number);
+    uut.rollback_block();
 
     assert_eq!(uut, reference);
 }

@@ -11,13 +11,14 @@ use miden_node_proto::{
 };
 use miden_objects::{
     account::{AccountDelta, AccountId},
-    block::{Block, BlockHeader, BlockNoteIndex, BlockNumber},
+    block::{BlockHeader, BlockNoteIndex, BlockNumber, ProvenBlock},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     note::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
     utils::Serializable,
 };
 use rusqlite::vtab::array;
+use sql::utils::{column_value_as_u64, read_block_number};
 use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
@@ -66,6 +67,59 @@ pub struct NoteRecord {
     pub merkle_path: MerklePath,
 }
 
+impl NoteRecord {
+    /// Columns from the `notes` table ordered to match [`Self::from_row`].
+    const SELECT_COLUMNS: &'static str = "
+            block_num,
+            batch_index,
+            note_index,
+            note_id,
+            note_type,
+            sender,
+            tag,
+            aux,
+            execution_hint,
+            merkle_path,
+            details
+    ";
+
+    /// Parses a row from the `notes` table. The sql selection must use [`Self::SELECT_COLUMNS`] to
+    /// ensure ordering is correct.
+    fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        let block_num = read_block_number(row, 0)?;
+        let batch_idx = row.get(1)?;
+        let note_idx_in_batch = row.get(2)?;
+        // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
+        // should never panic.
+        let note_index = BlockNoteIndex::new(batch_idx, note_idx_in_batch)
+            .expect("batch and note index from DB should be valid");
+        let note_id = row.get_ref(3)?.as_blob()?;
+        let note_id = RpoDigest::read_from_bytes(note_id)?;
+        let note_type = row.get::<_, u8>(4)?.try_into()?;
+        let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
+        let tag: u32 = row.get(6)?;
+        let aux: u64 = row.get(7)?;
+        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
+        let execution_hint = column_value_as_u64(row, 8)?;
+        let merkle_path_data = row.get_ref(9)?.as_blob()?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
+        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+
+        let metadata =
+            NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
+
+        Ok(NoteRecord {
+            block_num,
+            note_index,
+            note_id,
+            metadata,
+            details,
+            merkle_path,
+        })
+    }
+}
+
 impl From<NoteRecord> for proto::Note {
     fn from(note: NoteRecord) -> Self {
         Self {
@@ -85,7 +139,6 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub account_updates: Vec<AccountSummary>,
     pub transactions: Vec<TransactionSummary>,
-    pub nullifiers: Vec<NullifierInfo>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -215,12 +268,13 @@ impl Db {
         &self,
         prefix_len: u32,
         nullifier_prefixes: Vec<u32>,
+        block_num: BlockNumber,
     ) -> Result<Vec<NullifierInfo>> {
         self.pool
             .get()
             .await?
             .interact(move |conn| {
-                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes)
+                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes, block_num)
             })
             .await
             .map_err(|err| {
@@ -327,15 +381,12 @@ impl Db {
         block_num: BlockNumber,
         account_ids: Vec<AccountId>,
         note_tags: Vec<u32>,
-        nullifier_prefixes: Vec<u32>,
     ) -> Result<StateSyncUpdate, StateSyncError> {
         self.pool
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| {
-                sql::get_state_sync(conn, block_num, &account_ids, &note_tags, &nullifier_prefixes)
-            })
+            .interact(move |conn| sql::get_state_sync(conn, block_num, &account_ids, &note_tags))
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get state sync task failed: {err}"))
@@ -408,8 +459,8 @@ impl Db {
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
-        block: Block,
-        notes: Vec<NoteRecord>,
+        block: ProvenBlock,
+        notes: Vec<(NoteRecord, Option<Nullifier>)>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -423,7 +474,7 @@ impl Db {
                     &transaction,
                     &block.header(),
                     &notes,
-                    block.nullifiers(),
+                    block.created_nullifiers(),
                     block.updated_accounts(),
                 )?;
 

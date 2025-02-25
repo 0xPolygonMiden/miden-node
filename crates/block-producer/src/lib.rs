@@ -10,7 +10,6 @@ mod errors;
 mod mempool;
 pub mod store;
 
-pub mod block;
 pub mod config;
 pub mod server;
 
