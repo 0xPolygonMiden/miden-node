@@ -87,42 +87,46 @@ message SyncNoteResponse {
 }
 
 // An account returned as a response to the `GetBlockInputs`.
-message AccountBlockInputRecord {
+message AccountWitness {
     // The account ID.
     account.AccountId account_id = 1;
 
-    // The latest account hash, zero hash if the account doesn't exist.
-    digest.Digest account_hash = 2;
+    // The latest account state commitment used as the initial state of the requested block.
+    // This will be the zero digest if the account doesn't exist.
+    digest.Digest initial_state_commitment = 2;
 
-    // Merkle path to verify the account's inclusion in the MMR.
+    // Merkle path to verify the account's inclusion in the account tree.
     merkle.MerklePath proof = 3;
 }
 
 // A nullifier returned as a response to the `GetBlockInputs`.
-message NullifierBlockInputRecord {
-    // The nullifier ID.
+message NullifierWitness {
+    // The nullifier.
     digest.Digest nullifier = 1;
 
-    // Merkle path to verify the nullifier's inclusion in the MMR.
+    // The SMT proof to verify the nullifier's inclusion in the nullifier tree.
     smt.SmtOpening opening = 2;
 }
 
 // Represents the result of getting block inputs.
 message GetBlockInputsResponse {
     // The latest block header.
-    block.BlockHeader block_header = 1;
+    block.BlockHeader latest_block_header = 1;
 
-    // Peaks of the above block's mmr, The `forest` value is equal to the block number.
-    repeated digest.Digest mmr_peaks = 2;
+    // Proof of each requested unauthenticated note's inclusion in a block, **if it existed in
+    // the store**.
+    repeated note.NoteInclusionInBlockProof unauthenticated_note_proofs = 2;
 
-    // The hashes of the requested accounts and their authentication paths.
-    repeated AccountBlockInputRecord account_states = 3;
+    // The serialized chain MMR which includes proofs for all blocks referenced by the
+    // above note inclusion proofs as well as proofs for inclusion of the requested blocks
+    // referenced by the batches in the block.
+    bytes chain_mmr = 3;
+
+    // The state commitments of the requested accounts and their authentication paths.
+    repeated AccountWitness account_witnesses = 4;
 
     // The requested nullifiers and their authentication paths.
-    repeated NullifierBlockInputRecord nullifiers = 4;
-
-    // The list of requested notes which were found in the database.
-    note.NoteAuthenticationInfo found_unauthenticated_notes = 5;
+    repeated NullifierWitness nullifier_witnesses = 5;
 }
 
 // Represents the result of getting batch inputs.

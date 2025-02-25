@@ -783,7 +783,12 @@ pub fn select_notes_since_block_by_tag_and_sender(
     let mut res = Vec::new();
     while let Some(row) = rows.next()? {
         let block_num = read_block_number(row, 0)?;
-        let note_index = BlockNoteIndex::new(row.get(1)?, row.get(2)?)?;
+        let batch_idx = row.get(1)?;
+        let note_idx_in_batch = row.get(2)?;
+        // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
+        // should never panic.
+        let note_index = BlockNoteIndex::new(batch_idx, note_idx_in_batch)
+            .expect("batch and note index from DB should be valid");
         let note_id = read_from_blob_column(row, 3)?;
         let note_type = row.get::<_, u8>(4)?;
         let sender = read_from_blob_column(row, 5)?;
@@ -875,7 +880,11 @@ pub fn select_note_inclusion_proofs(
 
         let batch_index = row.get(2)?;
         let note_index = row.get(3)?;
-        let node_index_in_block = BlockNoteIndex::new(batch_index, note_index)?.leaf_index_value();
+        // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
+        // should never panic.
+        let node_index_in_block = BlockNoteIndex::new(batch_index, note_index)
+            .expect("batch and note index from DB should be valid")
+            .leaf_index_value();
 
         let merkle_path_data = row.get_ref(4)?.as_blob()?;
         let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;

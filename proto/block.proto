@@ -39,15 +39,3 @@ message BlockHeader {
     // The time when the block was created.
     fixed32 timestamp = 11;
 }
-
-// Represents a block inclusion proof.
-message BlockInclusionProof {
-    // Block header associated with the inclusion proof.
-    BlockHeader block_header = 1;
-
-    // Merkle path associated with the inclusion proof.
-    merkle.MerklePath mmr_path = 2;
-
-    // The chain length associated with `mmr_path`.
-    fixed32 chain_length = 3;
-}

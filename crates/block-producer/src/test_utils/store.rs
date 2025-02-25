@@ -3,12 +3,11 @@ use std::{
     num::NonZeroU32,
 };
 
-use miden_node_proto::domain::{block::BlockInclusionProof, note::NoteAuthenticationInfo};
 use miden_objects::{
     batch::ProvenBatch,
-    block::{Block, BlockHeader, BlockNumber, NoteBatch},
-    crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    note::{NoteId, NoteInclusionProof, Nullifier},
+    block::{BlockHeader, BlockNumber, OutputNoteBatch, ProvenBlock},
+    crypto::merkle::{Mmr, SimpleSmt, Smt},
+    note::{NoteId, NoteInclusionProof},
     transaction::ProvenTransaction,
     ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
@@ -16,7 +15,6 @@ use tokio::sync::RwLock;
 
 use super::*;
 use crate::{
-    block::{AccountWitness, BlockInputs},
     errors::StoreError,
     store::TransactionInputs,
     test_utils::block::{
@@ -28,7 +26,7 @@ use crate::{
 #[derive(Debug)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    notes: Option<Vec<NoteBatch>>,
+    notes: Option<Vec<OutputNoteBatch>>,
     produced_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
     block_num: Option<BlockNumber>,
@@ -76,7 +74,10 @@ impl MockStoreSuccessBuilder {
     }
 
     #[must_use]
-    pub fn initial_notes<'a>(mut self, notes: impl Iterator<Item = &'a NoteBatch> + Clone) -> Self {
+    pub fn initial_notes<'a>(
+        mut self,
+        notes: impl Iterator<Item = &'a OutputNoteBatch> + Clone,
+    ) -> Self {
         self.notes = Some(notes.cloned().collect());
 
         self
@@ -191,7 +192,7 @@ impl MockStoreSuccess {
         locked_accounts.root()
     }
 
-    pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
+    pub async fn apply_block(&self, block: &ProvenBlock) -> Result<(), StoreError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from
         // going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
@@ -206,7 +207,7 @@ impl MockStoreSuccess {
         debug_assert_eq!(locked_accounts.root(), header.account_root());
 
         // update nullifiers
-        for nullifier in block.nullifiers() {
+        for nullifier in block.created_nullifiers() {
             locked_produced_nullifiers
                 .insert(nullifier.inner(), [header.block_num().into(), ZERO, ZERO, ZERO]);
         }
@@ -219,11 +220,11 @@ impl MockStoreSuccess {
         }
 
         // build note tree
-        let note_tree = block.build_note_tree();
+        let note_tree = block.build_output_note_tree();
 
         // update notes
         let mut locked_notes = self.notes.write().await;
-        for (note_index, note) in block.notes() {
+        for (note_index, note) in block.output_notes() {
             locked_notes.insert(
                 note.id(),
                 NoteInclusionProof::new(
@@ -287,68 +288,6 @@ impl MockStoreSuccess {
             nullifiers,
             found_unauthenticated_notes,
             current_block_height: 0.into(),
-        })
-    }
-
-    pub async fn get_block_inputs(
-        &self,
-        updated_accounts: impl Iterator<Item = AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, StoreError> {
-        let locked_accounts = self.accounts.read().await;
-        let locked_produced_nullifiers = self.produced_nullifiers.read().await;
-
-        let chain_peaks = {
-            let locked_chain_mmr = self.chain_mmr.read().await;
-            locked_chain_mmr.peaks()
-        };
-
-        let accounts = {
-            updated_accounts
-                .map(|account_id| {
-                    let ValuePath { value: hash, path: proof } =
-                        locked_accounts.open(&account_id.into());
-
-                    (account_id, AccountWitness { hash, proof })
-                })
-                .collect()
-        };
-
-        let nullifiers = produced_nullifiers
-            .map(|nullifier| (*nullifier, locked_produced_nullifiers.open(&nullifier.inner())))
-            .collect();
-
-        let locked_notes = self.notes.read().await;
-        let note_proofs = notes
-            .filter_map(|id| locked_notes.get(id).map(|proof| (*id, proof.clone())))
-            .collect::<BTreeMap<_, _>>();
-
-        let locked_headers = self.block_headers.read().await;
-        let latest_header =
-            *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
-
-        let locked_chain_mmr = self.chain_mmr.read().await;
-        let chain_length = latest_header.block_num();
-        let block_proofs = note_proofs
-            .values()
-            .map(|note_proof| {
-                let block_num = note_proof.location().block_num();
-                let block_header = *locked_headers.get(&block_num).unwrap();
-                let mmr_path = locked_chain_mmr.open(block_num.as_usize()).unwrap().merkle_path;
-
-                BlockInclusionProof { block_header, mmr_path, chain_length }
-            })
-            .collect();
-
-        let found_unauthenticated_notes = NoteAuthenticationInfo { block_proofs, note_proofs };
-
-        Ok(BlockInputs {
-            block_header: latest_header,
-            chain_peaks,
-            accounts,
-            nullifiers,
-            found_unauthenticated_notes,
         })
     }
 }

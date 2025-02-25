@@ -83,24 +83,25 @@ pub struct SyncNoteResponse {
 }
 /// An account returned as a response to the `GetBlockInputs`.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AccountBlockInputRecord {
+pub struct AccountWitness {
     /// The account ID.
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,
-    /// The latest account hash, zero hash if the account doesn't exist.
+    /// The latest account state commitment used as the initial state of the requested block.
+    /// This will be the zero digest if the account doesn't exist.
     #[prost(message, optional, tag = "2")]
-    pub account_hash: ::core::option::Option<super::digest::Digest>,
-    /// Merkle path to verify the account's inclusion in the MMR.
+    pub initial_state_commitment: ::core::option::Option<super::digest::Digest>,
+    /// Merkle path to verify the account's inclusion in the account tree.
     #[prost(message, optional, tag = "3")]
     pub proof: ::core::option::Option<super::merkle::MerklePath>,
 }
 /// A nullifier returned as a response to the `GetBlockInputs`.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct NullifierBlockInputRecord {
-    /// The nullifier ID.
+pub struct NullifierWitness {
+    /// The nullifier.
     #[prost(message, optional, tag = "1")]
     pub nullifier: ::core::option::Option<super::digest::Digest>,
-    /// Merkle path to verify the nullifier's inclusion in the MMR.
+    /// The SMT proof to verify the nullifier's inclusion in the nullifier tree.
     #[prost(message, optional, tag = "2")]
     pub opening: ::core::option::Option<super::smt::SmtOpening>,
 }
@@ -109,21 +110,24 @@ pub struct NullifierBlockInputRecord {
 pub struct GetBlockInputsResponse {
     /// The latest block header.
     #[prost(message, optional, tag = "1")]
-    pub block_header: ::core::option::Option<super::block::BlockHeader>,
-    /// Peaks of the above block's mmr, The `forest` value is equal to the block number.
+    pub latest_block_header: ::core::option::Option<super::block::BlockHeader>,
+    /// Proof of each requested unauthenticated note's inclusion in a block, **if it existed in
+    /// the store**.
     #[prost(message, repeated, tag = "2")]
-    pub mmr_peaks: ::prost::alloc::vec::Vec<super::digest::Digest>,
-    /// The hashes of the requested accounts and their authentication paths.
-    #[prost(message, repeated, tag = "3")]
-    pub account_states: ::prost::alloc::vec::Vec<AccountBlockInputRecord>,
-    /// The requested nullifiers and their authentication paths.
-    #[prost(message, repeated, tag = "4")]
-    pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
-    /// The list of requested notes which were found in the database.
-    #[prost(message, optional, tag = "5")]
-    pub found_unauthenticated_notes: ::core::option::Option<
-        super::note::NoteAuthenticationInfo,
+    pub unauthenticated_note_proofs: ::prost::alloc::vec::Vec<
+        super::note::NoteInclusionInBlockProof,
     >,
+    /// The serialized chain MMR which includes proofs for all blocks referenced by the
+    /// above note inclusion proofs as well as proofs for inclusion of the requested blocks
+    /// referenced by the batches in the block.
+    #[prost(bytes = "vec", tag = "3")]
+    pub chain_mmr: ::prost::alloc::vec::Vec<u8>,
+    /// The state commitments of the requested accounts and their authentication paths.
+    #[prost(message, repeated, tag = "4")]
+    pub account_witnesses: ::prost::alloc::vec::Vec<AccountWitness>,
+    /// The requested nullifiers and their authentication paths.
+    #[prost(message, repeated, tag = "5")]
+    pub nullifier_witnesses: ::prost::alloc::vec::Vec<NullifierWitness>,
 }
 /// Represents the result of getting batch inputs.
 #[derive(Clone, PartialEq, ::prost::Message)]

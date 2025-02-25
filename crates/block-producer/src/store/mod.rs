@@ -22,7 +22,7 @@ use miden_node_proto::{
 use miden_node_utils::{formatting::format_opt, tracing::grpc::OtelInterceptor};
 use miden_objects::{
     account::AccountId,
-    block::{Block, BlockHeader, BlockNumber},
+    block::{BlockHeader, BlockInputs, BlockNumber, ProvenBlock},
     note::{NoteId, Nullifier},
     transaction::ProvenTransaction,
     utils::Serializable,
@@ -32,7 +32,7 @@ use miden_processor::crypto::RpoDigest;
 use tonic::{service::interceptor::InterceptedService, transport::Channel};
 use tracing::{debug, info, instrument};
 
-use crate::{block::BlockInputs, errors::StoreError, COMPONENT};
+use crate::{errors::StoreError, COMPONENT};
 
 // TRANSACTION INPUTS
 // ================================================================================================
@@ -197,13 +197,15 @@ impl StoreClient {
     pub async fn get_block_inputs(
         &self,
         updated_accounts: impl Iterator<Item = AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        notes: impl Iterator<Item = &NoteId> + Send,
+        created_nullifiers: impl Iterator<Item = Nullifier> + Send,
+        unauthenticated_notes: impl Iterator<Item = NoteId> + Send,
+        reference_blocks: impl Iterator<Item = BlockNumber> + Send,
     ) -> Result<BlockInputs, StoreError> {
         let request = tonic::Request::new(GetBlockInputsRequest {
             account_ids: updated_accounts.map(Into::into).collect(),
-            nullifiers: produced_nullifiers.map(digest::Digest::from).collect(),
-            unauthenticated_notes: notes.map(digest::Digest::from).collect(),
+            nullifiers: created_nullifiers.map(digest::Digest::from).collect(),
+            unauthenticated_notes: unauthenticated_notes.map(digest::Digest::from).collect(),
+            reference_blocks: reference_blocks.map(|block_num| block_num.as_u32()).collect(),
         });
 
         let store_response = self.inner.clone().get_block_inputs(request).await?.into_inner();
@@ -228,7 +230,7 @@ impl StoreClient {
     }
 
     #[instrument(target = COMPONENT, name = "store.client.apply_block", skip_all, err)]
-    pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
+    pub async fn apply_block(&self, block: &ProvenBlock) -> Result<(), StoreError> {
         let request = tonic::Request::new(ApplyBlockRequest { block: block.to_bytes() });
 
         self.inner.clone().apply_block(request).await.map(|_| ()).map_err(Into::into)

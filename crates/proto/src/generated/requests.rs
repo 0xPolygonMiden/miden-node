@@ -81,15 +81,26 @@ pub struct SyncNoteRequest {
 /// Returns data required to prove the next block.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockInputsRequest {
-    /// ID of the account against which a transaction is executed.
+    /// IDs of all accounts updated in the proposed block for which to retrieve account witnesses.
     #[prost(message, repeated, tag = "1")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Set of nullifiers consumed by this transaction.
+    /// Nullifiers of all notes consumed by the block for which to retrieve witnesses.
+    ///
+    /// Due to note erasure it will generally not be possible to know the exact set of nullifiers
+    /// a block will create, unless we pre-execute note erasure. So in practice, this set of
+    /// nullifiers will be the set of nullifiers of all proven batches in the block, which is a
+    /// superset of the nullifiers the block may create.
+    ///
+    /// However, if it is known that a certain note will be erased, it would not be necessary to
+    /// provide a nullifier witness for it.
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
-    /// Array of note IDs to be checked for existence in the database.
+    /// Array of note IDs for which to retrieve note inclusion proofs, **if they exist in the store**.
     #[prost(message, repeated, tag = "3")]
     pub unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    /// Array of block numbers referenced by all batches in the block.
+    #[prost(fixed32, repeated, tag = "4")]
+    pub reference_blocks: ::prost::alloc::vec::Vec<u32>,
 }
 /// Returns the inputs for a transaction batch.
 #[derive(Clone, PartialEq, ::prost::Message)]

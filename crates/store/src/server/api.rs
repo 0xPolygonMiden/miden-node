@@ -29,7 +29,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     account::AccountId,
-    block::{Block, BlockNumber},
+    block::{BlockNumber, ProvenBlock},
     crypto::hash::rpo::RpoDigest,
     note::{NoteId, Nullifier},
     utils::{Deserializable, Serializable},
@@ -304,7 +304,7 @@ impl api_server::Api for StoreApi {
 
         debug!(target: COMPONENT, ?request);
 
-        let block = Block::read_from_bytes(&request.block).map_err(|err| {
+        let block = ProvenBlock::read_from_bytes(&request.block).map_err(|err| {
             Status::invalid_argument(format!("Block deserialization error: {err}"))
         })?;
 
@@ -315,8 +315,8 @@ impl api_server::Api for StoreApi {
             block_num,
             block_hash = %block.hash(),
             account_count = block.updated_accounts().len(),
-            note_count = block.notes().count(),
-            nullifier_count = block.nullifiers().len(),
+            note_count = block.output_notes().count(),
+            nullifier_count = block.created_nullifiers().len(),
         );
 
         self.state.apply_block(block).await?;
@@ -338,15 +338,16 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<GetBlockInputsResponse>, Status> {
         let request = request.into_inner();
 
-        let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let account_ids = read_account_ids(&request.account_ids)?;
+        let nullifiers = validate_nullifiers(&request.nullifiers)?;
         let unauthenticated_notes = validate_notes(&request.unauthenticated_notes)?;
+        let reference_blocks = read_block_numbers(&request.reference_blocks);
         let unauthenticated_notes = unauthenticated_notes.into_iter().collect();
 
         self.state
-            .get_block_inputs(&account_ids, &nullifiers, unauthenticated_notes)
+            .get_block_inputs(account_ids, nullifiers, unauthenticated_notes, reference_blocks)
             .await
-            .map(Into::into)
+            .map(GetBlockInputsResponse::from)
             .map(Response::new)
             .map_err(internal_error)
     }
@@ -568,4 +569,9 @@ fn validate_notes(notes: &[generated::digest::Digest]) -> Result<Vec<NoteId>, St
         .map(|digest| Ok(RpoDigest::try_from(digest)?.into()))
         .collect::<Result<_, ConversionError>>()
         .map_err(|_| invalid_argument("Digest field is not in the modulus range"))
+}
+
+#[instrument(target = COMPONENT, skip_all)]
+fn read_block_numbers(block_numbers: &[u32]) -> BTreeSet<BlockNumber> {
+    block_numbers.iter().map(|raw_number| BlockNumber::from(*raw_number)).collect()
 }

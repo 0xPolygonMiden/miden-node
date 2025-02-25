@@ -21,14 +21,14 @@ tracing-forest = ["miden-node-utils/tracing-forest"]
 async-trait           = { version = "0.1" }
 futures               = { version = "0.3" }
 itertools             = { workspace = true }
+miden-block-prover    = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-lib             = { workspace = true }
 miden-node-proto      = { workspace = true }
 miden-node-utils      = { workspace = true }
 miden-objects         = { workspace = true }
 miden-processor       = { workspace = true }
-miden-stdlib          = { workspace = true }
 miden-tx              = { workspace = true }
-miden-tx-batch-prover = { workspace = true }
+miden-tx-batch-prover = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 rand                  = { version = "0.8" }
 serde                 = { version = "1.0", features = ["derive"] }
 thiserror             = { workspace = true }

@@ -149,49 +149,45 @@ impl TryInto<StorageMapKeysProof> for proto::requests::get_account_proofs_reques
     }
 }
 
-// ACCOUNT INPUT RECORD
+// ACCOUNT WITNESS RECORD
 // ================================================================================================
 
 #[derive(Clone, Debug)]
-pub struct AccountInputRecord {
+pub struct AccountWitnessRecord {
     pub account_id: AccountId,
-    pub account_hash: Digest,
+    pub initial_state_commitment: Digest,
     pub proof: MerklePath,
 }
 
-impl From<AccountInputRecord> for proto::responses::AccountBlockInputRecord {
-    fn from(from: AccountInputRecord) -> Self {
+impl From<AccountWitnessRecord> for proto::responses::AccountWitness {
+    fn from(from: AccountWitnessRecord) -> Self {
         Self {
             account_id: Some(from.account_id.into()),
-            account_hash: Some(from.account_hash.into()),
+            initial_state_commitment: Some(from.initial_state_commitment.into()),
             proof: Some(Into::into(&from.proof)),
         }
     }
 }
 
-impl TryFrom<proto::responses::AccountBlockInputRecord> for AccountInputRecord {
+impl TryFrom<proto::responses::AccountWitness> for AccountWitnessRecord {
     type Error = ConversionError;
 
     fn try_from(
-        account_input_record: proto::responses::AccountBlockInputRecord,
+        account_witness_record: proto::responses::AccountWitness,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
-            account_id: account_input_record
+            account_id: account_witness_record
                 .account_id
-                .ok_or(proto::responses::AccountBlockInputRecord::missing_field(stringify!(
-                    account_id
-                )))?
+                .ok_or(proto::responses::AccountWitness::missing_field(stringify!(account_id)))?
                 .try_into()?,
-            account_hash: account_input_record
-                .account_hash
-                .ok_or(proto::responses::AccountBlockInputRecord::missing_field(stringify!(
-                    account_hash
-                )))?
+            initial_state_commitment: account_witness_record
+                .initial_state_commitment
+                .ok_or(proto::responses::AccountWitness::missing_field(stringify!(account_hash)))?
                 .try_into()?,
-            proof: account_input_record
+            proof: account_witness_record
                 .proof
                 .as_ref()
-                .ok_or(proto::responses::AccountBlockInputRecord::missing_field(stringify!(proof)))?
+                .ok_or(proto::responses::AccountWitness::missing_field(stringify!(proof)))?
                 .try_into()?,
         })
     }

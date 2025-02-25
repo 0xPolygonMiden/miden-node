@@ -11,12 +11,14 @@
 - Add an optional open-telemetry trace exporter (#659, #690).
 - Support tracing across gRPC boundaries using remote tracing context (#669).
 - Instrument the block-producer's block building process (#676).
+- Use `LocalBlockProver` for block building (#709).
 - Initial developer and operator guides covering monitoring (#699).
 
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
+- [BREAKING] Update `GetBlockInputs` RPC (#709).
 - [BREAKING] `CheckNullifiersByPrefix` now takes a starting block number (#707).
 - [BREAKING] Removed nullifiers from `SyncState` endpoint (#708).
 
