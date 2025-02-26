@@ -515,6 +515,23 @@ impl Db {
             .map_err(|err| DatabaseError::InteractError(err.to_string()))?
     }
 
+    /// Runs database optimization.
+    #[instrument(target = COMPONENT, skip_all, err)]
+    pub async fn optimize(&self) -> Result<(), DatabaseError> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| -> Result<()> {
+                conn.execute("PRAGMA optimize;", ())
+                    .map(|_| ())
+                    .map_err(DatabaseError::SqliteError)
+            })
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Database optimization task failed: {err}"))
+            })?
+    }
+
     // HELPERS
     // ---------------------------------------------------------------------------------------------
 

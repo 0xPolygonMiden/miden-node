@@ -962,10 +962,7 @@ impl State {
         from_block: BlockNumber,
         to_block: BlockNumber,
     ) -> Result<Option<AccountDelta>, DatabaseError> {
-        self.db
-            .select_account_state_delta(account_id, from_block, to_block)
-            .await
-            .map_err(Into::into)
+        self.db.select_account_state_delta(account_id, from_block, to_block).await
     }
 
     /// Loads a block from the block store. Return `Ok(None)` if the block is not found.
@@ -982,6 +979,11 @@ impl State {
     /// Returns the latest block number.
     pub async fn latest_block_num(&self) -> BlockNumber {
         self.inner.read().await.latest_block_num()
+    }
+
+    /// Runs database optimization.
+    pub async fn optimize_db(&self) -> Result<(), DatabaseError> {
+        self.db.optimize().await
     }
 }
 
