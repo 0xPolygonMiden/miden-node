@@ -31,6 +31,7 @@
 
 - [Overview](./developer/overview.md)
 - [Contributing]()
+- [Navigating the codebase](./developer/codebase.md)
 - [Monitoring](./developer/monitoring.md)
 - [Database]()
 - [Common issues other oddities]()
