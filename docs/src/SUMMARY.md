@@ -19,7 +19,7 @@
 # Operator Guide
 
 - [Overview](./operator/overview.md)
-- [Architecture]()
+- [Architecture](./operator/architecture.md)
 - [Installation]()
 - [Configuraton]()
 - [Usage]()
