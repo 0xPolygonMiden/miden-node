@@ -18,6 +18,7 @@
 
 # Operator Guide
 
+- [Overview](./operator/overview.md)
 - [Installation]()
 - [Configuraton]()
 - [Usage]()
@@ -28,9 +29,9 @@
 
 # Developer Guide
 
-- [Overview]()
-- [Monitoring]()
+- [Overview](./developer/overview.md)
+- [Monitoring](./developer/monitoring.md)
 - [Database]()
-- [Chain MMR and other oddities]()
+- [Common issues other oddities]()
 
 ---

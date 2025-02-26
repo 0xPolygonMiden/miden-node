@@ -74,8 +74,11 @@ manually instrumented each time. And non-async code also requires holding the sp
 We track traces across our components by injecting the parent span ID into the gRPC client's request. The server side
 then extracts this and uses this as the parent span ID for its processing.
 
-> [!CAUTION]
-> This is an OpenTelemetry concept - conventional `tracing` cannot follow these relations.
+<div class="warning">
+
+This is an OpenTelemetry concept - conventional `tracing` cannot follow these relations.
+
+</div>
 
 Read more in the official OpenTelemetry [documentation](https://opentelemetry.io/docs/concepts/context-propagation/).
 
