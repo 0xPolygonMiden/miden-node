@@ -1,0 +1,6 @@
+[book]
+authors = ["Mirko"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The Miden Node manual"
