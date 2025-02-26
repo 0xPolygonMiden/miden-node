@@ -36,8 +36,6 @@ pub struct BatchBuilder {
     /// Note: this _must_ be sign positive and less than 1.0.
     pub failure_rate: f32,
     /// The batch prover to use.
-    ///
-    /// If not provided, a local batch prover is used.
     batch_prover: BatchProver,
 }
 
