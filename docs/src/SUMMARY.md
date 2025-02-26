@@ -22,8 +22,7 @@
 - [Installation]()
 - [Configuraton]()
 - [Usage]()
-- [Monitoring]()
-- [Updating]()
+- [Monitoring](./operator/monitoring.md)
 
 ---
 

@@ -1,28 +1,4 @@
-The bulk of the information is still present in the [main readme](/README.md), which will be migrated here eventually.
-
-<!--toc:start-->
-
-- [Node configuration](#node-configuration)
-- [Monitoring & telemetry](#monitoring-telemetry)
-  - [What gets traced](#what-gets-traced)
-    - [RPC request/response](#rpc-requestresponse)
-    - [Block building](#block-building)
-    - [Batch building](#batch-building)
-  - [Verbosity](#verbosity)
-  - [Configuration](#configuration)
-    - [Example: Honeycomb configuration](#example-honeycomb-configuration)
-
-<!--toc:end-->
-
-## Node configuration
-
-TODO (waiting on CLI arg refactoring):
-
-- mention `--help` to see options, defaults and env var options
-- consider `--help` output here
-- describe how to inject env vars using `source`, `systemd.service` files etc.
-
-## Monitoring & telemetry
+# Monitoring & telemetry
 
 We provide logging to `stdout` and an optional [OpenTelemetry](https://opentelemetry.io/) exporter for our traces.
 
@@ -39,19 +15,19 @@ OpenTelemetry provides a
 [Span Metrics Converter](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/connector/spanmetricsconnector)
 which can be used to convert our traces into more conventional metrics.
 
-### What gets traced
+## What gets traced
 
 We assign a unique trace (aka root span) to each RPC request/response, batch build, and block build process.
 
-> [!CAUTION]
-> Span and attribute naming is unstable and should not be relied upon. This also means changes here will not be
-> breaking, however we will do our best to document them.
+<div class="warning">
+Span and attribute naming is unstable and should not be relied upon. This also means changes here will not be breaking, however we will do our best to document them.
+</div>
 
-#### RPC request/response
+### RPC request/response
 
 Not yet implemented.
 
-#### Block building
+### Block building
 
 This trace covers the building, proving and submission of a block.
 
@@ -93,16 +69,15 @@ block_builder.build_block
 
 </details>
 
-#### Batch building
+### Batch building
 
 Not yet implemented.
 
-### Verbosity
+## Verbosity
 
-> [!IMPORTANT]
-> We log important spans and events at `info` level or higher, which is also the default log level.
->
-> Changing this level should rarely be required - let us know if you're missing information that should be at `info`.
+We log important spans and events at `info` level or higher, which is also the default log level.
+
+Changing this level should rarely be required - let us know if you're missing information that should be at `info`.
 
 The available log levels are `trace`, `debug`, `info` (default), `warn`, `error` which can be configured using the
 `RUST_LOG` environment variable e.g.
@@ -120,9 +95,9 @@ export RUST_LOG=warn,block-producer=debug,rpc=error
 The above would set the general level to `warn`, and the `block-producer` and `rpc` components would be overriden to
 `debug` and `error` respectively. Though as mentioned, it should be unusual to do this.
 
-### Configuration
+## Configuration
 
-The OpenTelemetry trace exporter can be enabled by adding the `--open-telemetry` flag to the node's start command:
+The OpenTelemetry trace exporter is enabled by adding the `--open-telemetry` flag to the node's start command:
 
 ```sh
 miden-node start --open-telemetry node
@@ -131,20 +106,20 @@ miden-node start --open-telemetry node
 The exporter can be configured using environment variables as specified in the official
 [documents](https://opentelemetry.io/docs/specs/otel/protocol/exporter/).
 
-> [!WARNING]
-> Not all options are fully supported. We are limited to what the Rust OpenTelemetry implementation supports. If you
-> have any problems please open an issue and we'll do our best to resolve it.
->
-> Note: we only support gRPC as the export protocol.
+<div class="warning">
+Not all options are fully supported. We are limited to what the Rust OpenTelemetry implementation supports. If you have any problems please open an issue and we'll do our best to resolve it.
+
+Note: we only support gRPC as the export protocol.
+
+</div>
 
 #### Example: Honeycomb configuration
 
-> [!NOTE]
-> This is based off Honeycomb's OpenTelemetry
-> [setup guide](https://docs.honeycomb.io/send-data/opentelemetry/#using-the-honeycomb-opentelemetry-endpoint).
+This is based off Honeycomb's OpenTelemetry
+[setup guide](https://docs.honeycomb.io/send-data/opentelemetry/#using-the-honeycomb-opentelemetry-endpoint).
 
 ```sh
-OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io:443 \
+OTEL_EXPORTER_OTLP_ENDPOINT=api.honeycomb.io:443 \
 OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=your-api-key" \
 miden-node start --open-telemetry node
 ```
