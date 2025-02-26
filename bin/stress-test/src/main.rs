@@ -7,12 +7,12 @@ use std::{
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
+use miden_block_prover::LocalBlockProver;
 use miden_lib::{
     account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
     note::create_p2id_note,
 };
 use miden_node_block_producer::{
-    block_builder::BlockBuilder,
     store::StoreClient,
     test_utils::{batch::TransactionBatchConstructor, MockProvenTxBuilder},
 };
@@ -23,9 +23,9 @@ use miden_objects::{
     account::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
     asset::{Asset, FungibleAsset, TokenSymbol},
     batch::ProvenBatch,
-    block::BlockHeader,
+    block::{BlockHeader, ProposedBlock},
     crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
-    note::{Note, NoteInclusionProof},
+    note::{Note, NoteHeader, NoteInclusionProof},
     transaction::{OutputNote, ProvenTransaction},
     Digest, Felt,
 };
@@ -129,7 +129,8 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
                 .build(),
         ];
     let batch = ProvenBatch::mocked_from_transactions(txs.iter());
-    BlockBuilder::new(store_client.clone()).build_block(&[batch]).await.unwrap();
+
+    apply_block(vec![batch], &store_client).await;
 
     // Number of accounts per block
     let num_accounts_per_block = TRANSACTIONS_PER_BATCH * BATCHES_PER_BLOCK;
@@ -349,8 +350,6 @@ async fn build_blocks(
     mut batch_receiver: UnboundedReceiver<ProvenBatch>,
     store_client: StoreClient,
 ) -> (Vec<Duration>, Duration, u32, Vec<u64>) {
-    let block_builder = BlockBuilder::new(store_client);
-
     let mut current_block: Vec<ProvenBatch> = Vec::with_capacity(BATCHES_PER_BLOCK);
     let mut insertion_time_per_block = Vec::new();
     // Keep track of the store file size every 1k blocks in a vector to track the growth of the
@@ -365,9 +364,8 @@ async fn build_blocks(
         current_block.push(batch);
 
         if current_block.len() == BATCHES_PER_BLOCK {
-            let start = Instant::now();
-            block_builder.build_block(&current_block).await.unwrap();
-            insertion_time_per_block.push(start.elapsed());
+            let elapsed = apply_block(current_block.clone(), &store_client).await;
+            insertion_time_per_block.push(elapsed);
             current_block.clear();
 
             // We track the size of the DB every 50 blocks.
@@ -382,9 +380,8 @@ async fn build_blocks(
     }
 
     if !current_block.is_empty() {
-        let start = Instant::now();
-        block_builder.build_block(&current_block).await.unwrap();
-        insertion_time_per_block.push(start.elapsed());
+        let elapsed = apply_block(current_block, &store_client).await;
+        insertion_time_per_block.push(elapsed);
     }
 
     let num_insertions = insertion_time_per_block.len() as u32;
@@ -413,15 +410,18 @@ fn generate_batches(
         let mut txs = Vec::with_capacity(BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH);
 
         // Create the send assets tx
-        let mint_assets =
-            MockProvenTxBuilder::with_account(faucet_id, Digest::default(), Digest::default())
-                .output_notes(
-                    accounts_notes_txs_0
-                        .iter()
-                        .map(|(_, note, _)| OutputNote::Full(note.clone()))
-                        .collect(),
-                )
-                .build();
+        let mint_assets = MockProvenTxBuilder::with_account(
+            faucet_id,
+            [i as u64; 4].try_into().unwrap(),
+            [(i + 1) as u64; 4].try_into().unwrap(),
+        )
+        .output_notes(
+            accounts_notes_txs_0
+                .iter()
+                .map(|(_, note, _)| OutputNote::Full(note.clone()))
+                .collect(),
+        )
+        .build();
 
         txs.push(mint_assets);
 
@@ -440,4 +440,32 @@ fn generate_batches(
 
         accounts_notes_txs_1 = accounts_notes_txs_0;
     }
+}
+
+/// Given a list of batches, create a `ProvenBlock` and send it to the store.
+/// Returns the time spent on executing `StoreClient::apply_block`.
+async fn apply_block(batches: Vec<ProvenBatch>, store_client: &StoreClient) -> Duration {
+    let inputs = store_client
+        .get_block_inputs(
+            batches.iter().flat_map(ProvenBatch::updated_accounts),
+            batches.iter().flat_map(ProvenBatch::created_nullifiers),
+            batches.iter().flat_map(|batch| {
+                batch
+                    .input_notes()
+                    .iter()
+                    .cloned()
+                    .filter_map(|note| note.header().map(NoteHeader::id))
+            }),
+            batches.iter().map(ProvenBatch::reference_block_num),
+        )
+        .await
+        .unwrap();
+    let proposed_block = ProposedBlock::new(inputs, batches).unwrap();
+    let proven_block = LocalBlockProver::new(0)
+        .prove_without_batch_verification(proposed_block)
+        .unwrap();
+
+    let start = Instant::now();
+    store_client.apply_block(&proven_block).await.unwrap();
+    start.elapsed()
 }

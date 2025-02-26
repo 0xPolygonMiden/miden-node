@@ -1962,6 +1962,7 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "clap",
+ "miden-block-prover",
  "miden-lib",
  "miden-node-block-producer",
  "miden-node-proto",
