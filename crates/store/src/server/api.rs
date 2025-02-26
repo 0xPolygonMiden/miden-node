@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, convert::Infallible, pin::Pin, sync::Arc};
+use std::{collections::BTreeSet, convert::Infallible, pin::Pin, sync::Arc, time::Duration};
 
 use miden_node_proto::{
     convert,
@@ -34,12 +34,12 @@ use miden_objects::{
     note::{NoteId, Nullifier},
     utils::{Deserializable, Serializable},
 };
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, time::timeout};
 use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, COMPONENT};
+use crate::{errors::StateSyncError, state::State, COMPONENT};
 
 // STORE API
 // ================================================================================================
@@ -164,25 +164,20 @@ impl api_server::Api for StoreApi {
     ) -> Result<Response<Self::SyncStateStream>, Status> {
         let request = request.into_inner();
 
-        let (tx, rx) = mpsc::channel(128); // TODO: check bound of the channel
+        let (sender, receiver) = mpsc::channel(128); // TODO: check bound of the channel
 
         let state = self.state.clone();
-        let mut last_block_num = request.block_num;
-        let chain_tip = state.latest_block_num().await.as_u32();
+        let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
         tokio::spawn(async move {
             loop {
-                if last_block_num == chain_tip {
-                    // The state is up to date, no need to sync
-                    break;
-                }
-
-                let result = async {
-                    let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
-
+                let sync_result: Result<SyncStateResponse, StateSyncError> = async {
                     let (state, delta) = state
-                        .sync_state(last_block_num.into(), account_ids, request.note_tags.clone())
-                        .await
-                        .map_err(internal_error)?;
+                        .sync_state(
+                            request.block_num.into(),
+                            account_ids.clone(),
+                            request.note_tags.clone(),
+                        )
+                        .await?;
 
                     let accounts = state
                         .account_updates
@@ -217,21 +212,39 @@ impl api_server::Api for StoreApi {
                 }
                 .await;
 
-                if let Ok(response) = &result {
-                    // SAFETY: SyncStateResponse always has a block header
-                    last_block_num = response.block_header.unwrap().block_num;
+                // If the mmr_delta is empty, we have already reached the latest state
+                if let Ok(response) = &sync_result {
+                    if response.mmr_delta.as_ref().map_or(true, |d| d.data.is_empty()) {
+                        break;
+                    }
                 }
-                let is_error = result.is_err();
+                let sync_failed = sync_result.is_err();
+                let response = sync_result
+                    .inspect_err(|err| info!(target: COMPONENT, "Sync state failed: {}", err))
+                    .map_err(internal_error);
 
-                tx.send(result).await.expect("error sending sync state response to the client");
+                match timeout(Duration::from_secs(10), sender.send(response)).await {
+                    Ok(Ok(())) => {},
+                    Ok(Err(e)) => {
+                        info!(target: COMPONENT, "Failed to send sync state response: {}", e);
+                        break;
+                    },
+                    Err(e) => {
+                        info!(
+                            target: COMPONENT,
+                            "Failed to send sync state response: timeout after {}", e
+                        );
+                        break;
+                    },
+                };
 
-                if is_error {
+                if sync_failed {
                     break;
                 }
             }
         });
 
-        let output_stream = ReceiverStream::new(rx);
+        let output_stream = ReceiverStream::new(receiver);
         Ok(Response::new(Box::pin(output_stream) as Self::SyncStateStream))
     }
 
