@@ -19,7 +19,7 @@ use crate::{
 // BATCH BUILDER
 // ================================================================================================
 
-/// Builds [`TransactionBatch`] from sets of transactions.
+/// Builds [`ProvenBatch`] from sets of transactions.
 ///
 /// Transaction sets are pulled from the mempool at a configurable interval, and passed to
 /// a pool of provers for proof generation. Proving is currently unimplemented and is instead

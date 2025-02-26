@@ -3,8 +3,8 @@ use std::time::Duration;
 #[cfg(any(test, feature = "testing"))]
 pub mod test_utils;
 
-pub mod batch_builder;
-pub mod block_builder;
+mod batch_builder;
+mod block_builder;
 mod domain;
 mod errors;
 mod mempool;
