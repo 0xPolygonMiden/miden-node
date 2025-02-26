@@ -1,6 +1,6 @@
 # Summary
 
-[Introduction]()
+[Introduction](./introduction.md)
 
 ---
 
@@ -19,6 +19,7 @@
 # Operator Guide
 
 - [Overview](./operator/overview.md)
+- [Architecture]()
 - [Installation]()
 - [Configuraton]()
 - [Usage]()
@@ -29,6 +30,7 @@
 # Developer Guide
 
 - [Overview](./developer/overview.md)
+- [Contributing]()
 - [Monitoring](./developer/monitoring.md)
 - [Database]()
 - [Common issues other oddities]()
