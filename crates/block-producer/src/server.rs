@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -15,8 +15,8 @@ use miden_objects::{
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
-use tower_http::{classify::GrpcFailureClass, trace::TraceLayer};
-use tracing::{debug, error, info, instrument, Span};
+use tower_http::trace::TraceLayer;
+use tracing::{debug, info, instrument};
 
 use crate::{
     batch_builder::BatchBuilder,
