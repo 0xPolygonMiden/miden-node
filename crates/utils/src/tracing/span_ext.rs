@@ -70,7 +70,7 @@ impl<S> OpenTelemetrySpanExt for S
 where
     S: tracing_opentelemetry::OpenTelemetrySpanExt,
 {
-    /// ...
+    /// Sets the parent context by extracting HTTP metadata from the request.
     fn set_parent<T>(&self, request: &http::Request<T>) {
         // Pull the open-telemetry parent context using the HTTP extractor. We could make a more
         // generic gRPC extractor by utilising the gRPC metadata. However that
@@ -85,7 +85,7 @@ where
         tracing_opentelemetry::OpenTelemetrySpanExt::set_parent(self, otel_ctx);
     }
 
-    /// ...
+    /// Returns the context of `Span`.
     fn context(&self) -> opentelemetry::Context {
         tracing_opentelemetry::OpenTelemetrySpanExt::context(self)
     }
@@ -97,7 +97,7 @@ where
         tracing_opentelemetry::OpenTelemetrySpanExt::set_attribute(self, key, value.to_value());
     }
 
-    /// ...
+    /// Sets standard attributes to the `Span` based on an associated HTTP request.
     fn set_http_attributes<T>(&self, request: &http::Request<T>) {
         let remote_addr = request
             .extensions()
@@ -126,8 +126,8 @@ mod private {
     impl<S> Sealed for S where S: tracing_opentelemetry::OpenTelemetrySpanExt {}
 }
 
-/// ...
-struct MetadataExtractor<'a>(pub(crate) &'a tonic::metadata::MetadataMap);
+/// Facilitates Open Telemetry metadata extraction for Tonic `MetadataMap`.
+struct MetadataExtractor<'a>(&'a tonic::metadata::MetadataMap);
 impl opentelemetry::propagation::Extractor for MetadataExtractor<'_> {
     /// Get a value for a key from the `MetadataMap`.  If the value can't be converted to &str,
     /// returns None
