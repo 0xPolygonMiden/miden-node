@@ -1,5 +1,3 @@
-use super::OpenTelemetrySpanExt;
-
 /// A [`trace_fn`](tonic::transport::server::Server) implementation for the block producer which
 /// adds open-telemetry information to the span.
 ///
@@ -13,9 +11,7 @@ pub fn block_producer_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
         tracing::info_span!("block-producer.rpc/Unknown")
     };
 
-    span.set_parent(request);
-    span.set_http_attributes(request);
-    span
+    add_otel_span_attributes(span, request)
 }
 
 /// A [`trace_fn`](tonic::transport::server::Server) implementation for the store which adds
@@ -43,8 +39,32 @@ pub fn store_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
         _ => tracing::info_span!("store.rpc/Unknown"),
     };
 
-    span.set_parent(request);
-    span.set_http_attributes(request);
+    add_otel_span_attributes(span, request)
+}
+
+/// Adds remote tracing context to the span.
+///
+/// Could be expanded in the future by adding in more open-telemetry properties.
+fn add_otel_span_attributes<T>(span: tracing::Span, request: &http::Request<T>) -> tracing::Span {
+    // Pull the open-telemetry parent context using the HTTP extractor. We could make a more
+    // generic gRPC extractor by utilising the gRPC metadata. However that
+    //     (a) requires cloning headers,
+    //     (b) we would have to write this ourselves, and
+    //     (c) gRPC metadata is transferred using HTTP headers in any case.
+    let otel_ctx = opentelemetry::global::get_text_map_propagator(|propagator| {
+        propagator.extract(&MetadataExtractor(&tonic::metadata::MetadataMap::from_headers(
+            request.headers().clone(),
+        )))
+    });
+    tracing_opentelemetry::OpenTelemetrySpanExt::set_parent(&span, otel_ctx);
+
+    // Set HTTP attributes: https://opentelemetry.io/docs/specs/semconv/rpc/rpc-spans/#server-attributes
+    let remote_addr = request
+        .extensions()
+        .get::<tonic::transport::server::TcpConnectInfo>()
+        .and_then(tonic::transport::server::TcpConnectInfo::remote_addr);
+    super::OpenTelemetrySpanExt::set_attribute(&span, "remote_addr", remote_addr);
+
     span
 }
 
@@ -57,12 +77,33 @@ impl tonic::service::Interceptor for OtelInterceptor {
         &mut self,
         mut request: tonic::Request<()>,
     ) -> Result<tonic::Request<()>, tonic::Status> {
+        use tracing_opentelemetry::OpenTelemetrySpanExt;
         let ctx = tracing::Span::current().context();
         opentelemetry::global::get_text_map_propagator(|propagator| {
             propagator.inject_context(&ctx, &mut MetadataInjector(request.metadata_mut()));
         });
 
         Ok(request)
+    }
+}
+
+struct MetadataExtractor<'a>(&'a tonic::metadata::MetadataMap);
+impl opentelemetry::propagation::Extractor for MetadataExtractor<'_> {
+    /// Get a value for a key from the `MetadataMap`.  If the value can't be converted to &str,
+    /// returns None
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key).and_then(|metadata| metadata.to_str().ok())
+    }
+
+    /// Collect all the keys from the `MetadataMap`.
+    fn keys(&self) -> Vec<&str> {
+        self.0
+            .keys()
+            .map(|key| match key {
+                tonic::metadata::KeyRef::Ascii(v) => v.as_str(),
+                tonic::metadata::KeyRef::Binary(v) => v.as_str(),
+            })
+            .collect::<Vec<_>>()
     }
 }
 
