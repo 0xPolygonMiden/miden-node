@@ -197,6 +197,27 @@ fn long_version() -> LongVersion {
     }
 }
 
+async fn serve_faucet(config: FaucetConfig) -> anyhow::Result<()> {
+    let faucet_state = FaucetState::new(config.clone()).await?;
+
+    info!(target: COMPONENT, %config, "Initializing server");
+
+    let app = create_router(faucet_state);
+
+    let socket_addr = config
+        .endpoint
+        .socket_addrs(|| None)?
+        .into_iter()
+        .next()
+        .with_context(|| format!("no sockets available on {}", config.endpoint))?;
+    let listener = TcpListener::bind(socket_addr).await.context("failed to bind TCP listener")?;
+
+    info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
+
+    axum::serve(listener, app).await.unwrap();
+    Ok(())
+}
+
 fn create_router(faucet_state: FaucetState) -> Router {
     Router::new()
         .route("/", get(get_index_html))
@@ -222,34 +243,12 @@ fn create_router(faucet_state: FaucetState) -> Router {
         .with_state(faucet_state)
 }
 
-async fn serve_faucet(config: FaucetConfig) -> anyhow::Result<()> {
-    let faucet_state = FaucetState::new(config.clone()).await?;
-
-    info!(target: COMPONENT, %config, "Initializing server");
-
-    let app = create_router(faucet_state);
-
-    let socket_addr = config
-        .endpoint
-        .socket_addrs(|| None)?
-        .into_iter()
-        .next()
-        .with_context(|| format!("no sockets available on {}", config.endpoint))?;
-    let listener = TcpListener::bind(socket_addr).await.context("failed to bind TCP listener")?;
-
-    info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
-
-    axum::serve(listener, app).await.unwrap();
-    Ok(())
-}
-
 #[cfg(test)]
 mod test {
-    use std::{process::Command, str::FromStr, time::Duration};
+    use std::{process::Command, str::FromStr};
 
     use fantoccini::ClientBuilder;
     use serde_json::{json, Map};
-    use tokio::time::sleep;
     use url::Url;
 
     use crate::{config::FaucetConfig, serve_faucet, stub_rpc_api::serve_stub};
@@ -269,7 +268,7 @@ mod test {
         // Start the faucet connected to the stub
         let config = FaucetConfig {
             node_url: stub_node_url,
-            faucet_account_path: "src/test_data/faucet.mac".into(),
+            faucet_account_path: "test_data/faucet.mac".into(),
             ..FaucetConfig::default()
         };
         let website_url = config.endpoint.clone();
@@ -282,9 +281,6 @@ mod test {
             .arg(format!("--port={chromedriver_port}"))
             .spawn()
             .expect("failed to start chromedriver");
-
-        // Wait for the server to be running
-        sleep(Duration::from_secs(1)).await;
 
         // Start fantoccini client
         let client = ClientBuilder::native()
