@@ -20,7 +20,6 @@ use miden_objects::{
     testing::account_id::{
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
         ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
     },
     Felt, FieldElement, Word, ZERO,
 };
@@ -175,6 +174,15 @@ fn sql_select_notes() {
     let notes = sql::select_all_notes(&mut conn).unwrap();
     assert!(notes.is_empty());
 
+    let account_id = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
+
+    let transaction = conn.transaction().unwrap();
+
+    sql::upsert_accounts(&transaction, &[mock_block_account_update(account_id, 0)], block_num)
+        .unwrap();
+
+    transaction.commit().unwrap();
+
     // test multiple entries
     let mut state = vec![];
     for i in 0..10 {
@@ -183,7 +191,7 @@ fn sql_select_notes() {
             note_index: BlockNoteIndex::new(0, i as usize).unwrap(),
             note_id: num_to_rpo_digest(u64::from(i)),
             metadata: NoteMetadata::new(
-                ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+                account_id,
                 NoteType::Public,
                 i.into(),
                 NoteExecutionHint::none(),
@@ -215,6 +223,14 @@ fn sql_select_notes_different_execution_hints() {
     let notes = sql::select_all_notes(&mut conn).unwrap();
     assert!(notes.is_empty());
 
+    let sender = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
+
+    let transaction = conn.transaction().unwrap();
+
+    sql::upsert_accounts(&transaction, &[mock_block_account_update(sender, 0)], block_num).unwrap();
+
+    transaction.commit().unwrap();
+
     // test multiple entries
     let mut state = vec![];
 
@@ -223,7 +239,7 @@ fn sql_select_notes_different_execution_hints() {
         note_index: BlockNoteIndex::new(0, 0).unwrap(),
         note_id: num_to_rpo_digest(0),
         metadata: NoteMetadata::new(
-            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            sender,
             NoteType::Public,
             0.into(),
             NoteExecutionHint::none(),
@@ -247,7 +263,7 @@ fn sql_select_notes_different_execution_hints() {
         note_index: BlockNoteIndex::new(0, 1).unwrap(),
         note_id: num_to_rpo_digest(1),
         metadata: NoteMetadata::new(
-            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            sender,
             NoteType::Public,
             1.into(),
             NoteExecutionHint::always(),
@@ -271,7 +287,7 @@ fn sql_select_notes_different_execution_hints() {
         note_index: BlockNoteIndex::new(0, 2).unwrap(),
         note_id: num_to_rpo_digest(2),
         metadata: NoteMetadata::new(
-            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            sender,
             NoteType::Public,
             2.into(),
             NoteExecutionHint::after_block(12.into()).unwrap(),
@@ -303,8 +319,29 @@ fn sql_unconsumed_network_notes() {
 
     let block_num = BlockNumber::from(1);
     // An arbitrary public account (network note tag requires public account).
-    let account_id = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN.try_into().unwrap();
     create_block(&mut conn, block_num);
+
+    let transaction = conn.transaction().unwrap();
+
+    let account = mock_account_code_and_storage(
+        AccountType::RegularAccountUpdatableCode,
+        AccountStorageMode::Public,
+        [],
+    );
+    let account_id = account.id();
+    sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_id,
+            account.hash(),
+            AccountUpdateDetails::New(account),
+            vec![],
+        )],
+        block_num,
+    )
+    .unwrap();
+
+    transaction.commit().unwrap();
 
     // Create some notes, of which half are network notes.
     let notes = (0..N)
@@ -882,11 +919,17 @@ fn notes() {
         .unwrap();
     assert!(res.is_empty());
 
+    let sender = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
+
     // test insertion
+    let transaction = conn.transaction().unwrap();
+
+    sql::upsert_accounts(&transaction, &[mock_block_account_update(sender, 0)], block_num_1)
+        .unwrap();
+
     let note_index = BlockNoteIndex::new(0, 2).unwrap();
     let note_id = num_to_rpo_digest(3);
     let tag = 5u32;
-    let sender = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
     let note_metadata =
         NoteMetadata::new(sender, NoteType::Public, tag.into(), NoteExecutionHint::none(), ZERO)
             .unwrap();
@@ -912,7 +955,6 @@ fn notes() {
         merkle_path: merkle_path.clone(),
     };
 
-    let transaction = conn.transaction().unwrap();
     sql::insert_notes(&transaction, &[(note.clone(), None)]).unwrap();
     transaction.commit().unwrap();
 
@@ -1011,15 +1053,15 @@ fn insert_transactions(conn: &mut Connection) -> usize {
     create_block(conn, block_num);
 
     let transaction = conn.transaction().unwrap();
-    let count = sql::insert_transactions(
-        &transaction,
-        block_num,
-        &[mock_block_account_update(
-            AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap(),
-            1,
-        )],
-    )
-    .unwrap();
+
+    let account_updates = vec![mock_block_account_update(
+        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap(),
+        1,
+    )];
+
+    sql::upsert_accounts(&transaction, &account_updates, block_num).unwrap();
+
+    let count = sql::insert_transactions(&transaction, block_num, &account_updates).unwrap();
     transaction.commit().unwrap();
 
     count
