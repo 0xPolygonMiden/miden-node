@@ -222,7 +222,9 @@ impl Db {
                         })
                         .await
                         .map_err(|e| {
-                            HookError::Message(format!("Loading carray module failed: {e}").into())
+                            HookError::Message(
+                                format!("Failed to configure connection: {e}").into(),
+                            )
                         })?;
 
                     Ok(())

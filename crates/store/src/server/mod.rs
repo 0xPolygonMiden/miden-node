@@ -70,26 +70,16 @@ impl Store {
         })
     }
 
-    /// Serves the store's RPC API.
+    /// Serves the store's RPC API and DB maintenance background task.
     ///
     /// Note: this blocks until the server dies.
     pub async fn serve(self) -> Result<(), ApiError> {
-        let db_maintenance_service = self.db_maintenance_service.run();
-        let api_service = tonic::transport::Server::builder()
+        tokio::spawn(self.db_maintenance_service.run());
+        tonic::transport::Server::builder()
             .trace_fn(miden_node_utils::tracing::grpc::store_trace_fn)
             .add_service(self.api_service)
-            .serve_with_incoming(TcpListenerStream::new(self.listener));
-
-        tokio::select! {
-            api_service = api_service => {
-                api_service.map_err(ApiError::ApiServeFailed)
-            },
-
-            _ = db_maintenance_service => {
-                error!(target: COMPONENT, "Database maintenance service crashed");
-
-                Ok(())
-            },
-        }
+            .serve_with_incoming(TcpListenerStream::new(self.listener))
+            .await
+            .map_err(ApiError::ApiServeFailed)
     }
 }

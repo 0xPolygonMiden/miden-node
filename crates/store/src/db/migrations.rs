@@ -77,8 +77,8 @@ pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
 
     info!(target: COMPONENT, "Starting database optimization");
 
-    // Run full database optimization. This will shrink the database and run indexes analysis for
-    // the query planner. This will also increase the `schema_version` value.
+    // Run full database optimization. This will run indexes analysis for the query planner.
+    // This will also increase the `schema_version` value.
     //
     // We should run full database optimization in following cases:
     // 1. Once schema was changed, especially new indexes were created.

@@ -15,7 +15,7 @@ impl DbMaintenance {
     }
 
     /// Runs infinite maintenance loop.
-    pub async fn run(&self) {
+    pub async fn run(self) {
         loop {
             tokio::time::sleep(self.optimization_interval).await;
 
