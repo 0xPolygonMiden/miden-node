@@ -7,7 +7,7 @@ use miden_node_proto::generated::{
 use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
-    tracing::grpc::OtelInterceptor,
+    tracing::grpc::{block_producer_trace_fn, OtelInterceptor},
 };
 use miden_objects::{
     block::BlockNumber, transaction::ProvenTransaction, utils::serde::Deserializable,
@@ -212,34 +212,9 @@ impl BlockProducerRpcServer {
     }
 
     async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
-        // Configure the trace layer with callbacks.
-        let trace_layer = TraceLayer::new_for_grpc()
-            .make_span_with(miden_node_utils::tracing::grpc::block_producer_trace_fn)
-            .on_request(|request: &http::Request<_>, _span: &Span| {
-                info!(
-                    "request: {} {} {} {} {:?}",
-                    request
-                        .extensions()
-                        .get::<tonic::transport::server::TcpConnectInfo>()
-                        .unwrap()
-                        .remote_addr()
-                        .unwrap(),
-                    request.method(),
-                    request.uri().host().unwrap_or("unknown_host"),
-                    request.uri().path(),
-                    request.headers()
-                );
-            })
-            .on_response(|response: &http::Response<_>, latency: Duration, _span: &Span| {
-                info!("response: {} {:?}", response.status(), latency);
-            })
-            //.on_failure(|error: ServerErrorsFailureClass, latency: Duration, _span: &Span| {
-            .on_failure(|error: GrpcFailureClass, latency: Duration, _span: &Span| {
-                error!("error: {} {:?}", error, latency);
-            });
         // Build the gRPC server with the API service and trace layer.
         tonic::transport::Server::builder()
-            .layer(trace_layer)
+            .layer(TraceLayer::new_for_grpc().make_span_with(block_producer_trace_fn))
             .add_service(api_server::ApiServer::new(self))
             .serve_with_incoming(TcpListenerStream::new(listener))
             .await

@@ -1,11 +1,11 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use miden_node_proto::generated::store::api_server;
-use miden_node_utils::errors::ApiError;
+use miden_node_utils::{errors::ApiError, tracing::grpc::store_trace_fn};
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
-use tower_http::{classify::GrpcFailureClass, trace::TraceLayer};
-use tracing::{error, info, Span};
+use tower_http::trace::TraceLayer;
+use tracing::info;
 
 use crate::{blocks::BlockStore, config::StoreConfig, db::Db, state::State, COMPONENT};
 
@@ -62,27 +62,9 @@ impl Store {
     ///
     /// Note: this blocks until the server dies.
     pub async fn serve(self) -> Result<(), ApiError> {
-        // Configure the trace layer with callbacks.
-        let trace_layer = TraceLayer::new_for_grpc()
-            .make_span_with(miden_node_utils::tracing::grpc::store_trace_fn)
-            .on_request(|request: &http::Request<_>, _span: &Span| {
-                info!(
-                    "request: {} {} {} {:?}",
-                    request.method(),
-                    request.uri().host().unwrap_or("unknown_host"),
-                    request.uri().path(),
-                    request.headers()
-                );
-            })
-            .on_response(|response: &http::Response<_>, latency: Duration, _span: &Span| {
-                info!("response: {} {:?}", response.status(), latency);
-            })
-            .on_failure(|error: GrpcFailureClass, latency: Duration, _span: &Span| {
-                error!("error: {} {:?}", error, latency);
-            });
         // Build the gRPC server with the API service and trace layer.
         tonic::transport::Server::builder()
-            .layer(trace_layer)
+            .layer(TraceLayer::new_for_grpc().make_span_with(store_trace_fn))
             .add_service(self.api_service)
             .serve_with_incoming(TcpListenerStream::new(self.listener))
             .await
