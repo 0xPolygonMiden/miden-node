@@ -86,7 +86,7 @@ impl Store {
             },
 
             _ = db_maintenance_service => {
-                info!(target: COMPONENT, "Database maintenance service shutdown");
+                error!(target: COMPONENT, "Database maintenance service crashed");
 
                 Ok(())
             },
