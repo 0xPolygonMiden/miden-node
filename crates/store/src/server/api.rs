@@ -169,11 +169,12 @@ impl api_server::Api for StoreApi {
         let state = self.state.clone();
         let account_ids: Vec<AccountId> = read_account_ids(&request.account_ids)?;
         tokio::spawn(async move {
+            let mut last_block_num = request.block_num;
             loop {
                 let sync_result: Result<SyncStateResponse, StateSyncError> = async {
                     let (state, delta) = state
                         .sync_state(
-                            request.block_num.into(),
+                            last_block_num.into(),
                             account_ids.clone(),
                             request.note_tags.clone(),
                         )
@@ -212,11 +213,12 @@ impl api_server::Api for StoreApi {
                 }
                 .await;
 
-                // If the mmr_delta is empty, we have already reached the latest state
                 if let Ok(response) = &sync_result {
-                    if response.mmr_delta.as_ref().map_or(true, |d| d.data.is_empty()) {
+                    // If the response is empty, we have already reached the latest state
+                    if sync_response_is_empty(response) {
                         break;
                     }
+                    last_block_num = response.block_header.unwrap().block_num;
                 }
                 let sync_failed = sync_result.is_err();
                 let response = sync_result
@@ -585,6 +587,13 @@ fn read_account_id(id: Option<generated::account::AccountId>) -> Result<AccountI
     id.ok_or(invalid_argument("missing account ID"))?
         .try_into()
         .map_err(|err| invalid_argument(format!("invalid account ID: {err}")))
+}
+
+fn sync_response_is_empty(response: &SyncStateResponse) -> bool {
+    response.mmr_delta.as_ref().map_or(true, |d| d.data.is_empty())
+        && response.accounts.is_empty()
+        && response.transactions.is_empty()
+        && response.notes.is_empty()
 }
 
 #[instrument(target = COMPONENT, skip_all, err)]
