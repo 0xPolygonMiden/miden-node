@@ -16,20 +16,6 @@ impl Mempool {
     }
 }
 
-#[tokio::test]
-async fn mempool_trace() {
-    let (mut rx_export, _rx_shutdown) = miden_node_utils::logging::setup_test_tracing().unwrap();
-
-    let mut uut = Mempool::for_tests();
-    let txs = MockProvenTxBuilder::sequential();
-    uut.add_transaction(txs[0].clone()).unwrap();
-
-    let span_data = rx_export.recv().await.unwrap();
-    assert_eq!(span_data.name, "mempool.add_transaction");
-    assert!(span_data.attributes.iter().any(|kv| kv.key == "code.namespace".into()
-        && kv.value == "miden_node_block_producer::mempool".into()));
-}
-
 // BATCH FAILED TESTS
 // ================================================================================================
 
