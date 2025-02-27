@@ -245,7 +245,11 @@ fn create_router(faucet_state: FaucetState) -> Router {
 
 #[cfg(test)]
 mod test {
-    use std::{io::{BufRead, BufReader}, process::{Command, Stdio}, str::FromStr};
+    use std::{
+        io::{BufRead, BufReader},
+        process::{Command, Stdio},
+        str::FromStr,
+    };
 
     use fantoccini::ClientBuilder;
     use serde_json::{json, Map};
@@ -289,7 +293,7 @@ mod test {
                 break;
             }
         }
-    
+
         // Start fantoccini client
         let client = ClientBuilder::native()
             .capabilities(
