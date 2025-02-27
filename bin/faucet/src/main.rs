@@ -245,7 +245,7 @@ fn create_router(faucet_state: FaucetState) -> Router {
 
 #[cfg(test)]
 mod test {
-    use std::{process::Command, str::FromStr};
+    use std::{io::{BufRead, BufReader}, process::{Command, Stdio}, str::FromStr};
 
     use fantoccini::ClientBuilder;
     use serde_json::{json, Map};
@@ -279,9 +279,17 @@ mod test {
         #[expect(clippy::zombie_processes)]
         let mut chromedriver = Command::new("chromedriver")
             .arg(format!("--port={chromedriver_port}"))
+            .stdout(Stdio::piped())
             .spawn()
             .expect("failed to start chromedriver");
-
+        // Wait for chromedriver to be running
+        let stdout = chromedriver.stdout.take().unwrap();
+        for line in BufReader::new(stdout).lines() {
+            if line.unwrap().contains("ChromeDriver was started successfully") {
+                break;
+            }
+        }
+    
         // Start fantoccini client
         let client = ClientBuilder::native()
             .capabilities(
