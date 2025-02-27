@@ -217,7 +217,13 @@ impl BlockProducerRpcServer {
             .make_span_with(miden_node_utils::tracing::grpc::block_producer_trace_fn)
             .on_request(|request: &http::Request<_>, _span: &Span| {
                 info!(
-                    "request: {} {} {} {:?}",
+                    "request: {} {} {} {} {:?}",
+                    request
+                        .extensions()
+                        .get::<tonic::transport::server::TcpConnectInfo>()
+                        .unwrap()
+                        .remote_addr()
+                        .unwrap(),
                     request.method(),
                     request.uri().host().unwrap_or("unknown_host"),
                     request.uri().path(),
@@ -227,6 +233,7 @@ impl BlockProducerRpcServer {
             .on_response(|response: &http::Response<_>, latency: Duration, _span: &Span| {
                 info!("response: {} {:?}", response.status(), latency);
             })
+            //.on_failure(|error: ServerErrorsFailureClass, latency: Duration, _span: &Span| {
             .on_failure(|error: GrpcFailureClass, latency: Duration, _span: &Span| {
                 error!("error: {} {:?}", error, latency);
             });

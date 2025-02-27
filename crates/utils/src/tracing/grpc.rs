@@ -1,4 +1,4 @@
-use tracing_opentelemetry::OpenTelemetrySpanExt;
+use super::OpenTelemetrySpanExt;
 
 /// A [`trace_fn`](tonic::transport::server::Server) implementation for the block producer which
 /// adds open-telemetry information to the span.
@@ -13,7 +13,9 @@ pub fn block_producer_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
         tracing::info_span!("block-producer.rpc/Unknown")
     };
 
-    add_otel_span_attributes(span, request)
+    span.set_parent(request);
+    span.set_http_attributes(request);
+    span
 }
 
 /// A [`trace_fn`](tonic::transport::server::Server) implementation for the store which adds
@@ -41,26 +43,8 @@ pub fn store_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
         _ => tracing::info_span!("store.rpc/Unknown"),
     };
 
-    add_otel_span_attributes(span, request)
-}
-
-/// Adds remote tracing context to the span.
-///
-/// Could be expanded in the future by adding in more open-telemetry properties.
-fn add_otel_span_attributes<T>(span: tracing::Span, request: &http::Request<T>) -> tracing::Span {
-    // Pull the open-telemetry parent context using the HTTP extractor. We could make a more
-    // generic gRPC extractor by utilising the gRPC metadata. However that
-    //     (a) requires cloning headers,
-    //     (b) we would have to write this ourselves, and
-    //     (c) gRPC metadata is transferred using HTTP headers in any case.
-    use tracing_opentelemetry::OpenTelemetrySpanExt;
-    let otel_ctx = opentelemetry::global::get_text_map_propagator(|propagator| {
-        propagator.extract(&MetadataExtractor(&tonic::metadata::MetadataMap::from_headers(
-            request.headers().clone(),
-        )))
-    });
-    span.set_parent(otel_ctx);
-
+    span.set_parent(request);
+    span.set_http_attributes(request);
     span
 }
 
@@ -79,26 +63,6 @@ impl tonic::service::Interceptor for OtelInterceptor {
         });
 
         Ok(request)
-    }
-}
-
-struct MetadataExtractor<'a>(&'a tonic::metadata::MetadataMap);
-impl opentelemetry::propagation::Extractor for MetadataExtractor<'_> {
-    /// Get a value for a key from the `MetadataMap`.  If the value can't be converted to &str,
-    /// returns None
-    fn get(&self, key: &str) -> Option<&str> {
-        self.0.get(key).and_then(|metadata| metadata.to_str().ok())
-    }
-
-    /// Collect all the keys from the `MetadataMap`.
-    fn keys(&self) -> Vec<&str> {
-        self.0
-            .keys()
-            .map(|key| match key {
-                tonic::metadata::KeyRef::Ascii(v) => v.as_str(),
-                tonic::metadata::KeyRef::Binary(v) => v.as_str(),
-            })
-            .collect::<Vec<_>>()
     }
 }
 
