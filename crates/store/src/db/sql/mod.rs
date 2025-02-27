@@ -740,7 +740,7 @@ pub fn insert_notes(
             u64_to_value(note.metadata.aux().into()),
             u64_to_value(note.metadata.execution_hint().into()),
             note.merkle_path.to_bytes(),
-            // New notes are always uncomsumed.
+            // New notes are always unconsumed.
             false,
             details,
             // Beware: `Option<T>` also implements `to_bytes`, but this is not what you want.
