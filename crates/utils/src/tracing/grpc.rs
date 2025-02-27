@@ -1,3 +1,14 @@
+/// Creates a [`tracing::Span`] based on RPC service and method name.
+macro_rules! rpc_span {
+    ($service:expr, $method:expr) => {
+        tracing::info_span!(
+            concat!($service, "/", $method),
+            rpc.service = $service,
+            rpc.method = $method
+        )
+    };
+}
+
 /// A [`trace_fn`](tonic::transport::server::Server) implementation for the block producer which
 /// adds open-telemetry information to the span.
 ///
@@ -6,9 +17,9 @@
 /// to the client's origin trace.
 pub fn block_producer_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
     let span = if let Some("SubmitProvenTransaction") = request.uri().path().rsplit('/').next() {
-        tracing::info_span!("block-producer.rpc/SubmitProvenTransaction")
+        rpc_span!("block-producer.rpc", "SubmitProvenTransaction")
     } else {
-        tracing::info_span!("block-producer.rpc/Unknown")
+        rpc_span!("block-producer.rpc", "Unknown")
     };
 
     add_otel_span_attributes(span, request)
@@ -22,21 +33,21 @@ pub fn block_producer_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
 /// client's origin trace.
 pub fn store_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
     let span = match request.uri().path().rsplit('/').next() {
-        Some("ApplyBlock") => tracing::info_span!("store.rpc/ApplyBlock"),
-        Some("CheckNullifiers") => tracing::info_span!("store.rpc/CheckNullifiers"),
-        Some("CheckNullifiersByPrefix") => tracing::info_span!("store.rpc/CheckNullifiersByPrefix"),
-        Some("GetAccountDetails") => tracing::info_span!("store.rpc/GetAccountDetails"),
-        Some("GetAccountProofs") => tracing::info_span!("store.rpc/GetAccountProofs"),
-        Some("GetAccountStateDelta") => tracing::info_span!("store.rpc/GetAccountStateDelta"),
-        Some("GetBlockByNumber") => tracing::info_span!("store.rpc/GetBlockByNumber"),
-        Some("GetBlockHeaderByNumber") => tracing::info_span!("store.rpc/GetBlockHeaderByNumber"),
-        Some("GetBlockInputs") => tracing::info_span!("store.rpc/GetBlockInputs"),
-        Some("GetBatchInputs") => tracing::info_span!("store.rpc/GetBatchInputs"),
-        Some("GetNotesById") => tracing::info_span!("store.rpc/GetNotesById"),
-        Some("GetTransactionInputs") => tracing::info_span!("store.rpc/GetTransactionInputs"),
-        Some("SyncNotes") => tracing::info_span!("store.rpc/SyncNotes"),
-        Some("SyncState") => tracing::info_span!("store.rpc/SyncState"),
-        _ => tracing::info_span!("store.rpc/Unknown"),
+        Some("ApplyBlock") => rpc_span!("store.rpc", "ApplyBlock"),
+        Some("CheckNullifiers") => rpc_span!("store.rpc", "CheckNullifiers"),
+        Some("CheckNullifiersByPrefix") => rpc_span!("store.rpc", "CheckNullifiersByPrefix"),
+        Some("GetAccountDetails") => rpc_span!("store.rpc", "GetAccountDetails"),
+        Some("GetAccountProofs") => rpc_span!("store.rpc", "GetAccountProofs"),
+        Some("GetAccountStateDelta") => rpc_span!("store.rpc", "GetAccountStateDelta"),
+        Some("GetBlockByNumber") => rpc_span!("store.rpc", "GetBlockByNumber"),
+        Some("GetBlockHeaderByNumber") => rpc_span!("store.rpc", "GetBlockHeaderByNumber"),
+        Some("GetBlockInputs") => rpc_span!("store.rpc", "GetBlockInputs"),
+        Some("GetBatchInputs") => rpc_span!("store.rpc", "GetBatchInputs"),
+        Some("GetNotesById") => rpc_span!("store.rpc", "GetNotesById"),
+        Some("GetTransactionInputs") => rpc_span!("store.rpc", "GetTransactionInputs"),
+        Some("SyncNotes") => rpc_span!("store.rpc", "SyncNotes"),
+        Some("SyncState") => rpc_span!("store.rpc", "SyncState"),
+        _ => rpc_span!("store.rpc", "Unknown"),
     };
 
     add_otel_span_attributes(span, request)
@@ -46,6 +57,7 @@ pub fn store_trace_fn<T>(request: &http::Request<T>) -> tracing::Span {
 ///
 /// Could be expanded in the future by adding in more open-telemetry properties.
 fn add_otel_span_attributes<T>(span: tracing::Span, request: &http::Request<T>) -> tracing::Span {
+    use super::OpenTelemetrySpanExt;
     // Pull the open-telemetry parent context using the HTTP extractor. We could make a more
     // generic gRPC extractor by utilising the gRPC metadata. However that
     //     (a) requires cloning headers,
@@ -58,12 +70,30 @@ fn add_otel_span_attributes<T>(span: tracing::Span, request: &http::Request<T>) 
     });
     tracing_opentelemetry::OpenTelemetrySpanExt::set_parent(&span, otel_ctx);
 
-    // Set HTTP attributes: https://opentelemetry.io/docs/specs/semconv/rpc/rpc-spans/#server-attributes
+    // Set HTTP attributes.
+    // See https://opentelemetry.io/docs/specs/semconv/rpc/rpc-spans/#server-attributes.
+    span.set_attribute("rpc.system", "grpc");
+    if let Some(host) = request.uri().host() {
+        span.set_attribute("server.address", host);
+    }
+    if let Some(host_port) = request.uri().port() {
+        span.set_attribute("server.port", host_port.as_str());
+    }
     let remote_addr = request
         .extensions()
         .get::<tonic::transport::server::TcpConnectInfo>()
         .and_then(tonic::transport::server::TcpConnectInfo::remote_addr);
-    super::OpenTelemetrySpanExt::set_attribute(&span, "remote_addr", remote_addr);
+    if let Some(addr) = remote_addr {
+        span.set_attribute("client.address", addr.ip());
+        span.set_attribute("client.port", addr.port());
+        span.set_attribute("network.peer.address", addr.ip());
+        span.set_attribute("network.peer.port", addr.port());
+        span.set_attribute("network.transport", "tcp");
+        match addr.ip() {
+            std::net::IpAddr::V4(_) => span.set_attribute("network.type", "ipv4"),
+            std::net::IpAddr::V6(_) => span.set_attribute("network.type", "ipv6"),
+        }
+    }
 
     span
 }

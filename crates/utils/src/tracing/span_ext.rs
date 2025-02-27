@@ -1,5 +1,5 @@
 use core::time::Duration;
-use std::net::SocketAddr;
+use std::net::IpAddr;
 
 use miden_objects::{block::BlockNumber, Digest};
 use opentelemetry::{trace::Status, Key, Value};
@@ -7,16 +7,6 @@ use opentelemetry::{trace::Status, Key, Value};
 /// Utility functions for converting types into [`opentelemetry::Value`].
 pub trait ToValue {
     fn to_value(&self) -> Value;
-}
-
-impl ToValue for Option<SocketAddr> {
-    fn to_value(&self) -> Value {
-        if let Some(socket_addr) = self {
-            socket_addr.to_string().into()
-        } else {
-            "no_remote_addr".into()
-        }
-    }
 }
 
 impl ToValue for Duration {
@@ -31,29 +21,53 @@ impl ToValue for Digest {
     }
 }
 
-impl ToValue for f64 {
-    fn to_value(&self) -> Value {
-        (*self).into()
-    }
-}
-
 impl ToValue for BlockNumber {
     fn to_value(&self) -> Value {
         i64::from(self.as_u32()).into()
     }
 }
 
-impl ToValue for u32 {
-    fn to_value(&self) -> Value {
-        i64::from(*self).into()
-    }
+/// Generates `impl ToValue` blocks for types that are `ToString`.
+macro_rules! impl_to_string_to_value {
+    ($($t:ty),*) => {
+        $(
+            impl ToValue for $t {
+                fn to_value(&self) -> Value {
+                    self.to_string().into()
+                }
+            }
+        )*
+    };
 }
+impl_to_string_to_value!(IpAddr, &str);
 
-impl ToValue for i64 {
-    fn to_value(&self) -> Value {
-        (*self).into()
-    }
+/// Generates `impl ToValue` blocks for integer types.
+macro_rules! impl_int_to_value {
+    ($($t:ty),*) => {
+        $(
+            impl ToValue for $t {
+                fn to_value(&self) -> Value {
+                    i64::from(*self).into()
+                }
+            }
+        )*
+    };
 }
+impl_int_to_value!(u16, u32, i64);
+
+/// Generates `impl ToValue` blocks for types that are `Into<Value>`.
+macro_rules! impl_to_value {
+    ($($t:ty),*) => {
+        $(
+            impl ToValue for $t {
+                fn to_value(&self) -> Value {
+                    (*self).into()
+                }
+            }
+        )*
+    };
+}
+impl_to_value!(f64);
 
 /// Utility functions based on [`tracing_opentelemetry::OpenTelemetrySpanExt`].
 ///
