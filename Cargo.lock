@@ -2224,7 +2224,6 @@ dependencies = [
  "rand",
  "serde",
  "thiserror 2.0.11",
- "tokio",
  "tonic",
  "tracing",
  "tracing-forest",
