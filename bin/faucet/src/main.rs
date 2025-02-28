@@ -99,11 +99,53 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
+    run_faucet_command(cli).await
+}
+
+async fn run_faucet_command(cli: Cli) -> anyhow::Result<()> {
     match &cli.command {
         Command::Start { config } => {
             let config: FaucetConfig =
                 load_config(config).context("failed to load configuration file")?;
-            serve_faucet(config).await?;
+            let faucet_state = FaucetState::new(config.clone()).await?;
+
+            info!(target: COMPONENT, %config, "Initializing server");
+
+            let app = Router::new()
+                .route("/", get(get_index_html))
+                .route("/index.js", get(get_index_js))
+                .route("/index.css", get(get_index_css))
+                .route("/background.png", get(get_background))
+                .route("/favicon.ico", get(get_favicon))
+                .route("/get_metadata", get(get_metadata))
+                .route("/get_tokens", post(get_tokens))
+                .layer(
+                    ServiceBuilder::new()
+                        .layer(TraceLayer::new_for_http())
+                        .layer(SetResponseHeaderLayer::if_not_present(
+                            http::header::CACHE_CONTROL,
+                            HeaderValue::from_static("no-cache"),
+                        ))
+                        .layer(
+                            CorsLayer::new()
+                                .allow_origin(tower_http::cors::Any)
+                                .allow_methods(tower_http::cors::Any),
+                        ),
+                )
+                .with_state(faucet_state);
+
+            let socket_addr = config
+                .endpoint
+                .socket_addrs(|| None)?
+                .into_iter()
+                .next()
+                .with_context(|| format!("no sockets available on {}", config.endpoint))?;
+            let listener =
+                TcpListener::bind(socket_addr).await.context("failed to bind TCP listener")?;
+
+            info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
+
+            axum::serve(listener, app).await.unwrap();
         },
 
         Command::CreateFaucetAccount {
@@ -197,56 +239,12 @@ fn long_version() -> LongVersion {
     }
 }
 
-async fn serve_faucet(config: FaucetConfig) -> anyhow::Result<()> {
-    let faucet_state = FaucetState::new(config.clone()).await?;
-
-    info!(target: COMPONENT, %config, "Initializing server");
-
-    let app = create_router(faucet_state);
-
-    let socket_addr = config
-        .endpoint
-        .socket_addrs(|| None)?
-        .into_iter()
-        .next()
-        .with_context(|| format!("no sockets available on {}", config.endpoint))?;
-    let listener = TcpListener::bind(socket_addr).await.context("failed to bind TCP listener")?;
-
-    info!(target: COMPONENT, endpoint = %config.endpoint, "Server started");
-
-    axum::serve(listener, app).await.unwrap();
-    Ok(())
-}
-
-fn create_router(faucet_state: FaucetState) -> Router {
-    Router::new()
-        .route("/", get(get_index_html))
-        .route("/index.js", get(get_index_js))
-        .route("/index.css", get(get_index_css))
-        .route("/background.png", get(get_background))
-        .route("/favicon.ico", get(get_favicon))
-        .route("/get_metadata", get(get_metadata))
-        .route("/get_tokens", post(get_tokens))
-        .layer(
-            ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
-                .layer(SetResponseHeaderLayer::if_not_present(
-                    http::header::CACHE_CONTROL,
-                    HeaderValue::from_static("no-cache"),
-                ))
-                .layer(
-                    CorsLayer::new()
-                        .allow_origin(tower_http::cors::Any)
-                        .allow_methods(tower_http::cors::Any),
-                ),
-        )
-        .with_state(faucet_state)
-}
-
 #[cfg(test)]
 mod test {
     use std::{
+        env::temp_dir,
         io::{BufRead, BufReader},
+        path::PathBuf,
         process::{Command, Stdio},
         str::FromStr,
     };
@@ -255,7 +253,7 @@ mod test {
     use serde_json::{json, Map};
     use url::Url;
 
-    use crate::{config::FaucetConfig, serve_faucet, stub_rpc_api::serve_stub};
+    use crate::{config::FaucetConfig, run_faucet_command, stub_rpc_api::serve_stub, Cli};
 
     /// This test starts a stub node, a faucet connected to the stub node, and a chromedriver
     /// to test the faucet website. It then loads the website and checks that all the requests
@@ -269,14 +267,41 @@ mod test {
             let stub_node_url = stub_node_url.clone();
             async move { serve_stub(&stub_node_url).await.unwrap() }
         });
-        // Start the faucet connected to the stub
+
+        let config_path = temp_dir().join(PathBuf::from("faucet.toml"));
+        let faucet_account_path = temp_dir().join(PathBuf::from("account.mac"));
+
+        // Create config
         let config = FaucetConfig {
             node_url: stub_node_url,
-            faucet_account_path: "test_data/faucet.mac".into(),
+            faucet_account_path: faucet_account_path.clone(),
             ..FaucetConfig::default()
         };
+        let config_as_toml_string = toml::to_string(&config).unwrap();
+        std::fs::write(&config_path, config_as_toml_string).unwrap();
+
+        // Create faucet account
+        run_faucet_command(Cli {
+            command: crate::Command::CreateFaucetAccount {
+                config_path: config_path.clone(),
+                output_path: faucet_account_path.clone(),
+                token_symbol: "TEST".to_string(),
+                decimals: 2,
+                max_supply: 1000,
+            },
+        })
+        .await
+        .unwrap();
+
+        // Start the faucet connected to the stub
         let website_url = config.endpoint.clone();
-        tokio::spawn(async move { serve_faucet(config).await.unwrap() });
+        tokio::spawn(async move {
+            run_faucet_command(Cli {
+                command: crate::Command::Start { config: config_path },
+            })
+            .await
+            .unwrap();
+        });
 
         // Start chromedriver. This requires having chromedriver and chrome installed
         let chromedriver_port = "57709";
