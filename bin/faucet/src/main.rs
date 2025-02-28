@@ -244,7 +244,6 @@ mod test {
     use std::{
         env::temp_dir,
         io::{BufRead, BufReader},
-        path::PathBuf,
         process::{Command, Stdio},
         str::FromStr,
     };
@@ -268,8 +267,8 @@ mod test {
             async move { serve_stub(&stub_node_url).await.unwrap() }
         });
 
-        let config_path = temp_dir().join(PathBuf::from("faucet.toml"));
-        let faucet_account_path = temp_dir().join(PathBuf::from("account.mac"));
+        let config_path = temp_dir().join("faucet.toml");
+        let faucet_account_path = temp_dir().join("account.mac");
 
         // Create config
         let config = FaucetConfig {
