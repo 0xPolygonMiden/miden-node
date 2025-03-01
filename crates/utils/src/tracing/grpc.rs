@@ -77,7 +77,7 @@ fn add_otel_span_attributes<T>(span: tracing::Span, request: &http::Request<T>) 
         span.set_attribute("server.address", host);
     }
     if let Some(host_port) = request.uri().port() {
-        span.set_attribute("server.port", host_port.as_str());
+        span.set_attribute("server.port", host_port.as_u16());
     }
     let remote_addr = request
         .extensions()
