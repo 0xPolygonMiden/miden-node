@@ -53,7 +53,7 @@ macro_rules! impl_int_to_value {
         )*
     };
 }
-impl_int_to_value!(u16, u32, i64);
+impl_int_to_value!(u16, u32);
 
 /// Generates `impl ToValue` blocks for types that are `Into<Value>`.
 macro_rules! impl_to_value {
@@ -67,7 +67,7 @@ macro_rules! impl_to_value {
         )*
     };
 }
-impl_to_value!(f64);
+impl_to_value!(f64, i64);
 
 /// Utility functions based on [`tracing_opentelemetry::OpenTelemetrySpanExt`].
 ///
