@@ -53,6 +53,17 @@ pub async fn build_expected_block_header(
 
     let note_created_smt = note_created_smt_from_note_batches(block_output_notes(batches.iter()));
 
+    // Compute new nullifier root
+    let produced_nullifiers: Vec<Nullifier> =
+        batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
+    let new_nullifier_root = {
+        let mut store_nullifiers = store.produced_nullifiers.read().await.clone();
+        for nullifier in produced_nullifiers {
+            store_nullifiers.insert(nullifier.inner(), []);
+        }
+        store_nullifiers.root()
+    };
+
     // Build header
     BlockHeader::new(
         0,
@@ -60,8 +71,7 @@ pub async fn build_expected_block_header(
         last_block_header.block_num() + 1,
         new_chain_mmr_root,
         new_account_root,
-        // FIXME: FILL IN CORRECT NULLIFIER ROOT
-        Digest::default(),
+        new_nullifier_root,
         note_created_smt.root(),
         Digest::default(),
         Digest::default(),
