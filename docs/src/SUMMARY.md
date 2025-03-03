@@ -20,9 +20,9 @@
 
 - [Overview](./operator/overview.md)
 - [Architecture](./operator/architecture.md)
-- [Installation]()
 - [Configuraton]()
 - [Usage]()
+- [Installation](./operator/installation.md)
 - [Monitoring](./operator/monitoring.md)
 
 ---
