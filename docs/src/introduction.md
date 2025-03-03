@@ -2,8 +2,8 @@
 
 Welcome to the Miden node documentation.
 
-This book provides three separate guides aimed at Miden users, node operators and node developers respectively. Each
-guide is standalone, but it is recommended to read the prior guide(s) as they may provide helpful context.
+This book provides two separate guides aimed at node operators and node developers respectively. Each guide is
+standalone, but developers should also read through the operator guide as it provides some additional context.
 
 ## Feedback
 
