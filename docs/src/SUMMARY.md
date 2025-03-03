@@ -4,18 +4,6 @@
 
 ---
 
-# User Guide
-
-- [Overview]()
-- [Getting started]()
-- [FAQ]()
-
----
-
-# RPC Reference
-
----
-
 # Operator Guide
 
 - [Overview](./operator/overview.md)
