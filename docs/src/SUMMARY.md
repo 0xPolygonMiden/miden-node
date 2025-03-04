@@ -17,7 +17,7 @@
 # Developer Guide
 
 - [Overview](./developer/overview.md)
-- [Contributing]()
+- [Contributing](./developer/contributing.md)
 - [Navigating the codebase](./developer/codebase.md)
 - [Monitoring](./developer/monitoring.md)
 - [Database]()
