@@ -14,7 +14,11 @@ version.workspace      = true
 [lints]
 workspace = true
 
+[features]
+explain-query-plans = ["comfy-table"]
+
 [dependencies]
+comfy-table        = { version = "7.1", optional = true }
 deadpool-sqlite    = { version = "0.9.0", features = ["rt_tokio_1"] }
 hex                = { version = "0.4" }
 miden-lib          = { workspace = true }

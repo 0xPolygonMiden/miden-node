@@ -171,3 +171,40 @@ pub fn apply_delta(
 
     Ok(account)
 }
+
+/// Runs query and prints results into STDOUT.
+#[cfg(feature = "explain-query-plans")]
+pub fn query_to_stdout<P: rusqlite::Params>(
+    stmt: &mut rusqlite::Statement,
+    params: P,
+) -> rusqlite::Result<()> {
+    let num_columns = stmt.column_count();
+
+    let mut table = comfy_table::Table::new();
+    table.load_preset(comfy_table::presets::UTF8_FULL);
+
+    let column_headers =
+        (0..num_columns).map(|i| stmt.column_name(i)).collect::<Result<Vec<_>, _>>()?;
+    table.set_header(column_headers);
+
+    let mut rows = stmt.query(params)?;
+    while let Some(row) = rows.next()? {
+        let values = (0..num_columns)
+            .map(|i| {
+                row.get_ref(i).map(|value| match value {
+                    ValueRef::Null => "NULL".to_string(),
+                    ValueRef::Integer(int) => int.to_string(),
+                    ValueRef::Real(float) => float.to_string(),
+                    ValueRef::Text(text) => String::from_utf8_lossy(text).into_owned(),
+                    ValueRef::Blob(_) => unreachable!("Unsupported"),
+                })
+            })
+            .collect::<Result<Vec<String>, _>>()?;
+
+        table.add_row(values);
+    }
+
+    println!("{table}");
+
+    Ok(())
+}
