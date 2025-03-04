@@ -17,9 +17,9 @@ mod internals {
 
 #[cfg(feature = "explain-query-plans")]
 mod internals {
-    use rusqlite::{CachedStatement, Connection, Params, Row, Rows};
+    use rusqlite::{CachedStatement, Connection, Params, Row, Rows, Statement};
 
-    use crate::db::sql::utils::query_to_stdout;
+    use crate::db::sql::utils::print_to_stdout;
 
     pub trait ConnectionHelper {
         fn prepare_cached_opt_explain(
@@ -66,12 +66,16 @@ mod internals {
         }
 
         fn explain<P: Params>(&mut self, params: P) -> rusqlite::Result<()> {
-            println!(">> Explaining query plan for the query:\n\n{}\n", self.sql);
-
             let mut explain_stmt =
                 self.conn.prepare(&format!("EXPLAIN QUERY PLAN {}", self.sql))?;
 
-            query_to_stdout(&mut explain_stmt, params)?;
+            let rows = explain_stmt.query(params)?;
+
+            if let Some(sql) = rows.as_ref().and_then(Statement::expanded_sql) {
+                println!("\n>> {sql}");
+            }
+
+            print_to_stdout(rows)?;
 
             Ok(())
         }

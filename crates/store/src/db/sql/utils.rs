@@ -172,12 +172,11 @@ pub fn apply_delta(
     Ok(account)
 }
 
-/// Runs query and prints results into STDOUT.
+/// Prints query results into STDOUT.
 #[cfg(feature = "explain-query-plans")]
-pub fn query_to_stdout<P: rusqlite::Params>(
-    stmt: &mut rusqlite::Statement,
-    params: P,
-) -> rusqlite::Result<()> {
+pub fn print_to_stdout(mut rows: rusqlite::Rows) -> rusqlite::Result<()> {
+    let stmt = rows.as_ref().expect("`Rows` state must be correct");
+
     let num_columns = stmt.column_count();
 
     let mut table = comfy_table::Table::new();
@@ -187,7 +186,6 @@ pub fn query_to_stdout<P: rusqlite::Params>(
         (0..num_columns).map(|i| stmt.column_name(i)).collect::<Result<Vec<_>, _>>()?;
     table.set_header(column_headers);
 
-    let mut rows = stmt.query(params)?;
     while let Some(row) = rows.next()? {
         let values = (0..num_columns)
             .map(|i| {
