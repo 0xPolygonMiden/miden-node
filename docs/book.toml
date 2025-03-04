@@ -1,12 +1,12 @@
 [book]
-authors = ["Miden"]
-language = "en"
+authors      = ["Miden"]
+language     = "en"
 multilingual = false
-src = "src"
-title = "The Miden Node manual"
+src          = "src"
+title        = "The Miden Node manual"
 
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
 
 [output.html]
-additional-js = ["mermaid.min.js", "mermaid-init.js"]
+additional-js = ["mermaid-init.js", "mermaid.min.js"]

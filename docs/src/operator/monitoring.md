@@ -119,7 +119,7 @@ This is based off Honeycomb's OpenTelemetry
 [setup guide](https://docs.honeycomb.io/send-data/opentelemetry/#using-the-honeycomb-opentelemetry-endpoint).
 
 ```sh
-OTEL_EXPORTER_OTLP_ENDPOINT=api.honeycomb.io:443 \
+OTEL_EXPORTER_OTLP_ENDPOINT=httsp://api.honeycomb.io:443 \
 OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=your-api-key" \
 miden-node start --open-telemetry node
 ```
