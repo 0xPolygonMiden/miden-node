@@ -19,8 +19,6 @@ mod internals {
 mod internals {
     use rusqlite::{CachedStatement, Connection, Params, Row, Rows, Statement};
 
-    use crate::db::sql::utils::print_to_stdout;
-
     pub trait ConnectionHelper {
         fn prepare_cached_opt_explain(
             &self,
@@ -66,6 +64,8 @@ mod internals {
         }
 
         fn explain<P: Params>(&mut self, params: P) -> rusqlite::Result<()> {
+            use super::super::utils::pretty_print_query_results;
+
             let mut explain_stmt =
                 self.conn.prepare(&format!("EXPLAIN QUERY PLAN {}", self.sql))?;
 
@@ -75,7 +75,7 @@ mod internals {
                 println!("\n>> {sql}");
             }
 
-            print_to_stdout(rows)?;
+            println!("{}", pretty_print_query_results(rows)?);
 
             Ok(())
         }

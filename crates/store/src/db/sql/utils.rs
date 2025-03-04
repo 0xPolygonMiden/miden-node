@@ -172,9 +172,9 @@ pub fn apply_delta(
     Ok(account)
 }
 
-/// Prints query results into STDOUT.
+/// Formats query results into `String`.
 #[cfg(feature = "explain-query-plans")]
-pub fn print_to_stdout(mut rows: rusqlite::Rows) -> rusqlite::Result<()> {
+pub fn pretty_print_query_results(mut rows: rusqlite::Rows) -> rusqlite::Result<String> {
     let stmt = rows.as_ref().expect("`Rows` state must be correct");
 
     let num_columns = stmt.column_count();
@@ -190,11 +190,11 @@ pub fn print_to_stdout(mut rows: rusqlite::Rows) -> rusqlite::Result<()> {
         let values = (0..num_columns)
             .map(|i| {
                 row.get_ref(i).map(|value| match value {
-                    ValueRef::Null => "NULL".to_string(),
+                    ValueRef::Null => "<NULL>".to_string(),
                     ValueRef::Integer(int) => int.to_string(),
                     ValueRef::Real(float) => float.to_string(),
                     ValueRef::Text(text) => String::from_utf8_lossy(text).into_owned(),
-                    ValueRef::Blob(_) => unreachable!("Unsupported"),
+                    ValueRef::Blob(blob) => format!("x'{}'", hex::encode(blob)),
                 })
             })
             .collect::<Result<Vec<String>, _>>()?;
@@ -202,7 +202,5 @@ pub fn print_to_stdout(mut rows: rusqlite::Rows) -> rusqlite::Result<()> {
         table.add_row(values);
     }
 
-    println!("{table}");
-
-    Ok(())
+    Ok(table.to_string())
 }
