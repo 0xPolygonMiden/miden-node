@@ -67,3 +67,19 @@ cargo install --locked --git https://github.com/0xPolygonMiden/miden-node miden-
 
 More information on the various `cargo install` options can be found
 [here](https://doc.rust-lang.org/cargo/commands/cargo-install.html#install-options).
+
+## Setup
+
+TODO: once configuration has been refactored
+
+## Updating
+
+<div class="warning">
+
+We currently have no backwards compatibility. This means updating your node is destructive - your existing chain will
+not work with the new version. This will change as our protocol and database schema mature and settle.
+
+</div>
+
+Updating the node to a new version simply requires installing the new [package](#debian-package) or re-running the
+[`cargo install`](#install-using-cargo) command, and repeating the [Setup](#setup) instructions.
