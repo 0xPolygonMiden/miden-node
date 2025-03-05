@@ -212,7 +212,7 @@ impl WorkerPool {
                 // Randomly fail batches at the configured rate.
                 //
                 // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
-                let failed = rand::thread_rng().gen::<f32>() < self.failure_rate;
+                let failed = rand::thread_rng().r#gen::<f32>() < self.failure_rate;
                 let store = self.store.clone();
 
                 async move {

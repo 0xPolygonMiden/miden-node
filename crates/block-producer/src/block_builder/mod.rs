@@ -234,7 +234,7 @@ impl BlockBuilder {
 
     #[instrument(target = COMPONENT, name = "block_builder.inject_failure", skip_all, err)]
     fn inject_failure<T>(&self, value: T) -> Result<T, BuildBlockError> {
-        let roll = rand::thread_rng().gen::<f64>();
+        let roll = rand::thread_rng().r#gen::<f64>();
 
         Span::current().set_attribute("failure_rate", self.failure_rate);
         Span::current().set_attribute("dice_roll", roll);

@@ -21,6 +21,7 @@
 - [BREAKING] Update `GetBlockInputs` RPC (#709).
 - [BREAKING] `CheckNullifiersByPrefix` now takes a starting block number (#707).
 - [BREAKING] Removed nullifiers from `SyncState` endpoint (#708).
+- [BREAKING] Updated Rust Edition 2024 (#727).
 
 ### Enhancements
 
