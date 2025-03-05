@@ -6,10 +6,11 @@ use std::num::NonZeroUsize;
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::account::AccountSummary;
 use miden_objects::{
+    Felt, FieldElement, Word, ZERO,
     account::{
-        delta::AccountUpdateDetails, Account, AccountBuilder, AccountComponent, AccountDelta,
-        AccountId, AccountIdVersion, AccountStorageDelta, AccountStorageMode, AccountType,
-        AccountVaultDelta, StorageSlot,
+        Account, AccountBuilder, AccountComponent, AccountDelta, AccountId, AccountIdVersion,
+        AccountStorageDelta, AccountStorageMode, AccountType, AccountVaultDelta, StorageSlot,
+        delta::AccountUpdateDetails,
     },
     asset::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, BlockNumber},
@@ -22,12 +23,11 @@ use miden_objects::{
         ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
     },
-    Felt, FieldElement, Word, ZERO,
 };
-use rusqlite::{vtab::array, Connection};
+use rusqlite::{Connection, vtab::array};
 
-use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
-use crate::db::{migrations::apply_migrations, sql::PaginationToken, TransactionSummary};
+use super::{AccountInfo, NoteRecord, NullifierInfo, sql};
+use crate::db::{TransactionSummary, migrations::apply_migrations, sql::PaginationToken};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();

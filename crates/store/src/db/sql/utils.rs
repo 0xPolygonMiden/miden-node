@@ -7,9 +7,8 @@ use miden_objects::{
     utils::Deserializable,
 };
 use rusqlite::{
-    params,
+    Connection, OptionalExtension, params,
     types::{Value, ValueRef},
-    Connection, OptionalExtension,
 };
 
 use crate::errors::DatabaseError;

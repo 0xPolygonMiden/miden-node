@@ -7,8 +7,8 @@ use miden_objects::{
 };
 
 use super::{
-    graph::{DependencyGraph, GraphError},
     BlockBudget, BudgetStatus,
+    graph::{DependencyGraph, GraphError},
 };
 
 // BATCH GRAPH

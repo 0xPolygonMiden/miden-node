@@ -3,17 +3,17 @@ use std::{num::NonZeroUsize, ops::Range, time::Duration};
 use miden_node_proto::domain::batch::BatchInputs;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    batch::{BatchId, ProposedBatch, ProvenBatch},
     MIN_PROOF_SECURITY_LEVEL,
+    batch::{BatchId, ProposedBatch, ProvenBatch},
 };
 use miden_tx_batch_prover::LocalBatchProver;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
-use tracing::{debug, info, instrument, Span};
+use tracing::{Span, debug, info, instrument};
 
 use crate::{
-    domain::transaction::AuthenticatedTransaction, errors::BuildBatchError, mempool::SharedMempool,
-    store::StoreClient, COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
+    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY, domain::transaction::AuthenticatedTransaction,
+    errors::BuildBatchError, mempool::SharedMempool, store::StoreClient,
 };
 
 // BATCH BUILDER

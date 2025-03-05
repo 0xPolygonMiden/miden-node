@@ -1,6 +1,6 @@
 use miden_objects::{
-    crypto::{hash::rpo::RpoDigest, rand::RpoRandomCoin},
     Felt,
+    crypto::{hash::rpo::RpoDigest, rand::RpoRandomCoin},
 };
 use rand::{Rng, RngCore};
 

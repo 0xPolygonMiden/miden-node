@@ -4,18 +4,18 @@ use futures::FutureExt;
 use miden_block_prover::LocalBlockProver;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
+    MIN_PROOF_SECURITY_LEVEL,
     batch::ProvenBatch,
     block::{BlockInputs, BlockNumber, ProposedBlock, ProvenBlock},
     note::NoteHeader,
-    MIN_PROOF_SECURITY_LEVEL,
 };
 use rand::Rng;
 use tokio::time::Duration;
-use tracing::{instrument, Span};
+use tracing::{Span, instrument};
 
 use crate::{
-    errors::BuildBlockError, mempool::SharedMempool, store::StoreClient, COMPONENT,
-    SERVER_BLOCK_FREQUENCY,
+    COMPONENT, SERVER_BLOCK_FREQUENCY, errors::BuildBlockError, mempool::SharedMempool,
+    store::StoreClient,
 };
 
 // BLOCK BUILDER

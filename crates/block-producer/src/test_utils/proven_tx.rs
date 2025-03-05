@@ -3,12 +3,12 @@ use std::ops::Range;
 use itertools::Itertools;
 use miden_air::HashFunction;
 use miden_objects::{
+    Digest, Felt, Hasher, ONE,
     account::AccountId,
     block::BlockNumber,
     note::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
     transaction::{InputNote, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
-    Digest, Felt, Hasher, ONE,
 };
 use rand::Rng;
 use winterfell::Proof;

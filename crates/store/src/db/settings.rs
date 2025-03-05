@@ -1,4 +1,4 @@
-use rusqlite::{params, types::FromSql, Connection, OptionalExtension, Result, ToSql};
+use rusqlite::{Connection, OptionalExtension, Result, ToSql, params, types::FromSql};
 
 use crate::db::sql::utils::table_exists;
 

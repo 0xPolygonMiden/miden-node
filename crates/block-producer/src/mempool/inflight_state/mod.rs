@@ -353,11 +353,7 @@ impl OutputNoteState {
 
     /// Returns the source transaction ID if the output note is not yet committed.
     fn transaction(&self) -> Option<&TransactionId> {
-        if let Self::Inflight(tx) = self {
-            Some(tx)
-        } else {
-            None
-        }
+        if let Self::Inflight(tx) = self { Some(tx) } else { None }
     }
 }
 
@@ -371,9 +367,8 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{
-        mock_account_id,
+        MockProvenTxBuilder, mock_account_id,
         note::{mock_note, mock_output_note},
-        MockProvenTxBuilder,
     };
 
     #[test]

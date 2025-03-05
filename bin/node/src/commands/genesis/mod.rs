@@ -3,16 +3,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 pub use inputs::{AccountInput, AuthSchemeInput, GenesisInput};
-use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
+use miden_lib::{AuthScheme, account::faucets::create_basic_fungible_faucet};
 use miden_node_store::genesis::GenesisState;
 use miden_node_utils::{config::load_config, crypto::get_rpo_random_coin};
 use miden_objects::{
+    Felt, ONE,
     account::{Account, AccountFile, AccountIdAnchor, AuthSecretKey},
     asset::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, utils::Serializable},
-    Felt, ONE,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -45,7 +45,10 @@ pub fn make_genesis(inputs_path: &PathBuf, output_path: &PathBuf, force: bool) -
     if !force {
         if let Ok(file_exists) = output_path.try_exists() {
             if file_exists {
-                return Err(anyhow!("Failed to generate new genesis file {} because it already exists. Use the --force flag to overwrite.", output_path.display()));
+                return Err(anyhow!(
+                    "Failed to generate new genesis file {} because it already exists. Use the --force flag to overwrite.",
+                    output_path.display()
+                ));
             }
         } else {
             return Err(anyhow!("Failed to open {} file.", output_path.display()));
@@ -142,7 +145,10 @@ fn create_accounts(
         let path = accounts_path.as_ref().join(format!("{name}.mac"));
 
         if !force && matches!(path.try_exists(), Ok(true)) {
-            bail!("Failed to generate account file {} because it already exists. Use the --force flag to overwrite.", path.display());
+            bail!(
+                "Failed to generate account file {} because it already exists. Use the --force flag to overwrite.",
+                path.display()
+            );
         }
 
         account_data.account.set_nonce(ONE)?;

@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::{Parser, Subcommand};
 use commands::{init::init_config_files, start::start_node};
 use miden_node_block_producer::server::BlockProducer;

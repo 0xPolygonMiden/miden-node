@@ -12,22 +12,22 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use axum::{
-    routing::{get, post},
     Router,
+    routing::{get, post},
 };
 use clap::{Parser, Subcommand};
 use client::initialize_faucet_client;
 use handlers::{get_background, get_favicon, get_index_css, get_index_html, get_index_js};
 use http::HeaderValue;
-use miden_lib::{account::faucets::create_basic_fungible_faucet, AuthScheme};
+use miden_lib::{AuthScheme, account::faucets::create_basic_fungible_faucet};
 use miden_node_utils::{
     config::load_config, crypto::get_rpo_random_coin, logging::OpenTelemetry, version::LongVersion,
 };
 use miden_objects::{
+    Felt,
     account::{AccountFile, AccountStorageMode, AuthSecretKey},
     asset::TokenSymbol,
     crypto::dsa::rpo_falcon512::SecretKey,
-    Felt,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -38,7 +38,7 @@ use tower_http::{cors::CorsLayer, set_header::SetResponseHeaderLayer, trace::Tra
 use tracing::info;
 
 use crate::{
-    config::{FaucetConfig, DEFAULT_FAUCET_ACCOUNT_PATH},
+    config::{DEFAULT_FAUCET_ACCOUNT_PATH, FaucetConfig},
     handlers::{get_metadata, get_tokens},
 };
 
@@ -249,10 +249,10 @@ mod test {
     };
 
     use fantoccini::ClientBuilder;
-    use serde_json::{json, Map};
+    use serde_json::{Map, json};
     use url::Url;
 
-    use crate::{config::FaucetConfig, run_faucet_command, stub_rpc_api::serve_stub, Cli};
+    use crate::{Cli, config::FaucetConfig, run_faucet_command, stub_rpc_api::serve_stub};
 
     /// This test starts a stub node, a faucet connected to the stub node, and a chromedriver
     /// to test the faucet website. It then loads the website and checks that all the requests

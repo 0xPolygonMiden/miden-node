@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 
 use miden_objects::{
+    Digest,
     batch::{BatchAccountUpdate, BatchId, ProvenBatch},
     block::BlockNumber,
     transaction::{InputNotes, ProvenTransaction},
-    Digest,
 };
 
 use crate::test_utils::MockProvenTxBuilder;
@@ -19,7 +19,7 @@ pub trait TransactionBatchConstructor {
     /// [`ProposedBatch`](miden_objects::batch::ProposedBatch) first and convert (without proving)
     /// or prove it into a [`ProvenBatch`].
     fn mocked_from_transactions<'tx>(txs: impl IntoIterator<Item = &'tx ProvenTransaction>)
-        -> Self;
+    -> Self;
 
     /// Returns a `TransactionBatch` with `notes_per_tx.len()` transactions, where the i'th
     /// transaction has `notes_per_tx[i]` notes created
