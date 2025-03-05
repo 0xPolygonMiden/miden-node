@@ -171,36 +171,3 @@ pub fn apply_delta(
 
     Ok(account)
 }
-
-/// Formats query results into `String`.
-#[cfg(feature = "explain-query-plans")]
-pub fn pretty_print_query_results(mut rows: rusqlite::Rows) -> rusqlite::Result<String> {
-    let stmt = rows.as_ref().expect("`Rows` state must be correct");
-
-    let num_columns = stmt.column_count();
-
-    let mut table = comfy_table::Table::new();
-    table.load_preset(comfy_table::presets::UTF8_FULL);
-
-    let column_headers =
-        (0..num_columns).map(|i| stmt.column_name(i)).collect::<Result<Vec<_>, _>>()?;
-    table.set_header(column_headers);
-
-    while let Some(row) = rows.next()? {
-        let values = (0..num_columns)
-            .map(|i| {
-                row.get_ref(i).map(|value| match value {
-                    ValueRef::Null => "<NULL>".to_string(),
-                    ValueRef::Integer(int) => int.to_string(),
-                    ValueRef::Real(float) => float.to_string(),
-                    ValueRef::Text(text) => String::from_utf8_lossy(text).into_owned(),
-                    ValueRef::Blob(blob) => format!("x'{}'", hex::encode(blob)),
-                })
-            })
-            .collect::<Result<Vec<String>, _>>()?;
-
-        table.add_row(values);
-    }
-
-    Ok(table.to_string())
-}
