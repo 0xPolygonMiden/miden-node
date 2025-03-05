@@ -7,8 +7,8 @@ on:
     branches: [main, next]
   pull_request:
     paths:
-      - 'src/docs/SUMMARY.md'
-      - 'src/docs/IMPORTED.md'
+      - 'docs/src/SUMMARY.md'
+      - 'docs/src/IMPORTED.md'
 
 jobs:
   check-files:
