@@ -1,12 +1,11 @@
 use std::sync::LazyLock;
 
 use miden_objects::crypto::hash::blake::{Blake3Digest, Blake3_160};
-use rusqlite::Connection;
 use rusqlite_migration::{Migrations, SchemaVersion, M};
 use tracing::{debug, error, info, instrument};
 
 use crate::{
-    db::{settings::Settings, sql::utils::schema_version},
+    db::{connection::Connection, settings::Settings, sql::utils::schema_version},
     errors::DatabaseError,
     COMPONENT,
 };
@@ -26,7 +25,7 @@ const DB_SCHEMA_VERSION_FIELD: &str = "db-schema-version";
 
 #[instrument(target = COMPONENT, skip_all, err)]
 pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
-    let version_before = MIGRATIONS.current_version(conn)?;
+    let version_before = MIGRATIONS.current_version(conn.inner())?;
 
     info!(target: COMPONENT, %version_before, "Running database migrations");
 
@@ -65,9 +64,9 @@ pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
         }
     }
 
-    MIGRATIONS.to_latest(conn).map_err(DatabaseError::MigrationError)?;
+    MIGRATIONS.to_latest(conn.inner_mut()).map_err(DatabaseError::MigrationError)?;
 
-    let version_after = MIGRATIONS.current_version(conn)?;
+    let version_after = MIGRATIONS.current_version(conn.inner())?;
 
     if version_before != version_after {
         let new_hash = hex::encode(&*MIGRATION_HASHES[MIGRATION_HASHES.len() - 1]);

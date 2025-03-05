@@ -23,14 +23,14 @@ use miden_objects::{
     },
     Felt, FieldElement, Word, ZERO,
 };
-use rusqlite::{vtab::array, Connection};
 
 use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
-use crate::db::{migrations::apply_migrations, sql::PaginationToken, TransactionSummary};
+use crate::db::{
+    connection::Connection, migrations::apply_migrations, sql::PaginationToken, TransactionSummary,
+};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
-    array::load_module(&conn).unwrap();
     apply_migrations(&mut conn).unwrap();
     conn
 }
@@ -447,7 +447,7 @@ fn sql_select_accounts() {
             [i; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::account::AccountStorageMode::Private,
+            AccountStorageMode::Private,
         );
         let account_hash = num_to_rpo_digest(u64::from(i));
         state.push(AccountInfo {

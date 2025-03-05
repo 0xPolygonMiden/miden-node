@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
     domain::account::{AccountInfo, AccountSummary},
     generated::note as proto,
@@ -17,7 +16,6 @@ use miden_objects::{
     transaction::TransactionId,
     utils::Serializable,
 };
-use rusqlite::vtab::array;
 use sql::utils::{column_value_as_u64, read_block_number};
 use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
@@ -25,18 +23,25 @@ use tracing::{info, info_span, instrument};
 use crate::{
     blocks::BlockStore,
     config::StoreConfig,
-    db::migrations::apply_migrations,
+    db::{
+        migrations::apply_migrations,
+        pool_manager::{Pool, SqlitePoolManager},
+    },
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
-    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
+    COMPONENT,
 };
 
 mod migrations;
+#[macro_use]
 mod sql;
 
+mod connection;
+mod pool_manager;
 mod settings;
 #[cfg(test)]
 mod tests;
+mod transaction;
 
 pub type Result<T, E = DatabaseError> = std::result::Result<T, E>;
 
@@ -194,41 +199,8 @@ impl Db {
             create_dir_all(p).map_err(DatabaseError::IoError)?;
         }
 
-        let pool = SqliteConfig::new(config.database_filepath.clone())
-            .builder(Runtime::Tokio1)
-            .expect("Infallible")
-            .post_create(Hook::async_fn(move |conn, _| {
-                Box::pin(async move {
-                    let _ = conn
-                        .interact(|conn| {
-                            // Feature used to support `IN` and `NOT IN` queries. We need to load
-                            // this module for every connection we create to the DB to support the
-                            // queries we want to run
-                            array::load_module(conn)?;
-
-                            // Increase the statement cache size.
-                            conn.set_prepared_statement_cache_capacity(
-                                SQL_STATEMENT_CACHE_CAPACITY,
-                            );
-
-                            // Enable the WAL mode. This allows concurrent reads while the
-                            // transaction is being written, this is required for proper
-                            // synchronization of the servers in-memory and on-disk representations
-                            // (see [State::apply_block])
-                            conn.execute("PRAGMA journal_mode = WAL;", ())?;
-
-                            // Enable foreign key checks.
-                            conn.execute("PRAGMA foreign_keys = ON;", ())
-                        })
-                        .await
-                        .map_err(|e| {
-                            HookError::Message(format!("Loading carray module failed: {e}").into())
-                        })?;
-
-                    Ok(())
-                })
-            }))
-            .build()?;
+        let sqlite_pool_manager = SqlitePoolManager::new(config.database_filepath.clone());
+        let pool = Pool::builder(sqlite_pool_manager).build()?;
 
         info!(
             target: COMPONENT,

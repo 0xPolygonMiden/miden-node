@@ -9,10 +9,10 @@ use miden_objects::{
 use rusqlite::{
     params,
     types::{Value, ValueRef},
-    Connection, OptionalExtension,
+    OptionalExtension,
 };
 
-use crate::errors::DatabaseError;
+use crate::{db::connection::Connection, errors::DatabaseError};
 
 /// Returns the high 16 bits of the provided nullifier.
 pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {

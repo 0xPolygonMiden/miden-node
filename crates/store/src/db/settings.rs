@@ -1,6 +1,6 @@
-use rusqlite::{params, types::FromSql, Connection, OptionalExtension, Result, ToSql};
+use rusqlite::{params, types::FromSql, OptionalExtension, Result, ToSql};
 
-use crate::db::sql::utils::table_exists;
+use crate::db::{connection::Connection, sql::utils::table_exists};
 
 pub struct Settings;
 
