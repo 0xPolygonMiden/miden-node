@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithTonicConfig;
-use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::{propagation::TraceContextPropagator, trace::SpanExporter};
 use tracing::subscriber::Subscriber;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
@@ -39,7 +39,17 @@ pub fn setup_tracing(otel: OpenTelemetry) -> Result<()> {
     // Note: open-telemetry requires a tokio-runtime, so this _must_ be lazily evaluated (aka not
     // `then_some`) to avoid crashing sync callers (with OpenTelemetry::Disabled set). Examples of
     // such callers are tests with logging enabled.
-    let otel_layer = otel.is_enabled().then(open_telemetry_layer);
+    let otel_layer = {
+        if otel.is_enabled() {
+            let exporter = opentelemetry_otlp::SpanExporter::builder()
+                .with_tonic()
+                .with_tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())
+                .build()?;
+            Some(open_telemetry_layer(exporter))
+        } else {
+            None
+        }
+    };
 
     let subscriber = Registry::default()
         .with(stdout_layer().with_filter(env_or_default_filter()))
@@ -47,17 +57,13 @@ pub fn setup_tracing(otel: OpenTelemetry) -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).map_err(Into::into)
 }
 
-fn open_telemetry_layer<S>() -> Box<dyn tracing_subscriber::Layer<S> + Send + Sync + 'static>
+fn open_telemetry_layer<S>(
+    exporter: impl SpanExporter + 'static,
+) -> Box<dyn tracing_subscriber::Layer<S> + Send + Sync + 'static>
 where
     S: Subscriber + Sync + Send,
     for<'a> S: tracing_subscriber::registry::LookupSpan<'a>,
 {
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
-        .with_tonic()
-        .with_tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())
-        .build()
-        .unwrap();
-
     let tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(exporter)
         .build();

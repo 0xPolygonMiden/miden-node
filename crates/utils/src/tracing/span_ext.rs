@@ -1,4 +1,5 @@
 use core::time::Duration;
+use std::net::IpAddr;
 
 use miden_objects::{block::BlockNumber, Digest};
 use opentelemetry::{trace::Status, Key, Value};
@@ -20,29 +21,53 @@ impl ToValue for Digest {
     }
 }
 
-impl ToValue for f64 {
-    fn to_value(&self) -> Value {
-        (*self).into()
-    }
-}
-
 impl ToValue for BlockNumber {
     fn to_value(&self) -> Value {
         i64::from(self.as_u32()).into()
     }
 }
 
-impl ToValue for u32 {
-    fn to_value(&self) -> Value {
-        i64::from(*self).into()
-    }
+/// Generates `impl ToValue` blocks for types that are `ToString`.
+macro_rules! impl_to_string_to_value {
+    ($($t:ty),*) => {
+        $(
+            impl ToValue for $t {
+                fn to_value(&self) -> Value {
+                    self.to_string().into()
+                }
+            }
+        )*
+    };
 }
+impl_to_string_to_value!(IpAddr, &str);
 
-impl ToValue for i64 {
-    fn to_value(&self) -> Value {
-        (*self).into()
-    }
+/// Generates `impl ToValue` blocks for integer types.
+macro_rules! impl_int_to_value {
+    ($($t:ty),*) => {
+        $(
+            impl ToValue for $t {
+                fn to_value(&self) -> Value {
+                    i64::from(*self).into()
+                }
+            }
+        )*
+    };
 }
+impl_int_to_value!(u16, u32);
+
+/// Generates `impl ToValue` blocks for types that are `Into<Value>`.
+macro_rules! impl_to_value {
+    ($($t:ty),*) => {
+        $(
+            impl ToValue for $t {
+                fn to_value(&self) -> Value {
+                    (*self).into()
+                }
+            }
+        )*
+    };
+}
+impl_to_value!(f64, i64);
 
 /// Utility functions based on [`tracing_opentelemetry::OpenTelemetrySpanExt`].
 ///
