@@ -12,7 +12,7 @@ on:
 
 jobs:
   check-files:
-    name: check Interdependent Files
+    name: check interdependent files
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
