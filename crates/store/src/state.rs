@@ -962,10 +962,7 @@ impl State {
         from_block: BlockNumber,
         to_block: BlockNumber,
     ) -> Result<Option<AccountDelta>, DatabaseError> {
-        self.db
-            .select_account_state_delta(account_id, from_block, to_block)
-            .await
-            .map_err(Into::into)
+        self.db.select_account_state_delta(account_id, from_block, to_block).await
     }
 
     /// Loads a block from the block store. Return `Ok(None)` if the block is not found.

@@ -487,7 +487,7 @@ impl api_server::Api for StoreApi {
 
         Ok(Response::new(GetAccountProofsResponse {
             block_num: block_num.as_u32(),
-            account_proofs: infos.into_iter().map(Into::into).collect(),
+            account_proofs: infos.into_iter().collect(),
         }))
     }
 
