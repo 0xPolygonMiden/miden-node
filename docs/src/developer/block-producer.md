@@ -2,7 +2,7 @@
 
 The block-producer is responsible for ordering transactions into batches, and batches into blocks.
 
-It hosts a single gRPC endpoint to which the RPC component can submit new transactions.
+It hosts a single gRPC endpoint to which the RPC component can forward new transactions.
 
 The core of the block-producer revolves around the mempool which forms a DAG of all in-flight transactions and batches.
 It also ensures all invariants of the transactions are upheld e.g. account's current state matches the transaction's
@@ -40,5 +40,5 @@ above lifecycle (which effectively shows the happy path). This can occur if:
 
 - The transaction expires before being included in a block.
 - Any parent transaction is dropped (which will revert the state, invalidating child transactions). 
-- It causes proving or any part of block/batch creation to fail. This is a failsafe against unforseen bugs, to remove
+- It causes proving or any part of block/batch creation to fail. This is a fail-safe against unforseen bugs, to remove
   problematic (but potentially valid) transactions from the mempool to prevent outages.

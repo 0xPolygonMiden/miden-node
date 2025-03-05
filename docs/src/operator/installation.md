@@ -17,7 +17,7 @@ To install, download the desired releases `.deb` package and checksum files. Ins
 sudo dpkg -i $package_name.deb
 ```
 
-You can (and should) verify the checksum prior to installation usin a SHA256 utility. This differs from platform to
+You can (and should) verify the checksum prior to installation using a SHA256 utility. This differs from platform to
 platform, but on most linux distros:
 
 ```sh
@@ -44,7 +44,7 @@ Install the latest node binary:
 cargo install miden-node --locked
 ```
 
-This will install the latest official version of the node. You can install a specific version using `--version <x.y.z>`:
+This will install the latest official version of the node. You can install a specific version `x.y.z` using
 
 ```sh
 cargo install miden-node --locked --version x.y.z
@@ -52,7 +52,7 @@ cargo install miden-node --locked --version x.y.z
 
 You can also use `cargo` to compile the node from the source code if for some reason you need a specific git revision.
 Note that since these aren't official releases we cannot provide much support for any issues you run into, so consider
-this for advanced users only. The incantation is a little different as you'll be targeting this repo instead:
+this for advanced use only. The incantation is a little different as you'll be targeting our repo instead:
 
 ```sh
 # Install from a specific branch
@@ -81,5 +81,5 @@ not work with the new version. This will change as our protocol and database sch
 
 </div>
 
-Updating the node to a new version simply requires installing the new [package](#debian-package) or re-running the
-[`cargo install`](#install-using-cargo) command, and repeating the [Setup](#setup) instructions.
+Updating the node to a new version is as simply as re-running the install process and repeating the [Setup](#setup)
+instructions.

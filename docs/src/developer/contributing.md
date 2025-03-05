@@ -4,15 +4,18 @@
 
 We want to make contributing to this project as easy and transparent as possible.
 
-&nbsp;
-
 ## Before you begin..
 
 Start by commenting your interest in the issue you want to address - this let's us assign the issue to you and prevents
 multipe people from repeating the same work. This also lets us add any additional information or context you may need.
 
-We use the `next` branch as our active development branch. This means your work should fork off this branch (and not
-`main`).
+We use the `next` branch as our active development branch. This means your work should fork off the `next` branch (and
+not `main`).
+
+### Typos and low-effort contributions
+
+We don't accept PRs for typo fixes as these are often scanned for AI "contributors". If you find typos please open an
+issue instead.
 
 ## Commits
 
@@ -27,13 +30,15 @@ for the review process.
 Before submitting a PR, ensure that you're up to date by rebasing onto `next`, and that tests and lints pass by running:
 
 ```sh
+# Runs the various lints
 make lint
+# Runs the test suite
 make test
 ```
 
 ## Post-PR
 
-Please don't rebase your branch once the PR has been opened. In other words - only append new commits. This lets the
+Please don't rebase your branch once the PR has been opened. In other words - only append new commits. This lets
 reviewers have a consistent view of your changes for follow-up reviews. Reviewers may request a rebase once they're
 ready in order to merge your changes in.
 

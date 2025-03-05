@@ -1,13 +1,13 @@
 # Node architecture
 
-The node itself consists of three components: store, block-producer and RPC.
+The node itself consists of three distributed components: store, block-producer and RPC.
 
 The components can be run on separate instances when optimised for performance, but can also be run as a single process
 for convenience. At the moment both of Miden's public networks (testnet and devnet) are operating in single process
 mode.
 
-The inter-component communication is done using a gRPC API wnich is assumed trusted. External communication is handled
-by the RPC component with an separate external-only gRPC API.
+The inter-component communication is done using a gRPC API wnich is assumed trusted. In other words this _must not_ be
+public. External communication is handled by the RPC component with a separate external-only gRPC API.
 
 ```mermaid
 ---
@@ -53,7 +53,7 @@ It can be trivially scaled horizontally e.g. with a load-balancer in front as sh
 ## Store
 
 The store is responsible for persisting the chain state. It is effectively a database which holds the current state of
-the chain, with a gRPC interface which allows querying this state and submitting new blocks.
+the chain, wrapped in a gRPC interface which allows querying this state and submitting new blocks.
 
 It expects that this gRPC interface is _only_ accessible internally i.e. there is an implicit assumption of trust.
 

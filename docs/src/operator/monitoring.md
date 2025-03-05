@@ -17,10 +17,13 @@ which can be used to convert our traces into more conventional metrics.
 
 ## What gets traced
 
-We assign a unique trace (aka root span) to each RPC request/response, batch build, and block build process.
+We assign a unique trace (aka root span) to each RPC request, batch build, and block build process.
 
 <div class="warning">
-Span and attribute naming is unstable and should not be relied upon. This also means changes here will not be breaking, however we will do our best to document them.
+
+Span and attribute naming is unstable and should not be relied upon. This also means changes here will not be
+considered breaking, however we will do our best to document them.
+
 </div>
 
 ### RPC request/response
@@ -104,7 +107,7 @@ miden-node start --open-telemetry node
 ```
 
 The exporter can be configured using environment variables as specified in the official
-[documents](https://opentelemetry.io/docs/specs/otel/protocol/exporter/).
+[documents](httpthes://opentelemetry.io/docs/specs/otel/protocol/exporter/).
 
 <div class="warning">
 Not all options are fully supported. We are limited to what the Rust OpenTelemetry implementation supports. If you have any problems please open an issue and we'll do our best to resolve it.
@@ -119,7 +122,7 @@ This is based off Honeycomb's OpenTelemetry
 [setup guide](https://docs.honeycomb.io/send-data/opentelemetry/#using-the-honeycomb-opentelemetry-endpoint).
 
 ```sh
-OTEL_EXPORTER_OTLP_ENDPOINT=httsp://api.honeycomb.io:443 \
+OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io:443 \
 OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=your-api-key" \
 miden-node start --open-telemetry node
 ```
