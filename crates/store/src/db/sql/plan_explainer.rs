@@ -106,10 +106,7 @@ impl CachedStatementWithQueryPlan<'_> {
         };
 
         let mut rows = explain_stmt.query(params)?;
-
-        if let Some(sql) = rows.as_ref().and_then(Statement::expanded_sql) {
-            println!("\n>> {sql}");
-        }
+        let expanded_sql = rows.as_ref().and_then(Statement::expanded_sql).unwrap_or_default();
 
         // Build tree from the returned table
         let mut path = OpenedPath {
@@ -129,7 +126,7 @@ impl CachedStatementWithQueryPlan<'_> {
         }
         path.fold_up_to(0);
 
-        println!("{}", path.pop());
+        println!("\n>> {expanded_sql}\n{}", path.pop());
 
         Ok(())
     }
