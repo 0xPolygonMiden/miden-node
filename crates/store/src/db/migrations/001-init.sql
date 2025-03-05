@@ -52,6 +52,9 @@ CREATE TABLE notes (
     CONSTRAINT notes_note_index_is_u32 CHECK (note_index BETWEEN 0 AND 0xFFFFFFFF)
 ) STRICT;
 
+CREATE INDEX idx_notes_note_id ON notes(note_id);
+CREATE INDEX idx_notes_sender ON notes(sender);
+CREATE INDEX idx_notes_nullifier ON notes(nullifier);
 CREATE INDEX idx_unconsumed_network_notes ON notes(execution_mode, consumed);
 
 CREATE TABLE account_deltas (
@@ -115,6 +118,9 @@ CREATE TABLE nullifiers (
     CONSTRAINT nullifiers_nullifier_is_digest CHECK (length(nullifier) = 32),
     CONSTRAINT nullifiers_nullifier_prefix_is_u16 CHECK (nullifier_prefix BETWEEN 0 AND 0xFFFF)
 ) STRICT, WITHOUT ROWID;
+
+CREATE INDEX idx_nullifiers_prefix ON nullifiers(nullifier_prefix);
+CREATE INDEX idx_nullifiers_block_num ON nullifiers(block_num);
 
 CREATE TABLE transactions (
     transaction_id BLOB    NOT NULL,
