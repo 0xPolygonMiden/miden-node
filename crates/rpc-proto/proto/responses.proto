@@ -48,24 +48,21 @@ message NullifierUpdate {
 
 // Represents the result of syncing state request.
 message SyncStateResponse {
-    // Number of the latest block in the chain.
-    fixed32 chain_tip = 1;
-
     // Block header of the block with the first note matching the specified criteria.
-    block.BlockHeader block_header = 2;
+    block.BlockHeader block_header = 1;
 
     // Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`.
-    mmr.MmrDelta mmr_delta = 3;
+    mmr.MmrDelta mmr_delta = 2;
 
     // List of account hashes updated after `request.block_num + 1` but not after `response.block_header.block_num`.
-    repeated account.AccountSummary accounts = 5;
+    repeated account.AccountSummary accounts = 3;
 
     // List of transactions executed against requested accounts between `request.block_num + 1` and
     // `response.block_header.block_num`.
-    repeated transaction.TransactionSummary transactions = 6;
+    repeated transaction.TransactionSummary transactions = 4;
 
     // List of all notes together with the Merkle paths from `response.block_header.note_root`.
-    repeated note.NoteSyncRecord notes = 7;
+    repeated note.NoteSyncRecord notes = 5;
 }
 
 // Represents the result of syncing notes request.

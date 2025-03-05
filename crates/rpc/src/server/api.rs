@@ -27,7 +27,7 @@ use miden_tx::TransactionVerifier;
 use tonic::{
     service::interceptor::InterceptedService,
     transport::{Channel, Error},
-    Request, Response, Status,
+    Request, Response, Status, Streaming,
 };
 use tracing::{debug, info, instrument};
 
@@ -71,6 +71,8 @@ impl RpcApi {
 
 #[tonic::async_trait]
 impl api_server::Api for RpcApi {
+    type SyncStateStream = Streaming<SyncStateResponse>;
+
     #[instrument(
         target = COMPONENT,
         name = "rpc:check_nullifiers",
@@ -130,13 +132,12 @@ impl api_server::Api for RpcApi {
         target = COMPONENT,
         name = "rpc:sync_state",
         skip_all,
-        ret(level = "debug"),
         err
     )]
     async fn sync_state(
         &self,
         request: Request<SyncStateRequest>,
-    ) -> Result<Response<SyncStateResponse>, Status> {
+    ) -> Result<Response<Self::SyncStateStream>, Status> {
         debug!(target: COMPONENT, request = ?request.get_ref());
 
         self.store.clone().sync_state(request).await

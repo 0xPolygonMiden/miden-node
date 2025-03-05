@@ -106,9 +106,8 @@ the chain.
 Returns info which can be used by the client to sync up to the latest state of the chain for the objects (accounts and
 notes) the client is interested in.
 
-This request returns the next block containing requested data. It also returns `chain_tip` which is the latest block
-number in the chain. Client is expected to repeat these requests in a loop until
-`response.block_header.block_num == response.chain_tip`, at which point the client is fully synchronized with the chain.
+This request returns a stream where multiple update responses will be pushed in order. Client is expected to read 
+the updates from the stream and apply them, and then it will be fully synchronized with the chain.
 
 Each request also returns info about new notes, accounts, etc. created. It also returns Chain MMR delta that can be
 used to update the state of Chain MMR. This includes both chain MMR peaks and chain MMR nodes.
