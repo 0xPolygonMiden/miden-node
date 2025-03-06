@@ -126,7 +126,7 @@ impl CachedStatementWithQueryPlan<'_> {
         }
         path.fold_up_to(0);
 
-        println!("\n>> {expanded_sql}\n{}", path.pop());
+        println!("\n>> {expanded_sql}\n\n{}", path.pop());
 
         Ok(())
     }
