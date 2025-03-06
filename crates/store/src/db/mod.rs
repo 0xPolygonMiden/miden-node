@@ -546,7 +546,7 @@ impl Db {
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
-        let expected_genesis_header = genesis_block.header();
+        let expected_genesis_header = genesis_block.header().clone();
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {

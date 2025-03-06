@@ -170,7 +170,7 @@ async fn run_faucet_command(cli: Cli) -> anyhow::Result<()> {
             let secret = SecretKey::with_rng(&mut get_rpo_random_coin(&mut rng));
 
             let (account, account_seed) = create_basic_fungible_faucet(
-                rng.r#gen(),
+                rng.random(),
                 (&root_block_header).try_into().context("failed to create anchor block")?,
                 TokenSymbol::try_from(token_symbol.as_str())
                     .context("failed to parse token symbol")?,

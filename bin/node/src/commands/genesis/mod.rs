@@ -121,7 +121,7 @@ fn create_accounts(
 
                 let storage_mode = inputs.storage_mode.as_str().try_into()?;
                 let (account, account_seed) = create_basic_fungible_faucet(
-                    rng.r#gen(),
+                    rng.random(),
                     AccountIdAnchor::PRE_GENESIS,
                     TokenSymbol::try_from(inputs.token_symbol.as_str())?,
                     inputs.decimals,
