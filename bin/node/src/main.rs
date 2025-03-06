@@ -94,7 +94,6 @@ pub enum Command {
 #[derive(Subcommand)]
 pub enum StartCommand {
     Node,
-    BlockProducer,
 }
 
 #[tokio::main]
@@ -114,15 +113,6 @@ async fn main() -> anyhow::Result<()> {
             StartCommand::Node => {
                 let config = load_config(config).context("Loading configuration file")?;
                 start_node(config).await
-            },
-            StartCommand::BlockProducer => {
-                let config = load_config(config).context("Loading configuration file")?;
-                BlockProducer::init(config)
-                    .await
-                    .context("Loading block-producer")?
-                    .serve()
-                    .await
-                    .context("Serving block-producer")
             },
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {
@@ -146,7 +136,14 @@ async fn main() -> anyhow::Result<()> {
                 .context("Serving RPC")
         },
         Command::Store(StoreCommand::Init) => todo!(),
-        Command::Store(StoreCommand::Start { url, data_directory }) => todo!(),
+        Command::Store(StoreCommand::Start { url, data_directory, genesis_filepath }) => {
+            Store::init(url, data_directory, genesis_filepath)
+                .await
+                .context("Loading store")?
+                .serve()
+                .await
+                .context("Serving store")
+        },
         Command::BlockProducer(BlockProducerCommand::Start { url, store_url }) => {
             BlockProducer::init(url, store_url)
                 .await
