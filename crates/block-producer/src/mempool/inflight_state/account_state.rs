@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use miden_objects::{transaction::TransactionId, Digest};
+use miden_objects::{Digest, transaction::TransactionId};
 
 // IN-FLIGHT ACCOUNT STATE
 // ================================================================================================
@@ -55,7 +55,8 @@ impl InflightAccountState {
     pub fn revert(&mut self, n: usize) -> AccountStatus {
         let uncommitted = self.uncommitted_count();
         assert!(
-            uncommitted >= n, "Attempted to revert {n} transactions which is more than the {uncommitted} which are uncommitted.",
+            uncommitted >= n,
+            "Attempted to revert {n} transactions which is more than the {uncommitted} which are uncommitted.",
         );
 
         self.states.drain(self.states.len() - n..);
@@ -71,7 +72,8 @@ impl InflightAccountState {
     pub fn commit(&mut self, n: usize) {
         let uncommitted = self.uncommitted_count();
         assert!(
-            uncommitted >= n, "Attempted to revert {n} transactions which is more than the {uncommitted} which are uncommitted."
+            uncommitted >= n,
+            "Attempted to revert {n} transactions which is more than the {uncommitted} which are uncommitted."
         );
 
         self.committed += n;

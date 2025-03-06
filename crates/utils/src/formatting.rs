@@ -3,7 +3,7 @@ use std::fmt::Display;
 use itertools::Itertools;
 use miden_objects::{
     crypto::{
-        hash::{blake::Blake3Digest, Digest},
+        hash::{Digest, blake::Blake3Digest},
         utils::bytes_to_hex_string,
     },
     transaction::{InputNoteCommitment, InputNotes, OutputNotes},

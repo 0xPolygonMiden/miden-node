@@ -5,7 +5,7 @@ use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tracing::info;
 
-use crate::{config::RpcConfig, COMPONENT};
+use crate::{COMPONENT, config::RpcConfig};
 
 mod api;
 
