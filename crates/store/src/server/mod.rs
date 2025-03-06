@@ -6,7 +6,6 @@ use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tower_http::trace::TraceLayer;
 use tracing::info;
-use url::Url;
 
 use crate::{COMPONENT, blocks::BlockStore, db::Db, state::State};
 
@@ -24,20 +23,16 @@ pub struct Store {
 }
 
 impl Store {
-    /// Loads the required database data and initializes the TCP listener without
-    /// serving the API yet. Incoming requests will be queued until [`serve`](Self::serve) is
-    /// called.
-    pub async fn init(
-        grpc_url: Url,
-        data_directory: PathBuf,
-        genesis_filepath: PathBuf,
-    ) -> Result<Self, ApiError> {
-        info!(target: COMPONENT, %grpc_url, ?data_directory, ?genesis_filepath, "Loading database");
+    /// Performs initialization tasks required before [`serve`](Self::serve) can be called.
+    pub async fn init(listener: TcpListener, data_directory: PathBuf) -> Result<Self, ApiError> {
+        info!(target: COMPONENT, endpoint=?listener, ?data_directory, "Loading database");
 
         let block_store = data_directory.join("blocks");
         let block_store = Arc::new(BlockStore::new(block_store).await?);
 
         let database_filepath = data_directory.join("miden-store.sqlite3");
+        let genesis_filepath = data_directory.join("genesis.dat");
+
         let db = Db::setup(
             database_filepath,
             &genesis_filepath.to_string_lossy(),
@@ -53,15 +48,6 @@ impl Store {
         );
 
         let api_service = api_server::ApiServer::new(api::StoreApi { state });
-
-        let addr = grpc_url
-            .socket_addrs(|| None)
-            .map_err(ApiError::EndpointToSocketFailed)?
-            .into_iter()
-            .next()
-            .ok_or_else(|| ApiError::AddressResolutionFailed(grpc_url.to_string()))?;
-
-        let listener = TcpListener::bind(addr).await?;
 
         info!(target: COMPONENT, "Database loaded");
 

@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use miden_node_proto::{
     generated::{
         block_producer::api_client as block_producer_client,
@@ -30,7 +32,6 @@ use tonic::{
     transport::{Channel, Error},
 };
 use tracing::{debug, info, instrument};
-use url::Url;
 
 use crate::COMPONENT;
 
@@ -47,13 +48,17 @@ pub struct RpcService {
 }
 
 impl RpcService {
-    pub(super) async fn new(store_url: Url, block_producer_url: Url) -> Result<Self, Error> {
-        let channel =
-            tonic::transport::Endpoint::try_from(store_url.to_string())?.connect().await?;
+    pub(super) async fn new(
+        store_address: SocketAddr,
+        block_producer_address: SocketAddr,
+    ) -> Result<Self, Error> {
+        let channel = tonic::transport::Endpoint::try_from(store_address.to_string())?
+            .connect()
+            .await?;
         let store = store_client::ApiClient::with_interceptor(channel, OtelInterceptor);
-        info!(target: COMPONENT, store_endpoint = %store_url, "Store client initialized");
+        info!(target: COMPONENT, store_endpoint = %store_address, "Store client initialized");
 
-        let channel = tonic::transport::Endpoint::try_from(block_producer_url.to_string())?
+        let channel = tonic::transport::Endpoint::try_from(block_producer_address.to_string())?
             .connect()
             .await?;
         let block_producer =
@@ -61,7 +66,7 @@ impl RpcService {
 
         info!(
             target: COMPONENT,
-            block_producer_endpoint = %block_producer_url,
+            block_producer_endpoint = %block_producer_address,
             "Block producer client initialized",
         );
 

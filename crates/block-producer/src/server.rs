@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, net::SocketAddr};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -17,12 +17,10 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, info, instrument};
-use url::Url;
 
 use crate::{
     batch_builder::BatchBuilder,
     block_builder::BlockBuilder,
-    config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, Mempool, SharedMempool},
@@ -49,13 +47,13 @@ pub struct BlockProducer {
 }
 
 impl BlockProducer {
-    /// Performs all expensive initialization tasks, and notably begins listening on the rpc
-    /// endpoint without serving the API yet. Incoming requests will be queued until
-    /// [`serve`](Self::serve) is called.
-    pub async fn init(block_producer: Url, store: Url) -> Result<Self, ApiError> {
-        info!(target: COMPONENT, %block_producer, %store, "Initializing server");
+    /// Performs all setup tasks required before [`serve`](Self::serve) can be called.
+    ///
+    /// This includes connecting to the store and retrieving the latest chain state.
+    pub async fn init(listener: TcpListener, store_address: SocketAddr) -> Result<Self, ApiError> {
+        info!(target: COMPONENT, endpoint=?listener, store=%store_address, "Initializing server");
 
-        let channel = tonic::transport::Endpoint::try_from(store.to_string())
+        let channel = tonic::transport::Endpoint::try_from(store_address.to_string())
             .map_err(|err| ApiError::InvalidStoreUrl(err.to_string()))?
             .connect()
             .await
@@ -70,15 +68,6 @@ impl BlockProducer {
             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
         let chain_tip = latest_header.block_num();
 
-        let rpc_listener = block_producer
-            .socket_addrs(|| None)
-            .map_err(ApiError::EndpointToSocketFailed)?
-            .into_iter()
-            .next()
-            .ok_or_else(|| ApiError::AddressResolutionFailed(block_producer.to_string()))
-            .map(TcpListener::bind)?
-            .await?;
-
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
@@ -89,7 +78,7 @@ impl BlockProducer {
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
             expiration_slack: SERVER_MEMPOOL_EXPIRATION_SLACK,
             store,
-            rpc_listener,
+            rpc_listener: listener,
             chain_tip,
         })
     }

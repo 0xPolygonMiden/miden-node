@@ -4,16 +4,13 @@
 
 use std::path::PathBuf;
 
-use anyhow::{Context, anyhow};
+use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use commands::{
     block_producer::BlockProducerCommand, init::init_config_files, node::NodeCommand,
-    rpc::RpcCommand, start::start_node, store::StoreCommand,
+    rpc::RpcCommand, store::StoreCommand,
 };
-use miden_node_block_producer::server::BlockProducer;
-use miden_node_rpc::server::Rpc;
-use miden_node_store::server::Store;
-use miden_node_utils::{config::load_config, logging::OpenTelemetry, version::LongVersion};
+use miden_node_utils::{logging::OpenTelemetry, version::LongVersion};
 
 mod commands;
 mod config;
@@ -37,26 +34,23 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Commands related to the node's store component.
     #[command(subcommand)]
     Store(commands::store::StoreCommand),
+
+    /// Commands related to the node's RPC component.
     #[command(subcommand)]
     Rpc(commands::rpc::RpcCommand),
+
+    /// Commands related to the node's block-producer component.
     #[command(subcommand)]
     BlockProducer(commands::block_producer::BlockProducerCommand),
+
+    /// Commands relevant to running all components in the same process.
+    ///
+    /// This is the recommended way to run the node at the moment.
     #[command(subcommand)]
     Node(commands::node::NodeCommand),
-
-    /// Start the node
-    Start {
-        #[command(subcommand)]
-        command: StartCommand,
-
-        #[arg(short, long, value_name = "FILE", default_value = NODE_CONFIG_FILE_PATH)]
-        config: PathBuf,
-
-        #[arg(long = "open-telemetry", default_value_t = false)]
-        open_telemetry: bool,
-    },
 
     /// Generates a genesis file and associated account files based on a specified genesis input
     ///
@@ -101,20 +95,11 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     // Open telemetry exporting is only valid for running the node.
-    let open_telemetry = if let Command::Start { open_telemetry: true, .. } = &cli.command {
-        OpenTelemetry::Enabled
-    } else {
-        OpenTelemetry::Disabled
-    };
+    // FIXME: re-enable this for everything.
+    let open_telemetry = OpenTelemetry::Disabled;
     miden_node_utils::logging::setup_tracing(open_telemetry)?;
 
     match cli.command {
-        Command::Start { command, config, .. } => match command {
-            StartCommand::Node => {
-                let config = load_config(config).context("Loading configuration file")?;
-                start_node(config).await
-            },
-        },
         Command::MakeGenesis { output_path, force, inputs_path } => {
             commands::make_genesis(&inputs_path, &output_path, force)
         },
@@ -127,32 +112,13 @@ async fn main() -> anyhow::Result<()> {
 
             init_config_files(&config, &genesis)
         },
-        Command::Rpc(RpcCommand::Start { url, store_url, block_producer_url }) => {
-            Rpc::init(url, store_url, block_producer_url)
-                .await
-                .context("Loading RPC")?
-                .serve()
-                .await
-                .context("Serving RPC")
-        },
+        Command::Rpc(RpcCommand::Start(rpc)) => rpc.run().await,
         Command::Store(StoreCommand::Init) => todo!(),
-        Command::Store(StoreCommand::Start { url, data_directory, genesis_filepath }) => {
-            Store::init(url, data_directory, genesis_filepath)
-                .await
-                .context("Loading store")?
-                .serve()
-                .await
-                .context("Serving store")
+        Command::Store(StoreCommand::Start(store)) => store.run().await,
+        Command::BlockProducer(BlockProducerCommand::Start(block_producer)) => {
+            block_producer.run().await
         },
-        Command::BlockProducer(BlockProducerCommand::Start { url, store_url }) => {
-            BlockProducer::init(url, store_url)
-                .await
-                .context("Loading block-producer")?
-                .serve()
-                .await
-                .context("Serving block-producer")
-        },
-        Command::Node(NodeCommand::Start { rpc_url, store_data_directory }) => todo!(),
+        Command::Node(NodeCommand::Start(node)) => node.run().await,
     }
 }
 

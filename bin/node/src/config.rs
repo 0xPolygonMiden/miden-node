@@ -62,28 +62,6 @@ impl Default for NormalizedBlockProducerConfig {
     }
 }
 
-impl NodeConfig {
-    pub fn into_parts(self) -> (BlockProducerConfig, RpcConfig, StoreConfig) {
-        let Self { block_producer, rpc, store } = self;
-
-        let block_producer = BlockProducerConfig {
-            endpoint: block_producer.endpoint,
-            store_url: store.endpoint.clone(),
-            verify_tx_proofs: block_producer.verify_tx_proofs,
-            batch_prover_url: block_producer.batch_prover_url,
-            block_prover_url: block_producer.block_prover_url,
-        };
-
-        let rpc = RpcConfig {
-            endpoint: rpc.endpoint,
-            store_url: store.endpoint.clone(),
-            block_producer_url: block_producer.endpoint.clone(),
-        };
-
-        (block_producer, rpc, store)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use figment::Jail;
