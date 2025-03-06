@@ -207,12 +207,12 @@ impl WorkerPool {
             .spawn({
                 // Select a random work duration from the given proof range.
                 let simulated_proof_time =
-                    rand::thread_rng().gen_range(self.simulated_proof_time.clone());
+                    rand::rng().random_range(self.simulated_proof_time.clone());
 
                 // Randomly fail batches at the configured rate.
                 //
                 // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
-                let failed = rand::thread_rng().r#gen::<f32>() < self.failure_rate;
+                let failed = rand::rng().random::<f32>() < self.failure_rate;
                 let store = self.store.clone();
 
                 async move {

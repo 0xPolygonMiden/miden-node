@@ -35,7 +35,7 @@ impl MockProvenTxBuilder {
 
     /// Generates 3 random, sequential transactions acting on the same account.
     pub fn sequential() -> [AuthenticatedTransaction; 3] {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mock_account: MockPrivateAccount<4> = rng.r#gen::<u32>().into();
 
         (0..3)
