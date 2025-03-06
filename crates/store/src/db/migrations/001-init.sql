@@ -53,7 +53,8 @@ CREATE TABLE notes (
 ) STRICT;
 
 CREATE INDEX idx_notes_note_id ON notes(note_id);
-CREATE INDEX idx_notes_sender ON notes(sender);
+CREATE INDEX idx_notes_sender ON notes(sender, block_num);
+CREATE INDEX idx_notes_tag ON notes(tag, block_num);
 CREATE INDEX idx_notes_nullifier ON notes(nullifier);
 CREATE INDEX idx_unconsumed_network_notes ON notes(execution_mode, consumed);
 
