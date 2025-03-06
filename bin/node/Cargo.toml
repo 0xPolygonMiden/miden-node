@@ -16,7 +16,7 @@ workspace = true
 
 [features]
 explain-query-plans = ["miden-node-store/explain-query-plans"]
-tracing-forest = ["miden-node-block-producer/tracing-forest"]
+tracing-forest      = ["miden-node-block-producer/tracing-forest"]
 
 [dependencies]
 anyhow                    = { version = "1.0" }
@@ -28,7 +28,7 @@ miden-node-store          = { workspace = true }
 miden-node-utils          = { workspace = true }
 miden-objects             = { workspace = true }
 rand                      = { workspace = true }
-rand_chacha               = "0.3"
+rand_chacha               = { version = "0.3" }
 serde                     = { version = "1.0", features = ["derive"] }
 tokio                     = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }
 toml                      = { version = "0.8" }
