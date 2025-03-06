@@ -6,7 +6,10 @@ use std::path::PathBuf;
 
 use anyhow::{Context, anyhow};
 use clap::{Parser, Subcommand};
-use commands::{init::init_config_files, start::start_node};
+use commands::{
+    block_producer::BlockProducerCommand, init::init_config_files, node::NodeCommand,
+    rpc::RpcCommand, start::start_node, store::StoreCommand,
+};
 use miden_node_block_producer::server::BlockProducer;
 use miden_node_rpc::server::Rpc;
 use miden_node_store::server::Store;
@@ -34,6 +37,15 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    #[command(subcommand)]
+    Store(commands::store::StoreCommand),
+    #[command(subcommand)]
+    Rpc(commands::rpc::RpcCommand),
+    #[command(subcommand)]
+    BlockProducer(commands::block_producer::BlockProducerCommand),
+    #[command(subcommand)]
+    Node(commands::node::NodeCommand),
+
     /// Start the node
     Start {
         #[command(subcommand)]
@@ -145,6 +157,11 @@ async fn main() -> anyhow::Result<()> {
 
             init_config_files(&config, &genesis)
         },
+        Command::Rpc(RpcCommand::Start { url, store_url, block_producer_url }) => todo!(),
+        Command::Store(StoreCommand::Init) => todo!(),
+        Command::Store(StoreCommand::Start { url, data_directory }) => todo!(),
+        Command::BlockProducer(BlockProducerCommand::Start { url, store_url }) => todo!(),
+        Command::Node(NodeCommand::Start { rpc_url, store_data_directory }) => todo!(),
     }
 }
 
