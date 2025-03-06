@@ -1,5 +1,6 @@
 use rusqlite::{CachedStatement, Params, Row, Rows, Statement};
 use termtree::Tree;
+use tracing::info;
 
 use crate::db::{connection::Connection, transaction::Transaction};
 
@@ -128,7 +129,7 @@ impl CachedStatementWithQueryPlan<'_> {
 
         let query_plan = path.pop().to_string();
 
-        println!("\n>> {expanded_sql}\n\n{query_plan}");
+        info!("\n>> {expanded_sql}\n\n{query_plan}");
 
         #[cfg(test)]
         Self::fail_if_has_problems(&explain_sql, &query_plan);

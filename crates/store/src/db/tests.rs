@@ -29,6 +29,12 @@ use crate::db::{
     connection::Connection, migrations::apply_migrations, sql::PaginationToken, TransactionSummary,
 };
 
+#[ctor::ctor]
+fn initialize() {
+    miden_node_utils::logging::setup_tracing(miden_node_utils::logging::OpenTelemetry::Disabled)
+        .expect("Failed to setup logging for tests");
+}
+
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
     apply_migrations(&mut conn).unwrap();

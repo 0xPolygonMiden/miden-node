@@ -38,6 +38,7 @@ url                = { workspace = true }
 
 [dev-dependencies]
 assert_matches   = { workspace = true }
+ctor             = { version = "0.4" }
 miden-lib        = { workspace = true, features = ["testing"] }
 miden-node-utils = { workspace = true, features = ["tracing-forest"] }
 miden-objects    = { workspace = true, features = ["testing"] }
