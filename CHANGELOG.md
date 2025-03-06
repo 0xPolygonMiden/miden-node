@@ -13,6 +13,7 @@
 - Instrument the block-producer's block building process (#676).
 - Use `LocalBlockProver` for block building (#709).
 - Initial developer and operator guides covering monitoring (#699).
+- Implemented SQL query plan explainer, added necessary indexes (#728).
 
 ### Changes
 
