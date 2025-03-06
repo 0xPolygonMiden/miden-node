@@ -41,3 +41,4 @@ assert_matches   = { workspace = true }
 miden-lib        = { workspace = true, features = ["testing"] }
 miden-node-utils = { workspace = true, features = ["tracing-forest"] }
 miden-objects    = { workspace = true, features = ["testing"] }
+regex            = { version = "1.11" }

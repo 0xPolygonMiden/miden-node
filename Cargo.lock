@@ -1935,6 +1935,7 @@ dependencies = [
  "miden-node-proto",
  "miden-node-utils",
  "miden-objects",
+ "regex",
  "rusqlite",
  "rusqlite_migration",
  "serde",

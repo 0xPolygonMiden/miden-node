@@ -126,8 +126,35 @@ impl CachedStatementWithQueryPlan<'_> {
         }
         path.fold_up_to(0);
 
-        println!("\n>> {expanded_sql}\n\n{}", path.pop());
+        let query_plan = path.pop().to_string();
+
+        println!("\n>> {expanded_sql}\n\n{query_plan}");
+
+        #[cfg(test)]
+        Self::fail_if_has_problems(&explain_sql, &query_plan);
 
         Ok(())
+    }
+
+    #[cfg(test)]
+    fn fail_if_has_problems(sql: &str, query_plan: &str) {
+        use std::sync::LazyLock;
+
+        static RE_VIRTUAL_TABLE_IDX: LazyLock<regex::Regex> = LazyLock::new(|| {
+            regex::Regex::new(r"SCAN ([A-Za-z0-9_]+) VIRTUAL TABLE INDEX (\d+)").unwrap()
+        });
+        static RE_IDX_SCAN: LazyLock<regex::Regex> = LazyLock::new(|| {
+            regex::Regex::new(r"SCAN ([A-Za-z0-9_]+) USING( COVERING)? INDEX ([A-Za-z0-9_]+)")
+                .unwrap()
+        });
+
+        let query_plan = RE_VIRTUAL_TABLE_IDX.replace_all(query_plan, r"SEARCH $1 USING INDEX $2");
+        let query_plan = RE_IDX_SCAN.replace_all(&query_plan, r"SEARCH $1 USING$2 INDEX $3");
+
+        assert!(
+            !(sql.to_ascii_uppercase().contains("WHERE")
+                && query_plan.to_ascii_uppercase().contains(" SCAN ")),
+            "Query plan must not contain unnecessary scans:\n{query_plan}",
+        );
     }
 }
