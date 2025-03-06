@@ -3,14 +3,12 @@ use std::fmt::{Display, Formatter};
 use miden_node_utils::config::{
     DEFAULT_BLOCK_PRODUCER_PORT, DEFAULT_NODE_RPC_PORT, DEFAULT_STORE_PORT,
 };
-use serde::{Deserialize, Serialize};
 use url::Url;
 
 // Main config
 // ================================================================================================
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct RpcConfig {
     pub endpoint: Url,
     /// Store gRPC endpoint in the format `http://<host>[:<port>]`.

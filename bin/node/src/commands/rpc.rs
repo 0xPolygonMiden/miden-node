@@ -7,7 +7,7 @@ pub enum RpcCommand {
     /// Starts the RPC component.
     Start {
         /// Url at which to serve the gRPC API.
-        #[arg(env = ENV_RPC_URL)]
+        #[arg(long = "rpc.url", env = ENV_RPC_URL)]
         url: Url,
 
         /// The store's gRPC url.

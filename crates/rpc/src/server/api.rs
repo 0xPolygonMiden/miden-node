@@ -30,8 +30,9 @@ use tonic::{
     transport::{Channel, Error},
 };
 use tracing::{debug, info, instrument};
+use url::Url;
 
-use crate::{COMPONENT, config::RpcConfig};
+use crate::COMPONENT;
 
 // RPC API
 // ================================================================================================
@@ -40,20 +41,19 @@ type StoreClient = store_client::ApiClient<InterceptedService<Channel, OtelInter
 type BlockProducerClient =
     block_producer_client::ApiClient<InterceptedService<Channel, OtelInterceptor>>;
 
-pub struct RpcApi {
+pub struct RpcService {
     store: StoreClient,
     block_producer: BlockProducerClient,
 }
 
-impl RpcApi {
-    pub(super) async fn from_config(config: &RpcConfig) -> Result<Self, Error> {
-        let channel = tonic::transport::Endpoint::try_from(config.store_url.to_string())?
-            .connect()
-            .await?;
+impl RpcService {
+    pub(super) async fn new(store_url: Url, block_producer_url: Url) -> Result<Self, Error> {
+        let channel =
+            tonic::transport::Endpoint::try_from(store_url.to_string())?.connect().await?;
         let store = store_client::ApiClient::with_interceptor(channel, OtelInterceptor);
-        info!(target: COMPONENT, store_endpoint = config.store_url.as_str(), "Store client initialized");
+        info!(target: COMPONENT, store_endpoint = %store_url, "Store client initialized");
 
-        let channel = tonic::transport::Endpoint::try_from(config.block_producer_url.to_string())?
+        let channel = tonic::transport::Endpoint::try_from(block_producer_url.to_string())?
             .connect()
             .await?;
         let block_producer =
@@ -61,7 +61,7 @@ impl RpcApi {
 
         info!(
             target: COMPONENT,
-            block_producer_endpoint = config.block_producer_url.as_str(),
+            block_producer_endpoint = %block_producer_url,
             "Block producer client initialized",
         );
 
@@ -70,7 +70,7 @@ impl RpcApi {
 }
 
 #[tonic::async_trait]
-impl api_server::Api for RpcApi {
+impl api_server::Api for RpcService {
     #[instrument(
         target = COMPONENT,
         name = "rpc:check_nullifiers",

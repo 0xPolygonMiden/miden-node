@@ -28,7 +28,9 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
         .id();
 
     // Start RPC component.
-    let rpc = Rpc::init(rpc).await.context("Loading RPC")?;
+    let rpc = Rpc::init(rpc.endpoint, rpc.store_url, rpc.block_producer_url)
+        .await
+        .context("Loading RPC")?;
     let rpc_id = join_set.spawn(async move { rpc.serve().await.context("Serving RPC") }).id();
 
     // Lookup table so we can identify the failed component.

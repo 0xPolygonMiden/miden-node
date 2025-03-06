@@ -95,7 +95,6 @@ pub enum Command {
 pub enum StartCommand {
     Node,
     BlockProducer,
-    Rpc,
     Store,
 }
 
@@ -111,7 +110,7 @@ async fn main() -> anyhow::Result<()> {
     };
     miden_node_utils::logging::setup_tracing(open_telemetry)?;
 
-    match &cli.command {
+    match cli.command {
         Command::Start { command, config, .. } => match command {
             StartCommand::Node => {
                 let config = load_config(config).context("Loading configuration file")?;
@@ -126,15 +125,6 @@ async fn main() -> anyhow::Result<()> {
                     .await
                     .context("Serving block-producer")
             },
-            StartCommand::Rpc => {
-                let config = load_config(config).context("Loading configuration file")?;
-                Rpc::init(config)
-                    .await
-                    .context("Loading RPC")?
-                    .serve()
-                    .await
-                    .context("Serving RPC")
-            },
             StartCommand::Store => {
                 let config = load_config(config).context("Loading configuration file")?;
                 Store::init(config)
@@ -146,7 +136,7 @@ async fn main() -> anyhow::Result<()> {
             },
         },
         Command::MakeGenesis { output_path, force, inputs_path } => {
-            commands::make_genesis(inputs_path, output_path, *force)
+            commands::make_genesis(&inputs_path, &output_path, force)
         },
         Command::Init { config_path, genesis_path } => {
             let current_dir = std::env::current_dir()
@@ -157,7 +147,14 @@ async fn main() -> anyhow::Result<()> {
 
             init_config_files(&config, &genesis)
         },
-        Command::Rpc(RpcCommand::Start { url, store_url, block_producer_url }) => todo!(),
+        Command::Rpc(RpcCommand::Start { url, store_url, block_producer_url }) => {
+            Rpc::init(url, store_url, block_producer_url)
+                .await
+                .context("Loading RPC")?
+                .serve()
+                .await
+                .context("Serving RPC")
+        },
         Command::Store(StoreCommand::Init) => todo!(),
         Command::Store(StoreCommand::Start { url, data_directory }) => todo!(),
         Command::BlockProducer(BlockProducerCommand::Start { url, store_url }) => todo!(),
