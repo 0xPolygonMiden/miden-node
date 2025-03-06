@@ -117,25 +117,22 @@ mod tests {
 
             let config: NodeConfig = load_config(NODE_CONFIG_FILE_PATH)?;
 
-            assert_eq!(
-                config,
-                NodeConfig {
-                    block_producer: NormalizedBlockProducerConfig {
-                        endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),
-                        verify_tx_proofs: true,
-                        batch_prover_url: Some(Url::parse("http://127.0.0.1:8081").unwrap()),
-                    },
-                    rpc: NormalizedRpcConfig {
-                        endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),
-                    },
-                    store: StoreConfig {
-                        endpoint: Url::parse("https://127.0.0.1:8080").unwrap(),
-                        database_filepath: "local.sqlite3".into(),
-                        genesis_filepath: "genesis.dat".into(),
-                        blockstore_dir: "blocks".into()
-                    },
-                }
-            );
+            assert_eq!(config, NodeConfig {
+                block_producer: NormalizedBlockProducerConfig {
+                    endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),
+                    verify_tx_proofs: true,
+                    batch_prover_url: Some(Url::parse("http://127.0.0.1:8081").unwrap()),
+                },
+                rpc: NormalizedRpcConfig {
+                    endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),
+                },
+                store: StoreConfig {
+                    endpoint: Url::parse("https://127.0.0.1:8080").unwrap(),
+                    database_filepath: "local.sqlite3".into(),
+                    genesis_filepath: "genesis.dat".into(),
+                    blockstore_dir: "blocks".into()
+                },
+            });
 
             Ok(())
         });

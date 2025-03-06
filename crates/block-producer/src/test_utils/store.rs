@@ -208,8 +208,12 @@ impl MockStoreSuccess {
 
         // update nullifiers
         for nullifier in block.created_nullifiers() {
-            locked_produced_nullifiers
-                .insert(nullifier.inner(), [header.block_num().into(), ZERO, ZERO, ZERO]);
+            locked_produced_nullifiers.insert(nullifier.inner(), [
+                header.block_num().into(),
+                ZERO,
+                ZERO,
+                ZERO,
+            ]);
         }
 
         // update chain mmr with new block header hash

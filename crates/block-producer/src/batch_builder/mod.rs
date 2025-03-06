@@ -10,7 +10,7 @@ use miden_proving_service_client::proving_service::batch_prover::RemoteBatchProv
 use miden_tx_batch_prover::LocalBatchProver;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
-use tracing::{debug, info, instrument, Span};
+use tracing::{Span, debug, info, instrument};
 use url::Url;
 
 use crate::{

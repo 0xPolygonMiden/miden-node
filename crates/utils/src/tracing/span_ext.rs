@@ -96,10 +96,9 @@ where
         while let Some(cause) = current.source() {
             description.push_str(format!("\nCaused by: {cause}").as_str());
         }
-        tracing_opentelemetry::OpenTelemetrySpanExt::set_status(
-            self,
-            Status::Error { description: description.into() },
-        );
+        tracing_opentelemetry::OpenTelemetrySpanExt::set_status(self, Status::Error {
+            description: description.into(),
+        });
     }
 }
 
