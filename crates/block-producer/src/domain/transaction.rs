@@ -1,11 +1,11 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::BlockNumber,
     note::{NoteId, Nullifier},
     transaction::{ProvenTransaction, TransactionId, TxAccountUpdate},
-    Digest,
 };
 
 use crate::{errors::VerifyTxError, store::TransactionInputs};

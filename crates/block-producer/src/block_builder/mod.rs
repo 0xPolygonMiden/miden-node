@@ -4,18 +4,18 @@ use futures::FutureExt;
 use miden_block_prover::LocalBlockProver;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
+    MIN_PROOF_SECURITY_LEVEL,
     batch::ProvenBatch,
     block::{BlockInputs, BlockNumber, ProposedBlock, ProvenBlock},
     note::NoteHeader,
-    MIN_PROOF_SECURITY_LEVEL,
 };
 use rand::Rng;
 use tokio::time::Duration;
-use tracing::{instrument, Span};
+use tracing::{Span, instrument};
 
 use crate::{
-    errors::BuildBlockError, mempool::SharedMempool, store::StoreClient, COMPONENT,
-    SERVER_BLOCK_FREQUENCY,
+    COMPONENT, SERVER_BLOCK_FREQUENCY, errors::BuildBlockError, mempool::SharedMempool,
+    store::StoreClient,
 };
 
 // BLOCK BUILDER
@@ -234,7 +234,7 @@ impl BlockBuilder {
 
     #[instrument(target = COMPONENT, name = "block_builder.inject_failure", skip_all, err)]
     fn inject_failure<T>(&self, value: T) -> Result<T, BuildBlockError> {
-        let roll = rand::thread_rng().gen::<f64>();
+        let roll = rand::thread_rng().r#gen::<f64>();
 
         Span::current().set_attribute("failure_rate", self.failure_rate);
         Span::current().set_attribute("dice_roll", roll);

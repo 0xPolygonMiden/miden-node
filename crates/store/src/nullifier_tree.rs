@@ -1,11 +1,11 @@
 use miden_objects::{
+    Felt, FieldElement, Word,
     block::BlockNumber,
     crypto::{
         hash::rpo::RpoDigest,
-        merkle::{MutationSet, Smt, SmtProof, SMT_DEPTH},
+        merkle::{MutationSet, SMT_DEPTH, Smt, SmtProof},
     },
     note::Nullifier,
-    Felt, FieldElement, Word,
 };
 
 use crate::errors::NullifierTreeError;

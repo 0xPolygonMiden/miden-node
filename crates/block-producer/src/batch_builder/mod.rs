@@ -3,8 +3,8 @@ use std::{num::NonZeroUsize, ops::Range, time::Duration};
 use miden_node_proto::domain::batch::BatchInputs;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
-    batch::{BatchId, ProposedBatch, ProvenBatch},
     MIN_PROOF_SECURITY_LEVEL,
+    batch::{BatchId, ProposedBatch, ProvenBatch},
 };
 use miden_proving_service_client::proving_service::batch_prover::RemoteBatchProver;
 use miden_tx_batch_prover::LocalBatchProver;
@@ -14,8 +14,8 @@ use tracing::{debug, info, instrument, Span};
 use url::Url;
 
 use crate::{
-    domain::transaction::AuthenticatedTransaction, errors::BuildBatchError, mempool::SharedMempool,
-    store::StoreClient, COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
+    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY, domain::transaction::AuthenticatedTransaction,
+    errors::BuildBatchError, mempool::SharedMempool, store::StoreClient,
 };
 
 // BATCH BUILDER
@@ -231,7 +231,7 @@ impl WorkerPool {
                 // Randomly fail batches at the configured rate.
                 //
                 // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
-                let failed = rand::thread_rng().gen::<f32>() < self.failure_rate;
+                let failed = rand::thread_rng().r#gen::<f32>() < self.failure_rate;
                 let store = self.store.clone();
                 let batch_prover = self.batch_prover.clone();
 

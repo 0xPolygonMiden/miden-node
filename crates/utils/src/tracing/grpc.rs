@@ -1,6 +1,6 @@
 /// Creates a [`tracing::Span`] based on RPC service and method name.
 macro_rules! rpc_span {
-    ($service:expr, $method:expr) => {
+    ($service:literal, $method:literal) => {
         tracing::info_span!(
             concat!($service, "/", $method),
             rpc.service = $service,

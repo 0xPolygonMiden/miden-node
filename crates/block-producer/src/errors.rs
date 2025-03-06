@@ -2,10 +2,10 @@ use miden_block_prover::ProvenBlockError;
 use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
+    Digest, ProposedBatchError, ProposedBlockError,
     block::BlockNumber,
     note::{NoteId, Nullifier},
     transaction::TransactionId,
-    Digest, ProposedBatchError, ProposedBlockError,
 };
 use miden_proving_service_client::RemoteProverError;
 use miden_tx_batch_prover::errors::ProvenBatchError;
@@ -81,7 +81,9 @@ pub enum AddTransactionError {
     #[error("transaction verification failed")]
     VerificationFailed(#[from] VerifyTxError),
 
-    #[error("transaction input data from block {input_block} is rejected as stale because it is older than the limit of {stale_limit}")]
+    #[error(
+        "transaction input data from block {input_block} is rejected as stale because it is older than the limit of {stale_limit}"
+    )]
     StaleInputs {
         input_block: BlockNumber,
         stale_limit: BlockNumber,
