@@ -17,12 +17,19 @@ pub async fn start_node(config: NodeConfig) -> Result<()> {
     let mut join_set = JoinSet::new();
 
     // Start store. The store endpoint is available after loading completes.
-    let store = Store::init(store).await.context("Loading store")?;
+    let store = Store::init(
+        store.endpoint,
+        store.database_filepath.parent().unwrap().to_path_buf(),
+        store.genesis_filepath,
+    )
+    .await
+    .context("Loading store")?;
     let store_id = join_set.spawn(async move { store.serve().await.context("Serving store") }).id();
 
     // Start block-producer. The block-producer's endpoint is available after loading completes.
-    let block_producer =
-        BlockProducer::init(block_producer).await.context("Loading block-producer")?;
+    let block_producer = BlockProducer::init(block_producer.endpoint, block_producer.store_url)
+        .await
+        .context("Loading block-producer")?;
     let block_producer_id = join_set
         .spawn(async move { block_producer.serve().await.context("Serving block-producer") })
         .id();

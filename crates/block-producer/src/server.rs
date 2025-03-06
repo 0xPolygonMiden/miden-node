@@ -17,6 +17,7 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, info, instrument};
+use url::Url;
 
 use crate::{
     COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
@@ -51,10 +52,10 @@ impl BlockProducer {
     /// Performs all expensive initialization tasks, and notably begins listening on the rpc
     /// endpoint without serving the API yet. Incoming requests will be queued until
     /// [`serve`](Self::serve) is called.
-    pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
-        info!(target: COMPONENT, %config, "Initializing server");
+    pub async fn init(block_producer: Url, store: Url) -> Result<Self, ApiError> {
+        info!(target: COMPONENT, %block_producer, %store, "Initializing server");
 
-        let channel = tonic::transport::Endpoint::try_from(config.store_url.to_string())
+        let channel = tonic::transport::Endpoint::try_from(store.to_string())
             .map_err(|err| ApiError::InvalidStoreUrl(err.to_string()))?
             .connect()
             .await
@@ -69,13 +70,12 @@ impl BlockProducer {
             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
         let chain_tip = latest_header.block_num();
 
-        let rpc_listener = config
-            .endpoint
+        let rpc_listener = block_producer
             .socket_addrs(|| None)
             .map_err(ApiError::EndpointToSocketFailed)?
             .into_iter()
             .next()
-            .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))
+            .ok_or_else(|| ApiError::AddressResolutionFailed(block_producer.to_string()))
             .map(TcpListener::bind)?
             .await?;
 

@@ -16,5 +16,8 @@ pub enum StoreCommand {
         /// Directory in which to store the database and raw block data.
         #[arg(env = ENV_STORE_DIRECTORY)]
         data_directory: PathBuf,
+
+        /// Path to the genesis configuration file.
+        genesis_filepath: PathBuf,
     },
 }
