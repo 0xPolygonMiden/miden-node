@@ -270,3 +270,8 @@ pub struct StorageSlotMapProof {
     #[prost(bytes = "vec", tag = "2")]
     pub smt_proof: ::prost::alloc::vec::Vec<u8>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetUnconsumedNetworkNotesResponse {
+    #[prost(message, optional, tag = "1")]
+    pub note: ::core::option::Option<super::note::Note>,
+}

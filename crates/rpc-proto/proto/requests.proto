@@ -188,3 +188,5 @@ message GetAccountProofsRequest {
     // all requested accounts.
     repeated digest.Digest code_commitments = 3;
 }
+
+message GetUnconsumedNetworkNotesRequest {}

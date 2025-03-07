@@ -467,6 +467,38 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "SyncState"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns a stream with the unconsumed network notes.
+        /// TODO: check if a request is needed.
+        pub async fn get_unconsumed_network_notes(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetUnconsumedNetworkNotesRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<
+                tonic::codec::Streaming<
+                    super::super::responses::GetUnconsumedNetworkNotesResponse,
+                >,
+            >,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/store.Api/GetUnconsumedNetworkNotes",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("store.Api", "GetUnconsumedNetworkNotes"));
+            self.inner.server_streaming(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -622,6 +654,26 @@ pub mod api_server {
             request: tonic::Request<super::super::requests::SyncStateRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::SyncStateResponse>,
+            tonic::Status,
+        >;
+        /// Server streaming response type for the GetUnconsumedNetworkNotes method.
+        type GetUnconsumedNetworkNotesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::super::responses::GetUnconsumedNetworkNotesResponse,
+                    tonic::Status,
+                >,
+            >
+            + std::marker::Send
+            + 'static;
+        /// Returns a stream with the unconsumed network notes.
+        /// TODO: check if a request is needed.
+        async fn get_unconsumed_network_notes(
+            &self,
+            request: tonic::Request<
+                super::super::requests::GetUnconsumedNetworkNotesRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<Self::GetUnconsumedNetworkNotesStream>,
             tonic::Status,
         >;
     }
@@ -1371,6 +1423,56 @@ pub mod api_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/store.Api/GetUnconsumedNetworkNotes" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetUnconsumedNetworkNotesSvc<T: Api>(pub Arc<T>);
+                    impl<
+                        T: Api,
+                    > tonic::server::ServerStreamingService<
+                        super::super::requests::GetUnconsumedNetworkNotesRequest,
+                    > for GetUnconsumedNetworkNotesSvc<T> {
+                        type Response = super::super::responses::GetUnconsumedNetworkNotesResponse;
+                        type ResponseStream = T::GetUnconsumedNetworkNotesStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::requests::GetUnconsumedNetworkNotesRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Api>::get_unconsumed_network_notes(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetUnconsumedNetworkNotesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

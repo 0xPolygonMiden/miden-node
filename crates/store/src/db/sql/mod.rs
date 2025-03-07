@@ -903,7 +903,6 @@ pub fn select_note_inclusion_proofs(
 ///
 /// A set of unconsumed network notes with maximum length of `limit` and a pagination token to get
 /// the next set.
-#[cfg_attr(not(test), expect(dead_code, reason = "gRPC method is not yet implemented"))]
 pub fn unconsumed_network_notes(
     transaction: &Transaction,
     mut token: PaginationToken,

@@ -41,7 +41,7 @@ use tracing::{info, info_span, instrument};
 use crate::{
     COMPONENT,
     blocks::BlockStore,
-    db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
+    db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, PaginationToken, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBatchInputsError, GetBlockHeaderError,
         GetBlockInputsError, InvalidBlockError, NoteSyncError, StateInitializationError,
@@ -979,6 +979,13 @@ impl State {
     /// Returns the latest block number.
     pub async fn latest_block_num(&self) -> BlockNumber {
         self.inner.read().await.latest_block_num()
+    }
+
+    pub async fn get_unconsumed_network_notes(
+        &self,
+        page: PaginationToken,
+    ) -> Result<(Vec<NoteRecord>, PaginationToken), DatabaseError> {
+        self.db.select_unconsumed_network_notes(page).await
     }
 }
 

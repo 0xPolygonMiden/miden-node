@@ -214,3 +214,5 @@ pub mod get_account_proofs_request {
         pub map_keys: ::prost::alloc::vec::Vec<super::super::digest::Digest>,
     }
 }
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetUnconsumedNetworkNotesRequest {}

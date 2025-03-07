@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{self, create_dir_all},
+    num::NonZero,
     sync::Arc,
 };
 
@@ -33,6 +34,7 @@ use crate::{
 
 mod migrations;
 mod sql;
+pub use sql::PaginationToken;
 
 mod settings;
 #[cfg(test)]
@@ -515,6 +517,20 @@ impl Db {
             .map_err(|err| DatabaseError::InteractError(err.to_string()))?
     }
 
+    pub(crate) async fn select_unconsumed_network_notes(
+        &self,
+        page: PaginationToken,
+    ) -> Result<(Vec<NoteRecord>, PaginationToken)> {
+        let limit = NonZero::new(100).unwrap(); // TODO: check if limit is harcoded or parameter
+        self.pool
+            .get()
+            .await
+            .map_err(DatabaseError::MissingDbConnection)?
+            .interact(move |conn| sql::unconsumed_network_notes(&conn.transaction()?, page, limit))
+            .await
+            .map_err(|err| DatabaseError::InteractError(err.to_string()))?
+    }
+
     // HELPERS
     // ---------------------------------------------------------------------------------------------
 
@@ -546,7 +562,7 @@ impl Db {
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
-        let expected_genesis_header = genesis_block.header();
+        let expected_genesis_header = genesis_block.header().clone();
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {

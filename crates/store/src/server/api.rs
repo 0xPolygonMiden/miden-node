@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, convert::Infallible, sync::Arc};
+use std::{collections::BTreeSet, convert::Infallible, pin::Pin, sync::Arc};
 
 use miden_node_proto::{
     convert,
@@ -19,8 +19,8 @@ use miden_node_proto::{
             CheckNullifiersResponse, GetAccountDetailsResponse, GetAccountProofsResponse,
             GetAccountStateDeltaResponse, GetBatchInputsResponse, GetBlockByNumberResponse,
             GetBlockHeaderByNumberResponse, GetBlockInputsResponse, GetNotesByIdResponse,
-            GetTransactionInputsResponse, NullifierTransactionInputRecord, NullifierUpdate,
-            SyncNoteResponse, SyncStateResponse,
+            GetTransactionInputsResponse, GetUnconsumedNetworkNotesResponse,
+            NullifierTransactionInputRecord, NullifierUpdate, SyncNoteResponse, SyncStateResponse,
         },
         store::api_server,
         transaction::TransactionSummary,
@@ -34,10 +34,12 @@ use miden_objects::{
     note::{NoteId, Nullifier},
     utils::{Deserializable, Serializable},
 };
+use tokio::sync::mpsc;
+use tokio_stream::{Stream, wrappers::ReceiverStream};
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{COMPONENT, state::State};
+use crate::{COMPONENT, db::PaginationToken, state::State};
 
 // STORE API
 // ================================================================================================
@@ -46,8 +48,13 @@ pub struct StoreApi {
     pub(super) state: Arc<State>,
 }
 
+type ResponseStream =
+    Pin<Box<dyn Stream<Item = Result<GetUnconsumedNetworkNotesResponse, Status>> + Send>>;
+
 #[tonic::async_trait]
 impl api_server::Api for StoreApi {
+    type GetUnconsumedNetworkNotesStream = ResponseStream;
+
     // CLIENT ENDPOINTS
     // --------------------------------------------------------------------------------------------
 
@@ -518,6 +525,49 @@ impl api_server::Api for StoreApi {
             .map(|delta| delta.to_bytes());
 
         Ok(Response::new(GetAccountStateDeltaResponse { delta }))
+    }
+
+    #[instrument(
+        target = COMPONENT,
+        name = "store.server.get_unconsumed_network_notes",
+        skip_all,
+        err
+    )]
+    async fn get_unconsumed_network_notes(
+        &self,
+        _request: Request<generated::requests::GetUnconsumedNetworkNotesRequest>,
+    ) -> Result<Response<Self::GetUnconsumedNetworkNotesStream>, Status> {
+        // TODO: check if there is a way to remove the request struct, or if there is some needed parameter
+
+        let (sender, receiver) = mpsc::channel(128); // TODO: check bound of the channel
+
+        let state = self.state.clone();
+        tokio::spawn(async move {
+            // Read all unconsumed network notes and send them through the stream
+            let mut page = PaginationToken::default();
+            loop {
+                let Ok((notes, next_page)) = state.get_unconsumed_network_notes(page).await else {
+                    let _ = sender.send(Err(internal_error("Failed to read network notes"))).await;
+                    break;
+                };
+
+                if notes.is_empty() {
+                    break;
+                }
+                page = next_page;
+
+                for note in notes.into_iter() {
+                    let response = GetUnconsumedNetworkNotesResponse { note: Some(note.into()) };
+                    let send_result = sender.send(Ok(response)).await;
+                    if let Err(e) = send_result {
+                        info!(target: COMPONENT, "Failed to send response: {e}");
+                        return;
+                    }
+                }
+            }
+        });
+        let output_stream = ReceiverStream::new(receiver);
+        Ok(Response::new(Box::pin(output_stream) as Self::GetUnconsumedNetworkNotesStream))
     }
 }
 
