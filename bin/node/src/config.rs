@@ -28,6 +28,7 @@ struct NormalizedBlockProducerConfig {
     endpoint: Url,
     verify_tx_proofs: bool,
     batch_prover_url: Option<Url>,
+    block_prover_url: Option<Url>,
 }
 
 impl Default for NormalizedRpcConfig {
@@ -50,11 +51,13 @@ impl Default for NormalizedBlockProducerConfig {
             store_url: _,
             verify_tx_proofs,
             batch_prover_url,
+            block_prover_url,
         } = BlockProducerConfig::default();
         Self {
             endpoint,
             verify_tx_proofs,
             batch_prover_url,
+            block_prover_url,
         }
     }
 }
@@ -68,6 +71,7 @@ impl NodeConfig {
             store_url: store.endpoint.clone(),
             verify_tx_proofs: block_producer.verify_tx_proofs,
             batch_prover_url: block_producer.batch_prover_url,
+            block_prover_url: block_producer.block_prover_url,
         };
 
         let rpc = RpcConfig {
@@ -103,6 +107,7 @@ mod tests {
                     endpoint = "http://127.0.0.1:8080"
                     verify_tx_proofs = true
                     batch_prover_url = "http://127.0.0.1:8081"
+                    block_prover_url = "http://127.0.0.1:8082"
 
                     [rpc]
                     endpoint = "http://127.0.0.1:8080"
@@ -124,6 +129,7 @@ mod tests {
                         endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),
                         verify_tx_proofs: true,
                         batch_prover_url: Some(Url::parse("http://127.0.0.1:8081").unwrap()),
+                        block_prover_url: Some(Url::parse("http://127.0.0.1:8082").unwrap()),
                     },
                     rpc: NormalizedRpcConfig {
                         endpoint: Url::parse("http://127.0.0.1:8080").unwrap(),

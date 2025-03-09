@@ -7,7 +7,9 @@ endpoint = "http://127.0.0.1:48046"
 # transaction queue.
 verify_tx_proofs = true
 # address of the remote batch prover service
-batch_prover_url = "http://127.0.0.1:8082/"
+batch_prover_url = "http://127.0.0.1:8081/"
+# address of the remote block prover service
+block_prover_url = "http://127.0.0.1:8082/"
 
 [rpc]
 # port defined as: sum(ord(c)**p for (p, c) in enumerate('miden-rpc', 1)) % 2**16

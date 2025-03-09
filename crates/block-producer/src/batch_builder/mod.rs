@@ -36,13 +36,15 @@ pub struct BatchBuilder {
     /// Note: this _must_ be sign positive and less than 1.0.
     pub failure_rate: f32,
     /// The batch prover to use.
+    ///
+    /// If not provided, a local batch prover is used.
     batch_prover: BatchProver,
 }
 
 impl BatchBuilder {
     /// Creates a new [`BatchBuilder`] with the given batch prover URL.
     ///
-    /// Defaults to [`BatchProver::Local`] is no URL is provided.
+    /// If no URL is provided, a local batch prover is used.
     pub fn new(batch_prover_url: Option<Url>) -> Self {
         let batch_prover = match batch_prover_url {
             Some(url) => BatchProver::new_remote(url),
