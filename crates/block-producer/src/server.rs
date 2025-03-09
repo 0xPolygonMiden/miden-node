@@ -82,7 +82,7 @@ impl BlockProducer {
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            batch_builder: BatchBuilder::default(),
+            batch_builder: BatchBuilder::new(config.batch_prover_url),
             block_builder: BlockBuilder::new(store.clone()),
             batch_budget: BatchBudget::default(),
             block_budget: BlockBudget::default(),
