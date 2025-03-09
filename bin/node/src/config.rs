@@ -93,8 +93,8 @@ mod tests {
 
     use super::NodeConfig;
     use crate::{
-        config::{NormalizedBlockProducerConfig, NormalizedRpcConfig},
         NODE_CONFIG_FILE_PATH,
+        config::{NormalizedBlockProducerConfig, NormalizedRpcConfig},
     };
 
     #[test]

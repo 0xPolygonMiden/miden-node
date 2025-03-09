@@ -1,11 +1,11 @@
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    account::{delta::AccountUpdateDetails, Account},
+    ACCOUNT_TREE_DEPTH, Digest,
+    account::{Account, delta::AccountUpdateDetails},
     block::{BlockAccountUpdate, BlockHeader, BlockNoteTree, BlockNumber, ProvenBlock},
     crypto::merkle::{MmrPeaks, SimpleSmt, Smt},
     note::Nullifier,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest, ACCOUNT_TREE_DEPTH,
 };
 
 use crate::errors::GenesisError;

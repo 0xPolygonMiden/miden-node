@@ -8,11 +8,11 @@ use miden_objects::{
 };
 
 use crate::{
+    AccountWitnessRecord, NullifierWitnessRecord,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
         block as proto, note::NoteInclusionInBlockProof, responses::GetBlockInputsResponse,
     },
-    AccountWitnessRecord, NullifierWitnessRecord,
 };
 
 // BLOCK HEADER

@@ -1,6 +1,6 @@
 use miden_objects::{
-    crypto::merkle::{LeafIndex, MerklePath, MmrDelta, SmtLeaf, SmtProof},
     Digest, Word,
+    crypto::merkle::{LeafIndex, MerklePath, MmrDelta, SmtLeaf, SmtProof},
 };
 
 use super::{convert, try_convert};

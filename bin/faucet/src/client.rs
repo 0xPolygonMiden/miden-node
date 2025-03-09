@@ -9,6 +9,7 @@ use miden_node_proto::generated::{
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
+    Felt,
     account::{Account, AccountFile, AccountId, AuthSecretKey},
     asset::FungibleAsset,
     block::{BlockHeader, BlockNumber},
@@ -20,17 +21,16 @@ use miden_objects::{
     transaction::{ChainMmr, ExecutedTransaction, TransactionArgs, TransactionScript},
     utils::Deserializable,
     vm::AdviceMap,
-    Felt,
 };
 use miden_tx::{
-    auth::BasicAuthenticator, utils::Serializable, LocalTransactionProver, ProvingOptions,
-    TransactionExecutor, TransactionProver,
+    LocalTransactionProver, ProvingOptions, TransactionExecutor, TransactionProver,
+    auth::BasicAuthenticator, utils::Serializable,
 };
 use rand::{random, rngs::StdRng};
 use tonic::transport::Channel;
 use tracing::info;
 
-use crate::{config::FaucetConfig, errors::ClientError, store::FaucetDataStore, COMPONENT};
+use crate::{COMPONENT, config::FaucetConfig, errors::ClientError, store::FaucetDataStore};
 
 pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("transaction_scripts/distribute_fungible_asset.masm");

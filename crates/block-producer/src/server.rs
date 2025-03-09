@@ -7,7 +7,7 @@ use miden_node_proto::generated::{
 use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
-    tracing::grpc::OtelInterceptor,
+    tracing::grpc::{OtelInterceptor, block_producer_trace_fn},
 };
 use miden_objects::{
     block::BlockNumber, transaction::ProvenTransaction, utils::serde::Deserializable,
@@ -15,9 +15,11 @@ use miden_objects::{
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
+use tower_http::trace::TraceLayer;
 use tracing::{debug, info, instrument};
 
 use crate::{
+    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
     batch_builder::BatchBuilder,
     block_builder::BlockBuilder,
     config::BlockProducerConfig,
@@ -25,7 +27,6 @@ use crate::{
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, Mempool, SharedMempool},
     store::StoreClient,
-    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,
@@ -211,8 +212,9 @@ impl BlockProducerRpcServer {
     }
 
     async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
+        // Build the gRPC server with the API service and trace layer.
         tonic::transport::Server::builder()
-            .trace_fn(miden_node_utils::tracing::grpc::block_producer_trace_fn)
+            .layer(TraceLayer::new_for_grpc().make_span_with(block_producer_trace_fn))
             .add_service(api_server::ApiServer::new(self))
             .serve_with_incoming(TcpListenerStream::new(listener))
             .await

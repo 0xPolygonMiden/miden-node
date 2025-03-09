@@ -5,17 +5,18 @@ pub(crate) mod utils;
 
 use std::{
     borrow::Cow,
-    collections::{btree_map::Entry, BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, btree_map::Entry},
     num::NonZeroUsize,
     rc::Rc,
 };
 
 use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
 use miden_objects::{
+    Digest, Word,
     account::{
-        delta::AccountUpdateDetails, AccountDelta, AccountId, AccountStorageDelta,
-        AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction,
-        StorageMapDelta,
+        AccountDelta, AccountId, AccountStorageDelta, AccountVaultDelta, FungibleAssetDelta,
+        NonFungibleAssetDelta, NonFungibleDeltaAction, StorageMapDelta,
+        delta::AccountUpdateDetails,
     },
     asset::NonFungibleAsset,
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNumber},
@@ -23,9 +24,8 @@ use miden_objects::{
     note::{NoteExecutionMode, NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
-    Digest, Word,
 };
-use rusqlite::{params, types::Value, Connection, Transaction};
+use rusqlite::{Connection, Transaction, params, types::Value};
 use utils::{read_block_number, read_from_blob_column};
 
 use super::{
@@ -383,7 +383,7 @@ pub fn select_account_delta(
             _ => {
                 return Err(DatabaseError::DataCorrupted(format!(
                     "Invalid non-fungible asset delta action: {action}"
-                )))
+                )));
             },
         }
     }
