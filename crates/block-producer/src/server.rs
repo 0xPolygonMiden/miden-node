@@ -17,6 +17,7 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, info, instrument};
+use url::Url;
 
 use crate::{
     batch_builder::BatchBuilder,
@@ -50,7 +51,12 @@ impl BlockProducer {
     /// Performs all setup tasks required before [`serve`](Self::serve) can be called.
     ///
     /// This includes connecting to the store and retrieving the latest chain state.
-    pub async fn init(listener: TcpListener, store_address: SocketAddr) -> Result<Self, ApiError> {
+    pub async fn init(
+        listener: TcpListener,
+        store_address: SocketAddr,
+        batch_prover: Option<Url>,
+        block_prover: Option<Url>,
+    ) -> Result<Self, ApiError> {
         info!(target: COMPONENT, endpoint=?listener, store=%store_address, "Initializing server");
 
         let channel = tonic::transport::Endpoint::try_from(store_address.to_string())
@@ -71,8 +77,8 @@ impl BlockProducer {
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            batch_builder: BatchBuilder::new(config.batch_prover_url),
-            block_builder: BlockBuilder::new(store.clone(), config.block_prover_url),
+            batch_builder: BatchBuilder::new(batch_prover),
+            block_builder: BlockBuilder::new(store.clone(), block_prover),
             batch_budget: BatchBudget::default(),
             block_budget: BlockBudget::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,

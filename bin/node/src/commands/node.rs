@@ -8,7 +8,7 @@ use miden_node_utils::grpc::UrlExt;
 use tokio::{net::TcpListener, task::JoinSet};
 use url::Url;
 
-use super::{ENV_RPC_URL, ENV_STORE_DIRECTORY};
+use super::{ENV_BATCH_PROVER_URL, ENV_BLOCK_PROVER_URL, ENV_RPC_URL, ENV_STORE_DIRECTORY};
 
 #[derive(clap::Subcommand)]
 pub enum NodeCommand {
@@ -28,6 +28,16 @@ pub struct NodeConfig {
     /// Directory in which the Store component should store the database and raw block data.
     #[arg(long = "store.data-directory", env = ENV_STORE_DIRECTORY)]
     store_data_directory: PathBuf,
+
+    /// The remote batch prover's gRPC url. If unset, will default to running a prover in-process
+    /// which is expensive.
+    #[arg(long = "batch_prover.url", env = ENV_BATCH_PROVER_URL)]
+    batch_prover_url: Option<Url>,
+
+    /// The remote block prover's gRPC url. If unset, will default to running a prover in-process
+    /// which is expensive.
+    #[arg(long = "block_prover.url", env = ENV_BLOCK_PROVER_URL)]
+    block_prover_url: Option<Url>,
 }
 
 impl NodeConfig {
@@ -64,9 +74,14 @@ impl NodeConfig {
             join_set.spawn(async move { store.serve().await.context("Serving store") }).id();
 
         // Start block-producer. The block-producer's endpoint is available after loading completes.
-        let block_producer = BlockProducer::init(grpc_block_producer, store_address)
-            .await
-            .context("Loading block-producer")?;
+        let block_producer = BlockProducer::init(
+            grpc_block_producer,
+            store_address,
+            self.batch_prover_url,
+            self.block_prover_url,
+        )
+        .await
+        .context("Loading block-producer")?;
         let block_producer_id = join_set
             .spawn(async move { block_producer.serve().await.context("Serving block-producer") })
             .id();

@@ -3,7 +3,7 @@ use miden_node_block_producer::server::BlockProducer;
 use miden_node_utils::grpc::UrlExt;
 use url::Url;
 
-use super::{ENV_BLOCK_PRODUCER_URL, ENV_STORE_URL};
+use super::{ENV_BATCH_PROVER_URL, ENV_BLOCK_PRODUCER_URL, ENV_BLOCK_PROVER_URL, ENV_STORE_URL};
 
 #[derive(clap::Subcommand)]
 pub enum BlockProducerCommand {
@@ -20,6 +20,16 @@ pub struct BlockProducerConfig {
     /// The store's gRPC url.
     #[arg(long = "store.url", env = ENV_STORE_URL)]
     store_url: Url,
+
+    /// The remote batch prover's gRPC url. If unset, will default to running a prover in-process
+    /// which is expensive.
+    #[arg(long = "batch_prover.url", env = ENV_BATCH_PROVER_URL)]
+    batch_prover_url: Option<Url>,
+
+    /// The remote block prover's gRPC url. If unset, will default to running a prover in-process
+    /// which is expensive.
+    #[arg(long = "block_prover.url", env = ENV_BLOCK_PROVER_URL)]
+    block_prover_url: Option<Url>,
 }
 
 impl BlockProducerConfig {
@@ -38,7 +48,7 @@ impl BlockProducerConfig {
             .await
             .context("Failed to bind to store's gRPC URL")?;
 
-        BlockProducer::init(listener, store_url)
+        BlockProducer::init(listener, store_url, self.batch_prover_url, self.block_prover_url)
             .await
             .context("Loading store")?
             .serve()
