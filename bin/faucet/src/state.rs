@@ -5,7 +5,7 @@ use static_files::Resource;
 use tokio::sync::Mutex;
 use tracing::info;
 
-use crate::{client::FaucetClient, config::FaucetConfig, static_resources, COMPONENT};
+use crate::{COMPONENT, client::FaucetClient, config::FaucetConfig, static_resources};
 
 // FAUCET STATE
 // ================================================================================================

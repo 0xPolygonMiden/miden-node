@@ -3,6 +3,7 @@ use std::io;
 use deadpool::managed::PoolError;
 use deadpool_sync::InteractError;
 use miden_objects::{
+    AccountDeltaError, AccountError, NoteError,
     account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::{
@@ -12,7 +13,6 @@ use miden_objects::{
     },
     note::Nullifier,
     transaction::OutputNote,
-    AccountDeltaError, AccountError, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -151,7 +151,9 @@ pub enum GenesisError {
         genesis_filepath: String,
         source: io::Error,
     },
-    #[error("block header in store doesn't match block header in genesis file. Expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}")]
+    #[error(
+        "block header in store doesn't match block header in genesis file. Expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}"
+    )]
     GenesisBlockHeaderMismatch {
         expected_genesis_header: Box<BlockHeader>,
         block_header_in_store: Box<BlockHeader>,
@@ -231,7 +233,9 @@ pub enum GetBlockInputsError {
     SelectNoteInclusionProofError(#[source] DatabaseError),
     #[error("failed to select block headers")]
     SelectBlockHeaderError(#[source] DatabaseError),
-    #[error("highest block number {highest_block_number} referenced by a batch is newer than the latest block {latest_block_number}")]
+    #[error(
+        "highest block number {highest_block_number} referenced by a batch is newer than the latest block {latest_block_number}"
+    )]
     UnknownBatchBlockReference {
         highest_block_number: BlockNumber,
         latest_block_number: BlockNumber,
@@ -266,7 +270,9 @@ pub enum GetBatchInputsError {
     SelectBlockHeaderError(#[source] DatabaseError),
     #[error("set of blocks refernced by transactions is empty")]
     TransactionBlockReferencesEmpty,
-    #[error("highest block number {highest_block_num} referenced by a transaction is newer than the latest block {latest_block_num}")]
+    #[error(
+        "highest block number {highest_block_num} referenced by a transaction is newer than the latest block {latest_block_num}"
+    )]
     UnknownTransactionBlockReference {
         highest_block_num: BlockNumber,
         latest_block_num: BlockNumber,

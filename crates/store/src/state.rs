@@ -18,6 +18,7 @@ use miden_node_proto::{
 };
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
+    ACCOUNT_TREE_DEPTH, AccountError,
     account::{AccountDelta, AccountHeader, AccountId, StorageSlot},
     block::{AccountWitness, BlockHeader, BlockInputs, BlockNumber, NullifierWitness, ProvenBlock},
     crypto::{
@@ -30,15 +31,15 @@ use miden_objects::{
     note::{NoteId, Nullifier},
     transaction::{ChainMmr, OutputNote},
     utils::Serializable,
-    AccountError, ACCOUNT_TREE_DEPTH,
 };
 use tokio::{
-    sync::{oneshot, Mutex, RwLock},
+    sync::{Mutex, RwLock, oneshot},
     time::Instant,
 };
 use tracing::{info, info_span, instrument};
 
 use crate::{
+    COMPONENT,
     blocks::BlockStore,
     db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, StateSyncUpdate},
     errors::{
@@ -47,7 +48,6 @@ use crate::{
         StateSyncError,
     },
     nullifier_tree::NullifierTree,
-    COMPONENT,
 };
 // STRUCTURES
 // ================================================================================================

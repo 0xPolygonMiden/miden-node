@@ -7,9 +7,8 @@ use miden_objects::{
     utils::Deserializable,
 };
 use rusqlite::{
-    params,
+    OptionalExtension, params,
     types::{Value, ValueRef},
-    OptionalExtension,
 };
 
 use crate::{db::connection::Connection, errors::DatabaseError};
@@ -38,7 +37,7 @@ pub fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
 
 /// Auxiliary macro which substitutes `$src` token by `$dst` expression.
 macro_rules! subst {
-    ($src:tt, $dst:expr) => {
+    ($src:tt, $dst:expr_2021) => {
         $dst
     };
 }

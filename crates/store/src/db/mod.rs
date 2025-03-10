@@ -21,6 +21,7 @@ use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
 use crate::{
+    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
     blocks::BlockStore,
     config::StoreConfig,
     db::{
@@ -29,7 +30,6 @@ use crate::{
     },
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
-    COMPONENT,
 };
 
 mod migrations;

@@ -6,10 +6,11 @@ use std::num::NonZeroUsize;
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::account::AccountSummary;
 use miden_objects::{
+    Felt, FieldElement, Word, ZERO,
     account::{
-        delta::AccountUpdateDetails, Account, AccountBuilder, AccountComponent, AccountDelta,
-        AccountId, AccountIdVersion, AccountStorageDelta, AccountStorageMode, AccountType,
-        AccountVaultDelta, StorageSlot,
+        Account, AccountBuilder, AccountComponent, AccountDelta, AccountId, AccountIdVersion,
+        AccountStorageDelta, AccountStorageMode, AccountType, AccountVaultDelta, StorageSlot,
+        delta::AccountUpdateDetails,
     },
     asset::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, BlockNumber},
@@ -21,7 +22,6 @@ use miden_objects::{
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
         ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     },
-    Felt, FieldElement, Word, ZERO,
 };
 
 use super::{sql, AccountInfo, NoteRecord, NullifierInfo};
