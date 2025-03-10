@@ -8,18 +8,17 @@ mod plan_explainer;
 
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, BTreeSet, btree_map::Entry},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
     num::NonZeroUsize,
     rc::Rc,
 };
 
 use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
 use miden_objects::{
-    Digest, Word,
     account::{
-        AccountDelta, AccountId, AccountStorageDelta, AccountVaultDelta, FungibleAssetDelta,
-        NonFungibleAssetDelta, NonFungibleDeltaAction, StorageMapDelta,
-        delta::AccountUpdateDetails,
+        delta::AccountUpdateDetails, AccountDelta, AccountId, AccountStorageDelta,
+        AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction,
+        StorageMapDelta,
     },
     asset::NonFungibleAsset,
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNumber},
@@ -27,8 +26,9 @@ use miden_objects::{
     note::{NoteExecutionMode, NoteId, NoteInclusionProof, NoteMetadata, NoteType, Nullifier},
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
+    Digest, Word,
 };
-use rusqlite::{Connection, Transaction, params, types::Value};
+use rusqlite::{params, types::Value};
 use utils::{read_block_number, read_from_blob_column};
 
 use super::{
