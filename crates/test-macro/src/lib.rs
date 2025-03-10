@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::ToTokens;
-use syn::{parse_macro_input, parse_quote, Block, ItemFn};
+use syn::{Block, ItemFn, parse_macro_input, parse_quote};
 
 #[proc_macro_attribute]
 pub fn enable_logging(_attr: TokenStream, item: TokenStream) -> TokenStream {

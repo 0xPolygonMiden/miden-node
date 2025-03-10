@@ -1,9 +1,9 @@
 use anyhow::Context;
 use axum::{
+    Json,
     extract::State,
     http::{Response, StatusCode},
     response::IntoResponse,
-    Json,
 };
 use http::header;
 use http_body_util::Full;
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use tonic::body;
 use tracing::info;
 
-use crate::{errors::HandlerError, state::FaucetState, COMPONENT};
+use crate::{COMPONENT, errors::HandlerError, state::FaucetState};
 
 #[derive(Deserialize)]
 pub struct FaucetRequest {

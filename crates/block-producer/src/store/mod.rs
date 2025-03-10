@@ -6,6 +6,7 @@ use std::{
 
 use itertools::Itertools;
 use miden_node_proto::{
+    AccountState,
     domain::batch::BatchInputs,
     errors::{ConversionError, MissingFieldHelper},
     generated::{
@@ -17,22 +18,21 @@ use miden_node_proto::{
         responses::{GetTransactionInputsResponse, NullifierTransactionInputRecord},
         store::api_client as store_client,
     },
-    AccountState,
 };
 use miden_node_utils::{formatting::format_opt, tracing::grpc::OtelInterceptor};
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::{BlockHeader, BlockInputs, BlockNumber, ProvenBlock},
     note::{NoteId, Nullifier},
     transaction::ProvenTransaction,
     utils::Serializable,
-    Digest,
 };
 use miden_processor::crypto::RpoDigest;
 use tonic::{service::interceptor::InterceptedService, transport::Channel};
 use tracing::{debug, info, instrument};
 
-use crate::{errors::StoreError, COMPONENT};
+use crate::{COMPONENT, errors::StoreError};
 
 // TRANSACTION INPUTS
 // ================================================================================================

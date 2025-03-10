@@ -3,8 +3,8 @@ use std::collections::BTreeSet;
 use miden_objects::transaction::TransactionId;
 
 use super::{
-    graph::{DependencyGraph, GraphError},
     BatchBudget, BudgetStatus,
+    graph::{DependencyGraph, GraphError},
 };
 use crate::domain::transaction::AuthenticatedTransaction;
 

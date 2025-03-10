@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use figment::{
-    providers::{Format, Toml},
     Figment,
+    providers::{Format, Toml},
 };
 use serde::Deserialize;
 

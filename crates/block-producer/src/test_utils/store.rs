@@ -5,13 +5,13 @@ use std::{
 };
 
 use miden_objects::{
+    ACCOUNT_TREE_DEPTH, Digest, EMPTY_WORD, ZERO,
     account::AccountId,
     batch::ProvenBatch,
     block::{BlockHeader, BlockNumber, OutputNoteBatch, ProvenBlock},
     crypto::merkle::{Mmr, SimpleSmt, Smt},
     note::{NoteId, NoteInclusionProof},
     transaction::ProvenTransaction,
-    Digest, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 use tokio::sync::RwLock;
 

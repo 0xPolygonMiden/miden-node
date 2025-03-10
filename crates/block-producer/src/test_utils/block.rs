@@ -1,4 +1,5 @@
 use miden_objects::{
+    ACCOUNT_TREE_DEPTH, Digest,
     batch::ProvenBatch,
     block::{
         BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, OutputNoteBatch,
@@ -7,7 +8,6 @@ use miden_objects::{
     crypto::merkle::{Mmr, SimpleSmt},
     note::Nullifier,
     transaction::OutputNote,
-    Digest, ACCOUNT_TREE_DEPTH,
 };
 
 use super::MockStoreSuccess;

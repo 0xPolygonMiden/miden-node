@@ -26,7 +26,7 @@ pub struct LongVersion {
 
 impl std::fmt::Display for LongVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self {
+        let &Self {
             version,
             mut sha,
             mut branch,
@@ -39,7 +39,7 @@ impl std::fmt::Display for LongVersion {
             debug,
         } = self;
 
-        let dirty = match *dirty {
+        let dirty = match dirty {
             "true" => "-dirty",
             _ => "",
         };

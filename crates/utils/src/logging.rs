@@ -3,12 +3,12 @@ use std::str::FromStr;
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithTonicConfig;
-use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::{propagation::TraceContextPropagator, trace::SpanExporter};
 use tracing::subscriber::Subscriber;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
-    layer::{Filter, SubscriberExt},
     Layer, Registry,
+    layer::{Filter, SubscriberExt},
 };
 
 /// Configures [`setup_tracing`] to enable or disable the open-telemetry exporter.
@@ -39,7 +39,17 @@ pub fn setup_tracing(otel: OpenTelemetry) -> Result<()> {
     // Note: open-telemetry requires a tokio-runtime, so this _must_ be lazily evaluated (aka not
     // `then_some`) to avoid crashing sync callers (with OpenTelemetry::Disabled set). Examples of
     // such callers are tests with logging enabled.
-    let otel_layer = otel.is_enabled().then(open_telemetry_layer);
+    let otel_layer = {
+        if otel.is_enabled() {
+            let exporter = opentelemetry_otlp::SpanExporter::builder()
+                .with_tonic()
+                .with_tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())
+                .build()?;
+            Some(open_telemetry_layer(exporter))
+        } else {
+            None
+        }
+    };
 
     let subscriber = Registry::default()
         .with(stdout_layer().with_filter(env_or_default_filter()))
@@ -47,17 +57,13 @@ pub fn setup_tracing(otel: OpenTelemetry) -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).map_err(Into::into)
 }
 
-fn open_telemetry_layer<S>() -> Box<dyn tracing_subscriber::Layer<S> + Send + Sync + 'static>
+fn open_telemetry_layer<S>(
+    exporter: impl SpanExporter + 'static,
+) -> Box<dyn tracing_subscriber::Layer<S> + Send + Sync + 'static>
 where
     S: Subscriber + Sync + Send,
     for<'a> S: tracing_subscriber::registry::LookupSpan<'a>,
 {
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
-        .with_tonic()
-        .with_tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())
-        .build()
-        .unwrap();
-
     let tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(exporter)
         .build();
@@ -102,8 +108,8 @@ where
 fn env_or_default_filter<S>() -> Box<dyn Filter<S> + Send + Sync + 'static> {
     use tracing::level_filters::LevelFilter;
     use tracing_subscriber::{
-        filter::{FilterExt, Targets},
         EnvFilter,
+        filter::{FilterExt, Targets},
     };
 
     // `tracing` does not allow differentiating between invalid and missing env var so we manually

@@ -14,12 +14,13 @@ use miden_lib::{
 };
 use miden_node_block_producer::{
     store::StoreClient,
-    test_utils::{batch::TransactionBatchConstructor, MockProvenTxBuilder},
+    test_utils::{MockProvenTxBuilder, batch::TransactionBatchConstructor},
 };
 use miden_node_proto::generated::store::api_client::ApiClient;
 use miden_node_store::{config::StoreConfig, server::Store};
 use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
+    Digest, Felt,
     account::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
     asset::{Asset, FungibleAsset, TokenSymbol},
     batch::ProvenBatch,
@@ -27,13 +28,12 @@ use miden_objects::{
     crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
     note::{Note, NoteHeader, NoteInclusionProof},
     transaction::{OutputNote, ProvenTransaction},
-    Digest, Felt,
 };
 use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tokio::{
-    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
     task,
 };
 
@@ -122,12 +122,11 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
     let faucet_id = create_faucet(&genesis_header);
 
     // Create first block with the faucet
-    let txs =
-        vec![
-            MockProvenTxBuilder::with_account(faucet_id, Digest::default(), Digest::default())
-                .output_notes(vec![])
-                .build(),
-        ];
+    let txs = vec![
+        MockProvenTxBuilder::with_account(faucet_id, Digest::default(), Digest::default())
+            .output_notes(vec![])
+            .build(),
+    ];
     let batch = ProvenBatch::mocked_from_transactions(txs.iter());
 
     apply_block(vec![batch], &store_client).await;
@@ -140,7 +139,7 @@ async fn seed_store(dump_file: &Path, num_accounts: usize, genesis_file: &Path) 
         Arc::new(Mutex::new(Vec::with_capacity(num_accounts_per_block))); // THIS MIGHT BE REPLACED WITH A STRUCT OR ALIAS
 
     // Shared random coin seed and key pair for all accounts
-    let coin_seed: [u64; 4] = rand::thread_rng().gen();
+    let coin_seed: [u64; 4] = rand::thread_rng().r#gen();
     let rng = Arc::new(Mutex::new(RpoRandomCoin::new(coin_seed.map(Felt::new))));
     // Re-using the same key for all accounts to avoid Falcon key generation overhead
     let key_pair = {
@@ -290,7 +289,7 @@ fn print_metrics(
 
 /// Create a new faucet account with a given anchor block.
 fn create_faucet(anchor_block: &BlockHeader) -> AccountId {
-    let coin_seed: [u64; 4] = rand::thread_rng().gen();
+    let coin_seed: [u64; 4] = rand::thread_rng().r#gen();
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
     let key_pair = SecretKey::with_rng(&mut rng);
     let init_seed = [0_u8; 32];

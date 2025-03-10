@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, path::Path};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use crate::{commands::genesis::GenesisInput, config::NodeConfig};
 
