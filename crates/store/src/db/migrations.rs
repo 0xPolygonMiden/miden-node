@@ -1,14 +1,14 @@
 use std::sync::LazyLock;
 
-use miden_objects::crypto::hash::blake::{Blake3Digest, Blake3_160};
+use miden_objects::crypto::hash::blake::{Blake3_160, Blake3Digest};
 use rusqlite::Connection;
-use rusqlite_migration::{Migrations, SchemaVersion, M};
+use rusqlite_migration::{M, Migrations, SchemaVersion};
 use tracing::{debug, error, info, instrument};
 
 use crate::{
+    COMPONENT,
     db::{settings::Settings, sql::utils::schema_version},
     errors::DatabaseError,
-    COMPONENT,
 };
 
 type Hash = Blake3Digest<20>;

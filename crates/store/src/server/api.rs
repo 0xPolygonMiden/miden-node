@@ -37,7 +37,7 @@ use miden_objects::{
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{state::State, COMPONENT};
+use crate::{COMPONENT, state::State};
 
 // STORE API
 // ================================================================================================
@@ -487,7 +487,7 @@ impl api_server::Api for StoreApi {
 
         Ok(Response::new(GetAccountProofsResponse {
             block_num: block_num.as_u32(),
-            account_proofs: infos.into_iter().collect(),
+            account_proofs: infos,
         }))
     }
 

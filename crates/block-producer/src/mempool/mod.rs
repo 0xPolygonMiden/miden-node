@@ -4,10 +4,10 @@ use batch_graph::BatchGraph;
 use graph::GraphError;
 use inflight_state::InflightState;
 use miden_objects::{
+    MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
     batch::{BatchId, ProvenBatch},
     block::BlockNumber,
     transaction::TransactionId,
-    MAX_ACCOUNTS_PER_BATCH, MAX_INPUT_NOTES_PER_BATCH, MAX_OUTPUT_NOTES_PER_BATCH,
 };
 use tokio::sync::{Mutex, MutexGuard};
 use tracing::instrument;
@@ -15,8 +15,8 @@ use transaction_expiration::TransactionExpirations;
 use transaction_graph::TransactionGraph;
 
 use crate::{
-    domain::transaction::AuthenticatedTransaction, errors::AddTransactionError, COMPONENT,
-    SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
+    COMPONENT, SERVER_MAX_BATCHES_PER_BLOCK, SERVER_MAX_TXS_PER_BATCH,
+    domain::transaction::AuthenticatedTransaction, errors::AddTransactionError,
 };
 
 mod batch_graph;

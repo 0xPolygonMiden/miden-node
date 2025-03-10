@@ -2,7 +2,7 @@
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE)
 [![test](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-node/actions/workflows/test.yml)
-[![RUST_VERSION](https://img.shields.io/badge/rustc-1.84+-lightgray.svg)](https://www.rust-lang.org/tools/install)
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.85+-lightgray.svg)](https://www.rust-lang.org/tools/install)
 [![crates.io](https://img.shields.io/crates/v/miden-node)](https://crates.io/crates/miden-node)
 
 This repository holds the Miden node; that is, the software which processes transactions and creates blocks for the
@@ -48,7 +48,7 @@ source.
 ### Debian package
 
 Debian packages are available and are the fastest way to install the node on a Debian-based system. Both `amd64` and
-`arm64` packages are available. 
+`arm64` packages are available.
 
 These packages can be found under our [releases](https://github.com/0xPolygonMiden/miden-node/releases) page along with
 a checksum.
@@ -73,7 +73,7 @@ sudo dpkg -i $package_name.deb
 
 ### Install using `cargo`
 
-Install Rust version **1.84** or greater using the official Rust installation
+Install Rust version **1.85** or greater using the official Rust installation
 [instructions](https://www.rust-lang.org/tools/install).
 
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following
@@ -183,6 +183,13 @@ or alternatively start the systemd service if that's how you wish to operate:
 
 ```sh
 systemctl start miden-node.service
+```
+
+The node will use local provers for blocks and batches, but you can configure the node to use remote provers by adding the following to the `miden-node.toml` file in the `[block-producer]` section:
+
+```toml
+batch_prover_url = "<BATCH_PROVER_URL>"
+block_prover_url = "<BLOCK_PROVER_URL>"
 ```
 
 ### Monitoring and telemetry

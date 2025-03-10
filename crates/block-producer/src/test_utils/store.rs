@@ -4,12 +4,12 @@ use std::{
 };
 
 use miden_objects::{
+    ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
     batch::ProvenBatch,
     block::{BlockHeader, BlockNumber, OutputNoteBatch, ProvenBlock},
     crypto::merkle::{Mmr, SimpleSmt, Smt},
     note::{NoteId, NoteInclusionProof},
     transaction::ProvenTransaction,
-    ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 use tokio::sync::RwLock;
 
