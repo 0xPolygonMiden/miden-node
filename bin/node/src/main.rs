@@ -4,21 +4,15 @@
 
 use std::path::PathBuf;
 
-use anyhow::anyhow;
 use clap::{Parser, Subcommand};
-use commands::{
-    block_producer::BlockProducerCommand, init::init_config_files, node::NodeCommand,
-    rpc::RpcCommand, store::StoreCommand,
-};
+use commands::{block_producer::BlockProducerCommand, node::NodeCommand, rpc::RpcCommand};
 use miden_node_utils::{logging::OpenTelemetry, version::LongVersion};
 
 mod commands;
-mod config;
 
 // CONSTANTS
 // ================================================================================================
 
-const NODE_CONFIG_FILE_PATH: &str = "miden-node.toml";
 const DEFAULT_GENESIS_FILE_PATH: &str = "genesis.dat";
 const DEFAULT_GENESIS_INPUTS_PATH: &str = "genesis.toml";
 
@@ -70,24 +64,6 @@ pub enum Command {
         #[arg(short, long)]
         force: bool,
     },
-
-    /// Generates default configuration files for the node
-    ///
-    /// This command creates two files (miden-node.toml and genesis.toml) that provide
-    /// configuration details to the node. These files may be modified to change the node
-    /// behavior.
-    Init {
-        #[arg(short, long, default_value = NODE_CONFIG_FILE_PATH)]
-        config_path: String,
-
-        #[arg(short, long, default_value = DEFAULT_GENESIS_INPUTS_PATH)]
-        genesis_path: String,
-    },
-}
-
-#[derive(Subcommand)]
-pub enum StartCommand {
-    Node,
 }
 
 #[tokio::main]
@@ -103,18 +79,8 @@ async fn main() -> anyhow::Result<()> {
         Command::MakeGenesis { output_path, force, inputs_path } => {
             commands::make_genesis(&inputs_path, &output_path, force)
         },
-        Command::Init { config_path, genesis_path } => {
-            let current_dir = std::env::current_dir()
-                .map_err(|err| anyhow!("failed to open current directory: {err}"))?;
-
-            let config = current_dir.join(config_path);
-            let genesis = current_dir.join(genesis_path);
-
-            init_config_files(&config, &genesis)
-        },
         Command::Rpc(RpcCommand::Start(rpc)) => rpc.run().await,
-        Command::Store(StoreCommand::Init) => todo!(),
-        Command::Store(StoreCommand::Start(store)) => store.run().await,
+        Command::Store(store_command) => store_command.handle().await,
         Command::BlockProducer(BlockProducerCommand::Start(block_producer)) => {
             block_producer.run().await
         },
