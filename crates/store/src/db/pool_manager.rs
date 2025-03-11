@@ -25,7 +25,7 @@ impl SqlitePoolManager {
         Self { database_path }
     }
 
-    pub fn new_connection(&self) -> rusqlite::Result<Connection> {
+    fn new_connection(&self) -> rusqlite::Result<Connection> {
         let conn = Connection::open(&self.database_path)?;
         let inner = conn.inner();
 
