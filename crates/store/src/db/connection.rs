@@ -40,25 +40,3 @@ impl Connection {
         self.inner.transaction().map(Transaction::new)
     }
 }
-
-#[cfg(not(feature = "explain-query-plans"))]
-impl Connection {
-    #[inline]
-    pub fn prepare_cached(&self, sql: &str) -> rusqlite::Result<rusqlite::CachedStatement<'_>> {
-        self.inner.prepare_cached(sql)
-    }
-
-    #[inline]
-    pub fn execute<P: rusqlite::Params>(&self, sql: &str, params: P) -> rusqlite::Result<usize> {
-        self.inner.execute(sql, params)
-    }
-
-    #[inline]
-    pub fn query_row<T, P, F>(&self, sql: &str, params: P, f: F) -> rusqlite::Result<T>
-    where
-        P: rusqlite::Params,
-        F: FnOnce(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
-    {
-        self.inner.query_row(sql, params, f)
-    }
-}

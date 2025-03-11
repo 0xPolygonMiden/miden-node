@@ -11,7 +11,10 @@ use rusqlite::{
     types::{Value, ValueRef},
 };
 
-use crate::{db::connection::Connection, errors::DatabaseError};
+use crate::{
+    db::{connection::Connection, transaction::Transaction},
+    errors::DatabaseError,
+};
 
 /// Returns the high 16 bits of the provided nullifier.
 pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
@@ -19,8 +22,9 @@ pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
 }
 
 /// Checks if a table exists in the database.
-pub fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<bool> {
-    Ok(conn
+pub fn table_exists(transaction: &Transaction, table_name: &str) -> rusqlite::Result<bool> {
+    Ok(transaction
+        .inner()
         .query_row(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $1",
             params![table_name],
@@ -31,8 +35,11 @@ pub fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<boo
 }
 
 /// Returns the schema version of the database.
-pub fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
-    conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
+pub fn schema_version(connection: &mut Connection) -> rusqlite::Result<usize> {
+    connection
+        .transaction()?
+        .inner()
+        .query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
 }
 
 /// Auxiliary macro which substitutes `$src` token by `$dst` expression.

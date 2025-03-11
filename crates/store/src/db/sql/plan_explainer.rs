@@ -2,54 +2,22 @@ use rusqlite::{CachedStatement, Params, Row, Rows, Statement};
 use termtree::Tree;
 use tracing::info;
 
-use crate::db::{connection::Connection, transaction::Transaction};
-
-impl Connection {
-    #[inline]
-    pub fn prepare_cached(&self, sql: &str) -> rusqlite::Result<CachedStatementWithQueryPlan<'_>> {
-        let statement = self.inner().prepare_cached(sql)?;
-
-        Ok(CachedStatementWithQueryPlan {
-            executor: Executor::Connection(self.inner()),
-            sql: sql.into(),
-            statement,
-        })
-    }
-
-    #[inline]
-    pub fn execute<P: Params + Clone>(&self, sql: &str, params: P) -> rusqlite::Result<usize> {
-        self.prepare_cached(sql)?.execute(params)
-    }
-
-    #[inline]
-    pub fn query_row<T, P, F>(&self, sql: &str, params: P, f: F) -> rusqlite::Result<T>
-    where
-        P: Params + Clone,
-        F: FnOnce(&Row<'_>) -> rusqlite::Result<T>,
-    {
-        self.prepare_cached(sql)?.query_row(params, f)
-    }
-}
+use crate::db::transaction::Transaction;
 
 impl Transaction<'_> {
     pub fn prepare_cached(&self, sql: &str) -> rusqlite::Result<CachedStatementWithQueryPlan> {
         let statement = self.inner().prepare_cached(sql)?;
 
         Ok(CachedStatementWithQueryPlan {
-            executor: Executor::Transaction(self.inner()),
+            transaction: self.inner(),
             sql: sql.into(),
             statement,
         })
     }
 }
 
-enum Executor<'conn> {
-    Connection(&'conn rusqlite::Connection),
-    Transaction(&'conn rusqlite::Transaction<'conn>),
-}
-
 pub struct CachedStatementWithQueryPlan<'conn> {
-    executor: Executor<'conn>,
+    transaction: &'conn rusqlite::Transaction<'conn>,
     sql: Box<str>,
     statement: CachedStatement<'conn>,
 }
@@ -101,11 +69,7 @@ impl CachedStatementWithQueryPlan<'_> {
         }
 
         let explain_sql = format!("EXPLAIN QUERY PLAN {}", self.sql);
-        let mut explain_stmt = match self.executor {
-            Executor::Connection(conn) => conn.prepare(&explain_sql)?,
-            Executor::Transaction(transaction) => transaction.prepare(&explain_sql)?,
-        };
-
+        let mut explain_stmt = self.transaction.prepare(&explain_sql)?;
         let mut rows = explain_stmt.query(params)?;
         let expanded_sql = rows.as_ref().and_then(Statement::expanded_sql).unwrap_or_default();
 
