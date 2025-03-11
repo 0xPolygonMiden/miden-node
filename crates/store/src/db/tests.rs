@@ -29,12 +29,6 @@ use crate::db::{
     TransactionSummary, connection::Connection, migrations::apply_migrations, sql::PaginationToken,
 };
 
-#[ctor::ctor]
-fn initialize() {
-    miden_node_utils::logging::setup_tracing(miden_node_utils::logging::OpenTelemetry::Disabled)
-        .expect("Failed to setup logging for tests");
-}
-
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
     apply_migrations(&mut conn).unwrap();
@@ -62,6 +56,7 @@ fn create_block(conn: &mut Connection, block_num: BlockNumber) {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn sql_insert_nullifiers_for_block() {
     let mut conn = create_db();
 
@@ -108,6 +103,7 @@ fn sql_insert_nullifiers_for_block() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn sql_insert_transactions() {
     let mut conn = create_db();
 
@@ -117,6 +113,7 @@ fn sql_insert_transactions() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn sql_select_transactions() {
     fn query_transactions(conn: &mut Connection) -> Vec<TransactionSummary> {
         sql::select_transactions_by_accounts_and_block_range(
@@ -144,6 +141,7 @@ fn sql_select_transactions() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn sql_select_nullifiers() {
     let mut conn = create_db();
 
@@ -170,6 +168,7 @@ fn sql_select_nullifiers() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn sql_select_notes() {
     let mut conn = create_db();
 
@@ -219,6 +218,7 @@ fn sql_select_notes() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn sql_select_notes_different_execution_hints() {
     let mut conn = create_db();
 
@@ -317,6 +317,7 @@ fn sql_select_notes_different_execution_hints() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn sql_unconsumed_network_notes() {
     // Number of notes to generate.
     const N: u64 = 32;
@@ -437,6 +438,7 @@ fn sql_unconsumed_network_notes() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn sql_select_accounts() {
     let mut conn = create_db();
 
@@ -480,6 +482,7 @@ fn sql_select_accounts() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn sql_public_account_details() {
     let mut conn = create_db();
 
@@ -634,6 +637,7 @@ fn sql_public_account_details() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn select_nullifiers_by_prefix() {
     const PREFIX_LEN: u32 = 16;
     let mut conn = create_db();
@@ -766,6 +770,7 @@ fn select_nullifiers_by_prefix() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn db_block_header() {
     let mut conn = create_db();
 
@@ -838,6 +843,7 @@ fn db_block_header() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn db_account() {
     let mut conn = create_db();
 
@@ -910,6 +916,7 @@ fn db_account() {
 }
 
 #[test]
+#[miden_node_test_macro::enable_logging]
 fn notes() {
     let mut conn = create_db();
 
