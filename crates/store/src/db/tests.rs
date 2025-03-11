@@ -119,9 +119,12 @@ fn sql_insert_transactions() {
 #[test]
 fn sql_select_transactions() {
     fn query_transactions(conn: &mut Connection) -> Vec<TransactionSummary> {
-        sql::select_transactions_by_accounts_and_block_range(conn, 0.into(), 2.into(), &[
-            AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap(),
-        ])
+        sql::select_transactions_by_accounts_and_block_range(
+            conn,
+            0.into(),
+            2.into(),
+            &[AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap()],
+        )
         .unwrap()
     }
 
@@ -656,10 +659,13 @@ fn select_nullifiers_by_prefix() {
         block_number0,
     )
     .unwrap();
-    assert_eq!(nullifiers, vec![NullifierInfo {
-        nullifier: nullifier1,
-        block_num: block_number1
-    }]);
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier1,
+            block_num: block_number1
+        }]
+    );
 
     // test two elements
     let nullifier2 = num_to_nullifier(2 << 48);
@@ -681,10 +687,13 @@ fn select_nullifiers_by_prefix() {
         block_number0,
     )
     .unwrap();
-    assert_eq!(nullifiers, vec![NullifierInfo {
-        nullifier: nullifier1,
-        block_num: block_number1
-    }]);
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier1,
+            block_num: block_number1
+        }]
+    );
     let nullifiers = sql::select_nullifiers_by_prefix(
         &mut conn,
         PREFIX_LEN,
@@ -692,10 +701,13 @@ fn select_nullifiers_by_prefix() {
         block_number0,
     )
     .unwrap();
-    assert_eq!(nullifiers, vec![NullifierInfo {
-        nullifier: nullifier2,
-        block_num: block_number2
-    }]);
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier2,
+            block_num: block_number2
+        }]
+    );
 
     // All matching nullifiers are included
     let nullifiers = sql::select_nullifiers_by_prefix(
@@ -708,16 +720,19 @@ fn select_nullifiers_by_prefix() {
         block_number0,
     )
     .unwrap();
-    assert_eq!(nullifiers, vec![
-        NullifierInfo {
-            nullifier: nullifier1,
-            block_num: block_number1
-        },
-        NullifierInfo {
-            nullifier: nullifier2,
-            block_num: block_number2
-        }
-    ]);
+    assert_eq!(
+        nullifiers,
+        vec![
+            NullifierInfo {
+                nullifier: nullifier1,
+                block_num: block_number1
+            },
+            NullifierInfo {
+                nullifier: nullifier2,
+                block_num: block_number2
+            }
+        ]
+    );
 
     // If a non-matching prefix is provided, no nullifiers are returned
     let nullifiers = sql::select_nullifiers_by_prefix(
@@ -741,10 +756,13 @@ fn select_nullifiers_by_prefix() {
         block_number2,
     )
     .unwrap();
-    assert_eq!(nullifiers, vec![NullifierInfo {
-        nullifier: nullifier2,
-        block_num: block_number2
-    }]);
+    assert_eq!(
+        nullifiers,
+        vec![NullifierInfo {
+            nullifier: nullifier2,
+            block_num: block_number2
+        }]
+    );
 }
 
 #[test]
@@ -861,11 +879,14 @@ fn db_account() {
     let res =
         sql::select_accounts_by_block_range(&mut conn, 0.into(), u32::MAX.into(), &account_ids)
             .unwrap();
-    assert_eq!(res, vec![AccountSummary {
-        account_id: account_id.try_into().unwrap(),
-        account_hash,
-        block_num,
-    }]);
+    assert_eq!(
+        res,
+        vec![AccountSummary {
+            account_id: account_id.try_into().unwrap(),
+            account_hash,
+            block_num,
+        }]
+    );
 
     // test query for update outside the block range
     let res = sql::select_accounts_by_block_range(
@@ -878,11 +899,12 @@ fn db_account() {
     assert!(res.is_empty());
 
     // test query with unknown accounts
-    let res = sql::select_accounts_by_block_range(&mut conn, block_num + 1, u32::MAX.into(), &[
-        6.try_into().unwrap(),
-        7.try_into().unwrap(),
-        8.try_into().unwrap(),
-    ])
+    let res = sql::select_accounts_by_block_range(
+        &mut conn,
+        block_num + 1,
+        u32::MAX.into(),
+        &[6.try_into().unwrap(), 7.try_into().unwrap(), 8.try_into().unwrap()],
+    )
     .unwrap();
     assert!(res.is_empty());
 }
