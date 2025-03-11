@@ -8,46 +8,61 @@ use miden_node_utils::grpc::UrlExt;
 use tokio::{net::TcpListener, task::JoinSet};
 use url::Url;
 
-use super::{ENV_BATCH_PROVER_URL, ENV_BLOCK_PROVER_URL, ENV_RPC_URL, ENV_STORE_DIRECTORY};
+use super::{
+    ENV_BATCH_PROVER_URL, ENV_BLOCK_PROVER_URL, ENV_ENABLE_OTEL, ENV_RPC_URL, ENV_STORE_DIRECTORY,
+};
 
 #[derive(clap::Subcommand)]
 pub enum NodeCommand {
     /// Runs all three node components in the same process.
     ///
-    /// The gRPC endpoints for the store and block-producer will each be assigned a random open
-    /// port on localhost (127.0.0.1:0).
-    Start(NodeConfig),
+    /// The internal gRPC endpoints for the store and block-producer will each be assigned a random
+    /// open port on localhost (127.0.0.1:0).
+    Start {
+        /// Url at which to serve the RPC component's gRPC API.
+        #[arg(long = "rpc.url", env = ENV_RPC_URL)]
+        rpc_url: Url,
+
+        /// Directory in which the Store component should store the database and raw block data.
+        #[arg(long = "store.data-directory", env = ENV_STORE_DIRECTORY)]
+        store_data_directory: PathBuf,
+
+        /// The remote batch prover's gRPC url. If unset, will default to running a prover
+        /// in-process which is expensive.
+        #[arg(long = "batch_prover.url", env = ENV_BATCH_PROVER_URL)]
+        batch_prover_url: Option<Url>,
+
+        /// The remote block prover's gRPC url. If unset, will default to running a prover
+        /// in-process which is expensive.
+        #[arg(long = "block_prover.url", env = ENV_BLOCK_PROVER_URL)]
+        block_prover_url: Option<Url>,
+
+        /// Enables the exporting of traces for OpenTelemetry.
+        ///
+        /// This can be further configured using environment variables as defined in the official
+        /// OpenTelemetry documentation. See our operator manual for further details.
+        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL)]
+        open_telemetry: bool,
+    },
 }
 
-#[derive(clap::Args)]
-pub struct NodeConfig {
-    /// Url at which to serve the RPC component's gRPC API.
-    #[arg(long = "rpc.url", env = ENV_RPC_URL)]
-    rpc_url: Url,
+impl NodeCommand {
+    pub async fn handle(self) -> anyhow::Result<()> {
+        let Self::Start {
+            rpc_url,
+            store_data_directory,
+            batch_prover_url,
+            block_prover_url,
+            // Note: open-telemetry is handled in main.
+            open_telemetry: _,
+        } = self;
 
-    /// Directory in which the Store component should store the database and raw block data.
-    #[arg(long = "store.data-directory", env = ENV_STORE_DIRECTORY)]
-    store_data_directory: PathBuf,
-
-    /// The remote batch prover's gRPC url. If unset, will default to running a prover in-process
-    /// which is expensive.
-    #[arg(long = "batch_prover.url", env = ENV_BATCH_PROVER_URL)]
-    batch_prover_url: Option<Url>,
-
-    /// The remote block prover's gRPC url. If unset, will default to running a prover in-process
-    /// which is expensive.
-    #[arg(long = "block_prover.url", env = ENV_BLOCK_PROVER_URL)]
-    block_prover_url: Option<Url>,
-}
-
-impl NodeConfig {
-    pub async fn run(self) -> anyhow::Result<()> {
         // Start listening on all gRPC urls so that inter-component connections can be created
         // before each component is fully started up.
         //
         // This is required because `tonic` does not handle retries nor reconnections and our
         // services expect to be able to connect on startup.
-        let grpc_rpc = self.rpc_url.to_socket().context("Failed to to RPC gRPC socket")?;
+        let grpc_rpc = rpc_url.to_socket().context("Failed to to RPC gRPC socket")?;
         let grpc_rpc = TcpListener::bind(grpc_rpc)
             .await
             .context("Failed to bind to RPC gRPC endpoint")?;
@@ -67,9 +82,7 @@ impl NodeConfig {
         let mut join_set = JoinSet::new();
 
         // Start store. The store endpoint is available after loading completes.
-        let store = Store::init(grpc_store, self.store_data_directory)
-            .await
-            .context("Loading store")?;
+        let store = Store::init(grpc_store, store_data_directory).await.context("Loading store")?;
         let store_id =
             join_set.spawn(async move { store.serve().await.context("Serving store") }).id();
 
@@ -77,8 +90,8 @@ impl NodeConfig {
         let block_producer = BlockProducer::init(
             grpc_block_producer,
             store_address,
-            self.batch_prover_url,
-            self.block_prover_url,
+            batch_prover_url,
+            block_prover_url,
         )
         .await
         .context("Loading block-producer")?;
@@ -116,5 +129,10 @@ impl NodeConfig {
         // node there is no point.
 
         err.context(format!("Component {component} failed"))
+    }
+
+    pub fn is_open_telemetry_enabled(&self) -> bool {
+        let Self::Start { open_telemetry, .. } = self;
+        *open_telemetry
     }
 }

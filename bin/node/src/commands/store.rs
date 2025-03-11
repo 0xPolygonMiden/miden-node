@@ -5,7 +5,7 @@ use miden_node_store::server::Store;
 use miden_node_utils::grpc::UrlExt;
 use url::Url;
 
-use super::{genesis::GenesisInput, ENV_STORE_DIRECTORY, ENV_STORE_URL};
+use super::{genesis::GenesisInput, ENV_ENABLE_OTEL, ENV_STORE_DIRECTORY, ENV_STORE_URL};
 
 #[derive(clap::Subcommand)]
 pub enum StoreCommand {
@@ -23,11 +23,15 @@ pub enum StoreCommand {
         /// Directory in which to store the database and raw block data.
         #[arg(env = ENV_STORE_DIRECTORY)]
         data_directory: PathBuf,
+
+        /// Enables the exporting of traces for OpenTelemetry.
+        ///
+        /// This can be further configured using environment variables as defined in the official
+        /// OpenTelemetry documentation. See our operator manual for further details.
+        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL)]
+        open_telemetry: bool,
     },
 }
-
-#[derive(clap::Args)]
-pub struct StoreConfig {}
 
 impl StoreCommand {
     /// Executes the subcommand as described by each variants documentation.
@@ -40,7 +44,8 @@ impl StoreCommand {
                 println!("{to_dump}");
             }),
             StoreCommand::Init => todo!(),
-            StoreCommand::Start { url, data_directory } => {
+            // Note: open-telemetry is handled in main.
+            StoreCommand::Start { url, data_directory, open_telemetry: _ } => {
                 let listener =
                     url.to_socket().context("Failed to extract socket address from store URL")?;
                 let listener = tokio::net::TcpListener::bind(listener)
@@ -54,6 +59,14 @@ impl StoreCommand {
                     .await
                     .context("Serving store")
             },
+        }
+    }
+
+    pub fn is_open_telemetry_enabled(&self) -> bool {
+        if let Self::Start { open_telemetry, .. } = self {
+            *open_telemetry
+        } else {
+            false
         }
     }
 }

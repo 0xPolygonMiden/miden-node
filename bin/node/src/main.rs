@@ -5,7 +5,6 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use commands::{block_producer::BlockProducerCommand, node::NodeCommand, rpc::RpcCommand};
 use miden_node_utils::{logging::OpenTelemetry, version::LongVersion};
 
 mod commands;
@@ -66,25 +65,38 @@ pub enum Command {
     },
 }
 
+impl Command {
+    /// Whether OpenTelemetry tracing exporter should be enabled.
+    ///
+    /// This is enabled for some subcommands if the `--open-telemetry` flag is specified.
+    fn open_telemetry(&self) -> OpenTelemetry {
+        match self {
+            Command::Store(subcommand) => subcommand.is_open_telemetry_enabled(),
+            Command::Rpc(subcommand) => subcommand.is_open_telemetry_enabled(),
+            Command::BlockProducer(subcommand) => subcommand.is_open_telemetry_enabled(),
+            Command::Node(subcommand) => subcommand.is_open_telemetry_enabled(),
+            Command::MakeGenesis { .. } => false,
+        }
+        .then_some(OpenTelemetry::Enabled)
+        .unwrap_or(OpenTelemetry::Disabled)
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    // Open telemetry exporting is only valid for running the node.
-    // FIXME: re-enable this for everything.
-    let open_telemetry = OpenTelemetry::Disabled;
-    miden_node_utils::logging::setup_tracing(open_telemetry)?;
+    // Configure tracing with optional OpenTelemetry exporting support.
+    miden_node_utils::logging::setup_tracing(cli.command.open_telemetry())?;
 
     match cli.command {
         Command::MakeGenesis { output_path, force, inputs_path } => {
             commands::make_genesis(&inputs_path, &output_path, force)
         },
-        Command::Rpc(RpcCommand::Start(rpc)) => rpc.run().await,
+        Command::Rpc(rpc_command) => rpc_command.handle().await,
         Command::Store(store_command) => store_command.handle().await,
-        Command::BlockProducer(BlockProducerCommand::Start(block_producer)) => {
-            block_producer.run().await
-        },
-        Command::Node(NodeCommand::Start(node)) => node.run().await,
+        Command::BlockProducer(block_producer_command) => block_producer_command.handle().await,
+        Command::Node(node) => node.handle().await,
     }
 }
 

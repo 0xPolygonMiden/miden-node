@@ -7,8 +7,8 @@ use opentelemetry_sdk::{propagation::TraceContextPropagator, trace::SpanExporter
 use tracing::subscriber::Subscriber;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
-    Layer, Registry,
     layer::{Filter, SubscriberExt},
+    Layer, Registry,
 };
 
 /// Configures [`setup_tracing`] to enable or disable the open-telemetry exporter.
@@ -108,8 +108,8 @@ where
 fn env_or_default_filter<S>() -> Box<dyn Filter<S> + Send + Sync + 'static> {
     use tracing::level_filters::LevelFilter;
     use tracing_subscriber::{
-        EnvFilter,
         filter::{FilterExt, Targets},
+        EnvFilter,
     };
 
     // `tracing` does not allow differentiating between invalid and missing env var so we manually
