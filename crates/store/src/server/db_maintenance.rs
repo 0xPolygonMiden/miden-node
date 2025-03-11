@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
+use tracing::{Instrument, Span};
 
 use crate::state::State;
 
@@ -23,11 +24,11 @@ impl DbMaintenance {
                 "optimize_database",
                 interval = self.optimization_interval.as_secs_f32()
             );
-
-            {
-                let _enter = root_span.enter();
-                self.state.optimize_db().await.unwrap_or_else(|err| root_span.set_error(&err));
-            }
+            self.state
+                .optimize_db()
+                .instrument(root_span)
+                .await
+                .unwrap_or_else(|err| Span::current().set_error(&err));
         }
     }
 }
