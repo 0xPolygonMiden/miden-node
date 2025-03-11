@@ -1,8 +1,8 @@
 use std::{sync::Arc, time::Duration};
 
-use tracing::{error, info};
+use miden_node_utils::tracing::OpenTelemetrySpanExt;
 
-use crate::{state::State, COMPONENT};
+use crate::state::State;
 
 pub struct DbMaintenance {
     state: Arc<State>,
@@ -19,11 +19,14 @@ impl DbMaintenance {
         loop {
             tokio::time::sleep(self.optimization_interval).await;
 
-            info!(target: COMPONENT, "Starting database optimization");
+            let root_span = tracing::info_span!(
+                "optimize_database",
+                interval = self.optimization_interval.as_secs_f32()
+            );
 
-            match self.state.optimize_db().await {
-                Ok(_) => info!(target: COMPONENT, "Finished database optimization"),
-                Err(err) => error!(target: COMPONENT, %err, "Database optimization failed"),
+            {
+                let _enter = root_span.enter();
+                self.state.optimize_db().await.unwrap_or_else(|err| root_span.set_error(&err));
             }
         }
     }
