@@ -7,7 +7,7 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
-use crate::{COMPONENT, blocks::BlockStore, db::Db, state::State};
+use crate::{blocks::BlockStore, db::Db, state::State, COMPONENT, GENESIS_STATE_FILENAME};
 
 mod api;
 
@@ -31,7 +31,7 @@ impl Store {
         let block_store = Arc::new(BlockStore::new(block_store).await?);
 
         let database_filepath = data_directory.join("miden-store.sqlite3");
-        let genesis_filepath = data_directory.join("genesis.dat");
+        let genesis_filepath = data_directory.join(GENESIS_STATE_FILENAME);
 
         let db = Db::setup(
             database_filepath,

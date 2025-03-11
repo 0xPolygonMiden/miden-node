@@ -1,5 +1,4 @@
 mod genesis;
-pub use genesis::make_genesis;
 
 pub mod block_producer;
 pub mod node;
