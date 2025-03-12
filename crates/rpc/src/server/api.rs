@@ -22,14 +22,14 @@ use miden_node_proto::{
 };
 use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
-    Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL, account::AccountId,
-    crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction, utils::serde::Deserializable,
+    account::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
+    utils::serde::Deserializable, Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
-    Request, Response, Status,
     service::interceptor::InterceptedService,
     transport::{Channel, Error},
+    Request, Response, Status,
 };
 use tracing::{debug, info, instrument};
 
@@ -52,15 +52,13 @@ impl RpcService {
         store_address: SocketAddr,
         block_producer_address: SocketAddr,
     ) -> Result<Self, Error> {
-        let channel = tonic::transport::Endpoint::try_from(store_address.to_string())?
-            .connect()
-            .await?;
+        let store_url = format!("http://{store_address}");
+        let channel = tonic::transport::Endpoint::try_from(store_url)?.connect().await?;
         let store = store_client::ApiClient::with_interceptor(channel, OtelInterceptor);
         info!(target: COMPONENT, store_endpoint = %store_address, "Store client initialized");
 
-        let channel = tonic::transport::Endpoint::try_from(block_producer_address.to_string())?
-            .connect()
-            .await?;
+        let block_producer_url = format!("http://{block_producer_address}");
+        let channel = tonic::transport::Endpoint::try_from(block_producer_url)?.connect().await?;
         let block_producer =
             block_producer_client::ApiClient::with_interceptor(channel, OtelInterceptor);
 
