@@ -21,13 +21,25 @@ pub struct StoreConfig {
     pub genesis_filepath: PathBuf,
     /// Block store directory
     pub blockstore_dir: PathBuf,
+    /// Database optimization interval in seconds
+    pub db_optimization_interval_secs: u64,
 }
 
 impl Display for StoreConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{{ endpoint: \"{}\",  database_filepath: {:?}, genesis_filepath: {:?}, blockstore_dir: {:?} }}",
-            self.endpoint, self.database_filepath, self.genesis_filepath, self.blockstore_dir
+            "{{ \
+                endpoint: \"{}\", \
+                database_filepath: {:?}, \
+                genesis_filepath: {:?}, \
+                blockstore_dir: {:?}, \
+                db_optimization_interval_secs: {} \
+            }}",
+            self.endpoint,
+            self.database_filepath,
+            self.genesis_filepath,
+            self.blockstore_dir,
+            self.db_optimization_interval_secs
         ))
     }
 }
@@ -41,6 +53,7 @@ impl Default for StoreConfig {
             database_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "miden-store.sqlite3"),
             genesis_filepath: PathBuf::from(NODE_STORE_DIR.to_string() + "genesis.dat"),
             blockstore_dir: PathBuf::from(NODE_STORE_DIR.to_string() + "blocks"),
+            db_optimization_interval_secs: 24 * 60 * 60, // 24 hours
         }
     }
 }

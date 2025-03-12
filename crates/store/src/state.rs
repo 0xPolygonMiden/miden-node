@@ -980,6 +980,11 @@ impl State {
     pub async fn latest_block_num(&self) -> BlockNumber {
         self.inner.read().await.latest_block_num()
     }
+
+    /// Runs database optimization.
+    pub async fn optimize_db(&self) -> Result<(), DatabaseError> {
+        self.db.optimize().await
+    }
 }
 
 // UTILITIES

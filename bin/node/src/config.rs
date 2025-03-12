@@ -117,6 +117,7 @@ mod tests {
                     database_filepath = "local.sqlite3"
                     genesis_filepath = "genesis.dat"
                     blockstore_dir = "blocks"
+                    db_optimization_interval_secs = 86400
                 "#,
             )?;
 
@@ -138,7 +139,8 @@ mod tests {
                         endpoint: Url::parse("https://127.0.0.1:8080").unwrap(),
                         database_filepath: "local.sqlite3".into(),
                         genesis_filepath: "genesis.dat".into(),
-                        blockstore_dir: "blocks".into()
+                        blockstore_dir: "blocks".into(),
+                        db_optimization_interval_secs: 24 * 60 * 60,
                     },
                 }
             );

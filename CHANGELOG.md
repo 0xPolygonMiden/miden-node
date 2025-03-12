@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Enhancements
+
+- Implemented database optimization routine (#721).
+
 ### Fixes
 
 - Faucet webpage is missing `background.png` and `favicon.ico` (#672).
