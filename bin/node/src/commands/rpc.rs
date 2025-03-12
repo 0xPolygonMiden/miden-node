@@ -10,22 +10,22 @@ pub enum RpcCommand {
     /// Starts the RPC component.
     Start {
         /// Url at which to serve the gRPC API.
-        #[arg(long = "rpc.url", env = ENV_RPC_URL)]
+        #[arg(long = "rpc.url", env = ENV_RPC_URL, value_name = "URL")]
         url: Url,
 
         /// The store's gRPC url.
-        #[arg(long = "store.url", env = ENV_STORE_URL)]
+        #[arg(long = "store.url", env = ENV_STORE_URL, value_name = "URL")]
         store_url: Url,
 
         /// The block-producer's gRPC url.
-        #[arg(long = "block-producer.url", env = ENV_BLOCK_PRODUCER_URL)]
+        #[arg(long = "block-producer.url", env = ENV_BLOCK_PRODUCER_URL, value_name = "URL")]
         block_producer_url: Url,
 
         /// Enables the exporting of traces for OpenTelemetry.
         ///
         /// This can be further configured using environment variables as defined in the official
         /// OpenTelemetry documentation. See our operator manual for further details.
-        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL)]
+        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL, value_name = "bool")]
         open_telemetry: bool,
     },
 }

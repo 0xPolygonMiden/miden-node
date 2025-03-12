@@ -52,6 +52,15 @@ impl Command {
         .then_some(OpenTelemetry::Enabled)
         .unwrap_or(OpenTelemetry::Disabled)
     }
+
+    async fn execute(self) -> anyhow::Result<()> {
+        match self {
+            Command::Rpc(rpc_command) => rpc_command.handle().await,
+            Command::Store(store_command) => store_command.handle().await,
+            Command::BlockProducer(block_producer_command) => block_producer_command.handle().await,
+            Command::Node(node) => node.handle().await,
+        }
+    }
 }
 
 // MAIN
@@ -64,12 +73,7 @@ async fn main() -> anyhow::Result<()> {
     // Configure tracing with optional OpenTelemetry exporting support.
     miden_node_utils::logging::setup_tracing(cli.command.open_telemetry())?;
 
-    match cli.command {
-        Command::Rpc(rpc_command) => rpc_command.handle().await,
-        Command::Store(store_command) => store_command.handle().await,
-        Command::BlockProducer(block_producer_command) => block_producer_command.handle().await,
-        Command::Node(node) => node.handle().await,
-    }
+    cli.command.execute().await
 }
 
 // HELPERS & UTILITIES

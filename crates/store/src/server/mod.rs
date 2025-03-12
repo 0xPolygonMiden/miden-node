@@ -7,7 +7,7 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
-use crate::{blocks::BlockStore, db::Db, state::State, COMPONENT, GENESIS_STATE_FILENAME};
+use crate::{COMPONENT, GENESIS_STATE_FILENAME, blocks::BlockStore, db::Db, state::State};
 
 mod api;
 

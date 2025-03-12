@@ -1,5 +1,3 @@
-mod genesis;
-
 pub mod block_producer;
 pub mod node;
 pub mod rpc;

@@ -42,29 +42,31 @@ pub enum StoreCommand {
         /// Genesis configuration file.
         ///
         /// If not provided the default configuration is used.
+        #[arg(long, value_name = "FILE")]
         config: Option<PathBuf>,
         /// Directory in which to store the database and raw block data.
-        #[arg(env = ENV_STORE_DIRECTORY)]
+        #[arg(long, env = ENV_STORE_DIRECTORY, value_name = "DIR")]
         data_directory: PathBuf,
         // Directory to write the account data to.
+        #[arg(long, value_name = "DIR")]
         accounts_directory: PathBuf,
     },
 
     /// Starts the store component.
     Start {
         /// Url at which to serve the gRPC API.
-        #[arg(env = ENV_STORE_URL)]
+        #[arg(long, env = ENV_STORE_URL, value_name = "URL")]
         url: Url,
 
         /// Directory in which to store the database and raw block data.
-        #[arg(env = ENV_STORE_DIRECTORY)]
+        #[arg(long, env = ENV_STORE_DIRECTORY, value_name = "DIR")]
         data_directory: PathBuf,
 
         /// Enables the exporting of traces for OpenTelemetry.
         ///
         /// This can be further configured using environment variables as defined in the official
         /// OpenTelemetry documentation. See our operator manual for further details.
-        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL)]
+        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL, value_name = "bool")]
         open_telemetry: bool,
     },
 }

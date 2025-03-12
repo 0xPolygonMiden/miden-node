@@ -20,28 +20,28 @@ pub enum NodeCommand {
     /// open port on localhost (127.0.0.1:0).
     Start {
         /// Url at which to serve the RPC component's gRPC API.
-        #[arg(long = "rpc.url", env = ENV_RPC_URL)]
+        #[arg(long = "rpc.url", env = ENV_RPC_URL, value_name = "URL")]
         rpc_url: Url,
 
         /// Directory in which the Store component should store the database and raw block data.
-        #[arg(long = "store.data-directory", env = ENV_STORE_DIRECTORY)]
+        #[arg(long = "store.data-directory", env = ENV_STORE_DIRECTORY, value_name = "DIR")]
         store_data_directory: PathBuf,
 
         /// The remote batch prover's gRPC url. If unset, will default to running a prover
         /// in-process which is expensive.
-        #[arg(long = "batch_prover.url", env = ENV_BATCH_PROVER_URL)]
+        #[arg(long = "batch_prover.url", env = ENV_BATCH_PROVER_URL, value_name = "URL")]
         batch_prover_url: Option<Url>,
 
         /// The remote block prover's gRPC url. If unset, will default to running a prover
         /// in-process which is expensive.
-        #[arg(long = "block_prover.url", env = ENV_BLOCK_PROVER_URL)]
+        #[arg(long = "block_prover.url", env = ENV_BLOCK_PROVER_URL, value_name = "URL")]
         block_prover_url: Option<Url>,
 
         /// Enables the exporting of traces for OpenTelemetry.
         ///
         /// This can be further configured using environment variables as defined in the official
         /// OpenTelemetry documentation. See our operator manual for further details.
-        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL)]
+        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL, value_name = "bool")]
         open_telemetry: bool,
     },
 }
