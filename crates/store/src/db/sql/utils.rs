@@ -46,7 +46,7 @@ macro_rules! subst {
 ///
 /// # Usage:
 ///
-/// ```
+/// ```ignore
 /// insert_sql!(users { id, first_name, last_name, age });
 /// ```
 /// which generates:
