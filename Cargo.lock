@@ -2325,7 +2325,6 @@ dependencies = [
  "miden-objects",
  "miden-processor",
  "rand",
- "rayon",
  "tokio",
  "tonic",
 ]

@@ -26,8 +26,8 @@ miden-air = { workspace = true, optional = true }
 miden-block-prover = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
-miden-node-utils = { workspace = true }
 miden-node-test-macro = { path = "../test-macro", optional = true }
+miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
 miden-processor = { workspace = true }
 miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", features = [
@@ -45,8 +45,8 @@ tokio-stream = { workspace = true, features = ["net"] }
 tonic = { workspace = true, features = ["transport"] }
 tower-http = { workspace = true, features = ["util"] }
 tracing = { workspace = true }
-winterfell = { version = "0.11", optional = true}
 url = { workspace = true }
+winterfell = { version = "0.11", optional = true }
 
 [dev-dependencies]
 assert_matches        = { workspace = true }
