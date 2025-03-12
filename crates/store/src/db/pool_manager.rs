@@ -20,6 +20,7 @@ pub struct SqlitePoolManager {
     database_path: PathBuf,
 }
 
+/// SQLite connection pool manager for optional query plan rendering.
 impl SqlitePoolManager {
     pub fn new(database_path: PathBuf) -> Self {
         Self { database_path }
@@ -27,19 +28,18 @@ impl SqlitePoolManager {
 
     fn new_connection(&self) -> rusqlite::Result<Connection> {
         let conn = Connection::open(&self.database_path)?;
-        let inner = conn.inner();
 
         // Increase the statement cache size.
-        inner.set_prepared_statement_cache_capacity(SQL_STATEMENT_CACHE_CAPACITY);
+        conn.set_prepared_statement_cache_capacity(SQL_STATEMENT_CACHE_CAPACITY);
 
         // Enable the WAL mode. This allows concurrent reads while the
         // transaction is being written, this is required for proper
         // synchronization of the servers in-memory and on-disk representations
         // (see [State::apply_block])
-        inner.execute("PRAGMA journal_mode = WAL;", ())?;
+        conn.execute("PRAGMA journal_mode = WAL;", ())?;
 
         // Enable foreign key checks.
-        inner.execute("PRAGMA foreign_keys = ON;", ())?;
+        conn.execute("PRAGMA foreign_keys = ON;", ())?;
 
         Ok(conn)
     }

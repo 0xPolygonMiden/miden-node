@@ -1,11 +1,29 @@
-use std::path::Path;
+use std::{
+    ops::{Deref, DerefMut},
+    path::Path,
+};
 
 use rusqlite::vtab::array;
 
 use crate::db::transaction::Transaction;
 
+/// SQLite connection wrapper for optional query plan rendering.
 pub struct Connection {
     inner: rusqlite::Connection,
+}
+
+impl Deref for Connection {
+    type Target = rusqlite::Connection;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for Connection {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
 
 impl Connection {
@@ -25,14 +43,6 @@ impl Connection {
         array::load_module(&inner)?;
 
         Ok(Self { inner })
-    }
-
-    pub(crate) fn inner(&self) -> &rusqlite::Connection {
-        &self.inner
-    }
-
-    pub(crate) fn inner_mut(&mut self) -> &mut rusqlite::Connection {
-        &mut self.inner
     }
 
     #[inline]

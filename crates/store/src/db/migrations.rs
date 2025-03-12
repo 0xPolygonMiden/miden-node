@@ -25,7 +25,7 @@ const DB_SCHEMA_VERSION_FIELD: &str = "db-schema-version";
 
 #[instrument(target = COMPONENT, skip_all, err)]
 pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
-    let version_before = MIGRATIONS.current_version(conn.inner())?;
+    let version_before = MIGRATIONS.current_version(conn)?;
 
     info!(target: COMPONENT, %version_before, "Running database migrations");
 
@@ -64,9 +64,9 @@ pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
         }
     }
 
-    MIGRATIONS.to_latest(conn.inner_mut()).map_err(DatabaseError::MigrationError)?;
+    MIGRATIONS.to_latest(conn).map_err(DatabaseError::MigrationError)?;
 
-    let version_after = MIGRATIONS.current_version(conn.inner())?;
+    let version_after = MIGRATIONS.current_version(conn)?;
 
     if version_before != version_after {
         let new_hash = hex::encode(&*MIGRATION_HASHES[MIGRATION_HASHES.len() - 1]);

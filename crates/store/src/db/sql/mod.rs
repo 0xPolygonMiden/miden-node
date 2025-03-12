@@ -3,9 +3,6 @@
 #[macro_use]
 pub(crate) mod utils;
 
-#[cfg(feature = "explain-query-plans")]
-mod plan_explainer;
-
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet, btree_map::Entry},

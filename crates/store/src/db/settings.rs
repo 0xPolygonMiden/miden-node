@@ -11,7 +11,6 @@ impl Settings {
 
     pub fn get_value<T: FromSql>(conn: &mut Connection, name: &str) -> Result<Option<T>> {
         conn.transaction()?
-            .inner()
             .query_row("SELECT value FROM settings WHERE name = $1", params![name], |row| {
                 row.get(0)
             })
@@ -19,7 +18,7 @@ impl Settings {
     }
 
     pub fn set_value<T: ToSql>(conn: &mut Connection, name: &str, value: &T) -> Result<()> {
-        let count = conn.transaction()?.inner().execute(
+        let count = conn.transaction()?.execute(
             "INSERT OR REPLACE INTO settings (name, value) VALUES (?, ?)",
             params![name, value],
         )?;
