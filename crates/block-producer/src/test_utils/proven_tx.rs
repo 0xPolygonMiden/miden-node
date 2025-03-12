@@ -6,9 +6,7 @@ use miden_objects::{
     Digest, Felt, Hasher, ONE,
     account::AccountId,
     block::BlockNumber,
-    note::{
-        Note, NoteExecutionHint, NoteHeader, NoteInclusionProof, NoteMetadata, NoteType, Nullifier,
-    },
+    note::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
     transaction::{InputNote, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
 };
@@ -73,18 +71,6 @@ impl MockProvenTxBuilder {
     #[must_use]
     pub fn unauthenticated_notes(mut self, notes: Vec<Note>) -> Self {
         self.input_notes = Some(notes.into_iter().map(InputNote::unauthenticated).collect());
-
-        self
-    }
-
-    #[must_use]
-    pub fn authenticated_notes(mut self, notes: Vec<(Note, NoteInclusionProof)>) -> Self {
-        self.input_notes = Some(
-            notes
-                .into_iter()
-                .map(|(note, proof)| InputNote::authenticated(note, proof))
-                .collect(),
-        );
 
         self
     }

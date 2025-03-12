@@ -15,7 +15,6 @@ version.workspace      = true
 workspace = true
 
 [features]
-testing        = ["dep:miden-air", "dep:miden-node-test-macro", "dep:rand_chacha", "dep:winterfell"]
 tracing-forest = ["miden-node-utils/tracing-forest"]
 
 [dependencies]
@@ -26,7 +25,6 @@ miden-air = { workspace = true, optional = true }
 miden-block-prover = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 miden-lib = { workspace = true }
 miden-node-proto = { workspace = true }
-miden-node-test-macro = { path = "../test-macro", optional = true }
 miden-node-utils = { workspace = true }
 miden-objects = { workspace = true }
 miden-processor = { workspace = true }
@@ -37,7 +35,6 @@ miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-
 miden-tx = { workspace = true }
 miden-tx-batch-prover = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 rand = { version = "0.8" }
-rand_chacha = { version = "0.3", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
@@ -46,13 +43,15 @@ tonic = { workspace = true, features = ["transport"] }
 tower-http = { workspace = true, features = ["util"] }
 tracing = { workspace = true }
 url = { workspace = true }
-winterfell = { version = "0.11", optional = true }
 
 [dev-dependencies]
 assert_matches        = { workspace = true }
+miden-air             = { workspace = true }
 miden-lib             = { workspace = true, features = ["testing"] }
 miden-node-test-macro = { path = "../test-macro" }
 miden-objects         = { workspace = true, features = ["testing"] }
 miden-tx              = { workspace = true, features = ["testing"] }
 pretty_assertions     = "1.4"
+rand_chacha           = { version = "0.3", default-features = false }
 tokio                 = { workspace = true, features = ["test-util"] }
+winterfell            = { version = "0.11" }

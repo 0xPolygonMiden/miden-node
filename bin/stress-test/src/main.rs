@@ -9,16 +9,14 @@ mod metrics;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use metrics::Metrics;
+use miden_air::HashFunction;
 use miden_block_prover::LocalBlockProver;
 use miden_lib::{
     account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
     note::create_p2id_note,
     utils::Serializable,
 };
-use miden_node_block_producer::{
-    store::StoreClient,
-    test_utils::{MockProvenTxBuilder, batch::TransactionBatchConstructor},
-};
+use miden_node_block_producer::store::StoreClient;
 use miden_node_proto::generated::store::api_client::ApiClient;
 use miden_node_store::{config::StoreConfig, genesis::GenesisState, server::Store};
 use miden_node_utils::tracing::grpc::OtelInterceptor;
@@ -28,15 +26,17 @@ use miden_objects::{
         Account, AccountBuilder, AccountId, AccountIdAnchor, AccountStorageMode, AccountType,
     },
     asset::{Asset, FungibleAsset, TokenSymbol},
-    batch::ProvenBatch,
-    block::{BlockHeader, ProposedBlock},
+    batch::{BatchAccountUpdate, BatchId, ProvenBatch},
+    block::{BlockHeader, BlockNumber, ProposedBlock},
     crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
     note::{Note, NoteHeader, NoteInclusionProof},
-    transaction::{OutputNote, ProvenTransaction},
+    transaction::{InputNote, InputNotes, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
+    vm::ExecutionProof,
 };
 use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
 use tokio::{fs, task};
+use winterfell::Proof;
 
 #[derive(Parser)]
 #[command(version)]
@@ -165,18 +165,13 @@ async fn generate_blocks(
         } else {
             [i as u64; 4].try_into().unwrap()
         };
-        let mint_assets_tx = MockProvenTxBuilder::with_account(
+        let mint_assets_tx = create_tx(
             faucet.id(),
             initial_account_hash,
             [(i + 1) as u64; 4].try_into().unwrap(),
-        )
-        .output_notes(
-            accounts_and_notes
-                .iter()
-                .map(|(_, note, _)| OutputNote::Full(note.clone()))
-                .collect(),
-        )
-        .build();
+            accounts_and_notes.iter().map(|(_, note, _)| note.clone()).collect(),
+            vec![],
+        );
 
         // Collect all the txs
         block_txs.push(mint_assets_tx);
@@ -187,10 +182,8 @@ async fn generate_blocks(
         );
 
         // Create the batches with [TRANSACTIONS_PER_BATCH] txs each
-        let batches: Vec<ProvenBatch> = block_txs
-            .chunks(TRANSACTIONS_PER_BATCH)
-            .map(|txs| ProvenBatch::mocked_from_transactions(txs.iter()))
-            .collect();
+        let batches: Vec<ProvenBatch> =
+            block_txs.chunks(TRANSACTIONS_PER_BATCH).map(create_batch).collect();
 
         consume_notes_txs = accounts_and_notes;
 
@@ -265,11 +258,13 @@ fn create_accounts_and_notes(
         let path = MerklePath::new(vec![]);
         let inclusion_proof = NoteInclusionProof::new(0.into(), 0, path).unwrap();
 
-        let consume_tx =
-            MockProvenTxBuilder::with_account(account, Digest::default(), Digest::default())
-                .authenticated_notes(vec![(note.clone(), inclusion_proof)])
-                .build();
-
+        let consume_tx = create_tx(
+            account,
+            Digest::default(),
+            Digest::default(),
+            vec![],
+            vec![(note.clone(), inclusion_proof)],
+        );
         accounts_and_notes.push((account, note, consume_tx));
     }
     accounts_and_notes
@@ -332,4 +327,49 @@ fn create_faucet() -> Account {
         .build()
         .unwrap();
     new_faucet
+}
+
+fn create_batch(txs: &[ProvenTransaction]) -> ProvenBatch {
+    let account_updates = txs
+        .iter()
+        .map(|tx| (tx.account_id(), BatchAccountUpdate::from_transaction(tx)))
+        .collect();
+    let output_notes = txs.iter().flat_map(|tx| tx.output_notes().iter().cloned()).collect();
+    let input_notes = txs.iter().flat_map(|tx| tx.input_notes().iter().cloned()).collect();
+    ProvenBatch::new_unchecked(
+        BatchId::from_transactions(txs.iter()),
+        Digest::default(),
+        BlockNumber::GENESIS,
+        account_updates,
+        InputNotes::new_unchecked(input_notes),
+        output_notes,
+        BlockNumber::from(u32::MAX),
+    )
+}
+
+fn create_tx(
+    account_id: AccountId,
+    initial_account_hash: Digest,
+    final_account_hash: Digest,
+    output_notes: Vec<Note>,
+    input_notes: Vec<(Note, NoteInclusionProof)>,
+) -> ProvenTransaction {
+    ProvenTransactionBuilder::new(
+        account_id,
+        initial_account_hash,
+        final_account_hash,
+        BlockNumber::from(0),
+        Digest::default(),
+        u32::MAX.into(),
+        ExecutionProof::new(Proof::new_dummy(), HashFunction::Blake3_192),
+    )
+    .add_input_notes(
+        input_notes
+            .into_iter()
+            .map(|(note, proof)| InputNote::authenticated(note, proof))
+            .collect::<Vec<InputNote>>(),
+    )
+    .add_output_notes(output_notes.into_iter().map(OutputNote::Full).collect::<Vec<OutputNote>>())
+    .build()
+    .unwrap()
 }

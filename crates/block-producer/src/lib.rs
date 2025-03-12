@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 pub mod test_utils;
 
 mod batch_builder;
