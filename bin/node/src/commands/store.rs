@@ -1,19 +1,19 @@
 use std::{
     fs::File,
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::Context;
-use miden_lib::{account::faucets::create_basic_fungible_faucet, utils::Serializable, AuthScheme};
+use miden_lib::{AuthScheme, account::faucets::create_basic_fungible_faucet, utils::Serializable};
 use miden_node_store::{genesis::GenesisState, server::Store};
 use miden_node_utils::{crypto::get_rpo_random_coin, grpc::UrlExt};
 use miden_objects::{
+    Felt, ONE,
     account::{AccountFile, AccountIdAnchor, AuthSecretKey},
     asset::TokenSymbol,
     crypto::dsa::rpo_falcon512::SecretKey,
-    Felt, ONE,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::{ChaCha20Rng, ChaChaRng};
@@ -80,7 +80,7 @@ impl StoreCommand {
                 config,
                 data_directory,
                 accounts_directory,
-            } => Self::bootstrap(config, data_directory, accounts_directory),
+            } => Self::bootstrap(config, &data_directory, &accounts_directory),
             // Note: open-telemetry is handled in main.
             StoreCommand::Start { url, data_directory, open_telemetry: _ } => {
                 Self::start(url, data_directory).await
@@ -121,8 +121,8 @@ impl StoreCommand {
 
     fn bootstrap(
         genesis_input: Option<PathBuf>,
-        data_directory: PathBuf,
-        accounts_directory: PathBuf,
+        data_directory: &Path,
+        accounts_directory: &Path,
     ) -> anyhow::Result<()> {
         // Parse the genesis configuration input.
         let input = if let Some(genesis_input) = genesis_input {
@@ -174,13 +174,10 @@ impl StoreCommand {
             })
     }
 
-    fn generate_account(
-        input: AccountInput,
-        mut rng: &mut ChaChaRng,
-    ) -> anyhow::Result<AccountFile> {
+    fn generate_account(input: AccountInput, rng: &mut ChaChaRng) -> anyhow::Result<AccountFile> {
         let AccountInput::BasicFungibleFaucet(input) = input;
 
-        let (auth_scheme, auth_secret_key) = input.auth_scheme.gen_auth_keys(&mut rng);
+        let (auth_scheme, auth_secret_key) = input.auth_scheme.gen_auth_keys(rng);
 
         let storage_mode = input.storage_mode.as_str().try_into()?;
         let (mut account, account_seed) = create_basic_fungible_faucet(
@@ -230,7 +227,7 @@ pub enum AuthSchemeInput {
 }
 
 impl AuthSchemeInput {
-    pub fn gen_auth_keys(&self, rng: &mut ChaCha20Rng) -> (AuthScheme, AuthSecretKey) {
+    pub fn gen_auth_keys(self, rng: &mut ChaCha20Rng) -> (AuthScheme, AuthSecretKey) {
         match self {
             AuthSchemeInput::RpoFalcon512 => {
                 let secret = SecretKey::with_rng(&mut get_rpo_random_coin(rng));

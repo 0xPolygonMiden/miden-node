@@ -43,14 +43,16 @@ impl Command {
     ///
     /// This is enabled for some subcommands if the `--open-telemetry` flag is specified.
     fn open_telemetry(&self) -> OpenTelemetry {
-        match self {
+        if match self {
             Command::Store(subcommand) => subcommand.is_open_telemetry_enabled(),
             Command::Rpc(subcommand) => subcommand.is_open_telemetry_enabled(),
             Command::BlockProducer(subcommand) => subcommand.is_open_telemetry_enabled(),
             Command::Node(subcommand) => subcommand.is_open_telemetry_enabled(),
+        } {
+            OpenTelemetry::Enabled
+        } else {
+            OpenTelemetry::Disabled
         }
-        .then_some(OpenTelemetry::Enabled)
-        .unwrap_or(OpenTelemetry::Disabled)
     }
 
     async fn execute(self) -> anyhow::Result<()> {
