@@ -415,7 +415,7 @@ pub fn upsert_accounts(
             account_hash,
             block_num,
             details
-        } | replace
+        } | REPLACE
     ))?;
     let mut select_details_stmt =
         transaction.prepare_cached("SELECT details FROM accounts WHERE account_id = ?1;")?;

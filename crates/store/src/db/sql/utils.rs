@@ -43,17 +43,17 @@ macro_rules! subst {
 }
 
 /// Generates a simple insert SQL statement with parameters for the provided table name and fields.
-/// Supports optional conflict resolution (adding "| replace" or "| ignore" at the end will generate
+/// Supports optional conflict resolution (adding "| REPLACE" or "| IGNORE" at the end will generate
 /// "OR REPLACE" and "OR IGNORE", correspondingly).
 ///
 /// # Usage:
 ///
-/// `insert_sql!(users { id, first_name, last_name, age } | replace);`
+/// `insert_sql!(users { id, first_name, last_name, age } | REPLACE);`
 ///
 /// which generates:
 /// "INSERT OR REPLACE INTO users (id, `first_name`, `last_name`, age) VALUES (?, ?, ?, ?)"
 macro_rules! insert_sql {
-    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } $(, $on_conflict:expr)?) => {
+    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } $(| $on_conflict:expr)?) => {
         concat!(
             stringify!(INSERT $(OR $on_conflict)? INTO $table),
             " (",
@@ -64,14 +64,6 @@ macro_rules! insert_sql {
             $($(subst!($field, ", ?")),+ ,)?
             ")"
         )
-    };
-
-    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } | replace) => {
-        insert_sql!($table { $first_field, $($($field),+)? }, REPLACE)
-    };
-
-    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } | ignore) => {
-        insert_sql!($table { $first_field, $($($field),+)? }, IGNORE)
     };
 }
 
