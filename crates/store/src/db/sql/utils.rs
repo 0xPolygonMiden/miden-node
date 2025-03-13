@@ -51,7 +51,7 @@ macro_rules! subst {
 /// `insert_sql!(users { id, first_name, last_name, age } | REPLACE);`
 ///
 /// which generates:
-/// "INSERT OR REPLACE INTO users (id, `first_name`, `last_name`, age) VALUES (?, ?, ?, ?)"
+/// "INSERT OR REPLACE INTO users (`id`, `first_name`, `last_name`, `age`) VALUES (?, ?, ?, ?)"
 macro_rules! insert_sql {
     ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } $(| $on_conflict:expr)?) => {
         concat!(
