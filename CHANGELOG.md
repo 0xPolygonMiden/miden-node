@@ -29,7 +29,7 @@
 - [BREAKING] Added `block_prover_url` to block producer configuration (#719).
 - [BREAKING] Updated to Rust Edition 2024 (#727).
 - [BREAKING] MSRV bumped to 1.85 (#727).
-- Removed `miden-rpc-proto` and introduced `miden-node-proto-build`. Added "rpc-client" feature flag on `miden-node-proto`. (#723). 
+- [BREAKING] Removed `miden-rpc-proto` and introduced `miden-node-proto-build`. Added "rpc-client" feature flag on `miden-node-proto`. (#723). 
 
 ### Enhancements
 
