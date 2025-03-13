@@ -30,6 +30,7 @@ miden-node-utils = { workspace = true }
 miden-objects = { workspace = true, features = ["testing"] }
 miden-processor = { workspace = true }
 rand = { version = "0.8" }
+rayon = { version = "1.5"}
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tonic = { workspace = true }
 winterfell = { version = "0.11" }

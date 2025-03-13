@@ -35,6 +35,7 @@ use miden_objects::{
 };
 use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tokio::{fs, task};
 use winterfell::Proof;
 
@@ -246,28 +247,29 @@ fn create_accounts_and_notes(
     faucet_id: AccountId,
     num_accounts: usize,
 ) -> Vec<(AccountId, Note, ProvenTransaction)> {
-    let mut accounts_and_notes =
-        Vec::<(AccountId, Note, ProvenTransaction)>::with_capacity(num_accounts);
-    for account_index in 0..num_accounts {
-        let account = create_account(genesis_header, key_pair.public_key(), (account_index) as u64);
-        let note = {
-            let mut rng = rng.lock().unwrap();
-            create_note(faucet_id, account, &mut rng)
-        };
+    (0..num_accounts)
+        .into_par_iter()
+        .map(|account_index| {
+            let account =
+                create_account(genesis_header, key_pair.public_key(), account_index as u64);
+            let note = {
+                let mut rng = rng.lock().unwrap();
+                create_note(faucet_id, account, &mut rng)
+            };
 
-        let path = MerklePath::new(vec![]);
-        let inclusion_proof = NoteInclusionProof::new(0.into(), 0, path).unwrap();
+            let path = MerklePath::new(vec![]);
+            let inclusion_proof = NoteInclusionProof::new(0.into(), 0, path).unwrap();
 
-        let consume_tx = create_tx(
-            account,
-            Digest::default(),
-            Digest::default(),
-            vec![],
-            vec![(note.clone(), inclusion_proof)],
-        );
-        accounts_and_notes.push((account, note, consume_tx));
-    }
-    accounts_and_notes
+            let consume_tx = create_tx(
+                account,
+                Digest::default(),
+                Digest::default(),
+                vec![],
+                vec![(note.clone(), inclusion_proof)],
+            );
+            (account, note, consume_tx)
+        })
+        .collect()
 }
 
 /// Create a new note containing 10 tokens of the fungible asset associated with the specified
