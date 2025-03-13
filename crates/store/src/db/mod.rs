@@ -229,7 +229,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(sql::select_all_nullifiers)
+            .interact(|conn| {
+                let transaction = conn.transaction()?;
+                sql::select_all_nullifiers(&transaction)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
@@ -248,7 +251,13 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| {
-                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes, block_num)
+                let transaction = conn.transaction()?;
+                sql::select_nullifiers_by_prefix(
+                    &transaction,
+                    prefix_len,
+                    &nullifier_prefixes,
+                    block_num,
+                )
             })
             .await
             .map_err(|err| {
@@ -269,7 +278,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_block_header_by_block_num(conn, block_number))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_block_header_by_block_num(&transaction, block_number)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select block header task failed: {err}"))
@@ -285,7 +297,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_block_headers(conn, blocks))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_block_headers(&transaction, blocks)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(
@@ -300,7 +315,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(sql::select_all_block_headers)
+            .interact(|conn| {
+                let transaction = conn.transaction()?;
+                sql::select_all_block_headers(&transaction)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select block headers task failed: {err}"))
@@ -313,7 +331,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(sql::select_all_account_hashes)
+            .interact(|conn| {
+                let transaction = conn.transaction()?;
+                sql::select_all_account_hashes(&transaction)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select account hashes task failed: {err}"))
@@ -326,7 +347,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_account(conn, id))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_account(&transaction, id)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get account details task failed: {err}"))
@@ -342,7 +366,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_accounts_by_ids(conn, &account_ids))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_accounts_by_ids(&transaction, &account_ids)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get accounts details task failed: {err}"))
@@ -360,7 +387,10 @@ impl Db {
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| sql::get_state_sync(conn, block_num, &account_ids, &note_tags))
+            .interact(move |conn| {
+                let transaction = conn.transaction().map_err(DatabaseError::SqliteError)?;
+                sql::get_state_sync(&transaction, block_num, &account_ids, &note_tags)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get state sync task failed: {err}"))
@@ -377,7 +407,10 @@ impl Db {
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| sql::get_note_sync(conn, block_num, &note_tags))
+            .interact(move |conn| {
+                let transaction = conn.transaction().map_err(DatabaseError::SqliteError)?;
+                sql::get_note_sync(&transaction, block_num, &note_tags)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get notes sync task failed: {err}"))
@@ -390,7 +423,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_notes_by_id(conn, &note_ids))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_notes_by_id(&transaction, &note_ids)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
@@ -406,7 +442,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_note_inclusion_proofs(conn, note_ids))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_note_inclusion_proofs(&transaction, note_ids)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(
@@ -482,8 +521,9 @@ impl Db {
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| -> Result<Option<AccountDelta>> {
-                sql::select_account_delta(conn, account_id, from_block, to_block)
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_account_delta(&transaction, account_id, from_block, to_block)
             })
             .await
             .map_err(|err| DatabaseError::InteractError(err.to_string()))?
