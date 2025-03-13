@@ -34,7 +34,6 @@ use super::{
 };
 use crate::{
     db::{
-        connection::Connection,
         sql::utils::{
             account_info_from_row, account_summary_from_row, apply_delta, column_value_as_u64,
             get_nullifier_prefix, u64_to_value,
@@ -52,8 +51,7 @@ use crate::{
 ///
 /// A vector with accounts, or an error.
 #[cfg(test)]
-pub fn select_all_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
-    let transaction = conn.transaction()?;
+pub fn select_all_accounts(transaction: &Transaction) -> Result<Vec<AccountInfo>> {
     let mut stmt = transaction.prepare_cached(
         "
         SELECT
@@ -81,8 +79,7 @@ pub fn select_all_accounts(conn: &mut Connection) -> Result<Vec<AccountInfo>> {
 /// # Returns
 ///
 /// The vector with the account id and corresponding hash, or an error.
-pub fn select_all_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId, RpoDigest)>> {
-    let transaction = conn.transaction()?;
+pub fn select_all_account_hashes(transaction: &Transaction) -> Result<Vec<(AccountId, RpoDigest)>> {
     let mut stmt = transaction
         .prepare_cached("SELECT account_id, account_hash FROM accounts ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
@@ -106,12 +103,11 @@ pub fn select_all_account_hashes(conn: &mut Connection) -> Result<Vec<(AccountId
 ///
 /// The vector of [`AccountSummary`] with the matching accounts.
 pub fn select_accounts_by_block_range(
-    conn: &mut Connection,
+    transaction: &Transaction,
     block_start: BlockNumber,
     block_end: BlockNumber,
     account_ids: &[AccountId],
 ) -> Result<Vec<AccountSummary>> {
-    let transaction = conn.transaction()?;
     let mut stmt = transaction.prepare_cached(
         "
         SELECT
@@ -150,8 +146,7 @@ pub fn select_accounts_by_block_range(
 /// # Returns
 ///
 /// The latest account details, or an error.
-pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<AccountInfo> {
-    let transaction = conn.transaction()?;
+pub fn select_account(transaction: &Transaction, account_id: AccountId) -> Result<AccountInfo> {
     let mut stmt = transaction.prepare_cached(
         "
         SELECT
@@ -179,10 +174,9 @@ pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<Ac
 ///
 /// The account details vector, or an error.
 pub fn select_accounts_by_ids(
-    conn: &mut Connection,
+    transaction: &Transaction,
     account_ids: &[AccountId],
 ) -> Result<Vec<AccountInfo>> {
-    let transaction = conn.transaction()?;
     let mut stmt = transaction.prepare_cached(
         "
         SELECT
@@ -224,12 +218,11 @@ pub fn select_accounts_by_ids(
 /// The resulting account delta, or an error.
 #[allow(clippy::too_many_lines, reason = "mostly just formatted sql text")]
 pub fn select_account_delta(
-    conn: &mut Connection,
+    transaction: &Transaction,
     account_id: AccountId,
     block_start: BlockNumber,
     block_end: BlockNumber,
 ) -> Result<Option<AccountDelta>> {
-    let transaction = conn.transaction()?;
     let mut select_nonce_stmt = transaction.prepare_cached(
         "
         SELECT
@@ -619,8 +612,7 @@ pub fn insert_nullifiers_for_block(
 /// # Returns
 ///
 /// A vector with nullifiers and the block height at which they were created, or an error.
-pub fn select_all_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, BlockNumber)>> {
-    let transaction = conn.transaction()?;
+pub fn select_all_nullifiers(transaction: &Transaction) -> Result<Vec<(Nullifier, BlockNumber)>> {
     let mut stmt = transaction
         .prepare_cached("SELECT nullifier, block_num FROM nullifiers ORDER BY block_num ASC")?;
     let mut rows = stmt.query([])?;
@@ -646,7 +638,7 @@ pub fn select_all_nullifiers(conn: &mut Connection) -> Result<Vec<(Nullifier, Bl
 /// A vector of [`NullifierInfo`] with the nullifiers and the block height at which they were
 /// created, or an error.
 pub fn select_nullifiers_by_prefix(
-    conn: &mut Connection,
+    transaction: &Transaction,
     prefix_len: u32,
     nullifier_prefixes: &[u32],
     block_num: BlockNumber,
@@ -656,7 +648,6 @@ pub fn select_nullifiers_by_prefix(
     let nullifier_prefixes: Vec<Value> =
         nullifier_prefixes.iter().copied().map(Into::into).collect();
 
-    let transaction = conn.transaction()?;
     let mut stmt = transaction.prepare_cached(
         "
         SELECT
@@ -693,8 +684,7 @@ pub fn select_nullifiers_by_prefix(
 ///
 /// A vector with notes, or an error.
 #[cfg(test)]
-pub fn select_all_notes(conn: &mut Connection) -> Result<Vec<NoteRecord>> {
-    let transaction = conn.transaction()?;
+pub fn select_all_notes(transaction: &Transaction) -> Result<Vec<NoteRecord>> {
     let mut stmt = transaction.prepare_cached(&format!(
         "SELECT {} FROM notes ORDER BY block_num ASC",
         NoteRecord::SELECT_COLUMNS,
@@ -778,12 +768,11 @@ pub fn insert_notes(
 /// This method returns notes from a single block. To fetch all notes up to the chain tip,
 /// multiple requests are necessary.
 pub fn select_notes_since_block_by_tag_and_sender(
-    conn: &mut Connection,
+    transaction: &Transaction,
     tags: &[u32],
     account_ids: &[AccountId],
     block_num: BlockNumber,
 ) -> Result<Vec<NoteSyncRecord>> {
-    let transaction = conn.transaction()?;
     let mut stmt = transaction
         .prepare_cached(include_str!("queries/select_notes_since_block_by_tag_and_sender.sql"))?;
 
@@ -839,10 +828,12 @@ pub fn select_notes_since_block_by_tag_and_sender(
 ///
 /// - Empty vector if no matching `note`.
 /// - Otherwise, notes which `note_id` matches the `NoteId` as bytes.
-pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<Vec<NoteRecord>> {
+pub fn select_notes_by_id(
+    transaction: &Transaction,
+    note_ids: &[NoteId],
+) -> Result<Vec<NoteRecord>> {
     let note_ids: Vec<Value> = note_ids.iter().map(|id| id.to_bytes().into()).collect();
 
-    let transaction = conn.transaction()?;
     let mut stmt = transaction.prepare_cached(&format!(
         "SELECT {} FROM notes WHERE note_id IN rarray(?1)",
         NoteRecord::SELECT_COLUMNS
@@ -864,12 +855,11 @@ pub fn select_notes_by_id(conn: &mut Connection, note_ids: &[NoteId]) -> Result<
 /// - Empty map if no matching `note`.
 /// - Otherwise, note inclusion proofs, which `note_id` matches the `NoteId` as bytes.
 pub fn select_note_inclusion_proofs(
-    conn: &mut Connection,
+    transaction: &Transaction,
     note_ids: BTreeSet<NoteId>,
 ) -> Result<BTreeMap<NoteId, NoteInclusionProof>> {
     let note_ids: Vec<Value> = note_ids.into_iter().map(|id| id.to_bytes().into()).collect();
 
-    let transaction = conn.transaction()?;
     let mut select_notes_stmt = transaction.prepare_cached(
         "
         SELECT
@@ -989,10 +979,9 @@ pub fn insert_block_header(transaction: &Transaction, block_header: &BlockHeader
 /// When `block_number` is [None], the latest block header is returned. Otherwise, the block with
 /// the given block height is returned.
 pub fn select_block_header_by_block_num(
-    conn: &mut Connection,
+    transaction: &Transaction,
     block_number: Option<BlockNumber>,
 ) -> Result<Option<BlockHeader>> {
-    let transaction = conn.transaction()?;
     let mut stmt;
     let mut rows = if let Some(block_number) = block_number {
         stmt = transaction
@@ -1024,13 +1013,12 @@ pub fn select_block_header_by_block_num(
 ///
 /// A vector of [`BlockHeader`] or an error.
 pub fn select_block_headers(
-    conn: &mut Connection,
+    transaction: &Transaction,
     blocks: impl Iterator<Item = BlockNumber> + Send,
 ) -> Result<Vec<BlockHeader>> {
     let blocks: Vec<Value> = blocks.map(|b| b.as_u32().into()).collect();
 
     let mut headers = Vec::with_capacity(blocks.len());
-    let transaction = conn.transaction()?;
     let mut stmt = transaction
         .prepare_cached("SELECT block_header FROM block_headers WHERE block_num IN rarray(?1);")?;
     let mut rows = stmt.query(params![Rc::new(blocks)])?;
@@ -1049,8 +1037,7 @@ pub fn select_block_headers(
 /// # Returns
 ///
 /// A vector of [`BlockHeader`] or an error.
-pub fn select_all_block_headers(conn: &mut Connection) -> Result<Vec<BlockHeader>> {
-    let transaction = conn.transaction()?;
+pub fn select_all_block_headers(transaction: &Transaction) -> Result<Vec<BlockHeader>> {
     let mut stmt = transaction
         .prepare_cached("SELECT block_header FROM block_headers ORDER BY block_num ASC;")?;
     let mut rows = stmt.query([])?;
@@ -1106,7 +1093,7 @@ pub fn insert_transactions(
 ///
 /// The vector of [`RpoDigest`] with the transaction IDs.
 pub fn select_transactions_by_accounts_and_block_range(
-    conn: &mut Connection,
+    transaction: &Transaction,
     block_start: BlockNumber,
     block_end: BlockNumber,
     account_ids: &[AccountId],
@@ -1117,7 +1104,6 @@ pub fn select_transactions_by_accounts_and_block_range(
         .map(|account_id| account_id.to_bytes().into())
         .collect();
 
-    let transaction = conn.transaction()?;
     let mut stmt = transaction.prepare_cached(
         "
         SELECT
@@ -1156,27 +1142,31 @@ pub fn select_transactions_by_accounts_and_block_range(
 
 /// Loads the state necessary for a state sync.
 pub fn get_state_sync(
-    conn: &mut Connection,
+    transaction: &Transaction,
     block_num: BlockNumber,
     account_ids: &[AccountId],
     note_tag_prefixes: &[u32],
 ) -> Result<StateSyncUpdate, StateSyncError> {
     let notes = select_notes_since_block_by_tag_and_sender(
-        conn,
+        transaction,
         note_tag_prefixes,
         account_ids,
         block_num,
     )?;
 
     let block_header =
-        select_block_header_by_block_num(conn, notes.first().map(|note| note.block_num))?
+        select_block_header_by_block_num(transaction, notes.first().map(|note| note.block_num))?
             .ok_or(StateSyncError::EmptyBlockHeadersTable)?;
 
-    let account_updates =
-        select_accounts_by_block_range(conn, block_num, block_header.block_num(), account_ids)?;
+    let account_updates = select_accounts_by_block_range(
+        transaction,
+        block_num,
+        block_header.block_num(),
+        account_ids,
+    )?;
 
     let transactions = select_transactions_by_accounts_and_block_range(
-        conn,
+        transaction,
         block_num,
         block_header.block_num(),
         account_ids,
@@ -1195,14 +1185,14 @@ pub fn get_state_sync(
 
 /// Loads the data necessary for a note sync.
 pub fn get_note_sync(
-    conn: &mut Connection,
+    transaction: &Transaction,
     block_num: BlockNumber,
     note_tags: &[u32],
 ) -> Result<NoteSyncUpdate, NoteSyncError> {
-    let notes = select_notes_since_block_by_tag_and_sender(conn, note_tags, &[], block_num)?;
+    let notes = select_notes_since_block_by_tag_and_sender(transaction, note_tags, &[], block_num)?;
 
     let block_header =
-        select_block_header_by_block_num(conn, notes.first().map(|note| note.block_num))?
+        select_block_header_by_block_num(transaction, notes.first().map(|note| note.block_num))?
             .ok_or(NoteSyncError::EmptyBlockHeadersTable)?;
 
     Ok(NoteSyncUpdate { notes, block_header })

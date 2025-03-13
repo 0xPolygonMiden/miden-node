@@ -33,9 +33,13 @@ impl DerefMut for Transaction<'_> {
 impl Transaction<'_> {
     #[inline]
     pub fn prepare_cached(&self, sql: &str) -> rusqlite::Result<rusqlite::CachedStatement<'_>> {
-        #[cfg(feature = "explain-query-plans")]
-        self.explain_query_plan(sql)?;
+        // We do this first so we get invalid sql errors here
+        // instead of as a panic in the query plan check for tests.
+        let stmt = self.inner.prepare_cached(sql)?;
 
-        self.inner.prepare_cached(sql)
+        #[cfg(test)]
+        self.check_query_plan(sql);
+
+        Ok(stmt)
     }
 }
