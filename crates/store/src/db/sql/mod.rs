@@ -409,9 +409,14 @@ pub fn upsert_accounts(
     accounts: &[BlockAccountUpdate],
     block_num: BlockNumber,
 ) -> Result<usize> {
-    let mut upsert_stmt = transaction.prepare_cached(
-        "INSERT OR REPLACE INTO accounts (account_id, account_hash, block_num, details) VALUES (?1, ?2, ?3, ?4);",
-    )?;
+    let mut upsert_stmt = transaction.prepare_cached(insert_sql!(
+        accounts {
+            account_id,
+            account_hash,
+            block_num,
+            details
+        } | replace
+    ))?;
     let mut select_details_stmt =
         transaction.prepare_cached("SELECT details FROM accounts WHERE account_id = ?1;")?;
 
@@ -592,9 +597,11 @@ pub fn insert_nullifiers_for_block(
         .prepare_cached("UPDATE notes SET consumed = TRUE WHERE nullifier IN rarray(?1)")?;
     let mut count = stmt.execute(params![serialized_nullifiers])?;
 
-    let mut stmt = transaction.prepare_cached(
-        "INSERT INTO nullifiers (nullifier, nullifier_prefix, block_num) VALUES (?1, ?2, ?3);",
-    )?;
+    let mut stmt = transaction.prepare_cached(insert_sql!(nullifiers {
+        nullifier,
+        nullifier_prefix,
+        block_num
+    }))?;
 
     for (nullifier, bytes) in nullifiers.iter().zip(serialized_nullifiers.iter()) {
         count +=
@@ -960,8 +967,8 @@ pub struct PaginationToken(i64);
 /// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
 /// transaction.
 pub fn insert_block_header(transaction: &Transaction, block_header: &BlockHeader) -> Result<usize> {
-    let mut stmt = transaction
-        .prepare_cached("INSERT INTO block_headers (block_num, block_header) VALUES (?1, ?2);")?;
+    let mut stmt =
+        transaction.prepare_cached(insert_sql!(block_headers { block_num, block_header }))?;
     Ok(stmt.execute(params![block_header.block_num().as_u32(), block_header.to_bytes()])?)
 }
 
@@ -1062,9 +1069,11 @@ pub fn insert_transactions(
     block_num: BlockNumber,
     accounts: &[BlockAccountUpdate],
 ) -> Result<usize> {
-    let mut stmt = transaction.prepare_cached(
-        "INSERT INTO transactions (transaction_id, account_id, block_num) VALUES (?1, ?2, ?3);",
-    )?;
+    let mut stmt = transaction.prepare_cached(insert_sql!(transactions {
+        transaction_id,
+        account_id,
+        block_num
+    }))?;
     let mut count = 0;
     for update in accounts {
         let account_id = update.account_id();
