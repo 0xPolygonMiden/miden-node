@@ -29,6 +29,6 @@ tonic            = { workspace = true }
 proptest = { version = "1.5" }
 
 [build-dependencies]
-miden-node-proto-build = { workspace = true}
-anyhow      = { version = "1.0" }
-tonic-build = { version = "0.12" }
+anyhow                 = { version = "1.0" }
+miden-node-proto-build = { workspace = true }
+tonic-build            = { version = "0.12" }

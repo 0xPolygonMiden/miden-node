@@ -2418,10 +2418,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "miden-rpc-proto"
-version = "0.8.0"
-
-[[package]]
 name = "miden-stdlib"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
