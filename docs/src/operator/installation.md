@@ -1,6 +1,7 @@
 # Installation
 
-We provide Debian packages for official releases for both the node software as well as a basic faucet implementation.
+We provide Debian packages for official releases for both the node software as well as a reference faucet
+implementation.
 
 Alternatively, both also can be installed from source on most systems using the Rust package manager `cargo`.
 
@@ -28,7 +29,7 @@ can be used so long as the checksum file and the package file are in the same fo
 
 ## Install using `cargo`
 
-Install Rust version **1.84** or greater using the official Rust installation
+Install Rust version **1.85** or greater using the official Rust installation
 [instructions](https://www.rust-lang.org/tools/install).
 
 Depending on the platform, you may need to install additional libraries. For example, on Ubuntu 22.04 the following
@@ -74,12 +75,10 @@ TODO: once configuration has been refactored
 
 ## Updating
 
-<div class="warning">
-
-We currently have no backwards compatibility. This means updating your node is destructive - your existing chain will
-not work with the new version. This will change as our protocol and database schema mature and settle.
-
-</div>
+> [!WARNING]
+> We currently have no backwards compatibility guarantees. This means updating your node is destructive - your
+> existing chain will not work with the new version. This will change as our protocol and database schema mature and
+> settle.
 
 Updating the node to a new version is as simply as re-running the install process and repeating the [Setup](#setup)
 instructions.

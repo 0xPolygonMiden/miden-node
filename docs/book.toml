@@ -5,8 +5,4 @@ multilingual = false
 src          = "src"
 title        = "The Miden Node manual"
 
-[preprocessor.mermaid]
-command = "mdbook-mermaid"
-
-[output.html]
-additional-js = ["mermaid-init.js", "mermaid.min.js"]
+[preprocessor.alerts]

@@ -7,11 +7,11 @@
 # Operator Guide
 
 - [Overview](./operator/index.md)
-- [Versioning](./operator/versioning.md)
 - [Architecture](./operator/architecture.md)
 - [Installation](./operator/installation.md)
 - [Configuraton and Usage](./operator/configuration.md)
 - [Monitoring](./operator/monitoring.md)
+- [Versioning](./operator/versioning.md)
 
 ---
 

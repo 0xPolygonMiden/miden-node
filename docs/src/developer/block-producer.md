@@ -1,6 +1,8 @@
 # Block Producer Component
 
-The block-producer is responsible for ordering transactions into batches, and batches into blocks.
+The block-producer is responsible for ordering transactions into batches, and batches into blocks, and creating the
+proofs for these. Proving is usually outsourced to a remote prover but can be done locally if throughput isn't
+essential, e.g. for test purposes on a local node.
 
 It hosts a single gRPC endpoint to which the RPC component can forward new transactions.
 
@@ -24,10 +26,10 @@ to the store. At this point all transactions and batches in the block are remove
 2. Transaction proof is verified
 3. Transaction arrives at block-producer
 4. Transaction delta is verified
-    - Does the account state match
-    - Do all input notes exist and are unconsumed
-    - Output notes are unique
-    - Transaction is not expired
+   - Does the account state match
+   - Do all input notes exist and are unconsumed
+   - Output notes are unique
+   - Transaction is not expired
 5. Wait until all parent transactions are in a batch
 6. Be selected as part of a batch
 7. Proven as part of a batch
@@ -39,6 +41,6 @@ Note that its possible for transactions to be rejected/dropped even after they'v
 above lifecycle (which effectively shows the happy path). This can occur if:
 
 - The transaction expires before being included in a block.
-- Any parent transaction is dropped (which will revert the state, invalidating child transactions). 
-- It causes proving or any part of block/batch creation to fail. This is a fail-safe against unforseen bugs, to remove
+- Any parent transaction is dropped (which will revert the state, invalidating child transactions).
+- It causes proving or any part of block/batch creation to fail. This is a fail-safe against unforseen bugs, removing
   problematic (but potentially valid) transactions from the mempool to prevent outages.

@@ -2,6 +2,9 @@
 
 This component persists the chain state in a `sqlite` database. It also stores each block's raw data as a file.
 
+Mekle data structures are kept in-memory and are rebuilt on startup. Other data like account, note and nullifier
+information is always read from disk. We will need to revisit this in the future but for now this is performant enough.
+
 ## Migrations
 
 We have database migration support in place but don't actively use it yet. There is only the latest schema, and we reset

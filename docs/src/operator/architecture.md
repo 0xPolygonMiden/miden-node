@@ -1,6 +1,7 @@
 # Node architecture
 
-The node itself consists of three distributed components: store, block-producer and RPC.
+The node itself consists of three distributed components: store, block-producer and RPC. We also provide a reference
+faucet implementation which we use to distribute testnet and devnet tokens.
 
 The components can be run on separate instances when optimised for performance, but can also be run as a single process
 for convenience. At the moment both of Miden's public networks (testnet and devnet) are operating in single process
@@ -9,35 +10,7 @@ mode.
 The inter-component communication is done using a gRPC API wnich is assumed trusted. In other words this _must not_ be
 public. External communication is handled by the RPC component with a separate external-only gRPC API.
 
-```mermaid
----
-title: Infrastructure architecture example
----
-graph LR;
-    
-  subgraph RPC
-  direction RL
-    rpc_a[RPC A]
-    rpc_b[RPC B]
-    rpc_i[......]
-    rpc_n[RPC N]
-  end
-
-  subgraph internal
-  direction TB
-    store
-    block-producer
-  end
-
-  load_balancer[Load Balancer]
-
-  load_balancer ---> RPC
-
-  RPC -- tx   ---> block-producer 
-  RPC -- query --> store
-
-  block-producer -- block --> store
-```
+![node architecture](../resources/operator_architecture.svg)
 
 ## RPC
 
@@ -63,3 +36,12 @@ The block-producer is responsible for aggregating received transactions into blo
 
 Transactions are placed in a mempool and are periodically sampled to form batches of transactions. These batches are
 proved, and then periodically aggregated into a block. This block is then proved and committed to the store.
+
+Proof generation in production is typically outsourced to a remote machine with appropriate resources. For convenience,
+it is also possible to perform proving in-process. This is useful when running a local node for test purposes.
+
+## Faucet
+
+A stand-alone binary which serves a webpage where users can request tokens from a customizable faucet account. The
+faucet communicates with the node via the RPC component and is not considered special by the node. It is a simple
+reference implementation of a faucet.

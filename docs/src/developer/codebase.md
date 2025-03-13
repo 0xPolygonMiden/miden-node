@@ -4,31 +4,25 @@ The code is organised using a Rust workspace with seprate crates for the node an
 component, a couple of gRPC-related codegen crates, and a catch-all utilities crate.
 
 The primary artifacts are the node and faucet binaries. The library crates are not intended for external usage, but
-instead simply serve to enforce code organised and decoupling. The node binary is used to launch the components i.e. we
-have a single binary with subcommands for each component (and running them all as a single process).
+instead simply serve to enforce code organisation and decoupling.
 
-```mermaid
----
-title: Workspace dependency tree
----
-graph TD;
-    
-  subgraph components
-      block-producer
-      store
-      rpc
-  end
+| Crate            | Description                                                                                                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node`           | The node executable. Configure and run the node and its components.                                                                                      |
+| `faucet`         | A reference faucet app implementation used by the official Miden faucet.                                                                                 |
+| `block-producer` | Block-producer component implementation.                                                                                                                 |
+| `store`          | Store component implementation.                                                                                                                          |
+| `rpc`            | RPC component implementation.                                                                                                                            |
+| `proto`          | Contains and exports all protobuf definitions.                                                                                                           |
+| `rpc-proto`      | Contains the RPC protobuf definitions. Currently this is an awkward clone of `proto` because we re-use the definitions from the internal protobuf types. |
+| `utils`          | Variety of utility functionality.                                                                                                                        |
+| `test-macro`     | Provides a procedural macro to enable tracing in tests.                                                                                                  |
 
-  faucet ---> proto & utils;
-  node --> components & utils
 
-  components --> proto & utils
+-------
 
-  proto; utils;
-```
+> [!NOTE]
+> [`miden-base`](https://github.com/0xPolygonMiden/miden-base) is an important dependency which
+> contains the core Miden protocol definitions e.g. accounts, notes, transactions etc.
 
-We also have a proc-macro crate `test-macro` which provides a helpful utility macro to enable tracing for tests. There is
-also an additional `rpc-proto` crate which hosts the external gRPC schema (as compared to the internal schema used
-to communicate between node components). In other words, this is intended to be the outside world facing schema hosted
-by the RPC component. At the moment this is simply a copy of the internal schema since the external query is often
-simply forwarded as is to an internal component. This will change eventually.
+![workspace dependency tree](../resources/workspace_tree.svg)

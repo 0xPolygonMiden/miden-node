@@ -6,6 +6,7 @@ name: book
 #
 # So we trigger on push to `next` AND only if the docs have changed.
 on:
+  workflow_dispatch:
   push:
     branches: [next]
     path: ['docs/**']
