@@ -4,18 +4,20 @@ use futures::FutureExt;
 use miden_block_prover::LocalBlockProver;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
+    MIN_PROOF_SECURITY_LEVEL,
     batch::ProvenBatch,
     block::{BlockInputs, BlockNumber, ProposedBlock, ProvenBlock},
     note::NoteHeader,
-    MIN_PROOF_SECURITY_LEVEL,
 };
+use miden_proving_service_client::proving_service::block_prover::RemoteBlockProver;
 use rand::Rng;
 use tokio::time::Duration;
-use tracing::{instrument, Span};
+use tracing::{Span, info, instrument};
+use url::Url;
 
 use crate::{
-    errors::BuildBlockError, mempool::SharedMempool, store::StoreClient, COMPONENT,
-    SERVER_BLOCK_FREQUENCY,
+    COMPONENT, SERVER_BLOCK_FREQUENCY, errors::BuildBlockError, mempool::SharedMempool,
+    store::StoreClient,
 };
 
 // BLOCK BUILDER
@@ -34,17 +36,25 @@ pub struct BlockBuilder {
     pub store: StoreClient,
 
     /// The prover used to prove a proposed block into a proven block.
-    pub block_prover: LocalBlockProver,
+    pub block_prover: BlockProver,
 }
 
 impl BlockBuilder {
-    pub fn new(store: StoreClient) -> Self {
+    /// Creates a new [`BlockBuilder`] with the given [`StoreClient`] and optional block prover URL.
+    ///
+    /// If the block prover URL is not set, the block builder will use the local block prover.
+    pub fn new(store: StoreClient, block_prover_url: Option<Url>) -> Self {
+        let block_prover = match block_prover_url {
+            Some(url) => BlockProver::new_remote(url),
+            None => BlockProver::new_local(MIN_PROOF_SECURITY_LEVEL),
+        };
+
         Self {
             block_interval: SERVER_BLOCK_FREQUENCY,
             // Note: The range cannot be empty.
             simulated_proof_time: Duration::ZERO..Duration::from_millis(1),
             failure_rate: 0.0,
-            block_prover: LocalBlockProver::new(MIN_PROOF_SECURITY_LEVEL),
+            block_prover,
             store,
         }
     }
@@ -190,10 +200,7 @@ impl BlockBuilder {
         &self,
         proposed_block: ProposedBlock,
     ) -> Result<ProvenBlock, BuildBlockError> {
-        let proven_block = self
-            .block_prover
-            .prove(proposed_block)
-            .map_err(BuildBlockError::ProveBlockFailed)?;
+        let proven_block = self.block_prover.prove(proposed_block).await?;
 
         self.simulate_proving().await;
 
@@ -234,7 +241,7 @@ impl BlockBuilder {
 
     #[instrument(target = COMPONENT, name = "block_builder.inject_failure", skip_all, err)]
     fn inject_failure<T>(&self, value: T) -> Result<T, BuildBlockError> {
-        let roll = rand::thread_rng().gen::<f64>();
+        let roll = rand::thread_rng().r#gen::<f64>();
 
         Span::current().set_attribute("failure_rate", self.failure_rate);
         Span::current().set_attribute("dice_roll", roll);
@@ -350,5 +357,40 @@ impl TelemetryInjectorExt for ProvenBlock {
         span.set_attribute("block.commitments.chain", header.chain_root());
         span.set_attribute("block.commitments.note", header.note_root());
         span.set_attribute("block.commitments.transaction", header.tx_hash());
+    }
+}
+
+// BLOCK PROVER
+// ================================================================================================
+
+pub enum BlockProver {
+    Local(LocalBlockProver),
+    Remote(RemoteBlockProver),
+}
+
+impl BlockProver {
+    pub fn new_local(security_level: u32) -> Self {
+        info!(target: COMPONENT, "Using local block prover");
+        Self::Local(LocalBlockProver::new(security_level))
+    }
+
+    pub fn new_remote(endpoint: impl Into<String>) -> Self {
+        info!(target: COMPONENT, "Using remote block prover");
+        Self::Remote(RemoteBlockProver::new(endpoint))
+    }
+
+    #[instrument(target = COMPONENT, skip_all, err)]
+    pub async fn prove(
+        &self,
+        proposed_block: ProposedBlock,
+    ) -> Result<ProvenBlock, BuildBlockError> {
+        match self {
+            Self::Local(prover) => {
+                prover.prove(proposed_block).map_err(BuildBlockError::ProveBlockFailed)
+            },
+            Self::Remote(prover) => {
+                prover.prove(proposed_block).await.map_err(BuildBlockError::RemoteProverError)
+            },
+        }
     }
 }

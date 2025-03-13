@@ -2,7 +2,7 @@ use miden_objects::block::BlockNumber;
 use pretty_assertions::assert_eq;
 
 use super::*;
-use crate::test_utils::{batch::TransactionBatchConstructor, MockProvenTxBuilder};
+use crate::test_utils::{MockProvenTxBuilder, batch::TransactionBatchConstructor};
 
 impl Mempool {
     fn for_tests() -> Self {

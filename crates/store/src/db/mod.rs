@@ -23,15 +23,16 @@ use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
 use crate::{
+    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
     blocks::BlockStore,
     config::StoreConfig,
     db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
-    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
 mod migrations;
+#[macro_use]
 mod sql;
 
 mod settings;
@@ -222,7 +223,9 @@ impl Db {
                         })
                         .await
                         .map_err(|e| {
-                            HookError::Message(format!("Loading carray module failed: {e}").into())
+                            HookError::Message(
+                                format!("Failed to configure connection: {e}").into(),
+                            )
                         })?;
 
                     Ok(())
@@ -513,6 +516,23 @@ impl Db {
             })
             .await
             .map_err(|err| DatabaseError::InteractError(err.to_string()))?
+    }
+
+    /// Runs database optimization.
+    #[instrument(target = COMPONENT, skip_all, err)]
+    pub async fn optimize(&self) -> Result<(), DatabaseError> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| -> Result<()> {
+                conn.execute("PRAGMA optimize;", ())
+                    .map(|_| ())
+                    .map_err(DatabaseError::SqliteError)
+            })
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Database optimization task failed: {err}"))
+            })?
     }
 
     // HELPERS

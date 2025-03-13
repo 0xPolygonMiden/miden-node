@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     crypto::rand::{FeltRng, RpoRandomCoin},
     testing::account_id::AccountIdBuilder,
     transaction::TransactionId,
-    Digest,
 };
 
 mod proven_tx;
 
-pub use proven_tx::{mock_proven_tx, MockProvenTxBuilder};
+pub use proven_tx::{MockProvenTxBuilder, mock_proven_tx};
 
 mod store;
 
@@ -18,7 +18,7 @@ pub use store::{MockStoreSuccess, MockStoreSuccessBuilder};
 
 mod account;
 
-pub use account::{mock_account_id, MockPrivateAccount};
+pub use account::{MockPrivateAccount, mock_account_id};
 
 pub mod block;
 

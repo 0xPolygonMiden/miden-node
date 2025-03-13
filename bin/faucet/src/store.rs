@@ -1,11 +1,11 @@
 use std::sync::Mutex;
 
 use miden_objects::{
+    Word,
     account::{Account, AccountId},
     block::{BlockHeader, BlockNumber},
     note::NoteId,
     transaction::{ChainMmr, InputNotes, TransactionInputs},
-    Word,
 };
 use miden_tx::{DataStore, DataStoreError};
 

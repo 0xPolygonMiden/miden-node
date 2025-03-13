@@ -4,7 +4,7 @@ use miden_objects::{
     testing::note::NoteBuilder,
     transaction::{InputNote, InputNoteCommitment, OutputNote},
 };
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
 
 use crate::test_utils::account::mock_account_id;
 

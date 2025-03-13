@@ -1,4 +1,4 @@
-use std::collections::{btree_map::Entry, BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
 use miden_objects::{block::BlockNumber, transaction::TransactionId};
 

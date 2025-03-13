@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use axum::{
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
 use miden_objects::AccountIdError;
