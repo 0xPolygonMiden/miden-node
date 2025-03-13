@@ -53,7 +53,15 @@ impl QueryPlan {
             .expect("Must be a valid regex pattern")
         });
 
-        // Preprocess query plan in order to hide some "normal" scans
+        // Some index scans might cause false positiveness if we just look for `SCAN` keyword:
+        // ```
+        //   SCAN rarray VIRTUAL TABLE INDEX 1
+        //   SCAN table1 USING INDEX sqlite_autoindex_table1_1
+        //   SCAN table1 USING COVERING INDEX idx_table1_column
+        // ```
+        // Preprocess query plan in order to replace such cases to `SEARCH` expressions instead of
+        // `SCAN`. Another solution would be to find only scan expressions which don't accompanied
+        // by known index suffixes, but current `regex` implementation doesn't support look-around.
         let query_plan = RE_IDX_SCAN.replace_all(&self.query_plan, r"SEARCH $1 $2 INDEX $4");
 
         // Don't flag `SELECT` queries without `WHERE` clause, since they don't usually use indexes
