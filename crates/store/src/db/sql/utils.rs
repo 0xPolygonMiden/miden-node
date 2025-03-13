@@ -48,18 +48,24 @@ macro_rules! subst {
 ///
 /// # Usage:
 ///
-/// `insert_sql!(users { id, first_name, last_name, age } | REPLACE);`
+/// ```ignore
+/// insert_sql!(users { id, first_name, last_name, age } | REPLACE);
+/// ```
 ///
 /// which generates:
-/// "INSERT OR REPLACE INTO users (`id`, `first_name`, `last_name`, `age`) VALUES (?, ?, ?, ?)"
+/// ```sql
+/// INSERT OR REPLACE INTO `users` (`id`, `first_name`, `last_name`, `age`) VALUES (?, ?, ?, ?)
+/// ```
 macro_rules! insert_sql {
     ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } $(| $on_conflict:expr)?) => {
         concat!(
-            stringify!(INSERT $(OR $on_conflict)? INTO $table),
-            " (",
+            stringify!(INSERT $(OR $on_conflict)? INTO ),
+            "`",
+            stringify!($table),
+            "` (`",
             stringify!($first_field),
-            $($(concat!(", ", stringify!($field))),+ ,)?
-            ") VALUES (",
+            $($(concat!("`, `", stringify!($field))),+ ,)?
+            "`) VALUES (",
             subst!($first_field, "?"),
             $($(subst!($field, ", ?")),+ ,)?
             ")"
