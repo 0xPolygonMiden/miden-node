@@ -1906,14 +1906,24 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "hex",
+ "miden-node-proto-build",
  "miden-node-utils",
  "miden-objects",
  "proptest",
  "prost",
- "prost-build",
- "protox",
  "thiserror 2.0.11",
  "tonic",
+ "tonic-build",
+]
+
+[[package]]
+name = "miden-node-proto-build"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "prost",
+ "prost-build",
+ "protox",
  "tonic-build",
 ]
 
@@ -2033,10 +2043,6 @@ dependencies = [
  "winter-maybe-async",
  "winter-prover",
 ]
-
-[[package]]
-name = "miden-rpc-proto"
-version = "0.8.0"
 
 [[package]]
 name = "miden-stdlib"

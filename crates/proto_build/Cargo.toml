@@ -1,12 +1,11 @@
 [package]
 authors.workspace      = true
-categories             = ["no-std::no-alloc"]
-description            = "Miden node RPC message definitions"
+description            = "Miden node protobuf bindings builder"
 edition.workspace      = true
 homepage.workspace     = true
 keywords               = ["miden", "node", "protobuf", "rpc"]
 license.workspace      = true
-name                   = "miden-rpc-proto"
+name                   = "miden-node-proto-build"
 readme                 = "README.md"
 repository.workspace   = true
 rust-version.workspace = true
@@ -15,6 +14,9 @@ version.workspace      = true
 [lints]
 workspace = true
 
-[features]
-default = ["std"]
-std     = []
+[dependencies]
+anyhow      = { version = "1.0" }
+prost            = { workspace = true }
+prost-build = { version = "0.13" }
+protox      = { version = "0.7" }
+tonic-build = { version = "0.12" }

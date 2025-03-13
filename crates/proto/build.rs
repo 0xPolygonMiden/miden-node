@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Context;
-use protox::prost::Message;
+use miden_node_proto_build::{BlockProducerBuilder, RpcBuilder, StoreBuilder};
 
 /// Generates Rust protobuf bindings from .proto files in the root directory.
 ///
@@ -27,41 +27,13 @@ fn main() -> anyhow::Result<()> {
     fs::remove_dir_all(&dst_dir).context("removing existing files")?;
     fs::create_dir(&dst_dir).context("creating destination folder")?;
 
-    // Compute the directory of the `proto` definitions
-    let cwd: PathBuf = env::current_dir().context("current directory")?;
-
-    let cwd = cwd
-        .parent()
-        .and_then(|p| p.parent())
-        .context("navigating to grandparent directory")?;
-
-    let proto_dir: PathBuf = cwd.join("proto");
-
-    // Compute the compiler's target file path.
-    let out = env::var("OUT_DIR").context("env::OUT_DIR not set")?;
-    let file_descriptor_path = PathBuf::from(out).join("file_descriptor_set.bin");
-
-    // Compile the proto file for all servers APIs
-    let protos = &[
-        proto_dir.join("block_producer.proto"),
-        proto_dir.join("store.proto"),
-        proto_dir.join("rpc.proto"),
-    ];
-    let includes = &[proto_dir];
-    let file_descriptors = protox::compile(protos, includes)?;
-    fs::write(&file_descriptor_path, file_descriptors.encode_to_vec())
-        .context("writing file descriptors")?;
-
-    let mut prost_config = prost_build::Config::new();
-    prost_config.skip_debug(["AccountId", "Digest"]);
-
-    // Generate the stub of the user facing server from its proto file
-    tonic_build::configure()
-        .file_descriptor_set_path(&file_descriptor_path)
-        .skip_protoc_run()
-        .out_dir(&dst_dir)
-        .compile_protos_with_config(prost_config, protos, includes)
-        .context("compiling protobufs")?;
+    // Build the proto files in the destination directory.
+    let builder = tonic_build::configure().out_dir(&dst_dir);
+    RpcBuilder::new(builder.clone()).compile().context("compiling rpc.proto")?;
+    StoreBuilder::new(builder.clone()).compile().context("compiling store.proto")?;
+    BlockProducerBuilder::new(builder)
+        .compile()
+        .context("compiling block_producer.proto")?;
 
     generate_mod_rs(&dst_dir).context("generating mod.rs")?;
 
