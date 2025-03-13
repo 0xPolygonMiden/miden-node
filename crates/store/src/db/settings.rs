@@ -17,10 +17,8 @@ impl Settings {
     }
 
     pub fn set_value<T: ToSql>(conn: &Connection, name: &str, value: &T) -> Result<()> {
-        let count = conn.execute(
-            "INSERT OR REPLACE INTO settings (name, value) VALUES (?, ?)",
-            params![name, value],
-        )?;
+        let count =
+            conn.execute(insert_sql!(settings { name, value } | REPLACE), params![name, value])?;
 
         debug_assert_eq!(count, 1);
 

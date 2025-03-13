@@ -32,6 +32,7 @@ use crate::{
 };
 
 mod migrations;
+#[macro_use]
 mod sql;
 
 mod settings;
