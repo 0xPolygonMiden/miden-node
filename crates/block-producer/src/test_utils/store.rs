@@ -237,7 +237,7 @@ impl MockStoreSuccess {
         }
 
         // append the block header
-        self.block_headers.write().await.insert(header.block_num(), header);
+        self.block_headers.write().await.insert(header.block_num(), header.clone());
 
         // update num_apply_block_called
         *self.num_apply_block_called.write().await += 1;

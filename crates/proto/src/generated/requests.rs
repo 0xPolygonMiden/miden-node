@@ -214,5 +214,13 @@ pub mod get_account_proofs_request {
         pub map_keys: ::prost::alloc::vec::Vec<super::super::digest::Digest>,
     }
 }
+/// Returns a list of unconsumed network notes using pagination.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct GetUnconsumedNetworkNotesRequest {}
+pub struct GetUnconsumedNetworkNotesRequest {
+    /// Page number to retrieve.
+    #[prost(uint64, tag = "1")]
+    pub page: u64,
+    /// Number of notes to retrieve per page.
+    #[prost(uint64, tag = "2")]
+    pub limit: u64,
+}

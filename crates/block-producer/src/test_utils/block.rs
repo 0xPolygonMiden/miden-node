@@ -18,14 +18,15 @@ pub async fn build_expected_block_header(
     store: &MockStoreSuccess,
     batches: &[ProvenBatch],
 ) -> BlockHeader {
-    let last_block_header = *store
+    let last_block_header = store
         .block_headers
         .read()
         .await
         .iter()
         .max_by_key(|(block_num, _)| *block_num)
         .unwrap()
-        .1;
+        .1
+        .clone();
 
     // Compute new account root
     let updated_accounts: Vec<_> =
@@ -84,14 +85,15 @@ impl MockBlockBuilder {
         Self {
             store_accounts: store.accounts.read().await.clone(),
             store_chain_mmr: store.chain_mmr.read().await.clone(),
-            last_block_header: *store
+            last_block_header: store
                 .block_headers
                 .read()
                 .await
                 .iter()
                 .max_by_key(|(block_num, _)| *block_num)
                 .unwrap()
-                .1,
+                .1
+                .clone(),
 
             updated_accounts: None,
             created_notes: None,

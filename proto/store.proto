@@ -77,6 +77,5 @@ service Api {
     rpc SyncState(requests.SyncStateRequest) returns (responses.SyncStateResponse) {}
 
     // Returns a stream with the unconsumed network notes.
-    // TODO: check if a request is needed.
-    rpc GetUnconsumedNetworkNotes(requests.GetUnconsumedNetworkNotesRequest) returns (stream responses.GetUnconsumedNetworkNotesResponse) {}
+    rpc GetUnconsumedNetworkNotes(requests.GetUnconsumedNetworkNotesRequest) returns (responses.GetUnconsumedNetworkNotesResponse) {}
 }

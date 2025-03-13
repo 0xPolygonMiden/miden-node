@@ -936,14 +936,24 @@ pub fn unconsumed_network_notes(
         notes.push(NoteRecord::from_row(row)?);
         // Increment by 1 because we are using rowid >=, and otherwise we would include the last
         // element in the next page as well.
-        token.0 = row.get::<_, i64>(11)? + 1;
+        token.0 = row.get::<_, u64>(11)? + 1;
     }
 
     Ok((notes, token))
 }
 
 #[derive(Default, Debug, Copy, Clone)]
-pub struct PaginationToken(i64);
+pub struct PaginationToken(u64);
+
+impl PaginationToken {
+    pub fn new(token: u64) -> Self {
+        Self(token)
+    }
+
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
+}
 
 // BLOCK CHAIN QUERIES
 // ================================================================================================

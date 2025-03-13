@@ -5,6 +5,7 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    num::NonZero,
     ops::Not,
     sync::Arc,
 };
@@ -984,8 +985,9 @@ impl State {
     pub async fn get_unconsumed_network_notes(
         &self,
         page: PaginationToken,
+        limit: NonZero<usize>,
     ) -> Result<(Vec<NoteRecord>, PaginationToken), DatabaseError> {
-        self.db.select_unconsumed_network_notes(page).await
+        self.db.select_unconsumed_network_notes(page, limit).await
     }
 }
 

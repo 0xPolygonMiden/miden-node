@@ -474,7 +474,7 @@ impl Db {
                 let transaction = conn.transaction()?;
                 sql::apply_block(
                     &transaction,
-                    &block.header(),
+                    &block.header().clone(),
                     &notes,
                     block.created_nullifiers(),
                     block.updated_accounts(),
@@ -520,8 +520,8 @@ impl Db {
     pub(crate) async fn select_unconsumed_network_notes(
         &self,
         page: PaginationToken,
+        limit: NonZero<usize>,
     ) -> Result<(Vec<NoteRecord>, PaginationToken)> {
-        let limit = NonZero::new(100).unwrap(); // TODO: check if limit is harcoded or parameter
         self.pool
             .get()
             .await

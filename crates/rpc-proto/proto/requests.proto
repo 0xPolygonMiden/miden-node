@@ -189,4 +189,11 @@ message GetAccountProofsRequest {
     repeated digest.Digest code_commitments = 3;
 }
 
-message GetUnconsumedNetworkNotesRequest {}
+// Returns a list of unconsumed network notes using pagination.
+message GetUnconsumedNetworkNotesRequest {
+    // Page number to retrieve.
+    uint64 page = 1;
+
+    // Number of notes to retrieve per page.
+    uint64 limit = 2;
+}
