@@ -10,8 +10,15 @@ impl RpcBuilder {
     /// Creates a new `RpcBuilder` from the provided `Builder`.
     /// The settings on the `Builder` are used to compile the proto files, including the `out_dir`
     /// directory.
+    /// By default, the client is not included in the bindings (see `RpcBuilder::with_client`).
     pub fn new(builder: Builder) -> Self {
-        Self(builder)
+        Self(builder.build_client(false))
+    }
+
+    /// Sets whether the bindings should include the client.
+    #[must_use]
+    pub fn with_client(self, client: bool) -> Self {
+        Self(self.0.build_client(client))
     }
 
     /// Compiles the proto bindings for the `rpc` service.

@@ -29,7 +29,16 @@ fn main() -> anyhow::Result<()> {
 
     // Build the proto files in the destination directory.
     let builder = tonic_build::configure().out_dir(&dst_dir);
-    RpcBuilder::new(builder.clone()).compile().context("compiling rpc.proto")?;
+
+    #[cfg(feature = "rpc-client")]
+    let with_client = true;
+    #[cfg(not(feature = "rpc-client"))]
+    let with_client = false;
+
+    RpcBuilder::new(builder.clone())
+        .with_client(with_client)
+        .compile()
+        .context("compiling rpc.proto")?;
     StoreBuilder::new(builder.clone()).compile().context("compiling store.proto")?;
     BlockProducerBuilder::new(builder)
         .compile()
