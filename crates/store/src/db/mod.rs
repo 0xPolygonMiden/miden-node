@@ -38,7 +38,7 @@ mod sql;
 
 mod connection;
 mod pool_manager;
-#[cfg(feature = "explain-query-plans")]
+#[cfg(test)]
 mod query_plan;
 mod settings;
 #[cfg(test)]

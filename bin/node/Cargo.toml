@@ -15,7 +15,6 @@ version.workspace      = true
 workspace = true
 
 [features]
-explain-query-plans = ["miden-node-store/explain-query-plans"]
 tracing-forest      = ["miden-node-block-producer/tracing-forest"]
 
 [dependencies]
