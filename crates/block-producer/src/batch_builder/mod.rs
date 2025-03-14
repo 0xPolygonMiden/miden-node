@@ -139,6 +139,8 @@ impl BatchJob {
             // handle errors after it considers the process complete (which makes sense).
             .and_then(|x| self.inject_failure(x))
             .and_then(|proven_batch| async { self.commit_batch(proven_batch).await; Ok(()) })
+            // Handle errors by propagating the error to the root span and rolling back the batch.
+            .inspect_err(|err| Span::current().set_error(err))
             .or_else(|_err| self.rollback_batch(batch_id).never_error())
             // Error has been handled, this is just type manipulation to remove the result wrapper.
             .unwrap_or_else(|_: Never| ())
