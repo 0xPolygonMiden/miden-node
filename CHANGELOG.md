@@ -29,6 +29,7 @@
 - [BREAKING] Added `block_prover_url` to block producer configuration (#719).
 - [BREAKING] Updated to Rust Edition 2024 (#727).
 - [BREAKING] MSRV bumped to 1.85 (#727).
+- Added new endpoints for network transactions. Added new `get_unconsumed_network_notes` endpoint to the store (#740).
 
 ### Enhancements
 
