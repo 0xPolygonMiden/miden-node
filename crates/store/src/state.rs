@@ -982,6 +982,12 @@ impl State {
         self.inner.read().await.latest_block_num()
     }
 
+    /// Runs database optimization.
+    pub async fn optimize_db(&self) -> Result<(), DatabaseError> {
+        self.db.optimize().await
+    }
+
+    /// Returns the unprocessed network notes, along with the next pagination token.
     pub async fn get_unconsumed_network_notes(
         &self,
         page: PaginationToken,

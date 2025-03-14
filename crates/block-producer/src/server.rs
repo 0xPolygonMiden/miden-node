@@ -82,8 +82,8 @@ impl BlockProducer {
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            batch_builder: BatchBuilder::default(),
-            block_builder: BlockBuilder::new(store.clone()),
+            batch_builder: BatchBuilder::new(config.batch_prover_url),
+            block_builder: BlockBuilder::new(store.clone(), config.block_prover_url),
             batch_budget: BatchBudget::default(),
             block_budget: BlockBudget::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,

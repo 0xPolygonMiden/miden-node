@@ -33,6 +33,7 @@ use crate::{
 };
 
 mod migrations;
+#[macro_use]
 mod sql;
 pub use sql::PaginationToken;
 
@@ -224,7 +225,9 @@ impl Db {
                         })
                         .await
                         .map_err(|e| {
-                            HookError::Message(format!("Loading carray module failed: {e}").into())
+                            HookError::Message(
+                                format!("Failed to configure connection: {e}").into(),
+                            )
                         })?;
 
                     Ok(())
@@ -517,6 +520,25 @@ impl Db {
             .map_err(|err| DatabaseError::InteractError(err.to_string()))?
     }
 
+    /// Runs database optimization.
+    #[instrument(target = COMPONENT, skip_all, err)]
+    pub async fn optimize(&self) -> Result<(), DatabaseError> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| -> Result<()> {
+                conn.execute("PRAGMA optimize;", ())
+                    .map(|_| ())
+                    .map_err(DatabaseError::SqliteError)
+            })
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Database optimization task failed: {err}"))
+            })?
+    }
+
+    /// Loads the network notes that have not been consumed yet, using pagination to limit the
+    /// number of notes returned.
     pub(crate) async fn select_unconsumed_network_notes(
         &self,
         page: PaginationToken,
@@ -562,7 +584,7 @@ impl Db {
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
-        let expected_genesis_header = genesis_block.header().clone();
+        let expected_genesis_header = genesis_block.header();
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {

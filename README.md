@@ -185,6 +185,13 @@ or alternatively start the systemd service if that's how you wish to operate:
 systemctl start miden-node.service
 ```
 
+The node will use local provers for blocks and batches, but you can configure the node to use remote provers by adding the following to the `miden-node.toml` file in the `[block-producer]` section:
+
+```toml
+batch_prover_url = "<BATCH_PROVER_URL>"
+block_prover_url = "<BLOCK_PROVER_URL>"
+```
+
 ### Monitoring and telemetry
 
 Please see our operator documentation [here](docs/operator.md).
