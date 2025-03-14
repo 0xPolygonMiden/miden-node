@@ -1,17 +1,9 @@
 use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
 use miden_objects::{
-    account::{Account, AccountDelta, AccountId},
-    block::BlockNumber,
-    crypto::hash::rpo::RpoDigest,
-    note::Nullifier,
+    account::Account, block::BlockNumber, crypto::hash::rpo::RpoDigest, note::Nullifier,
     utils::Deserializable,
 };
-use rusqlite::{
-    Connection, OptionalExtension, params,
-    types::{Value, ValueRef},
-};
-
-use crate::errors::DatabaseError;
+use rusqlite::{Connection, OptionalExtension, params, types::Value};
 
 /// Returns the high 16 bits of the provided nullifier.
 pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
@@ -127,6 +119,29 @@ where
     })
 }
 
+/// Gets a nullable blob value from the database and tries to deserialize it into the necessary
+/// type.
+pub fn read_from_blob_or_null_column<I, T>(
+    row: &rusqlite::Row<'_>,
+    index: I,
+) -> rusqlite::Result<Option<T>>
+where
+    I: rusqlite::RowIndex + Copy + Into<usize>,
+    T: Deserializable,
+{
+    row.get_ref(index)?
+        .as_blob_or_null()?
+        .map(T::read_from_bytes)
+        .transpose()
+        .map_err(|err| {
+            rusqlite::Error::FromSqlConversionFailure(
+                index.into(),
+                rusqlite::types::Type::Blob,
+                Box::new(err),
+            )
+        })
+}
+
 /// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
@@ -149,31 +164,4 @@ pub fn account_info_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<Accou
     let details = details.map(Account::read_from_bytes).transpose()?;
 
     Ok(AccountInfo { summary: update, details })
-}
-
-/// Deserializes account and applies account delta.
-pub fn apply_delta(
-    account_id: AccountId,
-    value: &ValueRef<'_>,
-    delta: &AccountDelta,
-    final_state_hash: &RpoDigest,
-) -> crate::db::Result<Account, DatabaseError> {
-    let account = value.as_blob_or_null()?;
-    let account = account.map(Account::read_from_bytes).transpose()?;
-
-    let Some(mut account) = account else {
-        return Err(DatabaseError::AccountNotPublic(account_id));
-    };
-
-    account.apply_delta(delta)?;
-
-    let actual_hash = account.hash();
-    if &actual_hash != final_state_hash {
-        return Err(DatabaseError::AccountHashesMismatch {
-            calculated: actual_hash,
-            expected: *final_state_hash,
-        });
-    }
-
-    Ok(account)
 }

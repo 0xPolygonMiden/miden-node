@@ -1,16 +1,17 @@
 #![allow(clippy::similar_names, reason = "naming dummy test values is hard")]
 #![allow(clippy::too_many_lines, reason = "test code can be long")]
 
-use std::num::NonZeroUsize;
+use std::{collections::BTreeMap, num::NonZeroUsize};
 
+use assert_matches::assert_matches;
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::domain::account::AccountSummary;
 use miden_objects::{
     Felt, FieldElement, Word, ZERO,
     account::{
         Account, AccountBuilder, AccountComponent, AccountDelta, AccountId, AccountIdVersion,
-        AccountStorageDelta, AccountStorageMode, AccountType, AccountVaultDelta, StorageSlot,
-        delta::AccountUpdateDetails,
+        AccountStorageDelta, AccountStorageMode, AccountType, AccountVaultDelta,
+        FungibleAssetDelta, NonFungibleAssetDelta, StorageSlot, delta::AccountUpdateDetails,
     },
     asset::{Asset, FungibleAsset, NonFungibleAsset, NonFungibleAssetDetails},
     block::{BlockAccountUpdate, BlockHeader, BlockNoteIndex, BlockNoteTree, BlockNumber},
@@ -27,7 +28,10 @@ use miden_objects::{
 use rusqlite::{Connection, vtab::array};
 
 use super::{AccountInfo, NoteRecord, NullifierInfo, sql};
-use crate::db::{TransactionSummary, migrations::apply_migrations, sql::PaginationToken};
+use crate::{
+    db::{TransactionSummary, migrations::apply_migrations, sql::PaginationToken},
+    errors::DatabaseError,
+};
 
 fn create_db() -> Connection {
     let mut conn = Connection::open_in_memory().unwrap();
@@ -410,7 +414,7 @@ fn sql_select_accounts() {
             [i; 15],
             AccountIdVersion::Version0,
             AccountType::RegularAccountImmutableCode,
-            miden_objects::account::AccountStorageMode::Private,
+            AccountStorageMode::Private,
         );
         let account_hash = num_to_rpo_digest(u64::from(i));
         state.push(AccountInfo {
@@ -588,6 +592,190 @@ fn sql_public_account_details() {
     delta2.merge(delta3).unwrap();
 
     assert_eq!(read_delta, Some(delta2));
+}
+
+#[test]
+fn upsert_account_checks() {
+    let mut conn = create_db();
+
+    let mut block_num = 1.into();
+    create_block(&mut conn, block_num);
+    create_block(&mut conn, block_num + 1);
+
+    let transaction = conn.transaction().unwrap();
+
+    let account_id = AccountId::dummy(
+        [1; 15],
+        AccountIdVersion::Version0,
+        AccountType::RegularAccountImmutableCode,
+        AccountStorageMode::Private,
+    );
+
+    let account_hash = num_to_rpo_digest(1);
+
+    let res = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_id,
+            account_hash,
+            AccountUpdateDetails::Private,
+            vec![],
+        )],
+        block_num,
+    );
+
+    assert_matches!(res, Ok(1), "Insertion of a new private account into empty DB must be OK");
+
+    let res = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_id,
+            account_hash,
+            AccountUpdateDetails::Private,
+            vec![],
+        )],
+        block_num,
+    );
+
+    assert_matches!(
+        res,
+        Err(DatabaseError::AccountAlreadyExistsInDb(id)) if id == account_id,
+        "Insertion of the private account duplicate must return an error"
+    );
+
+    let res = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_id,
+            num_to_rpo_digest(2),
+            AccountUpdateDetails::Private,
+            vec![],
+        )],
+        block_num,
+    );
+
+    assert_matches!(res, Ok(1), "Insertion of the private account update must be OK");
+
+    let account = mock_account_code_and_storage(
+        AccountType::RegularAccountImmutableCode,
+        AccountStorageMode::Public,
+        [],
+    );
+
+    let delta = AccountDelta::new(
+        AccountStorageDelta::new(BTreeMap::new(), BTreeMap::new()).unwrap(),
+        AccountVaultDelta::new(
+            FungibleAssetDelta::new(BTreeMap::new()).unwrap(),
+            NonFungibleAssetDelta::new(BTreeMap::new()),
+        ),
+        Some(Felt::new(2)),
+    )
+    .unwrap();
+
+    let res = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account.id(),
+            account.hash(),
+            AccountUpdateDetails::Delta(delta.clone()),
+            vec![],
+        )],
+        block_num,
+    );
+
+    assert_matches!(
+        res,
+        Err(DatabaseError::AccountNotFoundInDb(id)) if id == account.id(),
+        "Insertion of a public account delta must return an error, if account is not in the DB"
+    );
+
+    let res = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account.id(),
+            account_hash,
+            AccountUpdateDetails::New(account.clone()),
+            vec![],
+        )],
+        block_num,
+    );
+
+    assert_matches!(
+        res,
+        Err(DatabaseError::AccountHashesMismatch {
+            calculated,
+            expected,
+        }) if expected == account_hash && calculated == account.hash(),
+        "Insertion of a new public account must return an error, if account hashes do not match"
+    );
+
+    let res = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account.id(),
+            account.hash(),
+            AccountUpdateDetails::New(account.clone()),
+            vec![],
+        )],
+        block_num,
+    );
+
+    assert_matches!(res, Ok(1), "Insertion of a new public account must be OK");
+
+    block_num = block_num + 1;
+
+    let mut account_new = account.clone();
+    account_new.apply_delta(&delta).unwrap();
+
+    let res = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_new.id(),
+            account.hash(),
+            AccountUpdateDetails::Delta(delta.clone()),
+            vec![],
+        )],
+        block_num,
+    );
+
+    assert_matches!(
+        res,
+        Err(DatabaseError::AccountAlreadyExistsInDb(id)) if id == account_new.id(),
+        "Insertion of a public account delta for must return an error, if account hash wasn't changed"
+    );
+
+    let res = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_new.id(),
+            account_hash,
+            AccountUpdateDetails::Delta(delta.clone()),
+            vec![],
+        )],
+        block_num,
+    );
+
+    assert_matches!(
+        res,
+        Err(DatabaseError::AccountHashesMismatch {
+            calculated,
+            expected,
+        }) if expected == account_hash && calculated == account_new.hash(),
+        "Insertion of a public account delta must return an error, if account hashes do not match"
+    );
+
+    let res = sql::upsert_accounts(
+        &transaction,
+        &[BlockAccountUpdate::new(
+            account_new.id(),
+            account_new.hash(),
+            AccountUpdateDetails::Delta(delta.clone()),
+            vec![],
+        )],
+        block_num,
+    );
+
+    assert_matches!(res, Ok(1), "Update of a public account with delta must be OK");
 }
 
 #[test]
