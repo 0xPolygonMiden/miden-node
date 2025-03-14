@@ -6,6 +6,7 @@ pub const PROTO_FILES: &[(&str, &str)] = &[
     ("digest.proto", include_str!("../proto/digest.proto")),
     ("merkle.proto", include_str!("../proto/merkle.proto")),
     ("mmr.proto", include_str!("../proto/mmr.proto")),
+    ("network_transaction.proto", include_str!("../proto/network_transaction.proto")),
     ("note.proto", include_str!("../proto/note.proto")),
     ("requests.proto", include_str!("../proto/requests.proto")),
     ("responses.proto", include_str!("../proto/responses.proto")),

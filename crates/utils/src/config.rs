@@ -10,6 +10,7 @@ pub const DEFAULT_NODE_RPC_PORT: u16 = 57291;
 pub const DEFAULT_BLOCK_PRODUCER_PORT: u16 = 48046;
 pub const DEFAULT_STORE_PORT: u16 = 28943;
 pub const DEFAULT_FAUCET_SERVER_PORT: u16 = 8080;
+pub const DEFAULT_NETWORK_TRANSACTION_PORT: u16 = 48048;
 
 /// Loads the user configuration.
 ///

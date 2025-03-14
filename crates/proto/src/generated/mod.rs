@@ -6,6 +6,7 @@ pub mod block_producer;
 pub mod digest;
 pub mod merkle;
 pub mod mmr;
+pub mod network_transaction;
 pub mod note;
 pub mod requests;
 pub mod responses;

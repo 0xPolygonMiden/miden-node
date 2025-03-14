@@ -2,6 +2,7 @@ syntax = "proto3";
 package requests;
 
 import "account.proto";
+import "note.proto";
 import "digest.proto";
 
 // Applies changes of a new block to the DB and in-memory data structures.
@@ -196,4 +197,21 @@ message GetUnconsumedNetworkNotesRequest {
 
     // Number of notes to retrieve per page.
     uint64 limit = 2;
+}
+
+// Creates a new network note.
+message CreateNetworkNoteRequest {
+    // Plain note.
+    note.Note note = 1;
+    
+    // Id of the transaction that created the note.
+    digest.Digest transaction_id = 2;
+}
+
+message UpdateNetworkNoteRequest {
+    // Transaction id of the note to update.
+    digest.Digest transaction_id = 1;
+
+    // New status of the note.
+    note.NetworkNoteStatus status = 2;
 }

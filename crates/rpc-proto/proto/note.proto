@@ -80,3 +80,8 @@ message NoteSyncRecord {
     // The note's inclusion proof in the block.
     merkle.MerklePath merkle_path = 4;
 }
+
+enum NetworkNoteStatus {
+    COMMITED = 0;
+    FAILED = 1;
+}

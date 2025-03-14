@@ -8,7 +8,7 @@ mod block_builder;
 mod domain;
 mod errors;
 mod mempool;
-mod store;
+pub mod store;
 
 pub mod config;
 pub mod server;

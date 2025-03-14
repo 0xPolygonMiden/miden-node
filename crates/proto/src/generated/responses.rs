@@ -280,3 +280,17 @@ pub struct GetUnconsumedNetworkNotesResponse {
     #[prost(message, repeated, tag = "2")]
     pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
 }
+/// Represents the result of creating a network note.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct CreateNetworkNoteResponse {
+    /// The note ID.
+    #[prost(message, optional, tag = "1")]
+    pub note_id: ::core::option::Option<super::digest::Digest>,
+}
+/// Represents the result of updating a network note.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct UpdateNetworkNoteResponse {
+    /// The note status.
+    #[prost(enumeration = "super::note::NetworkNoteStatus", tag = "1")]
+    pub status: i32,
+}
