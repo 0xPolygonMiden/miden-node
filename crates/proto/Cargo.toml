@@ -11,9 +11,6 @@ repository.workspace   = true
 rust-version.workspace = true
 version.workspace      = true
 
-[features]
-rpc-client = []
-
 [lints]
 workspace = true
 
@@ -30,5 +27,5 @@ proptest = { version = "1.5" }
 
 [build-dependencies]
 anyhow                 = { version = "1.0" }
-miden-node-proto-build = { workspace = true }
+miden-node-proto-build = { workspace = true, features = ["internal"] }
 tonic-build            = { version = "0.12" }
