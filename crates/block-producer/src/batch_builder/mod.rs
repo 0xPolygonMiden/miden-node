@@ -11,7 +11,7 @@ use miden_proving_service_client::proving_service::batch_prover::RemoteBatchProv
 use miden_tx_batch_prover::LocalBatchProver;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
-use tracing::{info, instrument, Instrument, Span};
+use tracing::{instrument, Instrument, Span};
 use url::Url;
 
 use crate::{
@@ -87,6 +87,8 @@ impl BatchBuilder {
 
     #[instrument(parent = None, target = COMPONENT, name = "batch_builder.build_batch", skip_all)]
     async fn build_batch(&mut self, mempool: SharedMempool) {
+        Span::current().set_attribute("workers.count", self.worker_pool.len());
+
         self.wait_for_available_worker().await;
 
         let job = BatchJob {
@@ -96,17 +98,16 @@ impl BatchBuilder {
             batch_prover: self.batch_prover.clone(),
         };
 
-        let root_span = Span::current();
-
         self.worker_pool
-            .spawn(async move { job.build_batch().await }.instrument(root_span));
+            .spawn(async move { job.build_batch().await }.instrument(tracing::Span::current()));
     }
 
+    #[instrument(target = COMPONENT, name = "batch_builder.wait_for_available_worker", skip_all)]
     async fn wait_for_available_worker(&mut self) {
         if let Err(crash) = self.worker_pool.join_next().await.expect("worker pool is never empty")
         {
-            tracing::error!(message=%crash, "Batch worker panic'd");
-            panic!("Batch monitor panic'd: {crash}");
+            tracing::error!(message=%crash, "Batch worker pool panic'd");
+            panic!("Batch worker pool panic: {crash}");
         }
     }
 }
@@ -123,15 +124,16 @@ struct BatchJob {
 
 impl BatchJob {
     async fn build_batch(&self) {
-        let Some(batch) = self.select_batch().await else {
+        let Some(batch) = self.select_batch().instrument(Span::current()).await else {
             tracing::info!("No transactions available.");
             return;
         };
 
         let batch_id = batch.id;
+        Span::current().set_attribute("batch.id", batch_id);
 
         self.get_batch_inputs(batch)
-            .and_then(|(txs, inputs)| async { Self::propose_batch(txs, inputs) })
+            .and_then(|(txs, inputs)| Self::propose_batch(txs, inputs) )
             .and_then(|proposed| self.prove_batch(proposed))
             // Failure must be injected before the final pipeline stage i.e. before commit is called. The system cannot
             // handle errors after it considers the process complete (which makes sense).
@@ -140,9 +142,11 @@ impl BatchJob {
             .or_else(|_err| self.rollback_batch(batch_id).never_error())
             // Error has been handled, this is just type manipulation to remove the result wrapper.
             .unwrap_or_else(|_: Never| ())
+            .instrument(Span::current())
             .await;
     }
 
+    #[instrument(target = COMPONENT, name = "batch_builder.select_batch", skip_all)]
     async fn select_batch(&self) -> Option<SelectedBatch> {
         self.mempool
             .lock()
@@ -151,6 +155,7 @@ impl BatchJob {
             .map(|(id, transactions)| SelectedBatch { id, transactions })
     }
 
+    #[instrument(target = COMPONENT, name = "batch_builder.get_batch_inputs", skip_all, err)]
     async fn get_batch_inputs(
         &self,
         batch: SelectedBatch,
@@ -169,7 +174,8 @@ impl BatchJob {
             .map(|inputs| (batch.transactions, inputs))
     }
 
-    fn propose_batch(
+    #[instrument(target = COMPONENT, name = "batch_builder.propose_batch", skip_all, err)]
+    async fn propose_batch(
         transactions: Vec<AuthenticatedTransaction>,
         inputs: BatchInputs,
     ) -> Result<ProposedBatch, BuildBatchError> {
@@ -185,13 +191,27 @@ impl BatchJob {
         .map_err(BuildBatchError::ProposeBatchError)
     }
 
+    #[instrument(target = COMPONENT, name = "batch_builder.prove_batch", skip_all, err)]
     async fn prove_batch(
         &self,
         proposed_batch: ProposedBatch,
     ) -> Result<ProvenBatch, BuildBatchError> {
-        self.batch_prover.prove(proposed_batch).await
+        Span::current().set_attribute("prover.kind", self.batch_prover.kind());
+
+        match &self.batch_prover {
+            BatchProver::Remote(prover) => {
+                prover.prove(proposed_batch).await.map_err(BuildBatchError::RemoteProverError)
+            },
+            BatchProver::Local(prover) => tokio::task::spawn_blocking({
+                let prover = prover.clone();
+                move || prover.prove(proposed_batch).map_err(BuildBatchError::ProveBatchError)
+            })
+            .await
+            .map_err(BuildBatchError::JoinError)?,
+        }
     }
 
+    #[instrument(target = COMPONENT, name = "batch_builder.inject_failure", skip_all, err)]
     async fn inject_failure<T>(&self, value: T) -> Result<T, BuildBatchError> {
         let roll = rand::thread_rng().r#gen::<f64>();
 
@@ -205,10 +225,12 @@ impl BatchJob {
         }
     }
 
+    #[instrument(target = COMPONENT, name = "batch_builder.commit_batch", skip_all)]
     async fn commit_batch(&self, batch: ProvenBatch) {
         self.mempool.lock().await.batch_proved(batch);
     }
 
+    #[instrument(target = COMPONENT, name = "batch_builder.rollback_batch", skip_all)]
     async fn rollback_batch(&self, batch_id: BatchId) {
         self.mempool.lock().await.batch_failed(batch_id);
     }
@@ -224,37 +246,24 @@ struct SelectedBatch {
 
 /// Represents a batch prover which can be either local or remote.
 #[derive(Clone)]
-pub enum BatchProver {
+enum BatchProver {
     Local(LocalBatchProver),
     Remote(RemoteBatchProver),
 }
 
 impl BatchProver {
-    pub fn new_local(security_level: u32) -> Self {
-        info!(target: COMPONENT, "Using local batch prover");
+    const fn kind(&self) -> &'static str {
+        match self {
+            BatchProver::Local(_) => "local",
+            BatchProver::Remote(_) => "remote",
+        }
+    }
+
+    fn new_local(security_level: u32) -> Self {
         Self::Local(LocalBatchProver::new(security_level))
     }
 
-    pub fn new_remote(endpoint: impl Into<String>) -> Self {
-        info!(target: COMPONENT, "Using remote batch prover");
+    fn new_remote(endpoint: impl Into<String>) -> Self {
         Self::Remote(RemoteBatchProver::new(endpoint))
-    }
-
-    #[instrument(target = COMPONENT, skip_all, err)]
-    pub async fn prove(
-        &self,
-        proposed_batch: ProposedBatch,
-    ) -> Result<ProvenBatch, BuildBatchError> {
-        match self {
-            Self::Remote(prover) => {
-                prover.prove(proposed_batch).await.map_err(BuildBatchError::RemoteProverError)
-            },
-            Self::Local(prover) => tokio::task::spawn_blocking({
-                let prover = prover.clone();
-                move || prover.prove(proposed_batch).map_err(BuildBatchError::ProveBatchError)
-            })
-            .await
-            .map_err(BuildBatchError::JoinError)?,
-        }
     }
 }
