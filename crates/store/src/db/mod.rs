@@ -23,12 +23,12 @@ use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
 use crate::{
-    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
     blocks::BlockStore,
     config::StoreConfig,
     db::migrations::apply_migrations,
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
+    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
 mod migrations;

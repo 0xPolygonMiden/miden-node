@@ -16,8 +16,8 @@ use tracing::{info, instrument, Span};
 use url::Url;
 
 use crate::{
-    errors::BuildBlockError, mempool::SharedMempool, store::StoreClient, COMPONENT,
-    SERVER_BLOCK_FREQUENCY,
+    errors::BuildBlockError, mempool::SharedMempool, store::StoreClient, TelemetryInjectorExt,
+    COMPONENT, SERVER_BLOCK_FREQUENCY,
 };
 
 // BLOCK BUILDER
@@ -292,12 +292,6 @@ impl BlockBatchesAndInputs {
                 .expect("less than u32::MAX unauthenticated notes"),
         );
     }
-}
-
-/// An extension trait used only locally to implement telemetry injection.
-trait TelemetryInjectorExt {
-    /// Inject [`tracing`] telemetry from self.
-    fn inject_telemetry(&self);
 }
 
 impl TelemetryInjectorExt for ProposedBlock {

@@ -16,7 +16,7 @@ use url::Url;
 
 use crate::{
     domain::transaction::AuthenticatedTransaction, errors::BuildBatchError, mempool::SharedMempool,
-    store::StoreClient, COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
+    store::StoreClient, TelemetryInjectorExt, COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
 };
 
 // BATCH BUILDER
@@ -46,10 +46,9 @@ impl BatchBuilder {
     ///
     /// If no URL is provided, a local batch prover is used.
     pub fn new(store: StoreClient, workers: NonZeroUsize, batch_prover_url: Option<Url>) -> Self {
-        let batch_prover = match batch_prover_url {
-            Some(url) => BatchProver::new_remote(url),
-            None => BatchProver::new_local(MIN_PROOF_SECURITY_LEVEL),
-        };
+        let batch_prover = batch_prover_url
+            .map(BatchProver::remote)
+            .unwrap_or(BatchProver::local(MIN_PROOF_SECURITY_LEVEL));
 
         let worker_pool = std::iter::repeat_n(std::future::ready(()), workers.get()).collect();
 
@@ -129,11 +128,12 @@ impl BatchJob {
             return;
         };
 
+        batch.inject_telemetry();
         let batch_id = batch.id;
-        Span::current().set_attribute("batch.id", batch_id);
 
         self.get_batch_inputs(batch)
             .and_then(|(txs, inputs)| Self::propose_batch(txs, inputs) )
+            .inspect_ok(|proposed| proposed.inject_telemetry())
             .and_then(|proposed| self.prove_batch(proposed))
             // Failure must be injected before the final pipeline stage i.e. before commit is called. The system cannot
             // handle errors after it considers the process complete (which makes sense).
@@ -259,11 +259,45 @@ impl BatchProver {
         }
     }
 
-    fn new_local(security_level: u32) -> Self {
+    fn local(security_level: u32) -> Self {
         Self::Local(LocalBatchProver::new(security_level))
     }
 
-    fn new_remote(endpoint: impl Into<String>) -> Self {
+    fn remote(endpoint: impl Into<String>) -> Self {
         Self::Remote(RemoteBatchProver::new(endpoint))
+    }
+}
+
+// TELEMETRY
+// ================================================================================================
+
+impl TelemetryInjectorExt for SelectedBatch {
+    fn inject_telemetry(&self) {
+        Span::current().set_attribute("batch.id", self.id);
+        Span::current().set_attribute("transactions.count", self.transactions.len());
+        Span::current().set_attribute(
+            "transactions.input_notes.count",
+            self.transactions.iter().map(|tx| tx.input_note_count()).sum::<usize>(),
+        );
+        Span::current().set_attribute(
+            "transactions.output_notes.count",
+            self.transactions.iter().map(|tx| tx.output_note_count()).sum::<usize>(),
+        );
+        Span::current().set_attribute(
+            "transactions.unauthenticated_notes.count",
+            self.transactions
+                .iter()
+                .map(|tx| tx.unauthenticated_notes().count())
+                .sum::<usize>(),
+        );
+    }
+}
+
+impl TelemetryInjectorExt for ProposedBatch {
+    fn inject_telemetry(&self) {
+        Span::current().set_attribute("batch.expiration_height", self.batch_expiration_block_num());
+        Span::current().set_attribute("batch.account_updates.count", self.account_updates().len());
+        Span::current().set_attribute("batch.input_notes.count", self.input_notes().num_notes());
+        Span::current().set_attribute("batch.output_notes.count", self.output_notes().len());
     }
 }
