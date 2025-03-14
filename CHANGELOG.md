@@ -5,6 +5,7 @@
 ### Enhancements
 
 - Implemented database optimization routine (#721).
+- Improve checks during account update in the store (#739). 
 
 ### Fixes
 
