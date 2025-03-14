@@ -36,7 +36,8 @@ impl ProtoBuilder {
     }
 }
 
-/// This wrapper function receives a `tonic_build::Builder` and uses it to generate the protobuf bindings.
+/// This wrapper function receives a `tonic_build::Builder` and uses it to generate the protobuf
+/// bindings.
 fn generate_protos(builder: tonic_build::Builder, proto_files: &[&str]) -> anyhow::Result<()> {
     let cwd: PathBuf = env::current_dir().context("current directory")?;
     let cwd = cwd
