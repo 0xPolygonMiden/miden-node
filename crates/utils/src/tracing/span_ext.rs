@@ -1,8 +1,8 @@
 use core::time::Duration;
 use std::net::IpAddr;
 
-use miden_objects::{batch::BatchId, block::BlockNumber, Digest};
-use opentelemetry::{trace::Status, Key, Value};
+use miden_objects::{Digest, batch::BatchId, block::BlockNumber};
+use opentelemetry::{Key, Value, trace::Status};
 
 /// Utility functions for converting types into [`opentelemetry::Value`].
 pub trait ToValue {

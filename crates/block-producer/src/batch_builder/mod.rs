@@ -1,22 +1,23 @@
 use std::{num::NonZeroUsize, time::Duration};
 
-use futures::{never::Never, FutureExt, TryFutureExt};
+use futures::{FutureExt, TryFutureExt, never::Never};
 use miden_node_proto::domain::batch::BatchInputs;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
-    batch::{BatchId, ProposedBatch, ProvenBatch},
     MIN_PROOF_SECURITY_LEVEL,
+    batch::{BatchId, ProposedBatch, ProvenBatch},
 };
 use miden_proving_service_client::proving_service::batch_prover::RemoteBatchProver;
 use miden_tx_batch_prover::LocalBatchProver;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
-use tracing::{instrument, Instrument, Span};
+use tracing::{Instrument, Span, instrument};
 use url::Url;
 
 use crate::{
+    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY, TelemetryInjectorExt,
     domain::transaction::AuthenticatedTransaction, errors::BuildBatchError, mempool::SharedMempool,
-    store::StoreClient, TelemetryInjectorExt, COMPONENT, SERVER_BUILD_BATCH_FREQUENCY,
+    store::StoreClient,
 };
 
 // BATCH BUILDER
@@ -47,8 +48,7 @@ impl BatchBuilder {
     /// If no URL is provided, a local batch prover is used.
     pub fn new(store: StoreClient, workers: NonZeroUsize, batch_prover_url: Option<Url>) -> Self {
         let batch_prover = batch_prover_url
-            .map(BatchProver::remote)
-            .unwrap_or(BatchProver::local(MIN_PROOF_SECURITY_LEVEL));
+            .map_or(BatchProver::local(MIN_PROOF_SECURITY_LEVEL), BatchProver::remote);
 
         let worker_pool = std::iter::repeat_n(std::future::ready(()), workers.get()).collect();
 
@@ -91,7 +91,7 @@ impl BatchBuilder {
         self.wait_for_available_worker().await;
 
         let job = BatchJob {
-            failure_rate: self.failure_rate.clone(),
+            failure_rate: self.failure_rate,
             store: self.store.clone(),
             mempool,
             batch_prover: self.batch_prover.clone(),
@@ -133,12 +133,12 @@ impl BatchJob {
 
         self.get_batch_inputs(batch)
             .and_then(|(txs, inputs)| Self::propose_batch(txs, inputs) )
-            .inspect_ok(|proposed| proposed.inject_telemetry())
+            .inspect_ok(TelemetryInjectorExt::inject_telemetry)
             .and_then(|proposed| self.prove_batch(proposed))
             // Failure must be injected before the final pipeline stage i.e. before commit is called. The system cannot
             // handle errors after it considers the process complete (which makes sense).
             .and_then(|x| self.inject_failure(x))
-            .and_then(|proven_batch| async { Ok(self.commit_batch(proven_batch).await) })
+            .and_then(|proven_batch| async { self.commit_batch(proven_batch).await; Ok(()) })
             .or_else(|_err| self.rollback_batch(batch_id).never_error())
             // Error has been handled, this is just type manipulation to remove the result wrapper.
             .unwrap_or_else(|_: Never| ())
@@ -227,12 +227,12 @@ impl BatchJob {
 
     #[instrument(target = COMPONENT, name = "batch_builder.commit_batch", skip_all)]
     async fn commit_batch(&self, batch: ProvenBatch) {
-        self.mempool.lock().await.batch_proved(batch);
+        self.mempool.lock().await.commit_batch(batch);
     }
 
     #[instrument(target = COMPONENT, name = "batch_builder.rollback_batch", skip_all)]
     async fn rollback_batch(&self, batch_id: BatchId) {
-        self.mempool.lock().await.batch_failed(batch_id);
+        self.mempool.lock().await.rollback_batch(batch_id);
     }
 }
 
@@ -277,11 +277,17 @@ impl TelemetryInjectorExt for SelectedBatch {
         Span::current().set_attribute("transactions.count", self.transactions.len());
         Span::current().set_attribute(
             "transactions.input_notes.count",
-            self.transactions.iter().map(|tx| tx.input_note_count()).sum::<usize>(),
+            self.transactions
+                .iter()
+                .map(AuthenticatedTransaction::input_note_count)
+                .sum::<usize>(),
         );
         Span::current().set_attribute(
             "transactions.output_notes.count",
-            self.transactions.iter().map(|tx| tx.output_note_count()).sum::<usize>(),
+            self.transactions
+                .iter()
+                .map(AuthenticatedTransaction::output_note_count)
+                .sum::<usize>(),
         );
         Span::current().set_attribute(
             "transactions.unauthenticated_notes.count",

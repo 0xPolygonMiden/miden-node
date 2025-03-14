@@ -1,23 +1,23 @@
 use std::ops::Range;
 
-use futures::{never::Never, FutureExt};
+use futures::{FutureExt, never::Never};
 use miden_block_prover::LocalBlockProver;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
+    MIN_PROOF_SECURITY_LEVEL,
     batch::ProvenBatch,
     block::{BlockInputs, BlockNumber, ProposedBlock, ProvenBlock},
     note::NoteHeader,
-    MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_proving_service_client::proving_service::block_prover::RemoteBlockProver;
 use rand::Rng;
 use tokio::time::Duration;
-use tracing::{info, instrument, Span};
+use tracing::{Span, info, instrument};
 use url::Url;
 
 use crate::{
-    errors::BuildBlockError, mempool::SharedMempool, store::StoreClient, TelemetryInjectorExt,
-    COMPONENT, SERVER_BLOCK_FREQUENCY,
+    COMPONENT, SERVER_BLOCK_FREQUENCY, TelemetryInjectorExt, errors::BuildBlockError,
+    mempool::SharedMempool, store::StoreClient,
 };
 
 // BLOCK BUILDER
