@@ -1,4 +1,9 @@
-use std::{fmt::Display, path::PathBuf, process::Command, time::Duration};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+    process::Command,
+    time::Duration,
+};
 
 const SQLITE_TABLES: [&str; 11] = [
     "account_deltas",
@@ -17,6 +22,7 @@ const SQLITE_TABLES: [&str; 11] = [
 /// Metrics struct to show the results of the stress test
 pub struct Metrics {
     insertion_time_per_block: Vec<Duration>,
+    get_inputs_time_per_block: Vec<Duration>,
     bytes_per_block: Vec<usize>,
     num_insertions: u32,
     store_file_sizes: Vec<u64>,
@@ -25,10 +31,12 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    /// Create a new Metrics instance
-    pub fn new(store_file: PathBuf, initial_store_size: u64) -> Self {
+    /// Create a new Metrics instance.
+    pub fn new(store_file: PathBuf) -> Self {
+        let initial_store_size = Self::get_store_size(&store_file);
         Self {
             insertion_time_per_block: Vec::new(),
+            get_inputs_time_per_block: Vec::new(),
             bytes_per_block: Vec::new(),
             num_insertions: 0,
             store_file_sizes: Vec::new(),
@@ -37,14 +45,34 @@ impl Metrics {
         }
     }
 
-    pub fn add_insertion(&mut self, insertion_time: Duration, block_size: usize) {
+    /// Track a new insertion to the metrics, with the insertion time and size of the block.
+    pub fn add_insertion(
+        &mut self,
+        insertion_time: Duration,
+        get_inputs_time: Duration,
+        block_size: usize,
+    ) {
         self.insertion_time_per_block.push(insertion_time);
+        self.get_inputs_time_per_block.push(get_inputs_time);
         self.bytes_per_block.push(block_size);
         self.num_insertions += 1;
     }
 
-    pub fn add_store_size(&mut self, store_size: u64) {
-        self.store_file_sizes.push(store_size);
+    /// Track the size of the store file.
+    pub fn record_store_size(&mut self) {
+        self.store_file_sizes.push(Self::get_store_size(&self.store_file));
+    }
+
+    // pub fn add_get_block_inputs(&mut self, query_time: Duration) {
+    //     self.insertion_time_per_block.extend(get_block_inputs);
+    // }
+
+    /// Get the size of the store file and its WAL file.
+    fn get_store_size(dump_file: &Path) -> u64 {
+        let store_file_size = std::fs::metadata(dump_file).unwrap().len();
+        let wal_file_size =
+            std::fs::metadata(format!("{}-wal", dump_file.to_str().unwrap())).unwrap().len();
+        store_file_size + wal_file_size
     }
 }
 
@@ -70,14 +98,19 @@ impl Display for Metrics {
         writeln!(f, "\nBlock metrics:")?;
         writeln!(
             f,
-            "{:<10} {:<20} {:<20} {:<20}",
-            "Block #", "Insert Time (ms)", "Block Size (B)", "DB Size (KB)"
+            "{:<10} {:<20} {:<22} {:<20} {:<20}",
+            "Block #", "Insert Time (ms)", "Get Inputs Time (ms)", "Block Size (B)", "DB Size (KB)"
         )?;
-        writeln!(f, "{}", "-".repeat(75))?;
+        writeln!(f, "{}", "-".repeat(95))?;
         for (i, store_size) in self.store_file_sizes.iter().enumerate() {
             let block_index = i * 50;
             let insertion_time = self
                 .insertion_time_per_block
+                .get(block_index)
+                .unwrap_or(&Duration::default())
+                .as_millis();
+            let inputs_query_time = self
+                .get_inputs_time_per_block
                 .get(block_index)
                 .unwrap_or(&Duration::default())
                 .as_millis();
@@ -86,7 +119,7 @@ impl Display for Metrics {
 
             writeln!(
                 f,
-                "{block_index:<10} {insertion_time:<20} {block_size:<20} {store_size_mb:<20.1}",
+                "{block_index:<10} {insertion_time:<20} {inputs_query_time:<22} {block_size:<20} {store_size_mb:<20.1}",
             )?;
         }
 

@@ -2316,7 +2316,6 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "clap",
- "miden-air",
  "miden-block-prover",
  "miden-lib",
  "miden-node-block-producer",
@@ -2324,7 +2323,6 @@ dependencies = [
  "miden-node-store",
  "miden-node-utils",
  "miden-objects",
- "miden-processor",
  "rand",
  "rayon",
  "tokio",

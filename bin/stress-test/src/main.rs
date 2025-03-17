@@ -2,14 +2,13 @@ use std::{
     env::temp_dir,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 mod metrics;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use metrics::Metrics;
-use miden_air::HashFunction;
 use miden_block_prover::LocalBlockProver;
 use miden_lib::{
     account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
@@ -28,16 +27,22 @@ use miden_objects::{
     asset::{Asset, FungibleAsset, TokenSymbol},
     batch::{BatchAccountUpdate, BatchId, ProvenBatch},
     block::{BlockHeader, BlockNumber, ProposedBlock},
-    crypto::dsa::rpo_falcon512::{PublicKey, SecretKey},
+    crypto::{
+        dsa::rpo_falcon512::{PublicKey, SecretKey},
+        merkle::MerklePath,
+        rand::RpoRandomCoin,
+    },
     note::{Note, NoteHeader, NoteInclusionProof},
     transaction::{InputNote, InputNotes, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
 };
-use miden_processor::crypto::{MerklePath, RpoRandomCoin};
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tokio::{fs, task};
 use winterfell::Proof;
+
+const BATCHES_PER_BLOCK: usize = 16;
+const TRANSACTIONS_PER_BATCH: usize = 16;
 
 #[derive(Parser)]
 #[command(version)]
@@ -60,9 +65,6 @@ pub enum Command {
         num_accounts: usize,
     },
 }
-
-const BATCHES_PER_BLOCK: usize = 16;
-const TRANSACTIONS_PER_BATCH: usize = 16;
 
 /// Create and store blocks into the store. Create a given number of accounts, where each account
 /// consumes a note created from a faucet. The cli accepts the following parameters:
@@ -133,7 +135,7 @@ async fn generate_blocks(
     // of blocks needed to create all accounts. For each block, we should create the send assets
     // tx and the consume note txs. And start filling the batches with 16 txs each.
     // We should then build the block using this txs and send it to the store.
-    let mut metrics = Metrics::new(dump_file.to_path_buf(), get_store_size(dump_file));
+    let mut metrics = Metrics::new(dump_file.to_path_buf());
 
     let mut consume_notes_txs = vec![];
 
@@ -148,11 +150,14 @@ async fn generate_blocks(
         SecretKey::with_rng(&mut *rng)
     };
 
+    let mut block_ref = *genesis_header;
+
     for i in 0..total_blocks {
         let mut block_txs = Vec::with_capacity(BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH);
 
         // Create accounts and notes that mint assets
         let accounts_and_notes = create_accounts_and_notes(
+            &block_ref,
             genesis_header,
             &key_pair,
             &rng,
@@ -167,11 +172,12 @@ async fn generate_blocks(
             [i as u64; 4].try_into().unwrap()
         };
         let mint_assets_tx = create_tx(
+            &block_ref,
             faucet.id(),
             initial_account_hash,
             [(i + 1) as u64; 4].try_into().unwrap(),
-            accounts_and_notes.iter().map(|(_, note, _)| note.clone()).collect(),
             vec![],
+            accounts_and_notes.iter().map(|(_, note, _)| note.clone()).collect(),
         );
 
         // Collect all the txs
@@ -183,18 +189,19 @@ async fn generate_blocks(
         );
 
         // Create the batches with [TRANSACTIONS_PER_BATCH] txs each
-        let batches: Vec<ProvenBatch> =
-            block_txs.chunks(TRANSACTIONS_PER_BATCH).map(create_batch).collect();
+        let batches: Vec<ProvenBatch> = block_txs
+            .chunks(TRANSACTIONS_PER_BATCH)
+            .map(|txs| create_batch(txs, &block_ref))
+            .collect();
 
         consume_notes_txs = accounts_and_notes;
 
         // Create the block and send it to the store
-        let (elapsed, block_size) = apply_block(batches.clone(), store_client).await;
+        block_ref = apply_block(batches.clone(), store_client, &mut metrics).await;
 
-        // Track metrics
-        metrics.add_insertion(elapsed, block_size);
+        // Track store size every 50 blocks
         if i % 50 == 0 {
-            metrics.add_store_size(get_store_size(dump_file));
+            metrics.record_store_size();
         }
     }
     metrics
@@ -204,7 +211,12 @@ async fn generate_blocks(
 /// Returns a tuple with:
 /// - the time spent on executing `StoreClient::apply_block`
 /// - the size of the block in bytes
-async fn apply_block(batches: Vec<ProvenBatch>, store_client: &StoreClient) -> (Duration, usize) {
+async fn apply_block(
+    batches: Vec<ProvenBatch>,
+    store_client: &StoreClient,
+    metrics: &mut Metrics,
+) -> BlockHeader {
+    let start = Instant::now();
     let inputs = store_client
         .get_block_inputs(
             batches.iter().flat_map(ProvenBatch::updated_accounts),
@@ -220,19 +232,24 @@ async fn apply_block(batches: Vec<ProvenBatch>, store_client: &StoreClient) -> (
         )
         .await
         .unwrap();
+    let get_inputs_time = start.elapsed();
+
     let proposed_block = ProposedBlock::new(inputs, batches).unwrap();
     let proven_block = LocalBlockProver::new(0)
         .prove_without_batch_verification(proposed_block)
         .unwrap();
+    let block_size: usize = proven_block.to_bytes().len();
 
     let start = Instant::now();
-    let block_size: usize = proven_block.to_bytes().len();
     store_client.apply_block(&proven_block).await.unwrap();
-    (start.elapsed(), block_size)
+
+    metrics.add_insertion(start.elapsed(), get_inputs_time, block_size);
+
+    proven_block.header()
 }
 
 // HELPERS
-// -------------------------------------------------------------------------------------------------
+// ================================================================================================
 
 /// Create accounts and notes that mint assets for a given number of accounts.
 ///
@@ -241,7 +258,8 @@ async fn apply_block(batches: Vec<ProvenBatch>, store_client: &StoreClient) -> (
 /// - the new note that sends assets to the account
 /// - the proven transaction that consumes the note
 fn create_accounts_and_notes(
-    genesis_header: &BlockHeader,
+    block_ref: &BlockHeader,
+    anchor_block: &BlockHeader,
     key_pair: &SecretKey,
     rng: &Arc<Mutex<RpoRandomCoin>>,
     faucet_id: AccountId,
@@ -250,8 +268,7 @@ fn create_accounts_and_notes(
     (0..num_accounts)
         .into_par_iter()
         .map(|account_index| {
-            let account =
-                create_account(genesis_header, key_pair.public_key(), account_index as u64);
+            let account = create_account(anchor_block, key_pair.public_key(), account_index as u64);
             let note = {
                 let mut rng = rng.lock().unwrap();
                 create_note(faucet_id, account, &mut rng)
@@ -261,11 +278,12 @@ fn create_accounts_and_notes(
             let inclusion_proof = NoteInclusionProof::new(0.into(), 0, path).unwrap();
 
             let consume_tx = create_tx(
+                block_ref,
                 account,
                 Digest::default(),
                 Digest::default(),
+                vec![InputNote::authenticated(note.clone(), inclusion_proof)],
                 vec![],
-                vec![(note.clone(), inclusion_proof)],
             );
             (account, note, consume_tx)
         })
@@ -302,14 +320,6 @@ fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64)
     new_account.id()
 }
 
-/// Get the size of the store file and its WAL file.
-fn get_store_size(dump_file: &Path) -> u64 {
-    let store_file_size = std::fs::metadata(dump_file).unwrap().len();
-    let wal_file_size =
-        std::fs::metadata(format!("{}-wal", dump_file.to_str().unwrap())).unwrap().len();
-    store_file_size + wal_file_size
-}
-
 /// Create a new faucet account.
 fn create_faucet() -> Account {
     let coin_seed: [u64; 4] = rand::thread_rng().r#gen();
@@ -331,17 +341,17 @@ fn create_faucet() -> Account {
     new_faucet
 }
 
-fn create_batch(txs: &[ProvenTransaction]) -> ProvenBatch {
+fn create_batch(txs: &[ProvenTransaction], block_ref: &BlockHeader) -> ProvenBatch {
     let account_updates = txs
         .iter()
         .map(|tx| (tx.account_id(), BatchAccountUpdate::from_transaction(tx)))
         .collect();
-    let output_notes = txs.iter().flat_map(|tx| tx.output_notes().iter().cloned()).collect();
     let input_notes = txs.iter().flat_map(|tx| tx.input_notes().iter().cloned()).collect();
+    let output_notes = txs.iter().flat_map(|tx| tx.output_notes().iter().cloned()).collect();
     ProvenBatch::new_unchecked(
         BatchId::from_transactions(txs.iter()),
-        Digest::default(),
-        BlockNumber::GENESIS,
+        block_ref.hash(),
+        block_ref.block_num(),
         account_updates,
         InputNotes::new_unchecked(input_notes),
         output_notes,
@@ -350,27 +360,23 @@ fn create_batch(txs: &[ProvenTransaction]) -> ProvenBatch {
 }
 
 fn create_tx(
+    block_ref: &BlockHeader,
     account_id: AccountId,
     initial_account_hash: Digest,
     final_account_hash: Digest,
+    input_notes: Vec<InputNote>,
     output_notes: Vec<Note>,
-    input_notes: Vec<(Note, NoteInclusionProof)>,
 ) -> ProvenTransaction {
     ProvenTransactionBuilder::new(
         account_id,
         initial_account_hash,
         final_account_hash,
-        BlockNumber::from(0),
-        Digest::default(),
+        block_ref.block_num(),
+        block_ref.hash(),
         u32::MAX.into(),
-        ExecutionProof::new(Proof::new_dummy(), HashFunction::Blake3_192),
+        ExecutionProof::new(Proof::new_dummy(), Default::default()),
     )
-    .add_input_notes(
-        input_notes
-            .into_iter()
-            .map(|(note, proof)| InputNote::authenticated(note, proof))
-            .collect::<Vec<InputNote>>(),
-    )
+    .add_input_notes(input_notes)
     .add_output_notes(output_notes.into_iter().map(OutputNote::Full).collect::<Vec<OutputNote>>())
     .build()
     .unwrap()
