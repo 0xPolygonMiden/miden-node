@@ -224,22 +224,23 @@ pub struct GetUnconsumedNetworkNotesRequest {
     #[prost(uint64, tag = "2")]
     pub limit: u64,
 }
-/// Creates a new network note.
+/// Creates a new network transaction.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CreateNetworkNoteRequest {
-    /// Plain note.
+pub struct CreateNetworkTransactionRequest {
+    /// The network note that creates the transaction.
     #[prost(message, optional, tag = "1")]
     pub note: ::core::option::Option<super::note::Note>,
     /// Id of the transaction that created the note.
     #[prost(message, optional, tag = "2")]
     pub transaction_id: ::core::option::Option<super::digest::Digest>,
 }
+/// Updates the status of a network transaction.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct UpdateNetworkNoteRequest {
-    /// Transaction id of the note to update.
+pub struct UpdateNetworkTransactionRequest {
+    /// Id of the transaction to update.
     #[prost(message, optional, tag = "1")]
     pub transaction_id: ::core::option::Option<super::digest::Digest>,
-    /// New status of the note.
-    #[prost(enumeration = "super::note::NetworkNoteStatus", tag = "2")]
+    /// New status of the transaction.
+    #[prost(enumeration = "super::transaction::NetworkTransactionStatus", tag = "2")]
     pub status: i32,
 }

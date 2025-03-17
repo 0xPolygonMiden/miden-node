@@ -4,6 +4,7 @@ package requests;
 import "account.proto";
 import "note.proto";
 import "digest.proto";
+import "transaction.proto";
 
 // Applies changes of a new block to the DB and in-memory data structures.
 message ApplyBlockRequest {
@@ -199,19 +200,20 @@ message GetUnconsumedNetworkNotesRequest {
     uint64 limit = 2;
 }
 
-// Creates a new network note.
-message CreateNetworkNoteRequest {
-    // Plain note.
+// Creates a new network transaction.
+message CreateNetworkTransactionRequest {
+    // The network note that creates the transaction.
     note.Note note = 1;
     
     // Id of the transaction that created the note.
     digest.Digest transaction_id = 2;
 }
 
-message UpdateNetworkNoteRequest {
-    // Transaction id of the note to update.
+// Updates the status of a network transaction.
+message UpdateNetworkTransactionRequest {
+    // Id of the transaction to update.
     digest.Digest transaction_id = 1;
 
-    // New status of the note.
-    note.NetworkNoteStatus status = 2;
+    // New status of the transaction.
+    transaction.NetworkTransactionStatus status = 2;
 }

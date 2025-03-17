@@ -90,14 +90,14 @@ pub mod api_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
-        /// Creates a new network note.
-        pub async fn create_network_note(
+        /// Creates a new network transaction.
+        pub async fn create_network_transaction(
             &mut self,
             request: impl tonic::IntoRequest<
-                super::super::requests::CreateNetworkNoteRequest,
+                super::super::requests::CreateNetworkTransactionRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::CreateNetworkNoteResponse>,
+            tonic::Response<super::super::responses::CreateNetworkTransactionResponse>,
             tonic::Status,
         > {
             self.inner
@@ -110,21 +110,26 @@ pub mod api_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/network_transaction.Api/CreateNetworkNote",
+                "/network_transaction.Api/CreateNetworkTransaction",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("network_transaction.Api", "CreateNetworkNote"));
+                .insert(
+                    GrpcMethod::new(
+                        "network_transaction.Api",
+                        "CreateNetworkTransaction",
+                    ),
+                );
             self.inner.unary(req, path, codec).await
         }
-        /// Updates a network note status.
-        pub async fn update_network_note(
+        /// Updates a network transaction status.
+        pub async fn update_network_transaction(
             &mut self,
             request: impl tonic::IntoRequest<
-                super::super::requests::UpdateNetworkNoteRequest,
+                super::super::requests::UpdateNetworkTransactionRequest,
             >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::UpdateNetworkNoteResponse>,
+            tonic::Response<super::super::responses::UpdateNetworkTransactionResponse>,
             tonic::Status,
         > {
             self.inner
@@ -137,11 +142,16 @@ pub mod api_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/network_transaction.Api/UpdateNetworkNote",
+                "/network_transaction.Api/UpdateNetworkTransaction",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("network_transaction.Api", "UpdateNetworkNote"));
+                .insert(
+                    GrpcMethod::new(
+                        "network_transaction.Api",
+                        "UpdateNetworkTransaction",
+                    ),
+                );
             self.inner.unary(req, path, codec).await
         }
     }
@@ -159,20 +169,24 @@ pub mod api_server {
     /// Generated trait containing gRPC methods that should be implemented for use with ApiServer.
     #[async_trait]
     pub trait Api: std::marker::Send + std::marker::Sync + 'static {
-        /// Creates a new network note.
-        async fn create_network_note(
+        /// Creates a new network transaction.
+        async fn create_network_transaction(
             &self,
-            request: tonic::Request<super::super::requests::CreateNetworkNoteRequest>,
+            request: tonic::Request<
+                super::super::requests::CreateNetworkTransactionRequest,
+            >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::CreateNetworkNoteResponse>,
+            tonic::Response<super::super::responses::CreateNetworkTransactionResponse>,
             tonic::Status,
         >;
-        /// Updates a network note status.
-        async fn update_network_note(
+        /// Updates a network transaction status.
+        async fn update_network_transaction(
             &self,
-            request: tonic::Request<super::super::requests::UpdateNetworkNoteRequest>,
+            request: tonic::Request<
+                super::super::requests::UpdateNetworkTransactionRequest,
+            >,
         ) -> std::result::Result<
-            tonic::Response<super::super::responses::UpdateNetworkNoteResponse>,
+            tonic::Response<super::super::responses::UpdateNetworkTransactionResponse>,
             tonic::Status,
         >;
     }
@@ -252,15 +266,15 @@ pub mod api_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/network_transaction.Api/CreateNetworkNote" => {
+                "/network_transaction.Api/CreateNetworkTransaction" => {
                     #[allow(non_camel_case_types)]
-                    struct CreateNetworkNoteSvc<T: Api>(pub Arc<T>);
+                    struct CreateNetworkTransactionSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::CreateNetworkNoteRequest,
-                    > for CreateNetworkNoteSvc<T> {
-                        type Response = super::super::responses::CreateNetworkNoteResponse;
+                        super::super::requests::CreateNetworkTransactionRequest,
+                    > for CreateNetworkTransactionSvc<T> {
+                        type Response = super::super::responses::CreateNetworkTransactionResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -268,12 +282,13 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::CreateNetworkNoteRequest,
+                                super::super::requests::CreateNetworkTransactionRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::create_network_note(&inner, request).await
+                                <T as Api>::create_network_transaction(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -284,7 +299,7 @@ pub mod api_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = CreateNetworkNoteSvc(inner);
+                        let method = CreateNetworkTransactionSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -300,15 +315,15 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/network_transaction.Api/UpdateNetworkNote" => {
+                "/network_transaction.Api/UpdateNetworkTransaction" => {
                     #[allow(non_camel_case_types)]
-                    struct UpdateNetworkNoteSvc<T: Api>(pub Arc<T>);
+                    struct UpdateNetworkTransactionSvc<T: Api>(pub Arc<T>);
                     impl<
                         T: Api,
                     > tonic::server::UnaryService<
-                        super::super::requests::UpdateNetworkNoteRequest,
-                    > for UpdateNetworkNoteSvc<T> {
-                        type Response = super::super::responses::UpdateNetworkNoteResponse;
+                        super::super::requests::UpdateNetworkTransactionRequest,
+                    > for UpdateNetworkTransactionSvc<T> {
+                        type Response = super::super::responses::UpdateNetworkTransactionResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -316,12 +331,13 @@ pub mod api_server {
                         fn call(
                             &mut self,
                             request: tonic::Request<
-                                super::super::requests::UpdateNetworkNoteRequest,
+                                super::super::requests::UpdateNetworkTransactionRequest,
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::update_network_note(&inner, request).await
+                                <T as Api>::update_network_transaction(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -332,7 +348,7 @@ pub mod api_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = UpdateNetworkNoteSvc(inner);
+                        let method = UpdateNetworkTransactionSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

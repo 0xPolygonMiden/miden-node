@@ -5,7 +5,6 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet},
-    num::NonZero,
     ops::Not,
     sync::Arc,
 };
@@ -42,7 +41,7 @@ use tracing::{info, info_span, instrument};
 use crate::{
     COMPONENT,
     blocks::BlockStore,
-    db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, PaginationToken, StateSyncUpdate},
+    db::{Db, NoteRecord, NoteSyncUpdate, NullifierInfo, Page, StateSyncUpdate},
     errors::{
         ApplyBlockError, DatabaseError, GetBatchInputsError, GetBlockHeaderError,
         GetBlockInputsError, InvalidBlockError, NoteSyncError, StateInitializationError,
@@ -990,10 +989,9 @@ impl State {
     /// Returns the unprocessed network notes, along with the next pagination token.
     pub async fn get_unconsumed_network_notes(
         &self,
-        page: PaginationToken,
-        limit: NonZero<usize>,
-    ) -> Result<(Vec<NoteRecord>, PaginationToken), DatabaseError> {
-        self.db.select_unconsumed_network_notes(page, limit).await
+        page: Page,
+    ) -> Result<(Vec<NoteRecord>, Page), DatabaseError> {
+        self.db.select_unconsumed_network_notes(page).await
     }
 }
 

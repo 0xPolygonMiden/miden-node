@@ -1,13 +1,12 @@
 use std::sync::LazyLock;
 
 use miden_objects::crypto::hash::blake::{Blake3_160, Blake3Digest};
-use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations, SchemaVersion};
 use tracing::{debug, error, info, instrument};
 
 use crate::{
     COMPONENT,
-    db::{settings::Settings, sql::utils::schema_version},
+    db::{connection::Connection, settings::Settings, sql::utils::schema_version},
     errors::DatabaseError,
 };
 
@@ -85,7 +84,7 @@ pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
     // 2. After restarting of the node, on first connection established.
     //
     // More info: https://www.sqlite.org/pragma.html#pragma_optimize
-    conn.execute("PRAGMA optimize = 0x10002;", ())?;
+    conn.pragma_update(None, "optimize", "0x10002")?;
 
     info!(target: COMPONENT, "Finished database optimization");
 

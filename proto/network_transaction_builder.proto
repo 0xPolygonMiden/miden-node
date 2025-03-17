@@ -1,0 +1,16 @@
+// Specification of the network-transaction-builder RPC.
+//
+// This provided access to the rollup data to the other nodes.
+syntax = "proto3";
+package network_transaction;
+
+import "requests.proto";
+import "responses.proto";
+
+service Api {
+    // Creates a new network transaction.
+    rpc CreateNetworkTransaction(requests.CreateNetworkTransactionRequest) returns (responses.CreateNetworkTransactionResponse) {}
+
+    // Updates a network transaction status.
+    rpc UpdateNetworkTransaction(requests.UpdateNetworkTransactionRequest) returns (responses.UpdateNetworkTransactionResponse) {}
+}

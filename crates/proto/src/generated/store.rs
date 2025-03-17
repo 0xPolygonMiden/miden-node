@@ -467,7 +467,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("store.Api", "SyncState"));
             self.inner.unary(req, path, codec).await
         }
-        /// Returns a stream with the unconsumed network notes.
+        /// Returns the list of unconsumed network notes and the next page number to query.
         pub async fn get_unconsumed_network_notes(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -651,7 +651,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::SyncStateResponse>,
             tonic::Status,
         >;
-        /// Returns a stream with the unconsumed network notes.
+        /// Returns the list of unconsumed network notes and the next page number to query.
         async fn get_unconsumed_network_notes(
             &self,
             request: tonic::Request<

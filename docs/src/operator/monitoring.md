@@ -74,7 +74,26 @@ block_builder.build_block
 
 ### Batch building
 
-Not yet implemented.
+This trace covers the building and proving of a batch.
+
+<details>
+  <summary>Span tree</summary>
+
+```sh
+batch_builder.build_batch
+┝━ batch_builder.wait_for_available_worker
+┝━ batch_builder.select_batch
+│  ┝━ mempool.lock
+│  ┕━ mempool.select_batch
+┝━ batch_builder.get_batch_inputs
+│  ┕━ store.client.get_batch_inputs
+┝━ batch_builder.propose_batch
+┝━ batch_builder.prove_batch
+┝━ batch_builder.inject_failure
+┕━ batch_builder.commit_batch
+   ┝━ mempool.lock
+   ┕━ mempool.commit_batch
+```
 
 ## Verbosity
 

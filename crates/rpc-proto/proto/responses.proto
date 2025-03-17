@@ -262,14 +262,14 @@ message GetUnconsumedNetworkNotesResponse {
     repeated note.Note notes = 2;
 }
 
-// Represents the result of creating a network note.
-message CreateNetworkNoteResponse {
-    // The note ID.
-    digest.Digest note_id = 1;
+// Represents the result of creating a network transaction.
+message CreateNetworkTransactionResponse {
+    // The transaction ID.
+    digest.Digest transaction_id = 1;
 }
 
-// Represents the result of updating a network note.
-message UpdateNetworkNoteResponse {
-    // The note status.
-    note.NetworkNoteStatus status = 1;
+// Represents the result of updating a network transaction.
+message UpdateNetworkTransactionResponse {
+    // The transaction status.
+    transaction.NetworkTransactionStatus status = 1;
 }

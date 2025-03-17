@@ -42,7 +42,7 @@ use miden_objects::{
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, instrument};
 
-use crate::{COMPONENT, db::PaginationToken, state::State};
+use crate::{COMPONENT, db::Page, state::State};
 
 // STORE API
 // ================================================================================================
@@ -539,18 +539,18 @@ impl api_server::Api for StoreApi {
         let state = self.state.clone();
 
         let (notes, next_page) = state
-            .get_unconsumed_network_notes(
-                PaginationToken::new(request.page),
+            .get_unconsumed_network_notes(Page::new(
+                request.page,
                 NonZero::try_from(request.limit as usize).map_err(|err: TryFromIntError| {
                     invalid_argument(format!("Invalid limit: {err}"))
                 })?,
-            )
+            ))
             .await
             .map_err(internal_error)?;
 
         Ok(Response::new(GetUnconsumedNetworkNotesResponse {
             notes: notes.into_iter().map(Into::into).collect(),
-            next_page: next_page.as_u64(),
+            next_page: next_page.number(),
         }))
     }
 }
