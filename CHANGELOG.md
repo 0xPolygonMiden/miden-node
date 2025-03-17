@@ -5,11 +5,11 @@
 ### Enhancements
 
 - Implemented database optimization routine (#721).
-- Improve checks during account update in the store (#739). 
 
 ### Fixes
 
 - Faucet webpage is missing `background.png` and `favicon.ico` (#672).
+- Harden store account updates (#739).
 
 ### Enhancements
 
