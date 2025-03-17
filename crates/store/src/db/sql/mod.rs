@@ -442,7 +442,7 @@ pub fn upsert_accounts(
                     account_id.to_bytes(),
                     update.final_state_commitment().to_bytes(),
                     block_num.as_u32(),
-                    Option::<Vec<u8>>::None,
+                    Value::Null,
                 ])?;
             },
 
@@ -458,7 +458,7 @@ pub fn upsert_accounts(
                     account_id.to_bytes(),
                     update.final_state_commitment().to_bytes(),
                     block_num.as_u32(),
-                    Option::<Vec<u8>>::None,
+                    Value::Null,
                 ])?;
             },
 
@@ -477,7 +477,7 @@ pub fn upsert_accounts(
                     account_id.to_bytes(),
                     update.final_state_commitment().to_bytes(),
                     block_num.as_u32(),
-                    Some(account.to_bytes()),
+                    account.to_bytes(),
                 ])?;
 
                 let insert_delta = AccountDelta::from(account.clone());
@@ -516,7 +516,7 @@ pub fn upsert_accounts(
                     account_id.to_bytes(),
                     update.final_state_commitment().to_bytes(),
                     block_num.as_u32(),
-                    Some(account.to_bytes()),
+                    account.to_bytes(),
                 ])?;
 
                 insert_account_delta(transaction, account_id, block_num, delta)?;
