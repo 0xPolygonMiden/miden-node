@@ -63,7 +63,7 @@ pub enum DatabaseError {
     // OTHER ERRORS
     // ---------------------------------------------------------------------------------------------
     #[error("account {0} already exists")]
-    AccountAlreadyExistsInDb(AccountId),
+    AccountAlreadyExists(AccountId),
     #[error("account hash mismatch (expected {expected}, but calculated is {calculated})")]
     AccountHashesMismatch {
         expected: RpoDigest,

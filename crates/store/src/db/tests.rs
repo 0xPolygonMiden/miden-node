@@ -639,7 +639,7 @@ fn upsert_account_checks() {
 
     assert_matches!(
         res,
-        Err(DatabaseError::AccountAlreadyExistsInDb(id)) if id == account_id,
+        Err(DatabaseError::AccountAlreadyExists(id)) if id == account_id,
         "Insertion of the private account duplicate must return an error"
     );
 
@@ -740,7 +740,7 @@ fn upsert_account_checks() {
 
     assert_matches!(
         res,
-        Err(DatabaseError::AccountAlreadyExistsInDb(id)) if id == account_new.id(),
+        Err(DatabaseError::AccountAlreadyExists(id)) if id == account_new.id(),
         "Insertion of a public account delta for must return an error, if account hash wasn't changed"
     );
 

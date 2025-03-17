@@ -436,9 +436,20 @@ pub fn upsert_accounts(
     for update in accounts {
         let account_id = update.account_id();
         match (update.details(), prev_account_data.remove(&account_id)) {
+            // Create new private account
+            (AccountUpdateDetails::Private, None) => {
+                insert_stmt.execute(params![
+                    account_id.to_bytes(),
+                    update.final_state_commitment().to_bytes(),
+                    block_num.as_u32(),
+                    Option::<Vec<u8>>::None,
+                ])?;
+            },
+
+            // Update existing private account
             (AccountUpdateDetails::Private, Some((old_hash, details))) => {
                 if old_hash == update.final_state_commitment() {
-                    return Err(DatabaseError::AccountAlreadyExistsInDb(account_id));
+                    return Err(DatabaseError::AccountAlreadyExists(account_id));
                 }
                 if details.is_some() {
                     return Err(DatabaseError::AccountIsPublic(account_id));
@@ -451,15 +462,7 @@ pub fn upsert_accounts(
                 ])?;
             },
 
-            (AccountUpdateDetails::Private, None) => {
-                insert_stmt.execute(params![
-                    account_id.to_bytes(),
-                    update.final_state_commitment().to_bytes(),
-                    block_num.as_u32(),
-                    Option::<Vec<u8>>::None,
-                ])?;
-            },
-
+            // Create new public account
             (AccountUpdateDetails::New(account), None) => {
                 debug_assert_eq!(account_id, account.id());
 
@@ -481,17 +484,20 @@ pub fn upsert_accounts(
                 insert_account_delta(transaction, account_id, block_num, &insert_delta)?;
             },
 
+            // Trying to create new public account over an existent one
             (AccountUpdateDetails::New(_), Some(_)) => {
-                return Err(DatabaseError::AccountAlreadyExistsInDb(account_id));
+                return Err(DatabaseError::AccountAlreadyExists(account_id));
             },
 
+            // Trying to update non-existent public account
             (AccountUpdateDetails::Delta(_), None) => {
                 return Err(DatabaseError::AccountNotFoundInDb(account_id));
             },
 
+            // Update existent public account
             (AccountUpdateDetails::Delta(delta), Some((old_hash, details))) => {
                 if old_hash == update.final_state_commitment() {
-                    return Err(DatabaseError::AccountAlreadyExistsInDb(account_id));
+                    return Err(DatabaseError::AccountAlreadyExists(account_id));
                 }
                 let Some(mut account) = details else {
                     return Err(DatabaseError::AccountNotPublic(account_id));
