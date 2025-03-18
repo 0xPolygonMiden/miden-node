@@ -20,6 +20,7 @@ use tracing::{debug, info, instrument};
 
 use crate::{
     COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
+    SERVER_NUM_BATCH_BUILDERS,
     batch_builder::BatchBuilder,
     block_builder::BlockBuilder,
     config::BlockProducerConfig,
@@ -82,7 +83,11 @@ impl BlockProducer {
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            batch_builder: BatchBuilder::new(config.batch_prover_url),
+            batch_builder: BatchBuilder::new(
+                store.clone(),
+                SERVER_NUM_BATCH_BUILDERS,
+                config.batch_prover_url,
+            ),
             block_builder: BlockBuilder::new(store.clone(), config.block_prover_url),
             batch_budget: BatchBudget::default(),
             block_budget: BlockBudget::default(),
@@ -126,9 +131,8 @@ impl BlockProducer {
         let batch_builder_id = tasks
             .spawn({
                 let mempool = mempool.clone();
-                let store = store.clone();
                 async {
-                    batch_builder.run(mempool, store).await;
+                    batch_builder.run(mempool).await;
                     Ok(())
                 }
             })

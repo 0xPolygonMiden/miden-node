@@ -17,6 +17,7 @@
 - Instrument the block-producer's block building process (#676).
 - Use `LocalBlockProver` for block building (#709).
 - Initial developer and operator guides covering monitoring (#699).
+- Instrument the block-producer's batch building process (#738).
 
 ### Changes
 
