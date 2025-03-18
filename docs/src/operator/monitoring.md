@@ -92,7 +92,7 @@ batch_builder.build_batch
 ┝━ batch_builder.inject_failure
 ┕━ batch_builder.commit_batch
    ┝━ mempool.lock
-   ┕━ mempool.batch_proved
+   ┕━ mempool.commit_batch
 ```
 
 ## Verbosity

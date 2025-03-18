@@ -32,7 +32,7 @@ pub struct BatchBuilder {
     /// Represents all batch building workers.
     ///
     /// This pool is always at maximum capacity. Idle workers will be in a [`std::future::Ready`]
-    /// state and are immedietely available for a new batch building job.
+    /// state and are immediately available for a new batch building job.
     ///
     /// See also: [`BatchBuilder::wait_for_available_worker`].
     worker_pool: JoinSet<()>,
