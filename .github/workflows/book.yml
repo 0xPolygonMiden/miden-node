@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+      - uses: Swatinem/rust-cache@v2
+
       - name: Install mdbook plugins
         run: |
           rustup update --no-self-update stable
@@ -34,4 +36,4 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/book/html
+          publish_dir: ./docs/book
