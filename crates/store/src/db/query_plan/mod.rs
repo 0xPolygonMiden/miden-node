@@ -28,6 +28,7 @@ impl Transaction<'_> {
     }
 }
 
+/// Represents rendered query plan with `EXPLAIN QUERY PLAN ...` SQL query.
 struct QueryPlan {
     explain_sql: String,
     query_plan: String,
