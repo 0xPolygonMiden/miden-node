@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     env::temp_dir,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -17,23 +18,22 @@ use miden_lib::{
     utils::Serializable,
 };
 use miden_node_block_producer::store::StoreClient;
-use miden_node_proto::generated::store::api_client::ApiClient;
+use miden_node_proto::{domain::batch::BatchInputs, generated::store::api_client::ApiClient};
 use miden_node_store::{config::StoreConfig, genesis::GenesisState, server::Store};
 use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
     Felt,
     account::{
-        Account, AccountBuilder, AccountDelta, AccountId, AccountIdAnchor, AccountStorageDelta,
-        AccountStorageMode, AccountType, AccountVaultDelta,
+        Account, AccountBuilder, AccountId, AccountIdAnchor, AccountStorageMode, AccountType,
     },
     asset::{Asset, FungibleAsset, TokenSymbol},
     batch::{BatchAccountUpdate, BatchId, ProvenBatch},
-    block::{BlockHeader, BlockNumber, ProposedBlock},
+    block::{BlockHeader, BlockInputs, BlockNumber, ProposedBlock},
     crypto::{
         dsa::rpo_falcon512::{PublicKey, SecretKey},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteHeader},
+    note::{Note, NoteHeader, NoteId, NoteInclusionProof},
     transaction::{InputNote, InputNotes, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
 };
@@ -131,10 +131,7 @@ async fn generate_blocks(
     // [`TRANSACTIONS_PER_BATCH`] txs. The first note of the block is always a send assets tx
     // from the faucet to (BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH) - 1 accounts. The rest of
     // the notes are consume note txs from the (BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH) - 1
-    // accounts that were minted in the previous block. We should iterate over the total number
-    // of blocks needed to create all accounts. For each block, we should create the send assets
-    // tx and the consume note txs. And start filling the batches with 16 txs each.
-    // We should then build the block using this txs and send it to the store.
+    // accounts that were minted in the previous block.
     let mut metrics = Metrics::new(dump_file.to_path_buf());
 
     let mut consume_notes_txs = vec![];
@@ -143,7 +140,7 @@ async fn generate_blocks(
     let total_blocks = (num_accounts / consumes_per_block) + 1; // +1 to account for the first block with the send assets tx only
 
     // Shared random coin seed and key pair for all accounts to avoid key generation overhead
-    let coin_seed: [u64; 4] = rand::thread_rng().r#gen();
+    let coin_seed: [u64; 4] = rand::rng().random();
     let rng = Arc::new(Mutex::new(RpoRandomCoin::new(coin_seed.map(Felt::new))));
     let key_pair = {
         let mut rng = rng.lock().unwrap();
@@ -179,18 +176,13 @@ async fn generate_blocks(
             .collect();
 
         // Create the block and send it to the store
-        prev_header = apply_block(batches.clone(), store_client, &mut metrics).await;
+        let block_inputs = get_block_inputs(store_client, &batches, &mut metrics).await;
+        prev_header = apply_block(batches.clone(), store_client, block_inputs, &mut metrics).await;
 
         // Create the consume notes txs to be used in the next block
-        consume_notes_txs = create_consume_note_txs(
-            &prev_header,
-            accounts,
-            notes,
-            faucet.id(),
-            store_client,
-            &mut metrics,
-        )
-        .await;
+        let batch_inputs = get_batch_inputs(store_client, &prev_header, &notes, &mut metrics).await;
+        consume_notes_txs =
+            create_consume_note_txs(&prev_header, accounts, notes, &batch_inputs.note_proofs);
 
         // Track store size every 50 blocks
         if i % 50 == 0 {
@@ -207,28 +199,10 @@ async fn generate_blocks(
 async fn apply_block(
     batches: Vec<ProvenBatch>,
     store_client: &StoreClient,
+    block_inputs: BlockInputs,
     metrics: &mut Metrics,
 ) -> BlockHeader {
-    let start = Instant::now();
-    let inputs = store_client
-        .get_block_inputs(
-            batches.iter().flat_map(ProvenBatch::updated_accounts),
-            batches.iter().flat_map(ProvenBatch::created_nullifiers),
-            batches.iter().flat_map(|batch| {
-                batch
-                    .input_notes()
-                    .iter()
-                    .cloned()
-                    .filter_map(|note| note.header().map(NoteHeader::id))
-            }),
-            batches.iter().map(ProvenBatch::reference_block_num),
-        )
-        .await
-        .unwrap();
-    let get_block_inputs_time = start.elapsed();
-    metrics.add_get_block_inputs(get_block_inputs_time);
-
-    let proposed_block = ProposedBlock::new(inputs, batches).unwrap();
+    let proposed_block = ProposedBlock::new(block_inputs, batches).unwrap();
     let proven_block = LocalBlockProver::new(0)
         .prove_without_batch_verification(proposed_block)
         .unwrap();
@@ -247,10 +221,9 @@ async fn apply_block(
 
 /// Create accounts and notes that mint assets for a given number of accounts.
 ///
-/// Returns a vector of tuples, where each tuple contains:
-/// - the new account id
-/// - the new note that sends assets to the account
-/// - the proven transaction that consumes the note
+/// Returns a tuple with:
+/// - A list of the new accounts
+/// - A list of the new notes
 fn create_accounts_and_notes(
     anchor_block: &BlockHeader,
     key_pair: &SecretKey,
@@ -308,7 +281,7 @@ fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64)
 
 /// Create a new faucet account.
 fn create_faucet() -> Account {
-    let coin_seed: [u64; 4] = rand::thread_rng().r#gen();
+    let coin_seed: [u64; 4] = rand::rng().random();
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
     let key_pair = SecretKey::with_rng(&mut rng);
     let init_seed = [0_u8; 32];
@@ -327,6 +300,7 @@ fn create_faucet() -> Account {
     new_faucet
 }
 
+/// Create a proven batch from a list of transactions and a reference block.
 fn create_batch(txs: &[ProvenTransaction], block_ref: &BlockHeader) -> ProvenBatch {
     let account_updates = txs
         .iter()
@@ -345,55 +319,88 @@ fn create_batch(txs: &[ProvenTransaction], block_ref: &BlockHeader) -> ProvenBat
     )
 }
 
-async fn create_consume_note_txs(
-    block_ref: &BlockHeader,
-    accounts: Vec<Account>,
-    input_notes: Vec<Note>,
-    faucet_id: AccountId,
+/// Get the batch inputs from the store and track the query time on the metrics.
+async fn get_batch_inputs(
     store_client: &StoreClient,
+    block_ref: &BlockHeader,
+    notes: &[Note],
     metrics: &mut Metrics,
-) -> Vec<ProvenTransaction> {
+) -> BatchInputs {
     let start = Instant::now();
     let batch_inputs = store_client
         .get_batch_inputs(
             vec![(block_ref.block_num(), block_ref.hash())].into_iter(),
-            input_notes.iter().map(Note::id),
+            notes.iter().map(Note::id),
         )
         .await
         .unwrap();
     metrics.add_get_batch_inputs(start.elapsed());
+    batch_inputs
+}
 
+/// Get the block inputs from the store and track the query time on the metrics.
+async fn get_block_inputs(
+    store_client: &StoreClient,
+    batches: &[ProvenBatch],
+    metrics: &mut Metrics,
+) -> BlockInputs {
+    let start = Instant::now();
+    let inputs = store_client
+        .get_block_inputs(
+            batches.iter().flat_map(ProvenBatch::updated_accounts),
+            batches.iter().flat_map(ProvenBatch::created_nullifiers),
+            batches.iter().flat_map(|batch| {
+                batch
+                    .input_notes()
+                    .into_iter()
+                    .filter_map(|note| note.header().map(NoteHeader::id))
+            }),
+            batches.iter().map(ProvenBatch::reference_block_num),
+        )
+        .await
+        .unwrap();
+    let get_block_inputs_time = start.elapsed();
+    metrics.add_get_block_inputs(get_block_inputs_time);
+    inputs
+}
+
+/// For each account and note, create a transaction that consumes the note.
+fn create_consume_note_txs(
+    block_ref: &BlockHeader,
+    accounts: Vec<Account>,
+    notes: Vec<Note>,
+    note_proofs: &BTreeMap<NoteId, NoteInclusionProof>,
+) -> Vec<ProvenTransaction> {
     accounts
         .into_iter()
-        .zip(input_notes)
+        .zip(notes)
         .map(|(mut account, note)| {
-            let inclusion_proof = batch_inputs.note_proofs.get(&note.id()).unwrap();
+            let inclusion_proof = note_proofs.get(&note.id()).unwrap();
             create_consume_note_tx(
                 block_ref,
                 &mut account,
-                vec![InputNote::authenticated(note, inclusion_proof.clone())],
-                faucet_id,
+                InputNote::authenticated(note, inclusion_proof.clone()),
             )
         })
         .collect()
 }
 
-/// Creates a transaction that creates an account and consumes the input notes.
+/// Creates a transaction that creates an account and consumes the given input note.
+/// The account is updated with the assets from the input note, and the nonce is set to 1.
 fn create_consume_note_tx(
     block_ref: &BlockHeader,
     account: &mut Account,
-    input_notes: Vec<InputNote>,
-    faucet_id: AccountId,
+    input_note: InputNote,
 ) -> ProvenTransaction {
     let init_hash = account.init_hash();
-    let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
-    let delta = AccountDelta::new(
-        AccountStorageDelta::default(),
-        AccountVaultDelta::from_iters([asset], []),
-        Some(Felt::ONE),
-    )
-    .unwrap();
-    account.apply_delta(&delta).unwrap();
+
+    input_note.note().assets().iter().for_each(|asset| {
+        account
+            .vault_mut()
+            .add_asset(*asset)
+            .expect("failed to add asset to the account");
+    });
+    account.set_nonce(Felt::ONE).unwrap();
 
     ProvenTransactionBuilder::new(
         account.id(),
@@ -404,31 +411,26 @@ fn create_consume_note_tx(
         u32::MAX.into(),
         ExecutionProof::new(Proof::new_dummy(), HashFunction::default()),
     )
-    .add_input_notes(input_notes)
+    .add_input_notes(vec![input_note])
     .build()
     .unwrap()
 }
 
 /// Creates a transaction from the faucet that creates the given output notes.
+/// Updates the faucet account to increase the issuance slot and it's nonce.
 fn create_emit_note_tx(
     block_ref: &BlockHeader,
     faucet: &mut Account,
     output_notes: Vec<Note>,
 ) -> ProvenTransaction {
     let initial_account_hash = faucet.hash();
-    let slot = faucet.storage().get_item(2).unwrap();
 
-    let delta = AccountDelta::new(
-        AccountStorageDelta::from_iters(
-            [],
-            [(2, [slot[0] - Felt::new(10), slot[1], slot[2], slot[3]])],
-            [],
-        ),
-        AccountVaultDelta::default(),
-        Some(faucet.nonce() + Felt::ONE),
-    )
-    .unwrap();
-    faucet.apply_delta(&delta).unwrap();
+    let slot = faucet.storage().get_item(2).unwrap();
+    faucet
+        .storage_mut()
+        .set_item(0, [slot[0], slot[1], slot[2], slot[3] + Felt::new(10)])
+        .unwrap();
+    faucet.set_nonce(faucet.nonce() + Felt::ONE).unwrap();
 
     ProvenTransactionBuilder::new(
         faucet.id(),

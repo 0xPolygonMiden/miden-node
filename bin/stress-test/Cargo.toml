@@ -28,7 +28,7 @@ miden-node-proto = { workspace = true }
 miden-node-store = { workspace = true }
 miden-node-utils = { workspace = true }
 miden-objects = { workspace = true, features = ["testing"] }
-rand = { version = "0.8" }
+rand = { version = "0.9" }
 rayon = { version = "1.5" }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tonic = { workspace = true }
