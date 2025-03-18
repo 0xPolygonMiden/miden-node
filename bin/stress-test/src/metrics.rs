@@ -59,10 +59,12 @@ impl Metrics {
         self.store_file_sizes.push(Self::get_store_size(&self.store_file));
     }
 
+    /// Track the time it takes to query the block inputs.
     pub fn add_get_block_inputs(&mut self, query_time: Duration) {
         self.get_block_inputs_time_per_block.push(query_time);
     }
 
+    /// Track the time it takes to query the batch inputs.
     pub fn add_get_batch_inputs(&mut self, query_time: Duration) {
         self.get_batch_inputs_time_per_block.push(query_time);
     }

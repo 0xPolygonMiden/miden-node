@@ -2,9 +2,9 @@
 
 This crate contains a binary for running Miden node stress tests.
 
-This binary seeds the store with newly generated accounts. Also generates a faucet and sends asset to each new account. The result is the database dump file. To run it, a genesis file is needed (see [make-genesis](../../README.md#setup) command of the Miden node).
+This binary seeds a store with newly generated accounts. Also generates a faucet and sends asset to each new account. The result is the database dump file.
 
-Once it's finished, it prints the average block insertion time.
+Once it's finished, it prints out several metrics.
 
 ## License
 This project is [MIT licensed](../../LICENSE).

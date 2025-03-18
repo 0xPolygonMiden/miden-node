@@ -139,7 +139,7 @@ async fn generate_blocks(
     let consumes_per_block = TRANSACTIONS_PER_BATCH * BATCHES_PER_BLOCK - 1;
     let total_blocks = (num_accounts / consumes_per_block) + 1; // +1 to account for the first block with the send assets tx only
 
-    // Shared random coin seed and key pair for all accounts to avoid key generation overhead
+    // Share random coin seed and key pair for all accounts to avoid key generation overhead
     let coin_seed: [u64; 4] = rand::rng().random();
     let rng = Arc::new(Mutex::new(RpoRandomCoin::new(coin_seed.map(Felt::new))));
     let key_pair = {
@@ -154,11 +154,11 @@ async fn generate_blocks(
 
         // Create accounts and notes that mint assets
         let (accounts, notes) = create_accounts_and_notes(
+            consumes_per_block,
             genesis_header,
             &key_pair,
             &rng,
             faucet.id(),
-            consumes_per_block,
             i,
         );
 
@@ -177,7 +177,7 @@ async fn generate_blocks(
 
         // Create the block and send it to the store
         let block_inputs = get_block_inputs(store_client, &batches, &mut metrics).await;
-        prev_header = apply_block(batches.clone(), store_client, block_inputs, &mut metrics).await;
+        prev_header = apply_block(batches.clone(), block_inputs, store_client, &mut metrics).await;
 
         // Create the consume notes txs to be used in the next block
         let batch_inputs = get_batch_inputs(store_client, &prev_header, &notes, &mut metrics).await;
@@ -192,14 +192,14 @@ async fn generate_blocks(
     metrics
 }
 
-/// Given a list of batches, create a `ProvenBlock` and send it to the store.
-/// Returns a tuple with:
-/// - the time spent on executing `StoreClient::apply_block`
-/// - the size of the block in bytes
+/// Given a list of batches and block inputs, create a `ProvenBlock` and send it to the store. Track
+/// the insertion time on the metrics.
+///
+///  Returns the header of the inserted block.
 async fn apply_block(
     batches: Vec<ProvenBatch>,
-    store_client: &StoreClient,
     block_inputs: BlockInputs,
+    store_client: &StoreClient,
     metrics: &mut Metrics,
 ) -> BlockHeader {
     let proposed_block = ProposedBlock::new(block_inputs, batches).unwrap();
@@ -219,17 +219,17 @@ async fn apply_block(
 // HELPERS
 // ================================================================================================
 
-/// Create accounts and notes that mint assets for a given number of accounts.
+/// Create `num_accounts` accounts, and for each one create a note that mint assets.
 ///
 /// Returns a tuple with:
-/// - A list of the new accounts
-/// - A list of the new notes
+/// - The list of new accounts
+/// - The list of new notes
 fn create_accounts_and_notes(
+    num_accounts: usize,
     anchor_block: &BlockHeader,
     key_pair: &SecretKey,
     rng: &Arc<Mutex<RpoRandomCoin>>,
     faucet_id: AccountId,
-    num_accounts: usize,
     block_num: usize,
 ) -> (Vec<Account>, Vec<Note>) {
     (0..num_accounts)
@@ -319,52 +319,7 @@ fn create_batch(txs: &[ProvenTransaction], block_ref: &BlockHeader) -> ProvenBat
     )
 }
 
-/// Get the batch inputs from the store and track the query time on the metrics.
-async fn get_batch_inputs(
-    store_client: &StoreClient,
-    block_ref: &BlockHeader,
-    notes: &[Note],
-    metrics: &mut Metrics,
-) -> BatchInputs {
-    let start = Instant::now();
-    let batch_inputs = store_client
-        .get_batch_inputs(
-            vec![(block_ref.block_num(), block_ref.hash())].into_iter(),
-            notes.iter().map(Note::id),
-        )
-        .await
-        .unwrap();
-    metrics.add_get_batch_inputs(start.elapsed());
-    batch_inputs
-}
-
-/// Get the block inputs from the store and track the query time on the metrics.
-async fn get_block_inputs(
-    store_client: &StoreClient,
-    batches: &[ProvenBatch],
-    metrics: &mut Metrics,
-) -> BlockInputs {
-    let start = Instant::now();
-    let inputs = store_client
-        .get_block_inputs(
-            batches.iter().flat_map(ProvenBatch::updated_accounts),
-            batches.iter().flat_map(ProvenBatch::created_nullifiers),
-            batches.iter().flat_map(|batch| {
-                batch
-                    .input_notes()
-                    .into_iter()
-                    .filter_map(|note| note.header().map(NoteHeader::id))
-            }),
-            batches.iter().map(ProvenBatch::reference_block_num),
-        )
-        .await
-        .unwrap();
-    let get_block_inputs_time = start.elapsed();
-    metrics.add_get_block_inputs(get_block_inputs_time);
-    inputs
-}
-
-/// For each account and note, create a transaction that consumes the note.
+/// For each pair of account and note, create a transaction that consumes the note.
 fn create_consume_note_txs(
     block_ref: &BlockHeader,
     accounts: Vec<Account>,
@@ -395,10 +350,7 @@ fn create_consume_note_tx(
     let init_hash = account.init_hash();
 
     input_note.note().assets().iter().for_each(|asset| {
-        account
-            .vault_mut()
-            .add_asset(*asset)
-            .expect("failed to add asset to the account");
+        account.vault_mut().add_asset(*asset).unwrap();
     });
     account.set_nonce(Felt::ONE).unwrap();
 
@@ -444,4 +396,49 @@ fn create_emit_note_tx(
     .add_output_notes(output_notes.into_iter().map(OutputNote::Full).collect::<Vec<OutputNote>>())
     .build()
     .unwrap()
+}
+
+/// Get the batch inputs from the store and track the query time on the metrics.
+async fn get_batch_inputs(
+    store_client: &StoreClient,
+    block_ref: &BlockHeader,
+    notes: &[Note],
+    metrics: &mut Metrics,
+) -> BatchInputs {
+    let start = Instant::now();
+    let batch_inputs = store_client
+        .get_batch_inputs(
+            vec![(block_ref.block_num(), block_ref.hash())].into_iter(),
+            notes.iter().map(Note::id),
+        )
+        .await
+        .unwrap();
+    metrics.add_get_batch_inputs(start.elapsed());
+    batch_inputs
+}
+
+/// Get the block inputs from the store and track the query time on the metrics.
+async fn get_block_inputs(
+    store_client: &StoreClient,
+    batches: &[ProvenBatch],
+    metrics: &mut Metrics,
+) -> BlockInputs {
+    let start = Instant::now();
+    let inputs = store_client
+        .get_block_inputs(
+            batches.iter().flat_map(ProvenBatch::updated_accounts),
+            batches.iter().flat_map(ProvenBatch::created_nullifiers),
+            batches.iter().flat_map(|batch| {
+                batch
+                    .input_notes()
+                    .into_iter()
+                    .filter_map(|note| note.header().map(NoteHeader::id))
+            }),
+            batches.iter().map(ProvenBatch::reference_block_num),
+        )
+        .await
+        .unwrap();
+    let get_block_inputs_time = start.elapsed();
+    metrics.add_get_block_inputs(get_block_inputs_time);
+    inputs
 }
