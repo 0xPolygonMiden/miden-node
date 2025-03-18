@@ -1,8 +1,11 @@
 use std::path::PathBuf;
 
-use deadpool::Runtime;
+use deadpool::{
+    Runtime,
+    managed::{Manager, Metrics, RecycleResult},
+};
 
-use crate::errors::DatabaseError;
+use crate::{SQL_STATEMENT_CACHE_CAPACITY, db::connection::Connection, errors::DatabaseError};
 
 deadpool::managed_reexports!(
     "miden-node-store",
@@ -11,8 +14,6 @@ deadpool::managed_reexports!(
     rusqlite::Error,
     DatabaseError
 );
-
-use crate::SQL_STATEMENT_CACHE_CAPACITY;
 
 const RUNTIME: Runtime = Runtime::Tokio1;
 
@@ -44,10 +45,6 @@ impl SqlitePoolManager {
         Ok(conn)
     }
 }
-
-use deadpool::managed::{Manager, Metrics, RecycleResult};
-
-use crate::db::connection::Connection;
 
 impl Manager for SqlitePoolManager {
     type Type = deadpool_sync::SyncWrapper<Connection>;
