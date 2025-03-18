@@ -9,7 +9,7 @@ mod metrics;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use metrics::Metrics;
-use miden_air::HashFunction;
+use miden_air::{FieldElement, HashFunction};
 use miden_block_prover::LocalBlockProver;
 use miden_lib::{
     account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
@@ -21,7 +21,7 @@ use miden_node_proto::generated::store::api_client::ApiClient;
 use miden_node_store::{config::StoreConfig, genesis::GenesisState, server::Store};
 use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
-    Digest, Felt,
+    Felt,
     account::{
         Account, AccountBuilder, AccountDelta, AccountId, AccountIdAnchor, AccountStorageDelta,
         AccountStorageMode, AccountType, AccountVaultDelta,
@@ -162,6 +162,7 @@ async fn generate_blocks(
             &rng,
             faucet.id(),
             consumes_per_block,
+            i,
         );
 
         // Create the tx that creates the notes
@@ -256,11 +257,16 @@ fn create_accounts_and_notes(
     rng: &Arc<Mutex<RpoRandomCoin>>,
     faucet_id: AccountId,
     num_accounts: usize,
+    block_num: usize,
 ) -> (Vec<Account>, Vec<Note>) {
     (0..num_accounts)
         .into_par_iter()
         .map(|account_index| {
-            let account = create_account(anchor_block, key_pair.public_key(), account_index as u64);
+            let account = create_account(
+                anchor_block,
+                key_pair.public_key(),
+                ((block_num * num_accounts) + account_index) as u64,
+            );
             let note = {
                 let mut rng = rng.lock().unwrap();
                 create_note(faucet_id, account.id(), &mut rng)
@@ -384,7 +390,7 @@ fn create_consume_note_tx(
     let delta = AccountDelta::new(
         AccountStorageDelta::default(),
         AccountVaultDelta::from_iters([asset], []),
-        Some(Felt::new(1)),
+        Some(Felt::ONE),
     )
     .unwrap();
     account.apply_delta(&delta).unwrap();
@@ -392,7 +398,7 @@ fn create_consume_note_tx(
     ProvenTransactionBuilder::new(
         account.id(),
         init_hash,
-        Digest::default(), // TODO: use the real account hash
+        account.hash(),
         block_ref.block_num(),
         block_ref.hash(),
         u32::MAX.into(),
@@ -419,7 +425,7 @@ fn create_emit_note_tx(
             [],
         ),
         AccountVaultDelta::default(),
-        Some(faucet.nonce() + Felt::new(1)),
+        Some(faucet.nonce() + Felt::ONE),
     )
     .unwrap();
     faucet.apply_delta(&delta).unwrap();
