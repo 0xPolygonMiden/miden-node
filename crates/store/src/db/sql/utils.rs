@@ -1,8 +1,5 @@
 use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
-use miden_objects::{
-    account::Account, block::BlockNumber, crypto::hash::rpo::RpoDigest, note::Nullifier,
-    utils::Deserializable,
-};
+use miden_objects::{block::BlockNumber, note::Nullifier, utils::Deserializable};
 use rusqlite::{Connection, OptionalExtension, params, types::Value};
 
 /// Returns the high 16 bits of the provided nullifier.
@@ -147,8 +144,7 @@ where
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
     let account_id = read_from_blob_column(row, 0)?;
-    let account_hash_data = row.get_ref(1)?.as_blob()?;
-    let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
+    let account_hash = read_from_blob_column(row, 1)?;
     let block_num = read_block_number(row, 2)?;
 
     Ok(AccountSummary { account_id, account_hash, block_num })
@@ -159,9 +155,7 @@ pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<Ac
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_info_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountInfo> {
     let update = account_summary_from_row(row)?;
-
-    let details = row.get_ref(3)?.as_blob_or_null()?;
-    let details = details.map(Account::read_from_bytes).transpose()?;
+    let details = read_from_blob_or_null_column(row, 3)?;
 
     Ok(AccountInfo { summary: update, details })
 }

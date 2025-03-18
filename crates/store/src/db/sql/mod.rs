@@ -13,8 +13,8 @@ use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
 use miden_objects::{
     Digest, Word,
     account::{
-        Account, AccountDelta, AccountId, AccountStorageDelta, AccountVaultDelta,
-        FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction, StorageMapDelta,
+        AccountDelta, AccountId, AccountStorageDelta, AccountVaultDelta, FungibleAssetDelta,
+        NonFungibleAssetDelta, NonFungibleDeltaAction, StorageMapDelta,
         delta::AccountUpdateDetails,
     },
     asset::NonFungibleAsset,
@@ -34,7 +34,7 @@ use super::{
 use crate::{
     db::sql::utils::{
         account_info_from_row, account_summary_from_row, column_value_as_u64, get_nullifier_prefix,
-        read_from_blob_or_null_column, u64_to_value,
+        u64_to_value,
     },
     errors::{DatabaseError, NoteSyncError, StateSyncError},
 };
@@ -169,7 +169,7 @@ pub fn select_account(conn: &mut Connection, account_id: AccountId) -> Result<Ac
 ///
 /// The account details vector, or an error.
 pub fn select_accounts_by_ids(
-    conn: &mut Connection,
+    conn: &Connection,
     account_ids: &[AccountId],
 ) -> Result<Vec<AccountInfo>> {
     let mut stmt = conn.prepare_cached(
@@ -408,26 +408,17 @@ pub fn upsert_accounts(
     accounts: &[BlockAccountUpdate],
     block_num: BlockNumber,
 ) -> Result<usize> {
-    let ids: Rc<Vec<Value>> =
-        Rc::new(accounts.iter().map(|update| update.account_id().to_bytes().into()).collect());
-    let mut select_accounts_stmt = transaction.prepare_cached(
-        "SELECT account_id, account_hash, details FROM accounts WHERE account_id IN rarray(?)",
-    )?;
-    let mut prev_account_data: BTreeMap<AccountId, (RpoDigest, Option<Account>)> = BTreeMap::new();
-    let mut rows = select_accounts_stmt.query(params![ids])?;
-    while let Some(row) = rows.next()? {
-        let id: AccountId = read_from_blob_column(row, 0)?;
-        let hash: RpoDigest = read_from_blob_column(row, 1)?;
-        let details: Option<Account> = read_from_blob_or_null_column(row, 2)?;
-
-        prev_account_data.insert(id, (hash, details));
-    }
+    let ids: Vec<_> = accounts.iter().map(BlockAccountUpdate::account_id).collect();
+    let mut prev_account_data: BTreeMap<_, _> = select_accounts_by_ids(transaction, &ids)?
+        .into_iter()
+        .map(|info| (info.summary.account_id, (info.summary.account_hash, info.details)))
+        .collect();
 
     let mut insert_stmt = transaction.prepare_cached(insert_sql!(accounts {
         account_id,
         account_hash,
         block_num,
-        details
+        details,
     }))?;
     let mut update_stmt = transaction.prepare_cached(
         "UPDATE accounts SET account_hash = ?2, block_num = ?3, details = ?4 WHERE account_id = ?1",
@@ -454,12 +445,14 @@ pub fn upsert_accounts(
                 if details.is_some() {
                     return Err(DatabaseError::AccountIsPublic(account_id));
                 }
-                update_stmt.execute(params![
+                let updated = update_stmt.execute(params![
                     account_id.to_bytes(),
                     update.final_state_commitment().to_bytes(),
                     block_num.as_u32(),
                     Value::Null,
                 ])?;
+
+                assert_eq!(updated, 1);
             },
 
             // Create new public account
@@ -512,12 +505,14 @@ pub fn upsert_accounts(
                     });
                 }
 
-                update_stmt.execute(params![
+                let updated = update_stmt.execute(params![
                     account_id.to_bytes(),
                     update.final_state_commitment().to_bytes(),
                     block_num.as_u32(),
                     account.to_bytes(),
                 ])?;
+
+                assert_eq!(updated, 1);
 
                 insert_account_delta(transaction, account_id, block_num, delta)?;
             },
