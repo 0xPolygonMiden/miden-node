@@ -29,6 +29,12 @@ use crate::{
 /// of provers for proof generation. Proving is currently unimplemented and is instead simulated via
 /// the given proof time and failure rate.
 pub struct BatchBuilder {
+    /// Represents all batch building workers.
+    ///
+    /// This pool is always at maximum capacity. Idle workers will be in a [`std::future::Ready`]
+    /// state and are immedietely available for a new batch building job.
+    ///
+    /// See also: [`BatchBuilder::wait_for_available_worker`].
     worker_pool: JoinSet<()>,
     batch_interval: Duration,
     /// The batch prover to use.
@@ -43,14 +49,21 @@ pub struct BatchBuilder {
 }
 
 impl BatchBuilder {
-    /// Creates a new [`BatchBuilder`] with the given batch prover URL.
+    /// Creates a new [`BatchBuilder`] with the given batch prover URL and maximum concurrent batch
+    /// building workers.
     ///
-    /// If no URL is provided, a local batch prover is used.
-    pub fn new(store: StoreClient, workers: NonZeroUsize, batch_prover_url: Option<Url>) -> Self {
+    /// If no batch prover URL is provided, a local batch prover is used instead.
+    pub fn new(
+        store: StoreClient,
+        num_workers: NonZeroUsize,
+        batch_prover_url: Option<Url>,
+    ) -> Self {
         let batch_prover = batch_prover_url
             .map_or(BatchProver::local(MIN_PROOF_SECURITY_LEVEL), BatchProver::remote);
 
-        let worker_pool = std::iter::repeat_n(std::future::ready(()), workers.get()).collect();
+        // It is important that the worker pool is filled to capacity with ready workers. See
+        // `Self::worker_pool` and `Self::wait_for_available_worker` for more context.
+        let worker_pool = std::iter::repeat_n(std::future::ready(()), num_workers.get()).collect();
 
         Self {
             batch_interval: SERVER_BUILD_BATCH_FREQUENCY,
@@ -101,8 +114,21 @@ impl BatchBuilder {
             .spawn(async move { job.build_batch().await }.instrument(tracing::Span::current()));
     }
 
+    /// Waits for a new batch building worker to become available.
+    ///
+    /// The worker pool is _always_ at full capacity because:
+    ///   - It is instantiated with a full cohort of [`std::future::ready()`].
+    ///   - This function removes a worker but it's _always_ added afterwards again in
+    ///     `build_batch`, keeping the pool at capacity.
+    ///
+    /// An alternate implementation might instead check the currently active jobs, but this would
+    /// require the same logic as here to handle the case when the pool is at capacity. This
+    /// design was chosen instead as it removes this branching logic by "always" having the pool
+    /// at max capacity. Instead completed workers wait to be culled by this function.
     #[instrument(target = COMPONENT, name = "batch_builder.wait_for_available_worker", skip_all)]
     async fn wait_for_available_worker(&mut self) {
+        // We must crash here because otherwise we have a batch that has been selected from the
+        // mempool, but which is now in limbo. This effectively corrupts the mempool.
         if let Err(crash) = self.worker_pool.join_next().await.expect("worker pool is never empty")
         {
             tracing::error!(message=%crash, "Batch worker pool panic'd");
@@ -111,6 +137,15 @@ impl BatchBuilder {
     }
 }
 
+// BATCH JOB
+// ================================================================================================
+
+/// Represents a single batch building job.
+///
+/// It is entirely self-contained and performs the full batch creation flow, from selecting the
+/// batch from the [`Mempool`] up to and including submitting the results back to the [`Mempool`].
+///
+/// Errors are also handled internally and are not propagated up.
 struct BatchJob {
     /// Simulated block failure rate as a percentage.
     ///

@@ -19,8 +19,8 @@ use tower_http::trace::TraceLayer;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    COMPONENT, SERVER_BATCH_BUILDERS, SERVER_MEMPOOL_EXPIRATION_SLACK,
-    SERVER_MEMPOOL_STATE_RETENTION,
+    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
+    SERVER_NUM_BATCH_BUILDERS,
     batch_builder::BatchBuilder,
     block_builder::BlockBuilder,
     config::BlockProducerConfig,
@@ -85,7 +85,7 @@ impl BlockProducer {
         Ok(Self {
             batch_builder: BatchBuilder::new(
                 store.clone(),
-                SERVER_BATCH_BUILDERS,
+                SERVER_NUM_BATCH_BUILDERS,
                 config.batch_prover_url,
             ),
             block_builder: BlockBuilder::new(store.clone(), config.block_prover_url),

@@ -32,7 +32,7 @@ const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
 const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
 
 /// Size of the batch building worker pool.
-const SERVER_BATCH_BUILDERS: NonZeroUsize = NonZeroUsize::new(2).unwrap();
+const SERVER_NUM_BATCH_BUILDERS: NonZeroUsize = NonZeroUsize::new(2).unwrap();
 
 /// The number of blocks of committed state that the mempool retains.
 ///
