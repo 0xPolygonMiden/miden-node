@@ -1,5 +1,5 @@
 pub mod block_producer;
-pub mod node;
+pub mod bundled;
 pub mod rpc;
 pub mod store;
 

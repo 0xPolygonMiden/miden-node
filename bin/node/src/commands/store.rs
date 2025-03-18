@@ -6,14 +6,14 @@ use std::{
 };
 
 use anyhow::Context;
-use miden_lib::{account::faucets::create_basic_fungible_faucet, utils::Serializable, AuthScheme};
+use miden_lib::{AuthScheme, account::faucets::create_basic_fungible_faucet, utils::Serializable};
 use miden_node_store::{genesis::GenesisState, server::Store};
 use miden_node_utils::{crypto::get_rpo_random_coin, grpc::UrlExt};
 use miden_objects::{
+    Felt, ONE,
     account::{AccountFile, AccountIdAnchor, AuthSecretKey},
     asset::TokenSymbol,
     crypto::dsa::rpo_falcon512::SecretKey,
-    Felt, ONE,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::{ChaCha20Rng, ChaChaRng};

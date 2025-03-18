@@ -22,14 +22,14 @@ use miden_node_proto::{
 };
 use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
-    account::AccountId, crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction,
-    utils::serde::Deserializable, Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL,
+    Digest, MAX_NUM_FOREIGN_ACCOUNTS, MIN_PROOF_SECURITY_LEVEL, account::AccountId,
+    crypto::hash::rpo::RpoDigest, transaction::ProvenTransaction, utils::serde::Deserializable,
 };
 use miden_tx::TransactionVerifier;
 use tonic::{
+    Request, Response, Status,
     service::interceptor::InterceptedService,
     transport::{Channel, Error},
-    Request, Response, Status,
 };
 use tracing::{debug, info, instrument};
 

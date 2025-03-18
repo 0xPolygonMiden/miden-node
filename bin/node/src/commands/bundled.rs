@@ -13,7 +13,31 @@ use super::{
 };
 
 #[derive(clap::Subcommand)]
-pub enum NodeCommand {
+#[expect(clippy::large_enum_variant, reason = "This is a single use enum")]
+pub enum BundledCommand {
+    /// Bootstraps the blockchain database with the genesis block.
+    ///
+    /// This populates the genesis block's data with the accounts and data listed in the
+    /// configuration file.
+    ///
+    /// Each generated genesis account's data is also written to disk. This includes the private
+    /// key which can be used to create transactions for these accounts.
+    ///
+    /// See also: `store dump-genesis`
+    Bootstrap {
+        /// Genesis configuration file.
+        ///
+        /// If not provided the default configuration is used.
+        #[arg(long, value_name = "FILE")]
+        config: Option<PathBuf>,
+        /// Directory in which to store the database and raw block data.
+        #[arg(long, env = ENV_DATA_DIRECTORY, value_name = "DIR")]
+        data_directory: PathBuf,
+        // Directory to write the account data to.
+        #[arg(long, value_name = "DIR")]
+        accounts_directory: PathBuf,
+    },
+
     /// Runs all three node components in the same process.
     ///
     /// The internal gRPC endpoints for the store and block-producer will each be assigned a random
@@ -25,7 +49,7 @@ pub enum NodeCommand {
 
         /// Directory in which the Store component should store the database and raw block data.
         #[arg(long = "data-directory", env = ENV_DATA_DIRECTORY, value_name = "DIR")]
-        store_data_directory: PathBuf,
+        data_directory: PathBuf,
 
         /// The remote batch prover's gRPC url. If unset, will default to running a prover
         /// in-process which is expensive.
@@ -46,17 +70,41 @@ pub enum NodeCommand {
     },
 }
 
-impl NodeCommand {
+impl BundledCommand {
     pub async fn handle(self) -> anyhow::Result<()> {
-        let Self::Start {
-            rpc_url,
-            store_data_directory,
-            batch_prover_url,
-            block_prover_url,
-            // Note: open-telemetry is handled in main.
-            open_telemetry: _,
-        } = self;
+        match self {
+            BundledCommand::Bootstrap {
+                config,
+                data_directory,
+                accounts_directory,
+            } => {
+                // Currently the bundled bootstrap is identical to the store's bootstrap.
+                crate::commands::store::StoreCommand::Bootstrap {
+                    config,
+                    data_directory,
+                    accounts_directory,
+                }
+                .handle()
+                .await
+                .context("failed to bootstrap the store component")
+            },
+            BundledCommand::Start {
+                rpc_url,
+                data_directory,
+                batch_prover_url,
+                block_prover_url,
+                // Note: open-telemetry is handled in main.
+                open_telemetry: _,
+            } => Self::start(rpc_url, data_directory, batch_prover_url, block_prover_url).await,
+        }
+    }
 
+    async fn start(
+        rpc_url: Url,
+        data_directory: PathBuf,
+        batch_prover_url: Option<Url>,
+        block_prover_url: Option<Url>,
+    ) -> anyhow::Result<()> {
         // Start listening on all gRPC urls so that inter-component connections can be created
         // before each component is fully started up.
         //
@@ -82,7 +130,7 @@ impl NodeCommand {
         let mut join_set = JoinSet::new();
 
         // Start store. The store endpoint is available after loading completes.
-        let store = Store::init(grpc_store, store_data_directory).await.context("Loading store")?;
+        let store = Store::init(grpc_store, data_directory).await.context("Loading store")?;
         let store_id =
             join_set.spawn(async move { store.serve().await.context("Serving store") }).id();
 
@@ -132,7 +180,10 @@ impl NodeCommand {
     }
 
     pub fn is_open_telemetry_enabled(&self) -> bool {
-        let Self::Start { open_telemetry, .. } = self;
-        *open_telemetry
+        if let Self::Start { open_telemetry, .. } = self {
+            *open_telemetry
+        } else {
+            false
+        }
     }
 }

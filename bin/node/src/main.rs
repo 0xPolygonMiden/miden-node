@@ -35,7 +35,7 @@ pub enum Command {
     ///
     /// This is the recommended way to run the node at the moment.
     #[command(subcommand)]
-    Node(commands::node::NodeCommand),
+    Bundled(commands::bundled::BundledCommand),
 }
 
 impl Command {
@@ -47,7 +47,7 @@ impl Command {
             Command::Store(subcommand) => subcommand.is_open_telemetry_enabled(),
             Command::Rpc(subcommand) => subcommand.is_open_telemetry_enabled(),
             Command::BlockProducer(subcommand) => subcommand.is_open_telemetry_enabled(),
-            Command::Node(subcommand) => subcommand.is_open_telemetry_enabled(),
+            Command::Bundled(subcommand) => subcommand.is_open_telemetry_enabled(),
         } {
             OpenTelemetry::Enabled
         } else {
@@ -60,7 +60,7 @@ impl Command {
             Command::Rpc(rpc_command) => rpc_command.handle().await,
             Command::Store(store_command) => store_command.handle().await,
             Command::BlockProducer(block_producer_command) => block_producer_command.handle().await,
-            Command::Node(node) => node.handle().await,
+            Command::Bundled(node) => node.handle().await,
         }
     }
 }
