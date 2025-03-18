@@ -22,19 +22,19 @@ pub enum BlockProducerCommand {
 
         /// The remote batch prover's gRPC url. If unset, will default to running a prover
         /// in-process which is expensive.
-        #[arg(long = "batch_prover.url", env = ENV_BATCH_PROVER_URL)]
+        #[arg(long = "batch-prover.url", env = ENV_BATCH_PROVER_URL)]
         batch_prover_url: Option<Url>,
 
         /// The remote block prover's gRPC url. If unset, will default to running a prover
         /// in-process which is expensive.
-        #[arg(long = "block_prover.url", env = ENV_BLOCK_PROVER_URL)]
+        #[arg(long = "block-prover.url", env = ENV_BLOCK_PROVER_URL)]
         block_prover_url: Option<Url>,
 
         /// Enables the exporting of traces for OpenTelemetry.
         ///
         /// This can be further configured using environment variables as defined in the official
         /// OpenTelemetry documentation. See our operator manual for further details.
-        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL)]
+        #[arg(long = "enable-otel", default_value_t = false, env = ENV_ENABLE_OTEL)]
         open_telemetry: bool,
     },
 }

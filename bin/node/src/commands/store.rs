@@ -6,21 +6,21 @@ use std::{
 };
 
 use anyhow::Context;
-use miden_lib::{AuthScheme, account::faucets::create_basic_fungible_faucet, utils::Serializable};
+use miden_lib::{account::faucets::create_basic_fungible_faucet, utils::Serializable, AuthScheme};
 use miden_node_store::{genesis::GenesisState, server::Store};
 use miden_node_utils::{crypto::get_rpo_random_coin, grpc::UrlExt};
 use miden_objects::{
-    Felt, ONE,
     account::{AccountFile, AccountIdAnchor, AuthSecretKey},
     asset::TokenSymbol,
     crypto::dsa::rpo_falcon512::SecretKey,
+    Felt, ONE,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::{ChaCha20Rng, ChaChaRng};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use super::{ENV_ENABLE_OTEL, ENV_STORE_DIRECTORY, ENV_STORE_URL};
+use super::{ENV_DATA_DIRECTORY, ENV_ENABLE_OTEL, ENV_STORE_URL};
 
 #[derive(clap::Subcommand)]
 pub enum StoreCommand {
@@ -45,7 +45,7 @@ pub enum StoreCommand {
         #[arg(long, value_name = "FILE")]
         config: Option<PathBuf>,
         /// Directory in which to store the database and raw block data.
-        #[arg(long, env = ENV_STORE_DIRECTORY, value_name = "DIR")]
+        #[arg(long, env = ENV_DATA_DIRECTORY, value_name = "DIR")]
         data_directory: PathBuf,
         // Directory to write the account data to.
         #[arg(long, value_name = "DIR")]
@@ -59,14 +59,14 @@ pub enum StoreCommand {
         url: Url,
 
         /// Directory in which to store the database and raw block data.
-        #[arg(long, env = ENV_STORE_DIRECTORY, value_name = "DIR")]
+        #[arg(long, env = ENV_DATA_DIRECTORY, value_name = "DIR")]
         data_directory: PathBuf,
 
         /// Enables the exporting of traces for OpenTelemetry.
         ///
         /// This can be further configured using environment variables as defined in the official
         /// OpenTelemetry documentation. See our operator manual for further details.
-        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL, value_name = "bool")]
+        #[arg(long = "enable-otel", default_value_t = false, env = ENV_ENABLE_OTEL, value_name = "bool")]
         open_telemetry: bool,
     },
 }

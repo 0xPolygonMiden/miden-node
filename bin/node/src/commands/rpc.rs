@@ -10,7 +10,7 @@ pub enum RpcCommand {
     /// Starts the RPC component.
     Start {
         /// Url at which to serve the gRPC API.
-        #[arg(long = "rpc.url", env = ENV_RPC_URL, value_name = "URL")]
+        #[arg(long = "url", env = ENV_RPC_URL, value_name = "URL")]
         url: Url,
 
         /// The store's gRPC url.
@@ -25,7 +25,7 @@ pub enum RpcCommand {
         ///
         /// This can be further configured using environment variables as defined in the official
         /// OpenTelemetry documentation. See our operator manual for further details.
-        #[arg(long = "open-telemetry", default_value_t = false, env = ENV_ENABLE_OTEL, value_name = "bool")]
+        #[arg(long = "enable-otel", default_value_t = false, env = ENV_ENABLE_OTEL, value_name = "bool")]
         open_telemetry: bool,
     },
 }

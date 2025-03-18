@@ -35,7 +35,7 @@ use tracing::{debug, info, instrument};
 
 use crate::COMPONENT;
 
-// RPC API
+// RPC SERVICE
 // ================================================================================================
 
 type StoreClient = store_client::ApiClient<InterceptedService<Channel, OtelInterceptor>>;
