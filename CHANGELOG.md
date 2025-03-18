@@ -17,7 +17,7 @@
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
-- Added stress test binary with seed-store command (#621).
+- Added stress test binary with seed-store command (#657).
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
 - [BREAKING] Update `GetBlockInputs` RPC (#709).
 - [BREAKING] `CheckNullifiersByPrefix` now takes a starting block number (#707).
