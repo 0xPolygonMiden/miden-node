@@ -18,6 +18,7 @@
 - Use `LocalBlockProver` for block building (#709).
 - Initial developer and operator guides covering monitoring (#699).
 - Instrument the block-producer's batch building process (#738).
+- Optimized database by adding missing indexes (#728).
 - Block frequency is now configurable (#750).
 - Batch frequency is now configurable (#750).
 
