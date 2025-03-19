@@ -4,8 +4,8 @@ use miden_node_utils::grpc::UrlExt;
 use url::Url;
 
 use super::{
-    ENV_BATCH_PROVER_URL, ENV_BLOCK_PRODUCER_URL, ENV_BLOCK_PROVER_URL, ENV_ENABLE_OTEL,
-    ENV_STORE_URL,
+    DEFAULT_BATCH_INTERVAL, DEFAULT_BLOCK_INTERVAL, ENV_BATCH_PROVER_URL, ENV_BLOCK_PRODUCER_URL,
+    ENV_BLOCK_PROVER_URL, ENV_ENABLE_OTEL, ENV_STORE_URL,
 };
 
 #[derive(clap::Subcommand)]
@@ -36,6 +36,14 @@ pub enum BlockProducerCommand {
         /// OpenTelemetry documentation. See our operator manual for further details.
         #[arg(long = "enable-otel", default_value_t = false, env = ENV_ENABLE_OTEL)]
         open_telemetry: bool,
+
+        /// Interval at which to procude blocks.
+        #[arg(long = "block.interval", default_value = DEFAULT_BLOCK_INTERVAL)]
+        block_interval: humantime::Duration,
+
+        /// Interval at which to procude batches.
+        #[arg(long = "batch.interval", default_value = DEFAULT_BATCH_INTERVAL)]
+        batch_interval: humantime::Duration,
     },
 }
 
@@ -48,6 +56,8 @@ impl BlockProducerCommand {
             block_prover_url,
             // Note: open-telemetry is handled in main.
             open_telemetry: _,
+            block_interval,
+            batch_interval,
         } = self;
 
         let store_url = store_url
@@ -60,12 +70,19 @@ impl BlockProducerCommand {
             .await
             .context("Failed to bind to store's gRPC URL")?;
 
-        BlockProducer::init(listener, store_url, batch_prover_url, block_prover_url)
-            .await
-            .context("Loading store")?
-            .serve()
-            .await
-            .context("Serving store")
+        BlockProducer::init(
+            listener,
+            store_url,
+            batch_prover_url,
+            block_prover_url,
+            batch_interval.into(),
+            block_interval.into(),
+        )
+        .await
+        .context("Loading store")?
+        .serve()
+        .await
+        .context("Serving store")
     }
 
     pub fn is_open_telemetry_enabled(&self) -> bool {

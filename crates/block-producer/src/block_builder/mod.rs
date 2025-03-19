@@ -1,23 +1,23 @@
 use std::ops::Range;
 
-use futures::{FutureExt, never::Never};
+use futures::{never::Never, FutureExt};
 use miden_block_prover::LocalBlockProver;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
-    MIN_PROOF_SECURITY_LEVEL,
     batch::ProvenBatch,
     block::{BlockInputs, BlockNumber, ProposedBlock, ProvenBlock},
     note::NoteHeader,
+    MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_proving_service_client::proving_service::block_prover::RemoteBlockProver;
 use rand::Rng;
 use tokio::time::Duration;
-use tracing::{Span, info, instrument};
+use tracing::{info, instrument, Span};
 use url::Url;
 
 use crate::{
-    COMPONENT, SERVER_BLOCK_FREQUENCY, TelemetryInjectorExt, errors::BuildBlockError,
-    mempool::SharedMempool, store::StoreClient,
+    errors::BuildBlockError, mempool::SharedMempool, store::StoreClient, TelemetryInjectorExt,
+    COMPONENT,
 };
 
 // BLOCK BUILDER
@@ -43,14 +43,18 @@ impl BlockBuilder {
     /// Creates a new [`BlockBuilder`] with the given [`StoreClient`] and optional block prover URL.
     ///
     /// If the block prover URL is not set, the block builder will use the local block prover.
-    pub fn new(store: StoreClient, block_prover_url: Option<Url>) -> Self {
+    pub fn new(
+        store: StoreClient,
+        block_prover_url: Option<Url>,
+        block_interval: Duration,
+    ) -> Self {
         let block_prover = match block_prover_url {
             Some(url) => BlockProver::new_remote(url),
             None => BlockProver::new_local(MIN_PROOF_SECURITY_LEVEL),
         };
 
         Self {
-            block_interval: SERVER_BLOCK_FREQUENCY,
+            block_interval,
             // Note: The range cannot be empty.
             simulated_proof_time: Duration::ZERO..Duration::from_millis(1),
             failure_rate: 0.0,

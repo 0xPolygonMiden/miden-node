@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr};
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -7,7 +7,7 @@ use miden_node_proto::generated::{
 use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
-    tracing::grpc::{OtelInterceptor, block_producer_trace_fn},
+    tracing::grpc::{block_producer_trace_fn, OtelInterceptor},
 };
 use miden_objects::{
     block::BlockNumber, transaction::ProvenTransaction, utils::serde::Deserializable,
@@ -20,14 +20,14 @@ use tracing::{debug, info, instrument};
 use url::Url;
 
 use crate::{
-    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
-    SERVER_NUM_BATCH_BUILDERS,
     batch_builder::BatchBuilder,
     block_builder::BlockBuilder,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, Mempool, SharedMempool},
     store::StoreClient,
+    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
+    SERVER_NUM_BATCH_BUILDERS,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,
@@ -57,6 +57,8 @@ impl BlockProducer {
         store_address: SocketAddr,
         batch_prover: Option<Url>,
         block_prover: Option<Url>,
+        batch_interval: Duration,
+        block_interval: Duration,
     ) -> Result<Self, ApiError> {
         info!(target: COMPONENT, endpoint=?listener, store=%store_address, "Initializing server");
 
@@ -79,11 +81,12 @@ impl BlockProducer {
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            block_builder: BlockBuilder::new(store.clone(), block_prover),
+            block_builder: BlockBuilder::new(store.clone(), block_prover, block_interval),
             batch_builder: BatchBuilder::new(
                 store.clone(),
                 SERVER_NUM_BATCH_BUILDERS,
                 batch_prover,
+                batch_interval,
             ),
             batch_budget: BatchBudget::default(),
             block_budget: BlockBudget::default(),

@@ -1,23 +1,22 @@
 use std::{num::NonZeroUsize, time::Duration};
 
-use futures::{FutureExt, TryFutureExt, never::Never};
+use futures::{never::Never, FutureExt, TryFutureExt};
 use miden_node_proto::domain::batch::BatchInputs;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
-    MIN_PROOF_SECURITY_LEVEL,
     batch::{BatchId, ProposedBatch, ProvenBatch},
+    MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_proving_service_client::proving_service::batch_prover::RemoteBatchProver;
 use miden_tx_batch_prover::LocalBatchProver;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
-use tracing::{Instrument, Span, instrument};
+use tracing::{instrument, Instrument, Span};
 use url::Url;
 
 use crate::{
-    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY, TelemetryInjectorExt,
     domain::transaction::AuthenticatedTransaction, errors::BuildBatchError, mempool::SharedMempool,
-    store::StoreClient,
+    store::StoreClient, TelemetryInjectorExt, COMPONENT,
 };
 
 // BATCH BUILDER
@@ -57,6 +56,7 @@ impl BatchBuilder {
         store: StoreClient,
         num_workers: NonZeroUsize,
         batch_prover_url: Option<Url>,
+        batch_interval: Duration,
     ) -> Self {
         let batch_prover = batch_prover_url
             .map_or(BatchProver::local(MIN_PROOF_SECURITY_LEVEL), BatchProver::remote);
@@ -66,7 +66,7 @@ impl BatchBuilder {
         let worker_pool = std::iter::repeat_n(std::future::ready(()), num_workers.get()).collect();
 
         Self {
-            batch_interval: SERVER_BUILD_BATCH_FREQUENCY,
+            batch_interval,
             worker_pool,
             failure_rate: 0.0,
             batch_prover,
