@@ -37,10 +37,10 @@ impl SqlitePoolManager {
         // transaction is being written, this is required for proper
         // synchronization of the servers in-memory and on-disk representations
         // (see [State::apply_block])
-        conn.execute("PRAGMA journal_mode = WAL;", ())?;
+        conn.pragma_update(None, "journal_mode", "WAL")?;
 
         // Enable foreign key checks.
-        conn.execute("PRAGMA foreign_keys = ON;", ())?;
+        conn.pragma_update(None, "foreign_keys", "ON")?;
 
         Ok(conn)
     }
