@@ -1,26 +1,24 @@
-# Performs checks, builds and deploys the mdbook
+# Builds and deploys the mdbook
 
 name: book
 
-# Docs should reflect the latest development version.
-#
-# So we trigger on push to `next` AND only if the docs have changed.
 on:
-  workflow_dispatch:
   push:
-    branches: [next]
-    path: ['docs/**']
+    branches: [main]
 
 jobs:
   deploy:
     name: Deploy mdbook
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@main
-      - name: Install mdbook plugins
+      - name: Install katex, alerts and linkcheck
         run: |
           rustup update --no-self-update stable
-          cargo +stable install mdbook-linkcheck mdbook-alerts
+          cargo +stable install mdbook-katex mdbook-linkcheck mdbook-alerts
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
@@ -30,8 +28,14 @@ jobs:
       - name: Build miden book
         run: mdbook build docs/
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/book/html
+          path: "docs/book/html"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

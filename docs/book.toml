@@ -1,8 +1,16 @@
 [book]
-authors      = ["Miden team"]
-language     = "en"
+title = "The Miden Node"
+authors = ["Miden team"]
+description = "Manual for the software which processes transactions and creates blocks for the Miden rollup"
 multilingual = false
-src          = "src"
-title        = "The Miden Node manual"
+language = "en"
+
+[output.html]
+git-repository-url = "https://github.com/0xPolygonMiden/miden-node"
+
+[preprocessor.katex]
+after = ["links"]
 
 [preprocessor.alerts]
+
+[output.linkcheck]
