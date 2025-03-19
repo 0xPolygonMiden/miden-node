@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{self, create_dir_all},
+    path::PathBuf,
     sync::Arc,
 };
 
@@ -23,7 +24,6 @@ use tracing::{info, info_span, instrument};
 use crate::{
     COMPONENT,
     blocks::BlockStore,
-    config::StoreConfig,
     db::{
         migrations::apply_migrations,
         pool_manager::{Pool, SqlitePoolManager},
@@ -192,21 +192,22 @@ impl Db {
     // TODO: This span is logged in a root span, we should connect it to the parent one.
     #[instrument(target = COMPONENT, skip_all)]
     pub async fn setup(
-        config: StoreConfig,
+        database_filepath: PathBuf,
+        genesis_filepath: &str,
         block_store: Arc<BlockStore>,
     ) -> Result<Self, DatabaseSetupError> {
-        info!(target: COMPONENT, %config, "Connecting to the database");
+        info!(target: COMPONENT, ?database_filepath, "Connecting to the database");
 
-        if let Some(p) = config.database_filepath.parent() {
+        if let Some(p) = database_filepath.parent() {
             create_dir_all(p).map_err(DatabaseError::IoError)?;
         }
 
-        let sqlite_pool_manager = SqlitePoolManager::new(config.database_filepath.clone());
+        let sqlite_pool_manager = SqlitePoolManager::new(database_filepath.clone());
         let pool = Pool::builder(sqlite_pool_manager).build()?;
 
         info!(
             target: COMPONENT,
-            sqlite = format!("{}", config.database_filepath.display()),
+            sqlite= %database_filepath.display(),
             "Connected to the database"
         );
 
@@ -217,8 +218,7 @@ impl Db {
         })??;
 
         let db = Db { pool };
-        db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy(), block_store)
-            .await?;
+        db.ensure_genesis_block(genesis_filepath, block_store).await?;
 
         Ok(db)
     }

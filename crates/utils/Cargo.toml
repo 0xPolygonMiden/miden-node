@@ -35,6 +35,7 @@ tracing               = { workspace = true }
 tracing-forest        = { version = "0.1", optional = true, features = ["chrono"] }
 tracing-opentelemetry = { version = "0.29" }
 tracing-subscriber    = { workspace = true }
+url                   = { workspace = true }
 
 # Optional dependencies enabled by `vergen` feature.
 # This must match the version expected by `vergen-gitcl`.

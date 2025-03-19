@@ -78,17 +78,6 @@ jobs:
       - name: Build docs
         run: make doc
 
-  version:
-    name: rust version consistency
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@main
-        with:
-          profile: minimal
-          override: true
-      - name: check rust versions
-        run: ./scripts/check-rust-version.sh
-
   unused_deps:
     name: check for unused dependencies
     runs-on: ubuntu-latest

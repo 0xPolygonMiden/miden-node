@@ -2267,13 +2267,11 @@ dependencies = [
  "miden-node-utils",
  "miden-objects",
  "miden-tx",
- "serde",
  "tokio",
  "tokio-stream",
  "tonic",
  "tonic-web",
  "tracing",
- "url",
 ]
 
 [[package]]
@@ -2292,7 +2290,6 @@ dependencies = [
  "regex",
  "rusqlite",
  "rusqlite_migration",
- "serde",
  "termtree",
  "thiserror 2.0.11",
  "tokio",
@@ -2300,7 +2297,6 @@ dependencies = [
  "tonic",
  "tower-http 0.6.2",
  "tracing",
- "url",
 ]
 
 [[package]]
@@ -2331,6 +2327,7 @@ dependencies = [
  "tracing-forest",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "url",
  "vergen",
  "vergen-gitcl",
 ]
