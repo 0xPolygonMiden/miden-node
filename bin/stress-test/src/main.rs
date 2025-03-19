@@ -1,7 +1,6 @@
 use std::{
     collections::BTreeMap,
-    env::temp_dir,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{Arc, Mutex},
     time::Instant,
 };
@@ -19,7 +18,7 @@ use miden_lib::{
 };
 use miden_node_block_producer::store::StoreClient;
 use miden_node_proto::{domain::batch::BatchInputs, generated::store::api_client::ApiClient};
-use miden_node_store::{config::StoreConfig, genesis::GenesisState, server::Store};
+use miden_node_store::{GENESIS_STATE_FILENAME, genesis::GenesisState, server::Store};
 use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
     Felt,
@@ -39,7 +38,7 @@ use miden_objects::{
 };
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use tokio::{fs, task};
+use tokio::{fs, net::TcpListener, task};
 use winterfell::Proof;
 
 const BATCHES_PER_BLOCK: usize = 16;
@@ -57,9 +56,10 @@ pub enum Command {
     /// Create and store blocks into the store. Create a given number of accounts, where each
     /// account consumes a note created from a faucet.
     SeedStore {
-        /// Path to the store database file.
-        #[arg(short, long, value_name = "DUMP_FILE", default_value = "./miden-store.sqlite3")]
-        dump_file: PathBuf,
+        /// Directory in which to store the database and raw block data. If the directory contains
+        /// a database dump file, it will be replaced.
+        #[arg(short, long, value_name = "DATA_DIRECTORY")]
+        data_directory: PathBuf,
 
         /// Number of accounts to create.
         #[arg(short, long, value_name = "NUM_ACCOUNTS")]
@@ -69,38 +69,47 @@ pub enum Command {
 
 /// Creates and stores blocks into the store. Creates a given number of accounts, where each account
 /// consumes a note created from a faucet. The cli accepts the following parameters:
-/// - `dump_file`: Path to the store database file.
+/// - `data_directory`: Directory in which to store the database and raw block data.
 /// - `num_accounts`: Number of accounts to create.
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
 
-    match &cli.command {
-        Command::SeedStore { dump_file, num_accounts } => {
-            seed_store(dump_file, *num_accounts).await;
+    match cli.command {
+        Command::SeedStore { data_directory, num_accounts } => {
+            seed_store(data_directory, num_accounts).await;
         },
     }
 }
 
 /// Seeds the store with a given number of accounts.
-async fn seed_store(dump_file: &Path, num_accounts: usize) {
+async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
     let start = Instant::now();
+
+    let genesis_filepath = data_directory.join(GENESIS_STATE_FILENAME);
+    let database_filepath = data_directory.join("miden-store.sqlite3");
+
+    // If data_directory does not exist, create it
+    if !data_directory.exists() {
+        fs::create_dir_all(&data_directory).await.unwrap();
+    }
+
+    // If database file exists, remove it
+    if database_filepath.exists() {
+        fs::remove_file(&database_filepath).await.unwrap();
+    }
 
     // Generate the faucet account and the genesis state
     let faucet = create_faucet();
     let genesis_state = GenesisState::new(vec![faucet.clone()], 1, 1);
-    let genesis_filepath = temp_dir().join("genesis.dat");
-    fs::write(genesis_filepath.clone(), genesis_state.to_bytes()).await.unwrap();
+    fs::write(&genesis_filepath, genesis_state.to_bytes()).await.unwrap();
 
     // Start store
-    let store_config = StoreConfig {
-        database_filepath: dump_file.to_path_buf(),
-        genesis_filepath,
-        ..Default::default()
-    };
-    let store = Store::init(store_config.clone()).await.context("Loading store").unwrap();
+    let grpc_store = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let store_addr = grpc_store.local_addr().unwrap();
+    let store = Store::init(grpc_store, data_directory).await.unwrap();
     task::spawn(async move { store.serve().await.context("Serving store") });
-    let channel = tonic::transport::Endpoint::try_from(store_config.endpoint.to_string())
+    let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
         .unwrap()
         .connect()
         .await
@@ -111,7 +120,8 @@ async fn seed_store(dump_file: &Path, num_accounts: usize) {
     // Start generating blocks
     let genesis_header = genesis_state.into_block().unwrap().header();
     let metrics =
-        generate_blocks(num_accounts, faucet, &genesis_header, &store_client, dump_file).await;
+        generate_blocks(num_accounts, faucet, &genesis_header, &store_client, database_filepath)
+            .await;
 
     println!("Total time: {:.3} seconds", start.elapsed().as_secs_f64());
     println!("{metrics}");
@@ -125,14 +135,14 @@ async fn generate_blocks(
     mut faucet: Account,
     genesis_header: &BlockHeader,
     store_client: &StoreClient,
-    dump_file: &Path,
+    database_filepath: PathBuf,
 ) -> Metrics {
     // Each block is composed of [`BATCHES_PER_BLOCK`] batches, and each batch is composed of
     // [`TRANSACTIONS_PER_BATCH`] txs. The first note of the block is always a send assets tx
     // from the faucet to (BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH) - 1 accounts. The rest of
     // the notes are consume note txs from the (BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH) - 1
     // accounts that were minted in the previous block.
-    let mut metrics = Metrics::new(dump_file.to_path_buf());
+    let mut metrics = Metrics::new(database_filepath);
 
     let mut consume_notes_txs = vec![];
 
