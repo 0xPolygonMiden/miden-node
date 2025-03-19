@@ -192,8 +192,8 @@ async fn generate_blocks(
     metrics
 }
 
-/// Given a list of batches and block inputs, creates a `ProvenBlock` and sends it to the store. Tracks
-/// the insertion time on the metrics.
+/// Given a list of batches and block inputs, creates a `ProvenBlock` and sends it to the store.
+/// Tracks the insertion time on the metrics.
 ///
 /// Returns the header of the inserted block.
 async fn apply_block(
@@ -264,8 +264,8 @@ fn create_note(faucet_id: AccountId, target_id: AccountId, rng: &mut RpoRandomCo
     .expect("note creation failed")
 }
 
-/// Creates a new account with a given public key and anchor block. Generates the seed from the given
-/// index.
+/// Creates a new account with a given public key and anchor block. Generates the seed from the
+/// given index.
 fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64) -> Account {
     let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
     let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
@@ -406,7 +406,8 @@ async fn get_batch_inputs(
     metrics: &mut Metrics,
 ) -> BatchInputs {
     let start = Instant::now();
-    // Mark every note as unauthenticated, so that the store returns the inclusion proofs for all of them
+    // Mark every note as unauthenticated, so that the store returns the inclusion proofs for all of
+    // them
     let batch_inputs = store_client
         .get_batch_inputs(
             vec![(block_ref.block_num(), block_ref.hash())].into_iter(),
