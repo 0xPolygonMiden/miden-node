@@ -96,3 +96,18 @@ jobs:
       - uses: actions/checkout@main
       - name: machete
         uses: bnjbvr/cargo-machete@main
+
+  proto:
+    name: proto check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Rustup
+        run: rustup update --no-self-update
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
+      - name: Rebuild protos
+        run: BUILD_PROTO=1 cargo check -p miden-node-rpc -p miden-rpc-proto
+      - name: Diff check
+        run: git diff --exit-code

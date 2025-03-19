@@ -14,9 +14,6 @@ version.workspace      = true
 [lints]
 workspace = true
 
-[features]
-internal = []
-
 [dependencies]
 anyhow      = { version = "1.0" }
 prost       = { workspace = true }

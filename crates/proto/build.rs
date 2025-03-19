@@ -11,7 +11,7 @@ use miden_node_proto_build::ProtoBuilder;
 /// This is done only if `BUILD_PROTO` environment variable is set to `1` to avoid running the
 /// script on crates.io where repo-level .proto files are not available.
 fn main() -> anyhow::Result<()> {
-    println!("cargo::rerun-if-changed=../../proto");
+    println!("cargo::rerun-if-changed=../../proto/proto");
     println!("cargo::rerun-if-env-changed=BUILD_PROTO");
 
     // Skip this build script in BUILD_PROTO environment variable is not set to `1`.
@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
     // Build the proto files in the destination directory.
     let builder = tonic_build::configure().out_dir(&dst_dir);
 
-    ProtoBuilder::new(builder).compile().context("compiling proto files")?;
+    ProtoBuilder::new(builder).compile_server().context("compiling proto files")?;
 
     generate_mod_rs(&dst_dir).context("generating mod.rs")?;
 

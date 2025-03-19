@@ -4,11 +4,11 @@ members = [
   "bin/node",
   "crates/block-producer",
   "crates/proto",
-  "crates/proto_build",
   "crates/rpc",
   "crates/store",
   "crates/test-macro",
   "crates/utils",
+  "proto",
 ]
 
 resolver = "2"
@@ -32,7 +32,7 @@ miden-air                 = { version = "0.12" }
 miden-lib                 = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.8" }
 miden-node-proto          = { path = "crates/proto", version = "0.8" }
-miden-node-proto-build    = { path = "crates/proto_build", version = "0.8" }
+miden-node-proto-build    = { path = "proto", version = "0.8" }
 miden-node-rpc            = { path = "crates/rpc", version = "0.8" }
 miden-node-store          = { path = "crates/store", version = "0.8" }
 miden-node-test-macro     = { path = "crates/test-macro" }
