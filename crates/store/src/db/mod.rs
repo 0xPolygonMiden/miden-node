@@ -5,7 +5,6 @@ use std::{
     sync::Arc,
 };
 
-use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
     domain::account::{AccountInfo, AccountSummary},
     generated::note as proto,
@@ -18,15 +17,17 @@ use miden_objects::{
     transaction::TransactionId,
     utils::Serializable,
 };
-use rusqlite::vtab::array;
 use sql::utils::{column_value_as_u64, read_block_number};
 use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
 use crate::{
-    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
+    COMPONENT,
     blocks::BlockStore,
-    db::migrations::apply_migrations,
+    db::{
+        migrations::apply_migrations,
+        pool_manager::{Pool, SqlitePoolManager},
+    },
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
 };
@@ -35,9 +36,14 @@ mod migrations;
 #[macro_use]
 mod sql;
 
+mod connection;
+mod pool_manager;
+#[cfg(test)]
+mod query_plan;
 mod settings;
 #[cfg(test)]
 mod tests;
+mod transaction;
 
 pub type Result<T, E = DatabaseError> = std::result::Result<T, E>;
 
@@ -196,43 +202,8 @@ impl Db {
             create_dir_all(p).map_err(DatabaseError::IoError)?;
         }
 
-        let pool = SqliteConfig::new(database_filepath.clone())
-            .builder(Runtime::Tokio1)
-            .expect("Infallible")
-            .post_create(Hook::async_fn(move |conn, _| {
-                Box::pin(async move {
-                    let _ = conn
-                        .interact(|conn| {
-                            // Feature used to support `IN` and `NOT IN` queries. We need to load
-                            // this module for every connection we create to the DB to support the
-                            // queries we want to run
-                            array::load_module(conn)?;
-
-                            // Increase the statement cache size.
-                            conn.set_prepared_statement_cache_capacity(
-                                SQL_STATEMENT_CACHE_CAPACITY,
-                            );
-
-                            // Enable the WAL mode. This allows concurrent reads while the
-                            // transaction is being written, this is required for proper
-                            // synchronization of the servers in-memory and on-disk representations
-                            // (see [State::apply_block])
-                            conn.execute("PRAGMA journal_mode = WAL;", ())?;
-
-                            // Enable foreign key checks.
-                            conn.execute("PRAGMA foreign_keys = ON;", ())
-                        })
-                        .await
-                        .map_err(|e| {
-                            HookError::Message(
-                                format!("Failed to configure connection: {e}").into(),
-                            )
-                        })?;
-
-                    Ok(())
-                })
-            }))
-            .build()?;
+        let sqlite_pool_manager = SqlitePoolManager::new(database_filepath.clone());
+        let pool = Pool::builder(sqlite_pool_manager).build()?;
 
         info!(
             target: COMPONENT,
@@ -258,7 +229,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(sql::select_all_nullifiers)
+            .interact(|conn| {
+                let transaction = conn.transaction()?;
+                sql::select_all_nullifiers(&transaction)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
@@ -277,7 +251,13 @@ impl Db {
             .get()
             .await?
             .interact(move |conn| {
-                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes, block_num)
+                let transaction = conn.transaction()?;
+                sql::select_nullifiers_by_prefix(
+                    &transaction,
+                    prefix_len,
+                    &nullifier_prefixes,
+                    block_num,
+                )
             })
             .await
             .map_err(|err| {
@@ -298,7 +278,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_block_header_by_block_num(conn, block_number))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_block_header_by_block_num(&transaction, block_number)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select block header task failed: {err}"))
@@ -314,7 +297,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_block_headers(conn, blocks))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_block_headers(&transaction, blocks)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(
@@ -329,7 +315,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(sql::select_all_block_headers)
+            .interact(|conn| {
+                let transaction = conn.transaction()?;
+                sql::select_all_block_headers(&transaction)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select block headers task failed: {err}"))
@@ -342,7 +331,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(sql::select_all_account_hashes)
+            .interact(|conn| {
+                let transaction = conn.transaction()?;
+                sql::select_all_account_hashes(&transaction)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select account hashes task failed: {err}"))
@@ -355,7 +347,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_account(conn, id))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_account(&transaction, id)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get account details task failed: {err}"))
@@ -371,7 +366,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_accounts_by_ids(conn, &account_ids))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_accounts_by_ids(&transaction, &account_ids)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get accounts details task failed: {err}"))
@@ -389,7 +387,10 @@ impl Db {
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| sql::get_state_sync(conn, block_num, &account_ids, &note_tags))
+            .interact(move |conn| {
+                let transaction = conn.transaction().map_err(DatabaseError::SqliteError)?;
+                sql::get_state_sync(&transaction, block_num, &account_ids, &note_tags)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get state sync task failed: {err}"))
@@ -406,7 +407,10 @@ impl Db {
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| sql::get_note_sync(conn, block_num, &note_tags))
+            .interact(move |conn| {
+                let transaction = conn.transaction().map_err(DatabaseError::SqliteError)?;
+                sql::get_note_sync(&transaction, block_num, &note_tags)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get notes sync task failed: {err}"))
@@ -419,7 +423,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_notes_by_id(conn, &note_ids))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_notes_by_id(&transaction, &note_ids)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
@@ -435,7 +442,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_note_inclusion_proofs(conn, note_ids))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_note_inclusion_proofs(&transaction, note_ids)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(
@@ -511,8 +521,9 @@ impl Db {
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| -> Result<Option<AccountDelta>> {
-                sql::select_account_delta(conn, account_id, from_block, to_block)
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_account_delta(&transaction, account_id, from_block, to_block)
             })
             .await
             .map_err(|err| DatabaseError::InteractError(err.to_string()))?
