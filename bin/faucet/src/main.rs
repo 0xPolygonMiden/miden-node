@@ -18,7 +18,7 @@ use axum::{
 use clap::{Parser, Subcommand};
 use client::initialize_faucet_client;
 use handlers::{get_background, get_favicon, get_index_css, get_index_html, get_index_js};
-use http::{header, HeaderValue};
+use http::{HeaderValue, header};
 use miden_lib::{AuthScheme, account::faucets::create_basic_fungible_faucet};
 use miden_node_utils::{
     config::load_config, crypto::get_rpo_random_coin, logging::OpenTelemetry, version::LongVersion,
