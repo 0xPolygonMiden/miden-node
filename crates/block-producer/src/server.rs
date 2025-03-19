@@ -7,7 +7,7 @@ use miden_node_proto::generated::{
 use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
-    tracing::grpc::{block_producer_trace_fn, OtelInterceptor},
+    tracing::grpc::{OtelInterceptor, block_producer_trace_fn},
 };
 use miden_objects::{
     block::BlockNumber, transaction::ProvenTransaction, utils::serde::Deserializable,
@@ -20,14 +20,14 @@ use tracing::{debug, info, instrument};
 use url::Url;
 
 use crate::{
+    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
+    SERVER_NUM_BATCH_BUILDERS,
     batch_builder::BatchBuilder,
     block_builder::BlockBuilder,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, Mempool, SharedMempool},
     store::StoreClient,
-    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
-    SERVER_NUM_BATCH_BUILDERS,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,

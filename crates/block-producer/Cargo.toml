@@ -34,7 +34,6 @@ miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-
 miden-tx = { workspace = true }
 miden-tx-batch-prover = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
 rand = { version = "0.8" }
-serde = { version = "1.0", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-stream = { workspace = true, features = ["net"] }

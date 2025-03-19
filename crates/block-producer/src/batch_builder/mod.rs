@@ -1,22 +1,22 @@
 use std::{num::NonZeroUsize, time::Duration};
 
-use futures::{never::Never, FutureExt, TryFutureExt};
+use futures::{FutureExt, TryFutureExt, never::Never};
 use miden_node_proto::domain::batch::BatchInputs;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
-    batch::{BatchId, ProposedBatch, ProvenBatch},
     MIN_PROOF_SECURITY_LEVEL,
+    batch::{BatchId, ProposedBatch, ProvenBatch},
 };
 use miden_proving_service_client::proving_service::batch_prover::RemoteBatchProver;
 use miden_tx_batch_prover::LocalBatchProver;
 use rand::Rng;
 use tokio::{task::JoinSet, time};
-use tracing::{instrument, Instrument, Span};
+use tracing::{Instrument, Span, instrument};
 use url::Url;
 
 use crate::{
-    domain::transaction::AuthenticatedTransaction, errors::BuildBatchError, mempool::SharedMempool,
-    store::StoreClient, TelemetryInjectorExt, COMPONENT,
+    COMPONENT, TelemetryInjectorExt, domain::transaction::AuthenticatedTransaction,
+    errors::BuildBatchError, mempool::SharedMempool, store::StoreClient,
 };
 
 // BATCH BUILDER
