@@ -32,9 +32,9 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    /// Create a new Metrics instance.
+    /// Creates a new Metrics instance.
     pub fn new(store_file: PathBuf) -> Self {
-        let initial_store_size = Self::get_store_size(&store_file);
+        let initial_store_size = get_store_size(&store_file);
         Self {
             insertion_time_per_block: Vec::new(),
             get_block_inputs_time_per_block: Vec::new(),
@@ -47,34 +47,26 @@ impl Metrics {
         }
     }
 
-    /// Track a new insertion to the metrics, with the insertion time and size of the block.
+    /// Tracks a new insertion to the metrics, with the insertion time and size of the block.
     pub fn add_insertion(&mut self, insertion_time: Duration, block_size: usize) {
         self.insertion_time_per_block.push(insertion_time);
         self.bytes_per_block.push(block_size);
         self.num_insertions += 1;
     }
 
-    /// Track the size of the store file.
+    /// Tracks the size of the store file.
     pub fn record_store_size(&mut self) {
-        self.store_file_sizes.push(Self::get_store_size(&self.store_file));
+        self.store_file_sizes.push(get_store_size(&self.store_file));
     }
 
-    /// Track the time it takes to query the block inputs.
+    /// Tracks the time it takes to query the block inputs.
     pub fn add_get_block_inputs(&mut self, query_time: Duration) {
         self.get_block_inputs_time_per_block.push(query_time);
     }
 
-    /// Track the time it takes to query the batch inputs.
+    /// Tracks the time it takes to query the batch inputs.
     pub fn add_get_batch_inputs(&mut self, query_time: Duration) {
         self.get_batch_inputs_time_per_block.push(query_time);
-    }
-
-    /// Get the size of the store file and its WAL file.
-    fn get_store_size(dump_file: &Path) -> u64 {
-        let store_file_size = std::fs::metadata(dump_file).unwrap().len();
-        let wal_file_size =
-            std::fs::metadata(format!("{}-wal", dump_file.to_str().unwrap())).unwrap().len();
-        store_file_size + wal_file_size
     }
 }
 
@@ -173,4 +165,12 @@ impl Display for Metrics {
 
         Ok(())
     }
+}
+
+/// Gets the size of the store file and its WAL file.
+fn get_store_size(dump_file: &Path) -> u64 {
+    let store_file_size = std::fs::metadata(dump_file).unwrap().len();
+    let wal_file_size =
+        std::fs::metadata(format!("{}-wal", dump_file.to_str().unwrap())).unwrap().len();
+    store_file_size + wal_file_size
 }

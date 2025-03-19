@@ -67,7 +67,7 @@ pub enum Command {
     },
 }
 
-/// Create and store blocks into the store. Create a given number of accounts, where each account
+/// Creates and stores blocks into the store. Creates a given number of accounts, where each account
 /// consumes a note created from a faucet. The cli accepts the following parameters:
 /// - `dump_file`: Path to the store database file.
 /// - `num_accounts`: Number of accounts to create.
@@ -82,7 +82,7 @@ async fn main() {
     }
 }
 
-/// Seed the store with a given number of accounts.
+/// Seeds the store with a given number of accounts.
 async fn seed_store(dump_file: &Path, num_accounts: usize) {
     let start = Instant::now();
 
@@ -117,7 +117,7 @@ async fn seed_store(dump_file: &Path, num_accounts: usize) {
     println!("{metrics}");
 }
 
-/// Generate batches of transactions to be inserted into the store.
+/// Generates batches of transactions to be inserted into the store.
 /// The first transaction in each batch sends assets from the faucet to 255 accounts.
 /// The rest of the transactions consume the notes created by the faucet in the previous block.
 async fn generate_blocks(
@@ -192,10 +192,10 @@ async fn generate_blocks(
     metrics
 }
 
-/// Given a list of batches and block inputs, create a `ProvenBlock` and send it to the store. Track
+/// Given a list of batches and block inputs, creates a `ProvenBlock` and sends it to the store. Tracks
 /// the insertion time on the metrics.
 ///
-///  Returns the header of the inserted block.
+/// Returns the header of the inserted block.
 async fn apply_block(
     batches: Vec<ProvenBatch>,
     block_inputs: BlockInputs,
@@ -219,7 +219,7 @@ async fn apply_block(
 // HELPERS
 // ================================================================================================
 
-/// Create `num_accounts` accounts, and for each one create a note that mint assets.
+/// Creates `num_accounts` accounts, and for each one creates a note that mint assets.
 ///
 /// Returns a tuple with:
 /// - The list of new accounts
@@ -249,7 +249,7 @@ fn create_accounts_and_notes(
         .collect()
 }
 
-/// Create a new note containing 10 tokens of the fungible asset associated with the specified
+/// Creates a new note containing 10 tokens of the fungible asset associated with the specified
 /// `faucet_id`.
 fn create_note(faucet_id: AccountId, target_id: AccountId, rng: &mut RpoRandomCoin) -> Note {
     let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
@@ -264,7 +264,7 @@ fn create_note(faucet_id: AccountId, target_id: AccountId, rng: &mut RpoRandomCo
     .expect("note creation failed")
 }
 
-/// Create a new account with a given public key and anchor block. Generates the seed from the given
+/// Creates a new account with a given public key and anchor block. Generates the seed from the given
 /// index.
 fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64) -> Account {
     let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
@@ -279,7 +279,7 @@ fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64)
     new_account
 }
 
-/// Create a new faucet account.
+/// Creates a new faucet account.
 fn create_faucet() -> Account {
     let coin_seed: [u64; 4] = rand::rng().random();
     let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
@@ -300,7 +300,7 @@ fn create_faucet() -> Account {
     new_faucet
 }
 
-/// Create a proven batch from a list of transactions and a reference block.
+/// Creates a proven batch from a list of transactions and a reference block.
 fn create_batch(txs: &[ProvenTransaction], block_ref: &BlockHeader) -> ProvenBatch {
     let account_updates = txs
         .iter()
@@ -319,7 +319,7 @@ fn create_batch(txs: &[ProvenTransaction], block_ref: &BlockHeader) -> ProvenBat
     )
 }
 
-/// For each pair of account and note, create a transaction that consumes the note.
+/// For each pair of account and note, creates a transaction that consumes the note.
 fn create_consume_note_txs(
     block_ref: &BlockHeader,
     accounts: Vec<Account>,
@@ -398,7 +398,7 @@ fn create_emit_note_tx(
     .unwrap()
 }
 
-/// Get the batch inputs from the store and track the query time on the metrics.
+/// Gets the batch inputs from the store and tracks the query time on the metrics.
 async fn get_batch_inputs(
     store_client: &StoreClient,
     block_ref: &BlockHeader,
@@ -406,6 +406,7 @@ async fn get_batch_inputs(
     metrics: &mut Metrics,
 ) -> BatchInputs {
     let start = Instant::now();
+    // Mark every note as unauthenticated, so that the store returns the inclusion proofs for all of them
     let batch_inputs = store_client
         .get_batch_inputs(
             vec![(block_ref.block_num(), block_ref.hash())].into_iter(),
@@ -417,7 +418,7 @@ async fn get_batch_inputs(
     batch_inputs
 }
 
-/// Get the block inputs from the store and track the query time on the metrics.
+/// Gets the block inputs from the store and tracks the query time on the metrics.
 async fn get_block_inputs(
     store_client: &StoreClient,
     batches: &[ProvenBatch],
