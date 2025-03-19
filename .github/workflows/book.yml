@@ -37,12 +37,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - uses: Swatinem/rust-cache@v2
 
+      # Installation from source takes a fair while, so we install the binaries directly instead.
       - name: Install mdbook and plugins
-        run: |
-          rustup update --no-self-update stable
-          cargo +stable install mdbook mdbook-linkcheck mdbook-alerts
+        uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook, mdbook-linkcheck, mdbook-alerts
 
       - name: Build book
         run: mdbook build docs/
