@@ -21,6 +21,7 @@ use url::Url;
 
 use crate::{
     COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
+    SERVER_NUM_BATCH_BUILDERS,
     batch_builder::BatchBuilder,
     block_builder::BlockBuilder,
     domain::transaction::AuthenticatedTransaction,
@@ -78,8 +79,12 @@ impl BlockProducer {
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            batch_builder: BatchBuilder::new(batch_prover),
             block_builder: BlockBuilder::new(store.clone(), block_prover),
+            batch_builder: BatchBuilder::new(
+                store.clone(),
+                SERVER_NUM_BATCH_BUILDERS,
+                batch_prover,
+            ),
             batch_budget: BatchBudget::default(),
             block_budget: BlockBudget::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
@@ -122,9 +127,8 @@ impl BlockProducer {
         let batch_builder_id = tasks
             .spawn({
                 let mempool = mempool.clone();
-                let store = store.clone();
                 async {
-                    batch_builder.run(mempool, store).await;
+                    batch_builder.run(mempool).await;
                     Ok(())
                 }
             })

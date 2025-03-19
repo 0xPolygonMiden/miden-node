@@ -7,9 +7,13 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
-use crate::{COMPONENT, GENESIS_STATE_FILENAME, blocks::BlockStore, db::Db, state::State};
+use crate::{
+    COMPONENT, DATABASE_MAINTENANCE_INTERVAL, GENESIS_STATE_FILENAME, blocks::BlockStore, db::Db,
+    server::db_maintenance::DbMaintenance, state::State,
+};
 
 mod api;
+mod db_maintenance;
 
 /// Represents an initialized store component where the RPC connection is open, but not yet actively
 /// responding to requests.
@@ -19,6 +23,7 @@ mod api;
 /// components.
 pub struct Store {
     api_service: api_server::ApiServer<api::StoreApi>,
+    db_maintenance_service: DbMaintenance,
     listener: TcpListener,
 }
 
@@ -47,17 +52,24 @@ impl Store {
                 .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
         );
 
+        let db_maintenance_service =
+            DbMaintenance::new(Arc::clone(&state), DATABASE_MAINTENANCE_INTERVAL);
         let api_service = api_server::ApiServer::new(api::StoreApi { state });
 
         info!(target: COMPONENT, "Database loaded");
 
-        Ok(Self { api_service, listener })
+        Ok(Self {
+            api_service,
+            db_maintenance_service,
+            listener,
+        })
     }
 
-    /// Serves the store's RPC API.
+    /// Serves the store's RPC API and DB maintenance background task.
     ///
     /// Note: this blocks until the server dies.
     pub async fn serve(self) -> Result<(), ApiError> {
+        tokio::spawn(self.db_maintenance_service.run());
         // Build the gRPC server with the API service and trace layer.
         tonic::transport::Server::builder()
             .layer(TraceLayer::new_for_grpc().make_span_with(store_trace_fn))

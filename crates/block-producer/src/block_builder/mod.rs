@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use futures::FutureExt;
+use futures::{FutureExt, never::Never};
 use miden_block_prover::LocalBlockProver;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
@@ -16,8 +16,8 @@ use tracing::{Span, info, instrument};
 use url::Url;
 
 use crate::{
-    COMPONENT, SERVER_BLOCK_FREQUENCY, errors::BuildBlockError, mempool::SharedMempool,
-    store::StoreClient,
+    COMPONENT, SERVER_BLOCK_FREQUENCY, TelemetryInjectorExt, errors::BuildBlockError,
+    mempool::SharedMempool, store::StoreClient,
 };
 
 // BLOCK BUILDER
@@ -116,7 +116,7 @@ impl BlockBuilder {
             .inspect_err(|err| Span::current().set_error(err))
             .or_else(|_err| self.rollback_block(mempool).never_error())
             // Error has been handled, this is just type manipulation to remove the result wrapper.
-            .unwrap_or_else(|_| ())
+            .unwrap_or_else(|_: Never| ())
             .await;
     }
 
@@ -292,12 +292,6 @@ impl BlockBatchesAndInputs {
                 .expect("less than u32::MAX unauthenticated notes"),
         );
     }
-}
-
-/// An extension trait used only locally to implement telemetry injection.
-trait TelemetryInjectorExt {
-    /// Inject [`tracing`] telemetry from self.
-    fn inject_telemetry(&self);
 }
 
 impl TelemetryInjectorExt for ProposedBlock {
