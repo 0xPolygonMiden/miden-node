@@ -1,6 +1,7 @@
 use std::io;
 
-use deadpool_sqlite::{InteractError, PoolError};
+use deadpool::managed::PoolError;
+use deadpool_sync::InteractError;
 use miden_objects::{
     AccountDeltaError, AccountError, NoteError,
     account::AccountId,
@@ -54,7 +55,7 @@ pub enum DatabaseError {
     #[error("migration failed")]
     MigrationError(#[from] rusqlite_migration::Error),
     #[error("missing database connection")]
-    MissingDbConnection(#[from] PoolError),
+    MissingDbConnection(#[from] PoolError<rusqlite::Error>),
     #[error("note error")]
     NoteError(#[from] NoteError),
     #[error("SQLite error")]
@@ -120,7 +121,7 @@ pub enum DatabaseSetupError {
     #[error("genesis block error")]
     GenesisBlockError(#[from] GenesisError),
     #[error("pool build error")]
-    PoolBuildError(#[from] deadpool_sqlite::BuildError),
+    PoolBuildError(#[from] deadpool::managed::BuildError),
     #[error("SQLite migration error")]
     SqliteMigrationError(#[from] rusqlite_migration::Error),
 }
