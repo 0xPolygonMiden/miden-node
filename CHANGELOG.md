@@ -19,6 +19,7 @@
 - Initial developer and operator guides covering monitoring (#699).
 - Instrument the block-producer's batch building process (#738).
 - Optimized database by adding missing indexes (#728).
+- Added support for `Content-type` header in `get_tokens` endpoint of the faucet (#754).
 
 ### Changes
 
