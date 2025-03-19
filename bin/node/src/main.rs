@@ -2,25 +2,10 @@
 // E0275.
 #![recursion_limit = "256"]
 
-use std::path::PathBuf;
-
-use anyhow::{Context, anyhow};
 use clap::{Parser, Subcommand};
-use commands::{init::init_config_files, start::start_node};
-use miden_node_block_producer::server::BlockProducer;
-use miden_node_rpc::server::Rpc;
-use miden_node_store::server::Store;
-use miden_node_utils::{config::load_config, logging::OpenTelemetry, version::LongVersion};
+use miden_node_utils::{logging::OpenTelemetry, version::LongVersion};
 
 mod commands;
-mod config;
-
-// CONSTANTS
-// ================================================================================================
-
-const NODE_CONFIG_FILE_PATH: &str = "miden-node.toml";
-const DEFAULT_GENESIS_FILE_PATH: &str = "genesis.dat";
-const DEFAULT_GENESIS_INPUTS_PATH: &str = "genesis.toml";
 
 // COMMANDS
 // ================================================================================================
@@ -34,119 +19,67 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// Start the node
-    Start {
-        #[command(subcommand)]
-        command: StartCommand,
+    /// Commands related to the node's store component.
+    #[command(subcommand)]
+    Store(commands::store::StoreCommand),
 
-        #[arg(short, long, value_name = "FILE", default_value = NODE_CONFIG_FILE_PATH)]
-        config: PathBuf,
+    /// Commands related to the node's RPC component.
+    #[command(subcommand)]
+    Rpc(commands::rpc::RpcCommand),
 
-        #[arg(long = "open-telemetry", default_value_t = false)]
-        open_telemetry: bool,
-    },
+    /// Commands related to the node's block-producer component.
+    #[command(subcommand)]
+    BlockProducer(commands::block_producer::BlockProducerCommand),
 
-    /// Generates a genesis file and associated account files based on a specified genesis input
+    /// Commands relevant to running all components in the same process.
     ///
-    /// This command creates a new genesis file and associated account files at the specified
-    /// output paths. It checks for the existence of the output file, and if it already exists,
-    /// an error is thrown unless the `force` flag is set to overwrite it.
-    MakeGenesis {
-        /// Read genesis file inputs from this location
-        #[arg(short, long, value_name = "FILE", default_value = DEFAULT_GENESIS_INPUTS_PATH)]
-        inputs_path: PathBuf,
-
-        /// Write the genesis file to this location
-        #[arg(short, long, value_name = "FILE", default_value = DEFAULT_GENESIS_FILE_PATH)]
-        output_path: PathBuf,
-
-        /// Generate the output file even if a file already exists
-        #[arg(short, long)]
-        force: bool,
-    },
-
-    /// Generates default configuration files for the node
-    ///
-    /// This command creates two files (miden-node.toml and genesis.toml) that provide
-    /// configuration details to the node. These files may be modified to change the node
-    /// behavior.
-    Init {
-        #[arg(short, long, default_value = NODE_CONFIG_FILE_PATH)]
-        config_path: String,
-
-        #[arg(short, long, default_value = DEFAULT_GENESIS_INPUTS_PATH)]
-        genesis_path: String,
-    },
+    /// This is the recommended way to run the node at the moment.
+    #[command(subcommand)]
+    Bundled(commands::bundled::BundledCommand),
 }
 
-#[derive(Subcommand)]
-pub enum StartCommand {
-    Node,
-    BlockProducer,
-    Rpc,
-    Store,
+impl Command {
+    /// Whether OpenTelemetry tracing exporter should be enabled.
+    ///
+    /// This is enabled for some subcommands if the `--open-telemetry` flag is specified.
+    fn open_telemetry(&self) -> OpenTelemetry {
+        if match self {
+            Command::Store(subcommand) => subcommand.is_open_telemetry_enabled(),
+            Command::Rpc(subcommand) => subcommand.is_open_telemetry_enabled(),
+            Command::BlockProducer(subcommand) => subcommand.is_open_telemetry_enabled(),
+            Command::Bundled(subcommand) => subcommand.is_open_telemetry_enabled(),
+        } {
+            OpenTelemetry::Enabled
+        } else {
+            OpenTelemetry::Disabled
+        }
+    }
+
+    async fn execute(self) -> anyhow::Result<()> {
+        match self {
+            Command::Rpc(rpc_command) => rpc_command.handle().await,
+            Command::Store(store_command) => store_command.handle().await,
+            Command::BlockProducer(block_producer_command) => block_producer_command.handle().await,
+            Command::Bundled(node) => node.handle().await,
+        }
+    }
 }
+
+// MAIN
+// ================================================================================================
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    // Open telemetry exporting is only valid for running the node.
-    let open_telemetry = if let Command::Start { open_telemetry: true, .. } = &cli.command {
-        OpenTelemetry::Enabled
-    } else {
-        OpenTelemetry::Disabled
-    };
-    miden_node_utils::logging::setup_tracing(open_telemetry)?;
+    // Configure tracing with optional OpenTelemetry exporting support.
+    miden_node_utils::logging::setup_tracing(cli.command.open_telemetry())?;
 
-    match &cli.command {
-        Command::Start { command, config, .. } => match command {
-            StartCommand::Node => {
-                let config = load_config(config).context("Loading configuration file")?;
-                start_node(config).await
-            },
-            StartCommand::BlockProducer => {
-                let config = load_config(config).context("Loading configuration file")?;
-                BlockProducer::init(config)
-                    .await
-                    .context("Loading block-producer")?
-                    .serve()
-                    .await
-                    .context("Serving block-producer")
-            },
-            StartCommand::Rpc => {
-                let config = load_config(config).context("Loading configuration file")?;
-                Rpc::init(config)
-                    .await
-                    .context("Loading RPC")?
-                    .serve()
-                    .await
-                    .context("Serving RPC")
-            },
-            StartCommand::Store => {
-                let config = load_config(config).context("Loading configuration file")?;
-                Store::init(config)
-                    .await
-                    .context("Loading store")?
-                    .serve()
-                    .await
-                    .context("Serving store")
-            },
-        },
-        Command::MakeGenesis { output_path, force, inputs_path } => {
-            commands::make_genesis(inputs_path, output_path, *force)
-        },
-        Command::Init { config_path, genesis_path } => {
-            let current_dir = std::env::current_dir()
-                .map_err(|err| anyhow!("failed to open current directory: {err}"))?;
-
-            let config = current_dir.join(config_path);
-            let genesis = current_dir.join(genesis_path);
-
-            init_config_files(&config, &genesis)
-        },
-    }
+    cli.command.execute().await
 }
+
+// HELPERS & UTILITIES
+// ================================================================================================
 
 /// Generates [`LongVersion`] using the metadata generated by build.rs.
 fn long_version() -> LongVersion {

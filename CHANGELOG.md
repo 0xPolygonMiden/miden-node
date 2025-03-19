@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Enhancements
+
+- Implemented database optimization routine (#721).
+
 ### Fixes
 
 - Faucet webpage is missing `background.png` and `favicon.ico` (#672).
@@ -13,6 +17,8 @@
 - Instrument the block-producer's block building process (#676).
 - Use `LocalBlockProver` for block building (#709).
 - Initial developer and operator guides covering monitoring (#699).
+- Instrument the block-producer's batch building process (#738).
+- Optimized database by adding missing indexes (#728).
 
 ### Changes
 
@@ -26,6 +32,7 @@
 - [BREAKING] Added `block_prover_url` to block producer configuration (#719).
 - [BREAKING] Updated to Rust Edition 2024 (#727).
 - [BREAKING] MSRV bumped to 1.85 (#727).
+- [BREAKING] Replaced `toml` configuration with CLI (#732).
 
 ### Enhancements
 

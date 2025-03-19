@@ -47,7 +47,7 @@ url = { workspace = true }
 assert_matches        = { workspace = true }
 miden-air             = { workspace = true }
 miden-lib             = { workspace = true, features = ["testing"] }
-miden-node-test-macro = { path = "../test-macro" }
+miden-node-test-macro = { workspace = true }
 miden-objects         = { workspace = true, features = ["testing"] }
 miden-tx              = { workspace = true, features = ["testing"] }
 pretty_assertions     = "1.4"

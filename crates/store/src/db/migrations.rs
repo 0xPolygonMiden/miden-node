@@ -1,13 +1,12 @@
 use std::sync::LazyLock;
 
 use miden_objects::crypto::hash::blake::{Blake3_160, Blake3Digest};
-use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations, SchemaVersion};
 use tracing::{debug, error, info, instrument};
 
 use crate::{
     COMPONENT,
-    db::{settings::Settings, sql::utils::schema_version},
+    db::{connection::Connection, settings::Settings, sql::utils::schema_version},
     errors::DatabaseError,
 };
 
@@ -74,6 +73,20 @@ pub fn apply_migrations(conn: &mut Connection) -> super::Result<()> {
         debug!(target: COMPONENT, new_hash, "Updating migration hash in settings table");
         Settings::set_value(conn, DB_MIGRATION_HASH_FIELD, &new_hash)?;
     }
+
+    info!(target: COMPONENT, "Starting database optimization");
+
+    // Run full database optimization. This will run indexes analysis for the query planner.
+    // This will also increase the `schema_version` value.
+    //
+    // We should run full database optimization in following cases:
+    // 1. Once schema was changed, especially new indexes were created.
+    // 2. After restarting of the node, on first connection established.
+    //
+    // More info: https://www.sqlite.org/pragma.html#pragma_optimize
+    conn.execute("PRAGMA optimize = 0x10002;", ())?;
+
+    info!(target: COMPONENT, "Finished database optimization");
 
     let new_schema_version = schema_version(conn)?;
     debug!(target: COMPONENT, new_schema_version, "Updating schema version in settings table");
