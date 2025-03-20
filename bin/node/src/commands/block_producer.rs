@@ -1,11 +1,13 @@
+use std::time::Duration;
+
 use anyhow::Context;
 use miden_node_block_producer::server::BlockProducer;
 use miden_node_utils::grpc::UrlExt;
 use url::Url;
 
 use super::{
-    DEFAULT_BATCH_INTERVAL, DEFAULT_BLOCK_INTERVAL, ENV_BATCH_PROVER_URL, ENV_BLOCK_PRODUCER_URL,
-    ENV_BLOCK_PROVER_URL, ENV_ENABLE_OTEL, ENV_STORE_URL,
+    parse_duration_ms, DEFAULT_BATCH_INTERVAL_MS, DEFAULT_BLOCK_INTERVAL_MS, ENV_BATCH_PROVER_URL,
+    ENV_BLOCK_PRODUCER_URL, ENV_BLOCK_PROVER_URL, ENV_ENABLE_OTEL, ENV_STORE_URL,
 };
 
 #[derive(clap::Subcommand)]
@@ -37,13 +39,23 @@ pub enum BlockProducerCommand {
         #[arg(long = "enable-otel", default_value_t = false, env = ENV_ENABLE_OTEL)]
         open_telemetry: bool,
 
-        /// Interval at which to procude blocks.
-        #[arg(long = "block.interval", default_value = DEFAULT_BLOCK_INTERVAL)]
-        block_interval: humantime::Duration,
+        /// Interval at which to produce blocks in milliseconds.
+        #[arg(
+            long = "block.interval",
+            default_value = DEFAULT_BLOCK_INTERVAL_MS,
+            value_parser = parse_duration_ms,
+            value_name = "MILLISECONDS"
+        )]
+        block_interval: Duration,
 
-        /// Interval at which to procude batches.
-        #[arg(long = "batch.interval", default_value = DEFAULT_BATCH_INTERVAL)]
-        batch_interval: humantime::Duration,
+        /// Interval at which to procude batches in milliseconds.
+        #[arg(
+            long = "batch.interval",
+            default_value = DEFAULT_BATCH_INTERVAL_MS,
+            value_parser = parse_duration_ms,
+            value_name = "MILLISECONDS"
+        )]
+        batch_interval: Duration,
     },
 }
 

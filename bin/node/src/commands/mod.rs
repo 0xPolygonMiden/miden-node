@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 pub mod block_producer;
 pub mod bundled;
 pub mod rpc;
@@ -11,5 +13,9 @@ const ENV_STORE_URL: &str = "MIDEN_NODE_STORE_URL";
 const ENV_DATA_DIRECTORY: &str = "MIDEN_NODE_DATA_DIRECTORY";
 const ENV_ENABLE_OTEL: &str = "MIDEN_NODE_ENABLE_OTEL";
 
-const DEFAULT_BLOCK_INTERVAL: &str = "5s";
-const DEFAULT_BATCH_INTERVAL: &str = "2s";
+const DEFAULT_BLOCK_INTERVAL_MS: &str = "5_000";
+const DEFAULT_BATCH_INTERVAL_MS: &str = "2_000";
+
+fn parse_duration_ms(arg: &str) -> Result<std::time::Duration, std::num::ParseIntError> {
+    arg.parse().map(Duration::from_millis)
+}
