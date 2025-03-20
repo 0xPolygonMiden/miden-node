@@ -13,7 +13,7 @@ the cause. Conventionally this has been achieved via metrics and logs respective
 using wide-events/traces and post-processing these instead. We're using the OpenTelemetry standard for this, however we
 are only using the trace pillar and avoid metrics and logs.
 
-We wish to emit these traces without compromising on code quality nor readibility. This is also a downside to including
+We wish to emit these traces without compromising on code quality and readibility. This is also a downside to including
 metrics - these are usually emitted inline with the code, causing noise and obscuring the business logic. Ideally we
 want to rely almost entirely on `tracing::#[instrument]` to create spans as these live outide the function body.
 
@@ -30,22 +30,22 @@ provide a more consistent result as we build out our monitoring.
 fracturing the ecosystem and instead attempts to bridge between `tracing` and the OpenTelemetry standard in-so-far as is
 possible. All this to say that there are some rough edges where the two combine - this should improve over time.
 
-| crate                                | description                                                                                                                                            |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tracing`                            | Emits tracing spans and events.                                                                                                                        |
-| `tracing-subscriber`                 | Provides the conventional `tracing` stdout logger (no interaction with OpenTelemetry).                                                                 |
-| `tracing-forest`                     | Logs span trees to stdout. Useful to visualize span relations, but cannot trace across RPC boundaries as it doesn't understand remote tracing context. |
-| `tracing-opentelemetry`              | Bridges the gaps between `tracing` and the OpenTelemetry standard.                                                                                     |
-| `opentelemetry`                      | Defines core types and concepts for OpenTelemetry.                                                                                                     |
-| `opentelemetry-otlp`                 | gRPC exporter for OpenTelemetry traces.                                                                                                                |
-| `opentelemetry_sdk`                  | Provides the OpenTelemetry abstractions for metrics, logs and traces.                                                                                  |
-| `opentelemetry-semantic-conventions` | Constants for naming conventions as per OpenTelemetry standard.                                                                                        |
+| crate                                                                                      | description                                                                                                                                            |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`tracing`](https://docs.rs/tracing)                                                       | Emits tracing spans and events.                                                                                                                        |
+| [`tracing-subscriber`](https://docs.rs/tracing-subscriber)                                 | Provides the conventional `tracing` stdout logger (no interaction with OpenTelemetry).                                                                 |
+| [`tracing-forest`](https://docs.rs/tracing-forest)                                         | Logs span trees to stdout. Useful to visualize span relations, but cannot trace across RPC boundaries as it doesn't understand remote tracing context. |
+| [`tracing-opentelemetry`](https://docs.rs/tracing-opentelemetry)                           | Bridges the gaps between `tracing` and the OpenTelemetry standard.                                                                                     |
+| [`opentelemetry`](https://docs.rs/opentelemetry)                                           | Defines core types and concepts for OpenTelemetry.                                                                                                     |
+| [`opentelemetry-otlp`](https://docs.rs/opentelemetry-otlp)                                 | gRPC exporter for OpenTelemetry traces.                                                                                                                |
+| [`opentelemetry_sdk`](https://docs.rs/opentelemetry_sdk)                                   | Provides the OpenTelemetry abstractions for metrics, logs and traces.                                                                                  |
+| [`opentelemetry-semantic-conventions`](https://docs.rs/opentelemetry-semantic-conventions) | Constants for naming conventions as per OpenTelemetry standard.                                                                                        |
 
 ## Important concepts
 
 ### OpenTelemetry standards & documentation
 
-https://opentelemetry.io/docs/
+<https://opentelemetry.io/docs>
 
 There is a lot. You don't need all of it - look things up as and when you stumble into confusion.
 
@@ -71,24 +71,28 @@ manually instrumented each time. And non-async code also requires holding the sp
 
 ### Distributed context
 
-We track traces across our components by injecting the parent span ID into the gRPC client's request. The server side
-then extracts this and uses this as the parent span ID for its processing.
+We track traces across our components by injecting the parent span ID into the gRPC client's request metadata. The
+server side then extracts this and uses this as the parent span ID for its processing.
 
-> [!CAUTION]
-> This is an OpenTelemetry concept - conventional `tracing` cannot follow these relations.
+<div class="warning">
+
+This is an OpenTelemetry concept - conventional `tracing` cannot follow these relations.
+
+</div>
 
 Read more in the official OpenTelemetry [documentation](https://opentelemetry.io/docs/concepts/context-propagation/).
 
 ### Choosing spans
 
-A root span should represent a set of operations that belong together. It also shouldn't live forever i.e. a root span
-around the entire node makes no sense as the operation runs forever.
+A root span should represent a set of operations that belong together. It also shouldn't live forever as span
+information is usually only sent once the span _closes_ i.e. a root span around the entire node makes no sense as the
+operation runs forever.
 
 A good convention to follow is creating child spans for timing information you may want when debugging a failure or slow
 operation. As an example, it may make sense to instrument a mutex locking function to visualize the contention on it. Or
 separating the database file IO from the sqlite statement creation. Essentially operations which you would otherwise
 consider logging the timings for should be separate spans. While you may find this changes the code you might otherwise
-create, We've found this actually results in fairly good structure since it follows your business logic sense.
+create, we've found this actually results in fairly good structure since it follows your business logic sense.
 
 ### Inclusions and naming conventions
 
@@ -96,4 +100,4 @@ Where possible, attempt to find and use the naming conventions specified by the 
 `opentelemetry-semantic-conventions` crate.
 
 Include information you'd want to see when debugging - make life easy for your future self looking at data at 3AM on a
-Saturday. Also consider what information may be useful when correlating data e.g. sender IP.
+Saturday. Also consider what information may be useful when correlating data e.g. client IP.

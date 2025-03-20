@@ -7,6 +7,7 @@ use miden_objects::{
     note::{NoteId, Nullifier},
     transaction::TransactionId,
 };
+use miden_proving_service_client::RemoteProverError;
 use miden_tx_batch_prover::errors::ProvenBatchError;
 use thiserror::Error;
 use tokio::task::JoinError;
@@ -144,6 +145,9 @@ pub enum BuildBatchError {
 
     #[error("failed to prove proposed transaction batch")]
     ProveBatchError(#[source] ProvenBatchError),
+
+    #[error("failed to prove batch with remote prover")]
+    RemoteProverError(#[source] RemoteProverError),
 }
 
 // Block building errors
@@ -163,6 +167,8 @@ pub enum BuildBlockError {
     /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]
     InjectedFailure,
+    #[error("failed to prove block with remote prover")]
+    RemoteProverError(#[source] RemoteProverError),
 }
 
 // Store errors
