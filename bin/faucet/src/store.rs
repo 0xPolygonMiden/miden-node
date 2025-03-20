@@ -61,7 +61,7 @@ impl DataStore for FaucetDataStore {
         TransactionInputs::new(
             account.clone(),
             account.is_new().then_some(self.init_seed).flatten(),
-            self.block_header.clone(),
+            self.block_header,
             self.chain_mmr.clone(),
             InputNotes::default(),
         )
