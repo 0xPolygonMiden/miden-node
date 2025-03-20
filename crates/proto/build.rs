@@ -30,7 +30,12 @@ fn main() -> anyhow::Result<()> {
     // Build the proto files in the destination directory.
     let builder = tonic_build::configure().out_dir(&dst_dir);
 
-    ProtoBuilder::new(builder).compile().context("compiling proto files")?;
+    ProtoBuilder::new(builder.clone())
+        .compile_server()
+        .context("compiling proto files")?;
+    ProtoBuilder::new(builder)
+        .compile_rpc_client()
+        .context("compiling proto files")?;
 
     generate_mod_rs(&dst_dir).context("generating mod.rs")?;
 

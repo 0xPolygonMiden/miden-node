@@ -11,9 +11,6 @@ repository.workspace   = true
 rust-version.workspace = true
 version.workspace      = true
 
-[features]
-rpc-client = []
-
 [lints]
 workspace = true
 
