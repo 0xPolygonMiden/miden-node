@@ -35,6 +35,7 @@
 - [BREAKING] Updated to Rust Edition 2024 (#727).
 - [BREAKING] MSRV bumped to 1.85 (#727).
 - [BREAKING] Replaced `toml` configuration with CLI (#732).
+- [BREAKING] Renamed all instances of "account hash" to "account commitment" (#757).
 
 ### Enhancements
 
