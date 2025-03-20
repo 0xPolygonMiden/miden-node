@@ -33,7 +33,7 @@ jobs:
   #
   # The documentation is uploaded as a github artifact IFF it is required for deployment i.e. on push into next.
   build:
-    name: Build documentaion
+    name: Build documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
@@ -42,7 +42,7 @@ jobs:
       - name: Install mdbook and plugins
         uses: taiki-e/install-action@v2
         with:
-          tool: mdbook, mdbook-linkcheck, mdbook-alerts
+          tool: mdbook, mdbook-linkcheck, mdbook-alerts mdbook-katex
 
       - name: Build book
         run: mdbook build docs/
