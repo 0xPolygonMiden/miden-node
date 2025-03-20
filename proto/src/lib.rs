@@ -17,18 +17,13 @@ impl ProtoBuilder {
         Self(builder)
     }
 
-    /// Compiles the proto bindings for the node.
-    /// Generated files are written to the `out_dir` set on the internal Builder.
-    pub fn compile_server(self) -> anyhow::Result<()> {
-        // generate_protos(self.0.clone().build_client(false), &[RPC_PROTO])?; // this would exclude
-        // bindings needed for faucet
-        generate_protos(self.0, &[RPC_PROTO, STORE_PROTO, BLOCK_PRODUCER_PROTO])
-    }
-
-    /// Compiles the proto RPC bindings for the client.
-    /// Generated files are written to the `out_dir` set on the internal Builder.
-    pub fn compile_rpc_client(self) -> anyhow::Result<()> {
-        generate_protos(self.0.build_server(false), &[RPC_PROTO])
+    /// Compiles the proto bindings. Generated files are written to the `out_dir` set on the internal Builder.
+    ///
+    /// By default, the rpc client bindings are not generated. For that, set the "rpc-client" flag.
+    pub fn compile(self) -> anyhow::Result<()> {
+        let build_rpc_client = cfg!(feature = "rpc-client");
+        generate_protos(self.0.clone().build_client(build_rpc_client), &[RPC_PROTO])?;
+        generate_protos(self.0, &[STORE_PROTO, BLOCK_PRODUCER_PROTO])
     }
 }
 
