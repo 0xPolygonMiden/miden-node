@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use futures::FutureExt;
+use futures::{FutureExt, never::Never};
 use miden_block_prover::LocalBlockProver;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
@@ -16,7 +16,7 @@ use tracing::{Span, info, instrument};
 use url::Url;
 
 use crate::{
-    COMPONENT, SERVER_BLOCK_FREQUENCY, errors::BuildBlockError, mempool::SharedMempool,
+    COMPONENT, TelemetryInjectorExt, errors::BuildBlockError, mempool::SharedMempool,
     store::StoreClient,
 };
 
@@ -43,14 +43,18 @@ impl BlockBuilder {
     /// Creates a new [`BlockBuilder`] with the given [`StoreClient`] and optional block prover URL.
     ///
     /// If the block prover URL is not set, the block builder will use the local block prover.
-    pub fn new(store: StoreClient, block_prover_url: Option<Url>) -> Self {
+    pub fn new(
+        store: StoreClient,
+        block_prover_url: Option<Url>,
+        block_interval: Duration,
+    ) -> Self {
         let block_prover = match block_prover_url {
             Some(url) => BlockProver::new_remote(url),
             None => BlockProver::new_local(MIN_PROOF_SECURITY_LEVEL),
         };
 
         Self {
-            block_interval: SERVER_BLOCK_FREQUENCY,
+            block_interval,
             // Note: The range cannot be empty.
             simulated_proof_time: Duration::ZERO..Duration::from_millis(1),
             failure_rate: 0.0,
@@ -116,7 +120,7 @@ impl BlockBuilder {
             .inspect_err(|err| Span::current().set_error(err))
             .or_else(|_err| self.rollback_block(mempool).never_error())
             // Error has been handled, this is just type manipulation to remove the result wrapper.
-            .unwrap_or_else(|_| ())
+            .unwrap_or_else(|_: Never| ())
             .await;
     }
 
@@ -292,12 +296,6 @@ impl BlockBatchesAndInputs {
                 .expect("less than u32::MAX unauthenticated notes"),
         );
     }
-}
-
-/// An extension trait used only locally to implement telemetry injection.
-trait TelemetryInjectorExt {
-    /// Inject [`tracing`] telemetry from self.
-    fn inject_telemetry(&self);
 }
 
 impl TelemetryInjectorExt for ProposedBlock {

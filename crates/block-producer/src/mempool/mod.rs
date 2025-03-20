@@ -251,8 +251,8 @@ impl Mempool {
     /// Drops the failed batch and all of its descendants.
     ///
     /// Transactions are placed back in the queue.
-    #[instrument(target = COMPONENT, name = "mempool.batch_failed", skip_all, fields(batch_id=%batch))]
-    pub fn batch_failed(&mut self, batch: BatchId) {
+    #[instrument(target = COMPONENT, name = "mempool.rollback_batch", skip_all)]
+    pub fn rollback_batch(&mut self, batch: BatchId) {
         // Batch may already have been removed as part of a parent batches failure.
         if !self.batches.contains(&batch) {
             return;
@@ -275,8 +275,8 @@ impl Mempool {
     }
 
     /// Marks a batch as proven if it exists.
-    #[instrument(target = COMPONENT, name = "mempool.batch_proved", skip_all, fields(batch_id=%batch.id()))]
-    pub fn batch_proved(&mut self, batch: ProvenBatch) {
+    #[instrument(target = COMPONENT, name = "mempool.commit_batch", skip_all)]
+    pub fn commit_batch(&mut self, batch: ProvenBatch) {
         // Batch may have been removed as part of a parent batches failure.
         if !self.batches.contains(&batch.id()) {
             return;

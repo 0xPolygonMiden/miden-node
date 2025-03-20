@@ -906,17 +906,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deadpool-sqlite"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "656f14fc1ab819c65f332045ea7cb38841bbe551f3b2bc7e3abefb559af4155c"
-dependencies = [
- "deadpool",
- "deadpool-sync",
- "rusqlite",
-]
-
-[[package]]
 name = "deadpool-sync"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2242,7 +2231,6 @@ dependencies = [
  "pretty_assertions",
  "rand",
  "rand_chacha",
- "serde",
  "thiserror 2.0.11",
  "tokio",
  "tokio-stream",
@@ -2288,13 +2276,11 @@ dependencies = [
  "miden-node-utils",
  "miden-objects",
  "miden-tx",
- "serde",
  "tokio",
  "tokio-stream",
  "tonic",
  "tonic-web",
  "tracing",
- "url",
 ]
 
 [[package]]
@@ -2302,22 +2288,24 @@ name = "miden-node-store"
 version = "0.8.0"
 dependencies = [
  "assert_matches",
- "deadpool-sqlite",
+ "deadpool",
+ "deadpool-sync",
  "hex",
  "miden-lib",
  "miden-node-proto",
+ "miden-node-test-macro",
  "miden-node-utils",
  "miden-objects",
+ "regex",
  "rusqlite",
  "rusqlite_migration",
- "serde",
+ "termtree",
  "thiserror 2.0.11",
  "tokio",
  "tokio-stream",
  "tonic",
  "tower-http 0.6.2",
  "tracing",
- "url",
 ]
 
 [[package]]
@@ -2348,6 +2336,7 @@ dependencies = [
  "tracing-forest",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "url",
  "vergen",
  "vergen-gitcl",
 ]
@@ -3872,6 +3861,12 @@ dependencies = [
  "rustix",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "termtree"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 
 [[package]]
 name = "textwrap"

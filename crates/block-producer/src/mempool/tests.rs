@@ -40,15 +40,15 @@ fn children_of_failed_batches_are_ignored() {
     assert_eq!(batch_txs, vec![txs[2].clone()]);
 
     // Child batch jobs are now dangling.
-    uut.batch_failed(parent_batch);
+    uut.rollback_batch(parent_batch);
     let reference = uut.clone();
 
     // Success or failure of the child job should effectively do nothing.
-    uut.batch_failed(child_batch_a);
+    uut.rollback_batch(child_batch_a);
     assert_eq!(uut, reference);
 
     let proven_batch = ProvenBatch::mocked_from_transactions([txs[2].raw_proven_transaction()]);
-    uut.batch_proved(proven_batch);
+    uut.commit_batch(proven_batch);
     assert_eq!(uut, reference);
 }
 
@@ -67,7 +67,7 @@ fn failed_batch_transactions_are_requeued() {
     uut.select_batch().unwrap();
 
     // Middle batch failed, so it and its child transaction should be re-entered into the queue.
-    uut.batch_failed(failed_batch);
+    uut.rollback_batch(failed_batch);
 
     let mut reference = Mempool::for_tests();
     reference.add_transaction(txs[0].clone()).unwrap();
@@ -92,7 +92,7 @@ fn block_commit_reverts_expired_txns() {
     // Force the tx into a pending block.
     uut.add_transaction(tx_to_commit.clone()).unwrap();
     uut.select_batch().unwrap();
-    uut.batch_proved(ProvenBatch::mocked_from_transactions(
+    uut.commit_batch(ProvenBatch::mocked_from_transactions(
         [tx_to_commit.raw_proven_transaction()],
     ));
     let (block, _) = uut.select_block();
@@ -152,7 +152,7 @@ fn block_failure_reverts_its_transactions() {
 
     uut.add_transaction(reverted_txs[0].clone()).unwrap();
     uut.select_batch().unwrap();
-    uut.batch_proved(ProvenBatch::mocked_from_transactions([
+    uut.commit_batch(ProvenBatch::mocked_from_transactions([
         reverted_txs[0].raw_proven_transaction()
     ]));
 
