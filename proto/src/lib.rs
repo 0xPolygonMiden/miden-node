@@ -17,7 +17,8 @@ impl ProtoBuilder {
         Self(builder)
     }
 
-    /// Compiles the proto bindings. Generated files are written to the `out_dir` set on the internal Builder.
+    /// Compiles the proto bindings. Generated files are written to the `out_dir` set on the
+    /// internal Builder.
     ///
     /// By default, the rpc client bindings are not generated. For that, set the "rpc-client" flag.
     pub fn compile(self) -> anyhow::Result<()> {
