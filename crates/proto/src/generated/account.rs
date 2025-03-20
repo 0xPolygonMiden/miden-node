@@ -17,9 +17,9 @@ pub struct AccountSummary {
     /// The account ID.
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<AccountId>,
-    /// The current account hash or zero if the account does not exist.
+    /// The current account commitment or zero if the account does not exist.
     #[prost(message, optional, tag = "2")]
-    pub account_hash: ::core::option::Option<super::digest::Digest>,
+    pub account_commitment: ::core::option::Option<super::digest::Digest>,
     /// Block number at which the summary was made.
     #[prost(uint32, tag = "3")]
     pub block_num: u32,

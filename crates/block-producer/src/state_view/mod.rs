@@ -3,10 +3,10 @@ use std::{collections::BTreeSet, sync::Arc};
 use async_trait::async_trait;
 use miden_node_utils::formatting::format_array;
 use miden_objects::{
+    Digest, MIN_PROOF_SECURITY_LEVEL,
     block::Block,
     note::{NoteId, Nullifier},
     transaction::OutputNote,
-    Digest, MIN_PROOF_SECURITY_LEVEL,
 };
 use miden_tx::TransactionVerifier;
 use tokio::sync::RwLock;
@@ -14,10 +14,10 @@ use tracing::{debug, instrument};
 
 use self::account_state::InflightAccountStates;
 use crate::{
+    COMPONENT, ProvenTransaction,
     errors::VerifyTxError,
     store::{ApplyBlock, ApplyBlockError, Store, TransactionInputs},
     txqueue::TransactionValidator,
-    ProvenTransaction, COMPONENT,
 };
 
 mod account_state;
