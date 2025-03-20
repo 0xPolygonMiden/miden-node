@@ -97,6 +97,6 @@ jobs:
         with:
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
       - name: Rebuild protos
-        run: BUILD_PROTO=1 cargo check -p miden-node-rpc -p miden-node-proto --features=rpc-client
+        run: BUILD_PROTO=1 cargo check -p miden-node-proto --features=rpc-client
       - name: Diff check
         run: git diff --exit-code
