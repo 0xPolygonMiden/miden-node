@@ -1223,9 +1223,10 @@ pub fn apply_block(
     accounts: &[BlockAccountUpdate],
 ) -> Result<usize> {
     let mut count = 0;
+    // Note: ordering here is important as the relevant tables have FK dependencies.
     count += insert_block_header(transaction, block_header)?;
-    count += insert_notes(transaction, notes)?;
     count += upsert_accounts(transaction, accounts, block_header.block_num())?;
+    count += insert_notes(transaction, notes)?;
     count += insert_transactions(transaction, block_header.block_num(), accounts)?;
     count += insert_nullifiers_for_block(transaction, nullifiers, block_header.block_num())?;
     Ok(count)
