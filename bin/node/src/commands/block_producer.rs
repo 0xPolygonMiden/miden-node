@@ -6,8 +6,9 @@ use miden_node_utils::grpc::UrlExt;
 use url::Url;
 
 use super::{
-    parse_duration_ms, DEFAULT_BATCH_INTERVAL_MS, DEFAULT_BLOCK_INTERVAL_MS, ENV_BATCH_PROVER_URL,
+    DEFAULT_BATCH_INTERVAL_MS, DEFAULT_BLOCK_INTERVAL_MS, ENV_BATCH_PROVER_URL,
     ENV_BLOCK_PRODUCER_URL, ENV_BLOCK_PROVER_URL, ENV_ENABLE_OTEL, ENV_STORE_URL,
+    parse_duration_ms,
 };
 
 #[derive(clap::Subcommand)]

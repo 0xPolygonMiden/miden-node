@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use deadpool::{
-    managed::{Manager, Metrics, RecycleResult},
     Runtime,
+    managed::{Manager, Metrics, RecycleResult},
 };
 
-use crate::{db::connection::Connection, errors::DatabaseError, SQL_STATEMENT_CACHE_CAPACITY};
+use crate::{SQL_STATEMENT_CACHE_CAPACITY, db::connection::Connection, errors::DatabaseError};
 
 deadpool::managed_reexports!(
     "miden-node-store",
@@ -30,21 +30,17 @@ impl SqlitePoolManager {
     fn new_connection(&self) -> rusqlite::Result<Connection> {
         let conn = Connection::open(&self.database_path)?;
 
-        tracing::info!("conn open");
         // Increase the statement cache size.
         conn.set_prepared_statement_cache_capacity(SQL_STATEMENT_CACHE_CAPACITY);
 
-        tracing::info!("conn cache");
         // Enable the WAL mode. This allows concurrent reads while the
         // transaction is being written, this is required for proper
         // synchronization of the servers in-memory and on-disk representations
         // (see [State::apply_block])
         conn.pragma_update(None, "journal_mode", "WAL")?;
-        tracing::info!("conn WAL");
 
         // Enable foreign key checks.
         conn.pragma_update(None, "foreign_keys", "ON")?;
-        tracing::info!("conn FK");
 
         Ok(conn)
     }
