@@ -44,6 +44,8 @@ use winterfell::Proof;
 const BATCHES_PER_BLOCK: usize = 16;
 const TRANSACTIONS_PER_BATCH: usize = 16;
 
+const STORE_FILENAME: &str = "miden-store.sqlite3";
+
 #[derive(Parser)]
 #[command(version)]
 pub struct Cli {
@@ -67,10 +69,6 @@ pub enum Command {
     },
 }
 
-/// Creates and stores blocks into the store. Creates a given number of accounts, where each account
-/// consumes a note created from a faucet. The cli accepts the following parameters:
-/// - `data_directory`: Directory in which to store the database and raw block data.
-/// - `num_accounts`: Number of accounts to create.
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -87,33 +85,39 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
     let start = Instant::now();
 
     let genesis_filepath = data_directory.join(GENESIS_STATE_FILENAME);
-    let database_filepath = data_directory.join("miden-store.sqlite3");
+    let database_filepath = data_directory.join(STORE_FILENAME);
 
     // If data_directory does not exist, create it
     if !data_directory.exists() {
-        fs::create_dir_all(&data_directory).await.unwrap();
+        fs::create_dir_all(&data_directory)
+            .await
+            .expect("Failed to create data directory");
     }
 
     // If database file exists, remove it
     if database_filepath.exists() {
-        fs::remove_file(&database_filepath).await.unwrap();
+        fs::remove_file(&database_filepath)
+            .await
+            .expect("Failed to remove database file");
     }
 
     // Generate the faucet account and the genesis state
     let faucet = create_faucet();
     let genesis_state = GenesisState::new(vec![faucet.clone()], 1, 1);
-    fs::write(&genesis_filepath, genesis_state.to_bytes()).await.unwrap();
+    fs::write(&genesis_filepath, genesis_state.to_bytes())
+        .await
+        .expect("Failed to write genesis state");
 
     // Start store
-    let grpc_store = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let store_addr = grpc_store.local_addr().unwrap();
-    let store = Store::init(grpc_store, data_directory).await.unwrap();
+    let grpc_store = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind store");
+    let store_addr = grpc_store.local_addr().expect("Failed to get store address");
+    let store = Store::init(grpc_store, data_directory).await.expect("Failed to init store");
     task::spawn(async move { store.serve().await.context("Serving store") });
     let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
         .unwrap()
         .connect()
         .await
-        .unwrap();
+        .expect("Failed to connect to store");
     let store_api_client = ApiClient::with_interceptor(channel, OtelInterceptor);
     let store_client = StoreClient::new(store_api_client);
 
