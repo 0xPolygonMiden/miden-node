@@ -192,6 +192,11 @@ batch_prover_url = "<BATCH_PROVER_URL>"
 block_prover_url = "<BLOCK_PROVER_URL>"
 ```
 
+### Proto files
+This repo also contains the [proto definitions](proto/proto) for the gRPC API.
+
+To use this definitions externally in a Rust project, you can use the `ProtoBuilder` exposed in the crate `miden-node-proto-build`. See the crate's [README.md](proto/README.md) for details on how to use it.
+
 ### Monitoring and telemetry
 
 Please see our operator documentation [here](docs/operator.md).

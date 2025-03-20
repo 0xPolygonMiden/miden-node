@@ -3,11 +3,11 @@ use std::{env, fs, path::PathBuf};
 use anyhow::Context;
 use prost::Message;
 
-pub struct ProtoBuilder(tonic_build::Builder);
-
 const RPC_PROTO: &str = "rpc.proto";
 const STORE_PROTO: &str = "store.proto";
 const BLOCK_PRODUCER_PROTO: &str = "block_producer.proto";
+
+pub struct ProtoBuilder(tonic_build::Builder);
 
 impl ProtoBuilder {
     /// Creates a new `Builder` from the provided `tonic_build::Builder`.
