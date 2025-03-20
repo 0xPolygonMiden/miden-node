@@ -88,8 +88,8 @@ impl BlockProducerCommand {
             store_url,
             batch_prover_url,
             block_prover_url,
-            batch_interval.into(),
-            block_interval.into(),
+            batch_interval,
+            block_interval,
         )
         .await
         .context("Loading store")?

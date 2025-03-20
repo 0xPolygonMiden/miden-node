@@ -122,8 +122,8 @@ impl BundledCommand {
                     data_directory,
                     batch_prover_url,
                     block_prover_url,
-                    batch_interval.into(),
-                    block_interval.into(),
+                    batch_interval,
+                    block_interval,
                 )
                 .await
             },
