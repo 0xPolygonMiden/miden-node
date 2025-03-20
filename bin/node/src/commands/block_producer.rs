@@ -1,11 +1,14 @@
+use std::time::Duration;
+
 use anyhow::Context;
 use miden_node_block_producer::server::BlockProducer;
 use miden_node_utils::grpc::UrlExt;
 use url::Url;
 
 use super::{
-    ENV_BATCH_PROVER_URL, ENV_BLOCK_PRODUCER_URL, ENV_BLOCK_PROVER_URL, ENV_ENABLE_OTEL,
-    ENV_STORE_URL,
+    DEFAULT_BATCH_INTERVAL_MS, DEFAULT_BLOCK_INTERVAL_MS, ENV_BATCH_PROVER_URL,
+    ENV_BLOCK_PRODUCER_URL, ENV_BLOCK_PROVER_URL, ENV_ENABLE_OTEL, ENV_STORE_URL,
+    parse_duration_ms,
 };
 
 #[derive(clap::Subcommand)]
@@ -36,6 +39,24 @@ pub enum BlockProducerCommand {
         /// OpenTelemetry documentation. See our operator manual for further details.
         #[arg(long = "enable-otel", default_value_t = false, env = ENV_ENABLE_OTEL)]
         open_telemetry: bool,
+
+        /// Interval at which to produce blocks in milliseconds.
+        #[arg(
+            long = "block.interval",
+            default_value = DEFAULT_BLOCK_INTERVAL_MS,
+            value_parser = parse_duration_ms,
+            value_name = "MILLISECONDS"
+        )]
+        block_interval: Duration,
+
+        /// Interval at which to procude batches in milliseconds.
+        #[arg(
+            long = "batch.interval",
+            default_value = DEFAULT_BATCH_INTERVAL_MS,
+            value_parser = parse_duration_ms,
+            value_name = "MILLISECONDS"
+        )]
+        batch_interval: Duration,
     },
 }
 
@@ -48,6 +69,8 @@ impl BlockProducerCommand {
             block_prover_url,
             // Note: open-telemetry is handled in main.
             open_telemetry: _,
+            block_interval,
+            batch_interval,
         } = self;
 
         let store_url = store_url
@@ -60,12 +83,19 @@ impl BlockProducerCommand {
             .await
             .context("Failed to bind to store's gRPC URL")?;
 
-        BlockProducer::init(listener, store_url, batch_prover_url, block_prover_url)
-            .await
-            .context("Loading store")?
-            .serve()
-            .await
-            .context("Serving store")
+        BlockProducer::init(
+            listener,
+            store_url,
+            batch_prover_url,
+            block_prover_url,
+            batch_interval,
+            block_interval,
+        )
+        .await
+        .context("Loading store")?
+        .serve()
+        .await
+        .context("Serving store")
     }
 
     pub fn is_open_telemetry_enabled(&self) -> bool {

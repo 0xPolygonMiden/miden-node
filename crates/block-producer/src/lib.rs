@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, time::Duration};
+use std::num::NonZeroUsize;
 
 #[cfg(test)]
 pub mod test_utils;
@@ -10,7 +10,6 @@ mod errors;
 mod mempool;
 pub mod store;
 
-pub mod config;
 pub mod server;
 
 // CONSTANTS
@@ -21,12 +20,6 @@ pub const COMPONENT: &str = "miden-block-producer";
 
 /// The number of transactions per batch.
 const SERVER_MAX_TXS_PER_BATCH: usize = 2;
-
-/// The frequency at which blocks are produced.
-const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_secs(5);
-
-/// The frequency at which batches are built.
-const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
 
 /// Maximum number of batches per block.
 const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
