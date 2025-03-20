@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr};
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -57,6 +57,8 @@ impl BlockProducer {
         store_address: SocketAddr,
         batch_prover: Option<Url>,
         block_prover: Option<Url>,
+        batch_interval: Duration,
+        block_interval: Duration,
     ) -> Result<Self, ApiError> {
         info!(target: COMPONENT, endpoint=?listener, store=%store_address, "Initializing server");
 
@@ -79,11 +81,12 @@ impl BlockProducer {
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            block_builder: BlockBuilder::new(store.clone(), block_prover),
+            block_builder: BlockBuilder::new(store.clone(), block_prover, block_interval),
             batch_builder: BatchBuilder::new(
                 store.clone(),
                 SERVER_NUM_BATCH_BUILDERS,
                 batch_prover,
+                batch_interval,
             ),
             batch_budget: BatchBudget::default(),
             block_budget: BlockBudget::default(),

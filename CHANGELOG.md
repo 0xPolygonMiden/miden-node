@@ -20,6 +20,8 @@
 - Instrument the block-producer's batch building process (#738).
 - Optimized database by adding missing indexes (#728).
 - Added support for `Content-type` header in `get_tokens` endpoint of the faucet (#754).
+- Block frequency is now configurable (#750).
+- Batch frequency is now configurable (#750).
 
 ### Changes
 
