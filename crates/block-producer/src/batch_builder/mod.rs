@@ -250,7 +250,7 @@ impl BatchJob {
 
     #[instrument(target = COMPONENT, name = "batch_builder.inject_failure", skip_all, err)]
     async fn inject_failure<T>(&self, value: T) -> Result<T, BuildBatchError> {
-        let roll = rand::thread_rng().r#gen::<f64>();
+        let roll = rand::rng().random::<f64>();
 
         Span::current().set_attribute("failure_rate", self.failure_rate);
         Span::current().set_attribute("dice_roll", roll);

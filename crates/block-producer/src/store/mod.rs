@@ -42,8 +42,8 @@ use crate::{COMPONENT, errors::StoreError};
 pub struct TransactionInputs {
     /// Account ID
     pub account_id: AccountId,
-    /// The account hash in the store corresponding to tx's account ID
-    pub account_hash: Option<Digest>,
+    /// The account commitment in the store corresponding to tx's account ID
+    pub account_commitment: Option<Digest>,
     /// Maps each consumed notes' nullifier to block number, where the note is consumed.
     ///
     /// We use `NonZeroU32` as the wire format uses 0 to encode none.
@@ -71,9 +71,9 @@ impl Display for TransactionInputs {
         };
 
         f.write_fmt(format_args!(
-            "{{ account_id: {}, account_hash: {}, nullifiers: {} }}",
+            "{{ account_id: {}, account_commitment: {}, nullifiers: {} }}",
             self.account_id,
-            format_opt(self.account_hash.as_ref()),
+            format_opt(self.account_commitment.as_ref()),
             nullifiers
         ))
     }
@@ -83,7 +83,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
     type Error = ConversionError;
 
     fn try_from(response: GetTransactionInputsResponse) -> Result<Self, Self::Error> {
-        let AccountState { account_id, account_hash } = response
+        let AccountState { account_id, account_commitment } = response
             .account_state
             .ok_or(GetTransactionInputsResponse::missing_field(stringify!(account_state)))?
             .try_into()?;
@@ -110,7 +110,7 @@ impl TryFrom<GetTransactionInputsResponse> for TransactionInputs {
 
         Ok(Self {
             account_id,
-            account_hash,
+            account_commitment,
             nullifiers,
             found_unauthenticated_notes,
             current_block_height,

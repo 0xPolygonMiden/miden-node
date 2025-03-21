@@ -54,7 +54,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct TransactionInputs {
-    pub account_hash: RpoDigest,
+    pub account_commitment: RpoDigest,
     pub nullifiers: Vec<NullifierInfo>,
     pub found_unauthenticated_notes: BTreeSet<NoteId>,
 }
@@ -239,17 +239,17 @@ impl State {
 
         let header = block.header();
 
-        let tx_hash = BlockHeader::compute_tx_commitment(block.transactions());
-        if header.tx_hash() != tx_hash {
-            return Err(InvalidBlockError::InvalidBlockTxHash {
-                expected: tx_hash,
-                actual: header.tx_hash(),
+        let tx_commitment = BlockHeader::compute_tx_commitment(block.transactions());
+        if header.tx_commitment() != tx_commitment {
+            return Err(InvalidBlockError::InvalidBlockTxCommitment {
+                expected: tx_commitment,
+                actual: header.tx_commitment(),
             }
             .into());
         }
 
         let block_num = header.block_num();
-        let block_hash = block.hash();
+        let block_commitment = block.commitment();
 
         // ensures the right block header is being processed
         let prev_block = self
@@ -261,8 +261,8 @@ impl State {
         if block_num != prev_block.block_num() + 1 {
             return Err(InvalidBlockError::NewBlockInvalidBlockNum.into());
         }
-        if header.prev_hash() != prev_block.hash() {
-            return Err(InvalidBlockError::NewBlockInvalidPrevHash.into());
+        if header.prev_block_commitment() != prev_block.commitment() {
+            return Err(InvalidBlockError::NewBlockInvalidPrevCommitment.into());
         }
 
         let block_data = block.to_bytes();
@@ -303,8 +303,8 @@ impl State {
 
             // new_block.chain_root must be equal to the chain MMR root prior to the update
             let peaks = inner.blockchain.peaks();
-            if peaks.hash_peaks() != header.chain_root() {
-                return Err(InvalidBlockError::NewBlockInvalidChainRoot.into());
+            if peaks.hash_peaks() != header.chain_commitment() {
+                return Err(InvalidBlockError::NewBlockInvalidChainCommitment.into());
             }
 
             // compute update for nullifier tree
@@ -433,10 +433,10 @@ impl State {
                 .account_tree
                 .apply_mutations(account_tree_update)
                 .expect("Unreachable: old account tree root must be checked before this step");
-            inner.blockchain.push(block_hash);
+            inner.blockchain.push(block_commitment);
         }
 
-        info!(%block_hash, block_num = block_num.as_u32(), COMPONENT, "apply_block successful");
+        info!(%block_commitment, block_num = block_num.as_u32(), COMPONENT, "apply_block successful");
 
         Ok(())
     }
@@ -614,8 +614,8 @@ impl State {
     /// # Arguments
     ///
     /// - `block_num`: The last block *known* by the client, updates start from the next block.
-    /// - `account_ids`: Include the account's hash if their _last change_ was in the result's block
-    ///   range.
+    /// - `account_ids`: Include the account's commitment if their _last change_ was in the result's
+    ///   block range.
     /// - `note_tags`: The tags the client is interested in, result is restricted to the first block
     ///   with any matches tags.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
@@ -829,7 +829,7 @@ impl State {
 
         let inner = self.inner.read().await;
 
-        let account_hash = inner
+        let account_commitment = inner
             .account_tree
             .open(&LeafIndex::new_max_depth(account_id.prefix().into()))
             .value;
@@ -846,7 +846,7 @@ impl State {
             self.db.select_note_ids(unauthenticated_notes.clone()).await?;
 
         Ok(TransactionInputs {
-            account_hash,
+            account_commitment,
             nullifiers,
             found_unauthenticated_notes,
         })
@@ -944,7 +944,7 @@ impl State {
 
                 AccountProofsResponse {
                     account_id: Some(account_id.into()),
-                    account_hash: Some(opening.value.into()),
+                    account_commitment: Some(opening.value.into()),
                     account_proof: Some(opening.path.into()),
                     state_header,
                 }
@@ -1011,10 +1011,14 @@ async fn load_nullifier_tree(db: &mut Db) -> Result<NullifierTree, StateInitiali
 
 #[instrument(target = COMPONENT, skip_all)]
 async fn load_mmr(db: &mut Db) -> Result<Mmr, StateInitializationError> {
-    let block_hashes: Vec<RpoDigest> =
-        db.select_all_block_headers().await?.iter().map(BlockHeader::hash).collect();
+    let block_commitments: Vec<RpoDigest> = db
+        .select_all_block_headers()
+        .await?
+        .iter()
+        .map(BlockHeader::commitment)
+        .collect();
 
-    Ok(block_hashes.into())
+    Ok(block_commitments.into())
 }
 
 #[instrument(target = COMPONENT, skip_all)]
@@ -1022,10 +1026,10 @@ async fn load_accounts(
     db: &mut Db,
 ) -> Result<SimpleSmt<ACCOUNT_TREE_DEPTH>, StateInitializationError> {
     let account_data: Vec<_> = db
-        .select_all_account_hashes()
+        .select_all_account_commitments()
         .await?
         .into_iter()
-        .map(|(id, account_hash)| (id.prefix().into(), account_hash.into()))
+        .map(|(id, account_commitment)| (id.prefix().into(), account_commitment.into()))
         .collect();
 
     SimpleSmt::with_leaves(account_data)

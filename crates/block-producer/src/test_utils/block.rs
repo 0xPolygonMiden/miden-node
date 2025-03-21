@@ -18,14 +18,15 @@ pub async fn build_expected_block_header(
     store: &MockStoreSuccess,
     batches: &[ProvenBatch],
 ) -> BlockHeader {
-    let last_block_header = *store
+    let last_block_header = store
         .block_headers
         .read()
         .await
         .iter()
         .max_by_key(|(block_num, _)| *block_num)
         .unwrap()
-        .1;
+        .1
+        .clone();
 
     // Compute new account root
     let updated_accounts: Vec<_> =
@@ -43,7 +44,7 @@ pub async fn build_expected_block_header(
     let new_chain_mmr_root = {
         let mut store_chain_mmr = store.chain_mmr.read().await.clone();
 
-        store_chain_mmr.add(last_block_header.hash());
+        store_chain_mmr.add(last_block_header.commitment());
 
         store_chain_mmr.peaks().hash_peaks()
     };
@@ -54,7 +55,7 @@ pub async fn build_expected_block_header(
     // Build header
     BlockHeader::new(
         0,
-        last_block_header.hash(),
+        last_block_header.commitment(),
         last_block_header.block_num() + 1,
         new_chain_mmr_root,
         new_account_root,
@@ -84,14 +85,15 @@ impl MockBlockBuilder {
         Self {
             store_accounts: store.accounts.read().await.clone(),
             store_chain_mmr: store.chain_mmr.read().await.clone(),
-            last_block_header: *store
+            last_block_header: store
                 .block_headers
                 .read()
                 .await
                 .iter()
                 .max_by_key(|(block_num, _)| *block_num)
                 .unwrap()
-                .1,
+                .1
+                .clone(),
 
             updated_accounts: None,
             created_notes: None,
@@ -130,7 +132,7 @@ impl MockBlockBuilder {
 
         let header = BlockHeader::new(
             0,
-            self.last_block_header.hash(),
+            self.last_block_header.commitment(),
             self.last_block_header.block_num() + 1,
             self.store_chain_mmr.peaks().hash_peaks(),
             self.store_accounts.root(),

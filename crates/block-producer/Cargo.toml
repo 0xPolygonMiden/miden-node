@@ -33,7 +33,7 @@ miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-
 ] }
 miden-tx = { workspace = true }
 miden-tx-batch-prover = { git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next" }
-rand = { version = "0.8" }
+rand = { version = "0.9" }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-stream = { workspace = true, features = ["net"] }
@@ -50,6 +50,6 @@ miden-node-test-macro = { workspace = true }
 miden-objects         = { workspace = true, features = ["testing"] }
 miden-tx              = { workspace = true, features = ["testing"] }
 pretty_assertions     = "1.4"
-rand_chacha           = { version = "0.3", default-features = false }
+rand_chacha           = { version = "0.9", default-features = false }
 tokio                 = { workspace = true, features = ["test-util"] }
-winterfell            = { version = "0.11" }
+winterfell            = { version = "0.12" }
