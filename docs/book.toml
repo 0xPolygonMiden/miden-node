@@ -1,5 +1,5 @@
 [book]
-authors      = ["Miden team"]
+authors      = ["Miden contributors"]
 description  = "Manual for the Miden node software which is responsible for aggregating transactions into blocks for the Miden blockchain."
 language     = "en"
 multilingual = false
