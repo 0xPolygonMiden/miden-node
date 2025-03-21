@@ -18,6 +18,10 @@
 - Use `LocalBlockProver` for block building (#709).
 - Initial developer and operator guides covering monitoring (#699).
 - Instrument the block-producer's batch building process (#738).
+- Optimized database by adding missing indexes (#728).
+- Added support for `Content-type` header in `get_tokens` endpoint of the faucet (#754).
+- Block frequency is now configurable (#750).
+- Batch frequency is now configurable (#750).
 
 ### Changes
 
@@ -30,6 +34,7 @@
 - [BREAKING] Added `block_prover_url` to block producer configuration (#719).
 - [BREAKING] Updated to Rust Edition 2024 (#727).
 - [BREAKING] MSRV bumped to 1.85 (#727).
+- [BREAKING] Replaced `toml` configuration with CLI (#732).
 
 ### Enhancements
 

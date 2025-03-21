@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc};
 
 use miden_node_proto::generated::store::api_server;
 use miden_node_utils::{errors::ApiError, tracing::grpc::store_trace_fn};
@@ -8,7 +8,7 @@ use tower_http::trace::TraceLayer;
 use tracing::info;
 
 use crate::{
-    COMPONENT, blocks::BlockStore, config::StoreConfig, db::Db,
+    COMPONENT, DATABASE_MAINTENANCE_INTERVAL, GENESIS_STATE_FILENAME, blocks::BlockStore, db::Db,
     server::db_maintenance::DbMaintenance, state::State,
 };
 
@@ -28,17 +28,23 @@ pub struct Store {
 }
 
 impl Store {
-    /// Loads the required database data and initializes the TCP listener without
-    /// serving the API yet. Incoming requests will be queued until [`serve`](Self::serve) is
-    /// called.
-    pub async fn init(config: StoreConfig) -> Result<Self, ApiError> {
-        info!(target: COMPONENT, %config, "Loading database");
+    /// Performs initialization tasks required before [`serve`](Self::serve) can be called.
+    pub async fn init(listener: TcpListener, data_directory: PathBuf) -> Result<Self, ApiError> {
+        info!(target: COMPONENT, endpoint=?listener, ?data_directory, "Loading database");
 
-        let block_store = Arc::new(BlockStore::new(config.blockstore_dir.clone()).await?);
+        let block_store = data_directory.join("blocks");
+        let block_store = Arc::new(BlockStore::new(block_store).await?);
 
-        let db = Db::setup(config.clone(), Arc::clone(&block_store))
-            .await
-            .map_err(|err| ApiError::ApiInitialisationFailed(err.to_string()))?;
+        let database_filepath = data_directory.join("miden-store.sqlite3");
+        let genesis_filepath = data_directory.join(GENESIS_STATE_FILENAME);
+
+        let db = Db::setup(
+            database_filepath,
+            &genesis_filepath.to_string_lossy(),
+            Arc::clone(&block_store),
+        )
+        .await
+        .map_err(|err| ApiError::ApiInitialisationFailed(err.to_string()))?;
 
         let state = Arc::new(
             State::load(db, block_store)
@@ -46,21 +52,9 @@ impl Store {
                 .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
         );
 
-        let db_maintenance_service = DbMaintenance::new(
-            Arc::clone(&state),
-            Duration::from_secs(config.db_optimization_interval_secs),
-        );
+        let db_maintenance_service =
+            DbMaintenance::new(Arc::clone(&state), DATABASE_MAINTENANCE_INTERVAL);
         let api_service = api_server::ApiServer::new(api::StoreApi { state });
-
-        let addr = config
-            .endpoint
-            .socket_addrs(|| None)
-            .map_err(ApiError::EndpointToSocketFailed)?
-            .into_iter()
-            .next()
-            .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))?;
-
-        let listener = TcpListener::bind(addr).await?;
 
         info!(target: COMPONENT, "Database loaded");
 

@@ -15,9 +15,8 @@ use tracing::{Instrument, Span, instrument};
 use url::Url;
 
 use crate::{
-    COMPONENT, SERVER_BUILD_BATCH_FREQUENCY, TelemetryInjectorExt,
-    domain::transaction::AuthenticatedTransaction, errors::BuildBatchError, mempool::SharedMempool,
-    store::StoreClient,
+    COMPONENT, TelemetryInjectorExt, domain::transaction::AuthenticatedTransaction,
+    errors::BuildBatchError, mempool::SharedMempool, store::StoreClient,
 };
 
 // BATCH BUILDER
@@ -57,6 +56,7 @@ impl BatchBuilder {
         store: StoreClient,
         num_workers: NonZeroUsize,
         batch_prover_url: Option<Url>,
+        batch_interval: Duration,
     ) -> Self {
         let batch_prover = batch_prover_url
             .map_or(BatchProver::local(MIN_PROOF_SECURITY_LEVEL), BatchProver::remote);
@@ -66,7 +66,7 @@ impl BatchBuilder {
         let worker_pool = std::iter::repeat_n(std::future::ready(()), num_workers.get()).collect();
 
         Self {
-            batch_interval: SERVER_BUILD_BATCH_FREQUENCY,
+            batch_interval,
             worker_pool,
             failure_rate: 0.0,
             batch_prover,

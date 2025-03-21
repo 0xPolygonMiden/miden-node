@@ -1,19 +1,20 @@
-use rusqlite::{Connection, OptionalExtension, Result, ToSql, params, types::FromSql};
+use rusqlite::{OptionalExtension, Result, ToSql, params, types::FromSql};
 
-use crate::db::sql::utils::table_exists;
+use crate::db::{connection::Connection, sql::utils::table_exists};
 
 pub struct Settings;
 
 impl Settings {
-    pub fn exists(conn: &Connection) -> Result<bool> {
-        table_exists(conn, "settings")
+    pub fn exists(conn: &mut Connection) -> Result<bool> {
+        table_exists(&conn.transaction()?, "settings")
     }
 
-    pub fn get_value<T: FromSql>(conn: &Connection, name: &str) -> Result<Option<T>> {
-        conn.query_row("SELECT value FROM settings WHERE name = $1", params![name], |row| {
-            row.get(0)
-        })
-        .optional()
+    pub fn get_value<T: FromSql>(conn: &mut Connection, name: &str) -> Result<Option<T>> {
+        conn.transaction()?
+            .query_row("SELECT value FROM settings WHERE name = $1", params![name], |row| {
+                row.get(0)
+            })
+            .optional()
     }
 
     pub fn set_value<T: ToSql>(conn: &Connection, name: &str, value: &T) -> Result<()> {
