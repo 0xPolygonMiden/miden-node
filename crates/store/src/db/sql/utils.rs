@@ -137,11 +137,15 @@ where
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
     let account_id = read_from_blob_column(row, 0)?;
-    let account_hash_data = row.get_ref(1)?.as_blob()?;
-    let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
+    let account_commitment_data = row.get_ref(1)?.as_blob()?;
+    let account_commitment = RpoDigest::read_from_bytes(account_commitment_data)?;
     let block_num = read_block_number(row, 2)?;
 
-    Ok(AccountSummary { account_id, account_hash, block_num })
+    Ok(AccountSummary {
+        account_id,
+        account_commitment,
+        block_num,
+    })
 }
 
 /// Constructs `AccountInfo` from the row of `accounts` table.
@@ -161,7 +165,7 @@ pub fn apply_delta(
     account_id: AccountId,
     value: &ValueRef<'_>,
     delta: &AccountDelta,
-    final_state_hash: &RpoDigest,
+    final_state_commitment: &RpoDigest,
 ) -> crate::db::Result<Account, DatabaseError> {
     let account = value.as_blob_or_null()?;
     let account = account.map(Account::read_from_bytes).transpose()?;
@@ -172,11 +176,11 @@ pub fn apply_delta(
 
     account.apply_delta(delta)?;
 
-    let actual_hash = account.hash();
-    if &actual_hash != final_state_hash {
-        return Err(DatabaseError::AccountHashesMismatch {
-            calculated: actual_hash,
-            expected: *final_state_hash,
+    let actual_commitment = account.commitment();
+    if &actual_commitment != final_state_commitment {
+        return Err(DatabaseError::AccountCommitmentsMismatch {
+            calculated: actual_commitment,
+            expected: *final_state_commitment,
         });
     }
 

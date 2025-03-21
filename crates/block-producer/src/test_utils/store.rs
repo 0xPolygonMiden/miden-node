@@ -43,7 +43,7 @@ impl MockStoreSuccessBuilder {
                         .iter()
                         .map(|(account_id, update)| (account_id, update.initial_state_commitment()))
                 })
-                .map(|(account_id, hash)| (account_id.prefix().into(), hash.into()));
+                .map(|(account_id, commitment)| (account_id.prefix().into(), commitment.into()));
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
@@ -58,8 +58,8 @@ impl MockStoreSuccessBuilder {
 
     pub fn from_accounts(accounts: impl Iterator<Item = (AccountId, Digest)>) -> Self {
         let accounts_smt = {
-            let accounts =
-                accounts.map(|(account_id, hash)| (account_id.prefix().into(), hash.into()));
+            let accounts = accounts
+                .map(|(account_id, commitment)| (account_id.prefix().into(), commitment.into()));
 
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
@@ -166,7 +166,7 @@ impl MockStoreSuccessBuilder {
 }
 
 pub struct MockStoreSuccess {
-    /// Map account id -> account hash
+    /// Map account id -> account commitment
     pub accounts: Arc<RwLock<SimpleSmt<ACCOUNT_TREE_DEPTH>>>,
 
     /// Stores the nullifiers of the notes that were consumed
@@ -216,7 +216,7 @@ impl MockStoreSuccess {
         {
             let mut chain_mmr = self.chain_mmr.write().await;
 
-            chain_mmr.add(block.hash());
+            chain_mmr.add(block.commitment());
         }
 
         // build note tree
@@ -237,7 +237,7 @@ impl MockStoreSuccess {
         }
 
         // append the block header
-        self.block_headers.write().await.insert(header.block_num(), header);
+        self.block_headers.write().await.insert(header.block_num(), header.clone());
 
         // update num_apply_block_called
         *self.num_apply_block_called.write().await += 1;
@@ -252,13 +252,13 @@ impl MockStoreSuccess {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
 
-        let account_hash = {
-            let account_hash = locked_accounts.get_leaf(&proven_tx.account_id().into());
+        let account_commitment = {
+            let account_commitment = locked_accounts.get_leaf(&proven_tx.account_id().into());
 
-            if account_hash == EMPTY_WORD {
+            if account_commitment == EMPTY_WORD {
                 None
             } else {
-                Some(account_hash.into())
+                Some(account_commitment.into())
             }
         };
 
@@ -284,7 +284,7 @@ impl MockStoreSuccess {
 
         Ok(TransactionInputs {
             account_id: proven_tx.account_id(),
-            account_hash,
+            account_commitment,
             nullifiers,
             found_unauthenticated_notes,
             current_block_height: 0.into(),
