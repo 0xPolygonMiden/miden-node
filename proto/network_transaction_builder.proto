@@ -11,6 +11,6 @@ service Api {
     // Creates a new network transaction.
     rpc CreateNetworkTransaction(requests.CreateNetworkTransactionRequest) returns (responses.CreateNetworkTransactionResponse) {}
 
-    // Updates a network transaction status.
+    // Update the status for multiple network transactions.
     rpc UpdateNetworkTransaction(requests.UpdateNetworkTransactionRequest) returns (responses.UpdateNetworkTransactionResponse) {}
 }

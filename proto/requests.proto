@@ -211,9 +211,15 @@ message CreateNetworkTransactionRequest {
 
 // Updates the status of a network transaction.
 message UpdateNetworkTransactionRequest {
-    // Id of the transaction to update.
-    digest.Digest transaction_id = 1;
+    // Represents the update for a single network transaction.
+    message NetworkTransactionUpdate {
+        // Id of the transaction to update.
+        digest.Digest transaction_id = 1;
 
-    // New status of the transaction.
-    transaction.NetworkTransactionStatus status = 2;
+        // New status of the transaction.
+        transaction.NetworkTransactionStatus status = 2;
+    }
+
+    // The list of updates for each network transaction.
+    repeated NetworkTransactionUpdate updates = 1;
 }

@@ -235,12 +235,27 @@ pub struct CreateNetworkTransactionRequest {
     pub transaction_id: ::core::option::Option<super::digest::Digest>,
 }
 /// Updates the status of a network transaction.
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateNetworkTransactionRequest {
-    /// Id of the transaction to update.
-    #[prost(message, optional, tag = "1")]
-    pub transaction_id: ::core::option::Option<super::digest::Digest>,
-    /// New status of the transaction.
-    #[prost(enumeration = "super::transaction::NetworkTransactionStatus", tag = "2")]
-    pub status: i32,
+    /// The list of updates for each network transaction.
+    #[prost(message, repeated, tag = "1")]
+    pub updates: ::prost::alloc::vec::Vec<
+        update_network_transaction_request::NetworkTransactionUpdate,
+    >,
+}
+/// Nested message and enum types in `UpdateNetworkTransactionRequest`.
+pub mod update_network_transaction_request {
+    /// Represents the update for a single network transaction.
+    #[derive(Clone, Copy, PartialEq, ::prost::Message)]
+    pub struct NetworkTransactionUpdate {
+        /// Id of the transaction to update.
+        #[prost(message, optional, tag = "1")]
+        pub transaction_id: ::core::option::Option<super::super::digest::Digest>,
+        /// New status of the transaction.
+        #[prost(
+            enumeration = "super::super::transaction::NetworkTransactionStatus",
+            tag = "2"
+        )]
+        pub status: i32,
+    }
 }
