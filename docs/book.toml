@@ -3,7 +3,7 @@ authors      = ["Miden team"]
 description  = "Manual for the software which processes transactions and creates blocks for the Miden rollup"
 language     = "en"
 multilingual = false
-title        = "The Miden Node"
+title        = "The Miden Node Operator and Developer Guide"
 
 [output.html]
 git-repository-url = "https://github.com/0xPolygonMiden/miden-node"
