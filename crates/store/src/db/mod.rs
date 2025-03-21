@@ -326,19 +326,21 @@ impl Db {
             })?
     }
 
-    /// Loads all the account hashes from the DB.
+    /// Loads all the account commitments from the DB.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_all_account_hashes(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
+    pub async fn select_all_account_commitments(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
         self.pool
             .get()
             .await?
             .interact(|conn| {
                 let transaction = conn.transaction()?;
-                sql::select_all_account_hashes(&transaction)
+                sql::select_all_account_commitments(&transaction)
             })
             .await
             .map_err(|err| {
-                DatabaseError::InteractError(format!("Select account hashes task failed: {err}"))
+                DatabaseError::InteractError(format!(
+                    "Select account commitments task failed: {err}"
+                ))
             })?
     }
 
@@ -486,7 +488,7 @@ impl Db {
                 let transaction = conn.transaction()?;
                 sql::apply_block(
                     &transaction,
-                    &block.header(),
+                    block.header(),
                     &notes,
                     block.created_nullifiers(),
                     block.updated_accounts(),
@@ -593,7 +595,7 @@ impl Db {
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
-        let expected_genesis_header = genesis_block.header();
+        let expected_genesis_header = genesis_block.header().clone();
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {

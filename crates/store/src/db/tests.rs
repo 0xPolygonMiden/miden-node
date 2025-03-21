@@ -19,8 +19,8 @@ use miden_objects::{
         NoteExecutionHint, NoteExecutionMode, NoteId, NoteMetadata, NoteTag, NoteType, Nullifier,
     },
     testing::account_id::{
-        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN,
-        ACCOUNT_ID_OFF_CHAIN_SENDER, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        ACCOUNT_ID_PRIVATE_SENDER, ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET,
+        ACCOUNT_ID_PUBLIC_NON_FUNGIBLE_FAUCET, ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
     },
 };
 
@@ -120,7 +120,7 @@ fn sql_select_transactions() {
             &conn.transaction().unwrap(),
             0.into(),
             2.into(),
-            &[AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap()],
+            &[AccountId::try_from(ACCOUNT_ID_PRIVATE_SENDER).unwrap()],
         )
         .unwrap()
     }
@@ -179,7 +179,7 @@ fn sql_select_notes() {
     let notes = sql::select_all_notes(&conn.transaction().unwrap()).unwrap();
     assert!(notes.is_empty());
 
-    let account_id = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
+    let account_id = AccountId::try_from(ACCOUNT_ID_PRIVATE_SENDER).unwrap();
 
     let transaction = conn.transaction().unwrap();
 
@@ -229,7 +229,7 @@ fn sql_select_notes_different_execution_hints() {
     let notes = sql::select_all_notes(&conn.transaction().unwrap()).unwrap();
     assert!(notes.is_empty());
 
-    let sender = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
+    let sender = AccountId::try_from(ACCOUNT_ID_PRIVATE_SENDER).unwrap();
 
     let transaction = conn.transaction().unwrap();
 
@@ -346,7 +346,7 @@ fn sql_unconsumed_network_notes() {
         &transaction,
         &[BlockAccountUpdate::new(
             account_id,
-            account.hash(),
+            account.commitment(),
             AccountUpdateDetails::New(account),
             vec![],
         )],
@@ -462,9 +462,13 @@ fn sql_select_accounts() {
             AccountType::RegularAccountImmutableCode,
             AccountStorageMode::Private,
         );
-        let account_hash = num_to_rpo_digest(u64::from(i));
+        let account_commitment = num_to_rpo_digest(u64::from(i));
         state.push(AccountInfo {
-            summary: AccountSummary { account_id, account_hash, block_num },
+            summary: AccountSummary {
+                account_id,
+                account_commitment,
+                block_num,
+            },
             details: None,
         });
 
@@ -473,7 +477,7 @@ fn sql_select_accounts() {
             &transaction,
             &[BlockAccountUpdate::new(
                 account_id,
-                account_hash,
+                account_commitment,
                 AccountUpdateDetails::Private,
                 vec![],
             )],
@@ -493,9 +497,9 @@ fn sql_public_account_details() {
 
     create_block(&mut conn, 1.into());
 
-    let fungible_faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+    let fungible_faucet_id = AccountId::try_from(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET).unwrap();
     let non_fungible_faucet_id =
-        AccountId::try_from(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+        AccountId::try_from(ACCOUNT_ID_PUBLIC_NON_FUNGIBLE_FAUCET).unwrap();
 
     let nft1 = Asset::NonFungible(
         NonFungibleAsset::new(
@@ -519,7 +523,7 @@ fn sql_public_account_details() {
         &transaction,
         &[BlockAccountUpdate::new(
             account.id(),
-            account.hash(),
+            account.commitment(),
             AccountUpdateDetails::New(account.clone()),
             vec![],
         )],
@@ -567,7 +571,7 @@ fn sql_public_account_details() {
         &transaction,
         &[BlockAccountUpdate::new(
             account.id(),
-            account.hash(),
+            account.commitment(),
             AccountUpdateDetails::Delta(delta2.clone()),
             vec![],
         )],
@@ -613,7 +617,7 @@ fn sql_public_account_details() {
         &transaction,
         &[BlockAccountUpdate::new(
             account.id(),
-            account.hash(),
+            account.commitment(),
             AccountUpdateDetails::Delta(delta3.clone()),
             vec![],
         )],
@@ -876,7 +880,7 @@ fn db_account() {
 
     // test empty table
     let account_ids: Vec<AccountId> =
-        [ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, 1, 2, 3, 4, 5]
+        [ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE, 1, 2, 3, 4, 5]
             .iter()
             .map(|acc_id| (*acc_id).try_into().unwrap())
             .collect();
@@ -890,15 +894,15 @@ fn db_account() {
     assert!(res.is_empty());
 
     // test insertion
-    let account_id = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
-    let account_hash = num_to_rpo_digest(0);
+    let account_id = ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE;
+    let account_commitment = num_to_rpo_digest(0);
 
     let transaction = conn.transaction().unwrap();
     let row_count = sql::upsert_accounts(
         &transaction,
         &[BlockAccountUpdate::new(
             account_id.try_into().unwrap(),
-            account_hash,
+            account_commitment,
             AccountUpdateDetails::Private,
             vec![],
         )],
@@ -919,7 +923,7 @@ fn db_account() {
         res,
         vec![AccountSummary {
             account_id: account_id.try_into().unwrap(),
-            account_hash,
+            account_commitment,
             block_num,
         }]
     );
@@ -972,7 +976,7 @@ fn notes() {
     .unwrap();
     assert!(res.is_empty());
 
-    let sender = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
+    let sender = AccountId::try_from(ACCOUNT_ID_PRIVATE_SENDER).unwrap();
 
     // test insertion
     let transaction = conn.transaction().unwrap();
@@ -1123,7 +1127,7 @@ fn insert_transactions(conn: &mut Connection) -> usize {
     let transaction = conn.transaction().unwrap();
 
     let account_updates = vec![mock_block_account_update(
-        AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_PRIVATE_SENDER).unwrap(),
         1,
     )];
 

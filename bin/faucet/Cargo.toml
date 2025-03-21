@@ -27,7 +27,7 @@ miden-objects    = { workspace = true }
 miden-tx         = { workspace = true, features = ["concurrent"] }
 mime             = "0.3"
 rand             = { workspace = true }
-rand_chacha      = "0.3"
+rand_chacha      = "0.9"
 serde            = { version = "1.0", features = ["derive"] }
 static-files     = "0.2"
 thiserror        = { workspace = true }

@@ -51,7 +51,7 @@ pub struct SyncStateResponse {
     /// Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`.
     #[prost(message, optional, tag = "3")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
-    /// List of account hashes updated after `request.block_num + 1` but not after `response.block_header.block_num`.
+    /// List of account commitments updated after `request.block_num + 1` but not after `response.block_header.block_num`.
     #[prost(message, repeated, tag = "5")]
     pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
     /// List of transactions executed against requested accounts between `request.block_num + 1` and
@@ -150,9 +150,9 @@ pub struct AccountTransactionInputRecord {
     /// The account ID.
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,
-    /// The latest account hash, zero hash if the account doesn't exist.
+    /// The latest account commitment, zero commitment if the account doesn't exist.
     #[prost(message, optional, tag = "2")]
-    pub account_hash: ::core::option::Option<super::digest::Digest>,
+    pub account_commitment: ::core::option::Option<super::digest::Digest>,
 }
 /// A nullifier returned as a response to the `GetTransactionInputs`.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -233,9 +233,9 @@ pub struct AccountProofsResponse {
     /// Account ID.
     #[prost(message, optional, tag = "1")]
     pub account_id: ::core::option::Option<super::account::AccountId>,
-    /// Account hash.
+    /// Account commitment.
     #[prost(message, optional, tag = "2")]
-    pub account_hash: ::core::option::Option<super::digest::Digest>,
+    pub account_commitment: ::core::option::Option<super::digest::Digest>,
     /// Authentication path from the `account_root` of the block header to the account.
     #[prost(message, optional, tag = "3")]
     pub account_proof: ::core::option::Option<super::merkle::MerklePath>,
