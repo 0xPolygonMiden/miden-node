@@ -43,7 +43,7 @@ use crate::{
     errors::{DatabaseError, NoteSyncError, StateSyncError},
 };
 
-/// The page number to fetch from the DB.
+/// The page number and limit to query from the DB.
 #[derive(Debug, Copy, Clone)]
 pub struct Page {
     number: u64,
@@ -974,7 +974,7 @@ pub fn unconsumed_network_notes(
 
     let mut rows = stmt.query(params![page.number(), page.limit()])?;
 
-    let mut notes = Vec::with_capacity(page.limit.into());
+    let mut notes = Vec::with_capacity(page.limit().into());
     while let Some(row) = rows.next()? {
         notes.push(NoteRecord::from_row(row)?);
         // Increment by 1 because we are using rowid >=, and otherwise we would include the last
