@@ -7,7 +7,7 @@ architectural decisions.
 
 This is _not_ intended for dApp developers or users of the node, but for development of the node itself.
 
-It is also a good idea to familiarise yourself with the [operator manual](../operator/overview.md).
+It is also a good idea to familiarise yourself with the [operator manual](../operator/index.md).
 
 <div class="warning">
 
