@@ -1,9 +1,9 @@
 [book]
 authors      = ["Miden contributors"]
-description  = "Operator and developer manual for the software which is responsible for aggregating transactions into blocks for the Miden blockchain."
+description  = "Manual for the Miden node software which is responsible for aggregating transactions into blocks for the Miden blockchain."
 language     = "en"
 multilingual = false
-title        = "The Miden node"
+title        = "The Miden Node Operator and Developer Guide"
 
 [output.html]
 git-repository-url = "https://github.com/0xPolygonMiden/miden-node"
