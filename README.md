@@ -195,7 +195,7 @@ block_prover_url = "<BLOCK_PROVER_URL>"
 ### Proto files
 This repo also contains the [proto definitions](proto/proto) for the gRPC API.
 
-To use this definitions externally in a Rust project, you can use the `ProtoBuilder` exposed in the crate `miden-node-proto-build`. See the crate's [README.md](proto/README.md) for details on how to use it.
+To generate proto bindings in a Rust project, you can use the `miden-node-proto-build` crate. See the crate's [README.md](proto/README.md) for details on how to do it.
 
 ### Monitoring and telemetry
 
