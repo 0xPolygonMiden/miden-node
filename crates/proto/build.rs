@@ -4,7 +4,10 @@ use std::{
 };
 
 use anyhow::Context;
-use miden_node_proto_build::ProtoBuilder;
+use miden_node_proto_build::{
+    block_producer_file_descriptor, rpc_file_descriptor, store_file_descriptor,
+};
+use tonic_build::FileDescriptorSet;
 
 /// Generates Rust protobuf bindings from .proto files in the root directory.
 ///
@@ -27,17 +30,24 @@ fn main() -> anyhow::Result<()> {
     fs::remove_dir_all(&dst_dir).context("removing existing files")?;
     fs::create_dir(&dst_dir).context("creating destination folder")?;
 
-    // Build the proto files in the destination directory.
-    let builder = tonic_build::configure().out_dir(&dst_dir);
-
-    ProtoBuilder::new(builder.clone())
-        .compile_server()
-        .context("compiling proto files")?;
-    ProtoBuilder::new(builder)
-        .compile_rpc_client()
-        .context("compiling proto files")?;
+    generate_bindings(rpc_file_descriptor()?, &dst_dir)?;
+    generate_bindings(store_file_descriptor()?, &dst_dir)?;
+    generate_bindings(block_producer_file_descriptor()?, &dst_dir)?;
 
     generate_mod_rs(&dst_dir).context("generating mod.rs")?;
+
+    Ok(())
+}
+
+fn generate_bindings(file_descriptors: FileDescriptorSet, dst_dir: &Path) -> anyhow::Result<()> {
+    let mut prost_config = prost_build::Config::new();
+    prost_config.skip_debug(["AccountId", "Digest"]);
+
+    // Generate the stub of the user facing server from its proto file
+    tonic_build::configure()
+        .out_dir(dst_dir)
+        .compile_fds_with_config(prost_config, file_descriptors)
+        .context("compiling protobufs")?;
 
     Ok(())
 }

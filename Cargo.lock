@@ -2252,6 +2252,8 @@ dependencies = [
  "miden-objects",
  "proptest",
  "prost",
+ "prost-build",
+ "protox",
  "thiserror 2.0.11",
  "tonic",
  "tonic-build",
