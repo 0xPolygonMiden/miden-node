@@ -122,7 +122,7 @@ pub mod api_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// Updates a network transaction status.
+        /// Update the status for multiple network transactions.
         pub async fn update_network_transaction(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -179,7 +179,7 @@ pub mod api_server {
             tonic::Response<super::super::responses::CreateNetworkTransactionResponse>,
             tonic::Status,
         >;
-        /// Updates a network transaction status.
+        /// Update the status for multiple network transactions.
         async fn update_network_transaction(
             &self,
             request: tonic::Request<
