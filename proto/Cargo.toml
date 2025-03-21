@@ -18,7 +18,6 @@ internal = []
 workspace = true
 
 [dependencies]
-prost-build = { version = "0.13" }
 protox      = { version = "0.7" }
 tonic-build = { version = "0.12" }
 

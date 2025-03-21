@@ -2265,7 +2265,6 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "prost",
- "prost-build",
  "protox",
  "tonic-build",
 ]
