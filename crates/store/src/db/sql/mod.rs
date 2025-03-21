@@ -56,7 +56,7 @@ pub fn select_all_accounts(transaction: &Transaction) -> Result<Vec<AccountInfo>
         "
         SELECT
             account_id,
-            account_hash,
+            account_commitment,
             block_num,
             details
         FROM
@@ -74,23 +74,26 @@ pub fn select_all_accounts(transaction: &Transaction) -> Result<Vec<AccountInfo>
     Ok(accounts)
 }
 
-/// Select all account hashes from the DB using the given [Connection].
+/// Select all account commitments from the DB using the given [Connection].
 ///
 /// # Returns
 ///
-/// The vector with the account id and corresponding hash, or an error.
-pub fn select_all_account_hashes(transaction: &Transaction) -> Result<Vec<(AccountId, RpoDigest)>> {
-    let mut stmt = transaction
-        .prepare_cached("SELECT account_id, account_hash FROM accounts ORDER BY block_num ASC;")?;
+/// The vector with the account id and corresponding commitment, or an error.
+pub fn select_all_account_commitments(
+    transaction: &Transaction,
+) -> Result<Vec<(AccountId, RpoDigest)>> {
+    let mut stmt = transaction.prepare_cached(
+        "SELECT account_id, account_commitment FROM accounts ORDER BY block_num ASC;",
+    )?;
     let mut rows = stmt.query([])?;
 
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
         let account_id: AccountId = read_from_blob_column(row, 0)?;
-        let account_hash_data = row.get_ref(1)?.as_blob()?;
-        let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
+        let account_commitment_data = row.get_ref(1)?.as_blob()?;
+        let account_commitment = RpoDigest::read_from_bytes(account_commitment_data)?;
 
-        result.push((account_id, account_hash));
+        result.push((account_id, account_commitment));
     }
 
     Ok(result)
@@ -112,7 +115,7 @@ pub fn select_accounts_by_block_range(
         "
         SELECT
             account_id,
-            account_hash,
+            account_commitment,
             block_num
         FROM
             accounts
@@ -151,7 +154,7 @@ pub fn select_account(transaction: &Transaction, account_id: AccountId) -> Resul
         "
         SELECT
             account_id,
-            account_hash,
+            account_commitment,
             block_num,
             details
         FROM
@@ -181,7 +184,7 @@ pub fn select_accounts_by_ids(
         "
         SELECT
             account_id,
-            account_hash,
+            account_commitment,
             block_num,
             details
         FROM
@@ -416,7 +419,7 @@ pub fn upsert_accounts(
     let mut upsert_stmt = transaction.prepare_cached(insert_sql!(
         accounts {
             account_id,
-            account_hash,
+            account_commitment,
             block_num,
             details
         } | REPLACE
@@ -432,9 +435,9 @@ pub fn upsert_accounts(
             AccountUpdateDetails::New(account) => {
                 debug_assert_eq!(account_id, account.id());
 
-                if account.hash() != update.final_state_commitment() {
-                    return Err(DatabaseError::AccountHashesMismatch {
-                        calculated: account.hash(),
+                if account.commitment() != update.final_state_commitment() {
+                    return Err(DatabaseError::AccountCommitmentsMismatch {
+                        calculated: account.commitment(),
                         expected: update.final_state_commitment(),
                     });
                 }

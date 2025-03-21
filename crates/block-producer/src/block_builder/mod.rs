@@ -342,19 +342,19 @@ impl TelemetryInjectorExt for ProvenBlock {
         let span = Span::current();
         let header = self.header();
 
-        span.set_attribute("block.hash", header.hash());
-        span.set_attribute("block.sub_hash", header.sub_hash());
-        span.set_attribute("block.parent_hash", header.prev_hash());
+        span.set_attribute("block.commitment", header.commitment());
+        span.set_attribute("block.sub_commitment", header.sub_commitment());
+        span.set_attribute("block.prev_block_commitment", header.prev_block_commitment());
         span.set_attribute("block.timestamp", header.timestamp());
 
         span.set_attribute("block.protocol.version", i64::from(header.version()));
 
-        span.set_attribute("block.commitments.kernel", header.kernel_root());
+        span.set_attribute("block.commitments.kernel", header.tx_kernel_commitment());
         span.set_attribute("block.commitments.nullifier", header.nullifier_root());
         span.set_attribute("block.commitments.account", header.account_root());
-        span.set_attribute("block.commitments.chain", header.chain_root());
+        span.set_attribute("block.commitments.chain", header.chain_commitment());
         span.set_attribute("block.commitments.note", header.note_root());
-        span.set_attribute("block.commitments.transaction", header.tx_hash());
+        span.set_attribute("block.commitments.transaction", header.tx_commitment());
     }
 }
 

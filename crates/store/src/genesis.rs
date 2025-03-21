@@ -40,7 +40,7 @@ impl GenesisState {
 
                 BlockAccountUpdate::new(
                     account.id(),
-                    account.hash(),
+                    account.commitment(),
                     account_update_details,
                     vec![],
                 )
@@ -67,7 +67,7 @@ impl GenesisState {
             empty_nullifier_tree.root(),
             empty_block_note_tree.root(),
             Digest::default(),
-            TransactionKernel::kernel_root(),
+            TransactionKernel::kernel_commitment(),
             Digest::default(),
             self.timestamp,
         );

@@ -61,7 +61,7 @@ impl AuthenticatedTransaction {
             inner: Arc::new(tx),
             notes_authenticated_by_store: inputs.found_unauthenticated_notes,
             authentication_height: inputs.current_block_height,
-            store_account_state: inputs.account_hash,
+            store_account_state: inputs.account_commitment,
         })
     }
 
@@ -102,7 +102,7 @@ impl AuthenticatedTransaction {
     }
 
     pub fn reference_block(&self) -> (BlockNumber, Digest) {
-        (self.inner.block_num(), self.inner.block_ref())
+        (self.inner.ref_block_num(), self.inner.ref_block_commitment())
     }
 
     /// Notes which were unauthenticate in the transaction __and__ which were
@@ -136,13 +136,13 @@ impl AuthenticatedTransaction {
     /// Short-hand for `Self::new` where the input's are setup to match the transaction's initial
     /// account state. This covers the account's initial state and nullifiers being set to unspent.
     pub fn from_inner(inner: ProvenTransaction) -> Self {
-        let store_account_state = match inner.account_update().init_state_hash() {
+        let store_account_state = match inner.account_update().initial_state_commitment() {
             zero if zero == Digest::default() => None,
             non_zero => Some(non_zero),
         };
         let inputs = TransactionInputs {
             account_id: inner.account_id(),
-            account_hash: store_account_state,
+            account_commitment: store_account_state,
             nullifiers: inner.get_nullifiers().map(|nullifier| (nullifier, None)).collect(),
             found_unauthenticated_notes: BTreeSet::default(),
             current_block_height: 0.into(),

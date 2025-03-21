@@ -54,11 +54,11 @@ pub enum VerifyTxError {
     #[error("output note IDs already used: {0:?}")]
     OutputNotesAlreadyExist(Vec<NoteId>),
 
-    /// The account's initial hash did not match the current account's hash
-    #[error("incorrect account's initial hash ({tx_initial_account_hash}, current: {})", format_opt(.current_account_hash.as_ref()))]
-    IncorrectAccountInitialHash {
-        tx_initial_account_hash: Digest,
-        current_account_hash: Option<Digest>,
+    /// The account's initial commitment did not match the current account's commitment
+    #[error("incorrect account's initial commitment ({tx_initial_account_commitment}, current: {})", format_opt(.current_account_commitment.as_ref()))]
+    IncorrectAccountInitialCommitment {
+        tx_initial_account_commitment: Digest,
+        current_account_commitment: Option<Digest>,
     },
 
     /// Failed to retrieve transaction inputs from the store
@@ -108,7 +108,7 @@ impl From<AddTransactionError> for tonic::Status {
                 VerifyTxError::InputNotesAlreadyConsumed(_)
                 | VerifyTxError::UnauthenticatedNotesNotFound(_)
                 | VerifyTxError::OutputNotesAlreadyExist(_)
-                | VerifyTxError::IncorrectAccountInitialHash { .. }
+                | VerifyTxError::IncorrectAccountInitialCommitment { .. }
                 | VerifyTxError::InvalidTransactionProof(_),
             )
             | AddTransactionError::Expired { .. }

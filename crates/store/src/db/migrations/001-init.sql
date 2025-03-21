@@ -17,10 +17,10 @@ CREATE TABLE block_headers (
 ) STRICT;
 
 CREATE TABLE accounts (
-      account_id   BLOB    NOT NULL,
-      account_hash BLOB    NOT NULL,
-      block_num    INTEGER NOT NULL,
-      details      BLOB,
+      account_id            BLOB    NOT NULL,
+      account_commitment    BLOB    NOT NULL,
+      block_num             INTEGER NOT NULL,
+      details               BLOB,
 
       PRIMARY KEY (account_id),
       FOREIGN KEY (block_num) REFERENCES block_headers(block_num)

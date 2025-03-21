@@ -48,9 +48,9 @@ impl api_server::Api for StubRpcApi {
         Ok(Response::new(GetBlockHeaderByNumberResponse {
             block_header: Some(BlockHeader {
                 version: 1,
-                prev_hash: Some(Digest { d0: 0, d1: 0, d2: 0, d3: 0 }),
+                prev_block_commitment: Some(Digest { d0: 0, d1: 0, d2: 0, d3: 0 }),
                 block_num: 0,
-                chain_root: Some(Digest {
+                chain_commitment: Some(Digest {
                     d0: 0x9729_9D39_2DA8_DC69,
                     d1: 0x674_44AF_6294_0719,
                     d2: 0x7B97_0BC7_07A0_F7D6,
@@ -74,14 +74,14 @@ impl api_server::Api for StubRpcApi {
                     d2: 0x8022_9E0E_1808_C860,
                     d3: 0x13F4_7934_7EB7_FD78,
                 }),
-                tx_hash: Some(Digest { d0: 0, d1: 0, d2: 0, d3: 0 }),
-                kernel_root: Some(Digest {
+                tx_commitment: Some(Digest { d0: 0, d1: 0, d2: 0, d3: 0 }),
+                tx_kernel_commitment: Some(Digest {
                     d0: 0x7B6F_43E5_2910_C8C3,
                     d1: 0x99B3_2868_577E_5779,
                     d2: 0xAF9E_6424_57CD_B8C1,
                     d3: 0xB1DD_E61B_F983_2DBD,
                 }),
-                proof_hash: Some(Digest { d0: 0, d1: 0, d2: 0, d3: 0 }),
+                proof_commitment: Some(Digest { d0: 0, d1: 0, d2: 0, d3: 0 }),
                 timestamp: 0x63B0_CD00,
             }),
             mmr_path: None,
