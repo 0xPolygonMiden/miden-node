@@ -47,8 +47,8 @@ impl Metrics {
         }
     }
 
-    /// Tracks a new insertion to the metrics, with the insertion time and size of the block.
-    pub fn add_insertion(&mut self, insertion_time: Duration, block_size: usize) {
+    /// Tracks a new block insertion to the metrics, with the insertion time and size of the block.
+    pub fn track_block_insertion(&mut self, insertion_time: Duration, block_size: usize) {
         self.insertion_time_per_block.push(insertion_time);
         self.bytes_per_block.push(block_size);
         self.num_insertions += 1;

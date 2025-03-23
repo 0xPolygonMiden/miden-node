@@ -41,10 +41,16 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tokio::{fs, net::TcpListener, task};
 use winterfell::Proof;
 
+// CONSTANTS
+// ================================================================================================
+
 const BATCHES_PER_BLOCK: usize = 16;
 const TRANSACTIONS_PER_BATCH: usize = 16;
 
 const STORE_FILENAME: &str = "miden-store.sqlite3";
+
+// CLI
+// ================================================================================================
 
 #[derive(Parser)]
 #[command(version)]
@@ -80,6 +86,9 @@ async fn main() {
     }
 }
 
+// SEED STORE
+// ================================================================================================
+
 /// Seeds the store with a given number of accounts.
 async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
     let start = Instant::now();
@@ -87,41 +96,48 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
     let genesis_filepath = data_directory.join(GENESIS_STATE_FILENAME);
     let database_filepath = data_directory.join(STORE_FILENAME);
 
-    // If data_directory does not exist, create it
+    // if the data_directory does not exist, create it
     if !data_directory.exists() {
         fs::create_dir_all(&data_directory)
             .await
             .expect("Failed to create data directory");
     }
 
-    // If database file exists, remove it
+    // if the database file exists, remove it
     if database_filepath.exists() {
         fs::remove_file(&database_filepath)
             .await
             .expect("Failed to remove database file");
     }
 
-    // Generate the faucet account and the genesis state
+    // generate the faucet account and the genesis state
     let faucet = create_faucet();
     let genesis_state = GenesisState::new(vec![faucet.clone()], 1, 1);
     fs::write(&genesis_filepath, genesis_state.to_bytes())
         .await
         .expect("Failed to write genesis state");
 
-    // Start store
-    let grpc_store = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind store");
-    let store_addr = grpc_store.local_addr().expect("Failed to get store address");
-    let store = Store::init(grpc_store, data_directory).await.expect("Failed to init store");
-    task::spawn(async move { store.serve().await.context("Serving store") });
-    let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
-        .unwrap()
-        .connect()
-        .await
-        .expect("Failed to connect to store");
-    let store_api_client = ApiClient::with_interceptor(channel, OtelInterceptor);
-    let store_client = StoreClient::new(store_api_client);
+    // start the store
+    let store_addr = {
+        let grpc_store = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind store");
+        let store_addr = grpc_store.local_addr().expect("Failed to get store address");
+        let store = Store::init(grpc_store, data_directory).await.expect("Failed to init store");
+        task::spawn(async move { store.serve().await.context("Serving store") });
+        store_addr
+    };
 
-    // Start generating blocks
+    // connect to the store
+    let store_client = {
+        let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
+            .unwrap()
+            .connect()
+            .await
+            .expect("Failed to connect to store");
+        let store_api_client = ApiClient::with_interceptor(channel, OtelInterceptor);
+        StoreClient::new(store_api_client)
+    };
+
+    // start generating blocks
     let genesis_header = genesis_state.into_block().unwrap().header();
     let metrics =
         generate_blocks(num_accounts, faucet, &genesis_header, &store_client, database_filepath)
@@ -132,6 +148,7 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
 }
 
 /// Generates batches of transactions to be inserted into the store.
+///
 /// The first transaction in each batch sends assets from the faucet to 255 accounts.
 /// The rest of the transactions consume the notes created by the faucet in the previous block.
 async fn generate_blocks(
@@ -151,9 +168,10 @@ async fn generate_blocks(
     let mut consume_notes_txs = vec![];
 
     let consumes_per_block = TRANSACTIONS_PER_BATCH * BATCHES_PER_BLOCK - 1;
-    let total_blocks = (num_accounts / consumes_per_block) + 1; // +1 to account for the first block with the send assets tx only
+    // +1 to account for the first block with the send assets tx only
+    let total_blocks = (num_accounts / consumes_per_block) + 1;
 
-    // Share random coin seed and key pair for all accounts to avoid key generation overhead
+    // share random coin seed and key pair for all accounts to avoid key generation overhead
     let coin_seed: [u64; 4] = rand::rng().random();
     let rng = Arc::new(Mutex::new(RpoRandomCoin::new(coin_seed.map(Felt::new))));
     let key_pair = {
@@ -166,7 +184,7 @@ async fn generate_blocks(
     for i in 0..total_blocks {
         let mut block_txs = Vec::with_capacity(BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH);
 
-        // Create accounts and notes that mint assets
+        // create accounts and notes that mint assets for these accounts
         let (accounts, notes) = create_accounts_and_notes(
             consumes_per_block,
             genesis_header,
@@ -176,29 +194,29 @@ async fn generate_blocks(
             i,
         );
 
-        // Create the tx that creates the notes
+        // create the tx that creates the notes
         let emit_note_tx = create_emit_note_tx(&prev_header, &mut faucet, notes.clone());
 
-        // Collect all the txs
+        // collect all the txs
         block_txs.push(emit_note_tx);
         block_txs.extend(consume_notes_txs);
 
-        // Create the batches with [TRANSACTIONS_PER_BATCH] txs each
+        // create the batches with [TRANSACTIONS_PER_BATCH] txs each
         let batches: Vec<ProvenBatch> = block_txs
             .chunks(TRANSACTIONS_PER_BATCH)
             .map(|txs| create_batch(txs, &prev_header))
             .collect();
 
-        // Create the block and send it to the store
+        // create the block and send it to the store
         let block_inputs = get_block_inputs(store_client, &batches, &mut metrics).await;
-        prev_header = apply_block(batches.clone(), block_inputs, store_client, &mut metrics).await;
+        prev_header = apply_block(batches, block_inputs, store_client, &mut metrics).await;
 
-        // Create the consume notes txs to be used in the next block
+        // create the consume notes txs to be used in the next block
         let batch_inputs = get_batch_inputs(store_client, &prev_header, &notes, &mut metrics).await;
         consume_notes_txs =
             create_consume_note_txs(&prev_header, accounts, notes, &batch_inputs.note_proofs);
 
-        // Track store size every 50 blocks
+        // track store size every 50 blocks
         if i % 50 == 0 {
             metrics.record_store_size();
         }
@@ -224,13 +242,12 @@ async fn apply_block(
 
     let start = Instant::now();
     store_client.apply_block(&proven_block).await.unwrap();
-
-    metrics.add_insertion(start.elapsed(), block_size);
+    metrics.track_block_insertion(start.elapsed(), block_size);
 
     proven_block.header()
 }
 
-// HELPERS
+// HELPER FUNCTIONS
 // ================================================================================================
 
 /// Creates `num_accounts` accounts, and for each one creates a note that mint assets.
@@ -263,8 +280,8 @@ fn create_accounts_and_notes(
         .collect()
 }
 
-/// Creates a new note containing 10 tokens of the fungible asset associated with the specified
-/// `faucet_id`.
+/// Creates a public P2ID note containing 10 tokens of the fungible asset associated with the
+/// specified `faucet_id` and sent to the specified target account.
 fn create_note(faucet_id: AccountId, target_id: AccountId, rng: &mut RpoRandomCoin) -> Note {
     let asset = Asset::Fungible(FungibleAsset::new(faucet_id, 10).unwrap());
     create_p2id_note(
@@ -278,8 +295,8 @@ fn create_note(faucet_id: AccountId, target_id: AccountId, rng: &mut RpoRandomCo
     .expect("note creation failed")
 }
 
-/// Creates a new account with a given public key and anchor block. Generates the seed from the
-/// given index.
+/// Creates a new private account with a given public key and anchor block. Generates the seed from
+/// the given index.
 fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64) -> Account {
     let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
     let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
@@ -300,15 +317,13 @@ fn create_faucet() -> Account {
     let key_pair = SecretKey::with_rng(&mut rng);
     let init_seed = [0_u8; 32];
 
+    let token_symbol = TokenSymbol::new("TEST").unwrap();
     let (new_faucet, _seed) = AccountBuilder::new(init_seed)
         .anchor(AccountIdAnchor::PRE_GENESIS)
         .account_type(AccountType::FungibleFaucet)
         .storage_mode(AccountStorageMode::Private)
         .with_component(RpoFalcon512::new(key_pair.public_key()))
-        .with_component(
-            BasicFungibleFaucet::new(TokenSymbol::new("TEST").unwrap(), 2, Felt::new(u64::MAX))
-                .unwrap(),
-        )
+        .with_component(BasicFungibleFaucet::new(token_symbol, 2, Felt::new(u64::MAX)).unwrap())
         .build()
         .unwrap();
     new_faucet
@@ -355,6 +370,7 @@ fn create_consume_note_txs(
 }
 
 /// Creates a transaction that creates an account and consumes the given input note.
+///
 /// The account is updated with the assets from the input note, and the nonce is set to 1.
 fn create_consume_note_tx(
     block_ref: &BlockHeader,
