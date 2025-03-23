@@ -19,7 +19,7 @@ workspace = true
 vergen = ["dep:vergen", "dep:vergen-gitcl"]
 
 [dependencies]
-anyhow                = { version = "1.0" }
+anyhow                = { workspace = true }
 figment               = { version = "0.10", features = ["env", "toml"] }
 http                  = { workspace = true }
 itertools             = { workspace = true }
