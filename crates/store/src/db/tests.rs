@@ -671,7 +671,7 @@ fn upsert_account_checks() {
         AccountStorageMode::Private,
     );
 
-    let account_hash = num_to_rpo_digest(1);
+    let account_commitment = num_to_rpo_digest(1);
 
     // Insert new private account
 
@@ -679,7 +679,7 @@ fn upsert_account_checks() {
         &transaction,
         &[BlockAccountUpdate::new(
             account_id,
-            account_hash,
+            account_commitment,
             AccountUpdateDetails::Private,
             vec![],
         )],
@@ -694,7 +694,7 @@ fn upsert_account_checks() {
         &transaction,
         &[BlockAccountUpdate::new(
             account_id,
-            account_hash,
+            account_commitment,
             AccountUpdateDetails::Private,
             vec![],
         )],
@@ -744,7 +744,7 @@ fn upsert_account_checks() {
         &transaction,
         &[BlockAccountUpdate::new(
             account.id(),
-            account.hash(),
+            account.commitment(),
             AccountUpdateDetails::Delta(delta.clone()),
             vec![],
         )],
@@ -757,13 +757,13 @@ fn upsert_account_checks() {
         "Insertion of a public account delta must return an error, if account is not in the DB"
     );
 
-    // Trying to insert new public account with mismatched hashes
+    // Trying to insert new public account with mismatched commitment hashes
 
     let res = sql::upsert_accounts(
         &transaction,
         &[BlockAccountUpdate::new(
             account.id(),
-            account_hash,
+            account_commitment,
             AccountUpdateDetails::New(account.clone()),
             vec![],
         )],
@@ -772,11 +772,12 @@ fn upsert_account_checks() {
 
     assert_matches!(
         res,
-        Err(DatabaseError::AccountHashesMismatch {
+        Err(DatabaseError::AccountCommitmentsMismatch {
             calculated,
             expected,
-        }) if expected == account_hash && calculated == account.hash(),
-        "Insertion of a new public account must return an error, if account hashes do not match"
+        }) if expected == account_commitment && calculated == account.commitment(),
+        "Insertion of a new public account must return an error, \
+        if account commitment hashes do not match"
     );
 
     // Insert a new (correct) public account
@@ -785,7 +786,7 @@ fn upsert_account_checks() {
         &transaction,
         &[BlockAccountUpdate::new(
             account.id(),
-            account.hash(),
+            account.commitment(),
             AccountUpdateDetails::New(account.clone()),
             vec![],
         )],
@@ -805,7 +806,7 @@ fn upsert_account_checks() {
         &transaction,
         &[BlockAccountUpdate::new(
             account_new.id(),
-            account.hash(),
+            account.commitment(),
             AccountUpdateDetails::Delta(delta.clone()),
             vec![],
         )],
@@ -815,7 +816,8 @@ fn upsert_account_checks() {
     assert_matches!(
         res,
         Err(DatabaseError::AccountAlreadyExists(id)) if id == account_new.id(),
-        "Insertion of a public account delta must return an error, if account hash wasn't changed"
+        "Insertion of a public account delta must return an error, \
+        if account commitment hash wasn't changed"
     );
 
     // Trying to update public account by delta with incorrect commitment hash
@@ -824,7 +826,7 @@ fn upsert_account_checks() {
         &transaction,
         &[BlockAccountUpdate::new(
             account_new.id(),
-            account_hash,
+            account_commitment,
             AccountUpdateDetails::Delta(delta.clone()),
             vec![],
         )],
@@ -833,11 +835,12 @@ fn upsert_account_checks() {
 
     assert_matches!(
         res,
-        Err(DatabaseError::AccountHashesMismatch {
+        Err(DatabaseError::AccountCommitmentsMismatch {
             calculated,
             expected,
-        }) if expected == account_hash && calculated == account_new.hash(),
-        "Insertion of a public account delta must return an error, if account hashes do not match"
+        }) if expected == account_commitment && calculated == account_new.commitment(),
+        "Insertion of a public account delta must return an error, \
+        if account commitment hashes do not match"
     );
 
     // Update public account by providing correct delta
@@ -846,7 +849,7 @@ fn upsert_account_checks() {
         &transaction,
         &[BlockAccountUpdate::new(
             account_new.id(),
-            account_new.hash(),
+            account_new.commitment(),
             AccountUpdateDetails::Delta(delta.clone()),
             vec![],
         )],

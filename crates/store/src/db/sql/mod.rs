@@ -418,7 +418,7 @@ pub fn upsert_accounts(
     let ids: Vec<_> = accounts.iter().map(BlockAccountUpdate::account_id).collect();
     let mut prev_account_data: BTreeMap<_, _> = select_accounts_by_ids(transaction, &ids)?
         .into_iter()
-        .map(|info| (info.summary.account_id, (info.summary.account_hash, info.details)))
+        .map(|info| (info.summary.account_id, (info.summary.account_commitment, info.details)))
         .collect();
 
     let mut insert_stmt = transaction.prepare_cached(insert_sql!(accounts {
@@ -428,7 +428,11 @@ pub fn upsert_accounts(
         details,
     }))?;
     let mut update_stmt = transaction.prepare_cached(
-        "UPDATE accounts SET account_hash = ?2, block_num = ?3, details = ?4 WHERE account_id = ?1",
+        "
+        UPDATE accounts
+        SET account_commitment = ?2, block_num = ?3, details = ?4
+        WHERE account_id = ?1
+        ",
     )?;
 
     for update in accounts {
@@ -445,8 +449,8 @@ pub fn upsert_accounts(
             },
 
             // Update existing private account
-            (AccountUpdateDetails::Private, Some((old_hash, details))) => {
-                if old_hash == update.final_state_commitment() {
+            (AccountUpdateDetails::Private, Some((old_commitment, details))) => {
+                if old_commitment == update.final_state_commitment() {
                     return Err(DatabaseError::AccountAlreadyExists(account_id));
                 }
                 if details.is_some() {
@@ -495,8 +499,8 @@ pub fn upsert_accounts(
             },
 
             // Update existent public account
-            (AccountUpdateDetails::Delta(delta), Some((old_hash, details))) => {
-                if old_hash == update.final_state_commitment() {
+            (AccountUpdateDetails::Delta(delta), Some((old_commitment, details))) => {
+                if old_commitment == update.final_state_commitment() {
                     return Err(DatabaseError::AccountAlreadyExists(account_id));
                 }
                 let Some(mut account) = details else {
@@ -505,9 +509,9 @@ pub fn upsert_accounts(
 
                 account.apply_delta(delta)?;
 
-                if account.hash() != update.final_state_commitment() {
-                    return Err(DatabaseError::AccountHashesMismatch {
-                        calculated: account.hash(),
+                if account.commitment() != update.final_state_commitment() {
+                    return Err(DatabaseError::AccountCommitmentsMismatch {
+                        calculated: account.commitment(),
                         expected: update.final_state_commitment(),
                     });
                 }
