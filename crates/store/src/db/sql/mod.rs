@@ -490,18 +490,11 @@ fn insert_new_accounts(
     for (account_id, update) in remaining_updates {
         match update.details() {
             AccountUpdateDetails::Private => {
-                insert_private_account(block_num, &mut insert_stmt, &account_id, update)?;
+                insert_private_account(block_num, &mut insert_stmt, update)?;
             },
 
             AccountUpdateDetails::New(account) => {
-                insert_public_account(
-                    transaction,
-                    block_num,
-                    &mut insert_stmt,
-                    account_id,
-                    update,
-                    account,
-                )?;
+                insert_public_account(transaction, block_num, &mut insert_stmt, update, account)?;
             },
 
             // Trying to update non-existent public account
@@ -522,12 +515,11 @@ fn insert_new_accounts(
 fn insert_private_account(
     block_num: BlockNumber,
     insert_stmt: &mut CachedStatement,
-    account_id: &AccountId,
     update: &BlockAccountUpdate,
 ) -> Result<usize> {
     insert_stmt
         .execute(params![
-            account_id.to_bytes(),
+            update.account_id().to_bytes(),
             update.final_state_commitment().to_bytes(),
             block_num.as_u32(),
             Value::Null,
@@ -571,11 +563,10 @@ fn insert_public_account(
     transaction: &Transaction,
     block_num: BlockNumber,
     insert_stmt: &mut CachedStatement,
-    account_id: AccountId,
     update: &BlockAccountUpdate,
     account: &Account,
 ) -> Result<()> {
-    debug_assert_eq!(account_id, account.id());
+    debug_assert_eq!(update.account_id(), account.id());
 
     if account.commitment() != update.final_state_commitment() {
         return Err(DatabaseError::AccountCommitmentsMismatch {
@@ -585,7 +576,7 @@ fn insert_public_account(
     }
 
     insert_stmt.execute(params![
-        account_id.to_bytes(),
+        update.account_id().to_bytes(),
         update.final_state_commitment().to_bytes(),
         block_num.as_u32(),
         account.to_bytes(),
@@ -593,7 +584,7 @@ fn insert_public_account(
 
     let insert_delta = AccountDelta::from(account.clone());
 
-    insert_account_delta(transaction, account_id, block_num, &insert_delta)
+    insert_account_delta(transaction, update.account_id(), block_num, &insert_delta)
 }
 
 /// Updates public account in the DB.
