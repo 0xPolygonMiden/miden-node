@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -17,12 +17,13 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, info, instrument};
+use url::Url;
 
 use crate::{
     COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
+    SERVER_NUM_BATCH_BUILDERS,
     batch_builder::BatchBuilder,
     block_builder::BlockBuilder,
-    config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, Mempool, SharedMempool},
@@ -48,13 +49,21 @@ pub struct BlockProducer {
 }
 
 impl BlockProducer {
-    /// Performs all expensive initialization tasks, and notably begins listening on the rpc
-    /// endpoint without serving the API yet. Incoming requests will be queued until
-    /// [`serve`](Self::serve) is called.
-    pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
-        info!(target: COMPONENT, %config, "Initializing server");
+    /// Performs all setup tasks required before [`serve`](Self::serve) can be called.
+    ///
+    /// This includes connecting to the store and retrieving the latest chain state.
+    pub async fn init(
+        listener: TcpListener,
+        store_address: SocketAddr,
+        batch_prover: Option<Url>,
+        block_prover: Option<Url>,
+        batch_interval: Duration,
+        block_interval: Duration,
+    ) -> Result<Self, ApiError> {
+        info!(target: COMPONENT, endpoint=?listener, store=%store_address, "Initializing server");
 
-        let channel = tonic::transport::Endpoint::try_from(config.store_url.to_string())
+        let store_url = format!("http://{store_address}");
+        let channel = tonic::transport::Endpoint::try_from(store_url)
             .map_err(|err| ApiError::InvalidStoreUrl(err.to_string()))?
             .connect()
             .await
@@ -69,27 +78,22 @@ impl BlockProducer {
             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
         let chain_tip = latest_header.block_num();
 
-        let rpc_listener = config
-            .endpoint
-            .socket_addrs(|| None)
-            .map_err(ApiError::EndpointToSocketFailed)?
-            .into_iter()
-            .next()
-            .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))
-            .map(TcpListener::bind)?
-            .await?;
-
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            batch_builder: BatchBuilder::new(config.batch_prover_url),
-            block_builder: BlockBuilder::new(store.clone(), config.block_prover_url),
+            block_builder: BlockBuilder::new(store.clone(), block_prover, block_interval),
+            batch_builder: BatchBuilder::new(
+                store.clone(),
+                SERVER_NUM_BATCH_BUILDERS,
+                batch_prover,
+                batch_interval,
+            ),
             batch_budget: BatchBudget::default(),
             block_budget: BlockBudget::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
             expiration_slack: SERVER_MEMPOOL_EXPIRATION_SLACK,
             store,
-            rpc_listener,
+            rpc_listener: listener,
             chain_tip,
         })
     }
@@ -126,9 +130,8 @@ impl BlockProducer {
         let batch_builder_id = tasks
             .spawn({
                 let mempool = mempool.clone();
-                let store = store.clone();
                 async {
-                    batch_builder.run(mempool, store).await;
+                    batch_builder.run(mempool).await;
                     Ok(())
                 }
             })
@@ -241,11 +244,11 @@ impl BlockProducerRpcServer {
             target: COMPONENT,
             tx_id = %tx_id.to_hex(),
             account_id = %tx.account_id().to_hex(),
-            initial_account_hash = %tx.account_update().init_state_hash(),
-            final_account_hash = %tx.account_update().final_state_hash(),
+            initial_state_commitment = %tx.account_update().initial_state_commitment(),
+            final_state_commitment = %tx.account_update().final_state_commitment(),
             input_notes = %format_input_notes(tx.input_notes()),
             output_notes = %format_output_notes(tx.output_notes()),
-            block_ref = %tx.block_ref(),
+            ref_block_commitment = %tx.ref_block_commitment(),
             "Deserialized transaction"
         );
         debug!(target: COMPONENT, proof = ?tx.proof());

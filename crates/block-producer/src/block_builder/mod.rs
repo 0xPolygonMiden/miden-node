@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use futures::FutureExt;
+use futures::{FutureExt, never::Never};
 use miden_block_prover::LocalBlockProver;
 use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
@@ -16,7 +16,7 @@ use tracing::{Span, info, instrument};
 use url::Url;
 
 use crate::{
-    COMPONENT, SERVER_BLOCK_FREQUENCY, errors::BuildBlockError, mempool::SharedMempool,
+    COMPONENT, TelemetryInjectorExt, errors::BuildBlockError, mempool::SharedMempool,
     store::StoreClient,
 };
 
@@ -43,14 +43,18 @@ impl BlockBuilder {
     /// Creates a new [`BlockBuilder`] with the given [`StoreClient`] and optional block prover URL.
     ///
     /// If the block prover URL is not set, the block builder will use the local block prover.
-    pub fn new(store: StoreClient, block_prover_url: Option<Url>) -> Self {
+    pub fn new(
+        store: StoreClient,
+        block_prover_url: Option<Url>,
+        block_interval: Duration,
+    ) -> Self {
         let block_prover = match block_prover_url {
             Some(url) => BlockProver::new_remote(url),
             None => BlockProver::new_local(MIN_PROOF_SECURITY_LEVEL),
         };
 
         Self {
-            block_interval: SERVER_BLOCK_FREQUENCY,
+            block_interval,
             // Note: The range cannot be empty.
             simulated_proof_time: Duration::ZERO..Duration::from_millis(1),
             failure_rate: 0.0,
@@ -116,7 +120,7 @@ impl BlockBuilder {
             .inspect_err(|err| Span::current().set_error(err))
             .or_else(|_err| self.rollback_block(mempool).never_error())
             // Error has been handled, this is just type manipulation to remove the result wrapper.
-            .unwrap_or_else(|_| ())
+            .unwrap_or_else(|_: Never| ())
             .await;
     }
 
@@ -230,7 +234,7 @@ impl BlockBuilder {
 
     #[instrument(target = COMPONENT, name = "block_builder.simulate_proving", skip_all)]
     async fn simulate_proving(&self) {
-        let proving_duration = rand::thread_rng().gen_range(self.simulated_proof_time.clone());
+        let proving_duration = rand::rng().random_range(self.simulated_proof_time.clone());
 
         Span::current().set_attribute("range.min_s", self.simulated_proof_time.start);
         Span::current().set_attribute("range.max_s", self.simulated_proof_time.end);
@@ -241,7 +245,7 @@ impl BlockBuilder {
 
     #[instrument(target = COMPONENT, name = "block_builder.inject_failure", skip_all, err)]
     fn inject_failure<T>(&self, value: T) -> Result<T, BuildBlockError> {
-        let roll = rand::thread_rng().r#gen::<f64>();
+        let roll = rand::rng().random::<f64>();
 
         Span::current().set_attribute("failure_rate", self.failure_rate);
         Span::current().set_attribute("dice_roll", roll);
@@ -294,12 +298,6 @@ impl BlockBatchesAndInputs {
     }
 }
 
-/// An extension trait used only locally to implement telemetry injection.
-trait TelemetryInjectorExt {
-    /// Inject [`tracing`] telemetry from self.
-    fn inject_telemetry(&self);
-}
-
 impl TelemetryInjectorExt for ProposedBlock {
     /// Emit the input and output note related attributes. We do this here since this is the
     /// earliest point we can set attributes after note erasure was done.
@@ -344,19 +342,19 @@ impl TelemetryInjectorExt for ProvenBlock {
         let span = Span::current();
         let header = self.header();
 
-        span.set_attribute("block.hash", header.hash());
-        span.set_attribute("block.sub_hash", header.sub_hash());
-        span.set_attribute("block.parent_hash", header.prev_hash());
+        span.set_attribute("block.commitment", header.commitment());
+        span.set_attribute("block.sub_commitment", header.sub_commitment());
+        span.set_attribute("block.prev_block_commitment", header.prev_block_commitment());
         span.set_attribute("block.timestamp", header.timestamp());
 
         span.set_attribute("block.protocol.version", i64::from(header.version()));
 
-        span.set_attribute("block.commitments.kernel", header.kernel_root());
+        span.set_attribute("block.commitments.kernel", header.tx_kernel_commitment());
         span.set_attribute("block.commitments.nullifier", header.nullifier_root());
         span.set_attribute("block.commitments.account", header.account_root());
-        span.set_attribute("block.commitments.chain", header.chain_root());
+        span.set_attribute("block.commitments.chain", header.chain_commitment());
         span.set_attribute("block.commitments.note", header.note_root());
-        span.set_attribute("block.commitments.transaction", header.tx_hash());
+        span.set_attribute("block.commitments.transaction", header.tx_commitment());
     }
 }
 

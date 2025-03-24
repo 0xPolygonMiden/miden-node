@@ -1,6 +1,7 @@
 use std::io;
 
-use deadpool_sqlite::{InteractError, PoolError};
+use deadpool::managed::PoolError;
+use deadpool_sync::InteractError;
 use miden_objects::{
     AccountDeltaError, AccountError, NoteError,
     account::AccountId,
@@ -54,7 +55,7 @@ pub enum DatabaseError {
     #[error("migration failed")]
     MigrationError(#[from] rusqlite_migration::Error),
     #[error("missing database connection")]
-    MissingDbConnection(#[from] PoolError),
+    MissingDbConnection(#[from] PoolError<rusqlite::Error>),
     #[error("note error")]
     NoteError(#[from] NoteError),
     #[error("SQLite error")]
@@ -64,8 +65,8 @@ pub enum DatabaseError {
     // ---------------------------------------------------------------------------------------------
     #[error("account {0} already exists")]
     AccountAlreadyExists(AccountId),
-    #[error("account hash mismatch (expected {expected}, but calculated is {calculated})")]
-    AccountHashesMismatch {
+    #[error("account commitment mismatch (expected {expected}, but calculated is {calculated})")]
+    AccountCommitmentsMismatch {
         expected: RpoDigest,
         calculated: RpoDigest,
     },
@@ -124,7 +125,7 @@ pub enum DatabaseSetupError {
     #[error("genesis block error")]
     GenesisBlockError(#[from] GenesisError),
     #[error("pool build error")]
-    PoolBuildError(#[from] deadpool_sqlite::BuildError),
+    PoolBuildError(#[from] deadpool::managed::BuildError),
     #[error("SQLite migration error")]
     SqliteMigrationError(#[from] rusqlite_migration::Error),
 }
@@ -171,20 +172,20 @@ pub enum InvalidBlockError {
     DuplicatedNullifiers(Vec<Nullifier>),
     #[error("invalid output note type: {0:?}")]
     InvalidOutputNoteType(Box<OutputNote>),
-    #[error("invalid block tx hash: expected {expected}, but got {actual}")]
-    InvalidBlockTxHash { expected: RpoDigest, actual: RpoDigest },
+    #[error("invalid block tx commitment: expected {expected}, but got {actual}")]
+    InvalidBlockTxCommitment { expected: RpoDigest, actual: RpoDigest },
     #[error("received invalid account tree root")]
     NewBlockInvalidAccountRoot,
     #[error("new block number must be 1 greater than the current block number")]
     NewBlockInvalidBlockNum,
-    #[error("new block chain root is not consistent with chain MMR")]
-    NewBlockInvalidChainRoot,
+    #[error("new block chain commitment is not consistent with chain MMR")]
+    NewBlockInvalidChainCommitment,
     #[error("received invalid note root")]
     NewBlockInvalidNoteRoot,
     #[error("received invalid nullifier root")]
     NewBlockInvalidNullifierRoot,
-    #[error("new block `prev_hash` must match the chain's tip")]
-    NewBlockInvalidPrevHash,
+    #[error("new block `prev_block_commitment` must match the chain's tip")]
+    NewBlockInvalidPrevCommitment,
 }
 
 #[derive(Error, Debug)]

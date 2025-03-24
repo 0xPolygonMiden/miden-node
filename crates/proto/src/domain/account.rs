@@ -66,7 +66,7 @@ impl TryFrom<proto::account::AccountId> for AccountId {
 #[derive(Debug, PartialEq)]
 pub struct AccountSummary {
     pub account_id: AccountId,
-    pub account_hash: RpoDigest,
+    pub account_commitment: RpoDigest,
     pub block_num: BlockNumber,
 }
 
@@ -74,7 +74,7 @@ impl From<&AccountSummary> for proto::account::AccountSummary {
     fn from(update: &AccountSummary) -> Self {
         Self {
             account_id: Some(update.account_id.into()),
-            account_hash: Some(update.account_hash.into()),
+            account_commitment: Some(update.account_commitment.into()),
             block_num: update.block_num.as_u32(),
         }
     }
@@ -182,7 +182,9 @@ impl TryFrom<proto::responses::AccountWitness> for AccountWitnessRecord {
                 .try_into()?,
             initial_state_commitment: account_witness_record
                 .initial_state_commitment
-                .ok_or(proto::responses::AccountWitness::missing_field(stringify!(account_hash)))?
+                .ok_or(proto::responses::AccountWitness::missing_field(stringify!(
+                    account_commitment
+                )))?
                 .try_into()?,
             proof: account_witness_record
                 .proof
@@ -201,16 +203,16 @@ impl TryFrom<proto::responses::AccountWitness> for AccountWitnessRecord {
 pub struct AccountState {
     /// Account ID
     pub account_id: AccountId,
-    /// The account hash in the store corresponding to tx's account ID
-    pub account_hash: Option<Digest>,
+    /// The account commitment in the store corresponding to tx's account ID
+    pub account_commitment: Option<Digest>,
 }
 
 impl Display for AccountState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{{ account_id: {}, account_hash: {} }}",
+            "{{ account_id: {}, account_commitment: {} }}",
             self.account_id,
-            format_opt(self.account_hash.as_ref()),
+            format_opt(self.account_commitment.as_ref()),
         ))
     }
 }
@@ -219,7 +221,7 @@ impl From<AccountState> for proto::responses::AccountTransactionInputRecord {
     fn from(from: AccountState) -> Self {
         Self {
             account_id: Some(from.account_id.into()),
-            account_hash: from.account_hash.map(Into::into),
+            account_commitment: from.account_commitment.map(Into::into),
         }
     }
 }
@@ -248,21 +250,21 @@ impl TryFrom<proto::responses::AccountTransactionInputRecord> for AccountState {
             )))?
             .try_into()?;
 
-        let account_hash = from
-            .account_hash
+        let account_commitment = from
+            .account_commitment
             .ok_or(proto::responses::AccountTransactionInputRecord::missing_field(stringify!(
-                account_hash
+                account_commitment
             )))?
             .try_into()?;
 
-        // If the hash is equal to `Digest::default()`, it signifies that this is a new account
-        // which is not yet present in the Store.
-        let account_hash = if account_hash == Digest::default() {
+        // If the commitment is equal to `Digest::default()`, it signifies that this is a new
+        // account which is not yet present in the Store.
+        let account_commitment = if account_commitment == Digest::default() {
             None
         } else {
-            Some(account_hash)
+            Some(account_commitment)
         };
 
-        Ok(Self { account_id, account_hash })
+        Ok(Self { account_id, account_commitment })
     }
 }

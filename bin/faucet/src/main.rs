@@ -18,7 +18,7 @@ use axum::{
 use clap::{Parser, Subcommand};
 use client::initialize_faucet_client;
 use handlers::{get_background, get_favicon, get_index_css, get_index_html, get_index_js};
-use http::HeaderValue;
+use http::{HeaderValue, header};
 use miden_lib::{AuthScheme, account::faucets::create_basic_fungible_faucet};
 use miden_node_utils::{
     config::load_config, crypto::get_rpo_random_coin, logging::OpenTelemetry, version::LongVersion,
@@ -129,7 +129,8 @@ async fn run_faucet_command(cli: Cli) -> anyhow::Result<()> {
                         .layer(
                             CorsLayer::new()
                                 .allow_origin(tower_http::cors::Any)
-                                .allow_methods(tower_http::cors::Any),
+                                .allow_methods(tower_http::cors::Any)
+                                .allow_headers([header::CONTENT_TYPE]),
                         ),
                 )
                 .with_state(faucet_state);
@@ -170,7 +171,7 @@ async fn run_faucet_command(cli: Cli) -> anyhow::Result<()> {
             let secret = SecretKey::with_rng(&mut get_rpo_random_coin(&mut rng));
 
             let (account, account_seed) = create_basic_fungible_faucet(
-                rng.r#gen(),
+                rng.random(),
                 (&root_block_header).try_into().context("failed to create anchor block")?,
                 TokenSymbol::try_from(token_symbol.as_str())
                     .context("failed to parse token symbol")?,

@@ -53,9 +53,9 @@ pub struct SyncStateRequest {
     /// if there are no notes.
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
-    /// Accounts' hash to include in the response.
+    /// Accounts' commitment to include in the response.
     ///
-    /// An account hash will be included if-and-only-if it is the latest update. Meaning it is
+    /// An account commitment will be included if-and-only-if it is the latest update. Meaning it is
     /// possible there was an update to the account for the given range, but if it is not the latest,
     /// it won't be included in the response.
     #[prost(message, repeated, tag = "2")]
