@@ -34,8 +34,9 @@ use super::{
 use crate::{
     db::{
         sql::utils::{
-            account_info_from_row, account_summary_from_row, column_value_as_u64, get_nullifier_prefix,
-        u64_to_value,},
+            account_info_from_row, account_summary_from_row, column_value_as_u64,
+            get_nullifier_prefix, u64_to_value,
+        },
         transaction::Transaction,
     },
     errors::{DatabaseError, NoteSyncError, StateSyncError},

@@ -28,8 +28,9 @@ use miden_objects::{
 use super::{AccountInfo, NoteRecord, NullifierInfo, sql};
 use crate::{
     db::{
-    TransactionSummary, connection::Connection, migrations::apply_migrations, sql::PaginationToken,
-},
+        TransactionSummary, connection::Connection, migrations::apply_migrations,
+        sql::PaginationToken,
+    },
     errors::DatabaseError,
 };
 

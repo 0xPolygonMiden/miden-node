@@ -1,16 +1,8 @@
 use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
-use miden_objects::{
-    block::BlockNumber,
-    note::Nullifier,
-    utils::Deserializable,
-};
-use rusqlite::{
-    OptionalExtension, params, types::Value,
-};
+use miden_objects::{block::BlockNumber, note::Nullifier, utils::Deserializable};
+use rusqlite::{OptionalExtension, params, types::Value};
 
-use crate::{
-    db::{connection::Connection, transaction::Transaction},
-};
+use crate::db::{connection::Connection, transaction::Transaction};
 
 /// Returns the high 16 bits of the provided nullifier.
 pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
