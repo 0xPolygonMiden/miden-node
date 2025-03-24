@@ -181,7 +181,7 @@ impl StoreCommand {
 
         let storage_mode = input.storage_mode.as_str().try_into()?;
         let (mut account, account_seed) = create_basic_fungible_faucet(
-            rng.r#gen(),
+            rng.random(),
             AccountIdAnchor::PRE_GENESIS,
             TokenSymbol::try_from(input.token_symbol.as_str())?,
             input.decimals,

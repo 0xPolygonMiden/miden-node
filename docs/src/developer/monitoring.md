@@ -3,7 +3,7 @@
 Developer level overview of how we aim to use `tracing` and `open-telemetry` to provide monitoring and telemetry for the
 node.
 
-Please begin by reading through the [monitoring operator guide](/docs/operator.md#monitoring-telemetry) as this will
+Please begin by reading through the [monitoring operator guide](../operator/monitoring.md) as this will
 provide some much needed context.
 
 ## Approach and philosophy

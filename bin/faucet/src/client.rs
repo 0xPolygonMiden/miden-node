@@ -71,7 +71,7 @@ impl FaucetClient {
             Ok(account) => {
                 info!(
                     target: COMPONENT,
-                    hash = %account.hash(),
+                    commitment = %account.commitment(),
                     nonce = %account.nonce(),
                     "Received faucet account state from the node",
                 );
