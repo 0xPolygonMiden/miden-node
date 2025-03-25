@@ -16,7 +16,7 @@ version.workspace      = true
 workspace = true
 
 [dependencies]
-anyhow                    = "1.0"
+anyhow                    = { workspace = true }
 clap                      = { version = "4.5", features = ["derive", "string"] }
 miden-air                 = { workspace = true }
 miden-block-prover        = { version = "0.8", features = ["testing"] }
