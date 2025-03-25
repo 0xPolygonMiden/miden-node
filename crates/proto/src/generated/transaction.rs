@@ -21,11 +21,11 @@ pub struct TransactionSummary {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
-pub enum NetworkTransactionStatus {
+pub enum TransactionStatus {
     Commited = 0,
     Failed = 1,
 }
-impl NetworkTransactionStatus {
+impl TransactionStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
     /// The values are not transformed in any way and thus are considered stable

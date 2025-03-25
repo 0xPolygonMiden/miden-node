@@ -46,7 +46,7 @@ fn main() -> anyhow::Result<()> {
         proto_dir.join("block_producer.proto"),
         proto_dir.join("store.proto"),
         proto_dir.join("rpc.proto"),
-        proto_dir.join("network_transaction_builder.proto"),
+        proto_dir.join("ntx_builder.proto"),
     ];
     let includes = &[proto_dir];
     let file_descriptors = protox::compile(protos, includes)?;

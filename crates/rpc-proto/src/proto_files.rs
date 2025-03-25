@@ -1,5 +1,4 @@
 /// A list of tuples containing the names and contents of various protobuf files.
-#[rustfmt::skip]
 pub const PROTO_FILES: &[(&str, &str)] = &[
     ("account.proto", include_str!("../proto/account.proto")),
     ("block.proto", include_str!("../proto/block.proto")),
@@ -7,8 +6,8 @@ pub const PROTO_FILES: &[(&str, &str)] = &[
     ("digest.proto", include_str!("../proto/digest.proto")),
     ("merkle.proto", include_str!("../proto/merkle.proto")),
     ("mmr.proto", include_str!("../proto/mmr.proto")),
-    ("network_transaction_builder.proto", include_str!("../proto/network_transaction_builder.proto")),
     ("note.proto", include_str!("../proto/note.proto")),
+    ("ntx_builder.proto", include_str!("../proto/ntx_builder.proto")),
     ("requests.proto", include_str!("../proto/requests.proto")),
     ("responses.proto", include_str!("../proto/responses.proto")),
     ("rpc.proto", include_str!("../proto/rpc.proto")),

@@ -280,17 +280,3 @@ pub struct GetUnconsumedNetworkNotesResponse {
     #[prost(message, repeated, tag = "2")]
     pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
 }
-/// Represents the result of creating a network transaction.
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct CreateNetworkTransactionResponse {
-    /// The transaction ID.
-    #[prost(message, optional, tag = "1")]
-    pub transaction_id: ::core::option::Option<super::digest::Digest>,
-}
-/// Represents the result of updating a network transaction.
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct UpdateNetworkTransactionResponse {
-    /// The transaction status.
-    #[prost(enumeration = "super::transaction::NetworkTransactionStatus", tag = "1")]
-    pub status: i32,
-}

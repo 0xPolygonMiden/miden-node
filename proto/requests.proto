@@ -200,26 +200,26 @@ message GetUnconsumedNetworkNotesRequest {
     uint64 limit = 2;
 }
 
-// Creates a new network transaction.
-message CreateNetworkTransactionRequest {
-    // The network note that creates the transaction.
-    note.Note note = 1;
-    
-    // Id of the transaction that created the note.
-    digest.Digest transaction_id = 2;
+// Submit multiple network notes to create network transactions.
+message SubmitNetworkNotesRequest {    
+    // Id of the transaction that created the notes.
+    digest.Digest transaction_id = 1;
+
+    // The network notes to submit.
+    repeated note.Note note = 2;
 }
 
-// Updates the status of a network transaction.
-message UpdateNetworkTransactionRequest {
-    // Represents the update for a single network transaction.
-    message NetworkTransactionUpdate {
+// Updates the status of multiple transactions.
+message UpdateTransactionStatusRequest {
+    // Represents the update for a single transaction.
+    message TransactionUpdate {
         // Id of the transaction to update.
         digest.Digest transaction_id = 1;
 
         // New status of the transaction.
-        transaction.NetworkTransactionStatus status = 2;
+        transaction.TransactionStatus status = 2;
     }
 
-    // The list of updates for each network transaction.
-    repeated NetworkTransactionUpdate updates = 1;
+    // The list of updates for each transaction.
+    repeated TransactionUpdate updates = 1;
 }

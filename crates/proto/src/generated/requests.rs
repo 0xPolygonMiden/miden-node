@@ -224,38 +224,35 @@ pub struct GetUnconsumedNetworkNotesRequest {
     #[prost(uint64, tag = "2")]
     pub limit: u64,
 }
-/// Creates a new network transaction.
+/// Submit multiple network notes to create network transactions.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CreateNetworkTransactionRequest {
-    /// The network note that creates the transaction.
+pub struct SubmitNetworkNotesRequest {
+    /// Id of the transaction that created the notes.
     #[prost(message, optional, tag = "1")]
-    pub note: ::core::option::Option<super::note::Note>,
-    /// Id of the transaction that created the note.
-    #[prost(message, optional, tag = "2")]
     pub transaction_id: ::core::option::Option<super::digest::Digest>,
+    /// The network notes to submit.
+    #[prost(message, repeated, tag = "2")]
+    pub note: ::prost::alloc::vec::Vec<super::note::Note>,
 }
-/// Updates the status of a network transaction.
+/// Updates the status of multiple transactions.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct UpdateNetworkTransactionRequest {
-    /// The list of updates for each network transaction.
+pub struct UpdateTransactionStatusRequest {
+    /// The list of updates for each transaction.
     #[prost(message, repeated, tag = "1")]
     pub updates: ::prost::alloc::vec::Vec<
-        update_network_transaction_request::NetworkTransactionUpdate,
+        update_transaction_status_request::TransactionUpdate,
     >,
 }
-/// Nested message and enum types in `UpdateNetworkTransactionRequest`.
-pub mod update_network_transaction_request {
-    /// Represents the update for a single network transaction.
+/// Nested message and enum types in `UpdateTransactionStatusRequest`.
+pub mod update_transaction_status_request {
+    /// Represents the update for a single transaction.
     #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-    pub struct NetworkTransactionUpdate {
+    pub struct TransactionUpdate {
         /// Id of the transaction to update.
         #[prost(message, optional, tag = "1")]
         pub transaction_id: ::core::option::Option<super::super::digest::Digest>,
         /// New status of the transaction.
-        #[prost(
-            enumeration = "super::super::transaction::NetworkTransactionStatus",
-            tag = "2"
-        )]
+        #[prost(enumeration = "super::super::transaction::TransactionStatus", tag = "2")]
         pub status: i32,
     }
 }

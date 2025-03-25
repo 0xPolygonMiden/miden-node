@@ -22,7 +22,7 @@ message TransactionSummary {
     account.AccountId account_id = 3;
 }
 
-enum NetworkTransactionStatus {
+enum TransactionStatus {
     COMMITED = 0;
     FAILED = 1;
 }
