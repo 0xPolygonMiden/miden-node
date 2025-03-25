@@ -7,7 +7,7 @@ const RPC_PROTO: &str = "rpc.proto";
 const STORE_PROTO: &str = "store.proto";
 const BLOCK_PRODUCER_PROTO: &str = "block_producer.proto";
 
-/// Generates Rust protobuf bindings from .proto files in the root directory.
+/// Generates Rust protobuf bindings from .proto files.
 ///
 /// This is done only if `BUILD_PROTO` environment variable is set to `1` to avoid running the
 /// script on crates.io where repo-level .proto files are not available.

@@ -9,7 +9,7 @@ use miden_node_proto_build::{
 };
 use tonic_build::FileDescriptorSet;
 
-/// Generates Rust protobuf bindings from .proto files in the root directory.
+/// Generates Rust protobuf bindings using miden-node-proto-build.
 ///
 /// This is done only if `BUILD_PROTO` environment variable is set to `1` to avoid running the
 /// script on crates.io where repo-level .proto files are not available.
@@ -39,6 +39,8 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Generates protobuf bindings from the given file descriptor set and stores them in the
+/// given destination directory.
 fn generate_bindings(file_descriptors: FileDescriptorSet, dst_dir: &Path) -> anyhow::Result<()> {
     let mut prost_config = prost_build::Config::new();
     prost_config.skip_debug(["AccountId", "Digest"]);
