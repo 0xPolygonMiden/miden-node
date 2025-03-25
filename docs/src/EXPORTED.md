@@ -6,3 +6,4 @@
 - [Configuraton and Usage](./operator/configuration.md)
 - [Monitoring](./operator/monitoring.md)
 - [Versioning](./operator/versioning.md)
+- [gRPC Reference](./user/rpc.md)
