@@ -141,14 +141,14 @@ jobs:
       # The faucet uses the public faucet generated in the genesis block.
       - name: Configure environment
         uses: ./.github/actions/ssm_execute
+        env:
+          node_bin:   /usr/bin/miden-node
+          faucet_bin: /usr/bin/miden-faucet
         with:
           instance_id: ${{ secrets[env.instance-id] }}
           command: |
-            sudo /usr/bin/miden-node init -c /etc/opt/miden-node/miden-node.toml -g /etc/opt/miden-node/genesis.toml; \
-            sudo /usr/bin/miden-node make-genesis -i /etc/opt/miden-node/genesis.toml -o /opt/miden-node/genesis.dat --force; \
-            sudo /usr/bin/miden-faucet init -c /etc/opt/miden-faucet/miden-faucet.toml -f /opt/miden-faucet/accounts/faucet.mac; \
-            sudo mkdir /opt/miden-faucet/accounts; \
-            sudo cp /opt/miden-node/accounts/faucet.mac /opt/miden-faucet/accounts/faucet.mac; \
+            sudo ${{ env.node_bin }} bundled bootstrap --data-directory /opt/miden-node --accounts-directory /opt/miden-faucet; \
+            sudo ${{ env.faucet_bin }} init -c /etc/opt/miden-faucet/miden-faucet.toml -f /opt/miden-faucet/faucet.mac; \
             sudo chown -R miden-node /opt/miden-node; \
             sudo chown -R miden-faucet /opt/miden-faucet;
 
