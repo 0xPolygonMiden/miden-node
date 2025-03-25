@@ -22,11 +22,11 @@ use crate::{
 // BATCH BUILDER
 // ================================================================================================
 
-/// Builds [`TransactionBatch`] from sets of transactions.
+/// Builds [`ProvenBatch`] from sets of transactions.
 ///
-/// Transaction sets are pulled from the [Mempool] at a configurable interval, and passed to a pool
-/// of provers for proof generation. Proving is currently unimplemented and is instead simulated via
-/// the given proof time and failure rate.
+/// Transaction sets are pulled from the mempool at a configurable interval, and passed to
+/// a pool of provers for proof generation. Proving is currently unimplemented and is instead
+/// simulated via the given proof time and failure rate.
 pub struct BatchBuilder {
     /// Represents all batch building workers.
     ///
@@ -250,7 +250,7 @@ impl BatchJob {
 
     #[instrument(target = COMPONENT, name = "batch_builder.inject_failure", skip_all, err)]
     async fn inject_failure<T>(&self, value: T) -> Result<T, BuildBatchError> {
-        let roll = rand::thread_rng().r#gen::<f64>();
+        let roll = rand::rng().random::<f64>();
 
         Span::current().set_attribute("failure_rate", self.failure_rate);
         Span::current().set_attribute("dice_roll", roll);

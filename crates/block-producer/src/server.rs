@@ -244,11 +244,11 @@ impl BlockProducerRpcServer {
             target: COMPONENT,
             tx_id = %tx_id.to_hex(),
             account_id = %tx.account_id().to_hex(),
-            initial_account_hash = %tx.account_update().init_state_hash(),
-            final_account_hash = %tx.account_update().final_state_hash(),
+            initial_state_commitment = %tx.account_update().initial_state_commitment(),
+            final_state_commitment = %tx.account_update().final_state_commitment(),
             input_notes = %format_input_notes(tx.input_notes()),
             output_notes = %format_output_notes(tx.output_notes()),
-            block_ref = %tx.block_ref(),
+            ref_block_commitment = %tx.ref_block_commitment(),
             "Deserialized transaction"
         );
         debug!(target: COMPONENT, proof = ?tx.proof());

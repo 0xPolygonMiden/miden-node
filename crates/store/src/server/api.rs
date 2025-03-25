@@ -173,7 +173,7 @@ impl api_server::Api for StoreApi {
             .into_iter()
             .map(|account_info| AccountSummary {
                 account_id: Some(account_info.account_id.into()),
-                account_hash: Some(account_info.account_hash.into()),
+                account_commitment: Some(account_info.account_commitment.into()),
                 block_num: account_info.block_num.as_u32(),
             })
             .collect();
@@ -313,7 +313,7 @@ impl api_server::Api for StoreApi {
         info!(
             target: COMPONENT,
             block_num,
-            block_hash = %block.hash(),
+            block_commitment = %block.commitment(),
             account_count = block.updated_accounts().len(),
             note_count = block.output_notes().count(),
             nullifier_count = block.created_nullifiers().len(),
@@ -414,7 +414,7 @@ impl api_server::Api for StoreApi {
         Ok(Response::new(GetTransactionInputsResponse {
             account_state: Some(AccountTransactionInputRecord {
                 account_id: Some(account_id.into()),
-                account_hash: Some(tx_inputs.account_hash.into()),
+                account_commitment: Some(tx_inputs.account_commitment.into()),
             }),
             nullifiers: tx_inputs
                 .nullifiers

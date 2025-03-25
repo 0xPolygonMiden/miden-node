@@ -26,7 +26,7 @@ tonic            = { workspace = true }
 proptest = { version = "1.5" }
 
 [build-dependencies]
-anyhow      = { version = "1.0" }
+anyhow      = { workspace = true }
 prost       = { workspace = true }
 prost-build = { version = "0.13" }
 protox      = { version = "0.7" }

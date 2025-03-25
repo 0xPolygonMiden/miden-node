@@ -63,8 +63,8 @@ pub enum DatabaseError {
 
     // OTHER ERRORS
     // ---------------------------------------------------------------------------------------------
-    #[error("account hash mismatch (expected {expected}, but calculated is {calculated})")]
-    AccountHashesMismatch {
+    #[error("account commitment mismatch (expected {expected}, but calculated is {calculated})")]
+    AccountCommitmentsMismatch {
         expected: RpoDigest,
         calculated: RpoDigest,
     },
@@ -168,20 +168,20 @@ pub enum InvalidBlockError {
     DuplicatedNullifiers(Vec<Nullifier>),
     #[error("invalid output note type: {0:?}")]
     InvalidOutputNoteType(Box<OutputNote>),
-    #[error("invalid block tx hash: expected {expected}, but got {actual}")]
-    InvalidBlockTxHash { expected: RpoDigest, actual: RpoDigest },
+    #[error("invalid block tx commitment: expected {expected}, but got {actual}")]
+    InvalidBlockTxCommitment { expected: RpoDigest, actual: RpoDigest },
     #[error("received invalid account tree root")]
     NewBlockInvalidAccountRoot,
     #[error("new block number must be 1 greater than the current block number")]
     NewBlockInvalidBlockNum,
-    #[error("new block chain root is not consistent with chain MMR")]
-    NewBlockInvalidChainRoot,
+    #[error("new block chain commitment is not consistent with chain MMR")]
+    NewBlockInvalidChainCommitment,
     #[error("received invalid note root")]
     NewBlockInvalidNoteRoot,
     #[error("received invalid nullifier root")]
     NewBlockInvalidNullifierRoot,
-    #[error("new block `prev_hash` must match the chain's tip")]
-    NewBlockInvalidPrevHash,
+    #[error("new block `prev_block_commitment` must match the chain's tip")]
+    NewBlockInvalidPrevCommitment,
 }
 
 #[derive(Error, Debug)]
