@@ -16,16 +16,25 @@ fn main() -> anyhow::Result<()> {
     println!("cargo::rerun-if-env-changed=BUILD_PROTO");
 
     let out = env::var("OUT_DIR").context("env::OUT_DIR not set")?;
-    let file_descriptor_path = PathBuf::from(out).join("file_descriptor_set.bin");
 
     let crate_root: PathBuf = env!("CARGO_MANIFEST_DIR").into();
     let proto_dir = crate_root.join("proto");
-
     let includes = &[proto_dir];
-    let file_descriptors =
-        protox::compile([RPC_PROTO, STORE_PROTO, BLOCK_PRODUCER_PROTO], includes)?;
-    fs::write(&file_descriptor_path, file_descriptors.encode_to_vec())
-        .context("writing file descriptors")?;
+
+    let rpc_file_descriptor = protox::compile([RPC_PROTO], includes)?;
+    let rpc_path = PathBuf::from(&out).join("rpc_file_descriptor.bin");
+    fs::write(&rpc_path, rpc_file_descriptor.encode_to_vec())
+        .context("writing rpc file descriptor")?;
+
+    let store_file_descriptor = protox::compile([STORE_PROTO], includes)?;
+    let store_path = PathBuf::from(&out).join("store_file_descriptor.bin");
+    fs::write(&store_path, store_file_descriptor.encode_to_vec())
+        .context("writing store file descriptor")?;
+
+    let block_producer_file_descriptor = protox::compile([BLOCK_PRODUCER_PROTO], includes)?;
+    let block_producer_path = PathBuf::from(&out).join("block_producer_file_descriptor.bin");
+    fs::write(&block_producer_path, block_producer_file_descriptor.encode_to_vec())
+        .context("writing block producer file descriptor")?;
 
     Ok(())
 }

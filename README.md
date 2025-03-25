@@ -192,11 +192,6 @@ batch_prover_url = "<BATCH_PROVER_URL>"
 block_prover_url = "<BLOCK_PROVER_URL>"
 ```
 
-### Proto files
-This repo also contains the [proto definitions](proto/proto) for the gRPC API.
-
-To generate proto bindings in a Rust project, you can use the `miden-node-proto-build` crate. See the crate's [README.md](proto/README.md) for details on how to do it.
-
 ### Monitoring and telemetry
 
 Please see our operator documentation [here](docs/operator.md).
@@ -226,6 +221,11 @@ testsuite using
 ```sh
 make test
 ```
+
+## gRPC bindings
+This repo also contains the [proto definitions](proto/proto) for the gRPC API.
+
+To generate proto bindings in a Rust project, you can use the `miden-node-proto-build` crate. See the crate's [README.md](proto/README.md) for details on how to do it.
 
 ## License
 

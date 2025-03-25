@@ -1,28 +1,20 @@
-use std::{env, path::PathBuf};
-
+use protox::prost::Message;
 use tonic_build::FileDescriptorSet;
 
-const RPC_PROTO: &str = "rpc.proto";
-
-#[cfg(feature = "internal")]
-const STORE_PROTO: &str = "store.proto";
-
-#[cfg(feature = "internal")]
-const BLOCK_PRODUCER_PROTO: &str = "block_producer.proto";
-
-pub fn rpc_file_descriptor() -> Result<FileDescriptorSet, protox::Error> {
-    let proto_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("proto");
-    protox::compile([RPC_PROTO], &[proto_dir])
+pub fn rpc_api_descriptor() -> FileDescriptorSet {
+    let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/", "rpc_file_descriptor.bin"));
+    FileDescriptorSet::decode(&bytes[..]).expect("Failed to decode rpc FileDescriptorSet")
 }
 
 #[cfg(feature = "internal")]
-pub fn store_file_descriptor() -> Result<FileDescriptorSet, protox::Error> {
-    let proto_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("proto");
-    protox::compile([STORE_PROTO], &[proto_dir])
+pub fn store_api_descriptor() -> FileDescriptorSet {
+    let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/", "store_file_descriptor.bin"));
+    FileDescriptorSet::decode(&bytes[..]).expect("Failed to decode store FileDescriptorSet")
 }
 
 #[cfg(feature = "internal")]
-pub fn block_producer_file_descriptor() -> Result<FileDescriptorSet, protox::Error> {
-    let proto_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("proto");
-    protox::compile([BLOCK_PRODUCER_PROTO], &[proto_dir])
+pub fn block_producer_api_descriptor() -> FileDescriptorSet {
+    let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/", "block_producer_file_descriptor.bin"));
+    FileDescriptorSet::decode(&bytes[..])
+        .expect("Failed to decode block producer FileDescriptorSet")
 }
