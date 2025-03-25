@@ -49,5 +49,9 @@ can know for certain it was evicted.
 
 ---
 
+## Crate Features
+
+- `tracing-forest`: sets logging using tracing-forest. Disabled by default.
+
 ## License
 This project is [MIT licensed](../../LICENSE).
