@@ -129,7 +129,7 @@ impl AuthenticatedTransaction {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 impl AuthenticatedTransaction {
     //! Builder methods intended for easier test setup.
 

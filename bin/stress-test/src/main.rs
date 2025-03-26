@@ -1,6 +1,6 @@
 use std::{
-    path::{Path, PathBuf},
-    process::Command as SystemCommand,
+    collections::BTreeMap,
+    path::PathBuf,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -17,7 +17,12 @@ use miden_lib::{
     utils::Serializable,
 };
 use miden_node_block_producer::store::StoreClient;
-use miden_node_proto::{domain::batch::BatchInputs, generated::store::api_client::ApiClient};
+use miden_node_proto::{
+    domain::batch::BatchInputs,
+    generated::{
+        account as account_proto, requests::SyncStateRequest, store::api_client::ApiClient,
+    },
+};
 use miden_node_store::{GENESIS_STATE_FILENAME, genesis::GenesisState, server::Store};
 use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
@@ -32,7 +37,7 @@ use miden_objects::{
         dsa::rpo_falcon512::{PublicKey, SecretKey},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteHeader, NoteId, NoteInclusionProof},
+    note::{Note, NoteExecutionMode, NoteHeader, NoteId, NoteInclusionProof, NoteTag},
     transaction::{InputNote, InputNotes, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
 };
@@ -41,7 +46,8 @@ use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
     prelude::ParallelSlice,
 };
-use tokio::{fs, net::TcpListener, task};
+use tokio::{fs, io::AsyncWriteExt, net::TcpListener, task};
+use tonic::{service::interceptor::InterceptedService, transport::Channel};
 use winterfell::Proof;
 
 // CONSTANTS
@@ -51,6 +57,7 @@ const BATCHES_PER_BLOCK: usize = 16;
 const TRANSACTIONS_PER_BATCH: usize = 16;
 
 const STORE_FILENAME: &str = "miden-store.sqlite3";
+const ACCOUNTS_FILENAME: &str = "accounts.txt";
 
 // CLI
 // ================================================================================================
@@ -86,10 +93,6 @@ pub enum Command {
         /// Iterations of the sync request.
         #[arg(short, long, value_name = "ITERATIONS", default_value = "1")]
         iterations: usize,
-
-        /// Path to the accounts file with the dumped public account ids.
-        #[arg(short, long, value_name = "ACCOUNTS_FILE", default_value = "./accounts.txt")]
-        accounts_file: PathBuf,
     },
 }
 
@@ -101,12 +104,8 @@ async fn main() {
         Command::SeedStore { data_directory, num_accounts } => {
             seed_store(data_directory, num_accounts).await;
         },
-        Command::BenchSyncRequest {
-            data_directory,
-            iterations,
-            accounts_file,
-        } => {
-            bench_sync_request(data_directory, *iterations, accounts_file).await;
+        Command::BenchSyncRequest { data_directory, iterations } => {
+            bench_sync_request(data_directory, iterations).await;
         },
     }
 }
@@ -120,6 +119,7 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
 
     let genesis_filepath = data_directory.join(GENESIS_STATE_FILENAME);
     let database_filepath = data_directory.join(STORE_FILENAME);
+    let accounts_filepath = data_directory.join(ACCOUNTS_FILENAME);
 
     // if the data_directory does not exist, create it
     if !data_directory.exists() {
@@ -164,9 +164,15 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
 
     // start generating blocks
     let genesis_header = genesis_state.into_block().unwrap();
-    let metrics =
-        generate_blocks(num_accounts, faucet, genesis_header, &store_client, database_filepath)
-            .await;
+    let metrics = generate_blocks(
+        num_accounts,
+        faucet,
+        genesis_header,
+        &store_client,
+        database_filepath,
+        accounts_filepath,
+    )
+    .await;
 
     println!("Total time: {:.3} seconds", start.elapsed().as_secs_f64());
     println!("{metrics}");
@@ -182,6 +188,7 @@ async fn generate_blocks(
     genesis_block: ProvenBlock,
     store_client: &StoreClient,
     database_filepath: PathBuf,
+    accounts_filepath: PathBuf,
 ) -> Metrics {
     // Each block is composed of [`BATCHES_PER_BLOCK`] batches, and each batch is composed of
     // [`TRANSACTIONS_PER_BATCH`] txs. The first note of the block is always a send assets tx
@@ -189,6 +196,7 @@ async fn generate_blocks(
     // the notes are consume note txs from the (BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH) - 1
     // accounts that were minted in the previous block.
     let mut metrics = Metrics::new(database_filepath);
+    let mut account_ids = vec![];
 
     let mut consume_notes_txs = vec![];
 
@@ -219,6 +227,7 @@ async fn generate_blocks(
             faucet.id(),
             i,
         );
+        account_ids.extend(accounts.iter().map(Account::id));
 
         // create the tx that creates the notes
         let emit_note_tx = create_emit_note_tx(prev_block.header(), &mut faucet, notes.clone());
@@ -257,6 +266,13 @@ async fn generate_blocks(
             metrics.record_store_size();
         }
     }
+
+    // Dump account ids to a file
+    let mut file = fs::File::create(accounts_filepath).await.unwrap();
+    for id in account_ids {
+        file.write_all(format!("{id}\n").as_bytes()).await.unwrap();
+    }
+
     metrics
 }
 
@@ -366,7 +382,7 @@ fn create_faucet() -> Account {
 }
 
 /// Creates a proven batch from a list of transactions and a reference block.
-fn create_batch(txs: &[ProvenTransaction], block_ref: BlockHeader) -> ProvenBatch {
+fn create_batch(txs: &[ProvenTransaction], block_ref: &BlockHeader) -> ProvenBatch {
     let account_updates = txs
         .iter()
         .map(|tx| (tx.account_id(), BatchAccountUpdate::from_transaction(tx)))
@@ -386,7 +402,7 @@ fn create_batch(txs: &[ProvenTransaction], block_ref: BlockHeader) -> ProvenBatc
 
 /// For each pair of account and note, creates a transaction that consumes the note.
 fn create_consume_note_txs(
-    block_ref: BlockHeader,
+    block_ref: &BlockHeader,
     accounts: Vec<Account>,
     notes: Vec<Note>,
     note_proofs: &BTreeMap<NoteId, NoteInclusionProof>,
@@ -409,7 +425,7 @@ fn create_consume_note_txs(
 ///
 /// The account is updated with the assets from the input note, and the nonce is set to 1.
 fn create_consume_note_tx(
-    block_ref: BlockHeader,
+    block_ref: &BlockHeader,
     account: &mut Account,
     input_note: InputNote,
 ) -> ProvenTransaction {
@@ -437,7 +453,7 @@ fn create_consume_note_tx(
 /// Creates a transaction from the faucet that creates the given output notes.
 /// Updates the faucet account to increase the issuance slot and it's nonce.
 fn create_emit_note_tx(
-    block_ref: BlockHeader,
+    block_ref: &BlockHeader,
     faucet: &mut Account,
     output_notes: Vec<Note>,
 ) -> ProvenTransaction {
@@ -467,7 +483,7 @@ fn create_emit_note_tx(
 /// Gets the batch inputs from the store and tracks the query time on the metrics.
 async fn get_batch_inputs(
     store_client: &StoreClient,
-    block_ref: BlockHeader,
+    block_ref: &BlockHeader,
     notes: &[Note],
     metrics: &mut Metrics,
 ) -> BatchInputs {
@@ -515,11 +531,10 @@ async fn get_block_inputs(
 // ================================================================================================
 
 /// Sends a sync request to the store and measures the performance.
-async fn bench_sync_request(data_directory: PathBuf, iterations: usize, accounts_file: PathBuf) {
+async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
     let start = Instant::now();
 
-    let genesis_filepath = data_directory.join(GENESIS_STATE_FILENAME);
-    let database_filepath = data_directory.join(STORE_FILENAME);
+    let accounts_file = data_directory.join(ACCOUNTS_FILENAME);
 
     // Start store
     let store_addr = {
@@ -531,7 +546,7 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize, accounts
     };
 
     // connect to the store
-    let store_client = {
+    let mut store_client = {
         let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
             .unwrap()
             .connect()
@@ -543,7 +558,7 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize, accounts
     // Send sync request and measure performance
     // Read the account ids from the file
     // If iterations > accounts_file, repeat the account ids
-    let accounts = tokio::fs::read_to_string(accounts_file).await.unwrap();
+    let accounts = fs::read_to_string(accounts_file).await.unwrap();
     let accounts: Vec<&str> = accounts.lines().collect();
 
     let mut account_ids = accounts.iter().cycle();
@@ -569,7 +584,7 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize, accounts
 }
 
 async fn send_sync_request(
-    api_client: &mut ApiClient<tonic::transport::Channel>,
+    api_client: &mut ApiClient<InterceptedService<Channel, OtelInterceptor>>,
     account_ids: Vec<String>,
 ) -> Duration {
     let account_ids = account_ids
@@ -587,21 +602,9 @@ async fn send_sync_request(
         .map(|id| account_proto::AccountId { id: id.to_bytes() })
         .collect::<Vec<_>>();
 
-    let sync_request = SyncStateRequest {
-        block_num: 0,
-        note_tags,
-        account_ids,
-        nullifiers: vec![],
-    };
+    let sync_request = SyncStateRequest { block_num: 0, note_tags, account_ids };
 
     let start = Instant::now();
     assert!(api_client.sync_state(sync_request).await.is_ok());
     start.elapsed()
-}
-
-async fn dump_account_ids(mut receiver: UnboundedReceiver<AccountId>, file: PathBuf) {
-    let mut file = tokio::fs::File::create(file).await.unwrap();
-    while let Some(account_id) = receiver.recv().await {
-        file.write_all(format!("{account_id}\n").as_bytes()).await.unwrap();
-    }
 }

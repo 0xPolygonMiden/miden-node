@@ -15,7 +15,6 @@ version.workspace      = true
 workspace = true
 
 [features]
-testing        = ["dep:miden-air", "dep:miden-node-test-macro", "dep:rand_chacha", "dep:winterfell"]
 tracing-forest = ["miden-node-utils/tracing-forest"]
 
 [dependencies]
@@ -42,6 +41,7 @@ url                          = { workspace = true }
 
 [dev-dependencies]
 assert_matches        = { workspace = true }
+miden-air             = { workspace = true }
 miden-lib             = { workspace = true, features = ["testing"] }
 miden-node-test-macro = { workspace = true }
 miden-objects         = { workspace = true, features = ["testing"] }

@@ -1,10 +1,10 @@
 use std::num::NonZeroUsize;
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 pub mod test_utils;
 
-pub mod batch_builder;
-pub mod block_builder;
+mod batch_builder;
+mod block_builder;
 mod domain;
 mod errors;
 mod mempool;

@@ -2345,25 +2345,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "miden-node-stress-test"
-version = "0.8.0"
-dependencies = [
- "anyhow",
- "clap",
- "miden-lib",
- "miden-node-block-producer",
- "miden-node-proto",
- "miden-node-store",
- "miden-node-utils",
- "miden-objects",
- "miden-processor",
- "rand",
- "rayon",
- "tokio",
- "tonic",
-]
-
-[[package]]
 name = "miden-node-test-macro"
 version = "0.1.0"
 dependencies = [

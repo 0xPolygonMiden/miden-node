@@ -6,9 +6,7 @@ use miden_objects::{
     Digest, Felt, Hasher, ONE,
     account::AccountId,
     block::BlockNumber,
-    note::{
-        Note, NoteExecutionHint, NoteHeader, NoteInclusionProof, NoteMetadata, NoteType, Nullifier,
-    },
+    note::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
     transaction::{InputNote, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
 };
@@ -23,7 +21,6 @@ pub struct MockProvenTxBuilder {
     initial_account_commitment: Digest,
     final_account_commitment: Digest,
     expiration_block_num: BlockNumber,
-    account_update_details: AccountUpdateDetails,
     output_notes: Option<Vec<OutputNote>>,
     input_notes: Option<Vec<InputNote>>,
     nullifiers: Option<Vec<Nullifier>>,
@@ -65,7 +62,6 @@ impl MockProvenTxBuilder {
             initial_account_commitment,
             final_account_commitment,
             expiration_block_num: u32::MAX.into(),
-            account_update_details: AccountUpdateDetails::Private,
             output_notes: None,
             input_notes: None,
             nullifiers: None,
@@ -75,18 +71,6 @@ impl MockProvenTxBuilder {
     #[must_use]
     pub fn unauthenticated_notes(mut self, notes: Vec<Note>) -> Self {
         self.input_notes = Some(notes.into_iter().map(InputNote::unauthenticated).collect());
-
-        self
-    }
-
-    #[must_use]
-    pub fn authenticated_notes(mut self, notes: Vec<(Note, NoteInclusionProof)>) -> Self {
-        self.input_notes = Some(
-            notes
-                .into_iter()
-                .map(|(note, proof)| InputNote::authenticated(note, proof))
-                .collect(),
-        );
 
         self
     }
@@ -108,13 +92,6 @@ impl MockProvenTxBuilder {
     #[must_use]
     pub fn output_notes(mut self, notes: Vec<OutputNote>) -> Self {
         self.output_notes = Some(notes);
-
-        self
-    }
-
-    #[must_use]
-    pub fn account_update_details(mut self, update_details: AccountUpdateDetails) -> Self {
-        self.account_update_details = update_details;
 
         self
     }
@@ -166,7 +143,6 @@ impl MockProvenTxBuilder {
         .add_input_notes(self.input_notes.unwrap_or_default())
         .add_input_notes(self.nullifiers.unwrap_or_default())
         .add_output_notes(self.output_notes.unwrap_or_default())
-        .account_update_details(self.account_update_details)
         .build()
         .unwrap()
     }

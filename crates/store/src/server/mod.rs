@@ -65,36 +65,6 @@ impl Store {
         })
     }
 
-    // TODO: this is needed? init should connect to existing db
-    // pub async fn with_existing_db(listener: TcpListener) -> Result<Self, ApiError> {
-    //     info!(target: COMPONENT, %config, "Loading existing database");
-    //     let block_store = Arc::new(BlockStore::new(config.blockstore_dir.clone()).await.unwrap());
-
-    //     let db = Db::existing(config.clone(), Arc::clone(&block_store))
-    //         .await
-    //         .map_err(|err| ApiError::ApiInitialisationFailed(err.to_string()))
-    //         .unwrap();
-
-    //     let state = Arc::new(
-    //         State::load(db, block_store)
-    //             .await
-    //             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))
-    //             .unwrap(),
-    //     );
-
-    //     let db_maintenance_service =
-    //         DbMaintenance::new(Arc::clone(&state), DATABASE_MAINTENANCE_INTERVAL);
-    //     let api_service = api_server::ApiServer::new(api::StoreApi { state });
-
-    //     info!(target: COMPONENT, "Database loaded");
-
-    //     Ok(Self {
-    //         api_service,
-    //         db_maintenance_service,
-    //         listener,
-    //     })
-    // }
-
     /// Serves the store's RPC API.
     ///
     /// Note: this blocks until the server dies.
