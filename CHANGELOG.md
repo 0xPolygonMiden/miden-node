@@ -35,6 +35,7 @@
 - [BREAKING] Added `block_prover_url` to block producer configuration (#719).
 - [BREAKING] Updated to Rust Edition 2024 (#727).
 - [BREAKING] MSRV bumped to 1.85 (#727).
+- [BREAKING] Removed `miden-rpc-proto` and introduced `miden-node-proto-build` (#723). 
 - [BREAKING] Replaced `toml` configuration with CLI (#732).
 - [BREAKING] Renamed multiple `xxx_hash` to `xxx_commitment` in RPC API (#757).
 

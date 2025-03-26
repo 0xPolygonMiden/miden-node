@@ -6,10 +6,10 @@ members = [
   "crates/block-producer",
   "crates/proto",
   "crates/rpc",
-  "crates/rpc-proto",
   "crates/store",
   "crates/test-macro",
   "crates/utils",
+  "proto",
 ]
 
 resolver = "2"
@@ -38,6 +38,7 @@ miden-air                 = { version = "0.13" }
 miden-lib                 = { version = "0.8" }
 miden-node-block-producer = { path = "crates/block-producer", version = "0.8" }
 miden-node-proto          = { path = "crates/proto", version = "0.8" }
+miden-node-proto-build    = { path = "proto", version = "0.8" }
 miden-node-rpc            = { path = "crates/rpc", version = "0.8" }
 miden-node-store          = { path = "crates/store", version = "0.8" }
 miden-node-test-macro     = { path = "crates/test-macro" }

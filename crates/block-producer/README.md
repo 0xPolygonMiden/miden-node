@@ -10,7 +10,7 @@ For more information on the installation and operation of this component, please
 
 ## API
 
-The full gRPC API can be found [here](../../proto/block_producer.proto).
+The full gRPC API can be found [here](../../proto/proto/block_producer.proto).
 
 ---
 
