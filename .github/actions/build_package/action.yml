@@ -40,20 +40,12 @@ runs:
     - name: Copy package install scripts
       shell: bash
       run: |
-        # git show ${{ steps.git-sha.outputs.sha }}:packaging/node/miden-node.service     > packaging/deb/miden-node/lib/systemd/system/miden-node.service
-        # git show ${{ steps.git-sha.outputs.sha }}:packaging/node/postinst               > packaging/deb/miden-node/DEBIAN/postinst
-        # git show ${{ steps.git-sha.outputs.sha }}:packaging/node/postrm                 > packaging/deb/miden-node/DEBIAN/postrm
-        # git show ${{ steps.git-sha.outputs.sha }}:packaging/faucet/miden-faucet.service > packaging/deb/miden-faucet/lib/systemd/system/miden-faucet.service
-        # git show ${{ steps.git-sha.outputs.sha }}:packaging/faucet/postinst             > packaging/deb/miden-faucet/DEBIAN/postinst
-        # git show ${{ steps.git-sha.outputs.sha }}:packaging/faucet/postrm               > packaging/deb/miden-faucet/DEBIAN/postrm
-
-        # This is temporary until these files land on main.
-        cp packaging/node/miden-node.service     packaging/deb/miden-node/lib/systemd/system/miden-node.service
-        cp packaging/node/postinst               packaging/deb/miden-node/DEBIAN/postinst
-        cp packaging/node/postrm                 packaging/deb/miden-node/DEBIAN/postrm
-        cp packaging/faucet/miden-faucet.service packaging/deb/miden-faucet/lib/systemd/system/miden-faucet.service
-        cp packaging/faucet/postinst             packaging/deb/miden-faucet/DEBIAN/postinst
-        cp packaging/faucet/postrm               packaging/deb/miden-faucet/DEBIAN/postrm
+        git show ${{ steps.git-sha.outputs.sha }}:packaging/node/miden-node.service     > packaging/deb/miden-node/lib/systemd/system/miden-node.service
+        git show ${{ steps.git-sha.outputs.sha }}:packaging/node/postinst               > packaging/deb/miden-node/DEBIAN/postinst
+        git show ${{ steps.git-sha.outputs.sha }}:packaging/node/postrm                 > packaging/deb/miden-node/DEBIAN/postrm
+        git show ${{ steps.git-sha.outputs.sha }}:packaging/faucet/miden-faucet.service > packaging/deb/miden-faucet/lib/systemd/system/miden-faucet.service
+        git show ${{ steps.git-sha.outputs.sha }}:packaging/faucet/postinst             > packaging/deb/miden-faucet/DEBIAN/postinst
+        git show ${{ steps.git-sha.outputs.sha }}:packaging/faucet/postrm               > packaging/deb/miden-faucet/DEBIAN/postrm
 
         chmod 0775 packaging/deb/miden-node/DEBIAN/postinst
         chmod 0775 packaging/deb/miden-node/DEBIAN/postrm

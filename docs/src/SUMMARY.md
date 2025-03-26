@@ -30,3 +30,7 @@
 - [Common issues other oddities](./developer/oddities.md)
 
 ---
+
+# gRPC Reference
+
+- [RPC Reference](./user/rpc.md)
