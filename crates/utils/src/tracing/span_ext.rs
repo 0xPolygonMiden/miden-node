@@ -104,9 +104,10 @@ where
     fn set_error(&self, err: &dyn std::error::Error) {
         // Coalesce all sources into one string.
         let mut description = format!("{err}");
-        let current = err;
+        let mut current = err;
         while let Some(cause) = current.source() {
             description.push_str(format!("\nCaused by: {cause}").as_str());
+            current = cause;
         }
         tracing_opentelemetry::OpenTelemetrySpanExt::set_status(
             self,
