@@ -1,5 +1,0 @@
-asset_amount_options = [100, 1000, 500]
-endpoint             = { host = "localhost", port = 8080 }
-faucet_account_path  = "accounts/faucet.mac"
-node_url             = "http://localhost:57291"
-timeout_ms           = 10000

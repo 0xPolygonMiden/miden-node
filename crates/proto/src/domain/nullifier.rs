@@ -35,40 +35,36 @@ impl TryFrom<proto::digest::Digest> for Nullifier {
     }
 }
 
-// NULLIFIER INPUT RECORD
+// NULLIFIER WITNESS RECORD
 // ================================================================================================
 
 #[derive(Clone, Debug)]
-pub struct NullifierWitness {
+pub struct NullifierWitnessRecord {
     pub nullifier: Nullifier,
     pub proof: SmtProof,
 }
 
-impl TryFrom<proto::responses::NullifierBlockInputRecord> for NullifierWitness {
+impl TryFrom<proto::responses::NullifierWitness> for NullifierWitnessRecord {
     type Error = ConversionError;
 
     fn try_from(
-        nullifier_input_record: proto::responses::NullifierBlockInputRecord,
+        nullifier_witness_record: proto::responses::NullifierWitness,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
-            nullifier: nullifier_input_record
+            nullifier: nullifier_witness_record
                 .nullifier
-                .ok_or(proto::responses::NullifierBlockInputRecord::missing_field(stringify!(
-                    nullifier
-                )))?
+                .ok_or(proto::responses::NullifierWitness::missing_field(stringify!(nullifier)))?
                 .try_into()?,
-            proof: nullifier_input_record
+            proof: nullifier_witness_record
                 .opening
-                .ok_or(proto::responses::NullifierBlockInputRecord::missing_field(stringify!(
-                    opening
-                )))?
+                .ok_or(proto::responses::NullifierWitness::missing_field(stringify!(opening)))?
                 .try_into()?,
         })
     }
 }
 
-impl From<NullifierWitness> for proto::responses::NullifierBlockInputRecord {
-    fn from(value: NullifierWitness) -> Self {
+impl From<NullifierWitnessRecord> for proto::responses::NullifierWitness {
+    fn from(value: NullifierWitnessRecord) -> Self {
         Self {
             nullifier: Some(value.nullifier.into()),
             opening: Some(value.proof.into()),

@@ -1,24 +1,24 @@
-use std::{collections::BTreeSet, ops::Range};
+use std::ops::Range;
 
-use miden_node_utils::formatting::format_array;
+use futures::{FutureExt, never::Never};
+use miden_block_prover::LocalBlockProver;
+use miden_node_utils::tracing::OpenTelemetrySpanExt;
 use miden_objects::{
-    account::AccountId,
-    block::Block,
-    note::{NoteHeader, Nullifier},
-    transaction::{InputNoteCommitment, OutputNote},
+    MIN_PROOF_SECURITY_LEVEL,
+    batch::ProvenBatch,
+    block::{BlockInputs, BlockNumber, ProposedBlock, ProvenBlock},
+    note::NoteHeader,
 };
+use miden_proving_service_client::proving_service::block_prover::RemoteBlockProver;
 use rand::Rng;
 use tokio::time::Duration;
-use tracing::{debug, info, instrument};
+use tracing::{Span, info, instrument};
+use url::Url;
 
 use crate::{
-    batch_builder::batch::TransactionBatch, errors::BuildBlockError, mempool::SharedMempool,
-    store::StoreClient, COMPONENT, SERVER_BLOCK_FREQUENCY,
+    COMPONENT, TelemetryInjectorExt, errors::BuildBlockError, mempool::SharedMempool,
+    store::StoreClient,
 };
-
-pub(crate) mod prover;
-
-use self::prover::{block_witness::BlockWitness, BlockProver};
 
 // BLOCK BUILDER
 // =================================================================================================
@@ -31,20 +31,34 @@ pub struct BlockBuilder {
     /// Simulated block failure rate as a percentage.
     ///
     /// Note: this _must_ be sign positive and less than 1.0.
-    pub failure_rate: f32,
+    pub failure_rate: f64,
 
     pub store: StoreClient,
-    pub block_kernel: BlockProver,
+
+    /// The prover used to prove a proposed block into a proven block.
+    pub block_prover: BlockProver,
 }
 
 impl BlockBuilder {
-    pub fn new(store: StoreClient) -> Self {
+    /// Creates a new [`BlockBuilder`] with the given [`StoreClient`] and optional block prover URL.
+    ///
+    /// If the block prover URL is not set, the block builder will use the local block prover.
+    pub fn new(
+        store: StoreClient,
+        block_prover_url: Option<Url>,
+        block_interval: Duration,
+    ) -> Self {
+        let block_prover = match block_prover_url {
+            Some(url) => BlockProver::new_remote(url),
+            None => BlockProver::new_local(MIN_PROOF_SECURITY_LEVEL),
+        };
+
         Self {
-            block_interval: SERVER_BLOCK_FREQUENCY,
+            block_interval,
             // Note: The range cannot be empty.
             simulated_proof_time: Duration::ZERO..Duration::from_millis(1),
             failure_rate: 0.0,
-            block_kernel: BlockProver::new(),
+            block_prover,
             store,
         }
     }
@@ -71,103 +85,310 @@ impl BlockBuilder {
         loop {
             interval.tick().await;
 
-            let (block_number, batches) = mempool.lock().await.select_block();
-
-            let mut result = self.build_block(&batches).await;
-            let proving_duration = rand::thread_rng().gen_range(self.simulated_proof_time.clone());
-
-            tokio::time::sleep(proving_duration).await;
-
-            // Randomly inject failures at the given rate.
-            //
-            // Note: Rng::gen rolls between [0, 1.0) for f32, so this works as expected.
-            if rand::thread_rng().gen::<f32>() < self.failure_rate {
-                result = Err(BuildBlockError::InjectedFailure);
-            }
-
-            let mut mempool = mempool.lock().await;
-            match result {
-                Ok(_) => mempool.block_committed(block_number),
-                Err(_) => mempool.block_failed(block_number),
-            }
+            self.build_block(&mempool).await;
         }
     }
 
-    #[instrument(target = COMPONENT, skip_all, err)]
-    pub async fn build_block(&self, batches: &[TransactionBatch]) -> Result<(), BuildBlockError> {
-        info!(
-            target: COMPONENT,
-            num_batches = batches.len(),
-            batches = %format_array(batches.iter().map(TransactionBatch::id)),
-        );
+    /// Run the block building stages and add open-telemetry trace information where applicable.
+    ///
+    /// A failure in any stage will result in that block being rolled back.
+    ///
+    /// ## Telemetry
+    ///
+    /// - Creates a new root span which means each block gets its own complete trace.
+    /// - Important telemetry fields are added to the root span with the `block.xxx` prefix.
+    /// - Each stage has its own child span and are free to add further field data.
+    /// - A failed stage will emit an error event, and both its own span and the root span will be
+    ///   marked as errors.
+    #[instrument(parent = None, target = COMPONENT, name = "block_builder.build_block", skip_all)]
+    async fn build_block(&self, mempool: &SharedMempool) {
+        use futures::TryFutureExt;
 
-        let updated_account_set: BTreeSet<AccountId> = batches
-            .iter()
-            .flat_map(TransactionBatch::updated_accounts)
-            .map(|(account_id, _)| *account_id)
-            .collect();
+        Self::select_block(mempool)
+            .inspect(SelectedBlock::inject_telemetry)
+            .then(|selected| self.get_block_inputs(selected))
+            .inspect_ok(BlockBatchesAndInputs::inject_telemetry)
+            .and_then(|inputs| self.propose_block(inputs))
+            .inspect_ok(ProposedBlock::inject_telemetry)
+            .and_then(|inputs| self.prove_block(inputs))
+            .inspect_ok(ProvenBlock::inject_telemetry)
+            // Failure must be injected before the final pipeline stage i.e. before commit is called. The system cannot
+            // handle errors after it considers the process complete (which makes sense).
+            .and_then(|proven_block| async { self.inject_failure(proven_block) })
+            .and_then(|proven_block| self.commit_block(mempool, proven_block))
+            // Handle errors by propagating the error to the root span and rolling back the block.
+            .inspect_err(|err| Span::current().set_error(err))
+            .or_else(|_err| self.rollback_block(mempool).never_error())
+            // Error has been handled, this is just type manipulation to remove the result wrapper.
+            .unwrap_or_else(|_: Never| ())
+            .await;
+    }
 
-        let output_notes: Vec<_> =
-            batches.iter().map(TransactionBatch::output_notes).cloned().collect();
+    #[instrument(target = COMPONENT, name = "block_builder.select_block", skip_all)]
+    async fn select_block(mempool: &SharedMempool) -> SelectedBlock {
+        let (block_number, batches) = mempool.lock().await.select_block();
+        SelectedBlock { block_number, batches }
+    }
 
-        let produced_nullifiers: Vec<Nullifier> =
-            batches.iter().flat_map(TransactionBatch::produced_nullifiers).collect();
+    /// Fetches block inputs from the store for the [`SelectedBlock`].
+    ///
+    /// For a given set of batches, we need to get the following block inputs from the store:
+    ///
+    /// - Note inclusion proofs for unauthenticated notes (not required to be complete due to the
+    ///   possibility of note erasure)
+    /// - A chain MMR with:
+    ///   - All blocks referenced by batches
+    ///   - All blocks referenced by note inclusion proofs
+    /// - Account witnesses for all accounts updated in the block
+    /// - Nullifier witnesses for all nullifiers created in the block
+    ///   - Due to note erasure the set of nullifiers the block creates it not necessarily equal to
+    ///     the union of all nullifiers created in proven batches. However, since we don't yet know
+    ///     which nullifiers the block will actually create, we fetch witnesses for all nullifiers
+    ///     created by batches. If we knew that a certain note will be erased, we would not have to
+    ///     supply a nullifier witness for it.
+    #[instrument(target = COMPONENT, name = "block_builder.get_block_inputs", skip_all, err)]
+    async fn get_block_inputs(
+        &self,
+        selected_block: SelectedBlock,
+    ) -> Result<BlockBatchesAndInputs, BuildBlockError> {
+        let SelectedBlock { block_number: _, batches } = selected_block;
 
-        // Populate set of output notes from all batches
-        let output_notes_set: BTreeSet<_> =
-            output_notes.iter().flat_map(|batch| batch.iter().map(OutputNote::id)).collect();
+        let batch_iter = batches.iter();
 
-        // Build a set of unauthenticated input notes for this block which do not have a matching
-        // output note produced in this block
-        let dangling_notes: BTreeSet<_> = batches
-            .iter()
-            .flat_map(TransactionBatch::input_notes)
-            .filter_map(InputNoteCommitment::header)
-            .map(NoteHeader::id)
-            .filter(|note_id| !output_notes_set.contains(note_id))
-            .collect();
+        let unauthenticated_notes_iter = batch_iter.clone().flat_map(|batch| {
+            // Note: .cloned() shouldn't be necessary but not having it produces an odd lifetime
+            // error in BlockProducer::serve. Not sure if there's a better fix. Error:
+            // implementation of `FnOnce` is not general enough
+            // closure with signature `fn(&InputNoteCommitment) -> miden_objects::note::NoteId` must
+            // implement `FnOnce<(&InputNoteCommitment,)>` ...but it actually implements
+            // `FnOnce<(&InputNoteCommitment,)>`
+            batch
+                .input_notes()
+                .iter()
+                .cloned()
+                .filter_map(|note| note.header().map(NoteHeader::id))
+        });
+        let block_references_iter = batch_iter.clone().map(ProvenBatch::reference_block_num);
+        let account_ids_iter = batch_iter.clone().flat_map(ProvenBatch::updated_accounts);
+        let created_nullifiers_iter = batch_iter.flat_map(ProvenBatch::created_nullifiers);
 
-        // Request information needed for block building from the store
-        let block_inputs = self
+        let inputs = self
             .store
             .get_block_inputs(
-                updated_account_set.into_iter(),
-                produced_nullifiers.iter(),
-                dangling_notes.iter(),
+                account_ids_iter,
+                created_nullifiers_iter,
+                unauthenticated_notes_iter,
+                block_references_iter,
             )
             .await
             .map_err(BuildBlockError::GetBlockInputsFailed)?;
 
-        let missing_notes: Vec<_> = dangling_notes
-            .difference(&block_inputs.found_unauthenticated_notes.note_ids())
-            .copied()
-            .collect();
-        if !missing_notes.is_empty() {
-            return Err(BuildBlockError::UnauthenticatedNotesNotFound(missing_notes));
-        }
+        Ok(BlockBatchesAndInputs { batches, inputs })
+    }
 
-        let (block_header_witness, updated_accounts) = BlockWitness::new(block_inputs, batches)?;
+    #[instrument(target = COMPONENT, name = "block_builder.propose_block", skip_all, err)]
+    async fn propose_block(
+        &self,
+        batches_inputs: BlockBatchesAndInputs,
+    ) -> Result<ProposedBlock, BuildBlockError> {
+        let BlockBatchesAndInputs { batches, inputs } = batches_inputs;
 
-        let new_block_header = self.block_kernel.prove(block_header_witness)?;
+        let proposed_block =
+            ProposedBlock::new(inputs, batches).map_err(BuildBlockError::ProposeBlockFailed)?;
 
-        // TODO: return an error?
-        let block =
-            Block::new(new_block_header, updated_accounts, output_notes, produced_nullifiers)
-                .expect("invalid block components");
+        Ok(proposed_block)
+    }
 
-        let block_hash = block.hash();
-        let block_num = new_block_header.block_num();
+    #[instrument(target = COMPONENT, name = "block_builder.prove_block", skip_all, err)]
+    async fn prove_block(
+        &self,
+        proposed_block: ProposedBlock,
+    ) -> Result<ProvenBlock, BuildBlockError> {
+        let proven_block = self.block_prover.prove(proposed_block).await?;
 
-        info!(target: COMPONENT, %block_num, %block_hash, "block built");
-        debug!(target: COMPONENT, ?block);
+        self.simulate_proving().await;
 
+        Ok(proven_block)
+    }
+
+    #[instrument(target = COMPONENT, name = "block_builder.commit_block", skip_all, err)]
+    async fn commit_block(
+        &self,
+        mempool: &SharedMempool,
+        built_block: ProvenBlock,
+    ) -> Result<(), BuildBlockError> {
         self.store
-            .apply_block(&block)
+            .apply_block(&built_block)
             .await
             .map_err(BuildBlockError::StoreApplyBlockFailed)?;
 
-        info!(target: COMPONENT, %block_num, %block_hash, "block committed");
+        mempool.lock().await.commit_block();
 
         Ok(())
+    }
+
+    #[instrument(target = COMPONENT, name = "block_builder.rollback_block", skip_all)]
+    async fn rollback_block(&self, mempool: &SharedMempool) {
+        mempool.lock().await.rollback_block();
+    }
+
+    #[instrument(target = COMPONENT, name = "block_builder.simulate_proving", skip_all)]
+    async fn simulate_proving(&self) {
+        let proving_duration = rand::rng().random_range(self.simulated_proof_time.clone());
+
+        Span::current().set_attribute("range.min_s", self.simulated_proof_time.start);
+        Span::current().set_attribute("range.max_s", self.simulated_proof_time.end);
+        Span::current().set_attribute("dice_roll_s", proving_duration);
+
+        tokio::time::sleep(proving_duration).await;
+    }
+
+    #[instrument(target = COMPONENT, name = "block_builder.inject_failure", skip_all, err)]
+    fn inject_failure<T>(&self, value: T) -> Result<T, BuildBlockError> {
+        let roll = rand::rng().random::<f64>();
+
+        Span::current().set_attribute("failure_rate", self.failure_rate);
+        Span::current().set_attribute("dice_roll", roll);
+
+        if roll < self.failure_rate {
+            Err(BuildBlockError::InjectedFailure)
+        } else {
+            Ok(value)
+        }
+    }
+}
+
+/// A wrapper around batches selected for inlucion in a block, primarily used to be able to inject
+/// telemetry in-between the selection and fetching the required [`BlockInputs`].
+struct SelectedBlock {
+    block_number: BlockNumber,
+    batches: Vec<ProvenBatch>,
+}
+
+impl SelectedBlock {
+    fn inject_telemetry(&self) {
+        let span = Span::current();
+        span.set_attribute("block.number", self.block_number);
+        span.set_attribute("block.batches.count", self.batches.len() as u32);
+    }
+}
+
+/// A wrapper around the inputs needed to build a [`ProposedBlock`], primarily used to be able to
+/// inject telemetry in-between fetching block inputs and proposing the block.
+struct BlockBatchesAndInputs {
+    batches: Vec<ProvenBatch>,
+    inputs: BlockInputs,
+}
+
+impl BlockBatchesAndInputs {
+    fn inject_telemetry(&self) {
+        let span = Span::current();
+
+        // SAFETY: We do not expect to have more than u32::MAX of any count per block.
+        span.set_attribute(
+            "block.updated_accounts.count",
+            i64::try_from(self.inputs.account_witnesses().len())
+                .expect("less than u32::MAX account updates"),
+        );
+        span.set_attribute(
+            "block.erased_note_proofs.count",
+            i64::try_from(self.inputs.unauthenticated_note_proofs().len())
+                .expect("less than u32::MAX unauthenticated notes"),
+        );
+    }
+}
+
+impl TelemetryInjectorExt for ProposedBlock {
+    /// Emit the input and output note related attributes. We do this here since this is the
+    /// earliest point we can set attributes after note erasure was done.
+    fn inject_telemetry(&self) {
+        let span = Span::current();
+
+        span.set_attribute(
+            "block.nullifiers.count",
+            u32::try_from(self.created_nullifiers().len())
+                .expect("should have less than u32::MAX created nullifiers"),
+        );
+        let num_block_created_notes = self
+            .output_note_batches()
+            .iter()
+            .fold(0, |acc, output_notes| acc + output_notes.len());
+        span.set_attribute(
+            "block.output_notes.count",
+            u32::try_from(num_block_created_notes)
+                .expect("should have less than u32::MAX output notes"),
+        );
+
+        let num_batch_created_notes =
+            self.batches().iter().fold(0, |acc, batch| acc + batch.output_notes().len());
+        span.set_attribute(
+            "block.batches.output_notes.count",
+            u32::try_from(num_batch_created_notes)
+                .expect("should have less than u32::MAX erased notes"),
+        );
+
+        let num_erased_notes = num_batch_created_notes
+            .checked_sub(num_block_created_notes)
+            .expect("all batches in the block should not create fewer notes than the block itself");
+        span.set_attribute(
+            "block.erased_notes.count",
+            u32::try_from(num_erased_notes).expect("should have less than u32::MAX erased notes"),
+        );
+    }
+}
+
+impl TelemetryInjectorExt for ProvenBlock {
+    fn inject_telemetry(&self) {
+        let span = Span::current();
+        let header = self.header();
+
+        span.set_attribute("block.commitment", header.commitment());
+        span.set_attribute("block.sub_commitment", header.sub_commitment());
+        span.set_attribute("block.prev_block_commitment", header.prev_block_commitment());
+        span.set_attribute("block.timestamp", header.timestamp());
+
+        span.set_attribute("block.protocol.version", i64::from(header.version()));
+
+        span.set_attribute("block.commitments.kernel", header.tx_kernel_commitment());
+        span.set_attribute("block.commitments.nullifier", header.nullifier_root());
+        span.set_attribute("block.commitments.account", header.account_root());
+        span.set_attribute("block.commitments.chain", header.chain_commitment());
+        span.set_attribute("block.commitments.note", header.note_root());
+        span.set_attribute("block.commitments.transaction", header.tx_commitment());
+    }
+}
+
+// BLOCK PROVER
+// ================================================================================================
+
+pub enum BlockProver {
+    Local(LocalBlockProver),
+    Remote(RemoteBlockProver),
+}
+
+impl BlockProver {
+    pub fn new_local(security_level: u32) -> Self {
+        info!(target: COMPONENT, "Using local block prover");
+        Self::Local(LocalBlockProver::new(security_level))
+    }
+
+    pub fn new_remote(endpoint: impl Into<String>) -> Self {
+        info!(target: COMPONENT, "Using remote block prover");
+        Self::Remote(RemoteBlockProver::new(endpoint))
+    }
+
+    #[instrument(target = COMPONENT, skip_all, err)]
+    pub async fn prove(
+        &self,
+        proposed_block: ProposedBlock,
+    ) -> Result<ProvenBlock, BuildBlockError> {
+        match self {
+            Self::Local(prover) => {
+                prover.prove(proposed_block).map_err(BuildBlockError::ProveBlockFailed)
+            },
+            Self::Remote(prover) => {
+                prover.prove(proposed_block).await.map_err(BuildBlockError::RemoteProverError)
+            },
+        }
     }
 }

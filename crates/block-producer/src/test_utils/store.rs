@@ -4,20 +4,18 @@ use std::{
     sync::Arc,
 };
 
-use miden_node_proto::domain::{block::BlockInclusionProof, note::NoteAuthenticationInfo};
 use miden_objects::{
+    ACCOUNT_TREE_DEPTH, Digest, EMPTY_WORD, ZERO,
     account::AccountId,
-    block::{Block, BlockHeader, BlockNumber, NoteBatch},
-    crypto::merkle::{Mmr, SimpleSmt, Smt, ValuePath},
-    note::{NoteId, NoteInclusionProof, Nullifier},
+    batch::ProvenBatch,
+    block::{BlockHeader, BlockNumber, OutputNoteBatch, ProvenBlock},
+    crypto::merkle::{Mmr, SimpleSmt, Smt},
+    note::{NoteId, NoteInclusionProof},
     transaction::ProvenTransaction,
-    Digest, ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
 };
 use tokio::sync::RwLock;
 
 use crate::{
-    batch_builder::TransactionBatch,
-    block::{AccountWitness, BlockInputs},
     errors::StoreError,
     store::TransactionInputs,
     test_utils::block::{
@@ -29,27 +27,30 @@ use crate::{
 #[derive(Debug)]
 pub struct MockStoreSuccessBuilder {
     accounts: Option<SimpleSmt<ACCOUNT_TREE_DEPTH>>,
-    notes: Option<Vec<NoteBatch>>,
+    notes: Option<Vec<OutputNoteBatch>>,
     produced_nullifiers: Option<BTreeSet<Digest>>,
     chain_mmr: Option<Mmr>,
     block_num: Option<BlockNumber>,
 }
 
 impl MockStoreSuccessBuilder {
-    pub fn from_batches<'a>(
-        batches_iter: impl Iterator<Item = &'a TransactionBatch> + Clone,
-    ) -> Self {
+    pub fn from_batches<'a>(batches_iter: impl Iterator<Item = &'a ProvenBatch> + Clone) -> Self {
         let accounts_smt = {
             let accounts = batches_iter
                 .clone()
-                .flat_map(TransactionBatch::account_initial_states)
-                .map(|(account_id, hash)| (account_id.prefix().into(), hash.into()));
+                .flat_map(|batch| {
+                    batch
+                        .account_updates()
+                        .iter()
+                        .map(|(account_id, update)| (account_id, update.initial_state_commitment()))
+                })
+                .map(|(account_id, commitment)| (account_id.prefix().into(), commitment.into()));
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
 
         Self {
             accounts: Some(accounts_smt),
-            notes: Some(block_output_notes(batches_iter).cloned().collect()),
+            notes: Some(block_output_notes(batches_iter)),
             produced_nullifiers: None,
             chain_mmr: None,
             block_num: None,
@@ -58,8 +59,8 @@ impl MockStoreSuccessBuilder {
 
     pub fn from_accounts(accounts: impl Iterator<Item = (AccountId, Digest)>) -> Self {
         let accounts_smt = {
-            let accounts =
-                accounts.map(|(account_id, hash)| (account_id.prefix().into(), hash.into()));
+            let accounts = accounts
+                .map(|(account_id, commitment)| (account_id.prefix().into(), commitment.into()));
 
             SimpleSmt::<ACCOUNT_TREE_DEPTH>::with_leaves(accounts).unwrap()
         };
@@ -74,7 +75,10 @@ impl MockStoreSuccessBuilder {
     }
 
     #[must_use]
-    pub fn initial_notes<'a>(mut self, notes: impl Iterator<Item = &'a NoteBatch> + Clone) -> Self {
+    pub fn initial_notes<'a>(
+        mut self,
+        notes: impl Iterator<Item = &'a OutputNoteBatch> + Clone,
+    ) -> Self {
         self.notes = Some(notes.cloned().collect());
 
         self
@@ -163,7 +167,7 @@ impl MockStoreSuccessBuilder {
 }
 
 pub struct MockStoreSuccess {
-    /// Map account id -> account hash
+    /// Map account id -> account commitment
     pub accounts: Arc<RwLock<SimpleSmt<ACCOUNT_TREE_DEPTH>>>,
 
     /// Stores the nullifiers of the notes that were consumed
@@ -189,7 +193,7 @@ impl MockStoreSuccess {
         locked_accounts.root()
     }
 
-    pub async fn apply_block(&self, block: &Block) -> Result<(), StoreError> {
+    pub async fn apply_block(&self, block: &ProvenBlock) -> Result<(), StoreError> {
         // Intentionally, we take and hold both locks, to prevent calls to `get_tx_inputs()` from
         // going through while we're updating the store's data structure
         let mut locked_accounts = self.accounts.write().await;
@@ -197,13 +201,14 @@ impl MockStoreSuccess {
 
         // update accounts
         for update in block.updated_accounts() {
-            locked_accounts.insert(update.account_id().into(), update.new_state_hash().into());
+            locked_accounts
+                .insert(update.account_id().into(), update.final_state_commitment().into());
         }
         let header = block.header();
         debug_assert_eq!(locked_accounts.root(), header.account_root());
 
         // update nullifiers
-        for nullifier in block.nullifiers() {
+        for nullifier in block.created_nullifiers() {
             locked_produced_nullifiers
                 .insert(nullifier.inner(), [header.block_num().into(), ZERO, ZERO, ZERO]);
         }
@@ -212,15 +217,15 @@ impl MockStoreSuccess {
         {
             let mut chain_mmr = self.chain_mmr.write().await;
 
-            chain_mmr.add(block.hash());
+            chain_mmr.add(block.commitment());
         }
 
         // build note tree
-        let note_tree = block.build_note_tree();
+        let note_tree = block.build_output_note_tree();
 
         // update notes
         let mut locked_notes = self.notes.write().await;
-        for (note_index, note) in block.notes() {
+        for (note_index, note) in block.output_notes() {
             locked_notes.insert(
                 note.id(),
                 NoteInclusionProof::new(
@@ -233,7 +238,7 @@ impl MockStoreSuccess {
         }
 
         // append the block header
-        self.block_headers.write().await.insert(header.block_num(), header);
+        self.block_headers.write().await.insert(header.block_num(), header.clone());
 
         // update num_apply_block_called
         *self.num_apply_block_called.write().await += 1;
@@ -248,13 +253,13 @@ impl MockStoreSuccess {
         let locked_accounts = self.accounts.read().await;
         let locked_produced_nullifiers = self.produced_nullifiers.read().await;
 
-        let account_hash = {
-            let account_hash = locked_accounts.get_leaf(&proven_tx.account_id().into());
+        let account_commitment = {
+            let account_commitment = locked_accounts.get_leaf(&proven_tx.account_id().into());
 
-            if account_hash == EMPTY_WORD {
+            if account_commitment == EMPTY_WORD {
                 None
             } else {
-                Some(account_hash.into())
+                Some(account_commitment.into())
             }
         };
 
@@ -280,72 +285,10 @@ impl MockStoreSuccess {
 
         Ok(TransactionInputs {
             account_id: proven_tx.account_id(),
-            account_hash,
+            account_commitment,
             nullifiers,
             found_unauthenticated_notes,
             current_block_height: 0.into(),
-        })
-    }
-
-    pub async fn get_block_inputs(
-        &self,
-        updated_accounts: impl Iterator<Item = AccountId> + Send,
-        produced_nullifiers: impl Iterator<Item = &Nullifier> + Send,
-        notes: impl Iterator<Item = &NoteId> + Send,
-    ) -> Result<BlockInputs, StoreError> {
-        let locked_accounts = self.accounts.read().await;
-        let locked_produced_nullifiers = self.produced_nullifiers.read().await;
-
-        let chain_peaks = {
-            let locked_chain_mmr = self.chain_mmr.read().await;
-            locked_chain_mmr.peaks()
-        };
-
-        let accounts = {
-            updated_accounts
-                .map(|account_id| {
-                    let ValuePath { value: hash, path: proof } =
-                        locked_accounts.open(&account_id.into());
-
-                    (account_id, AccountWitness { hash, proof })
-                })
-                .collect()
-        };
-
-        let nullifiers = produced_nullifiers
-            .map(|nullifier| (*nullifier, locked_produced_nullifiers.open(&nullifier.inner())))
-            .collect();
-
-        let locked_notes = self.notes.read().await;
-        let note_proofs = notes
-            .filter_map(|id| locked_notes.get(id).map(|proof| (*id, proof.clone())))
-            .collect::<BTreeMap<_, _>>();
-
-        let locked_headers = self.block_headers.read().await;
-        let latest_header =
-            *locked_headers.iter().max_by_key(|(block_num, _)| *block_num).unwrap().1;
-
-        let locked_chain_mmr = self.chain_mmr.read().await;
-        let chain_length = latest_header.block_num();
-        let block_proofs = note_proofs
-            .values()
-            .map(|note_proof| {
-                let block_num = note_proof.location().block_num();
-                let block_header = *locked_headers.get(&block_num).unwrap();
-                let mmr_path = locked_chain_mmr.open(block_num.as_usize()).unwrap().merkle_path;
-
-                BlockInclusionProof { block_header, mmr_path, chain_length }
-            })
-            .collect();
-
-        let found_unauthenticated_notes = NoteAuthenticationInfo { block_proofs, note_proofs };
-
-        Ok(BlockInputs {
-            block_header: latest_header,
-            chain_peaks,
-            accounts,
-            nullifiers,
-            found_unauthenticated_notes,
         })
     }
 }

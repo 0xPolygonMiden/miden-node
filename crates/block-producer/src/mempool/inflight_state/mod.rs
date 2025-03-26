@@ -162,13 +162,13 @@ impl InflightState {
             .and_then(|account_state| account_state.current_state())
             .copied()
             .or(tx.store_account_state());
-        let expected = tx.account_update().init_state_hash();
+        let expected = tx.account_update().initial_state_commitment();
 
         // SAFETY: a new accounts state is set to zero ie default.
         if expected != current.unwrap_or_default() {
-            return Err(VerifyTxError::IncorrectAccountInitialHash {
-                tx_initial_account_hash: expected,
-                current_account_hash: current,
+            return Err(VerifyTxError::IncorrectAccountInitialCommitment {
+                tx_initial_account_commitment: expected,
+                current_account_commitment: current,
             }
             .into());
         }
@@ -219,7 +219,7 @@ impl InflightState {
             .accounts
             .entry(tx.account_id())
             .or_default()
-            .insert(tx.account_update().final_state_hash(), tx.id());
+            .insert(tx.account_update().final_state_commitment(), tx.id());
 
         self.nullifiers.extend(tx.nullifiers());
         self.output_notes
@@ -353,11 +353,7 @@ impl OutputNoteState {
 
     /// Returns the source transaction ID if the output note is not yet committed.
     fn transaction(&self) -> Option<&TransactionId> {
-        if let Self::Inflight(tx) = self {
-            Some(tx)
-        } else {
-            None
-        }
+        if let Self::Inflight(tx) = self { Some(tx) } else { None }
     }
 }
 
@@ -371,9 +367,8 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{
-        mock_account_id,
+        MockProvenTxBuilder, mock_account_id,
         note::{mock_note, mock_output_note},
-        MockProvenTxBuilder,
     };
 
     #[test]
@@ -488,9 +483,9 @@ mod tests {
 
         assert_matches!(
             err,
-            AddTransactionError::VerificationFailed(VerifyTxError::IncorrectAccountInitialHash {
-                tx_initial_account_hash: init_state,
-                current_account_hash: current_state,
+            AddTransactionError::VerificationFailed(VerifyTxError::IncorrectAccountInitialCommitment {
+                tx_initial_account_commitment: init_state,
+                current_account_commitment: current_state,
             }) if init_state == states[0] && current_state == states[2].into()
         );
     }

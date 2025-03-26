@@ -4,14 +4,17 @@ use std::{
 };
 
 use anyhow::Context;
-use protox::prost::Message;
+use miden_node_proto_build::{
+    block_producer_api_descriptor, rpc_api_descriptor, store_api_descriptor,
+};
+use tonic_build::FileDescriptorSet;
 
-/// Generates Rust protobuf bindings from .proto files in the root directory.
+/// Generates Rust protobuf bindings using miden-node-proto-build.
 ///
 /// This is done only if `BUILD_PROTO` environment variable is set to `1` to avoid running the
 /// script on crates.io where repo-level .proto files are not available.
 fn main() -> anyhow::Result<()> {
-    println!("cargo::rerun-if-changed=../../proto");
+    println!("cargo::rerun-if-changed=../../proto/proto");
     println!("cargo::rerun-if-env-changed=BUILD_PROTO");
 
     // Skip this build script in BUILD_PROTO environment variable is not set to `1`.
@@ -27,43 +30,26 @@ fn main() -> anyhow::Result<()> {
     fs::remove_dir_all(&dst_dir).context("removing existing files")?;
     fs::create_dir(&dst_dir).context("creating destination folder")?;
 
-    // Compute the directory of the `proto` definitions
-    let cwd: PathBuf = env::current_dir().context("current directory")?;
+    generate_bindings(rpc_api_descriptor(), &dst_dir)?;
+    generate_bindings(store_api_descriptor(), &dst_dir)?;
+    generate_bindings(block_producer_api_descriptor(), &dst_dir)?;
 
-    let cwd = cwd
-        .parent()
-        .and_then(|p| p.parent())
-        .context("navigating to grandparent directory")?;
+    generate_mod_rs(&dst_dir).context("generating mod.rs")?;
 
-    let proto_dir: PathBuf = cwd.join("proto");
+    Ok(())
+}
 
-    // Compute the compiler's target file path.
-    let out = env::var("OUT_DIR").context("env::OUT_DIR not set")?;
-    let file_descriptor_path = PathBuf::from(out).join("file_descriptor_set.bin");
-
-    // Compile the proto file for all servers APIs
-    let protos = &[
-        proto_dir.join("block_producer.proto"),
-        proto_dir.join("store.proto"),
-        proto_dir.join("rpc.proto"),
-    ];
-    let includes = &[proto_dir];
-    let file_descriptors = protox::compile(protos, includes)?;
-    fs::write(&file_descriptor_path, file_descriptors.encode_to_vec())
-        .context("writing file descriptors")?;
-
+/// Generates protobuf bindings from the given file descriptor set and stores them in the
+/// given destination directory.
+fn generate_bindings(file_descriptors: FileDescriptorSet, dst_dir: &Path) -> anyhow::Result<()> {
     let mut prost_config = prost_build::Config::new();
     prost_config.skip_debug(["AccountId", "Digest"]);
 
     // Generate the stub of the user facing server from its proto file
     tonic_build::configure()
-        .file_descriptor_set_path(&file_descriptor_path)
-        .skip_protoc_run()
-        .out_dir(&dst_dir)
-        .compile_protos_with_config(prost_config, protos, includes)
+        .out_dir(dst_dir)
+        .compile_fds_with_config(prost_config, file_descriptors)
         .context("compiling protobufs")?;
-
-    generate_mod_rs(&dst_dir).context("generating mod.rs")?;
 
     Ok(())
 }

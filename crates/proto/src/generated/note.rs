@@ -78,13 +78,3 @@ pub struct NoteSyncRecord {
     #[prost(message, optional, tag = "4")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
 }
-/// Represents proof of notes inclusion in the block(s) and block(s) inclusion in the chain.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct NoteAuthenticationInfo {
-    /// Proof of each note's inclusion in a block.
-    #[prost(message, repeated, tag = "1")]
-    pub note_proofs: ::prost::alloc::vec::Vec<NoteInclusionInBlockProof>,
-    /// Proof of each block's inclusion in the chain.
-    #[prost(message, repeated, tag = "2")]
-    pub block_proofs: ::prost::alloc::vec::Vec<super::block::BlockInclusionProof>,
-}

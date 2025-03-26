@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
 use miden_node_proto::generated::{
     block_producer::api_server, requests::SubmitProvenTransactionRequest,
@@ -7,6 +7,7 @@ use miden_node_proto::generated::{
 use miden_node_utils::{
     errors::ApiError,
     formatting::{format_input_notes, format_output_notes},
+    tracing::grpc::{OtelInterceptor, block_producer_trace_fn},
 };
 use miden_objects::{
     block::BlockNumber, transaction::ProvenTransaction, utils::serde::Deserializable,
@@ -14,17 +15,19 @@ use miden_objects::{
 use tokio::{net::TcpListener, sync::Mutex};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::Status;
+use tower_http::trace::TraceLayer;
 use tracing::{debug, info, instrument};
+use url::Url;
 
 use crate::{
+    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
+    SERVER_NUM_BATCH_BUILDERS,
     batch_builder::BatchBuilder,
     block_builder::BlockBuilder,
-    config::BlockProducerConfig,
     domain::transaction::AuthenticatedTransaction,
     errors::{AddTransactionError, BlockProducerError, VerifyTxError},
     mempool::{BatchBudget, BlockBudget, Mempool, SharedMempool},
     store::StoreClient,
-    COMPONENT, SERVER_MEMPOOL_EXPIRATION_SLACK, SERVER_MEMPOOL_STATE_RETENTION,
 };
 
 /// Represents an initialized block-producer component where the RPC connection is open,
@@ -46,17 +49,28 @@ pub struct BlockProducer {
 }
 
 impl BlockProducer {
-    /// Performs all expensive initialization tasks, and notably begins listening on the rpc
-    /// endpoint without serving the API yet. Incoming requests will be queued until
-    /// [`serve`](Self::serve) is called.
-    pub async fn init(config: BlockProducerConfig) -> Result<Self, ApiError> {
-        info!(target: COMPONENT, %config, "Initializing server");
+    /// Performs all setup tasks required before [`serve`](Self::serve) can be called.
+    ///
+    /// This includes connecting to the store and retrieving the latest chain state.
+    pub async fn init(
+        listener: TcpListener,
+        store_address: SocketAddr,
+        batch_prover: Option<Url>,
+        block_prover: Option<Url>,
+        batch_interval: Duration,
+        block_interval: Duration,
+    ) -> Result<Self, ApiError> {
+        info!(target: COMPONENT, endpoint=?listener, store=%store_address, "Initializing server");
 
-        let store = StoreClient::new(
-            store_client::ApiClient::connect(config.store_url.to_string())
-                .await
-                .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?,
-        );
+        let store_url = format!("http://{store_address}");
+        let channel = tonic::transport::Endpoint::try_from(store_url)
+            .map_err(|err| ApiError::InvalidStoreUrl(err.to_string()))?
+            .connect()
+            .await
+            .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
+
+        let store = store_client::ApiClient::with_interceptor(channel, OtelInterceptor);
+        let store = StoreClient::new(store);
 
         let latest_header = store
             .latest_header()
@@ -64,27 +78,22 @@ impl BlockProducer {
             .map_err(|err| ApiError::DatabaseConnectionFailed(err.to_string()))?;
         let chain_tip = latest_header.block_num();
 
-        let rpc_listener = config
-            .endpoint
-            .socket_addrs(|| None)
-            .map_err(ApiError::EndpointToSocketFailed)?
-            .into_iter()
-            .next()
-            .ok_or_else(|| ApiError::AddressResolutionFailed(config.endpoint.to_string()))
-            .map(TcpListener::bind)?
-            .await?;
-
         info!(target: COMPONENT, "Server initialized");
 
         Ok(Self {
-            batch_builder: BatchBuilder::default(),
-            block_builder: BlockBuilder::new(store.clone()),
+            block_builder: BlockBuilder::new(store.clone(), block_prover, block_interval),
+            batch_builder: BatchBuilder::new(
+                store.clone(),
+                SERVER_NUM_BATCH_BUILDERS,
+                batch_prover,
+                batch_interval,
+            ),
             batch_budget: BatchBudget::default(),
             block_budget: BlockBudget::default(),
             state_retention: SERVER_MEMPOOL_STATE_RETENTION,
             expiration_slack: SERVER_MEMPOOL_EXPIRATION_SLACK,
             store,
-            rpc_listener,
+            rpc_listener: listener,
             chain_tip,
         })
     }
@@ -121,9 +130,8 @@ impl BlockProducer {
         let batch_builder_id = tasks
             .spawn({
                 let mempool = mempool.clone();
-                let store = store.clone();
                 async {
-                    batch_builder.run(mempool, store).await;
+                    batch_builder.run(mempool).await;
                     Ok(())
                 }
             })
@@ -207,7 +215,9 @@ impl BlockProducerRpcServer {
     }
 
     async fn serve(self, listener: TcpListener) -> Result<(), tonic::transport::Error> {
+        // Build the gRPC server with the API service and trace layer.
         tonic::transport::Server::builder()
+            .layer(TraceLayer::new_for_grpc().make_span_with(block_producer_trace_fn))
             .add_service(api_server::ApiServer::new(self))
             .serve_with_incoming(TcpListenerStream::new(listener))
             .await
@@ -234,11 +244,11 @@ impl BlockProducerRpcServer {
             target: COMPONENT,
             tx_id = %tx_id.to_hex(),
             account_id = %tx.account_id().to_hex(),
-            initial_account_hash = %tx.account_update().init_state_hash(),
-            final_account_hash = %tx.account_update().final_state_hash(),
+            initial_state_commitment = %tx.account_update().initial_state_commitment(),
+            final_state_commitment = %tx.account_update().final_state_commitment(),
             input_notes = %format_input_notes(tx.input_notes()),
             output_notes = %format_output_notes(tx.output_notes()),
-            block_ref = %tx.block_ref(),
+            ref_block_commitment = %tx.ref_block_commitment(),
             "Deserialized transaction"
         );
         debug!(target: COMPONENT, proof = ?tx.proof());

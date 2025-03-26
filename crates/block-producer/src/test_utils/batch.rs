@@ -1,8 +1,26 @@
-use miden_node_proto::domain::note::NoteAuthenticationInfo;
+use std::collections::BTreeMap;
 
-use crate::{batch_builder::TransactionBatch, test_utils::MockProvenTxBuilder};
+use miden_objects::{
+    Digest,
+    batch::{BatchAccountUpdate, BatchId, ProvenBatch},
+    block::BlockNumber,
+    transaction::{InputNotes, ProvenTransaction},
+};
+
+use crate::test_utils::MockProvenTxBuilder;
 
 pub trait TransactionBatchConstructor {
+    /// Builds a **mocked** [`ProvenBatch`] from the given transactions, which most likely violates
+    /// some of the rules of actual transaction batches.
+    ///
+    /// This builds a mocked version of a proven batch for testing purposes which can be useful if
+    /// the batch's details don't need to be correct (e.g. if something else is under test but
+    /// requires a transaction batch). If you need an actual valid [`ProvenBatch`], build a
+    /// [`ProposedBatch`](miden_objects::batch::ProposedBatch) first and convert (without proving)
+    /// or prove it into a [`ProvenBatch`].
+    fn mocked_from_transactions<'tx>(txs: impl IntoIterator<Item = &'tx ProvenTransaction>)
+    -> Self;
+
     /// Returns a `TransactionBatch` with `notes_per_tx.len()` transactions, where the i'th
     /// transaction has `notes_per_tx[i]` notes created
     fn from_notes_created(starting_account_index: u32, notes_per_tx: &[u64]) -> Self;
@@ -11,7 +29,44 @@ pub trait TransactionBatchConstructor {
     fn from_txs(starting_account_index: u32, num_txs_in_batch: u64) -> Self;
 }
 
-impl TransactionBatchConstructor for TransactionBatch {
+impl TransactionBatchConstructor for ProvenBatch {
+    fn mocked_from_transactions<'tx>(
+        txs: impl IntoIterator<Item = &'tx ProvenTransaction>,
+    ) -> Self {
+        let mut account_updates = BTreeMap::new();
+
+        let txs: Vec<_> = txs.into_iter().collect();
+        let mut input_notes = Vec::new();
+        let mut output_notes = Vec::new();
+
+        for tx in &txs {
+            // Aggregate account updates.
+            account_updates
+                .entry(tx.account_id())
+                .and_modify(|update: &mut BatchAccountUpdate| {
+                    update.merge_proven_tx(tx).unwrap();
+                })
+                .or_insert_with(|| BatchAccountUpdate::from_transaction(tx));
+
+            // Consider all input notes of all transactions as inputs of the batch, which may not
+            // always be correct.
+            input_notes.extend(tx.input_notes().iter().cloned());
+            // Consider all outputs notes of all transactions as outputs of the batch, which may not
+            // always be correct.
+            output_notes.extend(tx.output_notes().iter().cloned());
+        }
+
+        ProvenBatch::new_unchecked(
+            BatchId::from_transactions(txs.into_iter()),
+            Digest::default(),
+            BlockNumber::GENESIS,
+            account_updates,
+            InputNotes::new_unchecked(input_notes),
+            output_notes,
+            BlockNumber::from(u32::MAX),
+        )
+    }
+
     fn from_notes_created(starting_account_index: u32, notes_per_tx: &[u64]) -> Self {
         let txs: Vec<_> = notes_per_tx
             .iter()
@@ -26,7 +81,7 @@ impl TransactionBatchConstructor for TransactionBatch {
             })
             .collect();
 
-        Self::new(&txs, NoteAuthenticationInfo::default()).unwrap()
+        Self::mocked_from_transactions(&txs)
     }
 
     fn from_txs(starting_account_index: u32, num_txs_in_batch: u64) -> Self {
@@ -38,6 +93,6 @@ impl TransactionBatchConstructor for TransactionBatch {
             })
             .collect();
 
-        Self::new(&txs, NoteAuthenticationInfo::default()).unwrap()
+        Self::mocked_from_transactions(&txs)
     }
 }

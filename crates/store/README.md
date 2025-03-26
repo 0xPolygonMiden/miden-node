@@ -9,7 +9,7 @@ For more information on the installation and operation of this component, please
 
 ## API overview
 
-The full gRPC API can be found [here](../../proto/store.proto).
+The full gRPC API can be found [here](../../proto/proto/store.proto).
 
 <!--toc:start-->
 - [ApplyBlock](#applyblock)

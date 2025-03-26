@@ -1,9 +1,8 @@
-use miden_node_proto::domain::note::NoteAuthenticationInfo;
 use miden_objects::block::BlockNumber;
 use pretty_assertions::assert_eq;
 
 use super::*;
-use crate::test_utils::MockProvenTxBuilder;
+use crate::test_utils::{MockProvenTxBuilder, batch::TransactionBatchConstructor};
 
 impl Mempool {
     fn for_tests() -> Self {
@@ -41,17 +40,15 @@ fn children_of_failed_batches_are_ignored() {
     assert_eq!(batch_txs, vec![txs[2].clone()]);
 
     // Child batch jobs are now dangling.
-    uut.batch_failed(parent_batch);
+    uut.rollback_batch(parent_batch);
     let reference = uut.clone();
 
     // Success or failure of the child job should effectively do nothing.
-    uut.batch_failed(child_batch_a);
+    uut.rollback_batch(child_batch_a);
     assert_eq!(uut, reference);
 
-    let proof =
-        TransactionBatch::new([txs[2].raw_proven_transaction()], NoteAuthenticationInfo::default())
-            .unwrap();
-    uut.batch_proved(proof);
+    let proven_batch = ProvenBatch::mocked_from_transactions([txs[2].raw_proven_transaction()]);
+    uut.commit_batch(proven_batch);
     assert_eq!(uut, reference);
 }
 
@@ -70,7 +67,7 @@ fn failed_batch_transactions_are_requeued() {
     uut.select_batch().unwrap();
 
     // Middle batch failed, so it and its child transaction should be re-entered into the queue.
-    uut.batch_failed(failed_batch);
+    uut.rollback_batch(failed_batch);
 
     let mut reference = Mempool::for_tests();
     reference.add_transaction(txs[0].clone()).unwrap();
@@ -95,13 +92,9 @@ fn block_commit_reverts_expired_txns() {
     // Force the tx into a pending block.
     uut.add_transaction(tx_to_commit.clone()).unwrap();
     uut.select_batch().unwrap();
-    uut.batch_proved(
-        TransactionBatch::new(
-            [tx_to_commit.raw_proven_transaction()],
-            NoteAuthenticationInfo::default(),
-        )
-        .unwrap(),
-    );
+    uut.commit_batch(ProvenBatch::mocked_from_transactions(
+        [tx_to_commit.raw_proven_transaction()],
+    ));
     let (block, _) = uut.select_block();
     // A reverted transaction behaves as if it never existed, the current state is the expected
     // outcome, plus an extra committed block at the end.
@@ -114,8 +107,8 @@ fn block_commit_reverts_expired_txns() {
     uut.add_transaction(tx_to_revert).unwrap();
 
     // Commit the pending block which should revert the above tx.
-    uut.block_committed(block);
-    reference.block_committed(block);
+    uut.commit_block();
+    reference.commit_block();
 
     assert_eq!(uut, reference);
 }
@@ -125,24 +118,15 @@ fn empty_block_commitment() {
     let mut uut = Mempool::for_tests();
 
     for _ in 0..3 {
-        let (block, _) = uut.select_block();
-        uut.block_committed(block);
+        let (_block, _) = uut.select_block();
+        uut.commit_block();
     }
 }
 
 #[test]
 #[should_panic]
-fn blocks_must_be_committed_sequentially() {
-    let mut uut = Mempool::for_tests();
-
-    let (block, _) = uut.select_block();
-    uut.block_committed(block + 1);
-}
-
-#[test]
-#[should_panic]
 fn block_commitment_is_rejected_if_no_block_is_in_flight() {
-    Mempool::for_tests().block_committed(BlockNumber::from(1));
+    Mempool::for_tests().commit_block();
 }
 
 #[test]
@@ -168,16 +152,12 @@ fn block_failure_reverts_its_transactions() {
 
     uut.add_transaction(reverted_txs[0].clone()).unwrap();
     uut.select_batch().unwrap();
-    uut.batch_proved(
-        TransactionBatch::new(
-            [reverted_txs[0].raw_proven_transaction()],
-            NoteAuthenticationInfo::default(),
-        )
-        .unwrap(),
-    );
+    uut.commit_batch(ProvenBatch::mocked_from_transactions([
+        reverted_txs[0].raw_proven_transaction()
+    ]));
 
     // Block 1 will contain just the first batch.
-    let (block_number, _) = uut.select_block();
+    let (_number, _batches) = uut.select_block();
 
     // Create another dependent batch.
     uut.add_transaction(reverted_txs[1].clone()).unwrap();
@@ -186,7 +166,7 @@ fn block_failure_reverts_its_transactions() {
     uut.add_transaction(reverted_txs[2].clone()).unwrap();
 
     // Fail the block which should result in everything reverting.
-    uut.block_failed(block_number);
+    uut.rollback_block();
 
     assert_eq!(uut, reference);
 }

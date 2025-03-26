@@ -1,10 +1,11 @@
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    account::{delta::AccountUpdateDetails, Account},
-    block::{Block, BlockAccountUpdate, BlockHeader, BlockNumber},
-    crypto::merkle::{EmptySubtreeRoots, MmrPeaks, SimpleSmt, Smt},
+    ACCOUNT_TREE_DEPTH, Digest,
+    account::{Account, delta::AccountUpdateDetails},
+    block::{BlockAccountUpdate, BlockHeader, BlockNoteTree, BlockNumber, ProvenBlock},
+    crypto::merkle::{MmrPeaks, SimpleSmt, Smt},
+    note::Nullifier,
     utils::serde::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest, ACCOUNT_TREE_DEPTH, BLOCK_NOTE_TREE_DEPTH,
 };
 
 use crate::errors::GenesisError;
@@ -26,7 +27,7 @@ impl GenesisState {
     }
 
     /// Returns the block header and the account SMT
-    pub fn into_block(self) -> Result<Block, GenesisError> {
+    pub fn into_block(self) -> Result<ProvenBlock, GenesisError> {
         let accounts: Vec<BlockAccountUpdate> = self
             .accounts
             .iter()
@@ -39,7 +40,7 @@ impl GenesisState {
 
                 BlockAccountUpdate::new(
                     account.id(),
-                    account.hash(),
+                    account.commitment(),
                     account_update_details,
                     vec![],
                 )
@@ -48,8 +49,14 @@ impl GenesisState {
 
         let account_smt: SimpleSmt<ACCOUNT_TREE_DEPTH> =
             SimpleSmt::with_leaves(accounts.iter().map(|update| {
-                (update.account_id().prefix().into(), update.new_state_hash().into())
+                (update.account_id().prefix().into(), update.final_state_commitment().into())
             }))?;
+
+        let empty_nullifiers: Vec<Nullifier> = Vec::new();
+        let empty_nullifier_tree = Smt::new();
+
+        let empty_output_notes = Vec::new();
+        let empty_block_note_tree = BlockNoteTree::empty();
 
         let header = BlockHeader::new(
             self.version,
@@ -57,15 +64,23 @@ impl GenesisState {
             BlockNumber::GENESIS,
             MmrPeaks::new(0, Vec::new()).unwrap().hash_peaks(),
             account_smt.root(),
-            Smt::default().root(),
-            *EmptySubtreeRoots::entry(BLOCK_NOTE_TREE_DEPTH, 0),
+            empty_nullifier_tree.root(),
+            empty_block_note_tree.root(),
             Digest::default(),
-            TransactionKernel::kernel_root(),
+            TransactionKernel::kernel_commitment(),
             Digest::default(),
             self.timestamp,
         );
 
-        Block::new(header, accounts, vec![], vec![]).map_err(Into::into)
+        // SAFETY: Header and accounts should be valid by construction.
+        // No notes or nullifiers are created at genesis, which is consistent with the above empty
+        // block note tree root and empty nullifier tree root.
+        Ok(ProvenBlock::new_unchecked(
+            header,
+            accounts,
+            empty_output_notes,
+            empty_nullifiers,
+        ))
     }
 }
 

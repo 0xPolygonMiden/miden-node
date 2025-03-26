@@ -2,11 +2,47 @@
 
 ## Unreleased
 
+### Enhancements
+
+- Implemented database optimization routine (#721).
+
+### Fixes
+
+- Faucet webpage is missing `background.png` and `favicon.ico` (#672).
+
+### Enhancements
+
+- Add an optional open-telemetry trace exporter (#659, #690).
+- Support tracing across gRPC boundaries using remote tracing context (#669).
+- Instrument the block-producer's block building process (#676).
+- Use `LocalBlockProver` for block building (#709).
+- Initial developer and operator guides covering monitoring (#699).
+- Instrument the block-producer's batch building process (#738).
+- Optimized database by adding missing indexes (#728).
+- Added support for `Content-type` header in `get_tokens` endpoint of the faucet (#754).
+- Block frequency is now configurable (#750).
+- Batch frequency is now configurable (#750).
+
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
-- Added stress test binary with `seed-store` and `bench-sync-request` commands (#621, #661).
+- Added stress test binary with seed-store command (#657).
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
+- [BREAKING] Update `GetBlockInputs` RPC (#709).
+- [BREAKING] `CheckNullifiersByPrefix` now takes a starting block number (#707).
+- [BREAKING] Removed nullifiers from `SyncState` endpoint (#708).
+- [BREAKING] Added `batch_prover_url` to block producer configuration (#701).
+- [BREAKING] Added `block_prover_url` to block producer configuration (#719).
+- [BREAKING] Updated to Rust Edition 2024 (#727).
+- [BREAKING] MSRV bumped to 1.85 (#727).
+- [BREAKING] Removed `miden-rpc-proto` and introduced `miden-node-proto-build` (#723). 
+- [BREAKING] Replaced `toml` configuration with CLI (#732).
+- [BREAKING] Renamed multiple `xxx_hash` to `xxx_commitment` in RPC API (#757).
+- Added stress test binary with `seed-store` and `bench-sync-request` commands (#661).
+
+### Enhancements
+
+- Prove transaction batches using Rust batch prover reference implementation (#659).
 
 ## v0.7.2 (2025-01-29)
 

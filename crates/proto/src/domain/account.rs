@@ -2,11 +2,11 @@ use std::fmt::{Debug, Display, Formatter};
 
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
+    Digest,
     account::{Account, AccountHeader, AccountId},
     block::BlockNumber,
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
     utils::{Deserializable, Serializable},
-    Digest,
 };
 
 use super::try_convert;
@@ -66,7 +66,7 @@ impl TryFrom<proto::account::AccountId> for AccountId {
 #[derive(Debug, PartialEq)]
 pub struct AccountSummary {
     pub account_id: AccountId,
-    pub account_hash: RpoDigest,
+    pub account_commitment: RpoDigest,
     pub block_num: BlockNumber,
 }
 
@@ -74,7 +74,7 @@ impl From<&AccountSummary> for proto::account::AccountSummary {
     fn from(update: &AccountSummary) -> Self {
         Self {
             account_id: Some(update.account_id.into()),
-            account_hash: Some(update.account_hash.into()),
+            account_commitment: Some(update.account_commitment.into()),
             block_num: update.block_num.as_u32(),
         }
     }
@@ -149,49 +149,47 @@ impl TryInto<StorageMapKeysProof> for proto::requests::get_account_proofs_reques
     }
 }
 
-// ACCOUNT INPUT RECORD
+// ACCOUNT WITNESS RECORD
 // ================================================================================================
 
 #[derive(Clone, Debug)]
-pub struct AccountInputRecord {
+pub struct AccountWitnessRecord {
     pub account_id: AccountId,
-    pub account_hash: Digest,
+    pub initial_state_commitment: Digest,
     pub proof: MerklePath,
 }
 
-impl From<AccountInputRecord> for proto::responses::AccountBlockInputRecord {
-    fn from(from: AccountInputRecord) -> Self {
+impl From<AccountWitnessRecord> for proto::responses::AccountWitness {
+    fn from(from: AccountWitnessRecord) -> Self {
         Self {
             account_id: Some(from.account_id.into()),
-            account_hash: Some(from.account_hash.into()),
+            initial_state_commitment: Some(from.initial_state_commitment.into()),
             proof: Some(Into::into(&from.proof)),
         }
     }
 }
 
-impl TryFrom<proto::responses::AccountBlockInputRecord> for AccountInputRecord {
+impl TryFrom<proto::responses::AccountWitness> for AccountWitnessRecord {
     type Error = ConversionError;
 
     fn try_from(
-        account_input_record: proto::responses::AccountBlockInputRecord,
+        account_witness_record: proto::responses::AccountWitness,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
-            account_id: account_input_record
+            account_id: account_witness_record
                 .account_id
-                .ok_or(proto::responses::AccountBlockInputRecord::missing_field(stringify!(
-                    account_id
+                .ok_or(proto::responses::AccountWitness::missing_field(stringify!(account_id)))?
+                .try_into()?,
+            initial_state_commitment: account_witness_record
+                .initial_state_commitment
+                .ok_or(proto::responses::AccountWitness::missing_field(stringify!(
+                    account_commitment
                 )))?
                 .try_into()?,
-            account_hash: account_input_record
-                .account_hash
-                .ok_or(proto::responses::AccountBlockInputRecord::missing_field(stringify!(
-                    account_hash
-                )))?
-                .try_into()?,
-            proof: account_input_record
+            proof: account_witness_record
                 .proof
                 .as_ref()
-                .ok_or(proto::responses::AccountBlockInputRecord::missing_field(stringify!(proof)))?
+                .ok_or(proto::responses::AccountWitness::missing_field(stringify!(proof)))?
                 .try_into()?,
         })
     }
@@ -205,16 +203,16 @@ impl TryFrom<proto::responses::AccountBlockInputRecord> for AccountInputRecord {
 pub struct AccountState {
     /// Account ID
     pub account_id: AccountId,
-    /// The account hash in the store corresponding to tx's account ID
-    pub account_hash: Option<Digest>,
+    /// The account commitment in the store corresponding to tx's account ID
+    pub account_commitment: Option<Digest>,
 }
 
 impl Display for AccountState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{{ account_id: {}, account_hash: {} }}",
+            "{{ account_id: {}, account_commitment: {} }}",
             self.account_id,
-            format_opt(self.account_hash.as_ref()),
+            format_opt(self.account_commitment.as_ref()),
         ))
     }
 }
@@ -223,7 +221,7 @@ impl From<AccountState> for proto::responses::AccountTransactionInputRecord {
     fn from(from: AccountState) -> Self {
         Self {
             account_id: Some(from.account_id.into()),
-            account_hash: from.account_hash.map(Into::into),
+            account_commitment: from.account_commitment.map(Into::into),
         }
     }
 }
@@ -252,21 +250,21 @@ impl TryFrom<proto::responses::AccountTransactionInputRecord> for AccountState {
             )))?
             .try_into()?;
 
-        let account_hash = from
-            .account_hash
+        let account_commitment = from
+            .account_commitment
             .ok_or(proto::responses::AccountTransactionInputRecord::missing_field(stringify!(
-                account_hash
+                account_commitment
             )))?
             .try_into()?;
 
-        // If the hash is equal to `Digest::default()`, it signifies that this is a new account
-        // which is not yet present in the Store.
-        let account_hash = if account_hash == Digest::default() {
+        // If the commitment is equal to `Digest::default()`, it signifies that this is a new
+        // account which is not yet present in the Store.
+        let account_commitment = if account_commitment == Digest::default() {
             None
         } else {
-            Some(account_hash)
+            Some(account_commitment)
         };
 
-        Ok(Self { account_id, account_hash })
+        Ok(Self { account_id, account_commitment })
     }
 }

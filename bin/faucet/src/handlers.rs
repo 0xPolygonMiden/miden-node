@@ -1,9 +1,9 @@
 use anyhow::Context;
 use axum::{
+    Json,
     extract::State,
     http::{Response, StatusCode},
     response::IntoResponse,
-    Json,
 };
 use http::header;
 use http_body_util::Full;
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use tonic::body;
 use tracing::info;
 
-use crate::{errors::HandlerError, state::FaucetState, COMPONENT};
+use crate::{COMPONENT, errors::HandlerError, state::FaucetState};
 
 #[derive(Deserialize)]
 pub struct FaucetRequest {
@@ -126,6 +126,14 @@ pub async fn get_index_js(state: State<FaucetState>) -> Result<impl IntoResponse
 
 pub async fn get_index_css(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
     get_static_file(state, "index.css")
+}
+
+pub async fn get_background(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
+    get_static_file(state, "background.png")
+}
+
+pub async fn get_favicon(state: State<FaucetState>) -> Result<impl IntoResponse, HandlerError> {
+    get_static_file(state, "favicon.ico")
 }
 
 /// Returns a static file bundled with the app state.

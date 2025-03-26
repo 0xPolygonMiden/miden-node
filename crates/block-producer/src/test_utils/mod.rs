@@ -1,12 +1,14 @@
 use miden_objects::{
-    crypto::rand::{FeltRng, RpoRandomCoin},
-    transaction::TransactionId,
     Digest,
+    account::AccountId,
+    crypto::rand::{FeltRng, RpoRandomCoin},
+    testing::account_id::AccountIdBuilder,
+    transaction::TransactionId,
 };
 
 mod proven_tx;
 
-pub use proven_tx::{mock_proven_tx, MockProvenTxBuilder};
+pub use proven_tx::{MockProvenTxBuilder, mock_proven_tx};
 
 mod store;
 
@@ -14,7 +16,7 @@ pub use store::{MockStoreSuccess, MockStoreSuccessBuilder};
 
 mod account;
 
-pub use account::{mock_account_id, MockPrivateAccount};
+pub use account::{MockPrivateAccount, mock_account_id};
 
 pub mod block;
 
@@ -43,6 +45,10 @@ impl Random {
 
     pub fn draw_tx_id(&mut self) -> TransactionId {
         self.0.draw_word().into()
+    }
+
+    pub fn draw_account_id(&mut self) -> AccountId {
+        AccountIdBuilder::new().build_with_rng(&mut self.0)
     }
 
     pub fn draw_digest(&mut self) -> Digest {
