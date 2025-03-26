@@ -26,6 +26,7 @@
 ### Changes
 
 - [BREAKING] Updated minimum Rust version to 1.84.
+- Added stress test binary with seed-store command (#657).
 - [BREAKING] `Endpoint` configuration simplified to a single string (#654).
 - [BREAKING] Update `GetBlockInputs` RPC (#709).
 - [BREAKING] `CheckNullifiersByPrefix` now takes a starting block number (#707).
@@ -34,8 +35,9 @@
 - [BREAKING] Added `block_prover_url` to block producer configuration (#719).
 - [BREAKING] Updated to Rust Edition 2024 (#727).
 - [BREAKING] MSRV bumped to 1.85 (#727).
-- Added proto files for ntx-builder service. Added new `get_unconsumed_network_notes` endpoint to the store (#740).
+- [BREAKING] Removed `miden-rpc-proto` and introduced `miden-node-proto-build` (#723). 
 - [BREAKING] Replaced `toml` configuration with CLI (#732).
+- Added proto files for ntx-builder service. Added new `get_unconsumed_network_notes` endpoint to the store (#740).
 - [BREAKING] Renamed multiple `xxx_hash` to `xxx_commitment` in RPC API (#757).
 
 ### Enhancements

@@ -63,7 +63,7 @@ book: ## Builds the book & serves documentation site
 
 .PHONY: test
 test:  ## Runs all tests
-	cargo nextest run --all-features --workspace --no-capture
+	cargo nextest run --all-features --workspace 
 
 # --- checking ------------------------------------------------------------------------------------
 
@@ -86,6 +86,10 @@ install-node: ## Installs node
 .PHONY: install-faucet
 install-faucet: ## Installs faucet
 	${BUILD_PROTO} cargo install --path bin/faucet --locked
+
+.PHONY: install-stress-test
+install-stress-test: ## Installs stress-test binary
+	cargo install --path bin/stress-test --locked
 
 # --- docker --------------------------------------------------------------------------------------
 

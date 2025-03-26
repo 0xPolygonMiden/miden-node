@@ -222,6 +222,11 @@ testsuite using
 make test
 ```
 
+## gRPC bindings
+This repo also contains the [proto definitions](proto/proto) for the gRPC API.
+
+To generate proto bindings in a Rust project, you can use the `miden-node-proto-build` crate. See the crate's [README.md](proto/README.md) for details on how to do it.
+
 ## License
 
 This project is [MIT licensed](./LICENSE).

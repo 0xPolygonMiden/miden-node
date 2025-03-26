@@ -1,10 +1,12 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     num::NonZeroU32,
+    sync::Arc,
 };
 
 use miden_objects::{
-    ACCOUNT_TREE_DEPTH, EMPTY_WORD, ZERO,
+    ACCOUNT_TREE_DEPTH, Digest, EMPTY_WORD, ZERO,
+    account::AccountId,
     batch::ProvenBatch,
     block::{BlockHeader, BlockNumber, OutputNoteBatch, ProvenBlock},
     crypto::merkle::{Mmr, SimpleSmt, Smt},
@@ -13,7 +15,6 @@ use miden_objects::{
 };
 use tokio::sync::RwLock;
 
-use super::*;
 use crate::{
     errors::StoreError,
     store::TransactionInputs,

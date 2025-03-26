@@ -10,7 +10,7 @@ For more information on the installation and operation of this component, please
 
 ## API
 
-The full gRPC API can be found [here](../../proto/block_producer.proto).
+The full gRPC API can be found [here](../../proto/proto/block_producer.proto).
 
 ---
 
@@ -48,6 +48,10 @@ transaction's expiration height. Once the blockchain advances beyond this point 
 can know for certain it was evicted.
 
 ---
+
+## Crate Features
+
+- `tracing-forest`: sets logging using tracing-forest. Disabled by default.
 
 ## License
 This project is [MIT licensed](../../LICENSE).
