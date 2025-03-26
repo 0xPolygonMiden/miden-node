@@ -25,6 +25,10 @@ repository   = "https://github.com/0xPolygonMiden/miden-node"
 rust-version = "1.85"
 version      = "0.8.0"
 
+# Optimise the cryptography for faster tests involving account creation.
+[profile.test.package.miden-crypto]
+opt-level = 2
+
 [workspace.dependencies]
 anyhow                    = { version = "1.0" }
 assert_matches            = { version = "1.5" }

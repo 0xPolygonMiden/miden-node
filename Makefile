@@ -63,7 +63,7 @@ book: ## Builds the book & serves documentation site
 
 .PHONY: test
 test:  ## Runs all tests
-	cargo nextest run --all-features --workspace --no-capture
+	cargo nextest run --all-features --workspace 
 
 # --- checking ------------------------------------------------------------------------------------
 
