@@ -2,7 +2,7 @@
 //
 // This provided access to the rollup data to the other nodes.
 syntax = "proto3";
-package network_transaction;
+package ntx_builder;
 
 import "requests.proto";
 import "responses.proto";

@@ -107,13 +107,11 @@ pub mod api_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/network_transaction.Api/SubmitNetworkNotes",
+                "/ntx_builder.Api/SubmitNetworkNotes",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("network_transaction.Api", "SubmitNetworkNotes"),
-                );
+                .insert(GrpcMethod::new("ntx_builder.Api", "SubmitNetworkNotes"));
             self.inner.unary(req, path, codec).await
         }
         /// Update the status of multiple transactions.
@@ -133,13 +131,11 @@ pub mod api_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/network_transaction.Api/UpdateTransactionStatus",
+                "/ntx_builder.Api/UpdateTransactionStatus",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("network_transaction.Api", "UpdateTransactionStatus"),
-                );
+                .insert(GrpcMethod::new("ntx_builder.Api", "UpdateTransactionStatus"));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -246,7 +242,7 @@ pub mod api_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/network_transaction.Api/SubmitNetworkNotes" => {
+                "/ntx_builder.Api/SubmitNetworkNotes" => {
                     #[allow(non_camel_case_types)]
                     struct SubmitNetworkNotesSvc<T: Api>(pub Arc<T>);
                     impl<
@@ -294,7 +290,7 @@ pub mod api_server {
                     };
                     Box::pin(fut)
                 }
-                "/network_transaction.Api/UpdateTransactionStatus" => {
+                "/ntx_builder.Api/UpdateTransactionStatus" => {
                     #[allow(non_camel_case_types)]
                     struct UpdateTransactionStatusSvc<T: Api>(pub Arc<T>);
                     impl<
@@ -375,7 +371,7 @@ pub mod api_server {
         }
     }
     /// Generated gRPC service name
-    pub const SERVICE_NAME: &str = "network_transaction.Api";
+    pub const SERVICE_NAME: &str = "ntx_builder.Api";
     impl<T> tonic::server::NamedService for ApiServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
