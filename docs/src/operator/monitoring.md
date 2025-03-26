@@ -2,6 +2,9 @@
 
 We provide logging to `stdout` and an optional [OpenTelemetry](https://opentelemetry.io/) exporter for our traces.
 
+OpenTelemetry exporting can be enabled by specifying `--enable-otel` via the command-line or the
+`MIDEN_NODE_ENABLE_OTEL` environment variable when operating the node.
+
 We do _not_ export OpenTelemetry logs or metrics. Our end goal is to derive these based off of our tracing information.
 This approach is known as [wide-events](https://isburmistrov.substack.com/p/all-you-need-is-wide-events-not-metrics),
 [structured logs](https://newrelic.com/blog/how-to-relic/structured-logging), and
@@ -21,8 +24,8 @@ We assign a unique trace (aka root span) to each RPC request, batch build, and b
 
 <div class="warning">
 
-Span and attribute naming is unstable and should not be relied upon. This also means changes here will not be
-considered breaking, however we will do our best to document them.
+Span and attribute naming is unstable and should not be relied upon. This also means changes here will not be considered
+breaking, however we will do our best to document them.
 
 </div>
 
