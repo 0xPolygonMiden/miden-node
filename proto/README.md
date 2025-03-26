@@ -31,9 +31,12 @@ fn main() {
 }
 ```
 
+### Enabling TLS for the RPC Client
+To connect to the official RPC API, you need to enable TLS in your gRPC client. The easiest way to do this is by enabling the `tls-native-roots` feature in the `tonic` crate. This ensures that your client automatically uses system-native certificate roots without requiring additional configuration.
+
 ## Crate features
 
-- internal: exposes Protobuf file descriptors for the internal components of the node. These can be accesed via `store_file_descriptor()` and `block_producer_file_descriptor()`.
+- `internal`: exposes Protobuf file descriptors for the internal components of the node. These can be accesed via `store_file_descriptor()` and `block_producer_file_descriptor()`.
 
 ## License
 This project is [MIT licensed](../../LICENSE).
