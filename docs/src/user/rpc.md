@@ -28,9 +28,10 @@ Request proofs for a set of nullifiers.
 
 ## CheckNullifiersByPrefix
 
-Request all nullifiers that match the specified prefixes. Only 16-bit prefixes are supported at this time.
+Request nullifiers filtered by prefix and created after some block number.
 
-The prefix is used to obscure the callers interest in a specific nullifier.
+The prefix is used to obscure the callers interest in a specific nullifier. Currently only 16-bit prefixes are
+supported.
 
 ## GetAccountDetails
 
