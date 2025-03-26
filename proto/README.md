@@ -36,7 +36,7 @@ To connect to the official RPC API, you need to enable TLS in your gRPC client. 
 
 ## Crate features
 
-- `internal`: exposes Protobuf file descriptors for the internal components of the node. These can be accesed via `store_file_descriptor()` and `block_producer_file_descriptor()`.
+- `internal`: exposes Protobuf file descriptors for the internal components of the node. These can be accesed via `store_file_descriptor()`, `block_producer_file_descriptor()`, and `ntx_builder_api_descriptor()`.
 
 ## License
 This project is [MIT licensed](../../LICENSE).
