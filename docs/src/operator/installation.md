@@ -69,10 +69,6 @@ cargo install --locked --git https://github.com/0xPolygonMiden/miden-node miden-
 More information on the various `cargo install` options can be found
 [here](https://doc.rust-lang.org/cargo/commands/cargo-install.html#install-options).
 
-## Setup
-
-TODO: once configuration has been refactored
-
 ## Updating
 
 > [!WARNING]

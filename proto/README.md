@@ -1,11 +1,14 @@
 # Miden proto build
 
-This crate contains Protobuf files defining the Miden node gRPC API. The files are exposed via FileDescriptorSets to simplify generation of Rust bindings.
+This crate contains Protobuf files defining the Miden node gRPC API. The files are exposed via FileDescriptorSets to
+simplify generation of Rust bindings.
 
 It also contains the raw Protobuf files in the proto directory to be used for binding generation in other languages.
 
 ## Usage
-To generate Miden node gRPC bindings in Rust, you'll need to add a `build.rs` file to your project. The example below generates the RPC component bindings and writes them into the `src/generated` directory of your project.
+
+To generate Miden node gRPC bindings in Rust, you'll need to add a `build.rs` file to your project. The example below
+generates the RPC component bindings and writes them into the `src/generated` directory of your project.
 
 ```rust
 use std::{fs, path::PathBuf, env};
@@ -32,11 +35,16 @@ fn main() {
 ```
 
 ### Enabling TLS for the RPC Client
-To connect to the official RPC API, you need to enable TLS in your gRPC client. The easiest way to do this is by enabling the `tls-native-roots` feature in the `tonic` crate. This ensures that your client automatically uses system-native certificate roots without requiring additional configuration.
+
+To connect to the official RPC API, you need to enable TLS in your gRPC client. The easiest way to do this is by
+enabling the `tls-native-roots` feature in the `tonic` crate. This ensures that your client automatically uses
+system-native certificate roots without requiring additional configuration.
 
 ## Crate features
 
-- `internal`: exposes Protobuf file descriptors for the internal components of the node. These can be accesed via `store_file_descriptor()`, `block_producer_file_descriptor()`, and `ntx_builder_api_descriptor()`.
+- `internal`: exposes Protobuf file descriptors for the internal components of the node. This is _not_ intended for
+general use.
 
 ## License
+
 This project is [MIT licensed](../../LICENSE).
