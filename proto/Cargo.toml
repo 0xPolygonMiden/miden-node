@@ -1,0 +1,29 @@
+[package]
+authors.workspace      = true
+description            = "Miden node protobuf bindings builder"
+edition.workspace      = true
+homepage.workspace     = true
+keywords               = ["miden", "node", "protobuf", "rpc"]
+license.workspace      = true
+name                   = "miden-node-proto-build"
+readme                 = "README.md"
+repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+
+[features]
+# Enables the gRPC file descriptors for the internal component APIs,
+# i.e. the `store` and `block-producer` gRPC services.
+internal = []
+
+[lints]
+workspace = true
+
+[dependencies]
+protox      = { version = "0.7" }
+tonic-build = { version = "0.12" }
+
+[build-dependencies]
+anyhow = { workspace = true }
+prost  = { workspace = true }
+protox = { version = "0.7" }
