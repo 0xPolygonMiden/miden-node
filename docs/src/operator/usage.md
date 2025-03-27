@@ -32,11 +32,11 @@ mkdir accounts
 
 # Bootstrap the node.
 #
-# This generates the genesis data and stores it in `<data-directory>/genesis.dat`.
-# This is used by the node to create and verify the database during node startup.
+# This creates the node's database and initializes it with the genesis data.
 #
-# Account secrets are stored as `<accounts-directory>/account_xx.mac`
-# where `xx` is the index of the account in the configuration file.
+# Account secrets generated as part of the genesis block are stored
+# as `<accounts-directory>/account_xx.mac` where `xx` is the index of the account
+# in the configuration file.
 #
 # These account files are not used by the node and should instead be used wherever
 # you intend to operate these accounts,
