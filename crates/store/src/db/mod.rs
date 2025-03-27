@@ -199,7 +199,7 @@ impl Db {
         // Insert genesis block data.
         let db_tx = conn.transaction().context("failed to create database transaction")?;
         let genesis = genesis.inner();
-        sql::apply_block(&db_tx, &genesis.header(), &[], &[], genesis.updated_accounts())
+        sql::apply_block(&db_tx, genesis.header(), &[], &[], genesis.updated_accounts())
             .context("failed to insert genesis block")?;
         db_tx.commit().context("failed to commit database transaction")
     }

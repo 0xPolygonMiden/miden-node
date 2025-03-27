@@ -1,4 +1,8 @@
-use std::{ops::Not, path::PathBuf, sync::Arc};
+use std::{
+    ops::Not,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::Context;
 use miden_node_proto::generated::store::api_server;
@@ -30,14 +34,15 @@ pub struct Store {
 
 impl Store {
     /// Bootstraps the Store, creating the database state and inserting the genesis block data.
-    pub fn bootstrap(genesis: GenesisState, data_directory: PathBuf) -> anyhow::Result<()> {
+    pub fn bootstrap(genesis: GenesisState, data_directory: &Path) -> anyhow::Result<()> {
         let genesis = genesis
             .into_block()
             .context("failed to convert genesis configuration into the genesis block")?;
 
-        let data_directory = DataDirectory::load(data_directory.clone()).with_context(|| {
-            format!("failed to load data directory at {}", data_directory.display())
-        })?;
+        let data_directory =
+            DataDirectory::load(data_directory.to_path_buf()).with_context(|| {
+                format!("failed to load data directory at {}", data_directory.display())
+            })?;
         tracing::info!(target=COMPONENT, path=%data_directory.display(), "Data directory loaded");
 
         let block_store = data_directory.block_store_dir();

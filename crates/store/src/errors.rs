@@ -114,15 +114,15 @@ pub enum StateInitializationError {
 #[derive(Debug, Error)]
 pub enum DatabaseSetupError {
     #[error("I/O error")]
-    IoError(#[from] io::Error),
+    Io(#[from] io::Error),
     #[error("database error")]
-    DatabaseError(#[from] DatabaseError),
+    Database(#[from] DatabaseError),
     #[error("genesis block error")]
-    GenesisBlockError(#[from] GenesisError),
+    GenesisBlock(#[from] GenesisError),
     #[error("pool build error")]
-    PoolBuildError(#[from] deadpool::managed::BuildError),
+    PoolBuild(#[from] deadpool::managed::BuildError),
     #[error("SQLite migration error")]
-    SqliteMigrationError(#[from] rusqlite_migration::Error),
+    SqliteMigration(#[from] rusqlite_migration::Error),
 }
 
 #[derive(Debug, Error)]
@@ -130,14 +130,14 @@ pub enum GenesisError {
     // ERRORS WITH AUTOMATIC CONVERSIONS FROM NESTED ERROR TYPES
     // ---------------------------------------------------------------------------------------------
     #[error("database error")]
-    DatabaseError(#[from] DatabaseError),
+    Database(#[from] DatabaseError),
     // TODO: Check if needed.
     #[error("block error")]
-    BlockError,
+    Block,
     #[error("merkle error")]
-    MerkleError(#[from] MerkleError),
+    Merkle(#[from] MerkleError),
     #[error("failed to deserialize genesis file")]
-    GenesisFileDeserializationError(#[from] DeserializationError),
+    GenesisFileDeserialization(#[from] DeserializationError),
 }
 
 // ENDPOINT ERRORS

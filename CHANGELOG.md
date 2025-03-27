@@ -2,7 +2,10 @@
 
 ## v0.9.0 (TBD)
 
+### Changes
 
+- [BREAKING] Node database is now created and populated during the bootstrap process instead of on first startup (#776).
+- [BREAKING] Bootstrapping no longer creates data directory but instead expects it to exist (#776).
 
 ## v0.8.0 (2025-03-26)
 

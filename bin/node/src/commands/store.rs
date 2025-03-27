@@ -80,7 +80,7 @@ impl StoreCommand {
                 config,
                 data_directory,
                 accounts_directory,
-            } => Self::bootstrap(config, data_directory, &accounts_directory),
+            } => Self::bootstrap(config, &data_directory, &accounts_directory),
             // Note: open-telemetry is handled in main.
             StoreCommand::Start { url, data_directory, open_telemetry: _ } => {
                 Self::start(url, data_directory).await
@@ -121,7 +121,7 @@ impl StoreCommand {
 
     fn bootstrap(
         genesis_input: Option<PathBuf>,
-        data_directory: PathBuf,
+        data_directory: &Path,
         accounts_directory: &Path,
     ) -> anyhow::Result<()> {
         // Parse the genesis configuration input.
