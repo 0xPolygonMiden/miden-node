@@ -224,7 +224,7 @@ pub struct GetUnconsumedNetworkNotesRequest {
     #[prost(uint64, tag = "2")]
     pub limit: u64,
 }
-/// Submit multiple network notes to create network transactions.
+/// Submit a list of network notes to the network transaction builder.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubmitNetworkNotesRequest {
     /// Id of the transaction that created the notes.
@@ -234,7 +234,7 @@ pub struct SubmitNetworkNotesRequest {
     #[prost(message, repeated, tag = "2")]
     pub note: ::prost::alloc::vec::Vec<super::note::Note>,
 }
-/// Updates the status of multiple transactions.
+/// Update network transaction builder with transaction status changes.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateTransactionStatusRequest {
     /// The list of updates for each transaction.

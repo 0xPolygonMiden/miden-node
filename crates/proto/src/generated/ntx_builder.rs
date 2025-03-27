@@ -90,7 +90,7 @@ pub mod api_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
-        /// Submit a list of network notes to create network transactions.
+        /// Submit a list of network notes to the network transaction builder.
         pub async fn submit_network_notes(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -114,7 +114,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("ntx_builder.Api", "SubmitNetworkNotes"));
             self.inner.unary(req, path, codec).await
         }
-        /// Update the status of multiple transactions.
+        /// Update network transaction builder with transaction status changes.
         pub async fn update_transaction_status(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -153,12 +153,12 @@ pub mod api_server {
     /// Generated trait containing gRPC methods that should be implemented for use with ApiServer.
     #[async_trait]
     pub trait Api: std::marker::Send + std::marker::Sync + 'static {
-        /// Submit a list of network notes to create network transactions.
+        /// Submit a list of network notes to the network transaction builder.
         async fn submit_network_notes(
             &self,
             request: tonic::Request<super::super::requests::SubmitNetworkNotesRequest>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
-        /// Update the status of multiple transactions.
+        /// Update network transaction builder with transaction status changes.
         async fn update_transaction_status(
             &self,
             request: tonic::Request<
