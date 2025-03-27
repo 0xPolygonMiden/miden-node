@@ -141,7 +141,7 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
     };
 
     // start generating blocks
-    let genesis_header = genesis_state.into_block().unwrap();
+    let genesis_header = genesis_state.into_block().unwrap().into_inner();
     let metrics =
         generate_blocks(num_accounts, faucet, genesis_header, &store_client, database_filepath)
             .await;

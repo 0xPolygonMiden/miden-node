@@ -1,11 +1,10 @@
 use std::io;
 
 use deadpool::managed::PoolError;
-use deadpool_sync::InteractError;
 use miden_objects::{
     AccountDeltaError, AccountError, NoteError,
     account::AccountId,
-    block::{BlockHeader, BlockNumber},
+    block::BlockNumber,
     crypto::{
         hash::rpo::RpoDigest,
         merkle::{MerkleError, MmrError},
@@ -139,25 +138,6 @@ pub enum GenesisError {
     MerkleError(#[from] MerkleError),
     #[error("failed to deserialize genesis file")]
     GenesisFileDeserializationError(#[from] DeserializationError),
-    #[error("retrieving genesis block header failed")]
-    SelectBlockHeaderByBlockNumError(#[from] Box<DatabaseError>),
-
-    // OTHER ERRORS
-    // ---------------------------------------------------------------------------------------------
-    #[error("apply block failed")]
-    ApplyBlockFailed(#[source] InteractError),
-    #[error("failed to read genesis file \"{genesis_filepath}\"")]
-    FailedToReadGenesisFile {
-        genesis_filepath: String,
-        source: io::Error,
-    },
-    #[error(
-        "block header in store doesn't match block header in genesis file. Expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}"
-    )]
-    GenesisBlockHeaderMismatch {
-        expected_genesis_header: Box<BlockHeader>,
-        block_header_in_store: Box<BlockHeader>,
-    },
 }
 
 // ENDPOINT ERRORS
