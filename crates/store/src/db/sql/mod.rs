@@ -43,17 +43,17 @@ use crate::{
     errors::{DatabaseError, NoteSyncError, StateSyncError},
 };
 
-/// The page number and limit to query from the DB.
+/// The page number and size to query from the DB.
 #[derive(Debug, Copy, Clone)]
 pub struct Page {
     number: u64,
-    limit: NonZeroUsize,
+    size: NonZeroUsize,
 }
 
 impl Page {
     /// Creates a new page.
-    pub fn new(number: u64, limit: NonZeroUsize) -> Self {
-        Self { number, limit }
+    pub fn new(number: u64, size: NonZeroUsize) -> Self {
+        Self { number, size }
     }
 
     /// Returns the page number.
@@ -62,13 +62,13 @@ impl Page {
     }
 
     /// Returns the page size.
-    pub fn limit(&self) -> NonZeroUsize {
-        self.limit
+    pub fn size(&self) -> NonZeroUsize {
+        self.size
     }
 
-    /// Sets the next page number.
-    pub fn set_next(&mut self, next: u64) {
-        self.number = next;
+    /// Returns the next page.
+    pub fn next(self, number: u64) -> Self {
+        Self { number, size: self.size }
     }
 }
 
@@ -948,7 +948,7 @@ pub fn select_note_inclusion_proofs(
 ///
 /// # Returns
 ///
-/// A set of unconsumed network notes with maximum length of `limit` and a pagination token to get
+/// A set of unconsumed network notes with maximum length of `size` and a pagination token to get
 /// the next set.
 pub fn unconsumed_network_notes(
     transaction: &Transaction,
@@ -975,14 +975,14 @@ pub fn unconsumed_network_notes(
         NoteRecord::SELECT_COLUMNS
     ))?;
 
-    let mut rows = stmt.query(params![page.number(), page.limit()])?;
+    let mut rows = stmt.query(params![page.number(), page.size()])?;
 
-    let mut notes = Vec::with_capacity(page.limit().into());
+    let mut notes = Vec::with_capacity(page.size().into());
     while let Some(row) = rows.next()? {
         notes.push(NoteRecord::from_row(row)?);
         // Increment by 1 because we are using rowid >=, and otherwise we would include the last
         // element in the next page as well.
-        page.set_next(row.get::<_, u64>(11)? + 1);
+        page = page.next(row.get::<_, u64>(11)? + 1);
     }
 
     Ok((notes, page))

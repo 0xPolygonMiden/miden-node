@@ -1,6 +1,4 @@
-// Specification of the ntx-builder RPC.
-//
-// This provided access to the rollup data to the other nodes.
+// Specification of the Network Transaction Builder RPC.
 syntax = "proto3";
 package ntx_builder;
 
@@ -9,9 +7,9 @@ import "responses.proto";
 import "google/protobuf/empty.proto";
 
 service Api {
-    // Submit a list of network notes to create network transactions.
+    // Submit a list of network notes to the network transaction builder.
     rpc SubmitNetworkNotes(requests.SubmitNetworkNotesRequest) returns (google.protobuf.Empty) {}
 
-    // Update the status of multiple transactions.
+    // Update network transaction builder with transaction status changes.
     rpc UpdateTransactionStatus(requests.UpdateTransactionStatusRequest) returns (google.protobuf.Empty) {}
 }

@@ -200,7 +200,7 @@ message GetUnconsumedNetworkNotesRequest {
     uint64 limit = 2;
 }
 
-// Submit multiple network notes to create network transactions.
+// Submit a list of network notes to the network transaction builder.
 message SubmitNetworkNotesRequest {    
     // Id of the transaction that created the notes.
     digest.Digest transaction_id = 1;
@@ -209,7 +209,7 @@ message SubmitNetworkNotesRequest {
     repeated note.Note note = 2;
 }
 
-// Updates the status of multiple transactions.
+// Update network transaction builder with transaction status changes.
 message UpdateTransactionStatusRequest {
     // Represents the update for a single transaction.
     message TransactionUpdate {

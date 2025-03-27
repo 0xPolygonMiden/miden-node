@@ -538,13 +538,10 @@ impl api_server::Api for StoreApi {
         let request = request.into_inner();
         let state = self.state.clone();
 
+        let size = NonZero::try_from(request.limit as usize)
+            .map_err(|err: TryFromIntError| invalid_argument(format!("Invalid limit: {err}")))?;
         let (notes, next_page) = state
-            .get_unconsumed_network_notes(Page::new(
-                request.page,
-                NonZero::try_from(request.limit as usize).map_err(|err: TryFromIntError| {
-                    invalid_argument(format!("Invalid limit: {err}"))
-                })?,
-            ))
+            .get_unconsumed_network_notes(Page::new(request.page, size))
             .await
             .map_err(internal_error)?;
 
