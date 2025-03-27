@@ -1,14 +1,14 @@
+use miden_block_prover::ProvenBlockError;
 use miden_node_proto::errors::ConversionError;
 use miden_node_utils::formatting::format_opt;
 use miden_objects::{
-    account::AccountId,
+    Digest, ProposedBatchError, ProposedBlockError,
     block::BlockNumber,
-    crypto::merkle::MerkleError,
     note::{NoteId, Nullifier},
     transaction::TransactionId,
-    AccountDeltaError, Digest,
 };
-use miden_processor::ExecutionError;
+use miden_proving_service_client::RemoteProverError;
+use miden_tx_batch_prover::errors::ProvenBatchError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -54,11 +54,11 @@ pub enum VerifyTxError {
     #[error("output note IDs already used: {0:?}")]
     OutputNotesAlreadyExist(Vec<NoteId>),
 
-    /// The account's initial hash did not match the current account's hash
-    #[error("incorrect account's initial hash ({tx_initial_account_hash}, current: {})", format_opt(.current_account_hash.as_ref()))]
-    IncorrectAccountInitialHash {
-        tx_initial_account_hash: Digest,
-        current_account_hash: Option<Digest>,
+    /// The account's initial commitment did not match the current account's commitment
+    #[error("incorrect account's initial commitment ({tx_initial_account_commitment}, current: {})", format_opt(.current_account_commitment.as_ref()))]
+    IncorrectAccountInitialCommitment {
+        tx_initial_account_commitment: Digest,
+        current_account_commitment: Option<Digest>,
     },
 
     /// Failed to retrieve transaction inputs from the store
@@ -81,7 +81,9 @@ pub enum AddTransactionError {
     #[error("transaction verification failed")]
     VerificationFailed(#[from] VerifyTxError),
 
-    #[error("transaction input data from block {input_block} is rejected as stale because it is older than the limit of {stale_limit}")]
+    #[error(
+        "transaction input data from block {input_block} is rejected as stale because it is older than the limit of {stale_limit}"
+    )]
     StaleInputs {
         input_block: BlockNumber,
         stale_limit: BlockNumber,
@@ -106,7 +108,7 @@ impl From<AddTransactionError> for tonic::Status {
                 VerifyTxError::InputNotesAlreadyConsumed(_)
                 | VerifyTxError::UnauthenticatedNotesNotFound(_)
                 | VerifyTxError::OutputNotesAlreadyExist(_)
-                | VerifyTxError::IncorrectAccountInitialHash { .. }
+                | VerifyTxError::IncorrectAccountInitialCommitment { .. }
                 | VerifyTxError::InvalidTransactionProof(_),
             )
             | AddTransactionError::Expired { .. }
@@ -127,25 +129,6 @@ impl From<AddTransactionError> for tonic::Status {
 /// Error encountered while building a batch.
 #[derive(Debug, Error)]
 pub enum BuildBatchError {
-    #[error("duplicated unauthenticated transaction input note ID in the batch: {0}")]
-    DuplicateUnauthenticatedNote(NoteId),
-
-    #[error("duplicated transaction output note ID in the batch: {0}")]
-    DuplicateOutputNote(NoteId),
-
-    #[error("note hashes mismatch for note {id}: (input: {input_hash}, output: {output_hash})")]
-    NoteHashesMismatch {
-        id: NoteId,
-        input_hash: Digest,
-        output_hash: Digest,
-    },
-
-    #[error("failed to merge transaction delta into account {account_id}")]
-    AccountUpdateError {
-        account_id: AccountId,
-        source: AccountDeltaError,
-    },
-
     /// We sometimes randomly inject errors into the batch building process to test our failure
     /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]
@@ -156,19 +139,15 @@ pub enum BuildBatchError {
 
     #[error("failed to fetch batch inputs from store")]
     FetchBatchInputsFailed(#[source] StoreError),
-}
 
-// Block prover errors
-// =================================================================================================
+    #[error("failed to build proposed transaction batch")]
+    ProposeBatchError(#[source] ProposedBatchError),
 
-#[derive(Debug, Error)]
-pub enum BlockProverError {
-    #[error("received invalid merkle path")]
-    InvalidMerklePaths(#[source] MerkleError),
-    #[error("program execution failed")]
-    ProgramExecutionFailed(#[source] ExecutionError),
-    #[error("failed to retrieve {0} root from stack outputs")]
-    InvalidRootOutput(&'static str),
+    #[error("failed to prove proposed transaction batch")]
+    ProveBatchError(#[source] ProvenBatchError),
+
+    #[error("failed to prove batch with remote prover")]
+    RemoteProverError(#[source] RemoteProverError),
 }
 
 // Block building errors
@@ -176,33 +155,20 @@ pub enum BlockProverError {
 
 #[derive(Debug, Error)]
 pub enum BuildBlockError {
-    #[error("failed to compute new block")]
-    BlockProverFailed(#[from] BlockProverError),
     #[error("failed to apply block to store")]
     StoreApplyBlockFailed(#[source] StoreError),
     #[error("failed to get block inputs from store")]
     GetBlockInputsFailed(#[source] StoreError),
-    #[error("block inputs from store did not contain data for account {0}")]
-    MissingAccountInput(AccountId),
-    #[error("block inputs from store contained extra data for accounts {0:?}")]
-    ExtraStoreData(Vec<AccountId>),
-    #[error("account {0} with state {1} cannot transaction to remaining states {2:?}")]
-    InconsistentAccountStateTransition(AccountId, Digest, Vec<Digest>),
-    #[error(
-        "block inputs from store and transaction batches produced different nullifiers: {0:?}"
-    )]
-    InconsistentNullifiers(Vec<Nullifier>),
-    #[error("unauthenticated transaction notes not found in the store or in outputs of other transactions in the block: {0:?}")]
-    UnauthenticatedNotesNotFound(Vec<NoteId>),
-    #[error("failed to merge transaction delta into account {account_id}")]
-    AccountUpdateError {
-        account_id: AccountId,
-        source: AccountDeltaError,
-    },
+    #[error("failed to propose block")]
+    ProposeBlockFailed(#[source] ProposedBlockError),
+    #[error("failed to prove block")]
+    ProveBlockFailed(#[source] ProvenBlockError),
     /// We sometimes randomly inject errors into the batch building process to test our failure
     /// responses.
     #[error("nothing actually went wrong, failure was injected on purpose")]
     InjectedFailure,
+    #[error("failed to prove block with remote prover")]
+    RemoteProverError(#[source] RemoteProverError),
 }
 
 // Store errors

@@ -31,8 +31,23 @@ format-check: ## Runs Format using nightly toolchain but only in check mode
 	cargo +nightly fmt --all --check
 
 
+.PHONY: toml
+toml: ## Runs Format for all TOML files
+	taplo fmt
+
+
+.PHONY: toml-check
+toml-check: ## Runs Format for all TOML files but only in check mode
+	taplo fmt --check --verbose
+
+
+.PHONY: workspace-check
+workspace-check: ## Runs a check that all packages have `lints.workspace = true`
+	cargo workspace-lints
+
+
 .PHONY: lint
-lint: format fix clippy ## Runs all linting tasks at once (Clippy, fixing, formatting)
+lint: format fix clippy toml workspace-check ## Runs all linting tasks at once (Clippy, fixing, formatting, workspace)
 
 # --- docs ----------------------------------------------------------------------------------------
 
@@ -40,16 +55,15 @@ lint: format fix clippy ## Runs all linting tasks at once (Clippy, fixing, forma
 doc: ## Generates & checks documentation
 	$(WARNINGS) cargo doc --all-features --keep-going --release --locked
 
-
-.PHONY: doc-serve
-doc-serve: ## Serves documentation site
-	./scripts/serve-doc-site.sh
+.PHONY: book
+book: ## Builds the book & serves documentation site
+	mdbook serve --open docs
 
 # --- testing -------------------------------------------------------------------------------------
 
 .PHONY: test
 test:  ## Runs all tests
-	cargo nextest run --all-features --workspace --no-capture
+	cargo nextest run --all-features --workspace 
 
 # --- checking ------------------------------------------------------------------------------------
 
@@ -72,6 +86,10 @@ install-node: ## Installs node
 .PHONY: install-faucet
 install-faucet: ## Installs faucet
 	${BUILD_PROTO} cargo install --path bin/faucet --locked
+
+.PHONY: install-stress-test
+install-stress-test: ## Installs stress-test binary
+	cargo install --path bin/stress-test --locked
 
 # --- docker --------------------------------------------------------------------------------------
 

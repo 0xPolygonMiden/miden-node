@@ -7,12 +7,14 @@ use miden_objects::{
     utils::Deserializable,
 };
 use rusqlite::{
-    params,
+    OptionalExtension, params,
     types::{Value, ValueRef},
-    Connection, OptionalExtension,
 };
 
-use crate::errors::DatabaseError;
+use crate::{
+    db::{connection::Connection, transaction::Transaction},
+    errors::DatabaseError,
+};
 
 /// Returns the high 16 bits of the provided nullifier.
 pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
@@ -20,8 +22,8 @@ pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
 }
 
 /// Checks if a table exists in the database.
-pub fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<bool> {
-    Ok(conn
+pub fn table_exists(transaction: &Transaction, table_name: &str) -> rusqlite::Result<bool> {
+    Ok(transaction
         .query_row(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $1",
             params![table_name],
@@ -32,34 +34,43 @@ pub fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<boo
 }
 
 /// Returns the schema version of the database.
-pub fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
-    conn.query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
+pub fn schema_version(connection: &mut Connection) -> rusqlite::Result<usize> {
+    connection
+        .transaction()?
+        .query_row("SELECT * FROM pragma_schema_version", [], |row| row.get(0))
 }
 
 /// Auxiliary macro which substitutes `$src` token by `$dst` expression.
 macro_rules! subst {
-    ($src:tt, $dst:expr) => {
+    ($src:tt, $dst:expr_2021) => {
         $dst
     };
 }
 
 /// Generates a simple insert SQL statement with parameters for the provided table name and fields.
+/// Supports optional conflict resolution (adding "| REPLACE" or "| IGNORE" at the end will generate
+/// "OR REPLACE" and "OR IGNORE", correspondingly).
 ///
 /// # Usage:
 ///
+/// ```ignore
+/// insert_sql!(users { id, first_name, last_name, age } | REPLACE);
 /// ```
-/// insert_sql!(users { id, first_name, last_name, age });
-/// ```
+///
 /// which generates:
-/// "INSERT INTO users (id, `first_name`, `last_name`, age) VALUES (?, ?, ?, ?)"
+/// ```sql
+/// INSERT OR REPLACE INTO `users` (`id`, `first_name`, `last_name`, `age`) VALUES (?, ?, ?, ?)
+/// ```
 macro_rules! insert_sql {
-    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? }) => {
+    ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } $(| $on_conflict:expr)?) => {
         concat!(
-            stringify!(INSERT INTO $table),
-            " (",
+            stringify!(INSERT $(OR $on_conflict)? INTO ),
+            "`",
+            stringify!($table),
+            "` (`",
             stringify!($first_field),
-            $($(concat!(", ", stringify!($field))),+ ,)?
-            ") VALUES (",
+            $($(concat!("`, `", stringify!($field))),+ ,)?
+            "`) VALUES (",
             subst!($first_field, "?"),
             $($(subst!($field, ", ?")),+ ,)?
             ")"
@@ -126,11 +137,15 @@ where
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
     let account_id = read_from_blob_column(row, 0)?;
-    let account_hash_data = row.get_ref(1)?.as_blob()?;
-    let account_hash = RpoDigest::read_from_bytes(account_hash_data)?;
+    let account_commitment_data = row.get_ref(1)?.as_blob()?;
+    let account_commitment = RpoDigest::read_from_bytes(account_commitment_data)?;
     let block_num = read_block_number(row, 2)?;
 
-    Ok(AccountSummary { account_id, account_hash, block_num })
+    Ok(AccountSummary {
+        account_id,
+        account_commitment,
+        block_num,
+    })
 }
 
 /// Constructs `AccountInfo` from the row of `accounts` table.
@@ -150,7 +165,7 @@ pub fn apply_delta(
     account_id: AccountId,
     value: &ValueRef<'_>,
     delta: &AccountDelta,
-    final_state_hash: &RpoDigest,
+    final_state_commitment: &RpoDigest,
 ) -> crate::db::Result<Account, DatabaseError> {
     let account = value.as_blob_or_null()?;
     let account = account.map(Account::read_from_bytes).transpose()?;
@@ -161,11 +176,11 @@ pub fn apply_delta(
 
     account.apply_delta(delta)?;
 
-    let actual_hash = account.hash();
-    if &actual_hash != final_state_hash {
-        return Err(DatabaseError::AccountHashesMismatch {
-            calculated: actual_hash,
-            expected: *final_state_hash,
+    let actual_commitment = account.commitment();
+    if &actual_commitment != final_state_commitment {
+        return Err(DatabaseError::AccountCommitmentsMismatch {
+            calculated: actual_commitment,
+            expected: *final_state_commitment,
         });
     }
 

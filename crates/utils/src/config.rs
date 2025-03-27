@@ -1,72 +1,15 @@
-use std::{
-    fmt::{Display, Formatter},
-    io,
-    net::{SocketAddr, ToSocketAddrs},
-    path::Path,
-    vec,
-};
+use std::path::Path;
 
 use figment::{
-    providers::{Format, Toml},
     Figment,
+    providers::{Format, Toml},
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 pub const DEFAULT_NODE_RPC_PORT: u16 = 57291;
 pub const DEFAULT_BLOCK_PRODUCER_PORT: u16 = 48046;
 pub const DEFAULT_STORE_PORT: u16 = 28943;
 pub const DEFAULT_FAUCET_SERVER_PORT: u16 = 8080;
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default)]
-pub enum Protocol {
-    #[default]
-    Http,
-    Https,
-}
-/// The `(host, port)` pair for the server's listening socket.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
-pub struct Endpoint {
-    /// Host used by the store.
-    pub host: String,
-    /// Port number used by the store.
-    pub port: u16,
-    /// Protocol type: http or https.
-    #[serde(default)]
-    pub protocol: Protocol,
-}
-
-impl Endpoint {
-    pub fn localhost(port: u16) -> Self {
-        Endpoint {
-            host: "localhost".to_string(),
-            port,
-            protocol: Protocol::default(),
-        }
-    }
-}
-
-impl ToSocketAddrs for Endpoint {
-    type Iter = vec::IntoIter<SocketAddr>;
-    fn to_socket_addrs(&self) -> io::Result<Self::Iter> {
-        (self.host.as_ref(), self.port).to_socket_addrs()
-    }
-}
-
-impl Display for Endpoint {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let Endpoint { protocol, host, port } = self;
-        f.write_fmt(format_args!("{protocol}://{host}:{port}"))
-    }
-}
-
-impl Display for Protocol {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Protocol::Http => f.write_str("http"),
-            Protocol::Https => f.write_str("https"),
-        }
-    }
-}
 
 /// Loads the user configuration.
 ///

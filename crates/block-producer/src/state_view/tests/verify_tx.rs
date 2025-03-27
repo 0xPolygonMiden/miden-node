@@ -1,7 +1,7 @@
 //! `verify_tx(tx)` requirements:
 //!
 //! Store-related requirements
-//! VT1: `tx.initial_account_hash` must match the account hash in store
+//! VT1: `tx.initial_account_commitment` must match the account commitment in store
 //! VT2: If store doesn't contain account, `verify_tx` should check that it is a new account ( TODO
 //! ) and succeed VT3: If `tx` consumes an already-consumed note in the store, `verify_tx` must fail
 //!
@@ -17,7 +17,7 @@ use miden_objects::note::Note;
 use tokio::task::JoinSet;
 
 use super::*;
-use crate::test_utils::{block::MockBlockBuilder, note::mock_note, MockStoreSuccessBuilder};
+use crate::test_utils::{MockStoreSuccessBuilder, block::MockBlockBuilder, note::mock_note};
 
 /// Tests the happy path where 3 transactions who modify different accounts and consume different
 /// notes all verify successfully
@@ -86,7 +86,7 @@ async fn verify_tx_vt1() {
         MockStoreSuccessBuilder::from_accounts(iter::once((account.id, account.states[0]))).build(),
     );
 
-    // The transaction's initial account hash uses `account.states[1]`, where the store expects
+    // The transaction's initial account commitment uses `account.states[1]`, where the store expects
     // `account.states[0]`
     let tx = MockProvenTxBuilder::with_account(account.id, account.states[1], account.states[2])
         .nullifiers_range(0..1)

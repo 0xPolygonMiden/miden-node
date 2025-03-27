@@ -44,6 +44,27 @@ jobs:
       - name: Clippy
         run: make clippy
 
+  toml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: taplo-cli
+      - run: make toml-check
+
+  workspace-lints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-workspace-lints
+      - run: |
+          make workspace-check
+
   doc:
     name: doc
     runs-on: ubuntu-latest
@@ -56,17 +77,6 @@ jobs:
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
       - name: Build docs
         run: make doc
-
-  version:
-    name: rust version consistency
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@main
-        with:
-          profile: minimal
-          override: true
-      - name: check rust versions
-        run: ./scripts/check-rust-version.sh
 
   unused_deps:
     name: check for unused dependencies
@@ -83,10 +93,12 @@ jobs:
       - uses: actions/checkout@main
       - name: Rustup
         run: rustup update --no-self-update
+      - name: Install protobuf
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
       - name: Rebuild protos
-        run: BUILD_PROTO=1 cargo check -p miden-node-rpc -p miden-rpc-proto
+        run: make check
       - name: Diff check
         run: git diff --exit-code

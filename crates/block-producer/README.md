@@ -1,16 +1,16 @@
 # Miden block producer
 
-Contains code definining the [Miden node's block-producer](/README.md#architecture) component. It is responsible for
+Contains code defining the [Miden node's block-producer](/README.md#architecture) component. It is responsible for
 ordering transactions into blocks and submitting these for inclusion in the blockchain.
 
-It serves a small [gRPC](htts://grpc.io) API which the node's RPC component uses to submit new transactions. In turn,
+It serves a small [gRPC](https://grpc.io) API which the node's RPC component uses to submit new transactions. In turn,
 the `block-producer` uses the store's gRPC API to submit blocks and query chain state.
 
 For more information on the installation and operation of this component, please see the [node's readme](../../README.md).
 
 ## API
 
-The full gRPC API can be found [here](../../proto/block_producer.proto).
+The full gRPC API can be found [here](../../proto/proto/block_producer.proto).
 
 ---
 
@@ -48,6 +48,10 @@ transaction's expiration height. Once the blockchain advances beyond this point 
 can know for certain it was evicted.
 
 ---
+
+## Crate Features
+
+- `tracing-forest`: sets logging using tracing-forest. Disabled by default.
 
 ## License
 This project is [MIT licensed](../../LICENSE).

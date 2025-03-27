@@ -17,7 +17,7 @@ use crate::{
     errors::VerifyTxError,
     store::{ApplyBlock, ApplyBlockError, Store, TransactionInputs},
     txqueue::TransactionValidator,
-    ProvenTransaction, COMPONENT,
+    COMPONENT, ProvenTransaction,
 };
 
 mod account_state;

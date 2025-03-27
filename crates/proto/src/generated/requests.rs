@@ -17,6 +17,9 @@ pub struct CheckNullifiersByPrefixRequest {
     /// to `prefix_len`.
     #[prost(uint32, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<u32>,
+    /// Block number from which the nullifiers are requested (inclusive).
+    #[prost(fixed32, tag = "3")]
+    pub block_num: u32,
 }
 /// Returns a nullifier proof for each of the requested nullifiers.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -42,7 +45,7 @@ pub struct GetBlockHeaderByNumberRequest {
 ///
 /// Specifies state updates the client is interested in. The server will return the first block which
 /// contains a note matching `note_tags` or the chain tip. And the corresponding updates to
-/// `nullifiers` and `account_ids` for that block range.
+/// `account_ids` for that block range.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateRequest {
     /// Last block known by the client. The response will contain data starting from the next block,
@@ -50,9 +53,9 @@ pub struct SyncStateRequest {
     /// if there are no notes.
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
-    /// Accounts' hash to include in the response.
+    /// Accounts' commitment to include in the response.
     ///
-    /// An account hash will be included if-and-only-if it is the latest update. Meaning it is
+    /// An account commitment will be included if-and-only-if it is the latest update. Meaning it is
     /// possible there was an update to the account for the given range, but if it is not the latest,
     /// it won't be included in the response.
     #[prost(message, repeated, tag = "2")]
@@ -60,10 +63,6 @@ pub struct SyncStateRequest {
     /// Specifies the tags which the client is interested in.
     #[prost(fixed32, repeated, tag = "3")]
     pub note_tags: ::prost::alloc::vec::Vec<u32>,
-    /// Determines the nullifiers the client is interested in by specifying the 16high bits of the
-    /// target nullifier.
-    #[prost(uint32, repeated, tag = "4")]
-    pub nullifiers: ::prost::alloc::vec::Vec<u32>,
 }
 /// Note synchronization request.
 ///
@@ -82,15 +81,36 @@ pub struct SyncNoteRequest {
 /// Returns data required to prove the next block.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockInputsRequest {
-    /// ID of the account against which a transaction is executed.
+    /// IDs of all accounts updated in the proposed block for which to retrieve account witnesses.
     #[prost(message, repeated, tag = "1")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
-    /// Set of nullifiers consumed by this transaction.
+    /// Nullifiers of all notes consumed by the block for which to retrieve witnesses.
+    ///
+    /// Due to note erasure it will generally not be possible to know the exact set of nullifiers
+    /// a block will create, unless we pre-execute note erasure. So in practice, this set of
+    /// nullifiers will be the set of nullifiers of all proven batches in the block, which is a
+    /// superset of the nullifiers the block may create.
+    ///
+    /// However, if it is known that a certain note will be erased, it would not be necessary to
+    /// provide a nullifier witness for it.
     #[prost(message, repeated, tag = "2")]
     pub nullifiers: ::prost::alloc::vec::Vec<super::digest::Digest>,
-    /// Array of note IDs to be checked for existence in the database.
+    /// Array of note IDs for which to retrieve note inclusion proofs, **if they exist in the store**.
     #[prost(message, repeated, tag = "3")]
     pub unauthenticated_notes: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    /// Array of block numbers referenced by all batches in the block.
+    #[prost(fixed32, repeated, tag = "4")]
+    pub reference_blocks: ::prost::alloc::vec::Vec<u32>,
+}
+/// Returns the inputs for a transaction batch.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBatchInputsRequest {
+    /// List of unauthenticated notes to be queried from the database.
+    #[prost(message, repeated, tag = "1")]
+    pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
+    /// Set of block numbers referenced by transactions.
+    #[prost(fixed32, repeated, tag = "2")]
+    pub reference_blocks: ::prost::alloc::vec::Vec<u32>,
 }
 /// Returns data required to validate a new transaction.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -119,13 +139,6 @@ pub struct SubmitProvenTransactionRequest {
 /// Returns a list of notes matching the provided note IDs.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNotesByIdRequest {
-    /// List of notes to be queried from the database.
-    #[prost(message, repeated, tag = "1")]
-    pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,
-}
-/// Returns a list of Note inclusion proofs for the specified Note IDs.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetNoteAuthenticationInfoRequest {
     /// List of notes to be queried from the database.
     #[prost(message, repeated, tag = "1")]
     pub note_ids: ::prost::alloc::vec::Vec<super::digest::Digest>,

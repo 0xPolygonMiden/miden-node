@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::num::NonZeroUsize;
 
 #[cfg(test)]
 pub mod test_utils;
@@ -8,29 +8,24 @@ mod block_builder;
 mod domain;
 mod errors;
 mod mempool;
-mod store;
+pub mod store;
 
-pub mod block;
-pub mod config;
 pub mod server;
 
 // CONSTANTS
 // =================================================================================================
 
-/// The name of the block producer component
+/// The name of the block producer component.
 pub const COMPONENT: &str = "miden-block-producer";
 
-/// The number of transactions per batch
+/// The number of transactions per batch.
 const SERVER_MAX_TXS_PER_BATCH: usize = 2;
 
-/// The frequency at which blocks are produced
-const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_secs(5);
-
-/// The frequency at which batches are built
-const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);
-
-/// Maximum number of batches per block
+/// Maximum number of batches per block.
 const SERVER_MAX_BATCHES_PER_BLOCK: usize = 4;
+
+/// Size of the batch building worker pool.
+const SERVER_NUM_BATCH_BUILDERS: NonZeroUsize = NonZeroUsize::new(2).unwrap();
 
 /// The number of blocks of committed state that the mempool retains.
 ///
@@ -53,3 +48,9 @@ const _: () = assert!(
     SERVER_MAX_TXS_PER_BATCH <= miden_objects::MAX_ACCOUNTS_PER_BATCH,
     "Server constraint cannot exceed the protocol's constraint"
 );
+
+/// An extension trait used only locally to implement telemetry injection.
+trait TelemetryInjectorExt {
+    /// Inject [`tracing`] telemetry from self.
+    fn inject_telemetry(&self);
+}

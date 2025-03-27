@@ -1,41 +1,49 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{self, create_dir_all},
+    path::PathBuf,
     sync::Arc,
 };
 
-use deadpool_sqlite::{Config as SqliteConfig, Hook, HookError, Pool, Runtime};
 use miden_node_proto::{
     domain::account::{AccountInfo, AccountSummary},
     generated::note as proto,
 };
 use miden_objects::{
     account::{AccountDelta, AccountId},
-    block::{Block, BlockHeader, BlockNoteIndex, BlockNumber},
+    block::{BlockHeader, BlockNoteIndex, BlockNumber, ProvenBlock},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath, utils::Deserializable},
     note::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::TransactionId,
     utils::Serializable,
 };
-use rusqlite::vtab::array;
+use sql::utils::{column_value_as_u64, read_block_number};
 use tokio::sync::oneshot;
 use tracing::{info, info_span, instrument};
 
 use crate::{
+    COMPONENT,
     blocks::BlockStore,
-    config::StoreConfig,
-    db::migrations::apply_migrations,
+    db::{
+        migrations::apply_migrations,
+        pool_manager::{Pool, SqlitePoolManager},
+    },
     errors::{DatabaseError, DatabaseSetupError, GenesisError, NoteSyncError, StateSyncError},
     genesis::GenesisState,
-    COMPONENT, SQL_STATEMENT_CACHE_CAPACITY,
 };
 
 mod migrations;
+#[macro_use]
 mod sql;
 
+mod connection;
+mod pool_manager;
+#[cfg(test)]
+mod query_plan;
 mod settings;
 #[cfg(test)]
 mod tests;
+mod transaction;
 
 pub type Result<T, E = DatabaseError> = std::result::Result<T, E>;
 
@@ -66,6 +74,59 @@ pub struct NoteRecord {
     pub merkle_path: MerklePath,
 }
 
+impl NoteRecord {
+    /// Columns from the `notes` table ordered to match [`Self::from_row`].
+    const SELECT_COLUMNS: &'static str = "
+            block_num,
+            batch_index,
+            note_index,
+            note_id,
+            note_type,
+            sender,
+            tag,
+            aux,
+            execution_hint,
+            merkle_path,
+            details
+    ";
+
+    /// Parses a row from the `notes` table. The sql selection must use [`Self::SELECT_COLUMNS`] to
+    /// ensure ordering is correct.
+    fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        let block_num = read_block_number(row, 0)?;
+        let batch_idx = row.get(1)?;
+        let note_idx_in_batch = row.get(2)?;
+        // SAFETY: We can assume the batch and note indices stored in the DB are valid so this
+        // should never panic.
+        let note_index = BlockNoteIndex::new(batch_idx, note_idx_in_batch)
+            .expect("batch and note index from DB should be valid");
+        let note_id = row.get_ref(3)?.as_blob()?;
+        let note_id = RpoDigest::read_from_bytes(note_id)?;
+        let note_type = row.get::<_, u8>(4)?.try_into()?;
+        let sender = AccountId::read_from_bytes(row.get_ref(5)?.as_blob()?)?;
+        let tag: u32 = row.get(6)?;
+        let aux: u64 = row.get(7)?;
+        let aux = aux.try_into().map_err(DatabaseError::InvalidFelt)?;
+        let execution_hint = column_value_as_u64(row, 8)?;
+        let merkle_path_data = row.get_ref(9)?.as_blob()?;
+        let merkle_path = MerklePath::read_from_bytes(merkle_path_data)?;
+        let details_data = row.get_ref(10)?.as_blob_or_null()?;
+        let details = details_data.map(<Vec<u8>>::read_from_bytes).transpose()?;
+
+        let metadata =
+            NoteMetadata::new(sender, note_type, tag.into(), execution_hint.try_into()?, aux)?;
+
+        Ok(NoteRecord {
+            block_num,
+            note_index,
+            note_id,
+            metadata,
+            details,
+            merkle_path,
+        })
+    }
+}
+
 impl From<NoteRecord> for proto::Note {
     fn from(note: NoteRecord) -> Self {
         Self {
@@ -85,7 +146,6 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub account_updates: Vec<AccountSummary>,
     pub transactions: Vec<TransactionSummary>,
-    pub nullifiers: Vec<NullifierInfo>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -132,54 +192,22 @@ impl Db {
     // TODO: This span is logged in a root span, we should connect it to the parent one.
     #[instrument(target = COMPONENT, skip_all)]
     pub async fn setup(
-        config: StoreConfig,
+        database_filepath: PathBuf,
+        genesis_filepath: &str,
         block_store: Arc<BlockStore>,
     ) -> Result<Self, DatabaseSetupError> {
-        info!(target: COMPONENT, %config, "Connecting to the database");
+        info!(target: COMPONENT, ?database_filepath, "Connecting to the database");
 
-        if let Some(p) = config.database_filepath.parent() {
+        if let Some(p) = database_filepath.parent() {
             create_dir_all(p).map_err(DatabaseError::IoError)?;
         }
 
-        let pool = SqliteConfig::new(config.database_filepath.clone())
-            .builder(Runtime::Tokio1)
-            .expect("Infallible")
-            .post_create(Hook::async_fn(move |conn, _| {
-                Box::pin(async move {
-                    let _ = conn
-                        .interact(|conn| {
-                            // Feature used to support `IN` and `NOT IN` queries. We need to load
-                            // this module for every connection we create to the DB to support the
-                            // queries we want to run
-                            array::load_module(conn)?;
-
-                            // Increase the statement cache size.
-                            conn.set_prepared_statement_cache_capacity(
-                                SQL_STATEMENT_CACHE_CAPACITY,
-                            );
-
-                            // Enable the WAL mode. This allows concurrent reads while the
-                            // transaction is being written, this is required for proper
-                            // synchronization of the servers in-memory and on-disk representations
-                            // (see [State::apply_block])
-                            conn.execute("PRAGMA journal_mode = WAL;", ())?;
-
-                            // Enable foreign key checks.
-                            conn.execute("PRAGMA foreign_keys = ON;", ())
-                        })
-                        .await
-                        .map_err(|e| {
-                            HookError::Message(format!("Loading carray module failed: {e}").into())
-                        })?;
-
-                    Ok(())
-                })
-            }))
-            .build()?;
+        let sqlite_pool_manager = SqlitePoolManager::new(database_filepath.clone());
+        let pool = Pool::builder(sqlite_pool_manager).build()?;
 
         info!(
             target: COMPONENT,
-            sqlite = format!("{}", config.database_filepath.display()),
+            sqlite= %database_filepath.display(),
             "Connected to the database"
         );
 
@@ -190,8 +218,7 @@ impl Db {
         })??;
 
         let db = Db { pool };
-        db.ensure_genesis_block(&config.genesis_filepath.as_path().to_string_lossy(), block_store)
-            .await?;
+        db.ensure_genesis_block(genesis_filepath, block_store).await?;
 
         Ok(db)
     }
@@ -202,7 +229,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(sql::select_all_nullifiers)
+            .interact(|conn| {
+                let transaction = conn.transaction()?;
+                sql::select_all_nullifiers(&transaction)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select nullifiers task failed: {err}"))
@@ -215,12 +245,19 @@ impl Db {
         &self,
         prefix_len: u32,
         nullifier_prefixes: Vec<u32>,
+        block_num: BlockNumber,
     ) -> Result<Vec<NullifierInfo>> {
         self.pool
             .get()
             .await?
             .interact(move |conn| {
-                sql::select_nullifiers_by_prefix(conn, prefix_len, &nullifier_prefixes)
+                let transaction = conn.transaction()?;
+                sql::select_nullifiers_by_prefix(
+                    &transaction,
+                    prefix_len,
+                    &nullifier_prefixes,
+                    block_num,
+                )
             })
             .await
             .map_err(|err| {
@@ -241,7 +278,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_block_header_by_block_num(conn, block_number))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_block_header_by_block_num(&transaction, block_number)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select block header task failed: {err}"))
@@ -250,11 +290,17 @@ impl Db {
 
     /// Loads multiple block headers from the DB.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_block_headers(&self, blocks: Vec<BlockNumber>) -> Result<Vec<BlockHeader>> {
+    pub async fn select_block_headers(
+        &self,
+        blocks: impl Iterator<Item = BlockNumber> + Send + 'static,
+    ) -> Result<Vec<BlockHeader>> {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_block_headers(conn, &blocks))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_block_headers(&transaction, blocks)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(
@@ -269,23 +315,31 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(sql::select_all_block_headers)
+            .interact(|conn| {
+                let transaction = conn.transaction()?;
+                sql::select_all_block_headers(&transaction)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select block headers task failed: {err}"))
             })?
     }
 
-    /// Loads all the account hashes from the DB.
+    /// Loads all the account commitments from the DB.
     #[instrument(target = COMPONENT, skip_all, ret(level = "debug"), err)]
-    pub async fn select_all_account_hashes(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
+    pub async fn select_all_account_commitments(&self) -> Result<Vec<(AccountId, RpoDigest)>> {
         self.pool
             .get()
             .await?
-            .interact(sql::select_all_account_hashes)
+            .interact(|conn| {
+                let transaction = conn.transaction()?;
+                sql::select_all_account_commitments(&transaction)
+            })
             .await
             .map_err(|err| {
-                DatabaseError::InteractError(format!("Select account hashes task failed: {err}"))
+                DatabaseError::InteractError(format!(
+                    "Select account commitments task failed: {err}"
+                ))
             })?
     }
 
@@ -295,7 +349,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_account(conn, id))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_account(&transaction, id)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get account details task failed: {err}"))
@@ -311,7 +368,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_accounts_by_ids(conn, &account_ids))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_accounts_by_ids(&transaction, &account_ids)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get accounts details task failed: {err}"))
@@ -324,14 +384,14 @@ impl Db {
         block_num: BlockNumber,
         account_ids: Vec<AccountId>,
         note_tags: Vec<u32>,
-        nullifier_prefixes: Vec<u32>,
     ) -> Result<StateSyncUpdate, StateSyncError> {
         self.pool
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
             .interact(move |conn| {
-                sql::get_state_sync(conn, block_num, &account_ids, &note_tags, &nullifier_prefixes)
+                let transaction = conn.transaction().map_err(DatabaseError::SqliteError)?;
+                sql::get_state_sync(&transaction, block_num, &account_ids, &note_tags)
             })
             .await
             .map_err(|err| {
@@ -349,7 +409,10 @@ impl Db {
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| sql::get_note_sync(conn, block_num, &note_tags))
+            .interact(move |conn| {
+                let transaction = conn.transaction().map_err(DatabaseError::SqliteError)?;
+                sql::get_note_sync(&transaction, block_num, &note_tags)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Get notes sync task failed: {err}"))
@@ -362,7 +425,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_notes_by_id(conn, &note_ids))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_notes_by_id(&transaction, &note_ids)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!("Select note by id task failed: {err}"))
@@ -378,7 +444,10 @@ impl Db {
         self.pool
             .get()
             .await?
-            .interact(move |conn| sql::select_note_inclusion_proofs(conn, note_ids))
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_note_inclusion_proofs(&transaction, note_ids)
+            })
             .await
             .map_err(|err| {
                 DatabaseError::InteractError(format!(
@@ -405,8 +474,8 @@ impl Db {
         &self,
         allow_acquire: oneshot::Sender<()>,
         acquire_done: oneshot::Receiver<()>,
-        block: Block,
-        notes: Vec<NoteRecord>,
+        block: ProvenBlock,
+        notes: Vec<(NoteRecord, Option<Nullifier>)>,
     ) -> Result<()> {
         self.pool
             .get()
@@ -418,9 +487,9 @@ impl Db {
                 let transaction = conn.transaction()?;
                 sql::apply_block(
                     &transaction,
-                    &block.header(),
+                    block.header(),
                     &notes,
-                    block.nullifiers(),
+                    block.created_nullifiers(),
                     block.updated_accounts(),
                 )?;
 
@@ -454,11 +523,29 @@ impl Db {
             .get()
             .await
             .map_err(DatabaseError::MissingDbConnection)?
-            .interact(move |conn| -> Result<Option<AccountDelta>> {
-                sql::select_account_delta(conn, account_id, from_block, to_block)
+            .interact(move |conn| {
+                let transaction = conn.transaction()?;
+                sql::select_account_delta(&transaction, account_id, from_block, to_block)
             })
             .await
             .map_err(|err| DatabaseError::InteractError(err.to_string()))?
+    }
+
+    /// Runs database optimization.
+    #[instrument(target = COMPONENT, skip_all, err)]
+    pub async fn optimize(&self) -> Result<(), DatabaseError> {
+        self.pool
+            .get()
+            .await?
+            .interact(move |conn| -> Result<()> {
+                conn.execute("PRAGMA optimize;", ())
+                    .map(|_| ())
+                    .map_err(DatabaseError::SqliteError)
+            })
+            .await
+            .map_err(|err| {
+                DatabaseError::InteractError(format!("Database optimization task failed: {err}"))
+            })?
     }
 
     // HELPERS
@@ -492,7 +579,7 @@ impl Db {
             .await
             .map_err(|err| GenesisError::SelectBlockHeaderByBlockNumError(err.into()))?;
 
-        let expected_genesis_header = genesis_block.header();
+        let expected_genesis_header = genesis_block.header().clone();
 
         match maybe_block_header_in_store {
             Some(block_header_in_store) => {

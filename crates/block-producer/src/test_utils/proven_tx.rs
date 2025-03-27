@@ -3,12 +3,12 @@ use std::ops::Range;
 use itertools::Itertools;
 use miden_air::HashFunction;
 use miden_objects::{
+    Digest, Felt, Hasher, ONE,
     account::AccountId,
     block::BlockNumber,
     note::{Note, NoteExecutionHint, NoteHeader, NoteMetadata, NoteType, Nullifier},
     transaction::{InputNote, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
-    Digest, Felt, Hasher, ONE,
 };
 use rand::Rng;
 use winterfell::Proof;
@@ -18,8 +18,8 @@ use crate::domain::transaction::AuthenticatedTransaction;
 
 pub struct MockProvenTxBuilder {
     account_id: AccountId,
-    initial_account_hash: Digest,
-    final_account_hash: Digest,
+    initial_account_commitment: Digest,
+    final_account_commitment: Digest,
     expiration_block_num: BlockNumber,
     output_notes: Option<Vec<OutputNote>>,
     input_notes: Option<Vec<InputNote>>,
@@ -35,8 +35,8 @@ impl MockProvenTxBuilder {
 
     /// Generates 3 random, sequential transactions acting on the same account.
     pub fn sequential() -> [AuthenticatedTransaction; 3] {
-        let mut rng = rand::thread_rng();
-        let mock_account: MockPrivateAccount<4> = rng.gen::<u32>().into();
+        let mut rng = rand::rng();
+        let mock_account: MockPrivateAccount<4> = rng.random::<u32>().into();
 
         (0..3)
             .map(|i| {
@@ -54,13 +54,13 @@ impl MockProvenTxBuilder {
 
     pub fn with_account(
         account_id: AccountId,
-        initial_account_hash: Digest,
-        final_account_hash: Digest,
+        initial_account_commitment: Digest,
+        final_account_commitment: Digest,
     ) -> Self {
         Self {
             account_id,
-            initial_account_hash,
-            final_account_hash,
+            initial_account_commitment,
+            final_account_commitment,
             expiration_block_num: u32::MAX.into(),
             output_notes: None,
             input_notes: None,
@@ -133,8 +133,9 @@ impl MockProvenTxBuilder {
     pub fn build(self) -> ProvenTransaction {
         ProvenTransactionBuilder::new(
             self.account_id,
-            self.initial_account_hash,
-            self.final_account_hash,
+            self.initial_account_commitment,
+            self.final_account_commitment,
+            BlockNumber::from(0),
             Digest::default(),
             self.expiration_block_num,
             ExecutionProof::new(Proof::new_dummy(), HashFunction::Blake3_192),

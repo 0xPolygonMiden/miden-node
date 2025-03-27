@@ -1,7 +1,9 @@
 use std::io;
 
-use deadpool_sqlite::{InteractError, PoolError};
+use deadpool::managed::PoolError;
+use deadpool_sync::InteractError;
 use miden_objects::{
+    AccountDeltaError, AccountError, NoteError,
     account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::{
@@ -11,7 +13,6 @@ use miden_objects::{
     },
     note::Nullifier,
     transaction::OutputNote,
-    AccountDeltaError, AccountError, BlockError, NoteError,
 };
 use rusqlite::types::FromSqlError;
 use thiserror::Error;
@@ -41,8 +42,6 @@ pub enum DatabaseError {
     AccountError(#[from] AccountError),
     #[error("account delta error")]
     AccountDeltaError(#[from] AccountDeltaError),
-    #[error("block error")]
-    BlockError(#[from] BlockError),
     #[error("closed channel")]
     ClosedChannel(#[from] RecvError),
     #[error("deserialization failed")]
@@ -56,7 +55,7 @@ pub enum DatabaseError {
     #[error("migration failed")]
     MigrationError(#[from] rusqlite_migration::Error),
     #[error("missing database connection")]
-    MissingDbConnection(#[from] PoolError),
+    MissingDbConnection(#[from] PoolError<rusqlite::Error>),
     #[error("note error")]
     NoteError(#[from] NoteError),
     #[error("SQLite error")]
@@ -64,8 +63,8 @@ pub enum DatabaseError {
 
     // OTHER ERRORS
     // ---------------------------------------------------------------------------------------------
-    #[error("account hash mismatch (expected {expected}, but calculated is {calculated})")]
-    AccountHashesMismatch {
+    #[error("account commitment mismatch (expected {expected}, but calculated is {calculated})")]
+    AccountCommitmentsMismatch {
         expected: RpoDigest,
         calculated: RpoDigest,
     },
@@ -75,8 +74,6 @@ pub enum DatabaseError {
     AccountsNotFoundInDb(Vec<AccountId>),
     #[error("account {0} is not on the chain")]
     AccountNotPublic(AccountId),
-    #[error("block {0} not found")]
-    BlockNotFoundInDb(BlockNumber),
     #[error("data corrupted: {0}")]
     DataCorrupted(String),
     #[error("SQLite pool interaction failed: {0}")]
@@ -95,8 +92,7 @@ impl From<DatabaseError> for Status {
         match err {
             DatabaseError::AccountNotFoundInDb(_)
             | DatabaseError::AccountsNotFoundInDb(_)
-            | DatabaseError::AccountNotPublic(_)
-            | DatabaseError::BlockNotFoundInDb(_) => Status::not_found(err.to_string()),
+            | DatabaseError::AccountNotPublic(_) => Status::not_found(err.to_string()),
 
             _ => Status::internal(err.to_string()),
         }
@@ -125,7 +121,7 @@ pub enum DatabaseSetupError {
     #[error("genesis block error")]
     GenesisBlockError(#[from] GenesisError),
     #[error("pool build error")]
-    PoolBuildError(#[from] deadpool_sqlite::BuildError),
+    PoolBuildError(#[from] deadpool::managed::BuildError),
     #[error("SQLite migration error")]
     SqliteMigrationError(#[from] rusqlite_migration::Error),
 }
@@ -136,8 +132,9 @@ pub enum GenesisError {
     // ---------------------------------------------------------------------------------------------
     #[error("database error")]
     DatabaseError(#[from] DatabaseError),
+    // TODO: Check if needed.
     #[error("block error")]
-    BlockError(#[from] BlockError),
+    BlockError,
     #[error("merkle error")]
     MerkleError(#[from] MerkleError),
     #[error("failed to deserialize genesis file")]
@@ -154,7 +151,9 @@ pub enum GenesisError {
         genesis_filepath: String,
         source: io::Error,
     },
-    #[error("block header in store doesn't match block header in genesis file. Expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}")]
+    #[error(
+        "block header in store doesn't match block header in genesis file. Expected {expected_genesis_header:?}, but store contained {block_header_in_store:?}"
+    )]
     GenesisBlockHeaderMismatch {
         expected_genesis_header: Box<BlockHeader>,
         block_header_in_store: Box<BlockHeader>,
@@ -169,20 +168,20 @@ pub enum InvalidBlockError {
     DuplicatedNullifiers(Vec<Nullifier>),
     #[error("invalid output note type: {0:?}")]
     InvalidOutputNoteType(Box<OutputNote>),
-    #[error("invalid block tx hash: expected {expected}, but got {actual}")]
-    InvalidBlockTxHash { expected: RpoDigest, actual: RpoDigest },
+    #[error("invalid block tx commitment: expected {expected}, but got {actual}")]
+    InvalidBlockTxCommitment { expected: RpoDigest, actual: RpoDigest },
     #[error("received invalid account tree root")]
     NewBlockInvalidAccountRoot,
     #[error("new block number must be 1 greater than the current block number")]
     NewBlockInvalidBlockNum,
-    #[error("new block chain root is not consistent with chain MMR")]
-    NewBlockInvalidChainRoot,
+    #[error("new block chain commitment is not consistent with chain MMR")]
+    NewBlockInvalidChainCommitment,
     #[error("received invalid note root")]
     NewBlockInvalidNoteRoot,
     #[error("received invalid nullifier root")]
     NewBlockInvalidNullifierRoot,
-    #[error("new block `prev_hash` must match the chain's tip")]
-    NewBlockInvalidPrevHash,
+    #[error("new block `prev_block_commitment` must match the chain's tip")]
+    NewBlockInvalidPrevCommitment,
 }
 
 #[derive(Error, Debug)]
@@ -230,27 +229,17 @@ pub enum GetBlockHeaderError {
 
 #[derive(Error, Debug)]
 pub enum GetBlockInputsError {
-    #[error("account error")]
-    AccountError(#[from] AccountError),
-    #[error("database error")]
-    DatabaseError(#[from] DatabaseError),
-    #[error("database doesn't have any block header data")]
-    DbBlockHeaderEmpty,
-    #[error("failed to get MMR peaks for forest ({forest}): {error}")]
-    FailedToGetMmrPeaksForForest { forest: usize, error: MmrError },
-    #[error("chain MMR forest expected to be 1 less than latest header's block num. Chain MMR forest: {forest}, block num: {block_num}")]
-    IncorrectChainMmrForestNumber { forest: usize, block_num: BlockNumber },
-    #[error("note inclusion proof MMR error")]
-    NoteInclusionMmr(#[from] MmrError),
-}
-
-impl From<GetNoteInclusionProofError> for GetBlockInputsError {
-    fn from(value: GetNoteInclusionProofError) -> Self {
-        match value {
-            GetNoteInclusionProofError::DatabaseError(db_err) => db_err.into(),
-            GetNoteInclusionProofError::MmrError(mmr_err) => Self::NoteInclusionMmr(mmr_err),
-        }
-    }
+    #[error("failed to select note inclusion proofs")]
+    SelectNoteInclusionProofError(#[source] DatabaseError),
+    #[error("failed to select block headers")]
+    SelectBlockHeaderError(#[source] DatabaseError),
+    #[error(
+        "highest block number {highest_block_number} referenced by a batch is newer than the latest block {latest_block_number}"
+    )]
+    UnknownBatchBlockReference {
+        highest_block_number: BlockNumber,
+        latest_block_number: BlockNumber,
+    },
 }
 
 #[derive(Error, Debug)]
@@ -274,9 +263,18 @@ pub enum NoteSyncError {
 }
 
 #[derive(Error, Debug)]
-pub enum GetNoteInclusionProofError {
-    #[error("database error")]
-    DatabaseError(#[from] DatabaseError),
-    #[error("Mmr error")]
-    MmrError(#[from] MmrError),
+pub enum GetBatchInputsError {
+    #[error("failed to select note inclusion proofs")]
+    SelectNoteInclusionProofError(#[source] DatabaseError),
+    #[error("failed to select block headers")]
+    SelectBlockHeaderError(#[source] DatabaseError),
+    #[error("set of blocks refernced by transactions is empty")]
+    TransactionBlockReferencesEmpty,
+    #[error(
+        "highest block number {highest_block_num} referenced by a transaction is newer than the latest block {latest_block_num}"
+    )]
+    UnknownTransactionBlockReference {
+        highest_block_num: BlockNumber,
+        latest_block_num: BlockNumber,
+    },
 }

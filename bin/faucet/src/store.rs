@@ -1,11 +1,11 @@
 use std::sync::Mutex;
 
 use miden_objects::{
+    Word,
     account::{Account, AccountId},
     block::{BlockHeader, BlockNumber},
     note::NoteId,
     transaction::{ChainMmr, InputNotes, TransactionInputs},
-    Word,
 };
 use miden_tx::{DataStore, DataStoreError};
 
@@ -61,7 +61,7 @@ impl DataStore for FaucetDataStore {
         TransactionInputs::new(
             account.clone(),
             account.is_new().then_some(self.init_seed).flatten(),
-            self.block_header,
+            self.block_header.clone(),
             self.chain_mmr.clone(),
             InputNotes::default(),
         )
