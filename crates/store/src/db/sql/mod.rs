@@ -67,6 +67,7 @@ impl Page {
     }
 
     /// Returns the next page.
+    #[must_use]
     pub fn next(self, number: u64) -> Self {
         Self { number, size: self.size }
     }
