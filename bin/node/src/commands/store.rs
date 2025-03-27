@@ -137,10 +137,9 @@ impl StoreCommand {
 
         // Generate the accounts.
         let mut rng = ChaCha20Rng::from_seed(rand::random());
-        let n_accounts = accounts.as_ref().map(Vec::len).unwrap_or_default();
+        let n_accounts = accounts.len();
         let accounts = accounts
-            .into_iter()
-            .flatten()
+            .iter()
             .enumerate()
             .inspect(|(idx, _)| tracing::info!(index=%idx, total=n_accounts, "Generating account"))
             .map(|(idx, input)| {
@@ -174,7 +173,7 @@ impl StoreCommand {
             })
     }
 
-    fn generate_account(input: AccountInput, rng: &mut ChaChaRng) -> anyhow::Result<AccountFile> {
+    fn generate_account(input: &AccountInput, rng: &mut ChaChaRng) -> anyhow::Result<AccountFile> {
         let AccountInput::BasicFungibleFaucet(input) = input;
 
         let (auth_scheme, auth_secret_key) = input.auth_scheme.gen_auth_keys(rng);
@@ -203,7 +202,8 @@ impl StoreCommand {
 pub struct GenesisConfig {
     pub version: u32,
     pub timestamp: u32,
-    pub accounts: Option<Vec<AccountInput>>,
+    #[serde(default)]
+    pub accounts: Vec<AccountInput>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -249,13 +249,13 @@ impl Default for GenesisConfig {
                 .duration_since(UNIX_EPOCH)
                 .expect("Current timestamp should be greater than unix epoch")
                 .as_secs() as u32,
-            accounts: Some(vec![AccountInput::BasicFungibleFaucet(BasicFungibleFaucetInputs {
+            accounts: vec![AccountInput::BasicFungibleFaucet(BasicFungibleFaucetInputs {
                 auth_scheme: AuthSchemeInput::RpoFalcon512,
                 token_symbol: "POL".to_string(),
                 decimals: 12,
                 max_supply: 1_000_000,
                 storage_mode: "public".to_string(),
-            })]),
+            })],
         }
     }
 }
