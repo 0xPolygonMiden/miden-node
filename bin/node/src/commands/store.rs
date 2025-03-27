@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::Context;
 use miden_lib::{AuthScheme, account::faucets::create_basic_fungible_faucet, utils::Serializable};
-use miden_node_store::{genesis::GenesisState, server::Store};
+use miden_node_store::{GenesisState, Store};
 use miden_node_utils::{crypto::get_rpo_random_coin, grpc::UrlExt};
 use miden_objects::{
     Felt, ONE,

@@ -18,7 +18,7 @@ use miden_lib::{
 };
 use miden_node_block_producer::store::StoreClient;
 use miden_node_proto::{domain::batch::BatchInputs, generated::store::api_client::ApiClient};
-use miden_node_store::{GENESIS_STATE_FILENAME, genesis::GenesisState, server::Store};
+use miden_node_store::{GENESIS_STATE_FILENAME, GenesisState, Store};
 use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
     Felt,

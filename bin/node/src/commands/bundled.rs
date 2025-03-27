@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf, time::Duration};
 use anyhow::Context;
 use miden_node_block_producer::server::BlockProducer;
 use miden_node_rpc::server::Rpc;
-use miden_node_store::server::Store;
+use miden_node_store::Store;
 use miden_node_utils::grpc::UrlExt;
 use tokio::{net::TcpListener, task::JoinSet};
 use url::Url;
