@@ -80,7 +80,7 @@ impl StoreCommand {
                 config,
                 data_directory,
                 accounts_directory,
-            } => Self::bootstrap(config, &data_directory, &accounts_directory),
+            } => Self::bootstrap(config, data_directory, &accounts_directory),
             // Note: open-telemetry is handled in main.
             StoreCommand::Start { url, data_directory, open_telemetry: _ } => {
                 Self::start(url, data_directory).await
@@ -121,7 +121,7 @@ impl StoreCommand {
 
     fn bootstrap(
         genesis_input: Option<PathBuf>,
-        data_directory: &Path,
+        data_directory: PathBuf,
         accounts_directory: &Path,
     ) -> anyhow::Result<()> {
         // Parse the genesis configuration input.
@@ -162,15 +162,10 @@ impl StoreCommand {
                 })?;
         }
 
-        // Write the genesis state to disk. This is used to seed the database's genesis block.
+        // Bootstrap the store database.
         let accounts = accounts.into_iter().map(|account| account.account).collect();
         let genesis_state = GenesisState::new(accounts, version, timestamp);
-        let genesis_output = data_directory.join(miden_node_store::GENESIS_STATE_FILENAME);
-        File::create_new(&genesis_output)
-            .and_then(|mut file| file.write_all(&genesis_state.to_bytes()))
-            .with_context(|| {
-                format!("failed to write genesis data to file {}", genesis_output.display())
-            })
+        Store::bootstrap(genesis_state, data_directory)
     }
 
     fn generate_account(input: &AccountInput, rng: &mut ChaChaRng) -> anyhow::Result<AccountFile> {

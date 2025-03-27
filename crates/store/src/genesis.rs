@@ -14,7 +14,7 @@ use crate::errors::GenesisError;
 // ================================================================================================
 
 /// Represents the state at genesis, which will be used to derive the genesis block.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenesisState {
     pub accounts: Vec<Account>,
     pub version: u32,
