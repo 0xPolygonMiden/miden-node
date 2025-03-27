@@ -1,20 +1,8 @@
 use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
-use miden_objects::{
-    account::{Account, AccountDelta, AccountId},
-    block::BlockNumber,
-    crypto::hash::rpo::RpoDigest,
-    note::Nullifier,
-    utils::Deserializable,
-};
-use rusqlite::{
-    OptionalExtension, params,
-    types::{Value, ValueRef},
-};
+use miden_objects::{block::BlockNumber, note::Nullifier, utils::Deserializable};
+use rusqlite::{OptionalExtension, params, types::Value};
 
-use crate::{
-    db::{connection::Connection, transaction::Transaction},
-    errors::DatabaseError,
-};
+use crate::db::{connection::Connection, transaction::Transaction};
 
 /// Returns the high 16 bits of the provided nullifier.
 pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u32 {
@@ -132,13 +120,35 @@ where
     })
 }
 
+/// Gets a nullable blob value from the database and tries to deserialize it into the necessary
+/// type.
+pub fn read_from_blob_or_null_column<I, T>(
+    row: &rusqlite::Row<'_>,
+    index: I,
+) -> rusqlite::Result<Option<T>>
+where
+    I: rusqlite::RowIndex + Copy + Into<usize>,
+    T: Deserializable,
+{
+    row.get_ref(index)?
+        .as_blob_or_null()?
+        .map(T::read_from_bytes)
+        .transpose()
+        .map_err(|err| {
+            rusqlite::Error::FromSqlConversionFailure(
+                index.into(),
+                rusqlite::types::Type::Blob,
+                Box::new(err),
+            )
+        })
+}
+
 /// Constructs `AccountSummary` from the row of `accounts` table.
 ///
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountSummary> {
     let account_id = read_from_blob_column(row, 0)?;
-    let account_commitment_data = row.get_ref(1)?.as_blob()?;
-    let account_commitment = RpoDigest::read_from_bytes(account_commitment_data)?;
+    let account_commitment = read_from_blob_column(row, 1)?;
     let block_num = read_block_number(row, 2)?;
 
     Ok(AccountSummary {
@@ -153,36 +163,7 @@ pub fn account_summary_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<Ac
 /// Note: field ordering must be the same, as in `accounts` table!
 pub fn account_info_from_row(row: &rusqlite::Row<'_>) -> crate::db::Result<AccountInfo> {
     let update = account_summary_from_row(row)?;
-
-    let details = row.get_ref(3)?.as_blob_or_null()?;
-    let details = details.map(Account::read_from_bytes).transpose()?;
+    let details = read_from_blob_or_null_column(row, 3)?;
 
     Ok(AccountInfo { summary: update, details })
-}
-
-/// Deserializes account and applies account delta.
-pub fn apply_delta(
-    account_id: AccountId,
-    value: &ValueRef<'_>,
-    delta: &AccountDelta,
-    final_state_commitment: &RpoDigest,
-) -> crate::db::Result<Account, DatabaseError> {
-    let account = value.as_blob_or_null()?;
-    let account = account.map(Account::read_from_bytes).transpose()?;
-
-    let Some(mut account) = account else {
-        return Err(DatabaseError::AccountNotPublic(account_id));
-    };
-
-    account.apply_delta(delta)?;
-
-    let actual_commitment = account.commitment();
-    if &actual_commitment != final_state_commitment {
-        return Err(DatabaseError::AccountCommitmentsMismatch {
-            calculated: actual_commitment,
-            expected: *final_state_commitment,
-        });
-    }
-
-    Ok(account)
 }

@@ -13,6 +13,7 @@
 ### Fixes
 
 - Faucet webpage is missing `background.png` and `favicon.ico` (#672).
+- Harden store account updates (#739).
 
 ### Enhancements
 

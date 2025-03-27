@@ -63,11 +63,15 @@ pub enum DatabaseError {
 
     // OTHER ERRORS
     // ---------------------------------------------------------------------------------------------
+    #[error("account {0} already exists")]
+    AccountAlreadyExists(AccountId),
     #[error("account commitment mismatch (expected {expected}, but calculated is {calculated})")]
     AccountCommitmentsMismatch {
         expected: RpoDigest,
         calculated: RpoDigest,
     },
+    #[error("trying to update public account {0} as private")]
+    AccountIsPublic(AccountId),
     #[error("account {0} not found")]
     AccountNotFoundInDb(AccountId),
     #[error("accounts {0:?} not found")]

@@ -4,7 +4,6 @@
 pub(crate) mod utils;
 
 use std::{
-    borrow::Cow,
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     num::NonZeroUsize,
     rc::Rc,
@@ -14,8 +13,8 @@ use miden_node_proto::domain::account::{AccountInfo, AccountSummary};
 use miden_objects::{
     Digest, Word,
     account::{
-        AccountDelta, AccountId, AccountStorageDelta, AccountVaultDelta, FungibleAssetDelta,
-        NonFungibleAssetDelta, NonFungibleDeltaAction, StorageMapDelta,
+        Account, AccountDelta, AccountId, AccountStorageDelta, AccountVaultDelta,
+        FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction, StorageMapDelta,
         delta::AccountUpdateDetails,
     },
     asset::NonFungibleAsset,
@@ -25,7 +24,7 @@ use miden_objects::{
     transaction::TransactionId,
     utils::serde::{Deserializable, Serializable},
 };
-use rusqlite::{params, types::Value};
+use rusqlite::{CachedStatement, params, types::Value};
 use utils::{read_block_number, read_from_blob_column};
 
 use super::{
@@ -35,7 +34,7 @@ use super::{
 use crate::{
     db::{
         sql::utils::{
-            account_info_from_row, account_summary_from_row, apply_delta, column_value_as_u64,
+            account_info_from_row, account_summary_from_row, column_value_as_u64,
             get_nullifier_prefix, u64_to_value,
         },
         transaction::Transaction,
@@ -180,25 +179,11 @@ pub fn select_accounts_by_ids(
     transaction: &Transaction,
     account_ids: &[AccountId],
 ) -> Result<Vec<AccountInfo>> {
-    let mut stmt = transaction.prepare_cached(
-        "
-        SELECT
-            account_id,
-            account_commitment,
-            block_num,
-            details
-        FROM
-            accounts
-        WHERE
-            account_id IN rarray(?1);
-    ",
-    )?;
+    let mut stmt =
+        transaction.prepare_cached(include_str!("queries/select_accounts_by_ids.sql"))?;
 
-    let account_ids: Vec<Value> = account_ids
-        .iter()
-        .copied()
-        .map(|account_id| account_id.to_bytes().into())
-        .collect();
+    let account_ids: Vec<Value> =
+        account_ids.iter().map(|account_id| account_id.to_bytes().into()).collect();
     let mut rows = stmt.query(params![Rc::new(account_ids)])?;
 
     let mut result = Vec::new();
@@ -416,73 +401,240 @@ pub fn upsert_accounts(
     accounts: &[BlockAccountUpdate],
     block_num: BlockNumber,
 ) -> Result<usize> {
-    let mut upsert_stmt = transaction.prepare_cached(insert_sql!(
-        accounts {
-            account_id,
-            account_commitment,
-            block_num,
-            details
-        } | REPLACE
-    ))?;
-    let mut select_details_stmt =
-        transaction.prepare_cached("SELECT details FROM accounts WHERE account_id = ?1")?;
-
-    let mut count = 0;
-    for update in accounts {
-        let account_id = update.account_id();
-        let (full_account, insert_delta) = match update.details() {
-            AccountUpdateDetails::Private => (None, None),
-            AccountUpdateDetails::New(account) => {
-                debug_assert_eq!(account_id, account.id());
-
-                if account.commitment() != update.final_state_commitment() {
-                    return Err(DatabaseError::AccountCommitmentsMismatch {
-                        calculated: account.commitment(),
-                        expected: update.final_state_commitment(),
-                    });
-                }
-
-                let insert_delta = AccountDelta::from(account.clone());
-
-                (Some(Cow::Borrowed(account)), Some(Cow::Owned(insert_delta)))
-            },
-            AccountUpdateDetails::Delta(delta) => {
-                let mut rows = select_details_stmt.query(params![account_id.to_bytes()])?;
-                let Some(row) = rows.next()? else {
-                    return Err(DatabaseError::AccountNotFoundInDb(account_id));
-                };
-
-                let account = apply_delta(
-                    account_id,
-                    &row.get_ref(0)?,
-                    delta,
-                    &update.final_state_commitment(),
-                )?;
-
-                (Some(Cow::Owned(account)), Some(Cow::Borrowed(delta)))
-            },
-        };
-
-        let inserted = upsert_stmt.execute(params![
-            account_id.to_bytes(),
-            update.final_state_commitment().to_bytes(),
-            block_num.as_u32(),
-            full_account.as_ref().map(|account| account.to_bytes()),
-        ])?;
-
-        debug_assert_eq!(inserted, 1);
-
-        if let Some(delta) = insert_delta {
-            insert_account_delta(transaction, account_id, block_num, &delta)?;
-        }
-
-        count += inserted;
+    let mut ids: Vec<Value> = Vec::with_capacity(accounts.len());
+    let mut account_updates = BTreeMap::new();
+    for account in accounts {
+        ids.push(account.account_id().to_bytes().into());
+        account_updates.insert(account.account_id(), account);
     }
 
-    Ok(count)
+    let remaining_updates = update_existing_accounts(transaction, block_num, account_updates, ids)?;
+    insert_new_accounts(transaction, block_num, remaining_updates)?;
+
+    Ok(accounts.len())
+}
+
+/// Updates accounts which were found in the DB.
+///
+/// # Note
+///
+/// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
+/// transaction.
+fn update_existing_accounts<'block>(
+    transaction: &Transaction,
+    block_num: BlockNumber,
+    mut updates: BTreeMap<AccountId, &'block BlockAccountUpdate>,
+    ids: Vec<Value>,
+) -> Result<BTreeMap<AccountId, &'block BlockAccountUpdate>> {
+    let mut load_accounts_stmt =
+        transaction.prepare_cached(include_str!("queries/select_accounts_by_ids.sql"))?;
+
+    let mut update_stmt = transaction.prepare_cached(
+        "
+        UPDATE accounts
+        SET account_commitment = ?2, block_num = ?3, details = ?4
+        WHERE account_id = ?1
+        ",
+    )?;
+
+    let mut rows = load_accounts_stmt.query(params![Rc::new(ids)])?;
+    while let Some(row) = rows.next()? {
+        let info = account_info_from_row(row)?;
+        let update = updates
+            .remove(&info.summary.account_id)
+            .expect("Unreachable: update must exist");
+        match update.details() {
+            AccountUpdateDetails::Private => {
+                update_private_account(block_num, &mut update_stmt, &info, update)?;
+            },
+
+            // Trying to insert an existing account
+            AccountUpdateDetails::New(_) => {
+                return Err(DatabaseError::AccountAlreadyExists(info.summary.account_id));
+            },
+
+            AccountUpdateDetails::Delta(delta) => {
+                update_public_account(
+                    transaction,
+                    block_num,
+                    &mut update_stmt,
+                    info,
+                    update,
+                    delta,
+                )?;
+            },
+        }
+    }
+
+    Ok(updates)
+}
+
+/// Inserts accounts which were not found in the DB.
+///
+/// # Note
+///
+/// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
+/// transaction.
+fn insert_new_accounts(
+    transaction: &Transaction,
+    block_num: BlockNumber,
+    remaining_updates: BTreeMap<AccountId, &BlockAccountUpdate>,
+) -> Result<()> {
+    let mut insert_stmt = transaction.prepare_cached(insert_sql!(accounts {
+        account_id,
+        account_commitment,
+        block_num,
+        details,
+    }))?;
+
+    for (account_id, update) in remaining_updates {
+        match update.details() {
+            AccountUpdateDetails::Private => {
+                insert_private_account(block_num, &mut insert_stmt, update)?;
+            },
+
+            AccountUpdateDetails::New(account) => {
+                insert_public_account(transaction, block_num, &mut insert_stmt, update, account)?;
+            },
+
+            // Trying to update non-existent public account
+            AccountUpdateDetails::Delta(_) => {
+                return Err(DatabaseError::AccountNotFoundInDb(account_id));
+            },
+        }
+    }
+
+    Ok(())
+}
+
+/// Inserts private account to the DB.
+///
+/// # Returns
+///
+/// The number of affected rows.
+fn insert_private_account(
+    block_num: BlockNumber,
+    insert_stmt: &mut CachedStatement,
+    update: &BlockAccountUpdate,
+) -> Result<usize> {
+    insert_stmt
+        .execute(params![
+            update.account_id().to_bytes(),
+            update.final_state_commitment().to_bytes(),
+            block_num.as_u32(),
+            Value::Null,
+        ])
+        .map_err(Into::into)
+}
+
+/// Updates private account in the DB.
+fn update_private_account(
+    block_num: BlockNumber,
+    update_stmt: &mut CachedStatement,
+    info: &AccountInfo,
+    update: &BlockAccountUpdate,
+) -> Result<()> {
+    if info.summary.account_commitment == update.final_state_commitment() {
+        return Err(DatabaseError::AccountAlreadyExists(info.summary.account_id));
+    }
+    if info.details.is_some() {
+        return Err(DatabaseError::AccountIsPublic(info.summary.account_id));
+    }
+
+    let updated = update_stmt.execute(params![
+        info.summary.account_id.to_bytes(),
+        update.final_state_commitment().to_bytes(),
+        block_num.as_u32(),
+        Value::Null,
+    ])?;
+
+    assert_eq!(updated, 1);
+
+    Ok(())
+}
+
+/// Inserts public account to the DB.
+///
+/// # Note
+///
+/// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
+/// transaction.
+fn insert_public_account(
+    transaction: &Transaction,
+    block_num: BlockNumber,
+    insert_stmt: &mut CachedStatement,
+    update: &BlockAccountUpdate,
+    account: &Account,
+) -> Result<()> {
+    debug_assert_eq!(update.account_id(), account.id());
+
+    if account.commitment() != update.final_state_commitment() {
+        return Err(DatabaseError::AccountCommitmentsMismatch {
+            calculated: account.commitment(),
+            expected: update.final_state_commitment(),
+        });
+    }
+
+    insert_stmt.execute(params![
+        update.account_id().to_bytes(),
+        update.final_state_commitment().to_bytes(),
+        block_num.as_u32(),
+        account.to_bytes(),
+    ])?;
+
+    let insert_delta = AccountDelta::from(account.clone());
+
+    insert_account_delta(transaction, update.account_id(), block_num, &insert_delta)
+}
+
+/// Updates public account in the DB.
+///
+/// # Note
+///
+/// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
+/// transaction.
+fn update_public_account(
+    transaction: &Transaction,
+    block_num: BlockNumber,
+    update_stmt: &mut CachedStatement,
+    info: AccountInfo,
+    update: &BlockAccountUpdate,
+    delta: &AccountDelta,
+) -> Result<()> {
+    if info.summary.account_commitment == update.final_state_commitment() {
+        return Err(DatabaseError::AccountAlreadyExists(info.summary.account_id));
+    }
+    let Some(mut account) = info.details else {
+        return Err(DatabaseError::AccountNotPublic(info.summary.account_id));
+    };
+
+    account.apply_delta(delta)?;
+
+    if account.commitment() != update.final_state_commitment() {
+        return Err(DatabaseError::AccountCommitmentsMismatch {
+            calculated: account.commitment(),
+            expected: update.final_state_commitment(),
+        });
+    }
+
+    let updated = update_stmt.execute(params![
+        info.summary.account_id.to_bytes(),
+        update.final_state_commitment().to_bytes(),
+        block_num.as_u32(),
+        account.to_bytes(),
+    ])?;
+
+    assert_eq!(updated, 1);
+
+    insert_account_delta(transaction, info.summary.account_id, block_num, delta)
 }
 
 /// Inserts account delta to the DB using the given [Transaction].
+///
+/// # Note
+///
+/// The [Transaction] object is not consumed. It's up to the caller to commit or rollback the
+/// transaction.
 fn insert_account_delta(
     transaction: &Transaction,
     account_id: AccountId,
