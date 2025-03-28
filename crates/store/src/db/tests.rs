@@ -421,7 +421,7 @@ fn sql_unconsumed_network_notes() {
     // Returns empty when paging past the total.
     let page = Page {
         token: page.token,
-        size: NonZeroUsize::new(1).unwrap(),
+        size: NonZeroUsize::new(100).unwrap(),
     };
     let (result, _) = sql::unconsumed_network_notes(&db_tx, page).unwrap();
     assert!(result.is_empty());

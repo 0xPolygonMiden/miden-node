@@ -43,7 +43,7 @@ use crate::{
     errors::{DatabaseError, NoteSyncError, StateSyncError},
 };
 
-/// The page number and size to query from the DB.
+/// The page token and size to query from the DB.
 #[derive(Debug, Copy, Clone)]
 pub struct Page {
     pub token: Option<u64>,
@@ -926,7 +926,7 @@ pub fn select_note_inclusion_proofs(
 ///
 /// # Returns
 ///
-/// A set of unconsumed network notes with maximum length of `size` and a pagination token to get
+/// A set of unconsumed network notes with maximum length of `size` and the page to get
 /// the next set.
 pub fn unconsumed_network_notes(
     transaction: &Transaction,
