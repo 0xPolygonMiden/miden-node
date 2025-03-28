@@ -10,7 +10,7 @@ use miden_node_utils::{errors::ApiError, tracing::grpc::store_trace_fn};
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tower_http::trace::TraceLayer;
-use tracing::info;
+use tracing::{info, instrument};
 
 use crate::{
     COMPONENT, DATABASE_MAINTENANCE_INTERVAL, GenesisState, blocks::BlockStore, db::Db,
@@ -34,6 +34,13 @@ pub struct Store {
 
 impl Store {
     /// Bootstraps the Store, creating the database state and inserting the genesis block data.
+    #[instrument(
+        target = COMPONENT,
+        name = "store.bootstrap",
+        skip_all,
+        err,
+        fields(data_directory = %data_directory.display())
+    )]
     pub fn bootstrap(genesis: GenesisState, data_directory: &Path) -> anyhow::Result<()> {
         let genesis = genesis
             .into_block()

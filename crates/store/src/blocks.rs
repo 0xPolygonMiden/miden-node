@@ -2,8 +2,9 @@ use std::{io::ErrorKind, ops::Not, path::PathBuf};
 
 use miden_lib::utils::Serializable;
 use miden_objects::block::BlockNumber;
+use tracing::instrument;
 
-use crate::genesis::GenesisBlock;
+use crate::{COMPONENT, genesis::GenesisBlock};
 
 #[derive(Debug)]
 pub struct BlockStore {
@@ -19,6 +20,13 @@ impl BlockStore {
     /// # Errors
     ///
     /// Uses [`std::fs::create_dir`] and therefore has the same error conditions.
+    #[instrument(
+        target = COMPONENT,
+        name = "store.block_store.bootstrap",
+        skip_all,
+        err,
+        fields(path = %store_dir.display()),
+    )]
     pub fn bootstrap(store_dir: PathBuf, genesis_block: &GenesisBlock) -> std::io::Result<Self> {
         std::fs::create_dir(&store_dir)?;
 

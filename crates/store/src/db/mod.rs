@@ -184,6 +184,14 @@ impl From<NoteRecord> for NoteSyncRecord {
 }
 
 impl Db {
+    /// Creates a new database and inserts the genesis block.
+    #[instrument(
+        target = COMPONENT,
+        name = "store.database.bootstrap",
+        skip_all,
+        fields(path=%database_filepath.display())
+        err,
+    )]
     pub fn bootstrap(database_filepath: PathBuf, genesis: &GenesisBlock) -> anyhow::Result<()> {
         // Create database.
         //
