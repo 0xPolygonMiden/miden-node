@@ -417,14 +417,7 @@ fn sql_unconsumed_network_notes() {
         page = new_page;
         assert_eq!(result, expected);
     });
-
-    // Returns empty when paging past the total.
-    let page = Page {
-        token: page.token,
-        size: NonZeroUsize::new(100).unwrap(),
-    };
-    let (result, _) = sql::unconsumed_network_notes(&db_tx, page).unwrap();
-    assert!(result.is_empty());
+    assert!(page.token.is_none());
 
     // Consume every third network note and ensure these are now excluded from the results.
     let consumed = notes

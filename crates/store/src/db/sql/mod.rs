@@ -953,14 +953,19 @@ pub fn unconsumed_network_notes(
         NoteRecord::SELECT_COLUMNS
     ))?;
 
-    let mut rows = stmt.query(params![page.token.unwrap_or(0), page.size])?;
+    // The `page.size` is the maximum number of notes to return. We add 1 to it so that we can
+    // check if there are more notes for the next page.
+    let mut rows = stmt.query(params![page.token.unwrap_or(0), page.size.get() + 1])?;
 
+    page.token = None;
     let mut notes = Vec::with_capacity(page.size.into());
     while let Some(row) = rows.next()? {
+        if notes.len() == page.size.get() {
+            // Once we reached the `page.size`, we check if we have a next token and break.
+            page.token = Some(row.get::<_, u64>(11)?);
+            break;
+        }
         notes.push(NoteRecord::from_row(row)?);
-        // Increment by 1 because we are using rowid >=, and otherwise we would include the last
-        // element in the next page as well.
-        page.token = Some(row.get::<_, u64>(11)? + 1);
     }
 
     Ok((notes, page))

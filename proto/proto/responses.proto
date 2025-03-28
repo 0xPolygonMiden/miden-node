@@ -255,7 +255,12 @@ message StorageSlotMapProof {
 
 // Represents the result of getting the unconsumed network notes.
 message GetUnconsumedNetworkNotesResponse {
-    // The next page token.
+    // An opaque pagination token.
+    //
+    // Use this in your next request to get the next
+    // set of data.
+    //
+    // Will be null once there is no more data remaining.
     optional uint64 next_token = 1;
 
     // The list of unconsumed network notes.
