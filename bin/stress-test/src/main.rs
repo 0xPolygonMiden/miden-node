@@ -1,4 +1,3 @@
-use futures::StreamExt;
 use std::{
     collections::BTreeMap,
     path::PathBuf,
@@ -9,6 +8,7 @@ use std::{
 mod metrics;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
+use futures::{StreamExt, stream};
 use metrics::Metrics;
 use miden_air::{FieldElement, HashFunction};
 use miden_block_prover::LocalBlockProver;
@@ -48,7 +48,6 @@ use rayon::{
     prelude::ParallelSlice,
 };
 use tokio::{fs, io::AsyncWriteExt, net::TcpListener, task};
-use futures::stream;
 use tonic::{service::interceptor::InterceptedService, transport::Channel};
 use winterfell::Proof;
 
@@ -101,10 +100,10 @@ pub enum Command {
         #[arg(short, long, value_name = "ITERATIONS", default_value = "1")]
         iterations: usize,
 
-        /// Concurrency level of the sync request. Represents the number of request that 
+        /// Concurrency level of the sync request. Represents the number of request that
         /// can be sent in parallel.
         #[arg(short, long, value_name = "CONCURRENCY", default_value = "1")]
-        concurrency: usize
+        concurrency: usize,
     },
 }
 
@@ -593,7 +592,7 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize, concurre
     let tasks = stream::iter(0..iterations)
         .map(|_| {
             let mut api_client = store_api_client.clone();
-            
+
             // take 3 account IDs
             let account_id_1 = (*account_ids.next().unwrap()).to_string();
             let account_id_2 = (*account_ids.next().unwrap()).to_string();
@@ -608,10 +607,7 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize, concurre
         .collect::<Vec<_>>()
         .await;
 
-    let timers_accumulator: Vec<Duration> = tasks
-        .into_iter()
-        .map(|res| res.unwrap())
-        .collect();
+    let timers_accumulator: Vec<Duration> = tasks.into_iter().map(|res| res.unwrap()).collect();
 
     let elapsed = start.elapsed();
     println!("Total sync request took: {elapsed:?}");
