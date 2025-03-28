@@ -195,6 +195,7 @@ async fn generate_blocks(
     let mut consume_notes_txs = vec![];
 
     let consumes_per_block = TRANSACTIONS_PER_BATCH * BATCHES_PER_BLOCK - 1;
+    #[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
     let num_public_accounts = (consumes_per_block as f64
         * (f64::from(public_accounts_percentage) / 100.0))
         .round() as usize;
@@ -238,8 +239,8 @@ async fn generate_blocks(
             i,
         );
 
-        let notes = vec![pub_notes, priv_notes].concat();
-        let accounts = vec![pub_accounts, priv_accounts].concat();
+        let notes = [pub_notes, priv_notes].concat();
+        let accounts = [pub_accounts, priv_accounts].concat();
         account_ids.extend(accounts.iter().map(Account::id));
 
         // create the tx that creates the notes
@@ -559,16 +560,13 @@ async fn start_store(
         store_addr
     };
 
-    let store_api_client = {
-        let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
-            .unwrap()
-            .connect()
-            .await
-            .expect("Failed to connect to store");
-        ApiClient::with_interceptor(channel, OtelInterceptor)
-    };
+    let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
+        .unwrap()
+        .connect()
+        .await
+        .expect("Failed to connect to store");
 
-    store_api_client
+    ApiClient::with_interceptor(channel, OtelInterceptor)
 }
 
 // BENCH SYNC STATE
@@ -585,7 +583,6 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
     // read the account ids from the file. If iterations > accounts_file, repeat the account ids
     let accounts = fs::read_to_string(accounts_file).await.unwrap();
     let accounts: Vec<&str> = accounts.lines().collect();
-
     let mut account_ids = accounts.iter().cycle();
 
     // send sync requests and measure performance
@@ -635,6 +632,9 @@ async fn send_sync_request(
     let sync_request = SyncStateRequest { block_num: 0, note_tags, account_ids };
 
     let start = Instant::now();
-    assert!(api_client.sync_state(sync_request).await.is_ok());
-    start.elapsed()
+    let sync_state_result = api_client.sync_state(sync_request).await;
+    let elapsed = start.elapsed();
+
+    assert!(sync_state_result.is_ok());
+    elapsed
 }

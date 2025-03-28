@@ -65,7 +65,7 @@ impl Store {
         })
     }
 
-    /// Serves the store's RPC API.
+    /// Serves the store's RPC API and DB maintenance background task.
     ///
     /// Note: this blocks until the server dies.
     pub async fn serve(self) -> Result<(), ApiError> {
