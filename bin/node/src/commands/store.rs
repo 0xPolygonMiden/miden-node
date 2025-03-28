@@ -103,7 +103,7 @@ impl StoreCommand {
         //
         // Without this the accounts would be inaccessible by the user.
         // This is not used directly by the node, but rather by the owner / operator of the node.
-        let filepath = accounts_directory.join(format!("account.mac"));
+        let filepath = accounts_directory.join("account.mac");
         File::create_new(&filepath)
             .and_then(|mut file| file.write_all(&account_file.to_bytes()))
             .with_context(|| {
@@ -131,7 +131,7 @@ impl StoreCommand {
             AccountIdAnchor::PRE_GENESIS,
             TokenSymbol::try_from("POL").expect("POL should be a valid token symbol"),
             12,
-            Felt::try_from(1_000_000u32).expect("1 000 000 fits in a felt"),
+            Felt::from(1_000_000u32),
             miden_objects::account::AccountStorageMode::Public,
             AuthScheme::RpoFalcon512 { pub_key: secret.public_key() },
         )?;
