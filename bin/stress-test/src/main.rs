@@ -82,6 +82,11 @@ pub enum Command {
         /// Number of accounts to create.
         #[arg(short, long, value_name = "NUM_ACCOUNTS")]
         num_accounts: usize,
+
+        /// Percentage of accounts that will be created as public accounts. The rest will be
+        /// private accounts.
+        #[arg(short, long, value_name = "PUBLIC_ACCOUNTS_PERCENTAGE", default_value = "0")]
+        public_accounts_percentage: u8,
     },
 
     /// Benchmark the performance of the sync request.
@@ -101,8 +106,12 @@ async fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::SeedStore { data_directory, num_accounts } => {
-            seed_store(data_directory, num_accounts).await;
+        Command::SeedStore {
+            data_directory,
+            num_accounts,
+            public_accounts_percentage,
+        } => {
+            seed_store(data_directory, num_accounts, public_accounts_percentage).await;
         },
         Command::BenchSyncRequest { data_directory, iterations } => {
             bench_sync_request(data_directory, iterations).await;
@@ -114,7 +123,7 @@ async fn main() {
 // ================================================================================================
 
 /// Seeds the store with a given number of accounts.
-async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
+async fn seed_store(data_directory: PathBuf, num_accounts: usize, public_accounts_percentage: u8) {
     let start = Instant::now();
 
     let genesis_filepath = data_directory.join(GENESIS_STATE_FILENAME);
@@ -149,6 +158,7 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
     let genesis_header = genesis_state.into_block().unwrap();
     let metrics = generate_blocks(
         num_accounts,
+        public_accounts_percentage,
         faucet,
         genesis_header,
         &store_client,
@@ -167,6 +177,7 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
 /// The rest of the transactions consume the notes created by the faucet in the previous block.
 async fn generate_blocks(
     num_accounts: usize,
+    public_accounts_percentage: u8,
     mut faucet: Account,
     genesis_block: ProvenBlock,
     store_client: &StoreClient,
@@ -184,6 +195,10 @@ async fn generate_blocks(
     let mut consume_notes_txs = vec![];
 
     let consumes_per_block = TRANSACTIONS_PER_BATCH * BATCHES_PER_BLOCK - 1;
+    let num_public_accounts = (consumes_per_block as f64
+        * (f64::from(public_accounts_percentage) / 100.0))
+        .round() as usize;
+    let num_private_accounts = consumes_per_block - num_public_accounts;
     // +1 to account for the first block with the send assets tx only
     let total_blocks = (num_accounts / consumes_per_block) + 1;
 
@@ -201,15 +216,30 @@ async fn generate_blocks(
     for i in 0..total_blocks {
         let mut block_txs = Vec::with_capacity(BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH);
 
-        // create accounts and notes that mint assets for these accounts
-        let (accounts, notes) = create_accounts_and_notes(
-            consumes_per_block,
+        // create public accounts and notes that mint assets for these accounts
+        let (pub_accounts, pub_notes) = create_accounts_and_notes(
+            num_public_accounts,
+            AccountStorageMode::Private,
             &current_anchor_header,
             &key_pair,
             &rng,
             faucet.id(),
             i,
         );
+
+        // create private accounts and notes that mint assets for these accounts
+        let (priv_accounts, priv_notes) = create_accounts_and_notes(
+            num_private_accounts,
+            AccountStorageMode::Private,
+            &current_anchor_header,
+            &key_pair,
+            &rng,
+            faucet.id(),
+            i,
+        );
+
+        let notes = vec![pub_notes, priv_notes].concat();
+        let accounts = vec![pub_accounts, priv_accounts].concat();
         account_ids.extend(accounts.iter().map(Account::id));
 
         // create the tx that creates the notes
@@ -292,6 +322,7 @@ async fn apply_block(
 /// - The list of new notes
 fn create_accounts_and_notes(
     num_accounts: usize,
+    storage_mode: AccountStorageMode,
     anchor_block: &BlockHeader,
     key_pair: &SecretKey,
     rng: &Arc<Mutex<RpoRandomCoin>>,
@@ -305,6 +336,7 @@ fn create_accounts_and_notes(
                 anchor_block,
                 key_pair.public_key(),
                 ((block_num * num_accounts) + account_index) as u64,
+                storage_mode,
             );
             let note = {
                 let mut rng = rng.lock().unwrap();
@@ -332,12 +364,17 @@ fn create_note(faucet_id: AccountId, target_id: AccountId, rng: &mut RpoRandomCo
 
 /// Creates a new private account with a given public key and anchor block. Generates the seed from
 /// the given index.
-fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64) -> Account {
+fn create_account(
+    anchor_block: &BlockHeader,
+    public_key: PublicKey,
+    index: u64,
+    storage_mode: AccountStorageMode,
+) -> Account {
     let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
     let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
         .anchor(anchor_block.try_into().unwrap())
         .account_type(AccountType::RegularAccountImmutableCode)
-        .storage_mode(AccountStorageMode::Private)
+        .storage_mode(storage_mode)
         .with_component(RpoFalcon512::new(public_key))
         .with_component(BasicWallet)
         .build()
