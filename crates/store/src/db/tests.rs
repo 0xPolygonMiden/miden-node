@@ -398,14 +398,20 @@ fn sql_unconsumed_network_notes() {
     // Fetch all network notes by setting a limit larger than the amount available.
     let (result, _) = sql::unconsumed_network_notes(
         &db_tx,
-        Page::new(0, NonZeroUsize::new(N as usize * 10).unwrap()),
+        Page {
+            token: None,
+            size: NonZeroUsize::new(N as usize * 10).unwrap(),
+        },
     )
     .unwrap();
     assert_eq!(result, network_notes);
 
     // Check pagination works as expected.
     let limit = 5;
-    let mut page = Page::new(0, NonZeroUsize::new(limit).unwrap());
+    let mut page = Page {
+        token: None,
+        size: NonZeroUsize::new(limit).unwrap(),
+    };
     network_notes.chunks(limit).for_each(|expected| {
         let (result, new_page) = sql::unconsumed_network_notes(&db_tx, page).unwrap();
         page = new_page;
@@ -413,11 +419,11 @@ fn sql_unconsumed_network_notes() {
     });
 
     // Returns empty when paging past the total.
-    let (result, _) = sql::unconsumed_network_notes(
-        &db_tx,
-        Page::new(page.number(), NonZeroUsize::new(100).unwrap()),
-    )
-    .unwrap();
+    let page = Page {
+        token: page.token,
+        size: NonZeroUsize::new(1).unwrap(),
+    };
+    let (result, _) = sql::unconsumed_network_notes(&db_tx, page).unwrap();
     assert!(result.is_empty());
 
     // Consume every third network note and ensure these are now excluded from the results.
@@ -434,11 +440,11 @@ fn sql_unconsumed_network_notes() {
         .filter(|(i, _)| i % 3 != 0)
         .map(|(_, note)| note.clone())
         .collect::<Vec<_>>();
-    let (result, _) = sql::unconsumed_network_notes(
-        &db_tx,
-        Page::new(0, NonZeroUsize::new(N as usize * 10).unwrap()),
-    )
-    .unwrap();
+    let page = Page {
+        token: None,
+        size: NonZeroUsize::new(N as usize * 10).unwrap(),
+    };
+    let (result, _) = sql::unconsumed_network_notes(&db_tx, page).unwrap();
     assert_eq!(result, expected);
 }
 

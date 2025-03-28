@@ -46,31 +46,8 @@ use crate::{
 /// The page number and size to query from the DB.
 #[derive(Debug, Copy, Clone)]
 pub struct Page {
-    number: u64,
-    size: NonZeroUsize,
-}
-
-impl Page {
-    /// Creates a new page.
-    pub fn new(number: u64, size: NonZeroUsize) -> Self {
-        Self { number, size }
-    }
-
-    /// Returns the page number.
-    pub fn number(&self) -> u64 {
-        self.number
-    }
-
-    /// Returns the page size.
-    pub fn size(&self) -> NonZeroUsize {
-        self.size
-    }
-
-    /// Returns the next page.
-    #[must_use]
-    pub fn next(self, number: u64) -> Self {
-        Self { number, size: self.size }
-    }
+    pub token: Option<u64>,
+    pub size: NonZeroUsize,
 }
 
 // ACCOUNT QUERIES
@@ -976,14 +953,14 @@ pub fn unconsumed_network_notes(
         NoteRecord::SELECT_COLUMNS
     ))?;
 
-    let mut rows = stmt.query(params![page.number(), page.size()])?;
+    let mut rows = stmt.query(params![page.token.unwrap_or(0), page.size])?;
 
-    let mut notes = Vec::with_capacity(page.size().into());
+    let mut notes = Vec::with_capacity(page.size.into());
     while let Some(row) = rows.next()? {
         notes.push(NoteRecord::from_row(row)?);
         // Increment by 1 because we are using rowid >=, and otherwise we would include the last
         // element in the next page as well.
-        page = page.next(row.get::<_, u64>(11)? + 1);
+        page.token = Some(row.get::<_, u64>(11)? + 1);
     }
 
     Ok((notes, page))

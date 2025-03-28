@@ -273,9 +273,9 @@ pub struct StorageSlotMapProof {
 /// Represents the result of getting the unconsumed network notes.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetUnconsumedNetworkNotesResponse {
-    /// The next page number.
-    #[prost(uint64, tag = "1")]
-    pub next_page: u64,
+    /// The next page token.
+    #[prost(uint64, optional, tag = "1")]
+    pub next_token: ::core::option::Option<u64>,
     /// The list of unconsumed network notes.
     #[prost(message, repeated, tag = "2")]
     pub notes: ::prost::alloc::vec::Vec<super::note::Note>,

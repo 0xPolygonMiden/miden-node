@@ -217,12 +217,12 @@ pub mod get_account_proofs_request {
 /// Returns a list of unconsumed network notes using pagination.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetUnconsumedNetworkNotesRequest {
-    /// Page number to retrieve.
-    #[prost(uint64, tag = "1")]
-    pub page: u64,
+    /// Page token to retrieve.
+    #[prost(uint64, optional, tag = "1")]
+    pub page_token: ::core::option::Option<u64>,
     /// Number of notes to retrieve per page.
     #[prost(uint64, tag = "2")]
-    pub limit: u64,
+    pub page_size: u64,
 }
 /// Submit a list of network notes to the network transaction builder.
 #[derive(Clone, PartialEq, ::prost::Message)]

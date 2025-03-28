@@ -37,7 +37,6 @@
 - [BREAKING] MSRV bumped to 1.85 (#727).
 - [BREAKING] Removed `miden-rpc-proto` and introduced `miden-node-proto-build` (#723). 
 - [BREAKING] Replaced `toml` configuration with CLI (#732).
-- Added proto files for ntx-builder service. Added new `get_unconsumed_network_notes` endpoint to the store (#740).
 - [BREAKING] Renamed multiple `xxx_hash` to `xxx_commitment` in RPC API (#757).
 
 ### Enhancements

@@ -193,11 +193,11 @@ message GetAccountProofsRequest {
 
 // Returns a list of unconsumed network notes using pagination.
 message GetUnconsumedNetworkNotesRequest {
-    // Page number to retrieve.
-    uint64 page = 1;
+    // Page token to retrieve.
+    optional uint64 page_token = 1;
 
     // Number of notes to retrieve per page.
-    uint64 limit = 2;
+    uint64 page_size = 2;
 }
 
 // Submit a list of network notes to the network transaction builder.
