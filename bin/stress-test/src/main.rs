@@ -2,7 +2,7 @@ use std::{
     collections::BTreeMap,
     path::PathBuf,
     sync::{Arc, Mutex},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 mod metrics;
@@ -17,7 +17,12 @@ use miden_lib::{
     utils::Serializable,
 };
 use miden_node_block_producer::store::StoreClient;
-use miden_node_proto::{domain::batch::BatchInputs, generated::store::api_client::ApiClient};
+use miden_node_proto::{
+    domain::batch::BatchInputs,
+    generated::{
+        account as account_proto, requests::SyncStateRequest, store::api_client::ApiClient,
+    },
+};
 use miden_node_store::{GENESIS_STATE_FILENAME, genesis::GenesisState, server::Store};
 use miden_node_utils::tracing::grpc::OtelInterceptor;
 use miden_objects::{
@@ -32,7 +37,7 @@ use miden_objects::{
         dsa::rpo_falcon512::{PublicKey, SecretKey},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteHeader, NoteId, NoteInclusionProof},
+    note::{Note, NoteExecutionMode, NoteHeader, NoteId, NoteInclusionProof, NoteTag},
     transaction::{InputNote, InputNotes, OutputNote, ProvenTransaction, ProvenTransactionBuilder},
     vm::ExecutionProof,
 };
@@ -41,7 +46,8 @@ use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
     prelude::ParallelSlice,
 };
-use tokio::{fs, net::TcpListener, task};
+use tokio::{fs, io::AsyncWriteExt, net::TcpListener, task};
+use tonic::{service::interceptor::InterceptedService, transport::Channel};
 use winterfell::Proof;
 
 // CONSTANTS
@@ -51,6 +57,7 @@ const BATCHES_PER_BLOCK: usize = 16;
 const TRANSACTIONS_PER_BATCH: usize = 16;
 
 const STORE_FILENAME: &str = "miden-store.sqlite3";
+const ACCOUNTS_FILENAME: &str = "accounts.txt";
 
 // CLI
 // ================================================================================================
@@ -75,6 +82,22 @@ pub enum Command {
         /// Number of accounts to create.
         #[arg(short, long, value_name = "NUM_ACCOUNTS")]
         num_accounts: usize,
+
+        /// Percentage of accounts that will be created as public accounts. The rest will be
+        /// private accounts.
+        #[arg(short, long, value_name = "PUBLIC_ACCOUNTS_PERCENTAGE", default_value = "0")]
+        public_accounts_percentage: u8,
+    },
+
+    /// Benchmark the performance of the sync request.
+    BenchSyncRequest {
+        /// Directory that contains the database dump file.
+        #[arg(short, long, value_name = "DATA_DIRECTORY")]
+        data_directory: PathBuf,
+
+        /// Iterations of the sync request.
+        #[arg(short, long, value_name = "ITERATIONS", default_value = "1")]
+        iterations: usize,
     },
 }
 
@@ -83,8 +106,15 @@ async fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::SeedStore { data_directory, num_accounts } => {
-            seed_store(data_directory, num_accounts).await;
+        Command::SeedStore {
+            data_directory,
+            num_accounts,
+            public_accounts_percentage,
+        } => {
+            seed_store(data_directory, num_accounts, public_accounts_percentage).await;
+        },
+        Command::BenchSyncRequest { data_directory, iterations } => {
+            bench_sync_request(data_directory, iterations).await;
         },
     }
 }
@@ -93,11 +123,12 @@ async fn main() {
 // ================================================================================================
 
 /// Seeds the store with a given number of accounts.
-async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
+async fn seed_store(data_directory: PathBuf, num_accounts: usize, public_accounts_percentage: u8) {
     let start = Instant::now();
 
     let genesis_filepath = data_directory.join(GENESIS_STATE_FILENAME);
     let database_filepath = data_directory.join(STORE_FILENAME);
+    let accounts_filepath = data_directory.join(ACCOUNTS_FILENAME);
 
     // if the data_directory does not exist, create it
     if !data_directory.exists() {
@@ -120,31 +151,21 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
         .await
         .expect("Failed to write genesis state");
 
-    // start the store
-    let store_addr = {
-        let grpc_store = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind store");
-        let store_addr = grpc_store.local_addr().expect("Failed to get store address");
-        let store = Store::init(grpc_store, data_directory).await.expect("Failed to init store");
-        task::spawn(async move { store.serve().await.context("Serving store") });
-        store_addr
-    };
-
-    // connect to the store
-    let store_client = {
-        let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
-            .unwrap()
-            .connect()
-            .await
-            .expect("Failed to connect to store");
-        let store_api_client = ApiClient::with_interceptor(channel, OtelInterceptor);
-        StoreClient::new(store_api_client)
-    };
+    let store_api_client = start_store(data_directory).await;
+    let store_client = StoreClient::new(store_api_client);
 
     // start generating blocks
     let genesis_header = genesis_state.into_block().unwrap();
-    let metrics =
-        generate_blocks(num_accounts, faucet, genesis_header, &store_client, database_filepath)
-            .await;
+    let metrics = generate_blocks(
+        num_accounts,
+        public_accounts_percentage,
+        faucet,
+        genesis_header,
+        &store_client,
+        database_filepath,
+        accounts_filepath,
+    )
+    .await;
 
     println!("Total time: {:.3} seconds", start.elapsed().as_secs_f64());
     println!("{metrics}");
@@ -156,10 +177,12 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
 /// The rest of the transactions consume the notes created by the faucet in the previous block.
 async fn generate_blocks(
     num_accounts: usize,
+    public_accounts_percentage: u8,
     mut faucet: Account,
     genesis_block: ProvenBlock,
     store_client: &StoreClient,
     database_filepath: PathBuf,
+    accounts_filepath: PathBuf,
 ) -> Metrics {
     // Each block is composed of [`BATCHES_PER_BLOCK`] batches, and each batch is composed of
     // [`TRANSACTIONS_PER_BATCH`] txs. The first note of the block is always a send assets tx
@@ -167,10 +190,16 @@ async fn generate_blocks(
     // the notes are consume note txs from the (BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH) - 1
     // accounts that were minted in the previous block.
     let mut metrics = Metrics::new(database_filepath);
+    let mut account_ids = vec![];
 
     let mut consume_notes_txs = vec![];
 
     let consumes_per_block = TRANSACTIONS_PER_BATCH * BATCHES_PER_BLOCK - 1;
+    #[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
+    let num_public_accounts = (consumes_per_block as f64
+        * (f64::from(public_accounts_percentage) / 100.0))
+        .round() as usize;
+    let num_private_accounts = consumes_per_block - num_public_accounts;
     // +1 to account for the first block with the send assets tx only
     let total_blocks = (num_accounts / consumes_per_block) + 1;
 
@@ -188,15 +217,31 @@ async fn generate_blocks(
     for i in 0..total_blocks {
         let mut block_txs = Vec::with_capacity(BATCHES_PER_BLOCK * TRANSACTIONS_PER_BATCH);
 
-        // create accounts and notes that mint assets for these accounts
-        let (accounts, notes) = create_accounts_and_notes(
-            consumes_per_block,
+        // create public accounts and notes that mint assets for these accounts
+        let (pub_accounts, pub_notes) = create_accounts_and_notes(
+            num_public_accounts,
+            AccountStorageMode::Private,
             &current_anchor_header,
             &key_pair,
             &rng,
             faucet.id(),
             i,
         );
+
+        // create private accounts and notes that mint assets for these accounts
+        let (priv_accounts, priv_notes) = create_accounts_and_notes(
+            num_private_accounts,
+            AccountStorageMode::Private,
+            &current_anchor_header,
+            &key_pair,
+            &rng,
+            faucet.id(),
+            i,
+        );
+
+        let notes = [pub_notes, priv_notes].concat();
+        let accounts = [pub_accounts, priv_accounts].concat();
+        account_ids.extend(accounts.iter().map(Account::id));
 
         // create the tx that creates the notes
         let emit_note_tx = create_emit_note_tx(prev_block.header(), &mut faucet, notes.clone());
@@ -235,6 +280,13 @@ async fn generate_blocks(
             metrics.record_store_size();
         }
     }
+
+    // dump account ids to a file
+    let mut file = fs::File::create(accounts_filepath).await.unwrap();
+    for id in account_ids {
+        file.write_all(format!("{id}\n").as_bytes()).await.unwrap();
+    }
+
     metrics
 }
 
@@ -271,6 +323,7 @@ async fn apply_block(
 /// - The list of new notes
 fn create_accounts_and_notes(
     num_accounts: usize,
+    storage_mode: AccountStorageMode,
     anchor_block: &BlockHeader,
     key_pair: &SecretKey,
     rng: &Arc<Mutex<RpoRandomCoin>>,
@@ -284,6 +337,7 @@ fn create_accounts_and_notes(
                 anchor_block,
                 key_pair.public_key(),
                 ((block_num * num_accounts) + account_index) as u64,
+                storage_mode,
             );
             let note = {
                 let mut rng = rng.lock().unwrap();
@@ -311,12 +365,17 @@ fn create_note(faucet_id: AccountId, target_id: AccountId, rng: &mut RpoRandomCo
 
 /// Creates a new private account with a given public key and anchor block. Generates the seed from
 /// the given index.
-fn create_account(anchor_block: &BlockHeader, public_key: PublicKey, index: u64) -> Account {
+fn create_account(
+    anchor_block: &BlockHeader,
+    public_key: PublicKey,
+    index: u64,
+    storage_mode: AccountStorageMode,
+) -> Account {
     let init_seed: Vec<_> = index.to_be_bytes().into_iter().chain([0u8; 24]).collect();
     let (new_account, _) = AccountBuilder::new(init_seed.try_into().unwrap())
         .anchor(anchor_block.try_into().unwrap())
         .account_type(AccountType::RegularAccountImmutableCode)
-        .storage_mode(AccountStorageMode::Private)
+        .storage_mode(storage_mode)
         .with_component(RpoFalcon512::new(public_key))
         .with_component(BasicWallet)
         .build()
@@ -487,4 +546,95 @@ async fn get_block_inputs(
     let get_block_inputs_time = start.elapsed();
     metrics.add_get_block_inputs(get_block_inputs_time);
     inputs
+}
+
+/// Starts a store from a data directory on a random port. Returns the store API client.
+async fn start_store(
+    data_directory: PathBuf,
+) -> ApiClient<InterceptedService<Channel, OtelInterceptor>> {
+    let store_addr = {
+        let grpc_store = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind store");
+        let store_addr = grpc_store.local_addr().expect("Failed to get store address");
+        let store = Store::init(grpc_store, data_directory).await.expect("Failed to init store");
+        task::spawn(async move { store.serve().await.context("Serving store") });
+        store_addr
+    };
+
+    let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
+        .unwrap()
+        .connect()
+        .await
+        .expect("Failed to connect to store");
+
+    ApiClient::with_interceptor(channel, OtelInterceptor)
+}
+
+// BENCH SYNC STATE
+// ================================================================================================
+
+/// Sends multiple sync requests to the store and measures the performance.
+async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
+    let start = Instant::now();
+
+    let accounts_file = data_directory.join(ACCOUNTS_FILENAME);
+
+    let mut store_api_client = start_store(data_directory).await;
+
+    // read the account ids from the file. If iterations > accounts_file, repeat the account ids
+    let accounts = fs::read_to_string(accounts_file).await.unwrap();
+    let accounts: Vec<&str> = accounts.lines().collect();
+    let mut account_ids = accounts.iter().cycle();
+
+    // send sync requests and measure performance
+    let mut timers_accumulator = Vec::with_capacity(iterations);
+    for _ in 0..iterations {
+        // Take 3 account ids from the file and send a vec of them in the sync request
+        let account_id_1 = (*account_ids.next().unwrap()).to_string();
+        let account_id_2 = (*account_ids.next().unwrap()).to_string();
+        let account_id_3 = (*account_ids.next().unwrap()).to_string();
+
+        timers_accumulator.push(
+            send_sync_request(
+                &mut store_api_client,
+                vec![account_id_1, account_id_2, account_id_3],
+            )
+            .await,
+        );
+    }
+
+    let elapsed = start.elapsed();
+    println!("Total sync request took: {elapsed:?}");
+
+    let avg_time = timers_accumulator.iter().sum::<Duration>() / iterations as u32;
+    println!("Average sync request took: {avg_time:?}");
+}
+
+/// Sends a single sync request to the store and returns the elapsed time.
+async fn send_sync_request(
+    api_client: &mut ApiClient<InterceptedService<Channel, OtelInterceptor>>,
+    account_ids: Vec<String>,
+) -> Duration {
+    let account_ids = account_ids
+        .iter()
+        .map(|id| AccountId::from_hex(id).unwrap())
+        .collect::<Vec<_>>();
+
+    let note_tags = account_ids
+        .iter()
+        .map(|id| u32::from(NoteTag::from_account_id(*id, NoteExecutionMode::Local).unwrap()))
+        .collect::<Vec<_>>();
+
+    let account_ids = account_ids
+        .iter()
+        .map(|id| account_proto::AccountId { id: id.to_bytes() })
+        .collect::<Vec<_>>();
+
+    let sync_request = SyncStateRequest { block_num: 0, note_tags, account_ids };
+
+    let start = Instant::now();
+    let sync_state_result = api_client.sync_state(sync_request).await;
+    let elapsed = start.elapsed();
+
+    assert!(sync_state_result.is_ok());
+    elapsed
 }

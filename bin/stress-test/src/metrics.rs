@@ -127,13 +127,6 @@ impl Display for Metrics {
             )?;
         }
 
-        // Apply `VACUUM` to the store to reduce the size of the file
-        let _ = Command::new("sqlite3")
-            .arg(&self.store_file)
-            .arg("VACUUM;")
-            .output()
-            .expect("failed to execute process");
-
         // Print out the size of the tables in the store
         writeln!(f, "\nDatabase stats:")?;
         writeln!(f, "{:<35} {:<15} {:<15}", "Table", "Size (KB)", "KB/Entry")?;
