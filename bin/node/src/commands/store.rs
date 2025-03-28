@@ -137,11 +137,13 @@ impl StoreCommand {
 
         // Generate the accounts.
         let mut rng = ChaCha20Rng::from_seed(rand::random());
-        let n_accounts = accounts.len();
+        let num_accounts = accounts.len();
         let accounts = accounts
             .iter()
             .enumerate()
-            .inspect(|(idx, _)| tracing::info!(index=%idx, total=n_accounts, "Generating account"))
+            .inspect(
+                |(idx, _)| tracing::info!(index=%idx, total=num_accounts, "Generating account"),
+            )
             .map(|(idx, input)| {
                 Self::generate_account(input, &mut rng)
                     .with_context(|| format!("failed to generate account {idx}"))
@@ -186,7 +188,14 @@ impl StoreCommand {
             auth_scheme,
         )?;
 
-        // TODO: why do we do this?
+        // Force the account nonce to 1.
+        //
+        // By convention, a nonce of zero indicates a freshly generated local account that has yet
+        // to be deployed. An account is deployed onchain along with its first transaction which
+        // results in a non-zero nonce onchain.
+        //
+        // The genesis block is special in that accounts are "deplyed" without transactions and
+        // therefore we need bump the nonce manually to uphold this invariant.
         account.set_nonce(ONE).context("failed to set account nonce to 1")?;
 
         Ok(AccountFile::new(account, Some(account_seed), auth_secret_key))
