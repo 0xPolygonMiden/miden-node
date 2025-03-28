@@ -38,7 +38,7 @@
 - [BREAKING] Removed `miden-rpc-proto` and introduced `miden-node-proto-build` (#723). 
 - [BREAKING] Replaced `toml` configuration with CLI (#732).
 - [BREAKING] Renamed multiple `xxx_hash` to `xxx_commitment` in RPC API (#757).
-- Added stress test binary with `seed-store` and `bench-sync-request` commands (#661).
+- Added stress test for `sync-state` endpoint (#661).
 
 ### Enhancements
 

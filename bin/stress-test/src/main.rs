@@ -142,25 +142,8 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
         .await
         .expect("Failed to write genesis state");
 
-    // start the store
-    let store_addr = {
-        let grpc_store = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind store");
-        let store_addr = grpc_store.local_addr().expect("Failed to get store address");
-        let store = Store::init(grpc_store, data_directory).await.expect("Failed to init store");
-        task::spawn(async move { store.serve().await.context("Serving store") });
-        store_addr
-    };
-
-    // connect to the store
-    let store_client = {
-        let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
-            .unwrap()
-            .connect()
-            .await
-            .expect("Failed to connect to store");
-        let store_api_client = ApiClient::with_interceptor(channel, OtelInterceptor);
-        StoreClient::new(store_api_client)
-    };
+    let store_api_client = start_store(data_directory).await;
+    let store_client = StoreClient::new(store_api_client);
 
     // start generating blocks
     let genesis_header = genesis_state.into_block().unwrap();
@@ -267,7 +250,7 @@ async fn generate_blocks(
         }
     }
 
-    // Dump account ids to a file
+    // dump account ids to a file
     let mut file = fs::File::create(accounts_filepath).await.unwrap();
     for id in account_ids {
         file.write_all(format!("{id}\n").as_bytes()).await.unwrap();
@@ -527,16 +510,10 @@ async fn get_block_inputs(
     inputs
 }
 
-// BENCH SYNC STATE
-// ================================================================================================
-
-/// Sends a sync request to the store and measures the performance.
-async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
-    let start = Instant::now();
-
-    let accounts_file = data_directory.join(ACCOUNTS_FILENAME);
-
-    // Start store
+/// Starts a store from a data directory on a random port. Returns the store API client.
+async fn start_store(
+    data_directory: PathBuf,
+) -> ApiClient<InterceptedService<Channel, OtelInterceptor>> {
     let store_addr = {
         let grpc_store = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind store");
         let store_addr = grpc_store.local_addr().expect("Failed to get store address");
@@ -545,8 +522,7 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
         store_addr
     };
 
-    // connect to the store
-    let mut store_client = {
+    let store_api_client = {
         let channel = tonic::transport::Endpoint::try_from(format!("http://{store_addr}",))
             .unwrap()
             .connect()
@@ -555,14 +531,27 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
         ApiClient::with_interceptor(channel, OtelInterceptor)
     };
 
-    // Send sync request and measure performance
-    // Read the account ids from the file
-    // If iterations > accounts_file, repeat the account ids
+    store_api_client
+}
+
+// BENCH SYNC STATE
+// ================================================================================================
+
+/// Sends multiple sync requests to the store and measures the performance.
+async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
+    let start = Instant::now();
+
+    let accounts_file = data_directory.join(ACCOUNTS_FILENAME);
+
+    let mut store_api_client = start_store(data_directory).await;
+
+    // read the account ids from the file. If iterations > accounts_file, repeat the account ids
     let accounts = fs::read_to_string(accounts_file).await.unwrap();
     let accounts: Vec<&str> = accounts.lines().collect();
 
     let mut account_ids = accounts.iter().cycle();
 
+    // send sync requests and measure performance
     let mut timers_accumulator = Vec::with_capacity(iterations);
     for _ in 0..iterations {
         // Take 3 account ids from the file and send a vec of them in the sync request
@@ -571,8 +560,11 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
         let account_id_3 = (*account_ids.next().unwrap()).to_string();
 
         timers_accumulator.push(
-            send_sync_request(&mut store_client, vec![account_id_1, account_id_2, account_id_3])
-                .await,
+            send_sync_request(
+                &mut store_api_client,
+                vec![account_id_1, account_id_2, account_id_3],
+            )
+            .await,
         );
     }
 
@@ -583,6 +575,7 @@ async fn bench_sync_request(data_directory: PathBuf, iterations: usize) {
     println!("Average sync request took: {avg_time:?}");
 }
 
+/// Sends a single sync request to the store and returns the elapsed time.
 async fn send_sync_request(
     api_client: &mut ApiClient<InterceptedService<Channel, OtelInterceptor>>,
     account_ids: Vec<String>,
