@@ -50,8 +50,6 @@ use winterfell::Proof;
 const BATCHES_PER_BLOCK: usize = 16;
 const TRANSACTIONS_PER_BATCH: usize = 16;
 
-const STORE_FILENAME: &str = "miden-store.sqlite3";
-
 // CLI
 // ================================================================================================
 
@@ -130,11 +128,17 @@ async fn seed_store(data_directory: PathBuf, num_accounts: usize) {
     };
 
     // start generating blocks
-    let database_filepath = data_directory.join(STORE_FILENAME);
+    let data_directory =
+        miden_node_store::DataDirectory::load(data_directory).expect("data directory should exist");
     let genesis_header = genesis_state.into_block().unwrap().into_inner();
-    let metrics =
-        generate_blocks(num_accounts, faucet, genesis_header, &store_client, database_filepath)
-            .await;
+    let metrics = generate_blocks(
+        num_accounts,
+        faucet,
+        genesis_header,
+        &store_client,
+        data_directory.database_path(),
+    )
+    .await;
 
     println!("Total time: {:.3} seconds", start.elapsed().as_secs_f64());
     println!("{metrics}");

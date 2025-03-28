@@ -111,12 +111,12 @@ impl Store {
 /// Represents the store's data-directory and its content paths.
 ///
 /// Used to keep our filepath assumptions in one location.
-struct DataDirectory(PathBuf);
+pub struct DataDirectory(PathBuf);
 
 impl DataDirectory {
     /// Creates a new [`DataDirectory`], ensuring that the directory exists and is accessible
     /// insofar as is possible.
-    fn load(path: PathBuf) -> std::io::Result<Self> {
+    pub fn load(path: PathBuf) -> std::io::Result<Self> {
         let meta = std::fs::metadata(&path)?;
         if meta.is_dir().not() {
             return Err(std::io::ErrorKind::NotConnected.into());
@@ -125,15 +125,15 @@ impl DataDirectory {
         Ok(Self(path))
     }
 
-    fn block_store_dir(&self) -> PathBuf {
+    pub fn block_store_dir(&self) -> PathBuf {
         self.0.join("blocks")
     }
 
-    fn database_path(&self) -> PathBuf {
+    pub fn database_path(&self) -> PathBuf {
         self.0.join("miden-store.sqlite3")
     }
 
-    fn display(&self) -> std::path::Display<'_> {
+    pub fn display(&self) -> std::path::Display<'_> {
         self.0.display()
     }
 }
