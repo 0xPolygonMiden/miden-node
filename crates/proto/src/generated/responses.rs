@@ -273,7 +273,12 @@ pub struct StorageSlotMapProof {
 /// Represents the result of getting the unconsumed network notes.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetUnconsumedNetworkNotesResponse {
-    /// The next page token.
+    /// An opaque pagination token.
+    ///
+    /// Use this in your next request to get the next
+    /// set of data.
+    ///
+    /// Will be null once there is no more data remaining.
     #[prost(uint64, optional, tag = "1")]
     pub next_token: ::core::option::Option<u64>,
     /// The list of unconsumed network notes.

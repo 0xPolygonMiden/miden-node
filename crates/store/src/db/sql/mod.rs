@@ -961,7 +961,6 @@ pub fn unconsumed_network_notes(
     let mut notes = Vec::with_capacity(page.size.into());
     while let Some(row) = rows.next()? {
         if notes.len() == page.size.get() {
-            // Once we reached the `page.size`, we check if we have a next token and break.
             page.token = Some(row.get::<_, u64>(11)?);
             break;
         }
